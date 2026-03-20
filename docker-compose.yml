@@ -1,0 +1,43 @@
+services:
+  db:
+    image: postgres:15
+    container_name: bizcontrol_db
+    restart: always
+    environment:
+      POSTGRES_USER: bizcontrol
+      POSTGRES_PASSWORD: bizcontrol
+      POSTGRES_DB: bizcontrol
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+    container_name: bizcontrol_redis
+    restart: always
+    ports:
+      - "6379:6379"
+
+  api:
+    build: .
+    container_name: bizcontrol_api
+    restart: always
+    depends_on:
+      - db
+      - redis
+    environment:
+      DATABASE_URL: postgresql+psycopg2://bizcontrol:bizcontrol@db:5432/bizcontrol
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: "dev-secret-change-me"
+      ACCESS_TOKEN_MINUTES: "30"
+      REFRESH_TOKEN_DAYS: "30"
+      OPENAI_API_KEY: "${OPENAI_API_KEY}"
+      GEMINI_API_KEY: "${GEMINI_API_KEY}"
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+
+volumes:
+  postgres_data:
