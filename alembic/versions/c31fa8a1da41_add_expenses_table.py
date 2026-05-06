@@ -37,7 +37,7 @@ def upgrade() -> None:
     )
     op.create_index(op.f('ix_expenses_category'), 'expenses', ['category'], unique=False)
     op.create_index(op.f('ix_expenses_studio_id'), 'expenses', ['studio_id'], unique=False)
-    op.drop_table('client_points')
+    op.execute('DROP TABLE IF EXISTS client_points')
     # ### end Alembic commands ###
 
 
