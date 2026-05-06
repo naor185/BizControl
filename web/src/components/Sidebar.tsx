@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { apiFetch } from "@/lib/api";
 
 const mainItems = [
     { href: "/calendar", label: "יומן תורים", icon: "📅" },
+    { href: "/inbox", label: "תיבת הודעות", icon: "💬" },
     { href: "/expenses", label: "ניהול עסק", icon: "💼" },
     { href: "/products", label: "מוצרים ומלאי", icon: "📦" },
     { href: "/dashboard", label: "לוח בקרה", icon: "📊" },
@@ -18,12 +20,26 @@ const settingsItems = [
     { href: "/message-log", label: "יומן הודעות", icon: "💬" },
     { href: "/payments", label: "תשלומים", icon: "💳" },
     { href: "/automation", label: "הגדרות", icon: "⚙️" },
+    { href: "/help", label: "מרכז עזרה", icon: "🆘" },
 ];
 
 export default function Sidebar() {
     const pathname = usePathname();
     const isInSettings = settingsItems.some(it => pathname === it.href);
     const [settingsOpen, setSettingsOpen] = useState(isInSettings);
+    const [unreadCount, setUnreadCount] = useState(0);
+
+    useEffect(() => {
+        const load = async () => {
+            try {
+                const data = await apiFetch<{ unread: number }>("/api/inbox/unread-count");
+                setUnreadCount(data.unread);
+            } catch { /* not logged in yet */ }
+        };
+        load();
+        const t = setInterval(load, 30000);
+        return () => clearInterval(t);
+    }, []);
 
     return (
         <aside className="w-72 border-l bg-white flex flex-col h-full">
@@ -35,6 +51,7 @@ export default function Sidebar() {
             <nav className="px-3 pb-6 flex-1">
                 {mainItems.map((it) => {
                     const active = pathname === it.href;
+                    const isInbox = it.href === "/inbox";
                     return (
                         <Link
                             key={it.href}
@@ -45,7 +62,12 @@ export default function Sidebar() {
                             ].join(" ")}
                         >
                             <span>{it.icon}</span>
-                            <span>{it.label}</span>
+                            <span className="flex-1">{it.label}</span>
+                            {isInbox && unreadCount > 0 && (
+                                <span className="bg-green-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                                    {unreadCount > 99 ? "99+" : unreadCount}
+                                </span>
+                            )}
                         </Link>
                     );
                 })}

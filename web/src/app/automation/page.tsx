@@ -36,6 +36,10 @@ type Settings = {
     reschedule_email_template?: string | null;
     cancel_wa_template?: string | null;
     cancel_email_template?: string | null;
+    deposit_request_wa_template?: string | null;
+    deposit_approved_wa_template?: string | null;
+    points_redeem_wa_template?: string | null;
+    non_member_wa_template?: string | null;
 
     birthday_wa_template?: string | null;
     birthday_email_template?: string | null;
@@ -50,6 +54,7 @@ type Settings = {
     whatsapp_provider?: string | null;
     whatsapp_api_key?: string | null;
     whatsapp_phone_id?: string | null;
+    whatsapp_instance_id?: string | null;
 
     theme_primary_color: string;
     theme_secondary_color: string;
@@ -74,7 +79,88 @@ type Settings = {
 
     calendar_start_hour?: string;
     calendar_end_hour?: string;
+
+    // Studio info & policy
+    studio_address?: string | null;
+    studio_map_link?: string | null;
+    studio_portfolio_link?: string | null;
+    bank_name?: string | null;
+    bank_branch?: string | null;
+    bank_account?: string | null;
+    cancellation_free_days: number;
+    deposit_lock_days: number;
 };
+
+function WebhookUrlBox({ provider, instanceId }: { provider: "green_api" | "meta"; instanceId: string }) {
+    const [copied, setCopied] = useState<string | null>(null);
+    const domain = typeof window !== "undefined" ? (process.env.NEXT_PUBLIC_API_BASE || window.location.origin) : "";
+
+    const copy = (text: string, key: string) => {
+        navigator.clipboard.writeText(text).then(() => {
+            setCopied(key);
+            setTimeout(() => setCopied(null), 2000);
+        });
+    };
+
+    const CopyBtn = ({ text, label }: { text: string; label: string }) => (
+        <button
+            type="button"
+            onClick={() => copy(text, label)}
+            className="flex-shrink-0 px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+        >
+            {copied === label ? "✓ הועתק" : "העתק"}
+        </button>
+    );
+
+    if (provider === "green_api") {
+        const webhookUrl = `${domain}/api/webhook/green/${instanceId || "{instance_id}"}`;
+        return (
+            <div className="mt-4 bg-amber-50 border border-amber-200 rounded-2xl p-5 space-y-3">
+                <div className="flex items-center gap-2">
+                    <span className="text-lg">🔗</span>
+                    <h4 className="font-bold text-amber-900 text-sm">כתובת Webhook להגדרה ב-Green API</h4>
+                </div>
+                <p className="text-xs text-amber-700">
+                    בממשק Green API, תחת ה-Instance שלך → Settings → Webhooks, הכנס את הכתובת הבאה:
+                </p>
+                <div className="flex items-center gap-2 bg-white rounded-xl border border-amber-200 px-3 py-2">
+                    <code className="flex-1 text-xs font-mono text-slate-700 break-all dir-ltr text-left">{webhookUrl}</code>
+                    <CopyBtn text={webhookUrl} label="green_webhook" />
+                </div>
+            </div>
+        );
+    }
+
+    const webhookUrl = `${domain}/api/webhook/meta`;
+    const verifyToken = "bizcontrol_verify";
+    return (
+        <div className="mt-4 bg-blue-50 border border-blue-200 rounded-2xl p-5 space-y-3">
+            <div className="flex items-center gap-2">
+                <span className="text-lg">🔗</span>
+                <h4 className="font-bold text-blue-900 text-sm">הגדרת Webhook ב-Meta Developer Portal</h4>
+            </div>
+            <p className="text-xs text-blue-700">
+                ב-Meta for Developers → WhatsApp → Configuration → Webhook, הכנס:
+            </p>
+            <div className="space-y-2">
+                <div>
+                    <div className="text-xs font-bold text-slate-500 mb-1">Callback URL</div>
+                    <div className="flex items-center gap-2 bg-white rounded-xl border border-blue-200 px-3 py-2">
+                        <code className="flex-1 text-xs font-mono text-slate-700 break-all dir-ltr text-left">{webhookUrl}</code>
+                        <CopyBtn text={webhookUrl} label="meta_webhook" />
+                    </div>
+                </div>
+                <div>
+                    <div className="text-xs font-bold text-slate-500 mb-1">Verify Token</div>
+                    <div className="flex items-center gap-2 bg-white rounded-xl border border-blue-200 px-3 py-2">
+                        <code className="flex-1 text-xs font-mono text-slate-700 dir-ltr text-left">{verifyToken}</code>
+                        <CopyBtn text={verifyToken} label="meta_token" />
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
 
 export default function AutomationSettingsPage() {
     const [settings, setSettings] = useState<Settings | null>(null);
@@ -82,7 +168,7 @@ export default function AutomationSettingsPage() {
     const [saving, setSaving] = useState(false);
     const [err, setErr] = useState<string | null>(null);
     const [msg, setMsg] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<"branding" | "landing" | "communication" | "automation" | "finance" | "integrations">("branding");
+    const [activeTab, setActiveTab] = useState<"branding" | "landing" | "communication" | "policy" | "automation" | "finance" | "integrations">("branding");
 
     const [testEmailLoading, setTestEmailLoading] = useState(false);
     const [testEmailMsg, setTestEmailMsg] = useState<{ type: 'success' | 'err', text: string } | null>(null);
@@ -120,6 +206,18 @@ export default function AutomationSettingsPage() {
                     ai_generations_reset_date: data.ai_generations_reset_date ?? null,
                     calendar_start_hour: data.calendar_start_hour ?? "08:00",
                     calendar_end_hour: data.calendar_end_hour ?? "23:00",
+                    cancellation_free_days: data.cancellation_free_days ?? 7,
+                    deposit_lock_days: data.deposit_lock_days ?? 7,
+                    studio_address: data.studio_address ?? "",
+                    studio_map_link: data.studio_map_link ?? "",
+                    studio_portfolio_link: data.studio_portfolio_link ?? "",
+                    bank_name: data.bank_name ?? "",
+                    bank_branch: data.bank_branch ?? "",
+                    bank_account: data.bank_account ?? "",
+                    deposit_request_wa_template: data.deposit_request_wa_template ?? "היי {client_name}! 🎉 התור שלך ל-{appointment_title} נקבע ל-{appointment_date} בשעה {appointment_time}.\n\nלאישור התור נדרשת מקדמה של {deposit_amount}₪ עד 24 שעות.\nניתן לשלם דרך:\n💳 ביט: {bit_link}\n💳 פייבוקס: {paybox_link}\n🏦 העברה בנקאית: {bank_details}\n\nאחרי העברת המקדמה שלח/י אישור ונאשר את התור.\n\nלשאלות: {contact_phone}",
+                    deposit_approved_wa_template: data.deposit_approved_wa_template ?? "✅ {client_name}, המקדמה אושרה!\n\nהתור שלך מאושר ונעול:\n📅 תאריך: {appointment_date}\n🕐 שעה: {appointment_time}\n✂️ אמן/ית: {artist_name}\n📍 כתובת: {studio_address}\n🗺️ ניווט: {map_link}\n🖼️ תיק עבודות: {portfolio_link}\n\n*מדיניות ביטולים:* ביטול עד {cancellation_free_days} ימים לפני — החזר מלא. פחות מ-{cancellation_free_days} ימים — ללא החזר מקדמה. שינוי תור אפשרי עד {deposit_lock_days} ימים לפני.\n\nמחכים לך! 🙏",
+                    points_redeem_wa_template: data.points_redeem_wa_template ?? "🎁 {client_name}, מימשת {points_used} נקודות בשווי {discount_amount}₪!\n\nנקודות שנותרו: {loyalty_points} נקודות.\nתודה שאתה/את חלק מהמועדון שלנו ❤️",
+                    non_member_wa_template: data.non_member_wa_template ?? "היי {client_name}! 👋\n\nשמחים שביקרת אצלנו!\nהצטרף/י למועדון הלקוחות שלנו וקבל/י {points_on_signup} נקודות מתנה לביקור הבא 🎉\n\nהרשמה: {join_link}",
                     // Template defaults — plain text, no placeholders needed
                     confirm_wa_template: data.confirm_wa_template ?? "היי! התור שלך נקבע בהצלחה. מחכים לך 😊",
                     confirm_email_template: data.confirm_email_template ?? "היי! התור שלך נקבע בהצלחה. מחכים לך 😊",
@@ -376,7 +474,8 @@ export default function AutomationSettingsPage() {
     const tabs = [
         { id: "branding", label: "מיתוג ועיצוב", icon: "🎨" },
         { id: "landing", label: "דפי נחיתה", icon: "🚀" },
-        { id: "communication", label: "תקשורת והודעות", icon: "📩" },
+        { id: "communication", label: "הודעות אוטומטיות", icon: "📩" },
+        { id: "policy", label: "מדיניות וכתובת", icon: "📋" },
         { id: "automation", label: "חוקים ואוטומציה", icon: "⚙️" },
         { id: "finance", label: "תשלומים ופיננסים", icon: "💰" },
         { id: "integrations", label: "חיבורים (API)", icon: "🔌" },
@@ -758,17 +857,24 @@ export default function AutomationSettingsPage() {
 
                                     <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 mb-10 flex gap-4">
                                         <div className="text-2xl">💡</div>
-                                        <div>
-                                            <h4 className="font-bold text-blue-900 text-sm mb-1">מדריך תגיות (Placeholders)</h4>
-                                            <p className="text-xs text-blue-800/80 leading-relaxed">השתמש בתגיות הבאות כדי להפוך את ההודעות לאישיות:</p>
-                                            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2 mt-2">
-                                                <code className="text-[10px] bg-white border border-blue-200 px-1.5 py-0.5 rounded text-blue-700">{"{client_name}"}</code>
-                                                <code className="text-[10px] bg-white border border-blue-200 px-1.5 py-0.5 rounded text-blue-700">{"{appointment_title}"}</code>
-                                                <code className="text-[10px] bg-white border border-blue-200 px-1.5 py-0.5 rounded text-blue-700">{"{appointment_date}"}</code>
-                                                <code className="text-[10px] bg-white border border-blue-200 px-1.5 py-0.5 rounded text-blue-700">{"{appointment_time}"}</code>
-                                                <code className="text-[10px] bg-white border border-blue-200 px-1.5 py-0.5 rounded text-blue-700">{"{payment_link}"}</code>
-                                                <code className="text-[10px] bg-white border border-blue-200 px-1.5 py-0.5 rounded text-blue-700">{"{deposit_amount}"}</code>
+                                        <div className="w-full">
+                                            <h4 className="font-bold text-blue-900 text-sm mb-1">משתנים זמינים בהודעות</h4>
+                                            <p className="text-xs text-blue-800/80 leading-relaxed mb-2">העתק והדבק את המשתנים הרצויים לתוך תבנית ההודעה:</p>
+                                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                                                {[
+                                                    "{client_name}", "{appointment_title}", "{appointment_date}", "{appointment_time}",
+                                                    "{artist_name}", "{deposit_amount}", "{studio_address}", "{map_link}",
+                                                    "{portfolio_link}", "{bit_link}", "{paybox_link}", "{bank_details}",
+                                                    "{cancellation_free_days}", "{deposit_lock_days}", "{loyalty_points}", "{join_link}",
+                                                    "{points_used}", "{discount_amount}", "{points_on_signup}", "{contact_phone}"
+                                                ].map(tag => (
+                                                    <button key={tag} type="button" onClick={() => navigator.clipboard.writeText(tag)}
+                                                        className="text-[10px] bg-white border border-blue-200 px-1.5 py-1 rounded text-blue-700 hover:bg-blue-100 transition-colors text-right font-mono">
+                                                        {tag}
+                                                    </button>
+                                                ))}
                                             </div>
+                                            <p className="text-[10px] text-blue-600 mt-2">לחץ על משתנה כדי להעתיק אותו</p>
                                         </div>
                                     </div>
 
@@ -881,6 +987,58 @@ export default function AutomationSettingsPage() {
                                             </div>
                                         </div>
 
+                                        {/* Deposit Request */}
+                                        <div className="space-y-4">
+                                            <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
+                                                <span className="text-xl">💳</span>
+                                                <div>
+                                                    <h4 className="font-bold text-slate-800">בקשת מקדמה (נשלח אוטומטית בקביעת תור)</h4>
+                                                    <p className="text-xs text-slate-500">נשלח רק לתורים שדורשים מקדמה (מעל 30 דקות)</p>
+                                                </div>
+                                            </div>
+                                            <textarea rows={7} value={settings.deposit_request_wa_template || ""} onChange={e => handleChange("deposit_request_wa_template", e.target.value)}
+                                                className="w-full bg-slate-50 border border-emerald-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-mono" />
+                                        </div>
+
+                                        {/* Deposit Approved */}
+                                        <div className="space-y-4">
+                                            <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
+                                                <span className="text-xl">✅</span>
+                                                <div>
+                                                    <h4 className="font-bold text-slate-800">אישור מקדמה + פרטים מלאים</h4>
+                                                    <p className="text-xs text-slate-500">נשלח אוטומטית אחרי שאתה מאשר את קבלת המקדמה במערכת</p>
+                                                </div>
+                                            </div>
+                                            <textarea rows={10} value={settings.deposit_approved_wa_template || ""} onChange={e => handleChange("deposit_approved_wa_template", e.target.value)}
+                                                className="w-full bg-slate-50 border border-emerald-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-mono" />
+                                        </div>
+
+                                        {/* Non-Member */}
+                                        <div className="space-y-4">
+                                            <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
+                                                <span className="text-xl">👤</span>
+                                                <div>
+                                                    <h4 className="font-bold text-slate-800">הזמנה למועדון — לקוח שאינו חבר</h4>
+                                                    <p className="text-xs text-slate-500">נשלח ללקוח חדש שביקר אך עוד לא נרשם למועדון</p>
+                                                </div>
+                                            </div>
+                                            <textarea rows={5} value={settings.non_member_wa_template || ""} onChange={e => handleChange("non_member_wa_template", e.target.value)}
+                                                className="w-full bg-slate-50 border border-purple-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-purple-500 text-sm font-mono" />
+                                        </div>
+
+                                        {/* Points Redeem */}
+                                        <div className="space-y-4">
+                                            <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
+                                                <span className="text-xl">🎁</span>
+                                                <div>
+                                                    <h4 className="font-bold text-slate-800">מימוש נקודות מהקרדיט</h4>
+                                                    <p className="text-xs text-slate-500">נשלח ללקוח כשהוא ממש נקודות נאמנות</p>
+                                                </div>
+                                            </div>
+                                            <textarea rows={4} value={settings.points_redeem_wa_template || ""} onChange={e => handleChange("points_redeem_wa_template", e.target.value)}
+                                                className="w-full bg-slate-50 border border-amber-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-amber-500 text-sm font-mono" />
+                                        </div>
+
                                         {/* Post-Payment & Aftercare */}
                                         <div className="space-y-6">
                                             <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
@@ -926,6 +1084,106 @@ export default function AutomationSettingsPage() {
                                                 </div>
                                             </div>
                                         </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 3.5 POLICY TAB */}
+                        {activeTab === "policy" && (
+                            <div className="space-y-8">
+                                {/* Studio Info */}
+                                <div className="bg-white rounded-2xl border border-slate-100 shadow-xl shadow-slate-200/40 p-6 md:p-10 relative overflow-hidden">
+                                    <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/10 rounded-bl-full -z-10"></div>
+                                    <h3 className="text-2xl font-bold text-slate-800 mb-2">פרטי הסטודיו</h3>
+                                    <p className="text-slate-500 text-sm mb-8">פרטים אלו ישולבו אוטומטית בהודעות ללקוחות (כתובת, מפה, תיק עבודות).</p>
+                                    <div className="space-y-5">
+                                        <div>
+                                            <label className="block text-sm font-semibold text-slate-700 mb-1">כתובת הסטודיו</label>
+                                            <input type="text" value={settings.studio_address || ""} onChange={e => handleChange("studio_address", e.target.value)}
+                                                placeholder="לדוג׳: רחוב הרצל 12, תל אביב"
+                                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-orange-500 text-sm" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-semibold text-slate-700 mb-1">קישור למפה (Waze / Google Maps)</label>
+                                            <input type="url" dir="ltr" value={settings.studio_map_link || ""} onChange={e => handleChange("studio_map_link", e.target.value)}
+                                                placeholder="https://waze.com/ul?..."
+                                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-orange-500 text-sm" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-semibold text-slate-700 mb-1">קישור לתיק עבודות (Instagram / אתר)</label>
+                                            <input type="url" dir="ltr" value={settings.studio_portfolio_link || ""} onChange={e => handleChange("studio_portfolio_link", e.target.value)}
+                                                placeholder="https://instagram.com/..."
+                                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-orange-500 text-sm" />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Bank Details */}
+                                <div className="bg-white rounded-2xl border border-slate-100 shadow-xl shadow-slate-200/40 p-6 md:p-10 relative overflow-hidden">
+                                    <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-bl-full -z-10"></div>
+                                    <h3 className="text-2xl font-bold text-slate-800 mb-2">פרטי העברה בנקאית</h3>
+                                    <p className="text-slate-500 text-sm mb-8">פרטים אלו ישולבו אוטומטית בהודעת בקשת המקדמה דרך המשתנה <code className="bg-slate-100 px-1 rounded text-xs">{"{bank_details}"}</code></p>
+                                    <div className="grid md:grid-cols-3 gap-5">
+                                        <div>
+                                            <label className="block text-sm font-semibold text-slate-700 mb-1">שם הבנק</label>
+                                            <input type="text" value={settings.bank_name || ""} onChange={e => handleChange("bank_name", e.target.value)}
+                                                placeholder="לדוג׳: בנק הפועלים"
+                                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-semibold text-slate-700 mb-1">מספר סניף</label>
+                                            <input type="text" dir="ltr" value={settings.bank_branch || ""} onChange={e => handleChange("bank_branch", e.target.value)}
+                                                placeholder="612"
+                                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-semibold text-slate-700 mb-1">מספר חשבון</label>
+                                            <input type="text" dir="ltr" value={settings.bank_account || ""} onChange={e => handleChange("bank_account", e.target.value)}
+                                                placeholder="123456"
+                                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+                                        </div>
+                                    </div>
+                                    {(settings.bank_name || settings.bank_branch || settings.bank_account) && (
+                                        <div className="mt-4 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-600" dir="ltr">
+                                            <span className="font-semibold text-slate-800">תצוגה מקדימה: </span>
+                                            {settings.bank_name} | סניף {settings.bank_branch} | חשבון {settings.bank_account}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Cancellation Policy */}
+                                <div className="bg-white rounded-2xl border border-slate-100 shadow-xl shadow-slate-200/40 p-6 md:p-10 relative overflow-hidden">
+                                    <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/10 rounded-bl-full -z-10"></div>
+                                    <h3 className="text-2xl font-bold text-slate-800 mb-2">מדיניות ביטולים ומקדמה</h3>
+                                    <p className="text-slate-500 text-sm mb-8">הגדרות אלו ישולבו אוטומטית בהודעת אישור המקדמה.</p>
+                                    <div className="grid md:grid-cols-2 gap-8">
+                                        <div className="bg-emerald-50 p-6 rounded-2xl border border-emerald-100">
+                                            <label className="block text-base font-bold text-slate-800 mb-2">ביטול חינם עד כמה ימים לפני? ✅</label>
+                                            <p className="text-sm text-slate-500 mb-4">לקוח יקבל החזר מקדמה מלא אם יבטל לפחות X ימים לפני התור.</p>
+                                            <div className="flex items-center gap-3">
+                                                <input type="number" min="0" max="60"
+                                                    value={settings.cancellation_free_days ?? 7}
+                                                    onChange={e => handleChange("cancellation_free_days", parseInt(e.target.value) || 0)}
+                                                    className="w-24 text-center bg-white border border-emerald-200 rounded-xl px-4 py-3 font-bold text-xl outline-none focus:ring-2 focus:ring-emerald-500" />
+                                                <span className="text-slate-600 font-medium">ימים לפני</span>
+                                            </div>
+                                        </div>
+                                        <div className="bg-red-50 p-6 rounded-2xl border border-red-100">
+                                            <label className="block text-base font-bold text-slate-800 mb-2">נעילת שינוי תור עד כמה ימים לפני? 🔒</label>
+                                            <p className="text-sm text-slate-500 mb-4">לאחר תשלום מקדמה, הלקוח לא יוכל לשנות את התור X ימים לפניו.</p>
+                                            <div className="flex items-center gap-3">
+                                                <input type="number" min="0" max="60"
+                                                    value={settings.deposit_lock_days ?? 7}
+                                                    onChange={e => handleChange("deposit_lock_days", parseInt(e.target.value) || 0)}
+                                                    className="w-24 text-center bg-white border border-red-200 rounded-xl px-4 py-3 font-bold text-xl outline-none focus:ring-2 focus:ring-red-500" />
+                                                <span className="text-slate-600 font-medium">ימים לפני</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="mt-6 bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
+                                        <span className="font-bold">תצוגה מקדימה של מדיניות הביטולים: </span>
+                                        ביטול עד {settings.cancellation_free_days ?? 7} ימים לפני — החזר מלא של המקדמה. פחות מ-{settings.cancellation_free_days ?? 7} ימים — ללא החזר. שינוי תור אפשרי עד {settings.deposit_lock_days ?? 7} ימים לפני בלבד.
                                     </div>
                                 </div>
                             </div>
@@ -1186,38 +1444,80 @@ export default function AutomationSettingsPage() {
                                 {/* WhatsApp Integration */}
                                 <div className="bg-white rounded-2xl border border-slate-100 shadow-xl shadow-slate-200/40 p-6 md:p-10 relative overflow-hidden">
                                     <div className="absolute top-0 right-0 w-32 h-32 bg-green-500/10 rounded-bl-full -z-10"></div>
-                                    <h3 className="text-2xl font-bold text-slate-800 mb-6">הגדרות WhatsApp API (Meta Cloud)</h3>
-                                    <div className="grid md:grid-cols-2 gap-8">
-                                        <div className="space-y-4">
-                                            <div className="space-y-1">
-                                                <label className="block text-xs font-bold text-slate-600 uppercase">Provider</label>
-                                                <select value={settings.whatsapp_provider || "meta"} onChange={e => handleChange("whatsapp_provider", e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-green-500">
-                                                    <option value="meta">Meta Cloud API (Official)</option>
-                                                    <option value="twilio">Twilio</option>
-                                                </select>
-                                            </div>
-                                            <div className="space-y-1">
-                                                <label className="block text-xs font-bold text-slate-600 uppercase">Phone Number ID</label>
-                                                <input type="text" dir="ltr" value={settings.whatsapp_phone_id || ""} onChange={e => handleChange("whatsapp_phone_id", e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-green-500" />
-                                            </div>
-                                            <div className="space-y-1">
-                                                <label className="block text-xs font-bold text-slate-600 uppercase">Access Token (Permanent)</label>
-                                                <input type="password" dir="ltr" value={settings.whatsapp_api_key || ""} onChange={e => handleChange("whatsapp_api_key", e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-green-500" />
-                                            </div>
-                                        </div>
-                                        <div className="bg-emerald-50/50 p-6 rounded-2xl border border-emerald-100 flex flex-col justify-between">
-                                            <div className="space-y-4">
-                                                <h4 className="font-bold text-emerald-900">מדוע Meta Cloud API?</h4>
-                                                <p className="text-sm text-emerald-800/80 leading-relaxed">שימוש ב-API הרשמי מבטיח איכות שליחה מקסימלית, מניעת חסימות ומחיר נמוך לכל הודעה.</p>
-                                                <ul className="text-xs text-emerald-700 space-y-2 list-disc list-inside">
-                                                    <li>סנכרון תורים אוטומטי</li>
-                                                    <li>תמיכה בתבניות רשמיות</li>
-                                                    <li>דיווח על מסירות (Delivery Reports)</li>
-                                                </ul>
-                                            </div>
-                                            <a href="https://developers.facebook.com" target="_blank" rel="noopener noreferrer" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow-lg transition-all text-center">פתיחת פורטל המפתחים</a>
-                                        </div>
+                                    <h3 className="text-2xl font-bold text-slate-800 mb-2">הגדרות WhatsApp</h3>
+                                    <p className="text-slate-500 text-sm mb-8">בחר ספק ומלא את הפרטים — המערכת תשלח הודעות אוטומטיות ללקוחות.</p>
+
+                                    {/* Provider Selection */}
+                                    <div className="grid grid-cols-2 gap-4 mb-8">
+                                        {[
+                                            { value: "green_api", label: "Green API", desc: "עם המספר הקיים שלך (סריקת QR)", badge: "מומלץ", color: "emerald" },
+                                            { value: "meta", label: "Meta Cloud API", desc: "מספר נפרד, 1,000 חינם/חודש", badge: "חינמי", color: "blue" },
+                                        ].map(p => (
+                                            <label key={p.value} className={`cursor-pointer flex flex-col p-4 rounded-2xl border-2 transition-all ${(settings.whatsapp_provider || "green_api") === p.value ? `border-${p.color}-500 bg-${p.color}-50/50` : "border-slate-200 hover:border-slate-300"}`}>
+                                                <input type="radio" name="wa_provider" value={p.value} checked={(settings.whatsapp_provider || "green_api") === p.value} onChange={() => handleChange("whatsapp_provider", p.value)} className="sr-only" />
+                                                <div className="flex items-center justify-between mb-1">
+                                                    <span className="font-bold text-slate-800 text-sm">{p.label}</span>
+                                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full bg-${p.color}-100 text-${p.color}-700`}>{p.badge}</span>
+                                                </div>
+                                                <span className="text-xs text-slate-500">{p.desc}</span>
+                                            </label>
+                                        ))}
                                     </div>
+
+                                    {/* Green API Fields */}
+                                    {(settings.whatsapp_provider || "green_api") === "green_api" && (
+                                        <div className="space-y-4 bg-emerald-50/50 border border-emerald-100 rounded-2xl p-6">
+                                            <div className="flex items-start gap-3 mb-4">
+                                                <span className="text-2xl">📱</span>
+                                                <div>
+                                                    <h4 className="font-bold text-emerald-900 text-sm">חיבור דרך Green API</h4>
+                                                    <p className="text-xs text-emerald-700/80 mt-1">1. הירשם ב-green-api.com → צור Instance חדש → סרוק QR עם הוואטסאפ שלך → העתק את ה-Instance ID וה-API Token.</p>
+                                                </div>
+                                            </div>
+                                            <div className="grid md:grid-cols-2 gap-4">
+                                                <div className="space-y-1">
+                                                    <label className="block text-xs font-bold text-slate-600 uppercase">Instance ID</label>
+                                                    <input type="text" dir="ltr" value={settings.whatsapp_instance_id || ""} onChange={e => handleChange("whatsapp_instance_id", e.target.value)}
+                                                        placeholder="1234567890"
+                                                        className="w-full bg-white border border-emerald-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-emerald-500 font-mono" />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <label className="block text-xs font-bold text-slate-600 uppercase">API Token</label>
+                                                    <input type="password" dir="ltr" value={settings.whatsapp_api_key || ""} onChange={e => handleChange("whatsapp_api_key", e.target.value)}
+                                                        placeholder="••••••••••••••••"
+                                                        className="w-full bg-white border border-emerald-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-emerald-500 font-mono" />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Meta API Fields */}
+                                    {settings.whatsapp_provider === "meta" && (
+                                        <div className="space-y-4 bg-blue-50/50 border border-blue-100 rounded-2xl p-6">
+                                            <div className="flex items-start gap-3 mb-4">
+                                                <span className="text-2xl">🔵</span>
+                                                <div>
+                                                    <h4 className="font-bold text-blue-900 text-sm">חיבור דרך Meta Cloud API</h4>
+                                                    <p className="text-xs text-blue-700/80 mt-1">נדרש מספר טלפון נפרד שאינו מחובר לאפליקציית WhatsApp. הכנס את ה-Phone Number ID וה-Access Token מפורטל המפתחים של Meta.</p>
+                                                </div>
+                                            </div>
+                                            <div className="grid md:grid-cols-2 gap-4">
+                                                <div className="space-y-1">
+                                                    <label className="block text-xs font-bold text-slate-600 uppercase">Phone Number ID</label>
+                                                    <input type="text" dir="ltr" value={settings.whatsapp_phone_id || ""} onChange={e => handleChange("whatsapp_phone_id", e.target.value)}
+                                                        className="w-full bg-white border border-blue-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 font-mono" />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <label className="block text-xs font-bold text-slate-600 uppercase">Access Token (Permanent)</label>
+                                                    <input type="password" dir="ltr" value={settings.whatsapp_api_key || ""} onChange={e => handleChange("whatsapp_api_key", e.target.value)}
+                                                        className="w-full bg-white border border-blue-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 font-mono" />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Webhook URLs */}
+                                    <WebhookUrlBox provider={(settings.whatsapp_provider || "green_api") as "green_api" | "meta"} instanceId={settings.whatsapp_instance_id || ""} />
                                 </div>
                             </div>
                         )}

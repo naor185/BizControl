@@ -18,6 +18,9 @@ from app.api.staff_routes import router as staff_router
 from app.api.goal_routes import router as goal_router
 from app.api.product_routes import router as product_router
 from app.api.export_routes import router as export_router
+from app.api.inbox_routes import router as inbox_router
+from app.api.webhook_routes import router as webhook_router
+from app.api.superadmin_routes import router as superadmin_router
 
 api_router = APIRouter()
 api_router.include_router(studio_router)
@@ -39,3 +42,6 @@ api_router.include_router(staff_router)
 api_router.include_router(goal_router)
 api_router.include_router(product_router)
 api_router.include_router(export_router)
+api_router.include_router(inbox_router)
+api_router.include_router(webhook_router)
+api_router.include_router(superadmin_router)

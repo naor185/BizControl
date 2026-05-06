@@ -10,9 +10,9 @@ function LoginContent() {
     const sp = useSearchParams();
     const nextUrl = useMemo(() => sp.get("next") || "/dashboard", [sp]);
 
-    const [studioSlug, setStudioSlug] = useState("teststudio");
-    const [email, setEmail] = useState("owner@teststudio.com");
-    const [password, setPassword] = useState("password123");
+    const [studioSlug, setStudioSlug] = useState("");
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
     const [err, setErr] = useState<string | null>(null);
 
@@ -32,7 +32,9 @@ function LoginContent() {
             });
 
             setToken(res.access_token);
-            router.replace(nextUrl);
+            // Check role — superadmin goes to /admin
+            const me = await apiFetch<{ role: string }>("/api/auth/me", { method: "GET" });
+            router.replace(me.role === "superadmin" ? "/admin" : nextUrl);
         } catch (e: any) {
             const msg = String(e?.message || "");
             const hebrew =

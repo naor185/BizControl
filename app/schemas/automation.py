@@ -80,6 +80,25 @@ class AutomationSettingsOut(BaseModel):
     ai_generations_count: int = 0
     ai_generations_reset_date: date | None = None
 
+    # Studio Info & Policy
+    studio_address: str | None = None
+    studio_map_link: str | None = None
+    studio_portfolio_link: str | None = None
+    bank_name: str | None = None
+    bank_branch: str | None = None
+    bank_account: str | None = None
+    cancellation_free_days: int = 7
+    deposit_lock_days: int = 7
+
+    # New WhatsApp Templates
+    deposit_request_wa_template: str | None = None
+    deposit_approved_wa_template: str | None = None
+    points_redeem_wa_template: str | None = None
+    non_member_wa_template: str | None = None
+
+    # Green API
+    whatsapp_instance_id: str | None = None
+
 class AutomationSettingsUpdate(BaseModel):
     aftercare_message: str | None = None
     review_link_google: str | None = None
@@ -153,3 +172,22 @@ class AutomationSettingsUpdate(BaseModel):
 
     calendar_start_hour: str | None = None
     calendar_end_hour: str | None = None
+
+    # Studio Info & Policy
+    studio_address: str | None = None
+    studio_map_link: str | None = None
+    studio_portfolio_link: str | None = None
+    bank_name: str | None = None
+    bank_branch: str | None = None
+    bank_account: str | None = None
+    cancellation_free_days: int | None = Field(default=None, ge=0, le=365)
+    deposit_lock_days: int | None = Field(default=None, ge=0, le=365)
+
+    # New WhatsApp Templates
+    deposit_request_wa_template: str | None = None
+    deposit_approved_wa_template: str | None = None
+    points_redeem_wa_template: str | None = None
+    non_member_wa_template: str | None = None
+
+    # Green API
+    whatsapp_instance_id: str | None = None

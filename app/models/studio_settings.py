@@ -106,6 +106,25 @@ class StudioSettings(Base):
     calendar_start_hour: Mapped[str] = mapped_column(String(16), nullable=False, default="08:00", server_default="08:00")
     calendar_end_hour: Mapped[str] = mapped_column(String(16), nullable=False, default="23:00", server_default="23:00")
 
+    # Studio Info & Policy
+    studio_address: Mapped[str | None] = mapped_column(Text, nullable=True)
+    studio_map_link: Mapped[str | None] = mapped_column(Text, nullable=True)
+    studio_portfolio_link: Mapped[str | None] = mapped_column(Text, nullable=True)
+    bank_name: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    bank_branch: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    bank_account: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    cancellation_free_days: Mapped[int] = mapped_column(Integer, nullable=False, default=7, server_default="7")
+    deposit_lock_days: Mapped[int] = mapped_column(Integer, nullable=False, default=7, server_default="7")
+
+    # New Message Templates
+    deposit_request_wa_template: Mapped[str | None] = mapped_column(Text, nullable=True)
+    deposit_approved_wa_template: Mapped[str | None] = mapped_column(Text, nullable=True)
+    points_redeem_wa_template: Mapped[str | None] = mapped_column(Text, nullable=True)
+    non_member_wa_template: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Green API (WhatsApp via linked device)
+    whatsapp_instance_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     studio: Mapped["Studio"] = relationship(back_populates="settings")

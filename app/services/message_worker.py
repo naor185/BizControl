@@ -12,10 +12,55 @@ from app.utils.email_utils import send_email
 from datetime import timedelta
 import asyncio
 
-def send_whatsapp_message(to_phone: str, body: str) -> None:
-    # TODO: כאן נחבר ספק אמיתי (Twilio / WhatsApp Cloud API).
-    # כרגע "log-only"
-    print(f"[WHATSAPP LOG-ONLY] to={to_phone}\n{body}\n")
+def _send_via_meta(phone_id: str, token: str, to_phone: str, body: str) -> None:
+    import urllib.request, json as _json
+    url = f"https://graph.facebook.com/v19.0/{phone_id}/messages"
+    payload = _json.dumps({
+        "messaging_product": "whatsapp",
+        "to": to_phone,
+        "type": "text",
+        "text": {"body": body}
+    }).encode()
+    req = urllib.request.Request(url, data=payload, method="POST")
+    req.add_header("Authorization", f"Bearer {token}")
+    req.add_header("Content-Type", "application/json")
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        if resp.status >= 300:
+            raise RuntimeError(f"Meta API error {resp.status}")
+
+
+def _send_via_green(instance_id: str, api_key: str, to_phone: str, body: str) -> None:
+    import urllib.request, json as _json
+    # Green API endpoint: send message
+    url = f"https://api.green-api.com/waInstance{instance_id}/sendMessage/{api_key}"
+    # normalize phone: remove +, spaces, dashes
+    clean = to_phone.replace("+", "").replace(" ", "").replace("-", "")
+    if not clean.endswith("@c.us"):
+        clean = f"{clean}@c.us"
+    payload = _json.dumps({"chatId": clean, "message": body}).encode()
+    req = urllib.request.Request(url, data=payload, method="POST")
+    req.add_header("Content-Type", "application/json")
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        if resp.status >= 300:
+            raise RuntimeError(f"Green API error {resp.status}")
+
+
+def send_whatsapp_message(to_phone: str, body: str, settings=None) -> None:
+    provider = getattr(settings, "whatsapp_provider", None) if settings else None
+
+    if provider == "green_api":
+        instance_id = getattr(settings, "whatsapp_instance_id", None)
+        api_key = getattr(settings, "whatsapp_api_key", None)
+        if not instance_id or not api_key:
+            print(f"[WA-GREEN] חסרים פרטי Green API, לא נשלח ל-{to_phone}")
+            return
+        _send_via_green(instance_id, api_key, to_phone, body)
+
+    elif provider in ("meta", None) and settings and getattr(settings, "whatsapp_phone_id", None) and getattr(settings, "whatsapp_api_key", None):
+        _send_via_meta(settings.whatsapp_phone_id, settings.whatsapp_api_key, to_phone, body)
+
+    else:
+        print(f"[WHATSAPP LOG-ONLY] to={to_phone}\n{body}\n")
 
 def process_due_jobs(db: Session, limit: int = 20) -> int:
     now = datetime.now(timezone.utc)
@@ -52,7 +97,8 @@ def process_due_jobs(db: Session, limit: int = 20) -> int:
                     )
                 )
             else:
-                send_whatsapp_message(job.to_phone, job.body)
+                settings = db.get(StudioSettings, job.studio_id)
+                send_whatsapp_message(job.to_phone, job.body, settings)
             
             job.status = "sent"
             job.sent_at = now

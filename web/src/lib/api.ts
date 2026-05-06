@@ -45,6 +45,14 @@ export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promi
             throw new Error("Session expired");
         }
 
+        if (res.status === 402 && typeof window !== "undefined") {
+            const detail = data?.detail || "";
+            window.location.href = detail === "STUDIO_SUSPENDED"
+                ? "/suspended?reason=suspended"
+                : "/suspended?reason=expired";
+            throw new Error("Plan expired");
+        }
+
         const msg =
             (data && (data.detail || data.message)) ||
             text ||
@@ -311,6 +319,32 @@ export async function downloadAccountingExcel(startDate: string, endDate: string
     a.click();
     a.remove();
 }
+async function _downloadFile(url: string, filename: string) {
+    const token = getToken();
+    const headers = new Headers();
+    if (token) headers.set("Authorization", `Bearer ${token}`);
+    const res = await fetch(url, { headers });
+    if (!res.ok) throw new Error("Download failed");
+    const blob = await res.blob();
+    const link = document.createElement("a");
+    link.href = window.URL.createObjectURL(blob);
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+}
+
+export function downloadReceipt(paymentId: string) {
+    return _downloadFile(`${API_BASE}/api/payments/${paymentId}/receipt`, `receipt_${paymentId.slice(0, 8).toUpperCase()}.pdf`);
+}
+
+export function downloadPayrollPdf(startDate: string, endDate: string) {
+    return _downloadFile(
+        `${API_BASE}/api/staff/payroll/pdf?start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}`,
+        `payroll_${startDate.slice(0, 10)}_${endDate.slice(0, 10)}.pdf`
+    );
+}
+
 // ─── Dashboard & Financials API Helpers ─────────────────────────────────────
 
 export interface DashboardStats {

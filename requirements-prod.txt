@@ -1,0 +1,50 @@
+# BizControl — Production requirements only
+# Generated: 2026-05
+
+# ── Core API ──────────────────────────────────────────────────────────────────
+fastapi==0.120.4
+uvicorn[standard]==0.38.0
+gunicorn==23.0.0
+python-multipart==0.0.20
+
+# ── Database ──────────────────────────────────────────────────────────────────
+sqlalchemy==2.0.45
+psycopg2-binary==2.9.11
+alembic==1.18.4
+
+# ── Auth & Security ───────────────────────────────────────────────────────────
+python-jose[cryptography]==3.5.0
+argon2-cffi==25.1.0
+cryptography==46.0.3
+
+# ── Validation & Config ───────────────────────────────────────────────────────
+pydantic==2.12.5
+pydantic-settings==2.12.0
+email-validator==2.3.0
+python-dotenv==1.0.1
+
+# ── Scheduler ─────────────────────────────────────────────────────────────────
+APScheduler==3.11.2
+
+# ── HTTP / Async ──────────────────────────────────────────────────────────────
+aiohttp==3.8.6
+aiofiles==23.2.1
+httpx==0.28.1
+
+# ── AI & External APIs ────────────────────────────────────────────────────────
+openai
+google-genai
+google-api-python-client==2.187.0
+google-auth-oauthlib==1.2.3
+
+# ── Files & Export ────────────────────────────────────────────────────────────
+pillow==10.4.0
+pandas==2.3.1
+openpyxl
+reportlab==4.4.4
+python-bidi
+
+# ── Utils ─────────────────────────────────────────────────────────────────────
+python-dateutil==2.9.0.post0
+pytz==2025.2
+beautifulsoup4==4.14.3

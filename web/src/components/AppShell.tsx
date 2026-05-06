@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { apiFetch, clearToken, getToken } from "@/lib/api";
+import { apiFetch, clearToken, getToken, setToken } from "@/lib/api";
 import ClockWidget from "./ClockWidget";
+import BottomNav from "./BottomNav";
 
 type Me = {
     id: string;
@@ -30,6 +31,7 @@ const SETTINGS_NAV: NavItem[] = [
     { href: "/message-log", label: "יומן הודעות", icon: "💬" },
     { href: "/payments", label: "תשלומים", icon: "💳" },
     { href: "/automation", label: "הגדרות", icon: "⚙️" },
+    { href: "/help", label: "מרכז עזרה", icon: "🆘" },
 ];
 
 const ALL_NAV = [...MAIN_NAV, ...SETTINGS_NAV];
@@ -46,6 +48,23 @@ export default function AppShell({
 
     const [me, setMe] = useState<Me | null>(null);
     const [meErr, setMeErr] = useState<string | null>(null);
+    const [isImpersonating, setIsImpersonating] = useState(false);
+
+    useEffect(() => {
+        if (typeof window !== "undefined") {
+            setIsImpersonating(!!sessionStorage.getItem("admin_return"));
+        }
+    }, []);
+
+    const handleReturnToAdmin = () => {
+        const adminToken = sessionStorage.getItem("admin_token");
+        if (adminToken) {
+            setToken(adminToken);
+        }
+        sessionStorage.removeItem("admin_token");
+        sessionStorage.removeItem("admin_return");
+        router.replace("/admin");
+    };
     const [settingsOpen, setSettingsOpen] = useState(() =>
         SETTINGS_NAV.some(n => pathname === n.href || pathname?.startsWith(n.href + "/"))
     );
@@ -80,6 +99,18 @@ export default function AppShell({
 
     return (
         <div className="min-h-screen bg-gray-50" dir="rtl">
+            {/* Impersonation banner */}
+            {isImpersonating && (
+                <div className="bg-amber-500 text-amber-950 text-sm font-bold px-4 py-2 flex items-center justify-between z-50 relative">
+                    <span>👁️ מצב צפייה — אתה רואה את המערכת כבעל הסטודיו</span>
+                    <button
+                        onClick={handleReturnToAdmin}
+                        className="bg-amber-950 text-amber-100 px-4 py-1 rounded-lg text-xs hover:bg-amber-900 transition-colors"
+                    >
+                        חזור לפאנל אדמין ←
+                    </button>
+                </div>
+            )}
             <div className="flex">
                 {/* Sidebar */}
                 <aside className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 bg-white border-l">
@@ -201,10 +232,11 @@ export default function AppShell({
                         </div>
                     </header>
 
-                    <main className="p-5">{children}</main>
+                    <main className="p-5 pb-24 md:pb-5">{children}</main>
                 </div>
             </div>
             <ClockWidget />
+            <BottomNav />
         </div>
     );
 }

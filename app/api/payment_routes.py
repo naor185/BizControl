@@ -1,15 +1,21 @@
 from __future__ import annotations
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
+import io
 
 from app.db.deps import get_db
 from app.core.deps import require_studio_ctx, AuthContext
 from app.models.payment import Payment
+from app.models.appointment import Appointment
+from app.models.client import Client
+from app.models.studio import Studio
 from app.schemas.payment import PaymentCreate, PaymentOut, AppointmentBalanceOut
 from app.services.payment_service import PaymentService
 from app.crud.payment import create_payment, list_payments, appointment_balance
+from app.services.pdf_service import generate_receipt_pdf
 
 router = APIRouter(prefix="/payments", tags=["Payments"])
 
@@ -53,3 +59,32 @@ def balance(appointment_id: UUID, ctx: AuthContext = Depends(require_studio_ctx)
     if res is None:
         raise HTTPException(status_code=404, detail="Appointment not found")
     return res
+
+@router.get("/{payment_id}/receipt")
+def download_receipt(
+    payment_id: UUID,
+    ctx: AuthContext = Depends(require_studio_ctx),
+    db: Session = Depends(get_db),
+):
+    payment = db.scalar(select(Payment).where(Payment.id == payment_id, Payment.studio_id == ctx.studio_id))
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment not found")
+
+    appointment = db.get(Appointment, payment.appointment_id) if payment.appointment_id else None
+    client = db.get(Client, payment.client_id) if payment.client_id else None
+    studio = db.get(Studio, ctx.studio_id)
+
+    pdf_bytes = generate_receipt_pdf(
+        payment=payment,
+        appointment=appointment,
+        client=client,
+        studio_name=studio.name if studio else "Studio",
+        studio_slug=studio.slug if studio else "",
+    )
+
+    short_id = str(payment_id)[:8].upper()
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="receipt_{short_id}.pdf"'},
+    )

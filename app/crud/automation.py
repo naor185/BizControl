@@ -49,80 +49,101 @@ def smart_format(template: str, context: dict) -> str:
     return format_template(template, context)
 
 
-def enqueue_confirmation_message(db: Session, appt: Appointment) -> None:
-    """
-    Queue immediate confirmation message for a NEW appointment.
-    """
+def _build_context(settings: StudioSettings, client: Client, appt: Appointment, artist_name: str = "") -> dict:
+    base_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+    deposit_amount = appt.deposit_amount_cents / 100 if appt.deposit_amount_cents else 0
+    bank_details = ""
+    if settings.bank_name or settings.bank_branch or settings.bank_account:
+        bank_details = f"{settings.bank_name or ''} | סניף {settings.bank_branch or ''} | חשבון {settings.bank_account or ''}"
+    return {
+        "client_name": client.full_name or "",
+        "appointment_title": appt.title or "",
+        "appointment_date": appt.starts_at.strftime("%d/%m/%Y"),
+        "appointment_time": appt.starts_at.strftime("%H:%M"),
+        "payment_link": f"{base_url}/pay/{appt.id}",
+        "deposit_amount": f"{deposit_amount:.0f}" if deposit_amount == int(deposit_amount) else f"{deposit_amount:.2f}",
+        "artist_name": artist_name,
+        "studio_address": settings.studio_address or "",
+        "map_link": settings.studio_map_link or "",
+        "portfolio_link": settings.studio_portfolio_link or "",
+        "bit_link": settings.bit_link or "",
+        "paybox_link": settings.paybox_link or "",
+        "bank_details": bank_details,
+        "cancellation_free_days": str(settings.cancellation_free_days or 7),
+        "deposit_lock_days": str(settings.deposit_lock_days or 7),
+        "loyalty_points": str(client.loyalty_points or 0),
+        "join_link": f"{base_url}/join/{appt.studio_id}",
+        "contact_phone": "",
+    }
+
+
+def enqueue_confirmation_message(db: Session, appt: Appointment, artist_name: str = "") -> None:
+    """Queue confirmation or deposit-request message for a NEW appointment."""
     settings = db.get(StudioSettings, appt.studio_id)
     client = db.get(Client, appt.client_id)
     if not settings or not client:
         return
 
-    # Base URL for the public payment page
-    # In a real app, this would be the public domain. 
-    # For now, we use a placeholder or local env.
-    base_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
-    payment_confirm_url = f"{base_url}/pay/{appt.id}"
+    context = _build_context(settings, client, appt, artist_name)
+    now = datetime.now(timezone.utc)
+    has_deposit = bool(appt.deposit_amount_cents and appt.deposit_amount_cents > 0)
 
-    context = {
-        "client_name": client.full_name,
-        "appointment_title": appt.title,
-        "appointment_date": appt.starts_at.strftime("%d/%m/%Y"),
-        "appointment_time": appt.starts_at.strftime("%H:%M"),
-        "payment_link": payment_confirm_url,
-        "deposit_amount": f"{appt.deposit_amount_cents / 100:.2f}" if appt.deposit_amount_cents else "0.00",
-    }
+    # --- WhatsApp ---
+    if client.phone:
+        if has_deposit and settings.deposit_request_wa_template:
+            wa_body = smart_format(settings.deposit_request_wa_template, context)
+        elif settings.confirm_wa_template:
+            wa_body = smart_format(settings.confirm_wa_template, context)
+        else:
+            wa_body = f"שלום {client.full_name}, התור שלך ל-{appt.title} נקבע ליום {context['appointment_date']} בשעה {context['appointment_time']}."
+        db.add(MessageJob(
+            studio_id=appt.studio_id, client_id=client.id, appointment_id=appt.id,
+            channel="whatsapp", to_phone=client.phone, body=wa_body,
+            scheduled_at=now, status="pending",
+        ))
 
+    # --- Email ---
+    if client.email and settings.smtp_host and settings.confirm_email_template:
+        email_body = smart_format(settings.confirm_email_template, context)
+        db.add(MessageJob(
+            studio_id=appt.studio_id, client_id=client.id, appointment_id=appt.id,
+            channel="email", to_phone=client.email, body=email_body,
+            scheduled_at=now, status="pending",
+        ))
+
+    db.commit()
+
+
+def enqueue_deposit_approved_message(db: Session, appt: Appointment, artist_name: str = "") -> None:
+    """Send full details message after studio owner approves the deposit."""
+    settings = db.get(StudioSettings, appt.studio_id)
+    client = db.get(Client, appt.client_id)
+    if not settings or not client or not client.phone:
+        return
+
+    context = _build_context(settings, client, appt, artist_name)
     now = datetime.now(timezone.utc)
 
-    # WhatsApp Confirmation
-    wa_template = settings.confirm_wa_template
-    if not wa_template:
-        wa_template = "שלום {client_name}, התור שלך ל-{appointment_title} נקבע בהצלחה ליום {appointment_date} בשעה {appointment_time}. לתשלום מקדמה של {deposit_amount} ש״ח: {payment_link}"
+    template = settings.deposit_approved_wa_template
+    if not template:
+        template = (
+            "✅ {client_name}, המקדמה אושרה!\n\n"
+            "📅 {appointment_date} בשעה {appointment_time}\n"
+            "✂️ {artist_name}\n"
+            "📍 {studio_address}\n"
+            "🗺️ ניווט: {map_link}\n"
+            "🖼️ תיק עבודות: {portfolio_link}\n\n"
+            "מדיניות ביטולים: ביטול עד {cancellation_free_days} ימים לפני — החזר מלא. "
+            "פחות מ-{cancellation_free_days} ימים — ללא החזר. "
+            "שינוי תור עד {deposit_lock_days} ימים לפני בלבד.\n\nמחכים לך! 🙏"
+        )
 
-    if client.phone:
-        body = smart_format(wa_template, context)
-        db.add(MessageJob(
-            studio_id=appt.studio_id,
-            client_id=client.id,
-            appointment_id=appt.id,
-            channel="whatsapp",
-            to_phone=client.phone,
-            body=body,
-            scheduled_at=now,
-            status="pending",
-        ))
-
-    # Email Confirmation
-    email_template = settings.confirm_email_template
-    if not email_template:
-        email_template = """
-        <div dir="rtl" style="font-family: Arial, sans-serif; padding: 20px;">
-            <h2 style="color: #333;">אישור תור חדש ✅</h2>
-            <p>שלום {client_name},</p>
-            <p>התור שלך ל-<strong>{appointment_title}</strong> נקבע בהצלחה.</p>
-            <p><strong>תאריך:</strong> {appointment_date}</p>
-            <p><strong>שעה:</strong> {appointment_time}</p>
-            <p>נודה לך על העברת מקדמה בסך {deposit_amount} ש״ח בקישור הבא: <a href="{payment_link}">{payment_link}</a></p>
-            <p>מחכים לראותך!</p>
-            <hr style="border: none; border-top: 1px solid #eaeaea; margin: 20px 0;" />
-            <p style="font-size: 12px; color: #888;">הודעה זו נשלחה אוטומטית ממערכת BizControl.</p>
-        </div>
-        """
-
-    if client.email and settings.smtp_host:
-        body = smart_format(email_template, context)
-        db.add(MessageJob(
-            studio_id=appt.studio_id,
-            client_id=client.id,
-            appointment_id=appt.id,
-            channel="email",
-            to_phone=client.email,
-            body=body,
-            scheduled_at=now,
-            status="pending",
-        ))
-    
+    db.add(MessageJob(
+        studio_id=appt.studio_id, client_id=client.id, appointment_id=appt.id,
+        channel="whatsapp", to_phone=client.phone,
+        body=smart_format(template, context),
+        scheduled_at=now, status="pending",
+    ))
     db.commit()
 
 def enqueue_reschedule_message(db: Session, appt: Appointment) -> None:

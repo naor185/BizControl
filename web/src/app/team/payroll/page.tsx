@@ -3,26 +3,39 @@
 import { useEffect, useState } from "react";
 import RequireAuth from "@/components/RequireAuth";
 import AppShell from "@/components/AppShell";
-import { getPayroll, PayrollSummary } from "@/lib/api";
+import { getPayroll, downloadPayrollPdf, PayrollSummary } from "@/lib/api";
 
 export default function StaffPage() {
     const [payroll, setPayroll] = useState<PayrollSummary | null>(null);
     const [loading, setLoading] = useState(true);
+    const [pdfLoading, setPdfLoading] = useState(false);
     const [month, setMonth] = useState(new Date().getMonth() + 1);
     const [year, setYear] = useState(new Date().getFullYear());
+
+    const lastDay = new Date(year, month, 0).getDate();
+    const startStr = `${year}-${String(month).padStart(2, '0')}-01T00:00:00`;
+    const endStr   = `${year}-${String(month).padStart(2, '0')}-${lastDay}T23:59:59`;
 
     const fetchPayroll = async () => {
         try {
             setLoading(true);
-            const lastDay = new Date(year, month, 0).getDate();
-            const start = `${year}-${String(month).padStart(2, '0')}-01T00:00:00`;
-            const end = `${year}-${String(month).padStart(2, '0')}-${lastDay}T23:59:59`;
-            const data = await getPayroll(start, end);
+            const data = await getPayroll(startStr, endStr);
             setPayroll(data);
         } catch (err) {
             console.error(err);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleDownloadPdf = async () => {
+        try {
+            setPdfLoading(true);
+            await downloadPayrollPdf(startStr, endStr);
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setPdfLoading(false);
         }
     };
 
@@ -54,7 +67,13 @@ export default function StaffPage() {
                                 </option>
                             ))}
                         </select>
-                        <div className="mr-auto text-sm text-slate-400 font-bold uppercase tracking-widest">דוח תקופתי</div>
+                        <button
+                            onClick={handleDownloadPdf}
+                            disabled={pdfLoading || !payroll}
+                            className="mr-auto flex items-center gap-2 px-4 py-2 bg-black text-white text-sm font-medium rounded-xl hover:bg-gray-800 disabled:opacity-50 transition"
+                        >
+                            {pdfLoading ? "מוריד..." : "הורד PDF 📄"}
+                        </button>
                     </div>
 
                     {loading ? (

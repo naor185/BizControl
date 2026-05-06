@@ -25,7 +25,7 @@ class User(Base):
     __tablename__ = "users"
     __table_args__ = (
         UniqueConstraint("studio_id", "email", name="uq_users_studio_email"),
-        CheckConstraint("role IN ('owner','admin','artist','staff')", name="ck_users_role"),
+        CheckConstraint("role IN ('owner','admin','artist','staff','superadmin')", name="ck_users_role"),
         CheckConstraint("pay_type IN ('hourly','commission','none')", name="ck_users_pay_type"),
     )
 

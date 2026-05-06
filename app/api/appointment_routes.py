@@ -259,4 +259,11 @@ def verify_sent_payment(appointment_id: UUID, ctx: AuthContext = Depends(require
     db.add(new_payment)
     db.commit()
 
+    # שלח הודעת אישור מקדמה עם פרטים מלאים (כתובת, מפה, תיק עבודות, מדיניות ביטולים)
+    from app.crud.automation import enqueue_deposit_approved_message
+    try:
+        enqueue_deposit_approved_message(db, appt)
+    except Exception as e:
+        print(f"[deposit_approved_msg] failed: {e}")
+
     return {"message": "Payment verified and recorded"}

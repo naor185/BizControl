@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import RequireAuth from "@/components/RequireAuth";
 import AppShell from "@/components/AppShell";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, downloadReceipt } from "@/lib/api";
 
 import Link from "next/link";
 
@@ -266,10 +266,19 @@ export default function Page() {
                                                                 <span className="text-xs text-slate-400 italic truncate max-w-[180px] hidden sm:inline">{p.notes}</span>
                                                             )}
                                                         </div>
-                                                        <div className="flex items-center gap-4">
+                                                        <div className="flex items-center gap-2">
                                                             <div className={`font-black text-base ${p.type === "refund" ? "text-rose-600" : "text-slate-800"}`} dir="ltr">
                                                                 {p.type === "refund" ? "-" : ""}{fmt(p.amount_cents)}
                                                             </div>
+                                                            <button
+                                                                onClick={() => downloadReceipt(p.id)}
+                                                                className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-blue-500 transition-all p-1.5 rounded-lg hover:bg-blue-50"
+                                                                title="הורד קבלה PDF"
+                                                            >
+                                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                                                </svg>
+                                                            </button>
                                                             <button
                                                                 onClick={() => setDeletingId(p.id)}
                                                                 className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 transition-all p-1.5 rounded-lg hover:bg-red-50"
