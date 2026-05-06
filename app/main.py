@@ -61,7 +61,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="BizControl", version="0.1.0", lifespan=lifespan)
 
-# Mount uploads directory for static file serving
+# Ensure uploads directory exists before mounting
+os.makedirs("uploads", exist_ok=True)
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 _raw_origins = os.getenv("ALLOWED_ORIGINS", "")
