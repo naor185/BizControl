@@ -1,26 +1,24 @@
 from logging.config import fileConfig
 import os
-import sys
 
 from sqlalchemy import engine_from_config, pool
 from alembic import context
-
-# Add project root to sys.path so models can be imported
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-
-from app.models import Base
 
 config = context.config
 
 # Override sqlalchemy.url from environment variable if available
 database_url = os.getenv("DATABASE_URL")
 if database_url:
+    # Ensure correct dialect prefix for psycopg2
+    if database_url.startswith("postgres://"):
+        database_url = database_url.replace("postgres://", "postgresql://", 1)
     config.set_main_option("sqlalchemy.url", database_url)
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-target_metadata = Base.metadata
+# target_metadata not needed for running existing migrations (only for autogenerate)
+target_metadata = None
 
 
 def run_migrations_offline() -> None:
