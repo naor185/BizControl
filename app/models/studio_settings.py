@@ -130,6 +130,10 @@ class StudioSettings(Base):
     instagram_account_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     meta_page_access_token: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    # Self-Booking (public /book/[slug] page)
+    self_booking_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    self_booking_slot_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=60, server_default="60")
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     studio: Mapped["Studio"] = relationship(back_populates="settings")
