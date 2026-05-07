@@ -7,11 +7,12 @@ from __future__ import annotations
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 from pydantic import BaseModel
 from jose import JWTError
+from app.core.limiter import limiter
 
 from app.core.database import get_db
 from app.core.security import JWT_SECRET, JWT_ALG, decode_token
@@ -90,7 +91,8 @@ class AppointmentOut(BaseModel):
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
 @router.post("/auth")
-def portal_login(payload: AuthIn, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def portal_login(request: Request, payload: AuthIn, db: Session = Depends(get_db)):
     studio = db.scalar(select(Studio).where(Studio.slug == payload.studio_slug))
     if not studio:
         raise HTTPException(status_code=404, detail="Studio not found")

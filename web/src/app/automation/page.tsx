@@ -176,6 +176,21 @@ export default function AutomationSettingsPage() {
     const [aiPrompt, setAiPrompt] = useState("");
     const [isAiLoading, setIsAiLoading] = useState(false);
 
+    // 2FA state
+    const [totpEnabled, setTotpEnabled] = useState(false);
+    const [totpSetupUri, setTotpSetupUri] = useState<string | null>(null);
+    const [totpSetupSecret, setTotpSetupSecret] = useState<string | null>(null);
+    const [totpQr, setTotpQr] = useState<string | null>(null);
+    const [totpCode, setTotpCode] = useState("");
+    const [totpMsg, setTotpMsg] = useState<string | null>(null);
+    const [totpLoading, setTotpLoading] = useState(false);
+
+    useEffect(() => {
+        apiFetch<{ totp_enabled: boolean }>("/api/auth/me")
+            .then(me => setTotpEnabled(me.totp_enabled))
+            .catch(() => {});
+    }, []);
+
     useEffect(() => {
         apiFetch<Settings>("/api/studio/automation", { method: "GET" })
             .then((data) => {
@@ -1349,6 +1364,137 @@ export default function AutomationSettingsPage() {
                         )}
 
                     </div>
+                </div>
+
+                {/* 2FA Section */}
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 mt-6">
+                    <div className="flex items-center gap-3 mb-4">
+                        <span className="text-2xl">🔐</span>
+                        <div>
+                            <h3 className="font-bold text-slate-800">אימות דו-שלבי (2FA)</h3>
+                            <p className="text-sm text-slate-500">הגן על החשבון שלך עם קוד נוסף בכניסה</p>
+                        </div>
+                        <span className={`mr-auto text-xs font-semibold px-3 py-1 rounded-full ${totpEnabled ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                            {totpEnabled ? "מופעל ✓" : "כבוי"}
+                        </span>
+                    </div>
+
+                    {totpMsg && (
+                        <div className={`text-sm rounded-xl px-4 py-3 mb-4 ${totpMsg.startsWith("✓") ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"}`}>
+                            {totpMsg}
+                        </div>
+                    )}
+
+                    {!totpEnabled && !totpSetupUri && (
+                        <button
+                            onClick={async () => {
+                                setTotpLoading(true);
+                                setTotpMsg(null);
+                                try {
+                                    const data = await apiFetch<{ secret: string; otpauth_uri: string }>("/api/auth/2fa/setup");
+                                    setTotpSetupSecret(data.secret);
+                                    setTotpSetupUri(data.otpauth_uri);
+                                    const QRCode = (await import("qrcode")).default;
+                                    setTotpQr(await QRCode.toDataURL(data.otpauth_uri));
+                                } catch {
+                                    setTotpMsg("שגיאה בטעינת ה-QR");
+                                } finally {
+                                    setTotpLoading(false);
+                                }
+                            }}
+                            disabled={totpLoading}
+                            className="bg-black text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-gray-800 disabled:opacity-50 transition"
+                        >
+                            {totpLoading ? "טוען..." : "הפעל אימות דו-שלבי"}
+                        </button>
+                    )}
+
+                    {!totpEnabled && totpSetupUri && (
+                        <div className="space-y-4">
+                            <p className="text-sm text-slate-600">סרוק את ה-QR באפליקציית אימות (Google Authenticator / Authy):</p>
+                            {totpQr && <img src={totpQr} alt="QR Code" className="w-44 h-44 rounded-xl border" />}
+                            <p className="text-xs text-slate-400 font-mono break-all">או הכנס ידנית: <span className="font-bold text-slate-700">{totpSetupSecret}</span></p>
+                            <div className="flex gap-3">
+                                <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    maxLength={6}
+                                    value={totpCode}
+                                    onChange={e => setTotpCode(e.target.value.replace(/\D/g, ""))}
+                                    placeholder="הכנס קוד 6 ספרות"
+                                    dir="ltr"
+                                    className="flex-1 border rounded-xl px-4 py-2 text-center font-mono text-lg tracking-widest outline-none focus:ring-2 focus:ring-black/20"
+                                />
+                                <button
+                                    onClick={async () => {
+                                        setTotpLoading(true);
+                                        setTotpMsg(null);
+                                        try {
+                                            await apiFetch("/api/auth/2fa/enable", {
+                                                method: "POST",
+                                                body: JSON.stringify({ secret: totpSetupSecret, code: totpCode }),
+                                            });
+                                            setTotpEnabled(true);
+                                            setTotpSetupUri(null);
+                                            setTotpSetupSecret(null);
+                                            setTotpQr(null);
+                                            setTotpCode("");
+                                            setTotpMsg("✓ אימות דו-שלבי הופעל בהצלחה");
+                                        } catch (e: unknown) {
+                                            setTotpMsg((e as Error)?.message || "קוד שגוי");
+                                        } finally {
+                                            setTotpLoading(false);
+                                        }
+                                    }}
+                                    disabled={totpLoading || totpCode.length < 6}
+                                    className="bg-black text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-gray-800 disabled:opacity-50 transition"
+                                >
+                                    {totpLoading ? "מאמת..." : "אמת והפעל"}
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {totpEnabled && (
+                        <div className="space-y-3">
+                            <p className="text-sm text-slate-600">להשבתה, הכנס קוד מאפליקציית האימות:</p>
+                            <div className="flex gap-3">
+                                <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    maxLength={6}
+                                    value={totpCode}
+                                    onChange={e => setTotpCode(e.target.value.replace(/\D/g, ""))}
+                                    placeholder="קוד 6 ספרות"
+                                    dir="ltr"
+                                    className="flex-1 border rounded-xl px-4 py-2 text-center font-mono text-lg tracking-widest outline-none focus:ring-2 focus:ring-black/20"
+                                />
+                                <button
+                                    onClick={async () => {
+                                        setTotpLoading(true);
+                                        setTotpMsg(null);
+                                        try {
+                                            await apiFetch("/api/auth/2fa/disable", {
+                                                method: "POST",
+                                                body: JSON.stringify({ code: totpCode }),
+                                            });
+                                            setTotpEnabled(false);
+                                            setTotpCode("");
+                                            setTotpMsg("✓ אימות דו-שלבי הושבת");
+                                        } catch (e: unknown) {
+                                            setTotpMsg((e as Error)?.message || "קוד שגוי");
+                                        } finally {
+                                            setTotpLoading(false);
+                                        }
+                                    }}
+                                    disabled={totpLoading || totpCode.length < 6}
+                                    className="border border-red-200 text-red-600 text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-red-50 disabled:opacity-50 transition"
+                                >
+                                    {totpLoading ? "..." : "השבת"}
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Floating Save Button */}

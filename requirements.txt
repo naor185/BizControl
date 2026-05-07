@@ -36,3 +36,5 @@ google-genai==1.15.0
 openai==1.82.0
 argon2-cffi==23.1.0
 stripe==12.1.0
+slowapi==0.1.9
+pyotp==2.9.0

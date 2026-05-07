@@ -45,6 +45,8 @@ class User(Base):
     hourly_rate: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False, server_default="0.00")
     commission_rate: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False, server_default="0.00")
 
+    totp_secret: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     studio: Mapped["Studio"] = relationship(back_populates="users")

@@ -3,6 +3,9 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from app.core.limiter import limiter
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from app.db.session import SessionLocal
@@ -60,6 +63,8 @@ async def lifespan(app: FastAPI):
     stop_scheduler()
 
 app = FastAPI(title="BizControl", version="0.1.0", lifespan=lifespan)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Ensure uploads directory exists before mounting
 os.makedirs("uploads", exist_ok=True)

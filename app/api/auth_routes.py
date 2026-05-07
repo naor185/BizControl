@@ -1,29 +1,58 @@
 import uuid
-from fastapi import APIRouter, Depends, HTTPException
+from datetime import datetime, timezone, timedelta
+
+import pyotp
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
 from pydantic import BaseModel
+from jose import JWTError
 
 from app.core.database import get_db
-from app.core.security import create_access_token, create_refresh_token, decode_token
+from app.core.limiter import limiter
+from app.core.security import create_access_token, create_refresh_token, decode_token, JWT_SECRET, JWT_ALG
 from app.core.auth_deps import get_current_user
 from app.models.studio import Studio
 from app.models.user import User
 from app.models.refresh_token import RefreshToken
 from app.schemas.auth_schemas import LoginRequest, TokenResponse, RefreshRequest
+from jose import jwt as jose_jwt
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 ph = PasswordHasher()
 
-@router.post("/login", response_model=TokenResponse)
-def login(payload: LoginRequest, db: Session = Depends(get_db)):
-    studio = db.query(Studio).filter(Studio.slug == payload.studio_slug, Studio.is_active == True).first()
+TOTP_ISSUER = "BizControl"
+PENDING_TOKEN_MINUTES = 5
+
+
+def _create_pending_token(user_id: str, studio_id: str) -> str:
+    exp = datetime.now(timezone.utc) + timedelta(minutes=PENDING_TOKEN_MINUTES)
+    return jose_jwt.encode(
+        {"type": "2fa_pending", "user_id": user_id, "studio_id": studio_id, "exp": exp},
+        JWT_SECRET, algorithm=JWT_ALG,
+    )
+
+
+def _issue_full_tokens(user: User, db: Session) -> TokenResponse:
+    access = create_access_token({"user_id": str(user.id), "studio_id": str(user.studio_id), "role": user.role})
+    refresh = create_refresh_token({"user_id": str(user.id), "studio_id": str(user.studio_id)})
+    db.add(RefreshToken(id=uuid.uuid4(), studio_id=user.studio_id, user_id=user.id, token=refresh, is_revoked=False))
+    db.commit()
+    return TokenResponse(access_token=access, refresh_token=refresh)
+
+
+# ── Login ─────────────────────────────────────────────────────────────────────
+
+@router.post("/login")
+@limiter.limit("10/minute")
+def login(request: Request, payload: LoginRequest, db: Session = Depends(get_db)):
+    studio = db.query(Studio).filter(Studio.slug == payload.studio_slug, Studio.is_active == True).first()  # noqa: E712
     if not studio:
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     email = str(payload.email).lower().strip()
-    user = db.query(User).filter(User.studio_id == studio.id, User.email == email, User.is_active == True).first()
+    user = db.query(User).filter(User.studio_id == studio.id, User.email == email, User.is_active == True).first()  # noqa: E712
     if not user:
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
@@ -32,23 +61,47 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
     except VerifyMismatchError:
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    access = create_access_token({"user_id": str(user.id), "studio_id": str(studio.id), "role": user.role})
-    refresh = create_refresh_token({"user_id": str(user.id), "studio_id": str(studio.id)})
+    if user.totp_secret:
+        return {
+            "requires_2fa": True,
+            "pending_token": _create_pending_token(str(user.id), str(studio.id)),
+        }
 
-    db.add(RefreshToken(
-        id=uuid.uuid4(),
-        studio_id=studio.id,
-        user_id=user.id,
-        token=refresh,
-        is_revoked=False
-    ))
-    db.commit()
+    return _issue_full_tokens(user, db)
 
-    return TokenResponse(access_token=access, refresh_token=refresh)
+
+# ── 2FA verify (step 2 of login) ─────────────────────────────────────────────
+
+class TwoFAVerifyIn(BaseModel):
+    pending_token: str
+    code: str
+
+
+@router.post("/2fa/verify", response_model=TokenResponse)
+@limiter.limit("10/minute")
+def verify_2fa(request: Request, payload: TwoFAVerifyIn, db: Session = Depends(get_db)):
+    try:
+        data = decode_token(payload.pending_token)
+    except JWTError:
+        raise HTTPException(status_code=401, detail="קוד זמני לא תקין או פג תוקף")
+    if data.get("type") != "2fa_pending":
+        raise HTTPException(status_code=401, detail="Token type invalid")
+
+    user = db.get(User, data["user_id"])
+    if not user or not user.totp_secret:
+        raise HTTPException(status_code=401, detail="משתמש לא נמצא")
+
+    totp = pyotp.TOTP(user.totp_secret)
+    if not totp.verify(payload.code.strip(), valid_window=1):
+        raise HTTPException(status_code=401, detail="קוד שגוי — נסה שנית")
+
+    return _issue_full_tokens(user, db)
+
+
+# ── Refresh ───────────────────────────────────────────────────────────────────
 
 @router.post("/refresh", response_model=TokenResponse)
 def refresh(payload: RefreshRequest, db: Session = Depends(get_db)):
-    # Verify refresh token signature + type
     try:
         data = decode_token(payload.refresh_token)
     except Exception:
@@ -62,34 +115,33 @@ def refresh(payload: RefreshRequest, db: Session = Depends(get_db)):
     if not user_id or not studio_id:
         raise HTTPException(status_code=401, detail="Invalid refresh token payload")
 
-    # Check token exists + not revoked
-    token_row = db.query(RefreshToken).filter(RefreshToken.token == payload.refresh_token, RefreshToken.is_revoked == False).first()
+    token_row = db.query(RefreshToken).filter(
+        RefreshToken.token == payload.refresh_token,
+        RefreshToken.is_revoked == False,  # noqa: E712
+    ).first()
     if not token_row:
         raise HTTPException(status_code=401, detail="Refresh token revoked or not found")
 
-    user = db.query(User).filter(User.id == user_id, User.studio_id == studio_id, User.is_active == True).first()
+    user = db.query(User).filter(User.id == user_id, User.studio_id == studio_id, User.is_active == True).first()  # noqa: E712
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
 
     new_access = create_access_token({"user_id": str(user.id), "studio_id": str(user.studio_id), "role": user.role})
     new_refresh = create_refresh_token({"user_id": str(user.id), "studio_id": str(user.studio_id)})
 
-    # rotate refresh: revoke old, store new
     token_row.is_revoked = True
-    db.add(RefreshToken(
-        id=uuid.uuid4(),
-        studio_id=user.studio_id,
-        user_id=user.id,
-        token=new_refresh,
-        is_revoked=False
-    ))
+    db.add(RefreshToken(id=uuid.uuid4(), studio_id=user.studio_id, user_id=user.id, token=new_refresh, is_revoked=False))
     db.commit()
 
     return TokenResponse(access_token=new_access, refresh_token=new_refresh)
 
+
+# ── Set Password ──────────────────────────────────────────────────────────────
+
 class SetPasswordRequest(BaseModel):
     token: str
     new_password: str
+
 
 @router.post("/set-password")
 def set_password(payload: SetPasswordRequest, db: Session = Depends(get_db)):
@@ -106,6 +158,9 @@ def set_password(payload: SetPasswordRequest, db: Session = Depends(get_db)):
     db.commit()
     return {"status": "ok"}
 
+
+# ── Me ────────────────────────────────────────────────────────────────────────
+
 @router.get("/me")
 def me(current_user: User = Depends(get_current_user)):
     return {
@@ -114,4 +169,48 @@ def me(current_user: User = Depends(get_current_user)):
         "display_name": current_user.display_name,
         "role": current_user.role,
         "studio_id": str(current_user.studio_id),
+        "totp_enabled": bool(current_user.totp_secret),
     }
+
+
+# ── 2FA Setup / Enable / Disable ─────────────────────────────────────────────
+
+@router.get("/2fa/setup")
+def setup_2fa(current_user: User = Depends(get_current_user)):
+    """Generate a new TOTP secret and return the otpauth URI. Does NOT save yet."""
+    secret = pyotp.random_base32()
+    totp = pyotp.TOTP(secret)
+    uri = totp.provisioning_uri(name=current_user.email, issuer_name=TOTP_ISSUER)
+    return {"secret": secret, "otpauth_uri": uri}
+
+
+class TwoFAEnableIn(BaseModel):
+    secret: str
+    code: str
+
+
+@router.post("/2fa/enable")
+def enable_2fa(payload: TwoFAEnableIn, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Verify the TOTP code against the given secret, then save it."""
+    totp = pyotp.TOTP(payload.secret)
+    if not totp.verify(payload.code.strip(), valid_window=1):
+        raise HTTPException(status_code=400, detail="קוד שגוי — בדוק שסרקת את ה-QR נכון")
+    current_user.totp_secret = payload.secret
+    db.commit()
+    return {"status": "enabled"}
+
+
+class TwoFADisableIn(BaseModel):
+    code: str
+
+
+@router.post("/2fa/disable")
+def disable_2fa(payload: TwoFADisableIn, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if not current_user.totp_secret:
+        raise HTTPException(status_code=400, detail="אימות דו-שלבי לא מופעל")
+    totp = pyotp.TOTP(current_user.totp_secret)
+    if not totp.verify(payload.code.strip(), valid_window=1):
+        raise HTTPException(status_code=400, detail="קוד שגוי")
+    current_user.totp_secret = None
+    db.commit()
+    return {"status": "disabled"}

@@ -19,6 +19,9 @@ function LoginContent() {
     const [showPass, setShowPass] = useState(false);
     const [loading, setLoading] = useState(false);
     const [err, setErr] = useState<string | null>(null);
+    const [step, setStep] = useState<"credentials" | "2fa">("credentials");
+    const [pendingToken, setPendingToken] = useState("");
+    const [totpCode, setTotpCode] = useState("");
 
     useEffect(() => {
         try {
@@ -37,11 +40,16 @@ function LoginContent() {
         setErr(null);
         setLoading(true);
         try {
-            const res = await apiFetch<{ access_token: string }>("/api/auth/login", {
-                method: "POST",
-                auth: false,
-                body: JSON.stringify({ studio_slug: studioSlug, email, password }),
-            });
+            const res = await apiFetch<{ access_token?: string; requires_2fa?: boolean; pending_token?: string; refresh_token?: string }>(
+                "/api/auth/login",
+                { method: "POST", auth: false, body: JSON.stringify({ studio_slug: studioSlug, email, password }) },
+            );
+
+            if (res.requires_2fa && res.pending_token) {
+                setPendingToken(res.pending_token);
+                setStep("2fa");
+                return;
+            }
 
             if (rememberMe) {
                 localStorage.setItem(LS_KEY, JSON.stringify({ studioSlug, email, password }));
@@ -49,20 +57,68 @@ function LoginContent() {
                 localStorage.removeItem(LS_KEY);
             }
 
-            setToken(res.access_token);
-            const me = await apiFetch<{ role: string }>("/api/auth/me", { method: "GET" });
+            setToken(res.access_token!);
+            const me = await apiFetch<{ role: string }>("/api/auth/me");
             router.replace(me.role === "superadmin" ? "/admin" : nextUrl);
-        } catch (e: any) {
-            const msg = String(e?.message || "");
-            const hebrew =
-                msg.includes("Failed to fetch") || msg.includes("NetworkError")
-                    ? "לא ניתן להתחבר לשרת."
-                    : msg || "שגיאה בהתחברות";
-            setErr(hebrew);
+        } catch (e: unknown) {
+            const msg = String((e as Error)?.message || "");
+            setErr(msg.includes("Failed to fetch") || msg.includes("NetworkError") ? "לא ניתן להתחבר לשרת." : msg || "שגיאה בהתחברות");
         } finally {
             setLoading(false);
         }
     }
+
+    async function onSubmit2FA(e: React.FormEvent) {
+        e.preventDefault();
+        setErr(null);
+        setLoading(true);
+        try {
+            const res = await apiFetch<{ access_token: string }>(
+                "/api/auth/2fa/verify",
+                { method: "POST", auth: false, body: JSON.stringify({ pending_token: pendingToken, code: totpCode }) },
+            );
+            setToken(res.access_token);
+            const me = await apiFetch<{ role: string }>("/api/auth/me");
+            router.replace(me.role === "superadmin" ? "/admin" : nextUrl);
+        } catch (e: unknown) {
+            setErr((e as Error)?.message || "קוד שגוי");
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    if (step === "2fa") return (
+        <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-gradient-to-br from-[#f8fafc] to-[#e2e8f0]" dir="rtl">
+            <div className="w-full max-w-md rounded-2xl bg-white shadow-xl p-8 border border-white/60">
+                <div className="flex flex-col items-center mb-6">
+                    <div className="text-4xl mb-3">🔐</div>
+                    <h1 className="text-xl font-bold text-slate-800">אימות דו-שלבי</h1>
+                    <p className="text-sm text-slate-500 mt-1 text-center">פתח את אפליקציית האימות והכנס את הקוד</p>
+                </div>
+                <form onSubmit={onSubmit2FA} className="space-y-4">
+                    <input
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={6}
+                        value={totpCode}
+                        onChange={e => setTotpCode(e.target.value.replace(/\D/g, ""))}
+                        placeholder="000000"
+                        dir="ltr"
+                        className="w-full text-center text-2xl tracking-[0.5em] font-mono rounded-lg border px-3 py-3 outline-none focus:ring-2 focus:ring-black/20"
+                        autoFocus
+                    />
+                    {err && <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-3">{err}</div>}
+                    <button disabled={loading || totpCode.length < 6} className="w-full rounded-lg bg-black text-white py-2 font-medium disabled:opacity-60">
+                        {loading ? "מאמת..." : "כניסה"}
+                    </button>
+                    <button type="button" onClick={() => { setStep("credentials"); setErr(null); setTotpCode(""); }}
+                        className="w-full text-sm text-slate-400 hover:text-slate-600">
+                        חזור
+                    </button>
+                </form>
+            </div>
+        </div>
+    );
 
     return (
         <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-gradient-to-br from-[#f8fafc] to-[#e2e8f0]" dir="rtl">
