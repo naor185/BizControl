@@ -125,6 +125,11 @@ class StudioSettings(Base):
     # Green API (WhatsApp via linked device)
     whatsapp_instance_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
+    # Meta Social Inbox (Instagram DMs + Facebook Messenger)
+    facebook_page_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    instagram_account_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    meta_page_access_token: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     studio: Mapped["Studio"] = relationship(back_populates="settings")
