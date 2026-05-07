@@ -14,6 +14,7 @@ const PRIMARY_NAV = [
 
 const MORE_NAV = [
     { href: "/dashboard",    label: "לוח בקרה",    icon: "📊" },
+    { href: "/leads",        label: "לידים",        icon: "🎯" },
     { href: "/expenses",     label: "ניהול עסק",    icon: "💼" },
     { href: "/products",     label: "מוצרים",       icon: "📦" },
     { href: "/team",         label: "צוות",         icon: "🎨" },

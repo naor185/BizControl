@@ -14,8 +14,9 @@ from app.models.monthly_goal import MonthlyGoal
 from app.models.product import Product
 from app.models.product_sale import ProductSale
 from app.models.studio_note import StudioNote
+from app.models.lead import Lead
 
 __all__ = [
     "Base", "Studio", "User", "StudioSettings", "RefreshToken",
-    "Client", "Appointment", "Payment", "ClientPointsLedger", "MessageJob", "Expense", "WorkSession", "MonthlyGoal", "Product", "ProductSale", "StudioNote"
+    "Client", "Appointment", "Payment", "ClientPointsLedger", "MessageJob", "Expense", "WorkSession", "MonthlyGoal", "Product", "ProductSale", "StudioNote", "Lead"
 ]
