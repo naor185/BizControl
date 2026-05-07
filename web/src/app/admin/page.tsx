@@ -54,6 +54,9 @@ export default function AdminPage() {
     const [creating, setCreating] = useState(false);
     const [createErr, setCreateErr] = useState<string | null>(null);
     const [impersonating, setImpersonating] = useState<string | null>(null);
+    const [extendModal, setExtendModal] = useState<{ studio: Studio } | null>(null);
+    const [extendDays, setExtendDays] = useState(14);
+    const [extending, setExtending] = useState(false);
     const [form, setForm] = useState<NewStudioForm>({
         studio_name: "", slug: "", owner_email: "", owner_password: "",
         owner_display_name: "", subscription_plan: "starter", plan_days: 30,
@@ -109,13 +112,33 @@ export default function AdminPage() {
         } catch (e: any) { alert(e?.message); }
     };
 
-    const handleExtend = async (studio: Studio) => {
-        const days = prompt(`כמה ימים להוסיף למנוי של ${studio.name}?`, "30");
-        if (!days) return;
+    const handleExtend = (studio: Studio) => {
+        setExtendDays(14);
+        setExtendModal({ studio });
+    };
+
+    const handleExtendSubmit = async () => {
+        if (!extendModal) return;
+        setExtending(true);
+        try {
+            await apiFetch(`/api/admin/studios/${extendModal.studio.id}`, {
+                method: "PATCH",
+                body: JSON.stringify({ plan_days: extendDays }),
+            });
+            setExtendModal(null);
+            await load();
+        } catch (e: any) {
+            alert(e?.message);
+        } finally {
+            setExtending(false);
+        }
+    };
+
+    const handleQuickTrial = async (studio: Studio) => {
         try {
             await apiFetch(`/api/admin/studios/${studio.id}`, {
                 method: "PATCH",
-                body: JSON.stringify({ plan_days: Number(days) }),
+                body: JSON.stringify({ plan_days: 14 }),
             });
             await load();
         } catch (e: any) { alert(e?.message); }
@@ -156,6 +179,16 @@ export default function AdminPage() {
         return diff;
     };
 
+    const trialCount = studios.filter(s => {
+        const d = daysUntilExpiry(s.plan_expires_at);
+        return d !== null && d > 0 && d <= 14 && s.is_active;
+    }).length;
+
+    const expiredCount = studios.filter(s => {
+        const d = daysUntilExpiry(s.plan_expires_at);
+        return d !== null && d <= 0;
+    }).length;
+
     if (loading) return (
         <div className="min-h-screen bg-slate-950 flex items-center justify-center">
             <div className="animate-spin w-10 h-10 border-4 border-white/20 border-t-white rounded-full" />
@@ -195,16 +228,18 @@ export default function AdminPage() {
 
                 {/* KPI Cards */}
                 {stats && (
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
                         {[
-                            { label: "סטודיואים", value: stats.total_studios, icon: "🏢" },
-                            { label: "פעילים", value: stats.active_studios, icon: "✅" },
-                            { label: "חדשים החודש", value: stats.new_studios_month, icon: "🆕" },
-                            { label: "לקוחות סה\"כ", value: stats.total_clients, icon: "👥" },
-                            { label: "תורים החודש", value: stats.total_appointments_month, icon: "📅" },
-                            { label: "הודעות ממתינות", value: stats.pending_messages, icon: "📬" },
+                            { label: "סטודיואים", value: stats.total_studios, icon: "🏢", color: "" },
+                            { label: "פעילים", value: stats.active_studios, icon: "✅", color: "" },
+                            { label: "חדשים החודש", value: stats.new_studios_month, icon: "🆕", color: "" },
+                            { label: "בניסיון (<14י׳)", value: trialCount, icon: "🔬", color: trialCount > 0 ? "border-amber-500/40 bg-amber-500/10" : "" },
+                            { label: "פג תוקף", value: expiredCount, icon: "⏰", color: expiredCount > 0 ? "border-red-500/40 bg-red-500/10" : "" },
+                            { label: "לקוחות סה\"כ", value: stats.total_clients, icon: "👥", color: "" },
+                            { label: "תורים החודש", value: stats.total_appointments_month, icon: "📅", color: "" },
+                            { label: "הודעות ממתינות", value: stats.pending_messages, icon: "📬", color: "" },
                         ].map(k => (
-                            <div key={k.label} className="bg-white/5 border border-white/10 rounded-2xl p-4">
+                            <div key={k.label} className={`bg-white/5 border border-white/10 rounded-2xl p-4 ${k.color}`}>
                                 <div className="text-2xl mb-2">{k.icon}</div>
                                 <div className="text-2xl font-bold">{k.value}</div>
                                 <div className="text-xs text-slate-400 mt-1">{k.label}</div>
@@ -262,9 +297,11 @@ export default function AdminPage() {
                                                     {days === null ? (
                                                         <span className="text-slate-500 text-xs">ללא הגבלה</span>
                                                     ) : days <= 0 ? (
-                                                        <span className="text-red-400 text-xs font-bold">פג תוקף</span>
+                                                        <span className="text-red-400 text-xs font-bold">⏰ פג תוקף</span>
                                                     ) : days <= 7 ? (
-                                                        <span className="text-amber-400 text-xs font-bold">{days} ימים</span>
+                                                        <span className="text-amber-400 text-xs font-bold">⚠️ {days} ימים</span>
+                                                    ) : days <= 14 ? (
+                                                        <span className="text-yellow-300 text-xs font-bold">🔬 ניסיון {days}י׳</span>
                                                     ) : (
                                                         <span className="text-slate-300 text-xs">{days} ימים</span>
                                                     )}
@@ -277,13 +314,20 @@ export default function AdminPage() {
                                                     </span>
                                                 </td>
                                                 <td className="px-4 py-4">
-                                                    <div className="flex items-center gap-2">
+                                                    <div className="flex items-center gap-2 flex-wrap">
                                                         <button
                                                             onClick={() => handleImpersonate(s)}
                                                             disabled={impersonating === s.id}
                                                             className="text-xs bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg transition-colors"
                                                         >
                                                             {impersonating === s.id ? "..." : "כנס"}
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleQuickTrial(s)}
+                                                            className="text-xs bg-amber-500/20 hover:bg-amber-500/40 text-amber-300 border border-amber-500/30 px-3 py-1.5 rounded-lg transition-colors font-bold"
+                                                            title="הענק 14 ימי ניסיון מהיום"
+                                                        >
+                                                            🔬 14י׳
                                                         </button>
                                                         <button
                                                             onClick={() => handleExtend(s)}
@@ -314,6 +358,61 @@ export default function AdminPage() {
                     )}
                 </div>
             </div>
+
+            {/* Extend / Trial Modal */}
+            {extendModal && (
+                <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+                    <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-sm p-6" dir="rtl">
+                        <div className="flex items-center justify-between mb-1">
+                            <h3 className="font-bold text-lg">הארכת מנוי</h3>
+                            <button onClick={() => setExtendModal(null)} className="text-slate-400 hover:text-white text-xl">✕</button>
+                        </div>
+                        <p className="text-slate-400 text-sm mb-5">{extendModal.studio.name} — בחר לכמה ימים מהיום</p>
+
+                        <div className="grid grid-cols-4 gap-2 mb-4">
+                            {[7, 14, 30, 90].map(d => (
+                                <button
+                                    key={d}
+                                    onClick={() => setExtendDays(d)}
+                                    className={`py-3 rounded-xl text-sm font-bold transition-all ${extendDays === d ? "bg-white text-slate-900" : "bg-white/10 text-slate-300 hover:bg-white/20"}`}
+                                >
+                                    {d} ימים
+                                </button>
+                            ))}
+                        </div>
+
+                        <div className="mb-4">
+                            <label className="text-xs text-slate-400 mb-1 block">מספר ימים מותאם:</label>
+                            <input
+                                type="number" min={1} max={365} dir="ltr"
+                                value={extendDays}
+                                onChange={e => setExtendDays(Number(e.target.value))}
+                                className="w-full bg-white/10 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-white/30"
+                            />
+                        </div>
+
+                        <div className="bg-white/5 rounded-xl px-4 py-3 mb-5 text-sm">
+                            <div className="text-slate-400 text-xs mb-1">תאריך פקיעה חדש:</div>
+                            <div className="font-bold text-emerald-400">
+                                {new Date(Date.now() + extendDays * 86400000).toLocaleDateString("he-IL", { day: "numeric", month: "long", year: "numeric" })}
+                            </div>
+                        </div>
+
+                        <div className="flex gap-3">
+                            <button
+                                onClick={handleExtendSubmit}
+                                disabled={extending || extendDays < 1}
+                                className="flex-1 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 text-white font-bold py-2.5 rounded-xl transition-colors"
+                            >
+                                {extending ? "מעדכן..." : `✅ הענק ${extendDays} ימים`}
+                            </button>
+                            <button onClick={() => setExtendModal(null)} className="px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-sm transition-colors">
+                                ביטול
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* New Studio Modal */}
             {showNew && (
