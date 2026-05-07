@@ -608,6 +608,26 @@ ACTION_LABELS = {
 }
 
 
+@router.post("/test-plan-alert/{studio_id}")
+def test_plan_alert(
+    studio_id: str,
+    admin: User = Depends(require_superadmin),
+    db: Session = Depends(get_db),
+):
+    """Manually trigger a 7-day expiry warning email for a studio (for testing)."""
+    from app.services.plan_alert_service import _send_alert
+    studio = db.get(Studio, studio_id)
+    if not studio:
+        raise HTTPException(status_code=404, detail="Studio not found")
+    owner = db.scalar(
+        select(User).where(User.studio_id == studio.id, User.role == "owner", User.is_active == True)  # noqa: E712
+    )
+    if not owner or not owner.email:
+        raise HTTPException(status_code=404, detail="Studio has no active owner with email")
+    _send_alert(studio, owner.email, days=7)
+    return {"ok": True, "sent_to": owner.email}
+
+
 @router.get("/audit-log", response_model=list[AuditLogOut])
 def get_audit_log(
     studio_id: Optional[str] = None,

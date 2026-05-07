@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.models.studio import Studio
 from app.models.user import User
-from app.utils.email_utils import send_email
+from app.utils.email_utils import send_email_sync
 
 logger = logging.getLogger(__name__)
 
@@ -84,41 +84,38 @@ def _build_admin_html(studio_name: str, slug: str, owner_email: str, days: int, 
     """
 
 
-async def _send_alert(studio: Studio, owner_email: str, days: int) -> None:
+def _send_alert(studio: Studio, owner_email: str, days: int) -> None:
     if not all([PLATFORM_SMTP_HOST, PLATFORM_SMTP_USER, PLATFORM_SMTP_PASS]):
         logger.warning("Platform SMTP not configured — skipping plan expiry email for %s", studio.slug)
         return
 
     # Email to studio owner
-    try:
-        await send_email(
-            host=PLATFORM_SMTP_HOST,
-            port=PLATFORM_SMTP_PORT,
-            user=PLATFORM_SMTP_USER,
-            password=PLATFORM_SMTP_PASS,
-            from_email=PLATFORM_SMTP_FROM,
-            to_email=owner_email,
-            subject=f"BizControl — המנוי שלך יפוג בעוד {days} ימים",
-            html_content=_build_studio_html(studio.name, days, studio.subscription_plan),
-        )
+    ok = send_email_sync(
+        host=PLATFORM_SMTP_HOST,
+        port=PLATFORM_SMTP_PORT,
+        user=PLATFORM_SMTP_USER,
+        password=PLATFORM_SMTP_PASS,
+        from_email=PLATFORM_SMTP_FROM,
+        to_email=owner_email,
+        subject=f"BizControl — המנוי שלך יפוג בעוד {days} ימים",
+        html_content=_build_studio_html(studio.name, days, studio.subscription_plan),
+    )
+    if ok:
         logger.info("Expiry alert (%dd) sent to %s", days, owner_email)
-    except Exception as e:
-        logger.error("Failed to send expiry alert to %s: %s", owner_email, e)
+    else:
+        logger.error("Failed to send expiry alert to %s", owner_email)
 
     # Copy to platform admin
-    try:
-        await send_email(
-            host=PLATFORM_SMTP_HOST,
-            port=PLATFORM_SMTP_PORT,
-            user=PLATFORM_SMTP_USER,
-            password=PLATFORM_SMTP_PASS,
-            from_email=PLATFORM_SMTP_FROM,
-            to_email=PLATFORM_ADMIN_EMAIL,
-            subject=f"[BizControl Admin] {studio.name} expires in {days}d",
-            html_content=_build_admin_html(studio.name, studio.slug, owner_email, days, studio.subscription_plan),
-        )
-    except Exception as e:
-        logger.error("Failed to send admin copy: %s", e)
+    send_email_sync(
+        host=PLATFORM_SMTP_HOST,
+        port=PLATFORM_SMTP_PORT,
+        user=PLATFORM_SMTP_USER,
+        password=PLATFORM_SMTP_PASS,
+        from_email=PLATFORM_SMTP_FROM,
+        to_email=PLATFORM_ADMIN_EMAIL,
+        subject=f"[BizControl Admin] {studio.name} expires in {days}d",
+        html_content=_build_admin_html(studio.name, studio.slug, owner_email, days, studio.subscription_plan),
+    )
 
 
 def sweep_plan_expiry_alerts(db: Session) -> None:
@@ -149,15 +146,7 @@ def sweep_plan_expiry_alerts(db: Session) -> None:
             if not owner:
                 continue
 
-            import asyncio
             try:
-                asyncio.get_event_loop().run_until_complete(
-                    _send_alert(studio, owner.email, warn_days)
-                )
-            except RuntimeError:
-                # Already inside an event loop (shouldn't happen in scheduler thread)
-                import concurrent.futures
-                with concurrent.futures.ThreadPoolExecutor() as pool:
-                    pool.submit(
-                        lambda: asyncio.run(_send_alert(studio, owner.email, warn_days))
-                    ).result()
+                _send_alert(studio, owner.email, warn_days)
+            except Exception as exc:
+                logger.error("_send_alert failed for %s: %s", studio.slug, exc)
