@@ -77,6 +77,22 @@ class UpdateStudioIn(BaseModel):
     subscription_plan: Optional[str] = None
     plan_days: Optional[int] = None  # extend by N days from now
 
+class AdminSettingsIn(BaseModel):
+    self_booking_enabled: Optional[bool] = None
+    ai_generations_count: Optional[int] = None
+    calendar_start_hour: Optional[str] = None
+    calendar_end_hour: Optional[str] = None
+
+class AdminSettingsOut(BaseModel):
+    subscription_plan: str
+    is_active: bool
+    plan_expires_at: Optional[datetime]
+    self_booking_enabled: bool
+    self_booking_slot_minutes: int
+    ai_generations_count: int
+    calendar_start_hour: str
+    calendar_end_hour: str
+
 class SetupIn(BaseModel):
     secret: str
     email: str
@@ -375,6 +391,48 @@ def studio_detail(studio_id: uuid.UUID, admin: User = Depends(require_superadmin
             for u in users
         ],
     )
+
+
+@router.get("/studios/{studio_id}/settings", response_model=AdminSettingsOut)
+def get_studio_settings(studio_id: uuid.UUID, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    studio = db.get(Studio, studio_id)
+    if not studio or studio.is_platform:
+        raise HTTPException(status_code=404, detail="Studio not found")
+    settings = db.get(StudioSettings, studio_id)
+    if not settings:
+        raise HTTPException(status_code=404, detail="Settings not found")
+    return AdminSettingsOut(
+        subscription_plan=studio.subscription_plan,
+        is_active=studio.is_active,
+        plan_expires_at=studio.plan_expires_at,
+        self_booking_enabled=settings.self_booking_enabled,
+        self_booking_slot_minutes=settings.self_booking_slot_minutes or 60,
+        ai_generations_count=settings.ai_generations_count or 0,
+        calendar_start_hour=settings.calendar_start_hour or "08:00",
+        calendar_end_hour=settings.calendar_end_hour or "23:00",
+    )
+
+
+@router.patch("/studios/{studio_id}/settings")
+def update_studio_settings(studio_id: uuid.UUID, payload: AdminSettingsIn, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    studio = db.get(Studio, studio_id)
+    if not studio or studio.is_platform:
+        raise HTTPException(status_code=404, detail="Studio not found")
+    settings = db.get(StudioSettings, studio_id)
+    if not settings:
+        raise HTTPException(status_code=404, detail="Settings not found")
+
+    if payload.self_booking_enabled is not None:
+        settings.self_booking_enabled = payload.self_booking_enabled
+    if payload.ai_generations_count is not None:
+        settings.ai_generations_count = payload.ai_generations_count
+    if payload.calendar_start_hour is not None:
+        settings.calendar_start_hour = payload.calendar_start_hour
+    if payload.calendar_end_hour is not None:
+        settings.calendar_end_hour = payload.calendar_end_hour
+
+    db.commit()
+    return {"status": "updated"}
 
 
 @router.get("/studios/{studio_id}/notes", response_model=list[StudioNoteOut])

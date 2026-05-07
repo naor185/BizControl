@@ -20,8 +20,9 @@ const MORE_NAV = [
     { href: "/team",         label: "צוות",         icon: "🎨" },
     { href: "/team/payroll", label: "דוחות שכר",   icon: "💰" },
     { href: "/message-log",  label: "יומן הודעות", icon: "📋" },
-    { href: "/automation",   label: "הגדרות",      icon: "⚙️" },
-    { href: "/help",         label: "עזרה",        icon: "🆘" },
+    { href: "/billing",       label: "מנוי",         icon: "💎" },
+    { href: "/automation",   label: "הגדרות",       icon: "⚙️" },
+    { href: "/help",         label: "עזרה",         icon: "🆘" },
 ];
 
 export default function BottomNav() {
@@ -49,46 +50,54 @@ export default function BottomNav() {
         return () => clearInterval(t);
     }, []);
 
+    // Close sheet on navigation
+    useEffect(() => { setSheetOpen(false); }, [pathname]);
+
     function logout() {
         clearToken();
         router.replace("/login");
     }
+
+    const navItems = isArtist
+        ? PRIMARY_NAV.filter(i => i.href === "/calendar")
+        : PRIMARY_NAV;
 
     return (
         <>
             {/* Backdrop */}
             {sheetOpen && (
                 <div
-                    className="fixed inset-0 bg-black/40 z-40 md:hidden"
+                    className="fixed inset-0 bg-black/50 z-40 md:hidden backdrop-blur-sm"
                     onClick={() => setSheetOpen(false)}
                 />
             )}
 
-            {/* More sheet — slides up from bottom */}
+            {/* More sheet — slides up */}
             <div
                 dir="rtl"
                 className={[
-                    "fixed right-0 left-0 z-50 md:hidden bg-white rounded-t-3xl shadow-2xl transition-transform duration-300 ease-out",
-                    sheetOpen ? "translate-y-0" : "translate-y-full",
+                    "fixed right-0 left-0 z-50 md:hidden bg-white rounded-t-3xl shadow-2xl transition-all duration-300 ease-out",
+                    sheetOpen ? "translate-y-0 opacity-100" : "translate-y-full opacity-0 pointer-events-none",
                 ].join(" ")}
                 style={{ bottom: "64px" }}
             >
-                {/* Drag handle */}
-                <div className="w-12 h-1 bg-gray-200 rounded-full mx-auto mt-3 mb-4" />
+                {/* Handle */}
+                <div className="flex justify-center pt-3 pb-1">
+                    <div className="w-10 h-1 bg-gray-200 rounded-full" />
+                </div>
 
-                <div className="px-4 pb-6 grid grid-cols-4 gap-3">
+                <div className="px-4 pt-2 pb-5 grid grid-cols-3 gap-2.5">
                     {MORE_NAV.map(item => {
                         const active = isActive(item.href);
                         return (
                             <Link
                                 key={item.href}
                                 href={item.href}
-                                onClick={() => setSheetOpen(false)}
                                 className={[
-                                    "flex flex-col items-center gap-1.5 py-3 px-2 rounded-2xl text-center transition-all",
+                                    "flex flex-col items-center gap-1.5 py-3 rounded-2xl text-center transition-all active:scale-95",
                                     active
-                                        ? "bg-black text-white shadow-lg"
-                                        : "bg-gray-50 text-gray-700 hover:bg-gray-100 active:scale-95",
+                                        ? "bg-black text-white shadow-md"
+                                        : "bg-gray-50 text-gray-700 hover:bg-gray-100",
                                 ].join(" ")}
                             >
                                 <span className="text-2xl leading-none">{item.icon}</span>
@@ -97,10 +106,10 @@ export default function BottomNav() {
                         );
                     })}
 
-                    {/* Logout tile */}
+                    {/* Logout */}
                     <button
                         onClick={logout}
-                        className="flex flex-col items-center gap-1.5 py-3 px-2 rounded-2xl bg-red-50 text-red-600 hover:bg-red-100 active:scale-95 transition-all"
+                        className="flex flex-col items-center gap-1.5 py-3 rounded-2xl bg-red-50 text-red-600 active:scale-95 transition-all"
                     >
                         <span className="text-2xl leading-none">🚪</span>
                         <span className="text-[11px] font-semibold">יציאה</span>
@@ -111,29 +120,27 @@ export default function BottomNav() {
             {/* Bottom bar */}
             <nav
                 dir="rtl"
-                className="fixed bottom-0 right-0 left-0 z-50 md:hidden bg-white border-t border-gray-100 shadow-[0_-2px_16px_rgba(0,0,0,0.07)]"
+                className="fixed bottom-0 right-0 left-0 z-50 md:hidden bg-white/95 backdrop-blur-md border-t border-gray-100 shadow-[0_-4px_20px_rgba(0,0,0,0.08)]"
                 style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
             >
                 <div className="flex items-stretch h-16">
-                    {(isArtist ? PRIMARY_NAV.filter(i => i.href === "/calendar") : PRIMARY_NAV).map(item => {
+                    {navItems.map(item => {
                         const active = isActive(item.href);
                         const showBadge = item.badge && unreadCount > 0;
                         return (
                             <Link
                                 key={item.href}
                                 href={item.href}
-                                className="flex-1 relative flex flex-col items-center justify-center gap-0.5 transition-all active:scale-95"
+                                className="flex-1 relative flex flex-col items-center justify-center gap-0.5 transition-all active:scale-90"
                             >
-                                {/* Active pill background */}
                                 {active && (
-                                    <span className="absolute top-2 inset-x-2 h-9 bg-black/5 rounded-2xl" />
+                                    <span className="absolute top-1.5 inset-x-1.5 h-9 bg-black/6 rounded-2xl" />
                                 )}
 
-                                {/* Icon with optional badge */}
                                 <div className="relative z-10">
                                     <span className={[
-                                        "text-xl transition-all",
-                                        active ? "scale-110 inline-block" : "",
+                                        "text-[22px] leading-none transition-transform duration-200",
+                                        active ? "scale-110 block" : "block",
                                     ].join(" ")}>
                                         {item.icon}
                                     </span>
@@ -145,47 +152,63 @@ export default function BottomNav() {
                                 </div>
 
                                 <span className={[
-                                    "text-[10px] font-semibold z-10",
+                                    "text-[10px] font-semibold z-10 transition-colors",
                                     active ? "text-black" : "text-gray-400",
                                 ].join(" ")}>
                                     {item.label}
                                 </span>
 
-                                {/* Active indicator line */}
                                 {active && (
-                                    <span className="absolute bottom-0 inset-x-3 h-0.5 bg-black rounded-full" />
+                                    <span className="absolute bottom-0 inset-x-4 h-[3px] bg-black rounded-t-full" />
                                 )}
                             </Link>
                         );
                     })}
 
-                    {/* More button — hidden for artists */}
-                    {!isArtist && <button
-                        onClick={() => setSheetOpen(o => !o)}
-                        className="flex-1 relative flex flex-col items-center justify-center gap-0.5 transition-all active:scale-95"
-                    >
-                        {(moreActive || sheetOpen) && (
-                            <span className="absolute top-2 inset-x-2 h-9 bg-black/5 rounded-2xl" />
-                        )}
+                    {/* Center "+" quick-create — calendar only, hidden for artists */}
+                    {!isArtist && (
+                        <Link
+                            href="/calendar"
+                            className="flex-none w-14 flex items-center justify-center self-center mx-1"
+                            aria-label="קבע תור חדש"
+                        >
+                            <span className="w-11 h-11 bg-black rounded-full flex items-center justify-center shadow-lg active:scale-90 transition-transform">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round">
+                                    <path d="M12 5v14M5 12h14" />
+                                </svg>
+                            </span>
+                        </Link>
+                    )}
 
-                        <span className={[
-                            "text-xl transition-all z-10",
-                            sheetOpen ? "rotate-90 scale-110 inline-block" : "",
-                        ].join(" ")}>
-                            {sheetOpen ? "✕" : "☰"}
-                        </span>
+                    {/* More button */}
+                    {!isArtist && (
+                        <button
+                            onClick={() => setSheetOpen(o => !o)}
+                            className="flex-1 relative flex flex-col items-center justify-center gap-0.5 transition-all active:scale-90"
+                        >
+                            {(moreActive || sheetOpen) && (
+                                <span className="absolute top-1.5 inset-x-1.5 h-9 bg-black/6 rounded-2xl" />
+                            )}
 
-                        <span className={[
-                            "text-[10px] font-semibold z-10",
-                            moreActive || sheetOpen ? "text-black" : "text-gray-400",
-                        ].join(" ")}>
-                            עוד
-                        </span>
+                            <span className={[
+                                "text-[22px] leading-none z-10 transition-all duration-200",
+                                sheetOpen ? "rotate-45 scale-110" : "",
+                            ].join(" ")}>
+                                {sheetOpen ? "✕" : "☰"}
+                            </span>
 
-                        {moreActive && !sheetOpen && (
-                            <span className="absolute bottom-0 inset-x-3 h-0.5 bg-black rounded-full" />
-                        )}
-                    </button>}
+                            <span className={[
+                                "text-[10px] font-semibold z-10",
+                                moreActive || sheetOpen ? "text-black" : "text-gray-400",
+                            ].join(" ")}>
+                                עוד
+                            </span>
+
+                            {moreActive && !sheetOpen && (
+                                <span className="absolute bottom-0 inset-x-4 h-[3px] bg-black rounded-t-full" />
+                            )}
+                        </button>
+                    )}
                 </div>
             </nav>
         </>

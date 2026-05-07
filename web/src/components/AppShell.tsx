@@ -30,6 +30,7 @@ const SETTINGS_NAV: NavItem[] = [
     { href: "/team/payroll", label: "דוחות שכר", icon: "💰" },
     { href: "/message-log", label: "יומן הודעות", icon: "💬" },
     { href: "/payments", label: "תשלומים", icon: "💳" },
+    { href: "/billing", label: "מנוי ותשלום", icon: "💎" },
     { href: "/automation", label: "הגדרות", icon: "⚙️" },
     { href: "/help", label: "מרכז עזרה", icon: "🆘" },
 ];
@@ -224,7 +225,7 @@ export default function AppShell({
                                 </div>
                                 <button
                                     onClick={logout}
-                                    className="rounded-lg bg-black text-white text-sm px-3 py-2"
+                                    className="hidden md:inline-flex rounded-lg bg-black text-white text-sm px-3 py-2"
                                 >
                                     התנתקות
                                 </button>

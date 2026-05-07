@@ -28,6 +28,17 @@ type Note = {
     created_at: string;
 };
 
+type StudioSettings = {
+    subscription_plan: string;
+    is_active: boolean;
+    plan_expires_at: string | null;
+    self_booking_enabled: boolean;
+    self_booking_slot_minutes: number;
+    ai_generations_count: number;
+    calendar_start_hour: string;
+    calendar_end_hour: string;
+};
+
 const PLAN_LABELS: Record<string, { label: string; color: string }> = {
     free:     { label: "חינמי",    color: "bg-slate-100 text-slate-600" },
     starter:  { label: "Starter",  color: "bg-blue-100 text-blue-700" },
@@ -64,16 +75,22 @@ export default function StudioDetailPage() {
     const [extendDays, setExtendDays] = useState(30);
     const [extending, setExtending] = useState(false);
     const [impersonating, setImpersonating] = useState(false);
+    const [settings, setSettings] = useState<StudioSettings | null>(null);
+    const [savingSettings, setSavingSettings] = useState(false);
+    const [newPlan, setNewPlan] = useState("");
 
     const load = useCallback(async () => {
         setErr(null);
         try {
-            const [d, n] = await Promise.all([
+            const [d, n, s] = await Promise.all([
                 apiFetch<StudioDetail>(`/api/admin/studios/${studioId}/detail`),
                 apiFetch<Note[]>(`/api/admin/studios/${studioId}/notes`),
+                apiFetch<StudioSettings>(`/api/admin/studios/${studioId}/settings`),
             ]);
             setDetail(d);
             setNotes(n);
+            setSettings(s);
+            setNewPlan(s.subscription_plan);
         } catch (e: any) {
             if (e?.message?.includes("403") || e?.message?.includes("401")) {
                 router.replace("/login");
@@ -149,6 +166,31 @@ export default function StudioDetailPage() {
             alert(e?.message);
         } finally {
             setAddingNote(false);
+        }
+    };
+
+    const handleChangePlan = async () => {
+        if (!newPlan || newPlan === detail?.subscription_plan) return;
+        if (!confirm(`לשנות תוכנית ל-${newPlan}?`)) return;
+        await apiFetch(`/api/admin/studios/${studioId}`, {
+            method: "PATCH",
+            body: JSON.stringify({ subscription_plan: newPlan }),
+        });
+        await load();
+    };
+
+    const handleSaveSettings = async (patch: Record<string, unknown>) => {
+        setSavingSettings(true);
+        try {
+            await apiFetch(`/api/admin/studios/${studioId}/settings`, {
+                method: "PATCH",
+                body: JSON.stringify(patch),
+            });
+            await load();
+        } catch (e: any) {
+            alert(e?.message);
+        } finally {
+            setSavingSettings(false);
         }
     };
 
@@ -261,6 +303,103 @@ export default function StudioDetailPage() {
                         </button>
                     </div>
                 </div>
+
+                {/* Platform Settings */}
+                {settings && (
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                        <div className="px-4 py-3 border-b border-gray-50 flex items-center gap-2">
+                            <span className="text-base">⚙️</span>
+                            <h2 className="text-sm font-semibold text-gray-700">הגדרות פלטפורמה</h2>
+                            <span className="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full font-medium">רק לסופר-אדמין</span>
+                        </div>
+
+                        <div className="p-4 space-y-4">
+                            {/* Plan change */}
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-500 mb-1.5">תוכנית מנוי</label>
+                                <div className="flex gap-2">
+                                    <select
+                                        value={newPlan}
+                                        onChange={e => setNewPlan(e.target.value)}
+                                        className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black/10"
+                                    >
+                                        {["free", "starter", "pro", "studio", "platform"].map(p => (
+                                            <option key={p} value={p}>{PLAN_LABELS[p]?.label ?? p}</option>
+                                        ))}
+                                    </select>
+                                    <button
+                                        onClick={handleChangePlan}
+                                        disabled={newPlan === settings.subscription_plan}
+                                        className="px-4 py-2 bg-black text-white text-sm font-semibold rounded-xl hover:bg-gray-800 transition-colors disabled:opacity-30"
+                                    >
+                                        שמור
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Self-booking toggle */}
+                            <div className="flex items-center justify-between py-2 border-t border-gray-50">
+                                <div>
+                                    <p className="text-sm font-medium text-gray-800">הזמנה עצמית מקוונת</p>
+                                    <p className="text-xs text-gray-400">לקוחות יכולים לקבוע תורים בעצמם דרך הלינק הציבורי</p>
+                                </div>
+                                <button
+                                    onClick={() => handleSaveSettings({ self_booking_enabled: !settings.self_booking_enabled })}
+                                    disabled={savingSettings}
+                                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${settings.self_booking_enabled ? "bg-emerald-500" : "bg-gray-200"}`}
+                                >
+                                    <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${settings.self_booking_enabled ? "translate-x-5" : "translate-x-0"}`} />
+                                </button>
+                            </div>
+
+                            {/* AI generation count reset */}
+                            <div className="flex items-center justify-between py-2 border-t border-gray-50">
+                                <div>
+                                    <p className="text-sm font-medium text-gray-800">שימושי AI החודש</p>
+                                    <p className="text-xs text-gray-400">{settings.ai_generations_count} שימושים</p>
+                                </div>
+                                <button
+                                    onClick={() => handleSaveSettings({ ai_generations_count: 0 })}
+                                    disabled={savingSettings || settings.ai_generations_count === 0}
+                                    className="px-3 py-1.5 bg-gray-100 text-gray-600 text-xs font-semibold rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-30"
+                                >
+                                    אפס
+                                </button>
+                            </div>
+
+                            {/* Calendar hours */}
+                            <div className="pt-2 border-t border-gray-50">
+                                <label className="block text-xs font-semibold text-gray-500 mb-1.5">שעות יומן (התחלה — סיום)</label>
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        type="time"
+                                        defaultValue={settings.calendar_start_hour}
+                                        id="cal-start"
+                                        className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-black/10"
+                                    />
+                                    <span className="text-gray-400 text-sm">—</span>
+                                    <input
+                                        type="time"
+                                        defaultValue={settings.calendar_end_hour}
+                                        id="cal-end"
+                                        className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-black/10"
+                                    />
+                                    <button
+                                        onClick={() => {
+                                            const s = (document.getElementById("cal-start") as HTMLInputElement)?.value;
+                                            const e = (document.getElementById("cal-end") as HTMLInputElement)?.value;
+                                            if (s && e) handleSaveSettings({ calendar_start_hour: s, calendar_end_hour: e });
+                                        }}
+                                        disabled={savingSettings}
+                                        className="px-3 py-1.5 bg-black text-white text-xs font-semibold rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-30"
+                                    >
+                                        שמור
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Users list */}
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">

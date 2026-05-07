@@ -345,22 +345,27 @@ export default function CalendarPage() {
                 <style dangerouslySetInnerHTML={{
                     __html: `
                     .fc .fc-toolbar.fc-header-toolbar { margin-bottom: 0.5rem !important; }
-                    .fc .fc-button { padding: 0.3rem 0.6rem !important; font-size: 0.85rem !important; }
+                    .fc .fc-button { padding: 0.3rem 0.6rem !important; font-size: 0.85rem !important; border-radius: 8px !important; }
+                    .fc .fc-button:active { transform: scale(0.95) !important; }
                     .fc .fc-toolbar-title { font-size: 1.15rem !important; font-weight: bold !important; }
                     .fc-timegrid-slot { height: 1.5em !important; }
+                    .fc .fc-toolbar.fc-footer-toolbar { margin-top: 0.4rem !important; justify-content: center !important; }
                     @media (max-width: 640px) {
-                        .fc .fc-toolbar-title { font-size: 0.95rem !important; }
-                        .fc .fc-button { padding: 0.2rem 0.35rem !important; font-size: 0.72rem !important; }
-                        .fc-timegrid-slot-label { font-size: 0.68rem !important; }
-                        .fc-event { font-size: 0.72rem !important; }
-                        .fc-event-title { font-size: 0.72rem !important; }
-                        .fc-timegrid-event .fc-event-main { padding: 1px 3px !important; }
+                        .fc .fc-toolbar-title { font-size: 0.85rem !important; }
+                        .fc .fc-button { padding: 0.25rem 0.5rem !important; font-size: 0.75rem !important; min-width: 2rem !important; }
+                        .fc-timegrid-slot-label { font-size: 0.65rem !important; }
+                        .fc-event { font-size: 0.75rem !important; border-radius: 6px !important; }
+                        .fc-event-title { font-size: 0.75rem !important; }
+                        .fc-timegrid-event .fc-event-main { padding: 2px 4px !important; }
+                        .fc-col-header-cell { font-size: 0.75rem !important; }
+                        .fc .fc-toolbar.fc-footer-toolbar .fc-button { padding: 0.35rem 0.9rem !important; font-size: 0.8rem !important; }
                     }
                 `}} />
-                <div className="p-2 md:p-4 max-w-[1600px] w-full mx-auto flex flex-col h-[calc(100vh-5rem)]">
+                <div className="p-2 md:p-4 max-w-[1600px] w-full mx-auto flex flex-col h-[calc(100vh-5rem-4rem)] md:h-[calc(100vh-5rem)]">
 
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
-                        <p className="text-sm text-slate-500">לחץ וגרור כדי לקבוע תורים, לחץ על תור קיים כדי לערוך אותו.</p>
+                        <p className="text-sm text-slate-500 hidden sm:block">לחץ וגרור כדי לקבוע תורים, לחץ על תור קיים כדי לערוך אותו.</p>
+                        <p className="text-xs text-slate-400 sm:hidden">לחיצה ארוכה לבחירת זמן • לחץ על תור לעריכה</p>
                         <div className="flex items-center gap-3">
                             {loading && <div className="animate-spin h-4 w-4 border-2 border-slate-800 border-t-transparent rounded-full"></div>}
                             {err && <div className="text-xs font-medium text-red-600 bg-red-50 px-2 py-1 rounded">{err}</div>}
@@ -382,19 +387,18 @@ export default function CalendarPage() {
                                 center: "title",
                                 right: "timeGridDay,timeGridWeek,dayGridMonth"
                             }}
-                            windowResize={(arg) => {
-                                const mobile = window.innerWidth < 768;
-                                setIsMobile(mobile);
-                                const cur = arg.view.type;
-                                if (mobile && cur === "timeGridWeek") arg.view.calendar.changeView("timeGridDay");
-                                else if (!mobile && cur === "timeGridDay") arg.view.calendar.changeView("timeGridWeek");
-                            }}
+                            footerToolbar={isMobile ? {
+                                center: "timeGridDay,timeGridWeek,dayGridMonth"
+                            } : false}
                             locales={[heLocale]}
                             locale="he"
                             direction="rtl"
                             selectable={true}
-                            editable={true} // enables drag and drop
+                            editable={true}
                             selectMirror={true}
+                            longPressDelay={300}
+                            eventLongPressDelay={300}
+                            selectLongPressDelay={300}
                             dayMaxEvents={true}
                             nowIndicator={true}
                             allDaySlot={false}
@@ -409,7 +413,7 @@ export default function CalendarPage() {
                             select={handleDateSelect}
                             eventClick={handleEventClick}
                             eventDrop={handleEventDrop}
-                            eventResize={handleEventDrop} // hook into the same function for resizing durations
+                            eventResize={handleEventDrop}
                             height="100%"
                         />
                     </div>

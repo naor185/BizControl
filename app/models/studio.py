@@ -26,6 +26,9 @@ class Studio(Base):
     plan_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     is_platform: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
+    stripe_customer_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    stripe_subscription_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     users: Mapped[list["User"]] = relationship(back_populates="studio", cascade="all, delete-orphan")
