@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import RequireAuth from "@/components/RequireAuth";
 import AppShell from "@/components/AppShell";
 import { apiFetch } from "@/lib/api";
@@ -79,6 +80,8 @@ type Settings = {
 
     calendar_start_hour?: string;
     calendar_end_hour?: string;
+
+    studio_slug?: string | null;
 
     // Studio info & policy
     studio_address?: string | null;
@@ -169,9 +172,6 @@ export default function AutomationSettingsPage() {
     const [err, setErr] = useState<string | null>(null);
     const [msg, setMsg] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<"branding" | "landing" | "communication" | "policy" | "automation" | "finance" | "integrations">("branding");
-
-    const [testEmailLoading, setTestEmailLoading] = useState(false);
-    const [testEmailMsg, setTestEmailMsg] = useState<{ type: 'success' | 'err', text: string } | null>(null);
 
     const [aiPrompt, setAiPrompt] = useState("");
     const [isAiLoading, setIsAiLoading] = useState(false);
@@ -321,51 +321,6 @@ export default function AutomationSettingsPage() {
         }
     };
 
-    const handleTestEmail = async () => {
-        if (!settings || !settings.smtp_host || !settings.smtp_pass || !settings.smtp_from_email) {
-            setTestEmailMsg({ type: 'err', text: "יש לשמור את הגדרות ה-SMTP קודם למטה." });
-            return;
-        }
-
-        const toEmail = prompt("לאיזה כתובת אימייל לשלוח את הודעת הבדיקה?");
-        if (!toEmail) return;
-
-        setTestEmailLoading(true);
-        setTestEmailMsg(null);
-        try {
-            await apiFetch("/api/studio/email/test", {
-                method: "POST",
-                body: JSON.stringify({ to_email: toEmail })
-            });
-            setTestEmailMsg({ type: 'success', text: "מייל בדיקה נשלח בהצלחה! בדוק את תיבת הדואר." });
-        } catch (e: any) {
-            setTestEmailMsg({ type: 'err', text: e?.message || "שגיאה בשליחת המייל." });
-        } finally {
-            setTestEmailLoading(false);
-        }
-    };
-
-    const handleGoogleConnect = async () => {
-        if (!settings || !settings.google_calendar_client_id || !settings.google_calendar_client_secret) {
-            alert("יש קודם להזין ולשמור Client ID ו-Client Secret דרך הכפתור השחור למטה.");
-            return;
-        }
-
-        try {
-            const res = await apiFetch<{ url: string }>("/api/studio/google/auth-url");
-
-            // Open popup for OAuth
-            const width = 500;
-            const height = 600;
-            const left = window.screen.width / 2 - width / 2;
-            const top = window.screen.height / 2 - height / 2;
-
-            window.open(res.url, "GoogleOAuth", `width=${width},height=${height},top=${top},left=${left}`);
-
-        } catch (e: any) {
-            alert("שגיאה בהתחברות לגוגל: " + e?.message);
-        }
-    };
 
     const handleAIGenerate = async () => {
         if (!aiPrompt.trim()) {
@@ -405,46 +360,6 @@ export default function AutomationSettingsPage() {
         }
     };
 
-    const handleGoogleDisconnect = async () => {
-        if (!confirm("האם אתה בטוח שברצונך לנתק את היומן של גוגל?")) return;
-        try {
-            await apiFetch("/api/studio/google/disconnect", { method: "POST" });
-            if (settings) {
-                setSettings({ ...settings, google_calendar_refresh_token: null });
-            }
-            alert("היומן נותק בהצלחה.");
-        } catch (e: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
-            alert("שגיאה בניתוק: " + e?.message);
-        }
-    };
-
-    useEffect(() => {
-        const handleMessage = async (event: MessageEvent) => {
-            // Wait for messages from the OAuth popup
-            if (event.data?.type === "GOOGLE_OAUTH_CODE") {
-                const { code } = event.data;
-                try {
-                    const res = await apiFetch<{ status: string, message: string }>("/api/studio/google/exchange-token", {
-                        method: "POST",
-                        body: JSON.stringify({ code })
-                    });
-
-                    if (res.status === "success") {
-                        if (settings) setSettings({ ...settings, google_calendar_refresh_token: "active" }); // Mock token to update UI
-                        setMsg(res.message);
-                        setTimeout(() => setMsg(null), 4000);
-                    } else {
-                        alert(res.message);
-                    }
-                } catch (e: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
-                    alert("שגיאה בהשלמת החיבור: " + e?.message);
-                }
-            }
-        };
-
-        window.addEventListener("message", handleMessage);
-        return () => window.removeEventListener("message", handleMessage);
-    }, [settings]);
 
     if (loading) {
         return (
@@ -478,7 +393,7 @@ export default function AutomationSettingsPage() {
         { id: "policy", label: "מדיניות וכתובת", icon: "📋" },
         { id: "automation", label: "חוקים ואוטומציה", icon: "⚙️" },
         { id: "finance", label: "תשלומים ופיננסים", icon: "💰" },
-        { id: "integrations", label: "חיבורים (API)", icon: "🔌" },
+        { id: "integrations", label: "חיבורים", icon: "🔌" },
     ] as const;
 
     return (
@@ -562,6 +477,36 @@ export default function AutomationSettingsPage() {
 
                         {/* 2. LANDING PAGES TAB */}
                         {activeTab === "landing" && (
+                            <div className="space-y-6">
+
+                            {/* Unique Link Banner */}
+                            {settings.studio_slug && (() => {
+                                const link = `${typeof window !== "undefined" ? window.location.origin : ""}/s/${settings.studio_slug}`;
+                                return (
+                                    <div className="bg-gradient-to-l from-pink-50 to-purple-50 border border-pink-200 rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-bold text-pink-900 mb-1">הקישור הייחודי שלך לדף הנחיתה</p>
+                                            <p className="text-xs text-pink-700 mb-2">שלח את הקישור הזה ללקוחות שלך — הם יגיעו לדף ההצטרפות למועדון</p>
+                                            <div className="flex items-center bg-white rounded-xl border border-pink-200 px-3 py-2">
+                                                <code className="flex-1 text-xs font-mono text-slate-700 break-all" dir="ltr">{link}</code>
+                                            </div>
+                                        </div>
+                                        <div className="flex gap-2 flex-shrink-0">
+                                            <button
+                                                type="button"
+                                                onClick={() => { navigator.clipboard.writeText(link); setMsg("הקישור הועתק!"); setTimeout(() => setMsg(null), 2000); }}
+                                                className="bg-pink-600 hover:bg-pink-700 text-white px-4 py-2.5 rounded-xl font-bold text-sm transition-all whitespace-nowrap"
+                                            >
+                                                העתק קישור
+                                            </button>
+                                            <a href={link} target="_blank" rel="noopener noreferrer" className="bg-white border border-pink-200 hover:bg-pink-50 text-pink-700 px-4 py-2.5 rounded-xl font-bold text-sm transition-all whitespace-nowrap">
+                                                תצוגה מקדימה
+                                            </a>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+
                             <div className="bg-white rounded-2xl border border-slate-100 shadow-xl shadow-slate-200/40 p-6 md:p-10 relative overflow-hidden">
                                 <div className="absolute top-0 left-0 w-32 h-32 bg-pink-500/10 rounded-br-full -z-10"></div>
 
@@ -839,6 +784,7 @@ export default function AutomationSettingsPage() {
                                         </div>
                                     </div>
                                 </div>
+                            </div>
                             </div>
                         )}
 
@@ -1345,179 +1291,59 @@ export default function AutomationSettingsPage() {
 
                         {/* 6. INTEGRATIONS TAB */}
                         {activeTab === "integrations" && (
-                            <div className="space-y-8">
-                                {/* Google Calendar Integration */}
-                                <div className="bg-white rounded-2xl border border-slate-100 shadow-xl shadow-slate-200/40 p-6 md:p-10 relative overflow-hidden">
-                                    <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-bl-full -z-10"></div>
-                                    <div className="flex items-center justify-between mb-8">
-                                        <div>
-                                            <h3 className="text-2xl font-bold text-slate-800">סנכרון עם Google Calendar</h3>
-                                            <p className="text-sm text-slate-500">חבר את יומן העבודה שלך ליומן של גוגל כדי לקבל עדכונים בזמן אמת.</p>
-                                        </div>
-                                        {settings.google_calendar_refresh_token ? (
-                                            <div className="flex items-center gap-2 bg-emerald-100 text-emerald-700 px-4 py-2 rounded-full font-bold text-sm">
-                                                <span className="text-lg">✓</span>
-                                                מחובר
-                                            </div>
-                                        ) : (
-                                            <div className="bg-slate-100 text-slate-500 px-4 py-2 rounded-full font-bold text-sm">
-                                                לא מחובר
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 mb-8">
-                                        <div className="grid md:grid-cols-2 gap-6 items-center">
-                                            <div>
-                                                <h4 className="font-bold text-slate-800 mb-2">חיבור מהיר</h4>
-                                                <p className="text-sm text-slate-500 mb-4">לחץ על הכפתור כדי לאפשר למערכת לסנכרן את התורים שלך ליומן האישי.</p>
-                                                {settings.google_calendar_refresh_token ? (
-                                                    <button onClick={handleGoogleDisconnect} className="bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200 px-6 py-2.5 rounded-xl font-bold transition-all">נתק חיבור</button>
-                                                ) : (
-                                                    <button onClick={handleGoogleConnect} className="bg-white text-slate-700 hover:bg-slate-50 border border-slate-200 shadow-sm px-6 py-2.5 rounded-xl font-bold transition-all flex items-center gap-2">
-                                                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                        <img src="https://www.gstatic.com/images/branding/product/1x/calendar_2020q4_48dp.png" alt="Google" className="w-5 h-5" />
-                                                        התחבר עם Google
-                                                    </button>
-                                                )}
-                                            </div>
-                                            <div className="border-r border-slate-200 pr-6 space-y-4">
-                                                <div className="space-y-1">
-                                                    <label className="text-xs font-bold text-slate-500 uppercase">Google Client ID</label>
-                                                    <input type="text" value={settings.google_calendar_client_id || ""} onChange={e => handleChange("google_calendar_client_id", e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-mono outline-none focus:ring-1 focus:ring-blue-500" dir="ltr" />
-                                                </div>
-                                                <div className="space-y-1">
-                                                    <label className="text-xs font-bold text-slate-500 uppercase">Google Client Secret</label>
-                                                    <input type="password" value={settings.google_calendar_client_secret || ""} onChange={e => handleChange("google_calendar_client_secret", e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-mono outline-none focus:ring-1 focus:ring-blue-500" dir="ltr" />
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
+                            <div className="bg-white rounded-2xl border border-slate-100 shadow-xl shadow-slate-200/40 p-6 md:p-10">
+                                <div className="mb-8">
+                                    <h3 className="text-2xl font-bold text-slate-800 mb-2">חיבורים חיצוניים</h3>
+                                    <p className="text-slate-500">כל חיבור מגיע עם אשף הגדרה אישי שמנחה אותך שלב אחרי שלב.</p>
                                 </div>
 
-                                {/* SMTP Settings */}
-                                <div className="bg-white rounded-2xl border border-slate-100 shadow-xl shadow-slate-200/40 p-6 md:p-10 relative overflow-hidden">
-                                    <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-bl-full -z-10"></div>
-                                    <h3 className="text-2xl font-bold text-slate-800 mb-6">הגדרות שליחת אימייל (SMTP)</h3>
-                                    <div className="grid md:grid-cols-2 gap-8">
-                                        <div className="space-y-4">
-                                            <div className="grid grid-cols-2 gap-4">
-                                                <div className="space-y-1">
-                                                    <label className="block text-xs font-bold text-slate-600 uppercase">SMTP Server</label>
-                                                    <input type="text" dir="ltr" value={settings.smtp_host || ""} onChange={e => handleChange("smtp_host", e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500" placeholder="smtp.gmail.com" />
+                                <div className="flex flex-col gap-4">
+                                    {[
+                                        {
+                                            icon: "💬",
+                                            color: "bg-emerald-100",
+                                            title: "WhatsApp",
+                                            desc: "שלח הודעות אוטומטיות, תזכורות ועדכונים ללקוחות",
+                                            connected: !!(settings.whatsapp_api_key),
+                                            href: "/integrations/whatsapp",
+                                        },
+                                        {
+                                            icon: "✉️",
+                                            color: "bg-indigo-100",
+                                            title: "אימייל",
+                                            desc: "שלח אישורי תור, תזכורות ועדכונים ללקוחות באימייל",
+                                            connected: !!(settings.smtp_host && settings.smtp_pass),
+                                            href: "/integrations/email",
+                                        },
+                                        {
+                                            icon: "📅",
+                                            color: "bg-blue-100",
+                                            title: "Google Calendar",
+                                            desc: "סנכרן תורים ופגישות ישירות ליומן Google שלך",
+                                            connected: !!(settings.google_calendar_refresh_token),
+                                            href: "/integrations/google-calendar",
+                                        },
+                                    ].map(item => (
+                                        <div key={item.href} className="flex items-center gap-5 p-5 rounded-2xl border-2 border-slate-100 hover:border-slate-200 bg-slate-50/50 transition-all">
+                                            <div className={`w-14 h-14 rounded-2xl ${item.color} flex items-center justify-center text-3xl flex-shrink-0`}>
+                                                {item.icon}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-3 mb-1">
+                                                    <h4 className="font-bold text-slate-800 text-lg">{item.title}</h4>
+                                                    {item.connected ? (
+                                                        <span className="text-xs font-bold px-3 py-1 rounded-full bg-emerald-100 text-emerald-700">מחובר ✓</span>
+                                                    ) : (
+                                                        <span className="text-xs font-bold px-3 py-1 rounded-full bg-slate-200 text-slate-500">לא מחובר</span>
+                                                    )}
                                                 </div>
-                                                <div className="space-y-1">
-                                                    <label className="block text-xs font-bold text-slate-600 uppercase">Port</label>
-                                                    <input type="number" dir="ltr" value={settings.smtp_port || 587} onChange={e => handleChange("smtp_port", parseInt(e.target.value) || 587)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
-                                                </div>
+                                                <p className="text-sm text-slate-500">{item.desc}</p>
                                             </div>
-                                            <div className="space-y-1">
-                                                <label className="block text-xs font-bold text-slate-600 uppercase">Email/User</label>
-                                                <input type="email" dir="ltr" value={settings.smtp_user || ""} onChange={e => handleChange("smtp_user", e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
-                                            </div>
-                                            <div className="space-y-1">
-                                                <label className="block text-xs font-bold text-slate-600 uppercase">Password</label>
-                                                <input type="password" dir="ltr" value={settings.smtp_pass || ""} onChange={e => handleChange("smtp_pass", e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
-                                            </div>
-                                            <div className="space-y-1">
-                                                <label className="block text-xs font-bold text-slate-600 uppercase">From Email Address</label>
-                                                <input type="email" dir="ltr" value={settings.smtp_from_email || ""} onChange={e => handleChange("smtp_from_email", e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
-                                            </div>
+                                            <Link href={item.href} className="flex-shrink-0 bg-slate-900 hover:bg-slate-700 text-white px-6 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center gap-2 whitespace-nowrap">
+                                                {item.connected ? "ערוך הגדרות" : "הגדר עכשיו"} <span>←</span>
+                                            </Link>
                                         </div>
-                                        <div className="bg-indigo-50/50 p-6 rounded-2xl border border-indigo-100 flex flex-col justify-between">
-                                            <div className="space-y-4">
-                                                <h4 className="font-bold text-indigo-900">בדיקת חיבור</h4>
-                                                <p className="text-sm text-indigo-700/80 leading-relaxed">לאחר שמירת ההגדרות, תוכל לשלוח אימייל בדיקה כדי לוודא שהפרטים נכונים והמייל נשלח מהשרת.</p>
-                                                {testEmailMsg && (
-                                                    <div className={`p-4 rounded-xl text-sm font-medium ${testEmailMsg.type === 'success' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>
-                                                        {testEmailMsg.text}
-                                                    </div>
-                                                )}
-                                            </div>
-                                            <button onClick={handleTestEmail} disabled={testEmailLoading} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl shadow-lg transition-all disabled:opacity-50 mt-6">
-                                                {testEmailLoading ? "שולח..." : "שלח מייל בדיקה"}
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* WhatsApp Integration */}
-                                <div className="bg-white rounded-2xl border border-slate-100 shadow-xl shadow-slate-200/40 p-6 md:p-10 relative overflow-hidden">
-                                    <div className="absolute top-0 right-0 w-32 h-32 bg-green-500/10 rounded-bl-full -z-10"></div>
-                                    <h3 className="text-2xl font-bold text-slate-800 mb-2">הגדרות WhatsApp</h3>
-                                    <p className="text-slate-500 text-sm mb-8">בחר ספק ומלא את הפרטים — המערכת תשלח הודעות אוטומטיות ללקוחות.</p>
-
-                                    {/* Provider Selection */}
-                                    <div className="grid grid-cols-2 gap-4 mb-8">
-                                        {[
-                                            { value: "green_api", label: "Green API", desc: "עם המספר הקיים שלך (סריקת QR)", badge: "מומלץ", color: "emerald" },
-                                            { value: "meta", label: "Meta Cloud API", desc: "מספר נפרד, 1,000 חינם/חודש", badge: "חינמי", color: "blue" },
-                                        ].map(p => (
-                                            <label key={p.value} className={`cursor-pointer flex flex-col p-4 rounded-2xl border-2 transition-all ${(settings.whatsapp_provider || "green_api") === p.value ? `border-${p.color}-500 bg-${p.color}-50/50` : "border-slate-200 hover:border-slate-300"}`}>
-                                                <input type="radio" name="wa_provider" value={p.value} checked={(settings.whatsapp_provider || "green_api") === p.value} onChange={() => handleChange("whatsapp_provider", p.value)} className="sr-only" />
-                                                <div className="flex items-center justify-between mb-1">
-                                                    <span className="font-bold text-slate-800 text-sm">{p.label}</span>
-                                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full bg-${p.color}-100 text-${p.color}-700`}>{p.badge}</span>
-                                                </div>
-                                                <span className="text-xs text-slate-500">{p.desc}</span>
-                                            </label>
-                                        ))}
-                                    </div>
-
-                                    {/* Green API Fields */}
-                                    {(settings.whatsapp_provider || "green_api") === "green_api" && (
-                                        <div className="space-y-4 bg-emerald-50/50 border border-emerald-100 rounded-2xl p-6">
-                                            <div className="flex items-start gap-3 mb-4">
-                                                <span className="text-2xl">📱</span>
-                                                <div>
-                                                    <h4 className="font-bold text-emerald-900 text-sm">חיבור דרך Green API</h4>
-                                                    <p className="text-xs text-emerald-700/80 mt-1">1. הירשם ב-green-api.com → צור Instance חדש → סרוק QR עם הוואטסאפ שלך → העתק את ה-Instance ID וה-API Token.</p>
-                                                </div>
-                                            </div>
-                                            <div className="grid md:grid-cols-2 gap-4">
-                                                <div className="space-y-1">
-                                                    <label className="block text-xs font-bold text-slate-600 uppercase">Instance ID</label>
-                                                    <input type="text" dir="ltr" value={settings.whatsapp_instance_id || ""} onChange={e => handleChange("whatsapp_instance_id", e.target.value)}
-                                                        placeholder="1234567890"
-                                                        className="w-full bg-white border border-emerald-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-emerald-500 font-mono" />
-                                                </div>
-                                                <div className="space-y-1">
-                                                    <label className="block text-xs font-bold text-slate-600 uppercase">API Token</label>
-                                                    <input type="password" dir="ltr" value={settings.whatsapp_api_key || ""} onChange={e => handleChange("whatsapp_api_key", e.target.value)}
-                                                        placeholder="••••••••••••••••"
-                                                        className="w-full bg-white border border-emerald-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-emerald-500 font-mono" />
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Meta API Fields */}
-                                    {settings.whatsapp_provider === "meta" && (
-                                        <div className="space-y-4 bg-blue-50/50 border border-blue-100 rounded-2xl p-6">
-                                            <div className="flex items-start gap-3 mb-4">
-                                                <span className="text-2xl">🔵</span>
-                                                <div>
-                                                    <h4 className="font-bold text-blue-900 text-sm">חיבור דרך Meta Cloud API</h4>
-                                                    <p className="text-xs text-blue-700/80 mt-1">נדרש מספר טלפון נפרד שאינו מחובר לאפליקציית WhatsApp. הכנס את ה-Phone Number ID וה-Access Token מפורטל המפתחים של Meta.</p>
-                                                </div>
-                                            </div>
-                                            <div className="grid md:grid-cols-2 gap-4">
-                                                <div className="space-y-1">
-                                                    <label className="block text-xs font-bold text-slate-600 uppercase">Phone Number ID</label>
-                                                    <input type="text" dir="ltr" value={settings.whatsapp_phone_id || ""} onChange={e => handleChange("whatsapp_phone_id", e.target.value)}
-                                                        className="w-full bg-white border border-blue-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 font-mono" />
-                                                </div>
-                                                <div className="space-y-1">
-                                                    <label className="block text-xs font-bold text-slate-600 uppercase">Access Token (Permanent)</label>
-                                                    <input type="password" dir="ltr" value={settings.whatsapp_api_key || ""} onChange={e => handleChange("whatsapp_api_key", e.target.value)}
-                                                        className="w-full bg-white border border-blue-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 font-mono" />
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Webhook URLs */}
-                                    <WebhookUrlBox provider={(settings.whatsapp_provider || "green_api") as "green_api" | "meta"} instanceId={settings.whatsapp_instance_id || ""} />
+                                    ))}
                                 </div>
                             </div>
                         )}

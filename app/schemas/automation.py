@@ -99,6 +99,12 @@ class AutomationSettingsOut(BaseModel):
     # Green API
     whatsapp_instance_id: str | None = None
 
+    # Studio identifier (for landing page URL)
+    studio_slug: str | None = None
+
+    class Config:
+        from_attributes = True
+
 class AutomationSettingsUpdate(BaseModel):
     aftercare_message: str | None = None
     review_link_google: str | None = None

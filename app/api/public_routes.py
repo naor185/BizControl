@@ -13,6 +13,23 @@ from pydantic import BaseModel, EmailStr
 
 router = APIRouter(prefix="/public", tags=["Public"])
 
+class PublicLandingInfo(BaseModel):
+    studio_id: str
+    studio_name: str
+    theme_primary_color: str
+    theme_secondary_color: str
+    logo_filename: str | None = None
+    landing_page_active_template: int
+    landing_page_title: str | None = None
+    landing_page_description: str | None = None
+    landing_page_bg_image: str | None = None
+    landing_page_title_font: str = "Heebo"
+    landing_page_desc_font: str = "Assistant"
+    landing_page_image_1: str | None = None
+    landing_page_image_2: str | None = None
+    landing_page_image_3: str | None = None
+    points_on_signup: int = 0
+
 class PublicStudioInfo(BaseModel):
     id: str
     name: str
@@ -50,6 +67,32 @@ class ClientJoinRequest(BaseModel):
     email: EmailStr | None = None
     birth_date: date | None = None
     marketing_consent: bool = True
+
+@router.get("/landing/{slug}", response_model=PublicLandingInfo)
+def get_landing_by_slug(slug: str, db: Session = Depends(get_db)):
+    studio = db.query(Studio).filter(Studio.slug == slug, Studio.is_active == True).first()  # noqa: E712
+    if not studio:
+        raise HTTPException(status_code=404, detail="Studio not found")
+    settings = db.get(StudioSettings, studio.id)
+    if not settings:
+        raise HTTPException(status_code=404, detail="Settings not found")
+    return PublicLandingInfo(
+        studio_id=str(studio.id),
+        studio_name=studio.name,
+        theme_primary_color=settings.theme_primary_color or "#000000",
+        theme_secondary_color=settings.theme_secondary_color or "#ffffff",
+        logo_filename=settings.logo_filename,
+        landing_page_active_template=settings.landing_page_active_template or 1,
+        landing_page_title=settings.landing_page_title,
+        landing_page_description=settings.landing_page_description,
+        landing_page_bg_image=settings.landing_page_bg_image,
+        landing_page_title_font=settings.landing_page_title_font or "Heebo",
+        landing_page_desc_font=settings.landing_page_desc_font or "Assistant",
+        landing_page_image_1=settings.landing_page_image_1,
+        landing_page_image_2=settings.landing_page_image_2,
+        landing_page_image_3=settings.landing_page_image_3,
+        points_on_signup=settings.points_on_signup or 0,
+    )
 
 @router.get("/studio/{studio_id}", response_model=PublicStudioInfo)
 def get_public_studio_info(studio_id: str, db: Session = Depends(get_db)):

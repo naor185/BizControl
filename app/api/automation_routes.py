@@ -18,10 +18,14 @@ router = APIRouter(prefix="/studio/automation", tags=["Automation"])
 
 @router.get("", response_model=AutomationSettingsOut)
 def get_settings(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+    from app.models.studio import Studio
     settings = db.get(StudioSettings, ctx.studio_id)
     if not settings:
         raise HTTPException(status_code=404, detail="Settings not found")
-    return settings
+    studio = db.get(Studio, ctx.studio_id)
+    out = AutomationSettingsOut.model_validate(settings)
+    out.studio_slug = studio.slug if studio else None
+    return out
 
 @router.patch("", response_model=AutomationSettingsOut)
 def patch_settings(payload: AutomationSettingsUpdate, ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
