@@ -48,6 +48,13 @@ export default function CalendarPage() {
     const [calendarStartHour, setCalendarStartHour] = useState("08:00:00");
     const [calendarEndHour, setCalendarEndHour] = useState("23:00:00");
     const [toast, setToast] = useState<{message: string; type: "success"|"error"} | null>(null);
+    const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" ? window.innerWidth < 768 : false);
+
+    useEffect(() => {
+        const onResize = () => setIsMobile(window.innerWidth < 768);
+        window.addEventListener("resize", onResize);
+        return () => window.removeEventListener("resize", onResize);
+    }, []);
 
     const showToast = (message: string, type: "success"|"error" = "success") => {
         setToast({ message, type });
@@ -337,19 +344,17 @@ export default function CalendarPage() {
                 )}
                 <style dangerouslySetInnerHTML={{
                     __html: `
-                    .fc .fc-toolbar.fc-header-toolbar {
-                        margin-bottom: 0.5rem !important;
-                    }
-                    .fc .fc-button {
-                        padding: 0.3rem 0.6rem !important;
-                        font-size: 0.85rem !important;
-                    }
-                    .fc .fc-toolbar-title {
-                        font-size: 1.15rem !important;
-                        font-weight: bold !important;
-                    }
-                    .fc-timegrid-slot {
-                        height: 1.5em !important;
+                    .fc .fc-toolbar.fc-header-toolbar { margin-bottom: 0.5rem !important; }
+                    .fc .fc-button { padding: 0.3rem 0.6rem !important; font-size: 0.85rem !important; }
+                    .fc .fc-toolbar-title { font-size: 1.15rem !important; font-weight: bold !important; }
+                    .fc-timegrid-slot { height: 1.5em !important; }
+                    @media (max-width: 640px) {
+                        .fc .fc-toolbar-title { font-size: 0.95rem !important; }
+                        .fc .fc-button { padding: 0.2rem 0.35rem !important; font-size: 0.72rem !important; }
+                        .fc-timegrid-slot-label { font-size: 0.68rem !important; }
+                        .fc-event { font-size: 0.72rem !important; }
+                        .fc-event-title { font-size: 0.72rem !important; }
+                        .fc-timegrid-event .fc-event-main { padding: 1px 3px !important; }
                     }
                 `}} />
                 <div className="p-2 md:p-4 max-w-[1600px] w-full mx-auto flex flex-col h-[calc(100vh-5rem)]">
@@ -367,11 +372,22 @@ export default function CalendarPage() {
                         <FullCalendar
                             ref={calendarRef}
                             plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-                            initialView="timeGridWeek"
-                            headerToolbar={{
+                            initialView={isMobile ? "timeGridDay" : "timeGridWeek"}
+                            headerToolbar={isMobile ? {
+                                left: "prev,next",
+                                center: "title",
+                                right: "today"
+                            } : {
                                 left: "prev,next today",
                                 center: "title",
                                 right: "timeGridDay,timeGridWeek,dayGridMonth"
+                            }}
+                            windowResize={(arg) => {
+                                const mobile = window.innerWidth < 768;
+                                setIsMobile(mobile);
+                                const cur = arg.view.type;
+                                if (mobile && cur === "timeGridWeek") arg.view.calendar.changeView("timeGridDay");
+                                else if (!mobile && cur === "timeGridDay") arg.view.calendar.changeView("timeGridWeek");
                             }}
                             locales={[heLocale]}
                             locale="he"
@@ -401,8 +417,8 @@ export default function CalendarPage() {
 
                 {/* Appointment Modal */}
                 {isModalOpen && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-                        <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden max-h-[90vh] flex flex-col animate-in zoom-in-95 duration-200">
+                    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm sm:p-4 animate-in fade-in duration-200">
+                        <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full sm:max-w-lg shadow-2xl overflow-hidden max-h-[92vh] sm:max-h-[90vh] flex flex-col animate-in slide-in-from-bottom sm:zoom-in-95 duration-300">
                             <div className="bg-slate-50 border-b border-slate-100 p-5 flex items-center justify-between flex-shrink-0">
                                 <h3 className="text-xl font-bold text-slate-800">{selectedEventId ? "עריכת תור" : "קביעת תור חדש"}</h3>
                                 <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-2 bg-white rounded-full shadow-sm hover:shadow transition-all">✕</button>
@@ -662,6 +678,27 @@ export default function CalendarPage() {
                         </div>
                     </div>
                 )}
+
+                {/* Mobile FAB */}
+                <button
+                    className="fixed bottom-24 left-4 z-40 sm:hidden w-14 h-14 bg-slate-900 text-white rounded-full shadow-2xl shadow-slate-900/40 flex items-center justify-center text-3xl font-light active:scale-95 transition-transform"
+                    onClick={() => {
+                        const now = new Date();
+                        const later = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+                        const pad = (n: number) => String(n).padStart(2, "0");
+                        const fmt = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+                        setSelectedEventId(null);
+                        setTitle("תור חדש");
+                        setStartAt(fmt(now));
+                        setEndAt(fmt(later));
+                        setClientId(""); setClientSearch(""); setIsWalkIn(false);
+                        setArtistId(""); setStatus("scheduled"); setNotes("");
+                        setDepositAmount(""); setTotalPrice("");
+                        setIsModalOpen(true);
+                    }}
+                >
+                    +
+                </button>
 
                 <PaymentModal
                     isOpen={isPaymentModalOpen}
