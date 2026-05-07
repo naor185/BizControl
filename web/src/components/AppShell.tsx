@@ -6,6 +6,8 @@ import { useEffect, useMemo, useState } from "react";
 import { apiFetch, clearToken, getToken, setToken } from "@/lib/api";
 import ClockWidget from "./ClockWidget";
 import BottomNav from "./BottomNav";
+import { useLang } from "./LanguageProvider";
+import { LOCALES, TranslationKey } from "@/lib/i18n";
 
 type Me = {
     id: string;
@@ -15,24 +17,24 @@ type Me = {
     display_name?: string | null;
 };
 
-type NavItem = { href: string; label: string; icon: string };
+type NavItem = { href: string; labelKey: TranslationKey; icon: string };
 
 const MAIN_NAV: NavItem[] = [
-    { href: "/calendar", label: "יומן תורים", icon: "📅" },
-    { href: "/expenses", label: "ניהול עסק", icon: "💼" },
-    { href: "/products", label: "מוצרים ומלאי", icon: "📦" },
-    { href: "/dashboard", label: "לוח בקרה", icon: "📊" },
-    { href: "/clients", label: "לקוחות", icon: "👥" },
+    { href: "/calendar",  labelKey: "nav_calendar",  icon: "📅" },
+    { href: "/expenses",  labelKey: "nav_expenses",  icon: "💼" },
+    { href: "/products",  labelKey: "nav_products",  icon: "📦" },
+    { href: "/dashboard", labelKey: "nav_dashboard", icon: "📊" },
+    { href: "/clients",   labelKey: "nav_clients",   icon: "👥" },
 ];
 
 const SETTINGS_NAV: NavItem[] = [
-    { href: "/team", label: "צוות ומקעקעים", icon: "🎨" },
-    { href: "/team/payroll", label: "דוחות שכר", icon: "💰" },
-    { href: "/message-log", label: "יומן הודעות", icon: "💬" },
-    { href: "/payments", label: "תשלומים", icon: "💳" },
-    { href: "/billing", label: "מנוי ותשלום", icon: "💎" },
-    { href: "/automation", label: "הגדרות", icon: "⚙️" },
-    { href: "/help", label: "מרכז עזרה", icon: "🆘" },
+    { href: "/team",         labelKey: "nav_team",     icon: "🎨" },
+    { href: "/team/payroll", labelKey: "nav_payroll",  icon: "💰" },
+    { href: "/message-log",  labelKey: "nav_messages", icon: "💬" },
+    { href: "/payments",     labelKey: "nav_payments", icon: "💳" },
+    { href: "/billing",      labelKey: "nav_billing",  icon: "💎" },
+    { href: "/automation",   labelKey: "nav_settings", icon: "⚙️" },
+    { href: "/help",         labelKey: "nav_help",     icon: "🆘" },
 ];
 
 const ALL_NAV = [...MAIN_NAV, ...SETTINGS_NAV];
@@ -46,6 +48,8 @@ export default function AppShell({
 }) {
     const pathname = usePathname();
     const router = useRouter();
+    const { t, locale, setLocale, dir } = useLang();
+    const [langOpen, setLangOpen] = useState(false);
 
     const [me, setMe] = useState<Me | null>(null);
     const [meErr, setMeErr] = useState<string | null>(null);
@@ -99,7 +103,7 @@ export default function AppShell({
     const isInSettings = SETTINGS_NAV.some(n => n.href === activeHref);
 
     return (
-        <div className="min-h-screen bg-gray-50" dir="rtl">
+        <div className="min-h-screen bg-gray-50" dir={dir}>
             {/* Impersonation banner */}
             {isImpersonating && (
                 <div className="bg-amber-500 text-amber-950 text-sm font-bold px-4 py-2 flex items-center justify-between z-50 relative">
@@ -137,7 +141,7 @@ export default function AppShell({
                                     ].join(" ")}
                                 >
                                     <span>{item.icon}</span>
-                                    <span>{item.label}</span>
+                                    <span>{t(item.labelKey)}</span>
                                 </Link>
                             );
                         })}
@@ -153,7 +157,7 @@ export default function AppShell({
                             >
                                 <div className="flex items-center gap-2">
                                     <span>⚙️</span>
-                                    <span>הגדרות</span>
+                                    <span>{t("nav_settings")}</span>
                                 </div>
                                 <span className="text-xs text-gray-400">{settingsOpen ? "▲" : "▼"}</span>
                             </button>
@@ -174,7 +178,7 @@ export default function AppShell({
                                                 ].join(" ")}
                                             >
                                                 <span>{item.icon}</span>
-                                                <span>{item.label}</span>
+                                                <span>{t(item.labelKey)}</span>
                                             </Link>
                                         );
                                     })}
@@ -183,26 +187,47 @@ export default function AppShell({
                         </div>
                     </nav>
 
-                    <div className="mt-auto p-4 border-t">
-                        <div className="text-xs text-gray-500">מחובר בתור</div>
-                        <div className="text-sm font-medium text-gray-800 truncate" dir="ltr">
-                            {me?.display_name || me?.email || "מנהל מערכת"}
+                    <div className="mt-auto p-4 border-t space-y-3">
+                        {/* Language switcher */}
+                        <div className="relative">
+                            <button
+                                onClick={() => setLangOpen(o => !o)}
+                                className="w-full flex items-center justify-between rounded-lg border px-3 py-2 text-sm hover:bg-gray-50 transition"
+                            >
+                                <span>{LOCALES.find(l => l.code === locale)?.flag} {LOCALES.find(l => l.code === locale)?.label}</span>
+                                <span className="text-gray-400 text-xs">▼</span>
+                            </button>
+                            {langOpen && (
+                                <div className="absolute bottom-full mb-1 w-full bg-white border rounded-xl shadow-lg overflow-hidden z-50">
+                                    {LOCALES.map(l => (
+                                        <button
+                                            key={l.code}
+                                            onClick={() => { setLocale(l.code); setLangOpen(false); }}
+                                            className={`w-full text-right px-4 py-2.5 text-sm hover:bg-gray-50 transition flex items-center gap-2 ${locale === l.code ? "font-bold bg-gray-50" : ""}`}
+                                        >
+                                            <span>{l.flag}</span><span>{l.label}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
                         </div>
-                        <div className="text-xs text-gray-500 mt-0.5">
-                            הרשאה: {me?.role || "owner"}
+
+                        <div className="text-xs text-gray-500">
+                            <div className="text-sm font-medium text-gray-800 truncate" dir="ltr">
+                                {me?.display_name || me?.email || "—"}
+                            </div>
+                            <div className="mt-0.5">{me?.role || "owner"}</div>
                         </div>
 
                         {meErr && (
-                            <div className="mt-3 text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-2">
-                                {meErr}
-                            </div>
+                            <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-2">{meErr}</div>
                         )}
 
                         <button
                             onClick={logout}
-                            className="mt-3 w-full rounded-lg border bg-white hover:bg-gray-50 text-sm py-2 font-medium text-red-600"
+                            className="w-full rounded-lg border bg-white hover:bg-gray-50 text-sm py-2 font-medium text-red-600"
                         >
-                            התנתקות
+                            {t("logout")}
                         </button>
                     </div>
                 </aside>
@@ -227,7 +252,7 @@ export default function AppShell({
                                     onClick={logout}
                                     className="hidden md:inline-flex rounded-lg bg-black text-white text-sm px-3 py-2"
                                 >
-                                    התנתקות
+                                    {t("logout")}
                                 </button>
                             </div>
                         </div>

@@ -4,25 +4,27 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { clearToken, apiFetch, getCurrentUserRole } from "@/lib/api";
+import { useLang } from "./LanguageProvider";
+import { TranslationKey } from "@/lib/i18n";
 
-const PRIMARY_NAV = [
-    { href: "/calendar",  label: "יומן",    icon: "📅" },
-    { href: "/clients",   label: "לקוחות",  icon: "👥" },
-    { href: "/inbox",     label: "הודעות",  icon: "💬", badge: true },
-    { href: "/payments",  label: "תשלומים", icon: "💳" },
+const PRIMARY_NAV: { href: string; labelKey: TranslationKey; icon: string; badge?: boolean }[] = [
+    { href: "/calendar",  labelKey: "nav_calendar",  icon: "📅" },
+    { href: "/clients",   labelKey: "nav_clients",   icon: "👥" },
+    { href: "/inbox",     labelKey: "nav_inbox",     icon: "💬", badge: true },
+    { href: "/payments",  labelKey: "nav_payments",  icon: "💳" },
 ];
 
-const MORE_NAV = [
-    { href: "/dashboard",    label: "לוח בקרה",    icon: "📊" },
-    { href: "/leads",        label: "לידים",        icon: "🎯" },
-    { href: "/expenses",     label: "ניהול עסק",    icon: "💼" },
-    { href: "/products",     label: "מוצרים",       icon: "📦" },
-    { href: "/team",         label: "צוות",         icon: "🎨" },
-    { href: "/team/payroll", label: "דוחות שכר",   icon: "💰" },
-    { href: "/message-log",  label: "יומן הודעות", icon: "📋" },
-    { href: "/billing",       label: "מנוי",         icon: "💎" },
-    { href: "/automation",   label: "הגדרות",       icon: "⚙️" },
-    { href: "/help",         label: "עזרה",         icon: "🆘" },
+const MORE_NAV: { href: string; labelKey: TranslationKey; icon: string }[] = [
+    { href: "/dashboard",    labelKey: "nav_dashboard", icon: "📊" },
+    { href: "/leads",        labelKey: "nav_leads",     icon: "🎯" },
+    { href: "/expenses",     labelKey: "nav_expenses",  icon: "💼" },
+    { href: "/products",     labelKey: "nav_products",  icon: "📦" },
+    { href: "/team",         labelKey: "nav_team",      icon: "🎨" },
+    { href: "/team/payroll", labelKey: "nav_payroll",   icon: "💰" },
+    { href: "/message-log",  labelKey: "nav_messages",  icon: "📋" },
+    { href: "/billing",      labelKey: "nav_billing",   icon: "💎" },
+    { href: "/automation",   labelKey: "nav_settings",  icon: "⚙️" },
+    { href: "/help",         labelKey: "nav_help",      icon: "🆘" },
 ];
 
 export default function BottomNav() {
@@ -32,6 +34,7 @@ export default function BottomNav() {
     const [unreadCount, setUnreadCount] = useState(0);
     const [userRole] = useState(() => getCurrentUserRole());
     const isArtist = userRole === "artist" || userRole === "staff";
+    const { t } = useLang();
 
     const isActive = (href: string) =>
         pathname === href || pathname?.startsWith(href + "/");
@@ -46,8 +49,8 @@ export default function BottomNav() {
             } catch { /* not logged in yet */ }
         };
         load();
-        const t = setInterval(load, 30_000);
-        return () => clearInterval(t);
+        const tid = setInterval(load, 30_000);
+        return () => clearInterval(tid);
     }, []);
 
     // Close sheet on navigation
@@ -101,7 +104,7 @@ export default function BottomNav() {
                                 ].join(" ")}
                             >
                                 <span className="text-2xl leading-none">{item.icon}</span>
-                                <span className="text-[11px] font-semibold leading-tight">{item.label}</span>
+                                <span className="text-[11px] font-semibold leading-tight">{t(item.labelKey)}</span>
                             </Link>
                         );
                     })}
@@ -112,7 +115,7 @@ export default function BottomNav() {
                         className="flex flex-col items-center gap-1.5 py-3 rounded-2xl bg-red-50 text-red-600 active:scale-95 transition-all"
                     >
                         <span className="text-2xl leading-none">🚪</span>
-                        <span className="text-[11px] font-semibold">יציאה</span>
+                        <span className="text-[11px] font-semibold">{t("logout")}</span>
                     </button>
                 </div>
             </div>
@@ -155,7 +158,7 @@ export default function BottomNav() {
                                     "text-[10px] font-semibold z-10 transition-colors",
                                     active ? "text-black" : "text-gray-400",
                                 ].join(" ")}>
-                                    {item.label}
+                                    {t(item.labelKey)}
                                 </span>
 
                                 {active && (

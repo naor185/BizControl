@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { apiFetch, setToken } from "@/lib/api";
+import { useLang } from "@/components/LanguageProvider";
+import { LOCALES } from "@/lib/i18n";
 
 const LS_KEY = "biz_remember";
 
@@ -12,6 +14,7 @@ function LoginContent() {
     const sp = useSearchParams();
     const nextUrl = useMemo(() => sp.get("next") || "/dashboard", [sp]);
 
+    const { t, locale, setLocale, dir } = useLang();
     const [studioSlug, setStudioSlug] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -88,12 +91,12 @@ function LoginContent() {
     }
 
     if (step === "2fa") return (
-        <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-gradient-to-br from-[#f8fafc] to-[#e2e8f0]" dir="rtl">
+        <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-gradient-to-br from-[#f8fafc] to-[#e2e8f0]" dir={dir}>
             <div className="w-full max-w-md rounded-2xl bg-white shadow-xl p-8 border border-white/60">
                 <div className="flex flex-col items-center mb-6">
                     <div className="text-4xl mb-3">🔐</div>
-                    <h1 className="text-xl font-bold text-slate-800">אימות דו-שלבי</h1>
-                    <p className="text-sm text-slate-500 mt-1 text-center">פתח את אפליקציית האימות והכנס את הקוד</p>
+                    <h1 className="text-xl font-bold text-slate-800">{t("login_2fa_title")}</h1>
+                    <p className="text-sm text-slate-500 mt-1 text-center">{t("login_2fa_sub")}</p>
                 </div>
                 <form onSubmit={onSubmit2FA} className="space-y-4">
                     <input
@@ -109,11 +112,11 @@ function LoginContent() {
                     />
                     {err && <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-3">{err}</div>}
                     <button disabled={loading || totpCode.length < 6} className="w-full rounded-lg bg-black text-white py-2 font-medium disabled:opacity-60">
-                        {loading ? "מאמת..." : "כניסה"}
+                        {loading ? t("loading") : t("login_2fa_btn")}
                     </button>
                     <button type="button" onClick={() => { setStep("credentials"); setErr(null); setTotpCode(""); }}
                         className="w-full text-sm text-slate-400 hover:text-slate-600">
-                        חזור
+                        {t("login_2fa_back")}
                     </button>
                 </form>
             </div>
@@ -121,20 +124,33 @@ function LoginContent() {
     );
 
     return (
-        <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-gradient-to-br from-[#f8fafc] to-[#e2e8f0]" dir="rtl">
+        <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-gradient-to-br from-[#f8fafc] to-[#e2e8f0]" dir={dir}>
+            {/* Language switcher */}
+            <div className="absolute top-4 left-4 flex gap-1">
+                {LOCALES.map(l => (
+                    <button
+                        key={l.code}
+                        onClick={() => setLocale(l.code)}
+                        className={`px-2 py-1 rounded-lg text-sm transition ${locale === l.code ? "bg-black text-white" : "bg-white/60 hover:bg-white text-slate-600"}`}
+                    >
+                        {l.flag}
+                    </button>
+                ))}
+            </div>
+
             <div className="mb-6 flex flex-col items-center">
                 <Image src="/logo.png" alt="BizControl" width={180} height={180} className="object-contain drop-shadow-md" />
             </div>
 
             <div className="w-full max-w-md rounded-2xl bg-white shadow-xl p-8 border border-white/60 backdrop-blur-sm">
                 <div className="flex flex-col items-center justify-center mb-6">
-                    <h1 className="text-2xl font-bold text-slate-800">התחברות למערכת</h1>
-                    <span className="text-sm mt-1 text-slate-500">הזן את פרטי הגישה שלך</span>
+                    <h1 className="text-2xl font-bold text-slate-800">{t("login_title")}</h1>
+                    <span className="text-sm mt-1 text-slate-500">{t("login_subtitle")}</span>
                 </div>
 
                 <form onSubmit={onSubmit} className="space-y-5">
                     <div>
-                        <label className="text-sm font-medium">מזהה סטודיו (Slug)</label>
+                        <label className="text-sm font-medium">{t("login_slug")}</label>
                         <input
                             className="mt-1 w-full rounded-lg border px-3 py-2 text-left"
                             value={studioSlug}
@@ -145,7 +161,7 @@ function LoginContent() {
                     </div>
 
                     <div>
-                        <label className="text-sm font-medium">אימייל</label>
+                        <label className="text-sm font-medium">{t("login_email")}</label>
                         <input
                             className="mt-1 w-full rounded-lg border px-3 py-2 text-left"
                             value={email}
@@ -157,7 +173,7 @@ function LoginContent() {
                     </div>
 
                     <div>
-                        <label className="text-sm font-medium">סיסמה</label>
+                        <label className="text-sm font-medium">{t("login_password")}</label>
                         <div className="relative mt-1">
                             <input
                                 className="w-full rounded-lg border px-3 py-2 text-left pl-10"
@@ -194,7 +210,7 @@ function LoginContent() {
                             onChange={(e) => setRememberMe(e.target.checked)}
                             className="w-4 h-4 rounded"
                         />
-                        <label htmlFor="remember" className="text-sm text-slate-600 cursor-pointer">זכור אותי</label>
+                        <label htmlFor="remember" className="text-sm text-slate-600 cursor-pointer">{t("login_remember")}</label>
                     </div>
 
                     {err && (
@@ -207,7 +223,7 @@ function LoginContent() {
                         disabled={loading}
                         className="w-full rounded-lg bg-black text-white py-2 font-medium disabled:opacity-60"
                     >
-                        {loading ? "מתחבר..." : "התחבר"}
+                        {loading ? t("login_loading") : t("login_btn")}
                     </button>
                 </form>
             </div>
