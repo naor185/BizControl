@@ -15,54 +15,53 @@ function SuspendedContent() {
     }
 
     return (
-        <div
-            className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-6"
-            dir="rtl"
-        >
-            <div className="w-full max-w-md text-center">
-                <div className="text-6xl mb-6">{isExpired ? "⏳" : "🔒"}</div>
+        <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-6" dir="rtl">
+            <div className="w-full max-w-sm text-center animate-page-in">
 
-                <h1 className="text-2xl font-bold text-gray-900 mb-3">
-                    {isExpired ? "המנוי שלך הסתיים" : "החשבון הושהה"}
+                <div className="w-20 h-20 rounded-3xl bg-white border border-slate-100 shadow-sm flex items-center justify-center text-4xl mx-auto mb-6">
+                    {isExpired ? "⏳" : "🔒"}
+                </div>
+
+                <h1 className="text-2xl font-bold text-slate-900 mb-2">
+                    {isExpired ? "המנוי הסתיים" : "החשבון הושהה"}
                 </h1>
-
-                <p className="text-gray-500 mb-8 leading-relaxed">
+                <p className="text-slate-500 text-sm leading-relaxed mb-8">
                     {isExpired
                         ? "תוקף המנוי שלך פג. כדי לחדש ולהמשיך להשתמש במערכת, פנה אלינו."
-                        : "החשבון שלך הושהה זמנית. לפרטים ולסיוע, פנה אלינו."}
+                        : "החשבון הושהה זמנית. לפרטים ולסיוע, פנה אלינו."}
                 </p>
 
-                <div className="bg-white rounded-2xl border shadow-sm p-6 mb-6 text-right space-y-3">
-                    <div className="text-sm font-semibold text-gray-700 mb-4">יצירת קשר לחידוש</div>
+                <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 mb-5 space-y-2.5 text-right">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">יצירת קשר לחידוש</p>
 
                     <a
                         href="https://wa.me/972528518805"
-                        className="flex items-center gap-3 p-3 rounded-xl bg-green-50 hover:bg-green-100 transition text-green-800 font-medium text-sm"
+                        className="flex items-center gap-3 p-3.5 rounded-2xl bg-green-50 hover:bg-green-100 transition-colors"
                     >
-                        <span className="text-2xl">💬</span>
+                        <span className="text-2xl leading-none">💬</span>
                         <div>
-                            <div>WhatsApp</div>
-                            <div className="text-xs font-normal text-green-600">שלח הודעה לחידוש מיידי</div>
+                            <div className="text-sm font-semibold text-green-800">WhatsApp</div>
+                            <div className="text-xs text-green-600">שלח הודעה לחידוש מיידי</div>
                         </div>
                     </a>
 
                     <a
                         href="mailto:ncbilutattoo@gmail.com"
-                        className="flex items-center gap-3 p-3 rounded-xl bg-blue-50 hover:bg-blue-100 transition text-blue-800 font-medium text-sm"
+                        className="flex items-center gap-3 p-3.5 rounded-2xl bg-slate-50 hover:bg-slate-100 transition-colors"
                     >
-                        <span className="text-2xl">📧</span>
+                        <span className="text-2xl leading-none">📧</span>
                         <div>
-                            <div>אימייל</div>
-                            <div className="text-xs font-normal text-blue-600">ncbilutattoo@gmail.com</div>
+                            <div className="text-sm font-semibold text-slate-800">אימייל</div>
+                            <div className="text-xs text-slate-500 font-mono" dir="ltr">ncbilutattoo@gmail.com</div>
                         </div>
                     </a>
                 </div>
 
                 <button
                     onClick={logout}
-                    className="text-sm text-gray-400 hover:text-gray-600 underline"
+                    className="text-xs text-slate-400 hover:text-slate-600 transition-colors"
                 >
-                    התנתקות
+                    התנתקות וחזרה להתחברות
                 </button>
             </div>
         </div>
@@ -71,7 +70,11 @@ function SuspendedContent() {
 
 export default function SuspendedPage() {
     return (
-        <Suspense fallback={<div className="min-h-screen flex items-center justify-center">טוען...</div>}>
+        <Suspense fallback={
+            <div className="min-h-screen flex items-center justify-center bg-slate-50">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-900" />
+            </div>
+        }>
             <SuspendedContent />
         </Suspense>
     );

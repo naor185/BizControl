@@ -32,6 +32,7 @@ const SETTINGS_NAV: NavItem[] = [
     { href: "/team/payroll", labelKey: "nav_payroll",  icon: "💰" },
     { href: "/message-log",  labelKey: "nav_messages", icon: "💬" },
     { href: "/payments",     labelKey: "nav_payments", icon: "💳" },
+    { href: "/leads",        labelKey: "nav_leads",    icon: "🎯" },
     { href: "/billing",      labelKey: "nav_billing",  icon: "💎" },
     { href: "/automation",   labelKey: "nav_settings", icon: "⚙️" },
     { href: "/help",         labelKey: "nav_help",     icon: "🆘" },
@@ -52,7 +53,6 @@ export default function AppShell({
     const [langOpen, setLangOpen] = useState(false);
 
     const [me, setMe] = useState<Me | null>(null);
-    const [meErr, setMeErr] = useState<string | null>(null);
     const [isImpersonating, setIsImpersonating] = useState(false);
 
     useEffect(() => {
@@ -63,35 +63,31 @@ export default function AppShell({
 
     const handleReturnToAdmin = () => {
         const adminToken = sessionStorage.getItem("admin_token");
-        if (adminToken) {
-            setToken(adminToken);
-        }
+        if (adminToken) setToken(adminToken);
         sessionStorage.removeItem("admin_token");
         sessionStorage.removeItem("admin_return");
         router.replace("/admin");
     };
+
     const [settingsOpen, setSettingsOpen] = useState(() =>
         SETTINGS_NAV.some(n => pathname === n.href || pathname?.startsWith(n.href + "/"))
     );
 
     const activeHref = useMemo(() => {
-        const found = ALL_NAV.find((n) => pathname === n.href);
+        const found = ALL_NAV.find(n => pathname === n.href);
         if (found) return found.href;
-        const prefix = ALL_NAV.find((n) => pathname?.startsWith(n.href + "/"));
+        const prefix = ALL_NAV.find(n => pathname?.startsWith(n.href + "/"));
         return prefix?.href || "";
     }, [pathname]);
 
     useEffect(() => {
         (async () => {
             try {
-                setMeErr(null);
                 const token = getToken();
                 if (!token) return;
-                const data = await apiFetch<Me>("/api/auth/me", { method: "GET" });
+                const data = await apiFetch<Me>("/api/auth/me");
                 setMe(data);
-            } catch (e: any) {
-                setMeErr(e?.message || "שגיאה בטעינת משתמש");
-            }
+            } catch { /* silent */ }
         })();
     }, []);
 
@@ -102,82 +98,91 @@ export default function AppShell({
 
     const isInSettings = SETTINGS_NAV.some(n => n.href === activeHref);
 
+    const avatarLetter = (me?.display_name || me?.email || "?")[0].toUpperCase();
+
     return (
-        <div className="min-h-screen bg-gray-50" dir={dir}>
+        <div className="min-h-screen bg-slate-50" dir={dir}>
             {/* Impersonation banner */}
             {isImpersonating && (
-                <div className="bg-amber-500 text-amber-950 text-sm font-bold px-4 py-2 flex items-center justify-between z-50 relative">
-                    <span>👁️ מצב צפייה — אתה רואה את המערכת כבעל הסטודיו</span>
+                <div className="bg-amber-400 text-amber-950 text-sm font-bold px-4 py-2.5 flex items-center justify-between z-50 relative">
+                    <span className="flex items-center gap-2">
+                        <span>👁️</span>
+                        <span>מצב צפייה — אתה רואה את המערכת כבעל הסטודיו</span>
+                    </span>
                     <button
                         onClick={handleReturnToAdmin}
-                        className="bg-amber-950 text-amber-100 px-4 py-1 rounded-lg text-xs hover:bg-amber-900 transition-colors"
+                        className="bg-amber-950 text-amber-100 px-4 py-1.5 rounded-lg text-xs font-semibold hover:bg-amber-900 transition-colors"
                     >
-                        חזור לפאנל אדמין ←
+                        חזור לאדמין ←
                     </button>
                 </div>
             )}
+
             <div className="flex">
                 {/* Sidebar */}
-                <aside className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 bg-white border-l">
-                    <div className="h-16 px-5 flex items-center justify-between border-b">
-                        <div className="font-semibold tracking-tight" dir="ltr">BizControl</div>
-                        <span className="text-[11px] px-2 py-1 rounded-full bg-gray-100 text-gray-600" dir="ltr">
-                            V1
-                        </span>
+                <aside className="hidden md:flex md:w-60 md:flex-col md:fixed md:inset-y-0 bg-white border-l border-slate-100 shadow-sm">
+                    {/* Logo */}
+                    <div className="h-14 px-4 flex items-center justify-between border-b border-slate-100">
+                        <div className="font-black text-slate-900 tracking-tight text-lg" dir="ltr">BizControl</div>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-500 font-semibold" dir="ltr">v1</span>
                     </div>
 
-                    <nav className="p-3 space-y-1 flex-1 overflow-y-auto">
-                        {MAIN_NAV.map((item) => {
+                    {/* Nav */}
+                    <nav className="flex-1 p-2.5 space-y-0.5 overflow-y-auto">
+                        {MAIN_NAV.map(item => {
                             const active = item.href === activeHref;
                             return (
                                 <Link
                                     key={item.href}
                                     href={item.href}
                                     className={[
-                                        "flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition font-medium",
+                                        "flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium transition-all",
                                         active
-                                            ? "bg-black text-white"
-                                            : "text-gray-700 hover:bg-gray-100",
+                                            ? "bg-black text-white shadow-sm"
+                                            : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
                                     ].join(" ")}
                                 >
-                                    <span>{item.icon}</span>
+                                    <span className="text-base leading-none">{item.icon}</span>
                                     <span>{t(item.labelKey)}</span>
                                 </Link>
                             );
                         })}
 
                         {/* Settings group */}
-                        <div className="pt-2">
+                        <div className="pt-3">
+                            <div className="px-3 mb-1">
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">הגדרות</span>
+                            </div>
                             <button
                                 onClick={() => setSettingsOpen(o => !o)}
                                 className={[
-                                    "w-full flex items-center justify-between rounded-lg px-3 py-2 text-sm font-semibold transition",
-                                    isInSettings ? "bg-gray-100 text-gray-900" : "text-gray-500 hover:bg-gray-50",
+                                    "w-full flex items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium transition-all",
+                                    isInSettings ? "bg-slate-100 text-slate-900" : "text-slate-500 hover:bg-slate-50 hover:text-slate-700",
                                 ].join(" ")}
                             >
-                                <div className="flex items-center gap-2">
-                                    <span>⚙️</span>
+                                <div className="flex items-center gap-2.5">
+                                    <span className="text-base leading-none">⚙️</span>
                                     <span>{t("nav_settings")}</span>
                                 </div>
-                                <span className="text-xs text-gray-400">{settingsOpen ? "▲" : "▼"}</span>
+                                <span className={`text-[10px] transition-transform duration-200 ${settingsOpen ? "rotate-180" : ""}`}>▼</span>
                             </button>
 
                             {settingsOpen && (
-                                <div className="mr-3 mt-1 border-r-2 border-gray-100 pr-2 space-y-0.5">
-                                    {SETTINGS_NAV.map((item) => {
+                                <div className="mt-0.5 pr-2 space-y-0.5 border-r-2 border-slate-100 mr-3">
+                                    {SETTINGS_NAV.map(item => {
                                         const active = item.href === activeHref;
                                         return (
                                             <Link
                                                 key={item.href}
                                                 href={item.href}
                                                 className={[
-                                                    "flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition",
+                                                    "flex items-center gap-2 rounded-xl px-3 py-2 text-sm transition-all",
                                                     active
-                                                        ? "bg-black text-white font-semibold"
-                                                        : "text-gray-600 hover:bg-gray-100",
+                                                        ? "bg-black text-white font-medium"
+                                                        : "text-slate-500 hover:bg-slate-50 hover:text-slate-800",
                                                 ].join(" ")}
                                             >
-                                                <span>{item.icon}</span>
+                                                <span className="text-base leading-none">{item.icon}</span>
                                                 <span>{t(item.labelKey)}</span>
                                             </Link>
                                         );
@@ -187,23 +192,27 @@ export default function AppShell({
                         </div>
                     </nav>
 
-                    <div className="mt-auto p-4 border-t space-y-3">
-                        {/* Language switcher */}
+                    {/* Bottom: user + lang + logout */}
+                    <div className="p-3 border-t border-slate-100 space-y-2">
+                        {/* Language */}
                         <div className="relative">
                             <button
                                 onClick={() => setLangOpen(o => !o)}
-                                className="w-full flex items-center justify-between rounded-lg border px-3 py-2 text-sm hover:bg-gray-50 transition"
+                                className="w-full flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2 text-sm hover:bg-slate-50 transition"
                             >
-                                <span>{LOCALES.find(l => l.code === locale)?.flag} {LOCALES.find(l => l.code === locale)?.label}</span>
-                                <span className="text-gray-400 text-xs">▼</span>
+                                <span className="flex items-center gap-2">
+                                    <span>{LOCALES.find(l => l.code === locale)?.flag}</span>
+                                    <span className="text-slate-700">{LOCALES.find(l => l.code === locale)?.label}</span>
+                                </span>
+                                <span className="text-slate-400 text-[10px]">▼</span>
                             </button>
                             {langOpen && (
-                                <div className="absolute bottom-full mb-1 w-full bg-white border rounded-xl shadow-lg overflow-hidden z-50">
+                                <div className="absolute bottom-full mb-1 w-full bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden z-50">
                                     {LOCALES.map(l => (
                                         <button
                                             key={l.code}
                                             onClick={() => { setLocale(l.code); setLangOpen(false); }}
-                                            className={`w-full text-right px-4 py-2.5 text-sm hover:bg-gray-50 transition flex items-center gap-2 ${locale === l.code ? "font-bold bg-gray-50" : ""}`}
+                                            className={`w-full text-right px-4 py-2.5 text-sm hover:bg-slate-50 transition flex items-center gap-2 ${locale === l.code ? "font-bold bg-slate-50" : ""}`}
                                         >
                                             <span>{l.flag}</span><span>{l.label}</span>
                                         </button>
@@ -212,45 +221,51 @@ export default function AppShell({
                             )}
                         </div>
 
-                        <div className="text-xs text-gray-500">
-                            <div className="text-sm font-medium text-gray-800 truncate" dir="ltr">
-                                {me?.display_name || me?.email || "—"}
+                        {/* User row */}
+                        <div className="flex items-center gap-2.5 px-1">
+                            <div className="w-8 h-8 rounded-full bg-black text-white flex items-center justify-center text-xs font-bold flex-shrink-0">
+                                {avatarLetter}
                             </div>
-                            <div className="mt-0.5">{me?.role || "owner"}</div>
+                            <div className="flex-1 min-w-0">
+                                <div className="text-sm font-semibold text-slate-800 truncate" dir="ltr">
+                                    {me?.display_name || me?.email || "—"}
+                                </div>
+                                <div className="text-[10px] text-slate-400">{me?.role || "owner"}</div>
+                            </div>
                         </div>
-
-                        {meErr && (
-                            <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-2">{meErr}</div>
-                        )}
 
                         <button
                             onClick={logout}
-                            className="w-full rounded-lg border bg-white hover:bg-gray-50 text-sm py-2 font-medium text-red-600"
+                            className="w-full rounded-xl border border-slate-200 bg-white hover:bg-red-50 hover:border-red-200 hover:text-red-600 text-sm py-2 font-medium text-slate-600 transition-colors"
                         >
                             {t("logout")}
                         </button>
                     </div>
                 </aside>
 
-                {/* Main */}
-                <div className="flex-1 md:pr-64">
+                {/* Main content */}
+                <div className="flex-1 md:pr-60">
                     {/* Topbar */}
-                    <header className="sticky top-0 z-10 h-16 bg-white border-b">
+                    <header className="sticky top-0 z-10 h-14 bg-white/95 backdrop-blur-sm border-b border-slate-100">
                         <div className="h-full px-5 flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="text-2xl font-bold">{title}</div>
-                            </div>
+                            <h1 className="text-lg font-bold text-slate-900">{title}</h1>
 
                             <div className="flex items-center gap-3">
-                                <div className="hidden sm:flex items-center gap-2">
-                                    <div className="text-xs text-gray-500">שלום,</div>
-                                    <div className="text-sm font-medium" dir="ltr">
-                                        {me?.display_name || me?.email || "מנהל מערכת"}
+                                {/* User greeting — desktop */}
+                                <div className="hidden sm:flex items-center gap-2.5">
+                                    <div className="w-7 h-7 rounded-full bg-slate-900 text-white flex items-center justify-center text-xs font-bold">
+                                        {avatarLetter}
+                                    </div>
+                                    <div className="text-sm text-slate-600">
+                                        <span className="text-slate-400">שלום, </span>
+                                        <span className="font-semibold text-slate-800" dir="ltr">
+                                            {me?.display_name || me?.email || "מנהל"}
+                                        </span>
                                     </div>
                                 </div>
                                 <button
                                     onClick={logout}
-                                    className="hidden md:inline-flex rounded-lg bg-black text-white text-sm px-3 py-2"
+                                    className="hidden md:inline-flex items-center gap-1.5 rounded-xl border border-slate-200 text-slate-600 hover:text-red-600 hover:border-red-200 hover:bg-red-50 text-sm px-3 py-1.5 transition-colors font-medium"
                                 >
                                     {t("logout")}
                                 </button>
@@ -258,9 +273,10 @@ export default function AppShell({
                         </div>
                     </header>
 
-                    <main className="p-5 pb-24 md:pb-5">{children}</main>
+                    <main className="p-5 pb-28 md:pb-6">{children}</main>
                 </div>
             </div>
+
             <ClockWidget />
             <BottomNav />
         </div>

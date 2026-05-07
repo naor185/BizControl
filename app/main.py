@@ -13,6 +13,7 @@ from app.services.message_worker import process_due_jobs, sweep_upcoming_reminde
 from app.services.plan_alert_service import sweep_plan_expiry_alerts
 from app.api.router import api_router
 from app.services.automation_service import AutomationService
+from app.middleware.plan_enforcement import PlanEnforcementMiddleware
 
 
 scheduler = BackgroundScheduler()
@@ -84,6 +85,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(PlanEnforcementMiddleware)
 
 app.include_router(api_router, prefix="/api")
 
