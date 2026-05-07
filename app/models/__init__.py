@@ -13,8 +13,9 @@ from app.models.work_session import WorkSession
 from app.models.monthly_goal import MonthlyGoal
 from app.models.product import Product
 from app.models.product_sale import ProductSale
+from app.models.studio_note import StudioNote
 
 __all__ = [
-    "Base", "Studio", "User", "StudioSettings", "RefreshToken", 
-    "Client", "Appointment", "Payment", "ClientPointsLedger", "MessageJob", "Expense", "WorkSession", "MonthlyGoal", "Product", "ProductSale"
+    "Base", "Studio", "User", "StudioSettings", "RefreshToken",
+    "Client", "Appointment", "Payment", "ClientPointsLedger", "MessageJob", "Expense", "WorkSession", "MonthlyGoal", "Product", "ProductSale", "StudioNote"
 ]

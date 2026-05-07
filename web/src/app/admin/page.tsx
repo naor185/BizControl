@@ -432,6 +432,12 @@ export default function AdminPage() {
                                                 <td className="px-4 py-4">
                                                     <div className="flex items-center gap-2 flex-wrap">
                                                         <button
+                                                            onClick={() => router.push(`/admin/studios/${s.id}`)}
+                                                            className="text-xs bg-slate-600 hover:bg-slate-500 text-white px-3 py-1.5 rounded-lg transition-colors"
+                                                        >
+                                                            פרטים
+                                                        </button>
+                                                        <button
                                                             onClick={() => handleImpersonate(s)}
                                                             disabled={impersonating === s.id}
                                                             className="text-xs bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg transition-colors"

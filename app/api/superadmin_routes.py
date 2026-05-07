@@ -24,6 +24,7 @@ from app.models.studio_settings import StudioSettings
 from app.models.appointment import Appointment
 from app.models.client import Client
 from app.models.message_job import MessageJob
+from app.models.studio_note import StudioNote
 
 router = APIRouter(prefix="/admin", tags=["SuperAdmin"])
 ph = PasswordHasher()
@@ -307,6 +308,102 @@ def delete_studio(studio_id: uuid.UUID, admin: User = Depends(require_superadmin
     db.delete(studio)
     db.commit()
     return {"status": "deleted"}
+
+
+# ── Studio Detail ─────────────────────────────────────────────────────────────
+
+class StudioNoteOut(BaseModel):
+    id: str
+    body: str
+    created_by_email: str
+    created_at: datetime
+
+class NoteIn(BaseModel):
+    body: str
+
+class StudioDetailOut(BaseModel):
+    id: str
+    name: str
+    slug: str
+    subscription_plan: str
+    is_active: bool
+    plan_expires_at: Optional[datetime]
+    created_at: datetime
+    owner_email: Optional[str]
+    owner_display_name: Optional[str]
+    user_count: int
+    client_count: int
+    appointment_count_total: int
+    appointment_count_month: int
+    users: list[dict]
+
+
+@router.get("/studios/{studio_id}/detail", response_model=StudioDetailOut)
+def studio_detail(studio_id: uuid.UUID, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    studio = db.get(Studio, studio_id)
+    if not studio or studio.is_platform:
+        raise HTTPException(status_code=404, detail="Studio not found")
+
+    now = datetime.now(timezone.utc)
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    users = db.scalars(select(User).where(User.studio_id == studio_id)).all()
+    owner = next((u for u in users if u.role == "owner"), None)
+
+    client_count = db.scalar(select(func.count(Client.id)).where(Client.studio_id == studio_id)) or 0
+    appt_total = db.scalar(select(func.count(Appointment.id)).where(Appointment.studio_id == studio_id)) or 0
+    appt_month = db.scalar(
+        select(func.count(Appointment.id)).where(Appointment.studio_id == studio_id, Appointment.starts_at >= month_start)
+    ) or 0
+
+    return StudioDetailOut(
+        id=str(studio.id),
+        name=studio.name,
+        slug=studio.slug,
+        subscription_plan=studio.subscription_plan,
+        is_active=studio.is_active,
+        plan_expires_at=studio.plan_expires_at,
+        created_at=studio.created_at,
+        owner_email=owner.email if owner else None,
+        owner_display_name=owner.display_name if owner else None,
+        user_count=len(users),
+        client_count=client_count,
+        appointment_count_total=appt_total,
+        appointment_count_month=appt_month,
+        users=[
+            {"id": str(u.id), "email": u.email, "display_name": u.display_name, "role": u.role, "is_active": u.is_active}
+            for u in users
+        ],
+    )
+
+
+@router.get("/studios/{studio_id}/notes", response_model=list[StudioNoteOut])
+def list_notes(studio_id: uuid.UUID, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    notes = db.scalars(
+        select(StudioNote).where(StudioNote.studio_id == studio_id).order_by(StudioNote.created_at.desc())
+    ).all()
+    return [StudioNoteOut(id=str(n.id), body=n.body, created_by_email=n.created_by_email, created_at=n.created_at) for n in notes]
+
+
+@router.post("/studios/{studio_id}/notes", response_model=StudioNoteOut, status_code=201)
+def add_note(studio_id: uuid.UUID, payload: NoteIn, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    studio = db.get(Studio, studio_id)
+    if not studio or studio.is_platform:
+        raise HTTPException(status_code=404, detail="Studio not found")
+    note = StudioNote(studio_id=studio_id, body=payload.body.strip(), created_by_email=admin.email)
+    db.add(note)
+    db.commit()
+    db.refresh(note)
+    return StudioNoteOut(id=str(note.id), body=note.body, created_by_email=note.created_by_email, created_at=note.created_at)
+
+
+@router.delete("/studios/{studio_id}/notes/{note_id}", status_code=204)
+def delete_note(studio_id: uuid.UUID, note_id: uuid.UUID, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    note = db.scalar(select(StudioNote).where(StudioNote.id == note_id, StudioNote.studio_id == studio_id))
+    if not note:
+        raise HTTPException(status_code=404, detail="Note not found")
+    db.delete(note)
+    db.commit()
 
 
 # ── Charts ───────────────────────────────────────────────────────────────────
