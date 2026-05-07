@@ -10,7 +10,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import select, func
+from sqlalchemy import select, func, extract
 from pydantic import BaseModel
 from argon2 import PasswordHasher
 
@@ -307,6 +307,75 @@ def delete_studio(studio_id: uuid.UUID, admin: User = Depends(require_superadmin
     db.delete(studio)
     db.commit()
     return {"status": "deleted"}
+
+
+# ── Charts ───────────────────────────────────────────────────────────────────
+
+@router.get("/charts")
+def admin_charts(admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    now = datetime.now(timezone.utc)
+
+    # Last 12 months labels
+    months = []
+    for i in range(11, -1, -1):
+        d = now - timedelta(days=30 * i)
+        months.append((d.year, d.month))
+
+    # New studios per month
+    studios_by_month = []
+    for y, m in months:
+        count = db.scalar(
+            select(func.count(Studio.id)).where(
+                Studio.is_platform == False,  # noqa: E712
+                extract("year", Studio.created_at) == y,
+                extract("month", Studio.created_at) == m,
+            )
+        ) or 0
+        studios_by_month.append({"month": f"{y}-{m:02d}", "count": count})
+
+    # Appointments per month
+    appts_by_month = []
+    for y, m in months:
+        count = db.scalar(
+            select(func.count(Appointment.id)).where(
+                extract("year", Appointment.starts_at) == y,
+                extract("month", Appointment.starts_at) == m,
+            )
+        ) or 0
+        appts_by_month.append({"month": f"{y}-{m:02d}", "count": count})
+
+    # Plan distribution (current)
+    plan_dist: dict[str, int] = {}
+    rows = db.execute(
+        select(Studio.subscription_plan, func.count(Studio.id))
+        .where(Studio.is_platform == False)  # noqa: E712
+        .group_by(Studio.subscription_plan)
+    ).all()
+    for plan, cnt in rows:
+        plan_dist[plan] = cnt
+
+    # Active / trial / expired breakdown
+    active = expired = trial = 0
+    for s in db.scalars(select(Studio).where(Studio.is_platform == False)).all():  # noqa: E712
+        if not s.is_active:
+            expired += 1
+        elif s.plan_expires_at and s.plan_expires_at < now:
+            expired += 1
+        elif s.plan_expires_at:
+            days_left = (s.plan_expires_at - now).days
+            if days_left <= 14:
+                trial += 1
+            else:
+                active += 1
+        else:
+            active += 1
+
+    return {
+        "studios_by_month": studios_by_month,
+        "appts_by_month": appts_by_month,
+        "plan_distribution": plan_dist,
+        "status_breakdown": {"active": active, "trial": trial, "expired": expired},
+    }
 
 
 # ── Impersonate ───────────────────────────────────────────────────────────────

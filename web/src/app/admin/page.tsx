@@ -3,6 +3,10 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch, clearToken, setToken, getToken } from "@/lib/api";
+import {
+    LineChart, Line, BarChart, Bar, PieChart, Pie,
+    XAxis, YAxis, Tooltip, ResponsiveContainer,
+} from "recharts";
 
 type Stats = {
     total_studios: number;
@@ -24,6 +28,13 @@ type Studio = {
     owner_email: string | null;
     client_count: number;
     appointment_count_month: number;
+};
+
+type ChartsData = {
+    studios_by_month: { month: string; count: number }[];
+    appts_by_month: { month: string; count: number }[];
+    plan_distribution: Record<string, number>;
+    status_breakdown: { active: number; trial: number; expired: number };
 };
 
 type NewStudioForm = {
@@ -54,6 +65,7 @@ export default function AdminPage() {
     const [creating, setCreating] = useState(false);
     const [createErr, setCreateErr] = useState<string | null>(null);
     const [impersonating, setImpersonating] = useState<string | null>(null);
+    const [charts, setCharts] = useState<ChartsData | null>(null);
     const [extendModal, setExtendModal] = useState<{ studio: Studio } | null>(null);
     const [extendDays, setExtendDays] = useState(14);
     const [extending, setExtending] = useState(false);
@@ -65,12 +77,14 @@ export default function AdminPage() {
     const load = useCallback(async () => {
         setErr(null);
         try {
-            const [s, st] = await Promise.all([
+            const [s, st, ch] = await Promise.all([
                 apiFetch<Stats>("/api/admin/stats"),
                 apiFetch<Studio[]>("/api/admin/studios"),
+                apiFetch<ChartsData>("/api/admin/charts"),
             ]);
             setStats(s);
             setStudios(st);
+            setCharts(ch);
         } catch (e: any) {
             if (e?.message?.includes("403") || e?.message?.includes("401")) {
                 router.replace("/login");
@@ -247,6 +261,108 @@ export default function AdminPage() {
                         ))}
                     </div>
                 )}
+
+                {/* Charts */}
+                {charts && (() => {
+                    const HE_MONTHS = ["", "ינו׳", "פבר׳", "מרץ", "אפר׳", "מאי", "יוני", "יולי", "אוג׳", "ספט׳", "אוק׳", "נוב׳", "דצמ׳"];
+                    const fmtMonth = (m: string) => {
+                        const [y, mo] = m.split("-");
+                        return `${HE_MONTHS[parseInt(mo)]} ${y.slice(2)}`;
+                    };
+                    const studiosChart = charts.studios_by_month.map(r => ({ ...r, name: fmtMonth(r.month) }));
+                    const apptsChart = charts.appts_by_month.map(r => ({ ...r, name: fmtMonth(r.month) }));
+                    const planColors: Record<string, string> = { free: "#64748b", starter: "#3b82f6", pro: "#8b5cf6", studio: "#10b981" };
+                    const planPie = Object.entries(charts.plan_distribution).map(([k, v]) => ({ name: k, value: v, fill: planColors[k] || "#94a3b8" }));
+                    const statusPie = [
+                        { name: "פעיל", value: charts.status_breakdown.active, fill: "#10b981" },
+                        { name: "ניסיון", value: charts.status_breakdown.trial, fill: "#f59e0b" },
+                        { name: "פג תוקף", value: charts.status_breakdown.expired, fill: "#ef4444" },
+                    ].filter(x => x.value > 0);
+
+                    const tooltipStyle = { backgroundColor: "#1e293b", border: "1px solid #334155", borderRadius: 8, color: "#f1f5f9", fontSize: 12 };
+
+                    return (
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                            {/* Studios growth */}
+                            <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
+                                <h3 className="font-bold text-sm text-slate-300 mb-4">📈 סטודיואים חדשים — 12 חודשים</h3>
+                                <ResponsiveContainer width="100%" height={180}>
+                                    <LineChart data={studiosChart}>
+                                        <XAxis dataKey="name" tick={{ fill: "#94a3b8", fontSize: 11 }} axisLine={false} tickLine={false} />
+                                        <YAxis allowDecimals={false} tick={{ fill: "#94a3b8", fontSize: 11 }} axisLine={false} tickLine={false} width={25} />
+                                        <Tooltip contentStyle={tooltipStyle} />
+                                        <Line type="monotone" dataKey="count" name="סטודיואים" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3, fill: "#3b82f6" }} />
+                                    </LineChart>
+                                </ResponsiveContainer>
+                            </div>
+
+                            {/* Appointments trend */}
+                            <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
+                                <h3 className="font-bold text-sm text-slate-300 mb-4">📅 תורים — 12 חודשים</h3>
+                                <ResponsiveContainer width="100%" height={180}>
+                                    <BarChart data={apptsChart}>
+                                        <XAxis dataKey="name" tick={{ fill: "#94a3b8", fontSize: 11 }} axisLine={false} tickLine={false} />
+                                        <YAxis allowDecimals={false} tick={{ fill: "#94a3b8", fontSize: 11 }} axisLine={false} tickLine={false} width={30} />
+                                        <Tooltip contentStyle={tooltipStyle} />
+                                        <Bar dataKey="count" name="תורים" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+
+                            {/* Plan distribution */}
+                            <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
+                                <h3 className="font-bold text-sm text-slate-300 mb-4">💳 התפלגות תוכניות</h3>
+                                {planPie.length > 0 ? (
+                                    <div className="flex items-center gap-6">
+                                        <ResponsiveContainer width={140} height={140}>
+                                            <PieChart>
+                                                <Pie data={planPie} cx="50%" cy="50%" innerRadius={40} outerRadius={65} dataKey="value" paddingAngle={3} />
+                                                <Tooltip contentStyle={tooltipStyle} />
+                                            </PieChart>
+                                        </ResponsiveContainer>
+                                        <div className="space-y-2 flex-1">
+                                            {planPie.map(p => (
+                                                <div key={p.name} className="flex items-center justify-between text-sm">
+                                                    <span className="flex items-center gap-2">
+                                                        <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: p.fill }} />
+                                                        <span className="text-slate-300 capitalize">{p.name}</span>
+                                                    </span>
+                                                    <span className="font-bold text-white">{p.value}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ) : <p className="text-slate-500 text-sm text-center py-8">אין נתונים</p>}
+                            </div>
+
+                            {/* Status breakdown */}
+                            <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
+                                <h3 className="font-bold text-sm text-slate-300 mb-4">🔍 סטטוס סטודיואים</h3>
+                                {statusPie.length > 0 ? (
+                                    <div className="flex items-center gap-6">
+                                        <ResponsiveContainer width={140} height={140}>
+                                            <PieChart>
+                                                <Pie data={statusPie} cx="50%" cy="50%" innerRadius={40} outerRadius={65} dataKey="value" paddingAngle={3} />
+                                                <Tooltip contentStyle={tooltipStyle} />
+                                            </PieChart>
+                                        </ResponsiveContainer>
+                                        <div className="space-y-3 flex-1">
+                                            {statusPie.map(p => (
+                                                <div key={p.name} className="flex items-center justify-between">
+                                                    <span className="flex items-center gap-2 text-sm text-slate-300">
+                                                        <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: p.fill }} />
+                                                        {p.name}
+                                                    </span>
+                                                    <span className="font-bold text-white text-lg">{p.value}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ) : <p className="text-slate-500 text-sm text-center py-8">אין נתונים</p>}
+                            </div>
+                        </div>
+                    );
+                })()}
 
                 {/* Studios Table */}
                 <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
