@@ -37,6 +37,16 @@ type ChartsData = {
     status_breakdown: { active: number; trial: number; expired: number };
 };
 
+type AuditEntry = {
+    id: string;
+    admin_email: string;
+    action: string;
+    studio_id: string | null;
+    studio_name: string | null;
+    details: Record<string, unknown> | null;
+    created_at: string;
+};
+
 type NewStudioForm = {
     studio_name: string;
     slug: string;
@@ -69,6 +79,9 @@ export default function AdminPage() {
     const [extendModal, setExtendModal] = useState<{ studio: Studio } | null>(null);
     const [extendDays, setExtendDays] = useState(14);
     const [extending, setExtending] = useState(false);
+    const [tab, setTab] = useState<"studios" | "audit">("studios");
+    const [auditLog, setAuditLog] = useState<AuditEntry[] | null>(null);
+    const [auditLoading, setAuditLoading] = useState(false);
     const [form, setForm] = useState<NewStudioForm>({
         studio_name: "", slug: "", owner_email: "", owner_password: "",
         owner_display_name: "", subscription_plan: "starter", plan_days: 30,
@@ -174,6 +187,24 @@ export default function AdminPage() {
         }
     };
 
+    const loadAuditLog = async () => {
+        if (auditLog) return;
+        setAuditLoading(true);
+        try {
+            const data = await apiFetch<AuditEntry[]>("/api/admin/audit-log?limit=200");
+            setAuditLog(data);
+        } catch {
+            setAuditLog([]);
+        } finally {
+            setAuditLoading(false);
+        }
+    };
+
+    const handleTabChange = (t: "studios" | "audit") => {
+        setTab(t);
+        if (t === "audit") loadAuditLog();
+    };
+
     const handleDelete = async (studio: Studio) => {
         if (!confirm(`למחוק את ${studio.name}? פעולה זו בלתי הפיכה ותמחק את כל הנתונים.`)) return;
         try {
@@ -236,12 +267,27 @@ export default function AdminPage() {
 
             <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
 
+                {/* Tabs */}
+                <div className="flex gap-1 bg-white/5 border border-white/10 rounded-2xl p-1 w-fit">
+                    {(["studios", "audit"] as const).map(t => (
+                        <button
+                            key={t}
+                            onClick={() => handleTabChange(t)}
+                            className={`px-5 py-2 rounded-xl text-sm font-semibold transition-colors ${
+                                tab === t ? "bg-white text-slate-900" : "text-slate-400 hover:text-white"
+                            }`}
+                        >
+                            {t === "studios" ? "🏢 סטודיואים" : "📋 לוג פעולות"}
+                        </button>
+                    ))}
+                </div>
+
                 {err && (
                     <div className="bg-red-900/40 border border-red-500/30 text-red-300 rounded-xl px-4 py-3 text-sm">{err}</div>
                 )}
 
                 {/* KPI Cards */}
-                {stats && (
+                {tab === "studios" && stats && (
                     <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
                         {[
                             { label: "סטודיואים", value: stats.total_studios, icon: "🏢", color: "" },
@@ -263,7 +309,7 @@ export default function AdminPage() {
                 )}
 
                 {/* Charts */}
-                {charts && (() => {
+                {tab === "studios" && charts && (() => {
                     const HE_MONTHS = ["", "ינו׳", "פבר׳", "מרץ", "אפר׳", "מאי", "יוני", "יולי", "אוג׳", "ספט׳", "אוק׳", "נוב׳", "דצמ׳"];
                     const fmtMonth = (m: string) => {
                         const [y, mo] = m.split("-");
@@ -365,7 +411,7 @@ export default function AdminPage() {
                 })()}
 
                 {/* Studios Table */}
-                <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
+                {tab === "studios" && <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
                     <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between">
                         <h2 className="font-bold text-lg">כל הסטודיואים ({studios.length})</h2>
                         <button onClick={load} className="text-xs text-slate-400 hover:text-white transition-colors">
@@ -478,7 +524,63 @@ export default function AdminPage() {
                             </table>
                         </div>
                     )}
-                </div>
+                </div>}
+
+                {/* Audit Log */}
+                {tab === "audit" && (
+                    <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
+                        <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between">
+                            <h2 className="font-bold text-lg">📋 לוג פעולות אדמין</h2>
+                            <button
+                                onClick={() => { setAuditLog(null); loadAuditLog(); }}
+                                className="text-xs text-slate-400 hover:text-white transition-colors px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10"
+                            >
+                                רענן
+                            </button>
+                        </div>
+                        {auditLoading && (
+                            <div className="flex justify-center py-12">
+                                <div className="animate-spin w-8 h-8 border-4 border-white/20 border-t-white rounded-full" />
+                            </div>
+                        )}
+                        {auditLog && auditLog.length === 0 && (
+                            <div className="text-center text-slate-500 py-12">אין פעולות רשומות עדיין</div>
+                        )}
+                        {auditLog && auditLog.length > 0 && (
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-sm">
+                                    <thead>
+                                        <tr className="text-right text-slate-400 text-xs border-b border-white/10">
+                                            <th className="px-6 py-3 font-medium">תאריך ושעה</th>
+                                            <th className="px-6 py-3 font-medium">פעולה</th>
+                                            <th className="px-6 py-3 font-medium">סטודיו</th>
+                                            <th className="px-6 py-3 font-medium">פרטים</th>
+                                            <th className="px-6 py-3 font-medium">מבוצע על ידי</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-white/5">
+                                        {auditLog.map(entry => (
+                                            <tr key={entry.id} className="hover:bg-white/5 transition-colors">
+                                                <td className="px-6 py-3 text-slate-400 whitespace-nowrap">
+                                                    {new Date(entry.created_at).toLocaleString("he-IL", { dateStyle: "short", timeStyle: "short" })}
+                                                </td>
+                                                <td className="px-6 py-3 font-medium">{entry.action}</td>
+                                                <td className="px-6 py-3 text-slate-300">
+                                                    {entry.studio_name || <span className="text-slate-600">—</span>}
+                                                </td>
+                                                <td className="px-6 py-3 text-slate-400 font-mono text-xs max-w-xs truncate">
+                                                    {entry.details ? JSON.stringify(entry.details) : "—"}
+                                                </td>
+                                                <td className="px-6 py-3 text-slate-400 text-xs">{entry.admin_email}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+                )}
+
             </div>
 
             {/* Extend / Trial Modal */}

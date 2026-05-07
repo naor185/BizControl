@@ -25,12 +25,25 @@ from app.models.appointment import Appointment
 from app.models.client import Client
 from app.models.message_job import MessageJob
 from app.models.studio_note import StudioNote
+from app.models.audit_log import AuditLog
 
 router = APIRouter(prefix="/admin", tags=["SuperAdmin"])
 ph = PasswordHasher()
 
 ADMIN_SETUP_SECRET = os.getenv("ADMIN_SETUP_SECRET", "bizcontrol-setup-secret")
 PLATFORM_SLUG = os.getenv("PLATFORM_SLUG", "bizcontrol-platform")
+
+
+def _audit(db: Session, admin: User, action: str, studio: Studio | None = None, details: dict | None = None) -> None:
+    db.add(AuditLog(
+        admin_id=str(admin.id),
+        admin_email=admin.email,
+        action=action,
+        studio_id=str(studio.id) if studio else None,
+        studio_name=studio.name if studio else None,
+        details=details,
+    ))
+    db.flush()
 
 
 # ── Dependency ────────────────────────────────────────────────────────────────
@@ -241,6 +254,7 @@ def create_studio(payload: CreateStudioIn, admin: User = Depends(require_superad
         is_active=True,
     )
     db.add(owner)
+    _audit(db, admin, "create_studio", studio, {"owner_email": owner.email, "plan": studio.subscription_plan})
     db.commit()
 
     # Send welcome email with credentials and set-password link
@@ -302,14 +316,19 @@ def update_studio(studio_id: uuid.UUID, payload: UpdateStudioIn, admin: User = D
     if not studio or studio.is_platform:
         raise HTTPException(status_code=404, detail="Studio not found")
 
+    changes: dict = {}
     if payload.is_active is not None:
+        changes["is_active"] = payload.is_active
         studio.is_active = payload.is_active
     if payload.subscription_plan is not None:
+        changes["subscription_plan"] = payload.subscription_plan
         studio.subscription_plan = payload.subscription_plan
     if payload.plan_days is not None:
         base = max(datetime.now(timezone.utc), studio.plan_expires_at or datetime.now(timezone.utc))
         studio.plan_expires_at = base + timedelta(days=payload.plan_days)
+        changes["plan_days_added"] = payload.plan_days
 
+    _audit(db, admin, "update_studio", studio, changes)
     db.commit()
     return {"status": "updated"}
 
@@ -321,6 +340,7 @@ def delete_studio(studio_id: uuid.UUID, admin: User = Depends(require_superadmin
     studio = db.get(Studio, studio_id)
     if not studio or studio.is_platform:
         raise HTTPException(status_code=404, detail="Studio not found")
+    _audit(db, admin, "delete_studio", studio, {"slug": studio.slug})
     db.delete(studio)
     db.commit()
     return {"status": "deleted"}
@@ -422,15 +442,21 @@ def update_studio_settings(studio_id: uuid.UUID, payload: AdminSettingsIn, admin
     if not settings:
         raise HTTPException(status_code=404, detail="Settings not found")
 
+    changes: dict = {}
     if payload.self_booking_enabled is not None:
+        changes["self_booking_enabled"] = payload.self_booking_enabled
         settings.self_booking_enabled = payload.self_booking_enabled
     if payload.ai_generations_count is not None:
+        changes["ai_generations_count"] = payload.ai_generations_count
         settings.ai_generations_count = payload.ai_generations_count
     if payload.calendar_start_hour is not None:
+        changes["calendar_start_hour"] = payload.calendar_start_hour
         settings.calendar_start_hour = payload.calendar_start_hour
     if payload.calendar_end_hour is not None:
+        changes["calendar_end_hour"] = payload.calendar_end_hour
         settings.calendar_end_hour = payload.calendar_end_hour
 
+    _audit(db, admin, "update_settings", studio, changes)
     db.commit()
     return {"status": "updated"}
 
@@ -551,9 +577,58 @@ def impersonate(studio_id: uuid.UUID, admin: User = Depends(require_superadmin),
         "role": owner.role,
         "impersonated_by": str(admin.id),
     })
+    _audit(db, admin, "impersonate", studio, {"owner_email": owner.email})
+    db.commit()
     return {
         "access_token": token,
         "studio_name": studio.name,
         "studio_slug": studio.slug,
         "owner_email": owner.email,
     }
+
+
+# ── Audit Log ─────────────────────────────────────────────────────────────────
+
+class AuditLogOut(BaseModel):
+    id: str
+    admin_email: str
+    action: str
+    studio_id: Optional[str]
+    studio_name: Optional[str]
+    details: Optional[dict]
+    created_at: datetime
+
+
+ACTION_LABELS = {
+    "create_studio": "יצירת סטודיו",
+    "update_studio": "עדכון סטודיו",
+    "delete_studio": "מחיקת סטודיו",
+    "update_settings": "עדכון הגדרות",
+    "impersonate": "התחברות כסטודיו",
+}
+
+
+@router.get("/audit-log", response_model=list[AuditLogOut])
+def get_audit_log(
+    studio_id: Optional[str] = None,
+    limit: int = 100,
+    offset: int = 0,
+    admin: User = Depends(require_superadmin),
+    db: Session = Depends(get_db),
+):
+    q = select(AuditLog).order_by(AuditLog.created_at.desc()).limit(limit).offset(offset)
+    if studio_id:
+        q = q.where(AuditLog.studio_id == studio_id)
+    rows = db.scalars(q).all()
+    return [
+        AuditLogOut(
+            id=str(r.id),
+            admin_email=r.admin_email,
+            action=ACTION_LABELS.get(r.action, r.action),
+            studio_id=r.studio_id,
+            studio_name=r.studio_name,
+            details=r.details,
+            created_at=r.created_at,
+        )
+        for r in rows
+    ]
