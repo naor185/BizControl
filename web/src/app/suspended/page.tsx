@@ -36,7 +36,7 @@ function SuspendedContent() {
                     <div className="text-sm font-semibold text-gray-700 mb-4">יצירת קשר לחידוש</div>
 
                     <a
-                        href="https://wa.me/972XXXXXXXXX"
+                        href="https://wa.me/972528518805"
                         className="flex items-center gap-3 p-3 rounded-xl bg-green-50 hover:bg-green-100 transition text-green-800 font-medium text-sm"
                     >
                         <span className="text-2xl">💬</span>
