@@ -44,6 +44,7 @@ export default function TeamPage() {
     const [displayName, setDisplayName] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
+    const [role, setRole] = useState<"artist" | "admin" | "staff">("artist");
     const [calendarColor, setCalendarColor] = useState(COLOR_PRESETS[0]);
     const [isActive, setIsActive] = useState(true);
     const [payType, setPayType] = useState<"hourly" | "commission" | "none">("none");
@@ -75,6 +76,7 @@ export default function TeamPage() {
         setDisplayName("");
         setEmail("");
         setPassword("");
+        setRole("artist");
         setCalendarColor(COLOR_PRESETS[0]);
         setIsActive(true);
         setPayType("none");
@@ -87,7 +89,8 @@ export default function TeamPage() {
         setEditingUserId(artist.id);
         setDisplayName(artist.display_name || "");
         setEmail(artist.email || "");
-        setPassword(""); // never show password, only edit if filled
+        setPassword("");
+        setRole((artist.role === "admin" ? "admin" : artist.role === "staff" ? "staff" : "artist") as "artist" | "admin" | "staff");
         setCalendarColor(artist.calendar_color || COLOR_PRESETS[0]);
         setIsActive(artist.is_active);
         setPayType(artist.pay_type || "none");
@@ -105,6 +108,7 @@ export default function TeamPage() {
         try {
             const payload: any = {
                 display_name: displayName,
+                role,
                 calendar_color: calendarColor,
                 is_active: isActive,
                 pay_type: payType,
@@ -113,16 +117,12 @@ export default function TeamPage() {
             };
 
             if (editingUserId) {
-                // Update
-                if (password.trim()) {
-                    payload.password = password; // Only send password if we want to change it
-                }
+                if (password.trim()) payload.password = password;
                 await apiFetch(`/api/users/artists/${editingUserId}`, {
                     method: "PATCH",
                     body: JSON.stringify(payload)
                 });
             } else {
-                // Create
                 payload.email = email;
                 payload.password = password;
                 await apiFetch("/api/users/artists", {
@@ -217,11 +217,16 @@ export default function TeamPage() {
                                                 <td className="p-4 font-medium text-slate-800">{artist.display_name}</td>
                                                 <td className="p-4 text-slate-500" dir="ltr">{artist.email}</td>
                                                 <td className="p-4">
-                                                    <span className={`px-2.5 py-1 text-xs font-bold rounded-full ${artist.role === "owner" ? "bg-purple-100 text-purple-700" :
-                                                            artist.role === "admin" ? "bg-blue-100 text-blue-700" :
-                                                                "bg-emerald-100 text-emerald-700"
-                                                        }`}>
-                                                        {artist.role}
+                                                    <span className={`px-2.5 py-1 text-xs font-bold rounded-full ${
+                                                        artist.role === "owner"  ? "bg-purple-100 text-purple-700" :
+                                                        artist.role === "admin"  ? "bg-blue-100 text-blue-700" :
+                                                        artist.role === "staff"  ? "bg-orange-100 text-orange-700" :
+                                                                                   "bg-emerald-100 text-emerald-700"
+                                                    }`}>
+                                                        {artist.role === "owner"  ? "בעלים" :
+                                                         artist.role === "admin"  ? "סגן מנהל" :
+                                                         artist.role === "staff"  ? "עובד/ת" :
+                                                                                    "אמן/ת"}
                                                     </span>
                                                 </td>
                                                 <td className="p-4">
@@ -296,6 +301,32 @@ export default function TeamPage() {
                                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-slate-800"
                                         placeholder="לדוגמא: דניאל המקעקע"
                                     />
+                                </div>
+
+                                {/* Role selector */}
+                                <div>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-2">תפקיד</label>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {([
+                                            { value: "artist", label: "🎨 אמן/ת", desc: "גישה ליומן שלהם בלבד" },
+                                            { value: "admin",  label: "👑 סגן מנהל", desc: "גישה לכל הניהול" },
+                                        ] as const).map(opt => (
+                                            <button
+                                                key={opt.value}
+                                                type="button"
+                                                onClick={() => setRole(opt.value)}
+                                                className={[
+                                                    "flex flex-col items-start gap-0.5 p-3 rounded-xl border-2 text-right transition-all",
+                                                    role === opt.value
+                                                        ? "border-slate-900 bg-slate-900 text-white"
+                                                        : "border-slate-200 bg-white text-slate-700 hover:border-slate-400",
+                                                ].join(" ")}
+                                            >
+                                                <span className="text-sm font-bold">{opt.label}</span>
+                                                <span className={`text-[11px] ${role === opt.value ? "text-slate-300" : "text-slate-400"}`}>{opt.desc}</span>
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
 
                                 <div>

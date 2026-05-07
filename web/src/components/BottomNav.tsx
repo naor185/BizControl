@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { clearToken, apiFetch } from "@/lib/api";
+import { clearToken, apiFetch, getCurrentUserRole } from "@/lib/api";
 
 const PRIMARY_NAV = [
     { href: "/calendar",  label: "יומן",    icon: "📅" },
@@ -28,6 +28,8 @@ export default function BottomNav() {
     const router = useRouter();
     const [sheetOpen, setSheetOpen] = useState(false);
     const [unreadCount, setUnreadCount] = useState(0);
+    const [userRole] = useState(() => getCurrentUserRole());
+    const isArtist = userRole === "artist" || userRole === "staff";
 
     const isActive = (href: string) =>
         pathname === href || pathname?.startsWith(href + "/");
@@ -112,7 +114,7 @@ export default function BottomNav() {
                 style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
             >
                 <div className="flex items-stretch h-16">
-                    {PRIMARY_NAV.map(item => {
+                    {(isArtist ? PRIMARY_NAV.filter(i => i.href === "/calendar") : PRIMARY_NAV).map(item => {
                         const active = isActive(item.href);
                         const showBadge = item.badge && unreadCount > 0;
                         return (
@@ -156,8 +158,8 @@ export default function BottomNav() {
                         );
                     })}
 
-                    {/* More button */}
-                    <button
+                    {/* More button — hidden for artists */}
+                    {!isArtist && <button
                         onClick={() => setSheetOpen(o => !o)}
                         className="flex-1 relative flex flex-col items-center justify-center gap-0.5 transition-all active:scale-95"
                     >
@@ -182,7 +184,7 @@ export default function BottomNav() {
                         {moreActive && !sheetOpen && (
                             <span className="absolute bottom-0 inset-x-3 h-0.5 bg-black rounded-full" />
                         )}
-                    </button>
+                    </button>}
                 </div>
             </nav>
         </>

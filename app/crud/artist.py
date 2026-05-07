@@ -22,7 +22,7 @@ def create_artist(db: Session, studio_id: UUID, data: ArtistCreate) -> User:
         studio_id=studio_id,
         email=str(data.email).lower().strip(),
         password_hash=hashed,
-        role="artist",
+        role=data.role or "artist",
         is_active=True,
         display_name=data.display_name.strip(),
         calendar_color=data.calendar_color,
@@ -47,6 +47,8 @@ def update_artist(db: Session, studio_id: UUID, user_id: UUID, data: ArtistUpdat
 
     if data.display_name is not None:
         user.display_name = data.display_name.strip()
+    if data.role is not None:
+        user.role = data.role
     if data.calendar_color is not None:
         user.calendar_color = data.calendar_color
     if data.is_active is not None:

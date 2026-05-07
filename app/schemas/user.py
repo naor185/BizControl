@@ -1,5 +1,6 @@
 from __future__ import annotations
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 from pydantic import BaseModel, EmailStr, Field
 
@@ -17,6 +18,7 @@ class ArtistCreate(BaseModel):
     email: EmailStr
     password: str = Field(min_length=6)
     display_name: str = Field(..., min_length=1, max_length=120)
+    role: Literal["artist", "admin", "staff"] = "artist"
     calendar_color: str | None = Field(default=None, max_length=16)
     pay_type: str | None = "none"
     hourly_rate: float | None = 0.0
@@ -25,6 +27,7 @@ class ArtistCreate(BaseModel):
 class ArtistUpdate(BaseModel):
     is_active: bool | None = None
     display_name: str | None = None
+    role: Literal["artist", "admin", "staff"] | None = None
     calendar_color: str | None = Field(default=None, max_length=16)
     pay_type: str | None = None
     hourly_rate: float | None = None

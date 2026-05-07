@@ -16,6 +16,17 @@ export function clearToken() {
     localStorage.removeItem(TOKEN_KEY);
 }
 
+export function getCurrentUserRole(): string | null {
+    const token = getToken();
+    if (!token) return null;
+    try {
+        const payload = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+        return payload.role || null;
+    } catch {
+        return null;
+    }
+}
+
 type ApiOptions = RequestInit & { auth?: boolean };
 
 export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promise<T> {
