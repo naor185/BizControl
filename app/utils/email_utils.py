@@ -5,6 +5,27 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+def send_email_sync(host: str, port: int, user: str, password: str,
+                    from_email: str, to_email: str, subject: str, html_content: str) -> bool:
+    if not all([host, port, user, password, from_email, to_email]):
+        logger.error("Missing SMTP config")
+        return False
+    try:
+        msg = MIMEMultipart()
+        msg['From'] = from_email
+        msg['To'] = to_email
+        msg['Subject'] = subject
+        msg.attach(MIMEText(html_content, 'html', 'utf-8'))
+        server = smtplib.SMTP(host, port)
+        server.starttls()
+        server.login(user, password)
+        server.send_message(msg)
+        server.quit()
+        return True
+    except Exception as e:
+        logger.error(f"Failed to send email to {to_email}: {e}")
+        return False
+
 async def send_email(
     host: str,
     port: int,

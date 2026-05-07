@@ -16,7 +16,8 @@ from argon2 import PasswordHasher
 
 from app.core.database import get_db
 from app.core.auth_deps import get_current_user
-from app.core.security import create_access_token
+from app.core.security import create_access_token, create_set_password_token
+from app.utils.email_utils import send_email_sync
 from app.models.user import User
 from app.models.studio import Studio
 from app.models.studio_settings import StudioSettings
@@ -224,6 +225,43 @@ def create_studio(payload: CreateStudioIn, admin: User = Depends(require_superad
     )
     db.add(owner)
     db.commit()
+
+    # Send welcome email with credentials and set-password link
+    try:
+        frontend_url = os.getenv("FRONTEND_URL", "https://bizcontrol-seven.vercel.app")
+        token = create_set_password_token(str(owner.id))
+        set_pw_link = f"{frontend_url}/set-password?token={token}"
+        smtp_host = os.getenv("PLATFORM_SMTP_HOST", "")
+        smtp_port = int(os.getenv("PLATFORM_SMTP_PORT", "587"))
+        smtp_user = os.getenv("PLATFORM_SMTP_USER", "")
+        smtp_pass = os.getenv("PLATFORM_SMTP_PASS", "")
+        smtp_from = os.getenv("PLATFORM_SMTP_FROM", smtp_user)
+        send_email_sync(
+            host=smtp_host, port=smtp_port, user=smtp_user,
+            password=smtp_pass, from_email=smtp_from,
+            to_email=owner.email,
+            subject="ברוך הבא ל-BizControl! פרטי הגישה שלך",
+            html_content=f"""
+            <div dir="rtl" style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
+              <h2 style="color:#1a1a2e;">ברוך הבא ל-BizControl! 🎉</h2>
+              <p>שלום {payload.owner_display_name},</p>
+              <p>הסטודיו <strong>{payload.studio_name}</strong> נוצר בהצלחה.</p>
+              <div style="background:#f8f9fa;border-radius:8px;padding:20px;margin:20px 0;">
+                <h3 style="margin-top:0;">פרטי הגישה שלך:</h3>
+                <p><strong>כתובת האתר:</strong> <a href="{frontend_url}">{frontend_url}</a></p>
+                <p><strong>מזהה סטודיו (Slug):</strong> {payload.slug}</p>
+                <p><strong>אימייל:</strong> {payload.owner_email}</p>
+                <p><strong>סיסמה זמנית:</strong> {payload.owner_password}</p>
+              </div>
+              <p>מומלץ להגדיר סיסמה אישית בלחיצה כאן:</p>
+              <a href="{set_pw_link}" style="display:inline-block;background:#1a1a2e;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;">הגדר סיסמה חדשה</a>
+              <p style="font-size:12px;color:#888;margin-top:20px;">הקישור תקף ל-72 שעות.</p>
+              <hr style="border:none;border-top:1px solid #eaeaea;margin:20px 0;"/>
+              <p style="font-size:12px;color:#888;">הודעה זו נשלחה אוטומטית ממערכת BizControl.</p>
+            </div>"""
+        )
+    except Exception as e:
+        print(f"[welcome_email] failed: {e}")
 
     return StudioOut(
         id=str(studio.id),

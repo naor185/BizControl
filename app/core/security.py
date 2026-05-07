@@ -23,3 +23,7 @@ def create_refresh_token(data: Dict[str, Any]) -> str:
 
 def decode_token(token: str) -> Dict[str, Any]:
     return jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALG])
+
+def create_set_password_token(user_id: str) -> str:
+    expire = datetime.now(timezone.utc) + timedelta(hours=72)
+    return jwt.encode({"sub": user_id, "exp": expire, "type": "set_password"}, JWT_SECRET, algorithm=JWT_ALG)

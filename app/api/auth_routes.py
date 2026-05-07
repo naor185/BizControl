@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
+from pydantic import BaseModel
 
 from app.core.database import get_db
 from app.core.security import create_access_token, create_refresh_token, decode_token
@@ -85,6 +86,25 @@ def refresh(payload: RefreshRequest, db: Session = Depends(get_db)):
     db.commit()
 
     return TokenResponse(access_token=new_access, refresh_token=new_refresh)
+
+class SetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
+
+@router.post("/set-password")
+def set_password(payload: SetPasswordRequest, db: Session = Depends(get_db)):
+    try:
+        data = decode_token(payload.token)
+    except Exception:
+        raise HTTPException(status_code=400, detail="הקישור לא תקין או פג תוקף")
+    if data.get("type") != "set_password":
+        raise HTTPException(status_code=400, detail="הקישור לא תקין")
+    user = db.get(User, data["sub"])
+    if not user:
+        raise HTTPException(status_code=404, detail="משתמש לא נמצא")
+    user.password_hash = ph.hash(payload.new_password)
+    db.commit()
+    return {"status": "ok"}
 
 @router.get("/me")
 def me(current_user: User = Depends(get_current_user)):
