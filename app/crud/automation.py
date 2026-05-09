@@ -267,51 +267,103 @@ def enqueue_post_payment_message(db: Session, appt: Appointment, amount_cents: i
     if not settings or not client:
         return
 
+    # ── Calculate cashback points ────────────────────────────
+    pct = int(getattr(settings, "points_percent_per_payment", 5) or 5)
+    points_earned = int(amount_cents / 100 * pct / 100)
+    if points_earned > 0:
+        client.loyalty_points = (client.loyalty_points or 0) + points_earned
+        db.add(ClientPointsLedger(
+            studio_id=appt.studio_id,
+            client_id=client.id,
+            appointment_id=appt.id,
+            delta_points=points_earned,
+            reason=f"cashback {pct}% on payment ₪{amount_cents/100:.2f}",
+        ))
+        db.flush()
+
+    # ── Build review block ───────────────────────────────────
+    review_lines: list[str] = []
+    if settings.review_link_google:
+        review_lines.append(f"⭐ Google: {settings.review_link_google.strip()}")
+    if settings.review_link_instagram:
+        review_lines.append(f"📸 Instagram: {settings.review_link_instagram.strip()}")
+    if settings.review_link_facebook:
+        review_lines.append(f"👍 Facebook: {settings.review_link_facebook.strip()}")
+    if settings.review_link_whatsapp:
+        review_lines.append(f"💬 WhatsApp: {settings.review_link_whatsapp.strip()}")
+    review_block = ("\n\n🙏 היה לנו כיף! נשמח אם תשאיר ביקורת:\n" + "\n".join(review_lines)) if review_lines else ""
+
+    # ── Aftercare block ──────────────────────────────────────
+    aftercare_block = ""
+    if settings.aftercare_message:
+        aftercare_block = f"\n\n💊 הוראות טיפול:\n{settings.aftercare_message.strip()}"
+
+    # ── Points block ─────────────────────────────────────────
+    points_total = client.loyalty_points or 0
+    points_block = f"\n\n🎁 נקודות נאמנות:\nצברת {points_earned} נקודות על התשלום הזה!\nסה\"כ: {points_total} נקודות."
+
     context = {
         "client_name": client.full_name,
         "appointment_title": appt.title,
         "appointment_date": appt.starts_at.strftime("%d/%m/%Y"),
         "appointment_time": appt.starts_at.strftime("%H:%M"),
         "payment_amount": f"{amount_cents / 100:.2f}",
-        "points_total": client.loyalty_points,
+        "points_earned": str(points_earned),
+        "points_total": str(points_total),
+        "review_block": review_block,
+        "aftercare_block": aftercare_block,
+        "points_block": points_block,
     }
 
     now = datetime.now(timezone.utc)
 
-    # WhatsApp
+    # ── WhatsApp ──────────────────────────────────────────────
     wa_template = settings.post_payment_wa_template
     if not wa_template:
-        wa_template = "תודה על התשלום! שמחים שבחרת בנו."
+        wa_template = (
+            "תודה {client_name}! 🙏 קיבלנו תשלום של ₪{payment_amount}."
+            "{points_block}"
+            "{aftercare_block}"
+            "{review_block}"
+        )
     if client.phone:
-        body = smart_format(wa_template, context)
         db.add(MessageJob(
-            studio_id=appt.studio_id,
-            client_id=client.id,
-            appointment_id=appt.id,
-            channel="whatsapp",
-            to_phone=client.phone,
-            body=body,
-            scheduled_at=now,
-            status="pending",
+            studio_id=appt.studio_id, client_id=client.id, appointment_id=appt.id,
+            channel="whatsapp", to_phone=client.phone,
+            body=smart_format(wa_template, context),
+            scheduled_at=now, status="pending",
         ))
 
-    # Email
+    # ── Email ─────────────────────────────────────────────────
     email_template = settings.post_payment_email_template
     if not email_template:
-        email_template = "תודה על התשלום! שמחים שבחרת בנו."
+        review_html = ""
+        if review_lines:
+            links_html = "".join(f'<li><a href="{l.split(": ", 1)[-1]}" style="color:#111;">{l.split(": ", 1)[0]}</a></li>' for l in review_lines)
+            review_html = f'<h3 style="color:#333;">🙏 נשמח לביקורת!</h3><ul style="line-height:2;">{links_html}</ul>'
+        aftercare_html = f'<h3 style="color:#333;">💊 הוראות טיפול</h3><p style="color:#555;">{settings.aftercare_message}</p>' if settings.aftercare_message else ""
+        points_html = f'<div style="background:#f0fdf4;border-radius:8px;padding:12px 16px;margin:16px 0;"><strong style="color:#166534;">🎁 צברת {points_earned} נקודות!</strong><br><span style="color:#555;">סה"כ: {points_total} נקודות.</span></div>' if points_earned > 0 else f'<p style="color:#555;">סה"כ נקודות: {points_total}</p>'
+        email_template = f"""<div dir="rtl" style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#111;">
+  <div style="background:#111;padding:24px 30px;border-radius:12px 12px 0 0;">
+    <span style="color:#fff;font-size:20px;font-weight:bold;">תודה על התשלום! 🙏</span>
+  </div>
+  <div style="padding:24px 30px;background:#fafafa;">
+    <p>היי {{client_name}},</p>
+    <p>קיבלנו תשלום של <strong>₪{{payment_amount}}</strong> עבור <strong>{{appointment_title}}</strong>.</p>
+    {points_html}
+    {aftercare_html}
+    {review_html}
+  </div>
+  <div style="padding:12px 30px;background:#f3f4f6;text-align:center;font-size:11px;color:#9ca3af;border-radius:0 0 12px 12px;">BizControl</div>
+</div>"""
     if client.email and settings.smtp_host:
-        body = smart_format(email_template, context)
         db.add(MessageJob(
-            studio_id=appt.studio_id,
-            client_id=client.id,
-            appointment_id=appt.id,
-            channel="email",
-            to_phone=client.email,
-            body=body,
-            scheduled_at=now,
-            status="pending",
+            studio_id=appt.studio_id, client_id=client.id, appointment_id=appt.id,
+            channel="email", to_phone=client.email,
+            body=smart_format(email_template, context),
+            scheduled_at=now, status="pending",
         ))
-    
+
     db.commit()
 
 def build_aftercare_message(settings: StudioSettings, client: Client, points_added: int, points_total: int) -> str:
@@ -358,19 +410,18 @@ def enqueue_aftercare_if_needed(db: Session, appt: Appointment) -> None:
     if appt.done_at is None:
         appt.done_at = now
 
-    # נקודות על סיום תור - לא מופעל יותר (מנגנון הנקודות הוא קאשבק מתשלום בלבד)
-    points = 0
-
-    # היתרה אצלך היא loyalty_points - לא מוסיפים כלום
-    # (הלוג נשמר עם 0 כדי לא לשבור את ה-aftercare message)
-
-    db.add(ClientPointsLedger(
-        studio_id=appt.studio_id,
-        client_id=appt.client_id,
-        appointment_id=appt.id,
-        delta_points=0,
-        reason="Appointment done - no auto points (cashback only)",
-    ))
+    # נקודות על סיום תור
+    points = int(settings.points_per_done_appointment or 0)
+    if points > 0:
+        client.loyalty_points = (client.loyalty_points or 0) + points
+        db.add(ClientPointsLedger(
+            studio_id=appt.studio_id,
+            client_id=appt.client_id,
+            appointment_id=appt.id,
+            delta_points=points,
+            reason=f"Appointment done - {points} points awarded",
+        ))
+        db.flush()
 
     # message job
     delay = int(settings.aftercare_delay_minutes or 0)
