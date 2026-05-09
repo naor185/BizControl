@@ -16,8 +16,9 @@ from app.models.product_sale import ProductSale
 from app.models.studio_note import StudioNote
 from app.models.lead import Lead
 from app.models.audit_log import AuditLog
+from app.models.studio_integration import StudioIntegration
 
 __all__ = [
     "Base", "Studio", "User", "StudioSettings", "RefreshToken",
-    "Client", "Appointment", "Payment", "ClientPointsLedger", "MessageJob", "Expense", "WorkSession", "MonthlyGoal", "Product", "ProductSale", "StudioNote", "Lead", "AuditLog"
+    "Client", "Appointment", "Payment", "ClientPointsLedger", "MessageJob", "Expense", "WorkSession", "MonthlyGoal", "Product", "ProductSale", "StudioNote", "Lead", "AuditLog", "StudioIntegration"
 ]

@@ -26,6 +26,8 @@ from app.models.client import Client
 from app.models.message_job import MessageJob
 from app.models.studio_note import StudioNote
 from app.models.audit_log import AuditLog
+from app.models.studio_integration import StudioIntegration
+from app.models.lead import Lead
 
 router = APIRouter(prefix="/admin", tags=["SuperAdmin"])
 ph = PasswordHasher()
@@ -670,3 +672,189 @@ def get_audit_log(
         )
         for r in rows
     ]
+
+
+# ── Studio Integrations ───────────────────────────────────────────────────────
+
+PLATFORMS = ["whatsapp", "instagram", "facebook", "lead_ads"]
+
+
+class IntegrationOut(BaseModel):
+    platform: str
+    is_active: bool
+    expires_at: Optional[datetime]
+    is_permanent: bool
+    phone_number_id: Optional[str]
+    access_token: Optional[str]
+    page_id: Optional[str]
+    instagram_account_id: Optional[str]
+
+
+class IntegrationIn(BaseModel):
+    is_active: Optional[bool] = None
+    trial_days: Optional[int] = None      # grant N-day trial from now
+    permanent: Optional[bool] = None      # True = remove expiry
+    phone_number_id: Optional[str] = None
+    access_token: Optional[str] = None
+    page_id: Optional[str] = None
+    instagram_account_id: Optional[str] = None
+
+
+def _get_or_create_integration(db: Session, studio_id: uuid.UUID, platform: str) -> StudioIntegration:
+    row = db.scalar(
+        select(StudioIntegration).where(
+            StudioIntegration.studio_id == studio_id,
+            StudioIntegration.platform == platform,
+        )
+    )
+    if not row:
+        row = StudioIntegration(id=uuid.uuid4(), studio_id=studio_id, platform=platform)
+        db.add(row)
+        db.flush()
+    return row
+
+
+def _integration_out(row: StudioIntegration) -> IntegrationOut:
+    return IntegrationOut(
+        platform=row.platform,
+        is_active=row.is_active,
+        expires_at=row.expires_at,
+        is_permanent=row.is_active and row.expires_at is None,
+        phone_number_id=row.phone_number_id,
+        access_token=row.access_token,
+        page_id=row.page_id,
+        instagram_account_id=row.instagram_account_id,
+    )
+
+
+@router.get("/studios/{studio_id}/integrations", response_model=list[IntegrationOut])
+def list_integrations(studio_id: uuid.UUID, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    studio = db.get(Studio, studio_id)
+    if not studio or studio.is_platform:
+        raise HTTPException(status_code=404, detail="Studio not found")
+    rows = db.scalars(select(StudioIntegration).where(StudioIntegration.studio_id == studio_id)).all()
+    by_platform = {r.platform: r for r in rows}
+    result = []
+    for p in PLATFORMS:
+        if p in by_platform:
+            result.append(_integration_out(by_platform[p]))
+        else:
+            result.append(IntegrationOut(
+                platform=p, is_active=False, expires_at=None, is_permanent=False,
+                phone_number_id=None, access_token=None, page_id=None, instagram_account_id=None,
+            ))
+    return result
+
+
+@router.patch("/studios/{studio_id}/integrations/{platform}", response_model=IntegrationOut)
+def update_integration(
+    studio_id: uuid.UUID,
+    platform: str,
+    payload: IntegrationIn,
+    admin: User = Depends(require_superadmin),
+    db: Session = Depends(get_db),
+):
+    if platform not in PLATFORMS:
+        raise HTTPException(status_code=400, detail=f"Unknown platform: {platform}")
+    studio = db.get(Studio, studio_id)
+    if not studio or studio.is_platform:
+        raise HTTPException(status_code=404, detail="Studio not found")
+
+    row = _get_or_create_integration(db, studio_id, platform)
+    changes: dict = {}
+
+    if payload.is_active is not None:
+        row.is_active = payload.is_active
+        changes["is_active"] = payload.is_active
+
+    if payload.trial_days is not None:
+        row.is_active = True
+        row.expires_at = datetime.now(timezone.utc) + timedelta(days=payload.trial_days)
+        changes["trial_days"] = payload.trial_days
+
+    if payload.permanent is True:
+        row.is_active = True
+        row.expires_at = None
+        changes["permanent"] = True
+
+    if payload.phone_number_id is not None:
+        row.phone_number_id = payload.phone_number_id or None
+        changes["phone_number_id"] = "set"
+    if payload.access_token is not None:
+        row.access_token = payload.access_token or None
+        changes["access_token"] = "***"
+    if payload.page_id is not None:
+        row.page_id = payload.page_id or None
+        changes["page_id"] = "set"
+    if payload.instagram_account_id is not None:
+        row.instagram_account_id = payload.instagram_account_id or None
+        changes["instagram_account_id"] = "set"
+
+    _audit(db, admin, "update_integration", studio, {"platform": platform, **changes})
+    db.commit()
+    db.refresh(row)
+    return _integration_out(row)
+
+
+# ── Campaign Analytics ────────────────────────────────────────────────────────
+
+class CampaignStat(BaseModel):
+    campaign_name: str
+    source: str
+    total: int
+    booked: int
+    lost: int
+    conversion_rate: float
+
+
+class LeadAnalyticsOut(BaseModel):
+    total_leads: int
+    by_source: dict
+    by_status: dict
+    campaigns: list[CampaignStat]
+
+
+@router.get("/studios/{studio_id}/lead-analytics", response_model=LeadAnalyticsOut)
+def lead_analytics(studio_id: uuid.UUID, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    studio = db.get(Studio, studio_id)
+    if not studio or studio.is_platform:
+        raise HTTPException(status_code=404, detail="Studio not found")
+
+    all_leads = db.scalars(select(Lead).where(Lead.studio_id == studio_id)).all()
+
+    by_source: dict[str, int] = {}
+    by_status: dict[str, int] = {}
+    campaigns: dict[str, dict] = {}
+
+    for lead in all_leads:
+        by_source[lead.source] = by_source.get(lead.source, 0) + 1
+        by_status[lead.status] = by_status.get(lead.status, 0) + 1
+
+        if lead.campaign_name:
+            key = lead.campaign_name
+            if key not in campaigns:
+                campaigns[key] = {"source": lead.source, "total": 0, "booked": 0, "lost": 0}
+            campaigns[key]["total"] += 1
+            if lead.status == "booked":
+                campaigns[key]["booked"] += 1
+            elif lead.status == "lost":
+                campaigns[key]["lost"] += 1
+
+    campaign_list = [
+        CampaignStat(
+            campaign_name=name,
+            source=v["source"],
+            total=v["total"],
+            booked=v["booked"],
+            lost=v["lost"],
+            conversion_rate=round(v["booked"] / v["total"] * 100, 1) if v["total"] else 0,
+        )
+        for name, v in sorted(campaigns.items(), key=lambda x: -x[1]["total"])
+    ]
+
+    return LeadAnalyticsOut(
+        total_leads=len(all_leads),
+        by_source=by_source,
+        by_status=by_status,
+        campaigns=campaign_list,
+    )

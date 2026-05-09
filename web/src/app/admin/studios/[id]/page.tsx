@@ -42,6 +42,44 @@ type StudioSettings = {
     whatsapp_api_key: string | null;
 };
 
+type Integration = {
+    platform: string;
+    is_active: boolean;
+    expires_at: string | null;
+    is_permanent: boolean;
+    phone_number_id: string | null;
+    access_token: string | null;
+    page_id: string | null;
+    instagram_account_id: string | null;
+};
+
+type CampaignStat = {
+    campaign_name: string;
+    source: string;
+    total: number;
+    booked: number;
+    lost: number;
+    conversion_rate: number;
+};
+
+type LeadAnalytics = {
+    total_leads: number;
+    by_source: Record<string, number>;
+    by_status: Record<string, number>;
+    campaigns: CampaignStat[];
+};
+
+const PLATFORM_META = {
+    whatsapp:  { label: "WhatsApp Business", icon: "💬", color: "border-green-400",  badge: "bg-green-50 text-green-700"  },
+    instagram: { label: "Instagram DMs",     icon: "📸", color: "border-pink-400",   badge: "bg-pink-50 text-pink-700"   },
+    facebook:  { label: "Facebook Messenger",icon: "👍", color: "border-blue-400",   badge: "bg-blue-50 text-blue-700"   },
+    lead_ads:  { label: "Lead Ads (טפסים)", icon: "📋", color: "border-purple-400", badge: "bg-purple-50 text-purple-700"},
+} as const;
+
+const SOURCE_LABELS: Record<string, string> = {
+    whatsapp: "💬 WhatsApp", instagram: "📸 Instagram", facebook: "👍 Facebook", manual: "✏️ ידני",
+};
+
 const PLAN_LABELS: Record<string, { label: string; color: string }> = {
     free:     { label: "חינמי",    color: "bg-slate-100 text-slate-600" },
     starter:  { label: "Starter",  color: "bg-blue-100 text-blue-700" },
@@ -85,14 +123,20 @@ export default function StudioDetailPage() {
     const [waApiKey, setWaApiKey] = useState("");
     const [savingWa, setSavingWa] = useState(false);
     const [waCopied, setWaCopied] = useState<string | null>(null);
+    const [integrations, setIntegrations] = useState<Integration[]>([]);
+    const [analytics, setAnalytics] = useState<LeadAnalytics | null>(null);
+    const [savingIntegration, setSavingIntegration] = useState<string | null>(null);
+    const [intCredentials, setIntCredentials] = useState<Record<string, Record<string, string>>>({});
 
     const load = useCallback(async () => {
         setErr(null);
         try {
-            const [d, n, s] = await Promise.all([
+            const [d, n, s, ints, anal] = await Promise.all([
                 apiFetch<StudioDetail>(`/api/admin/studios/${studioId}/detail`),
                 apiFetch<Note[]>(`/api/admin/studios/${studioId}/notes`),
                 apiFetch<StudioSettings>(`/api/admin/studios/${studioId}/settings`),
+                apiFetch<Integration[]>(`/api/admin/studios/${studioId}/integrations`),
+                apiFetch<LeadAnalytics>(`/api/admin/studios/${studioId}/lead-analytics`).catch(() => null),
             ]);
             setDetail(d);
             setNotes(n);
@@ -100,6 +144,19 @@ export default function StudioDetailPage() {
             setNewPlan(s.subscription_plan);
             setWaPhoneId(s.whatsapp_phone_id || "");
             setWaApiKey(s.whatsapp_api_key || "");
+            setIntegrations(ints);
+            setAnalytics(anal);
+            // Pre-fill credential fields from existing integration data
+            const creds: Record<string, Record<string, string>> = {};
+            for (const i of ints) {
+                creds[i.platform] = {
+                    phone_number_id: i.phone_number_id || "",
+                    access_token: i.access_token || "",
+                    page_id: i.page_id || "",
+                    instagram_account_id: i.instagram_account_id || "",
+                };
+            }
+            setIntCredentials(creds);
         } catch (e: any) {
             if (e?.message?.includes("403") || e?.message?.includes("401")) {
                 router.replace("/login");
@@ -200,6 +257,21 @@ export default function StudioDetailPage() {
             alert(e?.message);
         } finally {
             setSavingSettings(false);
+        }
+    };
+
+    const handleIntegration = async (platform: string, patch: Record<string, unknown>) => {
+        setSavingIntegration(platform);
+        try {
+            const updated = await apiFetch<Integration>(`/api/admin/studios/${studioId}/integrations/${platform}`, {
+                method: "PATCH",
+                body: JSON.stringify(patch),
+            });
+            setIntegrations(prev => prev.map(i => i.platform === platform ? updated : i));
+        } catch (e: any) {
+            alert(e?.message);
+        } finally {
+            setSavingIntegration(null);
         }
     };
 
@@ -504,6 +576,221 @@ export default function StudioDetailPage() {
                                 >
                                     נתק WhatsApp
                                 </button>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {/* Integrations */}
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div className="px-4 py-3 border-b border-gray-50 flex items-center gap-2">
+                        <span className="text-base">🔌</span>
+                        <h2 className="text-sm font-semibold text-gray-700">אינטגרציות רשתות חברתיות</h2>
+                        <span className="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full font-medium">סופר-אדמין</span>
+                    </div>
+                    <div className="p-4 space-y-3">
+                        {(["whatsapp","instagram","facebook","lead_ads"] as const).map(platform => {
+                            const meta = PLATFORM_META[platform];
+                            const intg = integrations.find(i => i.platform === platform);
+                            const creds = intCredentials[platform] || {};
+                            const isActive = intg?.is_active ?? false;
+                            const isPermanent = intg?.is_permanent ?? false;
+                            const daysLeft = intg?.expires_at
+                                ? Math.ceil((new Date(intg.expires_at).getTime() - Date.now()) / 86_400_000)
+                                : null;
+                            const expired = daysLeft !== null && daysLeft < 0;
+                            const saving = savingIntegration === platform;
+
+                            return (
+                                <div key={platform} className={`border-2 rounded-2xl overflow-hidden transition-all ${isActive && !expired ? meta.color : "border-gray-100"}`}>
+                                    {/* Header row */}
+                                    <div className="flex items-center gap-3 px-4 py-3 bg-gray-50">
+                                        <span className="text-xl">{meta.icon}</span>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-semibold text-gray-900">{meta.label}</p>
+                                            <p className="text-xs text-gray-400">
+                                                {!isActive || expired ? "לא פעיל" :
+                                                    isPermanent ? "פעיל — קבוע" :
+                                                    daysLeft !== null ? `פעיל — עוד ${daysLeft} ימים` : "פעיל"}
+                                            </p>
+                                        </div>
+                                        {/* Toggle */}
+                                        <button
+                                            onClick={() => handleIntegration(platform, { is_active: !isActive })}
+                                            disabled={saving}
+                                            className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${isActive && !expired ? "bg-emerald-500" : "bg-gray-200"} disabled:opacity-50`}
+                                        >
+                                            <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform ${isActive && !expired ? "translate-x-5" : "translate-x-0"}`} />
+                                        </button>
+                                    </div>
+
+                                    {/* Trial / Permanent buttons */}
+                                    <div className="px-4 py-2 flex flex-wrap gap-2 border-t border-gray-100 bg-white">
+                                        {[7, 14, 30, 90].map(days => (
+                                            <button
+                                                key={days}
+                                                onClick={() => handleIntegration(platform, { trial_days: days })}
+                                                disabled={saving}
+                                                className="px-3 py-1 text-xs font-semibold bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-40"
+                                            >
+                                                ניסיון {days}י׳
+                                            </button>
+                                        ))}
+                                        <button
+                                            onClick={() => handleIntegration(platform, { permanent: true })}
+                                            disabled={saving}
+                                            className="px-3 py-1 text-xs font-semibold bg-black text-white rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-40"
+                                        >
+                                            {saving ? "..." : "קבוע ✓"}
+                                        </button>
+                                    </div>
+
+                                    {/* Credentials */}
+                                    <div className="px-4 py-3 border-t border-gray-100 bg-white space-y-2">
+                                        {platform === "whatsapp" && (
+                                            <>
+                                                <input
+                                                    placeholder="Phone Number ID"
+                                                    dir="ltr"
+                                                    value={creds.phone_number_id || ""}
+                                                    onChange={e => setIntCredentials(prev => ({ ...prev, [platform]: { ...prev[platform], phone_number_id: e.target.value }}))}
+                                                    className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-black/10"
+                                                />
+                                                <input
+                                                    placeholder="Access Token (EAAxxxx...)"
+                                                    dir="ltr"
+                                                    type="password"
+                                                    value={creds.access_token || ""}
+                                                    onChange={e => setIntCredentials(prev => ({ ...prev, [platform]: { ...prev[platform], access_token: e.target.value }}))}
+                                                    className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-black/10"
+                                                />
+                                            </>
+                                        )}
+                                        {platform === "instagram" && (
+                                            <>
+                                                <input
+                                                    placeholder="Instagram Account ID"
+                                                    dir="ltr"
+                                                    value={creds.instagram_account_id || ""}
+                                                    onChange={e => setIntCredentials(prev => ({ ...prev, [platform]: { ...prev[platform], instagram_account_id: e.target.value }}))}
+                                                    className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-black/10"
+                                                />
+                                                <input
+                                                    placeholder="Access Token"
+                                                    dir="ltr"
+                                                    type="password"
+                                                    value={creds.access_token || ""}
+                                                    onChange={e => setIntCredentials(prev => ({ ...prev, [platform]: { ...prev[platform], access_token: e.target.value }}))}
+                                                    className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-black/10"
+                                                />
+                                            </>
+                                        )}
+                                        {platform === "facebook" && (
+                                            <>
+                                                <input
+                                                    placeholder="Facebook Page ID"
+                                                    dir="ltr"
+                                                    value={creds.page_id || ""}
+                                                    onChange={e => setIntCredentials(prev => ({ ...prev, [platform]: { ...prev[platform], page_id: e.target.value }}))}
+                                                    className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-black/10"
+                                                />
+                                                <input
+                                                    placeholder="Access Token"
+                                                    dir="ltr"
+                                                    type="password"
+                                                    value={creds.access_token || ""}
+                                                    onChange={e => setIntCredentials(prev => ({ ...prev, [platform]: { ...prev[platform], access_token: e.target.value }}))}
+                                                    className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-black/10"
+                                                />
+                                            </>
+                                        )}
+                                        {platform !== "lead_ads" && (
+                                            <button
+                                                onClick={() => handleIntegration(platform, {
+                                                    phone_number_id: creds.phone_number_id || null,
+                                                    access_token: creds.access_token || null,
+                                                    page_id: creds.page_id || null,
+                                                    instagram_account_id: creds.instagram_account_id || null,
+                                                })}
+                                                disabled={saving}
+                                                className="w-full py-1.5 bg-black text-white text-xs font-semibold rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-40"
+                                            >
+                                                {saving ? "שומר..." : "שמור פרטי חיבור"}
+                                            </button>
+                                        )}
+                                        {platform === "lead_ads" && (
+                                            <p className="text-xs text-gray-400">Lead Ads עובד אוטומטית דרך ה-Webhook של Facebook/Instagram — אין צורך ב-token נפרד.</p>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                {/* Lead Analytics */}
+                {analytics && analytics.total_leads > 0 && (
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                        <div className="px-4 py-3 border-b border-gray-50 flex items-center gap-2">
+                            <span className="text-base">📊</span>
+                            <h2 className="text-sm font-semibold text-gray-700">אנליטיקס לידים וקמפיינים</h2>
+                        </div>
+                        <div className="p-4 space-y-4">
+                            {/* Summary row */}
+                            <div className="grid grid-cols-4 gap-2">
+                                {[
+                                    { label: "סה״כ לידים", value: analytics.total_leads, color: "text-gray-900" },
+                                    { label: "קבעו תור", value: analytics.by_status["booked"] || 0, color: "text-emerald-600" },
+                                    { label: "מעוניינים", value: analytics.by_status["interested"] || 0, color: "text-amber-600" },
+                                    { label: "אבדו", value: analytics.by_status["lost"] || 0, color: "text-red-500" },
+                                ].map(s => (
+                                    <div key={s.label} className="text-center bg-gray-50 rounded-xl p-2">
+                                        <p className={`text-xl font-bold ${s.color}`}>{s.value}</p>
+                                        <p className="text-[10px] text-gray-400 mt-0.5">{s.label}</p>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* By source */}
+                            <div>
+                                <p className="text-xs font-semibold text-gray-500 mb-2">לפי מקור</p>
+                                <div className="flex flex-wrap gap-2">
+                                    {Object.entries(analytics.by_source).map(([src, count]) => (
+                                        <span key={src} className="text-xs px-2.5 py-1 bg-gray-100 text-gray-700 rounded-full font-medium">
+                                            {SOURCE_LABELS[src] || src} — {count}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Campaigns table */}
+                            {analytics.campaigns.length > 0 && (
+                                <div>
+                                    <p className="text-xs font-semibold text-gray-500 mb-2">קמפיינים ממומנים</p>
+                                    <div className="space-y-2">
+                                        {analytics.campaigns.map(c => (
+                                            <div key={c.campaign_name} className="bg-gray-50 rounded-xl px-3 py-2.5">
+                                                <div className="flex items-center justify-between gap-2 mb-1">
+                                                    <span className="text-xs font-semibold text-gray-800 truncate">📣 {c.campaign_name}</span>
+                                                    <span className="text-xs text-gray-400 flex-shrink-0">{SOURCE_LABELS[c.source] || c.source}</span>
+                                                </div>
+                                                <div className="flex items-center gap-3 text-xs text-gray-500">
+                                                    <span>{c.total} לידים</span>
+                                                    <span className="text-emerald-600 font-medium">{c.booked} קבעו</span>
+                                                    <span className="text-red-500">{c.lost} אבדו</span>
+                                                    <span className="mr-auto font-bold text-gray-700">{c.conversion_rate}% המרה</span>
+                                                </div>
+                                                {/* Conversion bar */}
+                                                <div className="mt-1.5 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                                                    <div
+                                                        className="h-full bg-emerald-400 rounded-full"
+                                                        style={{ width: `${c.conversion_rate}%` }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
                             )}
                         </div>
                     </div>
