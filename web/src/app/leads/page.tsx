@@ -17,12 +17,12 @@ type Lead = {
     updated_at: string;
 };
 
-const STATUSES = [
-    { key: "new",        label: "חדש",          color: "bg-blue-100 text-blue-700",    dot: "bg-blue-500" },
-    { key: "contacted",  label: "נוצר קשר",     color: "bg-purple-100 text-purple-700", dot: "bg-purple-500" },
-    { key: "interested", label: "מעוניין",       color: "bg-amber-100 text-amber-700",  dot: "bg-amber-500" },
-    { key: "booked",     label: "קבע תור",       color: "bg-green-100 text-green-700",  dot: "bg-green-500" },
-    { key: "lost",       label: "אבד",           color: "bg-red-100 text-red-600",      dot: "bg-red-400" },
+const COLUMNS = [
+    { key: "new",        label: "חדש",        color: "border-blue-400",   bg: "bg-blue-50",   dot: "bg-blue-400",   badge: "bg-blue-100 text-blue-700" },
+    { key: "contacted",  label: "נוצר קשר",   color: "border-purple-400", bg: "bg-purple-50", dot: "bg-purple-400", badge: "bg-purple-100 text-purple-700" },
+    { key: "interested", label: "מעוניין",    color: "border-amber-400",  bg: "bg-amber-50",  dot: "bg-amber-400",  badge: "bg-amber-100 text-amber-700" },
+    { key: "booked",     label: "קבע תור",    color: "border-green-400",  bg: "bg-green-50",  dot: "bg-green-400",  badge: "bg-green-100 text-green-700" },
+    { key: "lost",       label: "אבד",        color: "border-red-300",    bg: "bg-red-50",    dot: "bg-red-300",    badge: "bg-red-100 text-red-500" },
 ];
 
 const SOURCES = [
@@ -32,25 +32,25 @@ const SOURCES = [
     { key: "facebook",  label: "Facebook",  icon: "👍" },
 ];
 
-const statusOf = (key: string) => STATUSES.find(s => s.key === key) ?? STATUSES[0];
-const sourceOf = (key: string) => SOURCES.find(s => s.key === key) ?? SOURCES[0];
+const colOf  = (key: string) => COLUMNS.find(c => c.key === key) ?? COLUMNS[0];
+const srcOf  = (key: string) => SOURCES.find(s => s.key === key) ?? SOURCES[0];
 
 function fmtDate(iso: string) {
-    return new Date(iso).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit" });
+    return new Date(iso).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit" });
 }
 
 const EMPTY_FORM = { name: "", phone: "", email: "", source: "manual", service_interest: "", notes: "" };
 
 export default function LeadsPage() {
     const router = useRouter();
-    const [leads, setLeads] = useState<Lead[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [filterStatus, setFilterStatus] = useState<string>("all");
-    const [modal, setModal] = useState<{ mode: "create" | "edit"; lead?: Lead } | null>(null);
+    const [leads, setLeads]           = useState<Lead[]>([]);
+    const [loading, setLoading]       = useState(true);
+    const [modal, setModal]           = useState<{ mode: "create" | "edit"; lead?: Lead } | null>(null);
     const [detailLead, setDetailLead] = useState<Lead | null>(null);
-    const [form, setForm] = useState({ ...EMPTY_FORM });
-    const [saving, setSaving] = useState(false);
+    const [form, setForm]             = useState({ ...EMPTY_FORM });
+    const [saving, setSaving]         = useState(false);
     const [converting, setConverting] = useState(false);
+    const [movingId, setMovingId]     = useState<string | null>(null);
 
     const load = useCallback(async () => {
         try {
@@ -65,12 +65,8 @@ export default function LeadsPage() {
 
     useEffect(() => { load(); }, [load]);
 
-    const openCreate = () => {
-        setForm({ ...EMPTY_FORM });
-        setModal({ mode: "create" });
-    };
-
-    const openEdit = (lead: Lead) => {
+    const openCreate = () => { setForm({ ...EMPTY_FORM }); setModal({ mode: "create" }); };
+    const openEdit   = (lead: Lead) => {
         setForm({
             name: lead.name,
             phone: lead.phone ?? "",
@@ -109,13 +105,17 @@ export default function LeadsPage() {
         }
     };
 
-    const handleStatusChange = async (lead: Lead, status: string) => {
+    const handleMove = async (lead: Lead, status: string) => {
+        if (lead.status === status) return;
+        setMovingId(lead.id);
         try {
             const updated = await apiFetch<Lead>(`/api/leads/${lead.id}`, { method: "PATCH", body: JSON.stringify({ status }) });
             setLeads(prev => prev.map(l => l.id === updated.id ? updated : l));
             if (detailLead?.id === lead.id) setDetailLead(updated);
         } catch (e: any) {
             alert(e?.message);
+        } finally {
+            setMovingId(null);
         }
     };
 
@@ -141,23 +141,19 @@ export default function LeadsPage() {
         }
     };
 
-    const filtered = filterStatus === "all" ? leads : leads.filter(l => l.status === filterStatus);
-
-    const countByStatus = (key: string) => leads.filter(l => l.status === key).length;
-
     if (loading) return (
         <div className="min-h-screen flex items-center justify-center text-gray-400 text-sm" dir="rtl">טוען...</div>
     );
 
     return (
-        <div dir="rtl" className="min-h-screen bg-gray-50 pb-24">
+        <div dir="rtl" className="min-h-screen bg-gray-50 flex flex-col">
 
             {/* Header */}
-            <div className="bg-white border-b border-gray-100 sticky top-0 z-10">
-                <div className="max-w-3xl mx-auto px-4 py-4 flex items-center justify-between">
+            <div className="bg-white border-b border-gray-100 sticky top-0 z-10 flex-shrink-0">
+                <div className="px-4 py-4 flex items-center justify-between">
                     <div>
-                        <h1 className="text-lg font-bold text-gray-900">לידים</h1>
-                        <p className="text-xs text-gray-400">{leads.length} לידים בסה"כ</p>
+                        <h1 className="text-lg font-bold text-gray-900">לידים CRM</h1>
+                        <p className="text-xs text-gray-400">{leads.length} לידים · {COLUMNS.map(c => leads.filter(l => l.status === c.key).length + " " + c.label).join(" · ")}</p>
                     </div>
                     <button
                         onClick={openCreate}
@@ -168,97 +164,84 @@ export default function LeadsPage() {
                 </div>
             </div>
 
-            <div className="max-w-3xl mx-auto px-4 py-5 space-y-4">
-
-                {/* Status pipeline summary */}
-                <div className="grid grid-cols-5 gap-2">
-                    {STATUSES.map(s => (
-                        <button
-                            key={s.key}
-                            onClick={() => setFilterStatus(prev => prev === s.key ? "all" : s.key)}
-                            className={[
-                                "flex flex-col items-center py-2.5 rounded-2xl text-center transition-all border",
-                                filterStatus === s.key
-                                    ? "border-black bg-black text-white shadow-md"
-                                    : "border-gray-100 bg-white text-gray-700 hover:border-gray-300",
-                            ].join(" ")}
-                        >
-                            <span className={`w-2 h-2 rounded-full mb-1.5 ${filterStatus === s.key ? "bg-white" : s.dot}`} />
-                            <span className="text-base font-bold">{countByStatus(s.key)}</span>
-                            <span className="text-[10px] font-medium leading-tight mt-0.5">{s.label}</span>
-                        </button>
-                    ))}
-                </div>
-
-                {/* List */}
-                {filtered.length === 0 ? (
-                    <div className="text-center py-16">
-                        <div className="text-4xl mb-3">🎯</div>
-                        <p className="text-gray-400 text-sm">אין לידים {filterStatus !== "all" ? `בסטטוס "${statusOf(filterStatus).label}"` : "עדיין"}</p>
-                        {filterStatus === "all" && (
-                            <button onClick={openCreate} className="mt-4 text-sm text-black underline">הוסף ליד ראשון</button>
-                        )}
-                    </div>
-                ) : (
-                    <div className="space-y-2">
-                        {filtered.map(lead => {
-                            const st = statusOf(lead.status);
-                            const src = sourceOf(lead.source);
-                            return (
-                                <div
-                                    key={lead.id}
-                                    onClick={() => setDetailLead(lead)}
-                                    className="bg-white rounded-2xl border border-gray-100 px-4 py-3.5 flex items-center gap-3 cursor-pointer hover:border-gray-300 active:scale-[0.99] transition-all shadow-sm"
-                                >
-                                    {/* Status dot */}
-                                    <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${st.dot}`} />
-
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-2">
-                                            <span className="font-semibold text-sm text-gray-900 truncate">{lead.name}</span>
-                                            <span className="text-xs">{src.icon}</span>
-                                        </div>
-                                        <div className="flex items-center gap-2 mt-0.5">
-                                            {lead.phone && <span className="text-xs text-gray-400" dir="ltr">{lead.phone}</span>}
-                                            {lead.service_interest && <span className="text-xs text-gray-400">· {lead.service_interest}</span>}
-                                        </div>
-                                    </div>
-
-                                    <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${st.color}`}>{st.label}</span>
-                                        <span className="text-[10px] text-gray-300">{fmtDate(lead.created_at)}</span>
-                                    </div>
+            {/* Kanban board — horizontal scroll */}
+            <div className="flex-1 overflow-x-auto">
+                <div className="flex gap-3 p-4 h-full" style={{ minWidth: `${COLUMNS.length * 280}px` }}>
+                    {COLUMNS.map(col => {
+                        const colLeads = leads.filter(l => l.status === col.key);
+                        return (
+                            <div key={col.key} className="flex flex-col w-64 flex-shrink-0">
+                                {/* Column header */}
+                                <div className={`flex items-center gap-2 px-3 py-2.5 rounded-t-2xl border-t-2 ${col.color} bg-white shadow-sm mb-0.5`}>
+                                    <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${col.dot}`} />
+                                    <span className="text-sm font-bold text-gray-800 flex-1">{col.label}</span>
+                                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${col.badge}`}>{colLeads.length}</span>
                                 </div>
-                            );
-                        })}
-                    </div>
-                )}
+
+                                {/* Cards */}
+                                <div className="flex-1 space-y-2 overflow-y-auto pb-4 max-h-[calc(100vh-160px)]">
+                                    {colLeads.length === 0 ? (
+                                        <div className="flex flex-col items-center justify-center py-10 text-gray-300 text-xs gap-1">
+                                            <span className="text-2xl">🎯</span>
+                                            <span>אין לידים</span>
+                                        </div>
+                                    ) : colLeads.map(lead => {
+                                        const src = srcOf(lead.source);
+                                        return (
+                                            <div
+                                                key={lead.id}
+                                                onClick={() => setDetailLead(lead)}
+                                                className="bg-white rounded-2xl border border-gray-100 p-3 cursor-pointer hover:border-gray-300 hover:shadow-md active:scale-[0.98] transition-all shadow-sm"
+                                            >
+                                                <div className="flex items-start justify-between gap-2 mb-1.5">
+                                                    <span className="font-semibold text-sm text-gray-900 leading-tight">{lead.name}</span>
+                                                    <span className="text-base flex-shrink-0 mt-0.5">{src.icon}</span>
+                                                </div>
+                                                {lead.phone && (
+                                                    <p className="text-xs text-gray-400 mb-1" dir="ltr">{lead.phone}</p>
+                                                )}
+                                                {lead.service_interest && (
+                                                    <p className="text-xs text-gray-500 truncate">{lead.service_interest}</p>
+                                                )}
+                                                <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-50">
+                                                    <span className="text-[10px] text-gray-300">{fmtDate(lead.created_at)}</span>
+                                                    {movingId === lead.id && (
+                                                        <span className="text-[10px] text-gray-400">מעביר...</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
             </div>
 
             {/* Detail sheet */}
             {detailLead && (() => {
                 const lead = detailLead;
-                const st = statusOf(lead.status);
-                const src = sourceOf(lead.source);
+                const col  = colOf(lead.status);
+                const src  = srcOf(lead.source);
                 return (
                     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40" onClick={() => setDetailLead(null)}>
                         <div
                             className="bg-white rounded-t-3xl w-full max-w-lg p-6 pb-8 space-y-4"
                             onClick={e => e.stopPropagation()}
                         >
-                            {/* Drag handle */}
                             <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto -mt-2 mb-2" />
 
-                            {/* Name + source */}
+                            {/* Header */}
                             <div className="flex items-start justify-between gap-3">
                                 <div>
                                     <h2 className="text-xl font-bold text-gray-900">{lead.name}</h2>
                                     <p className="text-sm text-gray-400">{src.icon} {src.label}</p>
                                 </div>
-                                <span className={`text-xs font-semibold px-2.5 py-1 rounded-full mt-1 ${st.color}`}>{st.label}</span>
+                                <span className={`text-xs font-semibold px-2.5 py-1 rounded-full mt-1 ${col.badge}`}>{col.label}</span>
                             </div>
 
-                            {/* Contact */}
+                            {/* Contact buttons */}
                             <div className="flex gap-2">
                                 {lead.phone && (
                                     <a
@@ -280,6 +263,15 @@ export default function LeadsPage() {
                                         📞 התקשר
                                     </a>
                                 )}
+                                {lead.email && (
+                                    <a
+                                        href={`mailto:${lead.email}`}
+                                        onClick={e => e.stopPropagation()}
+                                        className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-gray-50 text-gray-700 text-sm font-semibold rounded-xl hover:bg-gray-100 transition-colors"
+                                    >
+                                        ✉️ מייל
+                                    </a>
+                                )}
                             </div>
 
                             {/* Info */}
@@ -291,22 +283,23 @@ export default function LeadsPage() {
                                 </div>
                             )}
 
-                            {/* Status change */}
+                            {/* Move to column */}
                             <div>
-                                <p className="text-xs text-gray-400 mb-2">שנה סטטוס:</p>
+                                <p className="text-xs text-gray-400 mb-2 font-medium">העבר לעמודה:</p>
                                 <div className="flex flex-wrap gap-2">
-                                    {STATUSES.map(s => (
+                                    {COLUMNS.map(c => (
                                         <button
-                                            key={s.key}
-                                            onClick={() => handleStatusChange(lead, s.key)}
+                                            key={c.key}
+                                            onClick={() => handleMove(lead, c.key)}
+                                            disabled={movingId === lead.id}
                                             className={[
                                                 "text-xs font-semibold px-3 py-1.5 rounded-full transition-all border",
-                                                lead.status === s.key
+                                                lead.status === c.key
                                                     ? "border-black bg-black text-white"
-                                                    : `border-transparent ${s.color} hover:opacity-80`,
+                                                    : `border-transparent ${c.badge} hover:opacity-80`,
                                             ].join(" ")}
                                         >
-                                            {s.label}
+                                            {c.label}
                                         </button>
                                     ))}
                                 </div>
@@ -339,7 +332,7 @@ export default function LeadsPage() {
                 );
             })()}
 
-            {/* Create/Edit Modal */}
+            {/* Create / Edit modal */}
             {modal && (
                 <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 px-4" onClick={() => setModal(null)}>
                     <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full sm:max-w-md p-6 pb-8 space-y-4" onClick={e => e.stopPropagation()}>
@@ -409,7 +402,7 @@ export default function LeadsPage() {
                                 <textarea
                                     value={form.notes}
                                     onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
-                                    placeholder="מידע נוסף..."
+                                    placeholder="מידע נוסף על הליד..."
                                     rows={3}
                                     className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-right resize-none focus:outline-none focus:ring-2 focus:ring-black/10"
                                 />
