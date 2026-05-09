@@ -9,7 +9,7 @@ from app.core.limiter import limiter
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from app.db.session import SessionLocal
-from app.services.message_worker import process_due_jobs, sweep_upcoming_reminders
+from app.services.message_worker import process_due_jobs, sweep_upcoming_reminders, sweep_7day_reminders, sweep_3day_reminders
 from app.services.plan_alert_service import sweep_plan_expiry_alerts
 from app.api.router import api_router
 from app.services.automation_service import AutomationService
@@ -33,6 +33,8 @@ def start_scheduler():
         db = SessionLocal()
         try:
             sweep_upcoming_reminders(db)
+            sweep_7day_reminders(db)
+            sweep_3day_reminders(db)
         finally:
             db.close()
 

@@ -113,11 +113,91 @@ def process_due_jobs(db: Session, limit: int = 20) -> int:
         db.commit()
     return count
 
+def _sweep_reminders_for_window(
+    db: Session,
+    hours_ahead: int,
+    window_hours: int = 4,
+    tag: str = "",
+    wa_default: str = "",
+    email_default: str = "",
+) -> int:
+    """Generic reminder sweep for any time window ahead of now."""
+    now = datetime.now(timezone.utc)
+    target_start = now + timedelta(hours=hours_ahead - window_hours // 2)
+    target_end   = now + timedelta(hours=hours_ahead + window_hours // 2)
+
+    stmt = (
+        select(Appointment, Client, StudioSettings)
+        .join(Client, Client.id == Appointment.client_id)
+        .join(StudioSettings, StudioSettings.studio_id == Appointment.studio_id)
+        .where(
+            Appointment.status == "scheduled",
+            Appointment.starts_at >= target_start,
+            Appointment.starts_at <= target_end,
+        )
+    )
+    rows = db.execute(stmt).all()
+    count = 0
+
+    for appt, client, settings in rows:
+        # Deduplicate: skip if a job with same tag already exists for this appointment
+        existing = db.scalar(
+            select(MessageJob).where(
+                MessageJob.appointment_id == appt.id,
+                MessageJob.body.contains(tag),
+            )
+        )
+        if existing:
+            continue
+
+        payment_link = settings.bit_link or settings.paybox_link or ""
+        context = {
+            "client_name": client.full_name,
+            "appointment_title": appt.title,
+            "appointment_date": appt.starts_at.strftime("%d/%m/%Y"),
+            "appointment_time": appt.starts_at.strftime("%H:%M"),
+            "payment_link": payment_link,
+            "deposit_amount": f"{appt.deposit_amount_cents / 100:.2f}" if appt.deposit_amount_cents else "0.00",
+        }
+
+        wa_body = format_template(wa_default, context) if wa_default else None
+        if client.phone and wa_body:
+            db.add(MessageJob(
+                studio_id=appt.studio_id,
+                client_id=client.id,
+                appointment_id=appt.id,
+                channel="whatsapp",
+                to_phone=client.phone,
+                body=wa_body,
+                scheduled_at=now,
+                status="pending",
+            ))
+            count += 1
+
+        email_body = format_template(email_default, context) if email_default and client.email and settings.smtp_host else None
+        if email_body:
+            db.add(MessageJob(
+                studio_id=appt.studio_id,
+                client_id=client.id,
+                appointment_id=appt.id,
+                channel="email",
+                to_phone=client.email,
+                body=email_body,
+                scheduled_at=now,
+                status="pending",
+            ))
+            count += 1
+
+    if count:
+        db.commit()
+    return count
+
+
 def sweep_upcoming_reminders(db: Session) -> int:
     """Enqueues reminders for appointments starting in ~24 hours."""
     now = datetime.now(timezone.utc)
     target_start = now + timedelta(hours=22)
-    target_end = now + timedelta(hours=26)
+    target_end   = now + timedelta(hours=26)
 
     # find appointments in the window that are scheduled and haven't had a reminder
     stmt = (
@@ -203,3 +283,25 @@ def sweep_upcoming_reminders(db: Session) -> int:
     if count:
         db.commit()
     return count
+
+
+def sweep_7day_reminders(db: Session) -> int:
+    return _sweep_reminders_for_window(
+        db,
+        hours_ahead=7 * 24,
+        window_hours=4,
+        tag="[7day]",
+        wa_default="[7day] היי {client_name}! יש לך תור ל-{appointment_title} בעוד שבוע, ב-{appointment_date} בשעה {appointment_time}. מחכים לך!",
+        email_default="<div dir=rtl>[7day] תזכורת תור בעוד שבוע - {client_name} - {appointment_date} {appointment_time}</div>",
+    )
+
+
+def sweep_3day_reminders(db: Session) -> int:
+    return _sweep_reminders_for_window(
+        db,
+        hours_ahead=3 * 24,
+        window_hours=4,
+        tag="[3day]",
+        wa_default="[3day] היי {client_name}! תזכורת התור שלך ל-{appointment_title} בעוד 3 ימים, ב-{appointment_date} בשעה {appointment_time}. אם טרם שילמת מקדמה: {payment_link}",
+        email_default="<div dir=rtl>[3day] תזכורת - 3 ימים לתור - {client_name} - {appointment_date} {appointment_time}</div>",
+    )
