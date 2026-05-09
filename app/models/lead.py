@@ -31,6 +31,11 @@ class Lead(Base):
     service_interest: Mapped[str | None] = mapped_column(String(255), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    # Ad / campaign tracking
+    campaign_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    ad_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    external_id: Mapped[str | None] = mapped_column(String(128), nullable=True)  # Meta lead_id for Lead Ads
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

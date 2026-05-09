@@ -13,6 +13,8 @@ type Lead = {
     status: string;
     service_interest: string | null;
     notes: string | null;
+    campaign_name: string | null;
+    ad_id: string | null;
     created_at: string;
     updated_at: string;
 };
@@ -203,6 +205,9 @@ export default function LeadsPage() {
                                                 {lead.service_interest && (
                                                     <p className="text-xs text-gray-500 truncate">{lead.service_interest}</p>
                                                 )}
+                                                {lead.campaign_name && (
+                                                    <p className="text-[10px] text-purple-500 bg-purple-50 px-1.5 py-0.5 rounded-md truncate mt-1">📣 {lead.campaign_name}</p>
+                                                )}
                                                 <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-50">
                                                     <span className="text-[10px] text-gray-300">{fmtDate(lead.created_at)}</span>
                                                     {movingId === lead.id && (
@@ -275,8 +280,11 @@ export default function LeadsPage() {
                             </div>
 
                             {/* Info */}
-                            {(lead.email || lead.service_interest || lead.notes) && (
+                            {(lead.email || lead.service_interest || lead.notes || lead.campaign_name) && (
                                 <div className="bg-gray-50 rounded-2xl p-3 space-y-1.5 text-sm">
+                                    {lead.campaign_name && (
+                                        <p className="text-xs text-purple-600 font-medium">📣 קמפיין: {lead.campaign_name}</p>
+                                    )}
                                     {lead.email && <p className="text-gray-600" dir="ltr">{lead.email}</p>}
                                     {lead.service_interest && <p className="text-gray-600">שירות: {lead.service_interest}</p>}
                                     {lead.notes && <p className="text-gray-500 whitespace-pre-wrap">{lead.notes}</p>}

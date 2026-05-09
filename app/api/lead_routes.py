@@ -29,6 +29,8 @@ class LeadOut(BaseModel):
     status: str
     service_interest: Optional[str]
     notes: Optional[str]
+    campaign_name: Optional[str]
+    ad_id: Optional[str]
     created_at: datetime
     updated_at: datetime
 
@@ -62,6 +64,8 @@ def _out(l: Lead) -> LeadOut:
         status=l.status,
         service_interest=l.service_interest,
         notes=l.notes,
+        campaign_name=l.campaign_name,
+        ad_id=l.ad_id,
         created_at=l.created_at,
         updated_at=l.updated_at,
     )
