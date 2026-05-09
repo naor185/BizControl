@@ -1,0 +1,19 @@
+{
+  "recommendations": [
+    "anthropics.claude-code",
+    "github.copilot",
+    "usernamehw.errorlens",
+    "bradlc.vscode-tailwindcss",
+    "rangav.vscode-thunder-client",
+    "ms-azuretools.vscode-docker",
+    "Prisma.prisma",
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    "ms-python.python",
+    "ms-python.vscode-pylance",
+    "eamodio.gitlens",
+    "christian-kohler.path-intellisense",
+    "formulahendry.auto-rename-tag",
+    "dsznajder.es7-react-js-snippets"
+  ]
+}
