@@ -349,6 +349,10 @@ export function downloadReceipt(paymentId: string) {
     return _downloadFile(`${API_BASE}/api/payments/${paymentId}/receipt`, `receipt_${paymentId.slice(0, 8).toUpperCase()}.pdf`);
 }
 
+export function downloadInvoice(paymentId: string) {
+    return _downloadFile(`${API_BASE}/api/payments/${paymentId}/invoice`, `invoice_${paymentId.slice(0, 8).toUpperCase()}.pdf`);
+}
+
 export function downloadPayrollPdf(startDate: string, endDate: string) {
     return _downloadFile(
         `${API_BASE}/api/staff/payroll/pdf?start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}`,

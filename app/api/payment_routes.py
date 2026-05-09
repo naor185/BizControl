@@ -15,7 +15,8 @@ from app.models.studio import Studio
 from app.schemas.payment import PaymentCreate, PaymentOut, AppointmentBalanceOut
 from app.services.payment_service import PaymentService
 from app.crud.payment import create_payment, list_payments, appointment_balance
-from app.services.pdf_service import generate_receipt_pdf
+from app.models.studio_settings import StudioSettings
+from app.services.pdf_service import generate_receipt_pdf, generate_invoice_pdf
 
 router = APIRouter(prefix="/payments", tags=["Payments"])
 
@@ -87,4 +88,40 @@ def download_receipt(
         io.BytesIO(pdf_bytes),
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="receipt_{short_id}.pdf"'},
+    )
+
+
+@router.get("/{payment_id}/invoice")
+def download_invoice(
+    payment_id: UUID,
+    ctx: AuthContext = Depends(require_studio_ctx),
+    db: Session = Depends(get_db),
+):
+    payment = db.scalar(select(Payment).where(Payment.id == payment_id, Payment.studio_id == ctx.studio_id))
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment not found")
+
+    appointment = db.get(Appointment, payment.appointment_id) if payment.appointment_id else None
+    client      = db.get(Client, payment.client_id) if payment.client_id else None
+    studio      = db.get(Studio, ctx.studio_id)
+    settings    = db.get(StudioSettings, ctx.studio_id)
+
+    pdf_bytes = generate_invoice_pdf(
+        payment=payment,
+        appointment=appointment,
+        client=client,
+        studio_name=studio.name if studio else "Studio",
+        studio_slug=studio.slug if studio else "",
+        studio_address=settings.studio_address if settings else None,
+        bank_name=settings.bank_name if settings else None,
+        bank_branch=settings.bank_branch if settings else None,
+        bank_account=settings.bank_account if settings else None,
+        vat_percent=float(settings.vat_percent) if settings else 18.0,
+    )
+
+    short_id = str(payment_id)[:8].upper()
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="invoice_{short_id}.pdf"'},
     )
