@@ -37,6 +37,9 @@ type StudioSettings = {
     ai_generations_count: number;
     calendar_start_hour: string;
     calendar_end_hour: string;
+    whatsapp_provider: string | null;
+    whatsapp_phone_id: string | null;
+    whatsapp_api_key: string | null;
 };
 
 const PLAN_LABELS: Record<string, { label: string; color: string }> = {
@@ -78,6 +81,10 @@ export default function StudioDetailPage() {
     const [settings, setSettings] = useState<StudioSettings | null>(null);
     const [savingSettings, setSavingSettings] = useState(false);
     const [newPlan, setNewPlan] = useState("");
+    const [waPhoneId, setWaPhoneId] = useState("");
+    const [waApiKey, setWaApiKey] = useState("");
+    const [savingWa, setSavingWa] = useState(false);
+    const [waCopied, setWaCopied] = useState<string | null>(null);
 
     const load = useCallback(async () => {
         setErr(null);
@@ -91,6 +98,8 @@ export default function StudioDetailPage() {
             setNotes(n);
             setSettings(s);
             setNewPlan(s.subscription_plan);
+            setWaPhoneId(s.whatsapp_phone_id || "");
+            setWaApiKey(s.whatsapp_api_key || "");
         } catch (e: any) {
             if (e?.message?.includes("403") || e?.message?.includes("401")) {
                 router.replace("/login");
@@ -397,6 +406,105 @@ export default function StudioDetailPage() {
                                     </button>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* WhatsApp Business */}
+                {settings && (
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                        <div className="px-4 py-3 border-b border-gray-50 flex items-center gap-2">
+                            <span className="text-base">💬</span>
+                            <h2 className="text-sm font-semibold text-gray-700">WhatsApp Business (Meta Cloud API)</h2>
+                            {settings.whatsapp_provider === "meta_cloud" && settings.whatsapp_phone_id && (
+                                <span className="text-xs text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full font-medium">מחובר</span>
+                            )}
+                        </div>
+
+                        <div className="p-4 space-y-4">
+                            {/* Webhook info */}
+                            <div className="bg-gray-50 rounded-xl p-3 space-y-2 text-xs">
+                                <p className="text-gray-500 font-medium">הגדרות Webhook למרכז העסקים של Meta:</p>
+                                {[
+                                    { label: "Webhook URL", value: "https://web-production-68695.up.railway.app/api/webhook/meta" },
+                                    { label: "Verify Token", value: "bizcontrol_verify" },
+                                ].map(({ label, value }) => (
+                                    <div key={label} className="flex items-center gap-2">
+                                        <span className="text-gray-400 w-24 flex-shrink-0">{label}</span>
+                                        <code className="flex-1 bg-white border border-gray-200 rounded-lg px-2 py-1 text-gray-800 truncate">{value}</code>
+                                        <button
+                                            onClick={() => {
+                                                navigator.clipboard.writeText(value);
+                                                setWaCopied(label);
+                                                setTimeout(() => setWaCopied(null), 2000);
+                                            }}
+                                            className="flex-shrink-0 px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors text-gray-600"
+                                        >
+                                            {waCopied === label ? "✓" : "העתק"}
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Phone Number ID */}
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-500 mb-1.5">Phone Number ID</label>
+                                <input
+                                    type="text"
+                                    value={waPhoneId}
+                                    onChange={e => setWaPhoneId(e.target.value)}
+                                    placeholder="123456789012345"
+                                    dir="ltr"
+                                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black/10"
+                                />
+                                <p className="text-xs text-gray-400 mt-1">מ-Meta Business Suite → WhatsApp → הגדרות API</p>
+                            </div>
+
+                            {/* Access Token */}
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-500 mb-1.5">Access Token</label>
+                                <input
+                                    type="password"
+                                    value={waApiKey}
+                                    onChange={e => setWaApiKey(e.target.value)}
+                                    placeholder="EAAxxxx..."
+                                    dir="ltr"
+                                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black/10"
+                                />
+                            </div>
+
+                            <button
+                                onClick={async () => {
+                                    setSavingWa(true);
+                                    try {
+                                        await handleSaveSettings({
+                                            whatsapp_provider: waPhoneId || waApiKey ? "meta_cloud" : null,
+                                            whatsapp_phone_id: waPhoneId || null,
+                                            whatsapp_api_key: waApiKey || null,
+                                        });
+                                    } finally {
+                                        setSavingWa(false);
+                                    }
+                                }}
+                                disabled={savingWa}
+                                className="w-full py-2.5 bg-black text-white text-sm font-semibold rounded-xl hover:bg-gray-800 transition-colors disabled:opacity-40"
+                            >
+                                {savingWa ? "שומר..." : "שמור הגדרות WhatsApp"}
+                            </button>
+
+                            {settings.whatsapp_provider === "meta_cloud" && settings.whatsapp_phone_id && (
+                                <button
+                                    onClick={() => {
+                                        if (!confirm("לנתק את WhatsApp מהסטודיו הזה?")) return;
+                                        handleSaveSettings({ whatsapp_provider: null, whatsapp_phone_id: null, whatsapp_api_key: null });
+                                        setWaPhoneId("");
+                                        setWaApiKey("");
+                                    }}
+                                    className="w-full py-2 text-xs text-red-500 hover:text-red-700 transition-colors"
+                                >
+                                    נתק WhatsApp
+                                </button>
+                            )}
                         </div>
                     </div>
                 )}

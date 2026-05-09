@@ -95,6 +95,9 @@ class AdminSettingsIn(BaseModel):
     ai_generations_count: Optional[int] = None
     calendar_start_hour: Optional[str] = None
     calendar_end_hour: Optional[str] = None
+    whatsapp_provider: Optional[str] = None
+    whatsapp_phone_id: Optional[str] = None
+    whatsapp_api_key: Optional[str] = None
 
 class AdminSettingsOut(BaseModel):
     subscription_plan: str
@@ -105,6 +108,9 @@ class AdminSettingsOut(BaseModel):
     ai_generations_count: int
     calendar_start_hour: str
     calendar_end_hour: str
+    whatsapp_provider: Optional[str]
+    whatsapp_phone_id: Optional[str]
+    whatsapp_api_key: Optional[str]
 
 class SetupIn(BaseModel):
     secret: str
@@ -430,6 +436,9 @@ def get_studio_settings(studio_id: uuid.UUID, admin: User = Depends(require_supe
         ai_generations_count=settings.ai_generations_count or 0,
         calendar_start_hour=settings.calendar_start_hour or "08:00",
         calendar_end_hour=settings.calendar_end_hour or "23:00",
+        whatsapp_provider=settings.whatsapp_provider,
+        whatsapp_phone_id=settings.whatsapp_phone_id,
+        whatsapp_api_key=settings.whatsapp_api_key,
     )
 
 
@@ -455,6 +464,15 @@ def update_studio_settings(studio_id: uuid.UUID, payload: AdminSettingsIn, admin
     if payload.calendar_end_hour is not None:
         changes["calendar_end_hour"] = payload.calendar_end_hour
         settings.calendar_end_hour = payload.calendar_end_hour
+    if payload.whatsapp_provider is not None:
+        changes["whatsapp_provider"] = payload.whatsapp_provider
+        settings.whatsapp_provider = payload.whatsapp_provider or None
+    if payload.whatsapp_phone_id is not None:
+        changes["whatsapp_phone_id"] = payload.whatsapp_phone_id
+        settings.whatsapp_phone_id = payload.whatsapp_phone_id or None
+    if payload.whatsapp_api_key is not None:
+        changes["whatsapp_api_key"] = "***"  # redact from audit log
+        settings.whatsapp_api_key = payload.whatsapp_api_key or None
 
     _audit(db, admin, "update_settings", studio, changes)
     db.commit()
