@@ -344,7 +344,7 @@ export default function BookingPage() {
                         className="w-full py-4 rounded-2xl text-white font-bold text-base shadow-lg disabled:opacity-40 active:scale-[0.98] transition-all"
                         style={{ background: primary }}
                     >
-                        {booking ? "שולח..." : "אישור הזמנה"}
+                        {booking ? "שולח..." : "שלח בקשה לתור"}
                     </button>
                 </div>
             )}
@@ -353,11 +353,11 @@ export default function BookingPage() {
             {step === "success" && confirmation && (
                 <div className="w-full max-w-md px-6 py-12 flex flex-col items-center gap-6 text-center">
                     <div className="w-20 h-20 rounded-full flex items-center justify-center text-4xl shadow-lg" style={{ background: primary }}>
-                        ✅
+                        ⏳
                     </div>
                     <div>
-                        <h2 className="text-2xl font-bold text-gray-900">ההזמנה אושרה!</h2>
-                        <p className="text-gray-500 text-sm mt-1">נתראה ב{info.studio_name}</p>
+                        <h2 className="text-2xl font-bold text-gray-900">הבקשה נשלחה!</h2>
+                        <p className="text-gray-500 text-sm mt-1">הצוות יבדוק ויאשר בהקדם</p>
                     </div>
                     <div className="w-full bg-white rounded-2xl border border-gray-100 p-5 shadow-sm space-y-2 text-sm text-right">
                         <div className="flex justify-between">
@@ -377,7 +377,9 @@ export default function BookingPage() {
                             <span className="font-semibold">{form.name}</span>
                         </div>
                     </div>
-                    <p className="text-xs text-gray-400">אנא שמור/י את פרטי ההזמנה. נשלח תזכורת לפני.</p>
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-700 text-right">
+                        🔔 תקבל/י הודעת וואטסאפ עם אישור או דחייה של הבקשה
+                    </div>
                 </div>
             )}
         </div>

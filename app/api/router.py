@@ -24,6 +24,7 @@ from app.api.superadmin_routes import router as superadmin_router
 from app.api.lead_routes import router as lead_router
 from app.api.billing_routes import router as billing_router
 from app.api.client_portal_routes import router as client_portal_router
+from app.api.booking_request_routes import router as booking_request_router
 
 api_router = APIRouter()
 api_router.include_router(studio_router)
@@ -51,3 +52,4 @@ api_router.include_router(superadmin_router)
 api_router.include_router(lead_router)
 api_router.include_router(billing_router)
 api_router.include_router(client_portal_router)
+api_router.include_router(booking_request_router)

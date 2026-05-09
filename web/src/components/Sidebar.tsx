@@ -7,6 +7,7 @@ import { apiFetch } from "@/lib/api";
 
 const mainItems = [
     { href: "/calendar", label: "יומן תורים", icon: "📅" },
+    { href: "/booking-requests", label: "בקשות תורים", icon: "🔔" },
     { href: "/inbox", label: "תיבת הודעות", icon: "💬" },
     { href: "/expenses", label: "ניהול עסק", icon: "💼" },
     { href: "/products", label: "מוצרים ומלאי", icon: "📦" },

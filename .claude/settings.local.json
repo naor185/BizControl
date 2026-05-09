@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\naor1\\\\OneDrive\\\\Desktop\\\\BizControl\" -Recurse -Directory | Select-Object -First 20 | ForEach-Object { $_.FullName })"
+    ]
+  }
+}

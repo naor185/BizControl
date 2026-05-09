@@ -12,6 +12,7 @@ from app.models.user import User
 from app.models.client import Client
 from app.models.appointment import Appointment
 from app.models.studio_settings import StudioSettings
+from app.models.booking_request import BookingRequest
 from app.crud.client import _handle_new_club_member
 from pydantic import BaseModel, EmailStr
 
@@ -347,80 +348,121 @@ def booking_slots(
 
 @router.post("/book/{slug}", status_code=201)
 def create_booking(slug: str, payload: BookingCreateRequest, db: Session = Depends(get_db)):
+    """
+    Creates a BookingRequest (pending approval).
+    The studio staff approves/rejects via the internal booking-requests API.
+    """
     studio, settings = _get_booking_studio(slug, db)
 
     if not settings.self_booking_enabled:
         raise HTTPException(status_code=403, detail="Self-booking not enabled")
 
-    # Validate artist belongs to this studio
     artist = db.scalar(
         select(User).where(User.id == payload.artist_id, User.studio_id == studio.id, User.is_active == True)  # noqa: E712
     )
     if not artist:
         raise HTTPException(status_code=404, detail="Artist not found")
 
-    slot_min = settings.self_booking_slot_minutes or 60
-
-    # Build datetime objects
     try:
         h, m = map(int, payload.time.split(":"))
-        starts_at = datetime(payload.date.year, payload.date.month, payload.date.day, h, m, tzinfo=timezone.utc)
-        ends_at = starts_at + timedelta(minutes=slot_min)
+        requested_at = datetime(payload.date.year, payload.date.month, payload.date.day, h, m, tzinfo=timezone.utc)
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid time format")
 
-    if starts_at < datetime.now(timezone.utc):
+    if requested_at < datetime.now(timezone.utc):
         raise HTTPException(status_code=400, detail="Cannot book in the past")
 
-    # Find or create client
-    client = None
-    phone_clean = payload.phone.strip()
-    if phone_clean:
-        client = db.scalar(select(Client).where(Client.studio_id == studio.id, Client.phone == phone_clean))
-    if not client and payload.email:
-        client = db.scalar(select(Client).where(Client.studio_id == studio.id, Client.email == str(payload.email)))
-
-    if not client:
-        client = Client(
-            id=uuid.uuid4(),
-            studio_id=studio.id,
-            full_name=payload.name.strip(),
-            phone=phone_clean or None,
-            email=str(payload.email) if payload.email else None,
-            notes="נרשם דרך דף ההזמנה המקוון",
-        )
-        db.add(client)
-        db.flush()
-
-    # Check slot still available
+    # Check slot not already taken or pending
     conflict = db.scalar(
         select(Appointment).where(
             Appointment.studio_id == studio.id,
             Appointment.artist_id == payload.artist_id,
-            Appointment.starts_at == starts_at,
+            Appointment.starts_at == requested_at,
             Appointment.status != "canceled",
         )
     )
     if conflict:
         raise HTTPException(status_code=409, detail="Slot no longer available")
 
-    appt = Appointment(
+    pending_conflict = db.scalar(
+        select(BookingRequest).where(
+            BookingRequest.studio_id == studio.id,
+            BookingRequest.artist_id == uuid.UUID(payload.artist_id),
+            BookingRequest.requested_at == requested_at,
+            BookingRequest.status == "pending",
+        )
+    )
+    if pending_conflict:
+        raise HTTPException(status_code=409, detail="Slot already requested")
+
+    req = BookingRequest(
         id=uuid.uuid4(),
         studio_id=studio.id,
-        client_id=client.id,
         artist_id=uuid.UUID(payload.artist_id),
-        title=f"הזמנה מקוונת — {payload.name.strip()}",
-        starts_at=starts_at,
-        ends_at=ends_at,
-        status="scheduled",
-        notes=payload.notes or "",
+        client_name=payload.name.strip(),
+        client_phone=payload.phone.strip(),
+        client_email=str(payload.email) if payload.email else None,
+        service_note=payload.notes or None,
+        requested_at=requested_at,
+        status="pending",
     )
-    db.add(appt)
+    db.add(req)
+    db.flush()
+
+    # Notify artist + owner via WhatsApp
+    _notify_booking_request(db, req, studio, settings, artist)
+
     db.commit()
 
+    from zoneinfo import ZoneInfo
+    tz = ZoneInfo(settings.timezone or "Asia/Jerusalem")
+    local_time = requested_at.astimezone(tz).strftime("%d/%m/%Y %H:%M")
+
     return {
-        "appointment_id": str(appt.id),
-        "starts_at": starts_at.isoformat(),
+        "request_id": str(req.id),
+        "status": "pending",
+        "requested_at": local_time,
         "artist_name": artist.display_name or artist.email,
         "studio_name": studio.name,
+        "message": "בקשתך נשלחה! תקבל עדכון לאחר אישור הצוות.",
     }
+
+
+def _notify_booking_request(db, req: BookingRequest, studio, settings, artist) -> None:
+    from app.models.message_job import MessageJob
+    from app.models.user import User as UserModel
+
+    from zoneinfo import ZoneInfo
+    tz = ZoneInfo(settings.timezone or "Asia/Jerusalem")
+    local_time = req.requested_at.astimezone(tz).strftime("%d/%m/%Y %H:%M")
+    now = datetime.now(timezone.utc)
+
+    msg = (
+        f"🔔 בקשת תור חדשה!\n"
+        f"👤 {req.client_name} ({req.client_phone})\n"
+        f"📅 {local_time}\n"
+        f"🎨 אמן: {artist.display_name or artist.email}\n"
+        f"📝 {req.service_note or 'ללא הערות'}\n\n"
+        f"כנס למערכת לאשר או לדחות."
+    )
+
+    # Notify artist
+    if artist.phone:
+        db.add(MessageJob(
+            studio_id=studio.id, channel="whatsapp",
+            to_phone=artist.phone, body=msg,
+            scheduled_at=now, status="pending",
+        ))
+
+    # Notify owner (if different from artist)
+    owner = db.scalar(select(UserModel).where(
+        UserModel.studio_id == studio.id,
+        UserModel.role == "owner",
+        UserModel.is_active == True,  # noqa: E712
+    ))
+    if owner and owner.id != artist.id and owner.phone:
+        db.add(MessageJob(
+            studio_id=studio.id, channel="whatsapp",
+            to_phone=owner.phone, body=msg,
+            scheduled_at=now, status="pending",
+        ))
