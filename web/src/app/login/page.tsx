@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState, Suspense } from "react";
+import { useEffect, useMemo, useState, Suspense, lazy } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Image from "next/image";
 import { apiFetch, setToken } from "@/lib/api";
 import { useLang } from "@/components/LanguageProvider";
 import { LOCALES } from "@/lib/i18n";
+
+const OceanBackground = lazy(() => import("@/components/OceanBackground"));
 
 const LS_KEY = "biz_remember";
 
@@ -134,17 +135,26 @@ function LoginContent() {
 
     /* ── Main login ── */
     return (
-        <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-gradient-to-br from-slate-50 via-white to-slate-100" dir={dir}>
+        <div className="min-h-screen relative overflow-hidden" dir={dir}>
+
+            {/* 3D Ocean Background */}
+            <Suspense fallback={<div className="absolute inset-0 bg-gradient-to-b from-[#001a2e] to-[#003055]" />}>
+                <OceanBackground />
+            </Suspense>
+
+            {/* Overlay gradient for readability */}
+            <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/30 pointer-events-none" />
+
             {/* Language switcher */}
-            <div className="fixed top-4 left-4 flex gap-1 z-10">
+            <div className="fixed top-4 left-4 flex gap-1 z-20">
                 {LOCALES.map(l => (
                     <button
                         key={l.code}
                         onClick={() => setLocale(l.code)}
                         className={`w-9 h-9 rounded-xl text-base transition-all ${
                             locale === l.code
-                                ? "bg-black text-white shadow-sm"
-                                : "bg-white/80 hover:bg-white text-slate-600 border border-slate-200"
+                                ? "bg-white/20 backdrop-blur text-white shadow-sm border border-white/30"
+                                : "bg-black/20 backdrop-blur hover:bg-white/20 text-white/70 border border-white/10"
                         }`}
                     >
                         {l.flag}
@@ -152,34 +162,31 @@ function LoginContent() {
                 ))}
             </div>
 
-            {/* Logo */}
+            {/* Centered content */}
+            <div className="relative z-10 min-h-screen flex flex-col items-center justify-center p-6">
+
+            {/* Logo / Title */}
             <div className="mb-8 flex flex-col items-center">
-                <div className="relative">
-                    <Image
-                        src="/logo.png"
-                        alt="BizControl"
-                        width={100}
-                        height={100}
-                        className="object-contain drop-shadow-md rounded-2xl"
-                    />
+                <div className="w-16 h-16 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-4xl shadow-2xl mb-3">
+                    🐋
                 </div>
-                <div className="mt-3 font-black text-2xl text-slate-900 tracking-tight">BizControl</div>
-                <div className="text-sm text-slate-400 mt-0.5">ניהול העסק שלך, בפשטות</div>
+                <div className="font-black text-3xl text-white tracking-tight drop-shadow-lg">BizControl</div>
+                <div className="text-sm text-blue-200/80 mt-1">ניהול העסק שלך, בפשטות</div>
             </div>
 
             {/* Card */}
             <div className="w-full max-w-sm">
-                <div className="bg-white rounded-3xl shadow-xl border border-slate-100 p-8">
+                <div className="bg-white/10 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 p-8">
                     <div className="mb-6">
-                        <h1 className="text-xl font-bold text-slate-900">{t("login_title")}</h1>
-                        <p className="text-sm text-slate-400 mt-0.5">{t("login_subtitle")}</p>
+                        <h1 className="text-xl font-bold text-white">{t("login_title")}</h1>
+                        <p className="text-sm text-blue-200/70 mt-0.5">{t("login_subtitle")}</p>
                     </div>
 
                     <form onSubmit={onSubmit} className="space-y-4">
                         <div>
-                            <label className="text-xs font-semibold text-slate-600 block mb-1.5">{t("login_slug")}</label>
+                            <label className="text-xs font-semibold text-blue-100/80 block mb-1.5">{t("login_slug")}</label>
                             <input
-                                className="w-full rounded-xl border-2 border-slate-200 focus:border-black px-3.5 py-2.5 text-sm outline-none text-left bg-slate-50 focus:bg-white transition-all"
+                                className="w-full rounded-xl border border-white/20 focus:border-white/50 px-3.5 py-2.5 text-sm outline-none text-left bg-white/10 text-white placeholder-white/30 focus:bg-white/15 transition-all"
                                 value={studioSlug}
                                 onChange={e => setStudioSlug(e.target.value)}
                                 autoComplete="organization"
@@ -189,9 +196,9 @@ function LoginContent() {
                         </div>
 
                         <div>
-                            <label className="text-xs font-semibold text-slate-600 block mb-1.5">{t("login_email")}</label>
+                            <label className="text-xs font-semibold text-blue-100/80 block mb-1.5">{t("login_email")}</label>
                             <input
-                                className="w-full rounded-xl border-2 border-slate-200 focus:border-black px-3.5 py-2.5 text-sm outline-none text-left bg-slate-50 focus:bg-white transition-all"
+                                className="w-full rounded-xl border border-white/20 focus:border-white/50 px-3.5 py-2.5 text-sm outline-none text-left bg-white/10 text-white placeholder-white/30 focus:bg-white/15 transition-all"
                                 value={email}
                                 onChange={e => setEmail(e.target.value)}
                                 type="email"
@@ -202,10 +209,10 @@ function LoginContent() {
                         </div>
 
                         <div>
-                            <label className="text-xs font-semibold text-slate-600 block mb-1.5">{t("login_password")}</label>
+                            <label className="text-xs font-semibold text-blue-100/80 block mb-1.5">{t("login_password")}</label>
                             <div className="relative">
                                 <input
-                                    className="w-full rounded-xl border-2 border-slate-200 focus:border-black px-3.5 py-2.5 text-sm outline-none text-left bg-slate-50 focus:bg-white transition-all pl-11"
+                                    className="w-full rounded-xl border border-white/20 focus:border-white/50 px-3.5 py-2.5 text-sm outline-none text-left bg-white/10 text-white placeholder-white/30 focus:bg-white/15 transition-all pl-11"
                                     value={password}
                                     onChange={e => setPassword(e.target.value)}
                                     type={showPass ? "text" : "password"}
@@ -216,7 +223,7 @@ function LoginContent() {
                                 <button
                                     type="button"
                                     onClick={() => setShowPass(!showPass)}
-                                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                                    className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/80 transition-colors"
                                 >
                                     {showPass ? (
                                         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -238,13 +245,13 @@ function LoginContent() {
                                 type="checkbox"
                                 checked={rememberMe}
                                 onChange={e => setRememberMe(e.target.checked)}
-                                className="w-4 h-4 rounded accent-black"
+                                className="w-4 h-4 rounded accent-blue-400"
                             />
-                            <span className="text-sm text-slate-500">{t("login_remember")}</span>
+                            <span className="text-sm text-blue-100/60">{t("login_remember")}</span>
                         </label>
 
                         {err && (
-                            <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl p-3 flex items-center gap-2">
+                            <div className="text-sm text-red-200 bg-red-500/20 border border-red-400/30 rounded-xl p-3 flex items-center gap-2">
                                 <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.997L13.732 4.997c-.77-1.33-2.694-1.33-3.464 0L3.34 16.003c-.77 1.33.192 2.997 1.732 2.997z" />
                                 </svg>
@@ -254,7 +261,7 @@ function LoginContent() {
 
                         <button
                             disabled={loading}
-                            className="w-full rounded-2xl bg-black text-white py-3 font-semibold disabled:opacity-50 hover:bg-slate-800 transition-colors mt-1"
+                            className="w-full rounded-2xl bg-white/20 hover:bg-white/30 border border-white/30 text-white py-3 font-semibold disabled:opacity-50 transition-all backdrop-blur mt-1 shadow-lg"
                         >
                             {loading ? (
                                 <span className="flex items-center justify-center gap-2">
@@ -269,10 +276,12 @@ function LoginContent() {
                     </form>
                 </div>
 
-                <p className="text-center text-xs text-slate-400 mt-4">
+                <p className="text-center text-xs text-blue-200/40 mt-4">
                     BizControl © {new Date().getFullYear()}
                 </p>
             </div>
+
+            </div>{/* end centered */}
         </div>
     );
 }
