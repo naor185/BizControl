@@ -7,7 +7,7 @@ Create Date: 2026-05-10
 from alembic import op
 
 revision = "k1l2m3n4o5p6"
-down_revision = "z3totp4secret_add_totp_to_users"
+down_revision = "z3totp4secret"
 branch_labels = None
 depends_on = None
 

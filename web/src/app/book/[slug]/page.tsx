@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? "";
+const API = process.env.NEXT_PUBLIC_API_BASE ?? "";
 
 type Artist = { id: string; display_name: string; calendar_color: string | null };
 type StudioInfo = {
@@ -242,15 +242,17 @@ export default function BookingPage() {
                                         disabled={isPast}
                                         onClick={() => selectDate(d)}
                                         className={[
-                                            "aspect-square rounded-xl text-sm font-semibold flex items-center justify-center transition-all",
+                                            "aspect-square rounded-xl text-sm font-semibold flex items-center justify-center transition-all active:scale-95",
                                             isPast ? "text-gray-300 cursor-not-allowed" :
                                             isSel ? "text-white shadow-md" :
-                                            isToday ? "border-2 text-gray-900 hover:text-white" :
-                                            "text-gray-700 hover:text-white",
+                                            isToday ? "border-2" :
+                                            "text-gray-700 bg-gray-50 hover:bg-gray-100",
                                         ].join(" ")}
-                                        style={isSel ? { background: primary } : isToday ? { borderColor: primary, color: primary } : {}}
-                                        onMouseEnter={e => !isPast && !isSel && ((e.currentTarget as HTMLButtonElement).style.background = primary)}
-                                        onMouseLeave={e => !isPast && !isSel && ((e.currentTarget as HTMLButtonElement).style.background = "")}
+                                        style={
+                                            isSel ? { background: primary } :
+                                            isToday ? { borderColor: primary, color: primary } :
+                                            {}
+                                        }
                                     >
                                         {i + 1}
                                     </button>

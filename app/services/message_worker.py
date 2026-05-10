@@ -45,8 +45,15 @@ def _send_via_green(instance_id: str, api_key: str, to_phone: str, body: str) ->
             raise RuntimeError(f"Green API error {resp.status}")
 
 
-def send_whatsapp_message(to_phone: str, body: str, settings=None) -> None:
+PLATFORM_STUDIO_ID = "46b85021-8eb4-4e63-a2e1-638dbb3e58fb"
+
+
+def send_whatsapp_message(to_phone: str, body: str, settings=None, db: Session = None) -> None:
+    # If studio has no WhatsApp configured, fall back to platform settings
     provider = getattr(settings, "whatsapp_provider", None) if settings else None
+    if not provider and db:
+        settings = db.get(StudioSettings, PLATFORM_STUDIO_ID)
+        provider = getattr(settings, "whatsapp_provider", None) if settings else None
 
     if provider == "green_api":
         instance_id = getattr(settings, "whatsapp_instance_id", None)
@@ -56,7 +63,7 @@ def send_whatsapp_message(to_phone: str, body: str, settings=None) -> None:
             return
         _send_via_green(instance_id, api_key, to_phone, body)
 
-    elif provider in ("meta", None) and settings and getattr(settings, "whatsapp_phone_id", None) and getattr(settings, "whatsapp_api_key", None):
+    elif provider == "meta" and getattr(settings, "whatsapp_phone_id", None) and getattr(settings, "whatsapp_api_key", None):
         _send_via_meta(settings.whatsapp_phone_id, settings.whatsapp_api_key, to_phone, body)
 
     else:
@@ -98,7 +105,7 @@ def process_due_jobs(db: Session, limit: int = 20) -> int:
                 )
             else:
                 settings = db.get(StudioSettings, job.studio_id)
-                send_whatsapp_message(job.to_phone, job.body, settings)
+                send_whatsapp_message(job.to_phone, job.body, settings, db=db)
             
             job.status = "sent"
             job.sent_at = now
