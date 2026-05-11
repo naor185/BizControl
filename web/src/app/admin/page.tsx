@@ -86,6 +86,9 @@ export default function AdminPage() {
     const [platformLoading, setPlatformLoading] = useState(false);
     const [platformSaving, setPlatformSaving] = useState(false);
     const [platformForm, setPlatformForm] = useState({ whatsapp_provider: "meta", whatsapp_phone_id: "", whatsapp_api_key: "" });
+    const [testPhone, setTestPhone] = useState("");
+    const [testSending, setTestSending] = useState(false);
+    const [testResult, setTestResult] = useState<{ ok: boolean; msg: string } | null>(null);
     const [form, setForm] = useState<NewStudioForm>({
         studio_name: "", slug: "", owner_email: "", owner_password: "",
         owner_display_name: "", subscription_plan: "starter", plan_days: 30,
@@ -217,6 +220,23 @@ export default function AdminPage() {
             });
         } catch { setPlatformSettings(null); }
         finally { setPlatformLoading(false); }
+    };
+
+    const handleTestWhatsapp = async () => {
+        if (!testPhone.trim()) return;
+        setTestSending(true);
+        setTestResult(null);
+        try {
+            await apiFetch("/api/admin/test-whatsapp", {
+                method: "POST",
+                body: JSON.stringify({ phone: testPhone.trim() }),
+            });
+            setTestResult({ ok: true, msg: "✅ ההודעה נשלחה! בדוק את הWhatsApp שלך." });
+        } catch (e: any) {
+            setTestResult({ ok: false, msg: `❌ ${e?.message || "שליחה נכשלה"}` });
+        } finally {
+            setTestSending(false);
+        }
     };
 
     const handleSavePlatform = async () => {
@@ -681,6 +701,37 @@ export default function AdminPage() {
                                 >
                                     {platformSaving ? "שומר..." : "שמור הגדרות"}
                                 </button>
+                            </div>
+
+                            {/* Test WhatsApp */}
+                            <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-4">
+                                <div>
+                                    <h3 className="text-sm font-semibold text-white">בדיקת WhatsApp</h3>
+                                    <p className="text-xs text-slate-400 mt-1">שלח הודעת טסט למספר כלשהו כדי לאמת שהחיבור עובד</p>
+                                </div>
+                                <div className="flex gap-2">
+                                    <input
+                                        type="tel"
+                                        value={testPhone}
+                                        onChange={e => { setTestPhone(e.target.value); setTestResult(null); }}
+                                        placeholder="972521234567"
+                                        dir="ltr"
+                                        className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-white/30"
+                                    />
+                                    <button
+                                        onClick={handleTestWhatsapp}
+                                        disabled={testSending || !testPhone.trim()}
+                                        className="px-5 py-2.5 bg-green-600 hover:bg-green-500 text-white text-sm font-bold rounded-xl transition-colors disabled:opacity-40"
+                                    >
+                                        {testSending ? "שולח..." : "שלח טסט"}
+                                    </button>
+                                </div>
+                                <p className="text-xs text-slate-500">הכנס מספר בפורמט בינלאומי ללא + (לדוג׳: 972521234567)</p>
+                                {testResult && (
+                                    <div className={`text-sm px-4 py-3 rounded-xl ${testResult.ok ? "bg-green-900/40 text-green-300" : "bg-red-900/40 text-red-300"}`}>
+                                        {testResult.msg}
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>

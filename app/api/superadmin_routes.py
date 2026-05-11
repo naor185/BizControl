@@ -843,6 +843,23 @@ def get_platform_settings(admin: User = Depends(require_superadmin), db: Session
     )
 
 
+class TestWhatsappIn(BaseModel):
+    phone: str
+
+
+@router.post("/test-whatsapp")
+def test_whatsapp(payload: TestWhatsappIn, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    from app.services.message_worker import send_whatsapp_message
+    settings = db.get(StudioSettings, PLATFORM_STUDIO_ID)
+    if not settings or not settings.whatsapp_provider:
+        raise HTTPException(status_code=400, detail="WhatsApp לא מוגדר בפלטפורמה")
+    try:
+        send_whatsapp_message(payload.phone, "✅ הודעת טסט מ-BizControl — WhatsApp מחובר ועובד!", settings=settings)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"שליחה נכשלה: {e}")
+    return {"status": "sent"}
+
+
 @router.patch("/platform-settings", response_model=PlatformSettingsOut)
 def update_platform_settings(
     payload: PlatformSettingsIn,
