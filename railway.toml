@@ -3,6 +3,7 @@ builder = "nixpacks"
 
 [deploy]
 startCommand = "python start.py"
+preDeployCommand = "alembic upgrade heads"
 
 healthcheckPath = "/health"
 healthcheckTimeout = 120
