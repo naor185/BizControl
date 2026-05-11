@@ -645,6 +645,7 @@ export default function AdminPage() {
                         {platformLoading ? (
                             <div className="text-slate-400 text-sm">טוען...</div>
                         ) : (
+                            <>
                             <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-5">
                                 {/* Provider */}
                                 <div>
@@ -733,6 +734,7 @@ export default function AdminPage() {
                                     </div>
                                 )}
                             </div>
+                            </>
                         )}
                     </div>
                 )}
