@@ -78,6 +78,9 @@ export default function AdminPage() {
     const [impersonating, setImpersonating] = useState<string | null>(null);
     const [charts, setCharts] = useState<ChartsData | null>(null);
     const [extendModal, setExtendModal] = useState<{ studio: Studio } | null>(null);
+    const [deleteModal, setDeleteModal] = useState<Studio | null>(null);
+    const [deleting, setDeleting] = useState(false);
+    const [deleteErr, setDeleteErr] = useState<string | null>(null);
     const [extendDays, setExtendDays] = useState(14);
     const [extending, setExtending] = useState(false);
     const [tab, setTab] = useState<"studios" | "audit" | "platform">("studios");
@@ -259,12 +262,24 @@ export default function AdminPage() {
         if (t === "platform") loadPlatformSettings();
     };
 
-    const handleDelete = async (studio: Studio) => {
-        if (!confirm(`למחוק את ${studio.name}? פעולה זו בלתי הפיכה ותמחק את כל הנתונים.`)) return;
+    const handleDelete = (studio: Studio) => {
+        setDeleteErr(null);
+        setDeleteModal(studio);
+    };
+
+    const confirmDelete = async () => {
+        if (!deleteModal) return;
+        setDeleting(true);
+        setDeleteErr(null);
         try {
-            await apiFetch(`/api/admin/studios/${studio.id}`, { method: "DELETE" });
+            await apiFetch(`/api/admin/studios/${deleteModal.id}`, { method: "DELETE" });
+            setDeleteModal(null);
             await load();
-        } catch (e: any) { alert(e?.message); }
+        } catch (e: any) {
+            setDeleteErr(e?.message || "שגיאה במחיקה");
+        } finally {
+            setDeleting(false);
+        }
     };
 
     const handleLogout = () => {
@@ -741,6 +756,43 @@ export default function AdminPage() {
                 )}
 
             </div>
+
+            {/* Delete Confirmation Modal */}
+            {deleteModal && (
+                <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+                    <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-sm p-6" dir="rtl">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center text-xl">🗑️</div>
+                            <div>
+                                <h3 className="font-bold text-lg text-white">מחיקת סטודיו</h3>
+                                <p className="text-sm text-slate-400">{deleteModal.name}</p>
+                            </div>
+                        </div>
+                        <p className="text-sm text-slate-300 mb-5 leading-relaxed">
+                            פעולה זו <strong className="text-red-400">בלתי הפיכה</strong> — כל הנתונים, הלקוחות, התורים וההיסטוריה של הסטודיו יימחקו לצמיתות.
+                        </p>
+                        {deleteErr && (
+                            <div className="text-sm text-red-300 bg-red-900/30 border border-red-500/20 rounded-xl px-3 py-2 mb-4">{deleteErr}</div>
+                        )}
+                        <div className="flex gap-3">
+                            <button
+                                onClick={confirmDelete}
+                                disabled={deleting}
+                                className="flex-1 bg-red-600 hover:bg-red-500 text-white font-bold py-2.5 rounded-xl transition-colors disabled:opacity-50"
+                            >
+                                {deleting ? "מוחק..." : "כן, מחק לצמיתות"}
+                            </button>
+                            <button
+                                onClick={() => { setDeleteModal(null); setDeleteErr(null); }}
+                                disabled={deleting}
+                                className="px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-sm transition-colors disabled:opacity-50"
+                            >
+                                ביטול
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Extend / Trial Modal */}
             {extendModal && (
