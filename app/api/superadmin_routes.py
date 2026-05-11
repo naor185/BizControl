@@ -859,13 +859,12 @@ def test_whatsapp(payload: TestWhatsappIn, admin: User = Depends(require_superad
         token = settings.whatsapp_api_key
         if not phone_id or not token:
             raise HTTPException(status_code=400, detail="Phone Number ID או Token חסרים")
-        # Use hello_world template — no 24h conversation window required
         url = f"https://graph.facebook.com/v19.0/{phone_id}/messages"
         body_bytes = _json.dumps({
             "messaging_product": "whatsapp",
             "to": payload.phone,
-            "type": "template",
-            "template": {"name": "hello_world", "language": {"code": "en_US"}},
+            "type": "text",
+            "text": {"body": "✅ הודעת טסט מ-BizControl — WhatsApp מחובר ועובד!"},
         }).encode()
         req = _urllib_req.Request(url, data=body_bytes, method="POST")
         req.add_header("Authorization", f"Bearer {token}")
