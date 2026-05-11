@@ -84,6 +84,7 @@ class CreateStudioIn(BaseModel):
     owner_email: str
     owner_password: str
     owner_display_name: str
+    owner_phone: str = ""
     subscription_plan: str = "starter"
     plan_days: int = 30
 
@@ -259,6 +260,7 @@ def create_studio(payload: CreateStudioIn, admin: User = Depends(require_superad
         password_hash=ph.hash(payload.owner_password),
         role="owner",
         display_name=payload.owner_display_name,
+        phone=payload.owner_phone.strip() or None,
         is_active=True,
     )
     db.add(owner)
@@ -301,6 +303,25 @@ def create_studio(payload: CreateStudioIn, admin: User = Depends(require_superad
         )
     except Exception as e:
         print(f"[welcome_email] failed: {e}")
+
+    # Send WhatsApp welcome via platform number
+    try:
+        if owner.phone:
+            from app.services.message_worker import send_whatsapp_message
+            platform_settings = db.get(StudioSettings, PLATFORM_STUDIO_ID)
+            if platform_settings and platform_settings.whatsapp_provider:
+                wa_body = (
+                    f"שלום {payload.owner_display_name}! 👋\n"
+                    f"ברוכים הבאים ל-BizControl — ניהול העסק שלך ברמה שעדיין לא הכרת. 🚀\n\n"
+                    f"פרטי כניסה למערכת:\n"
+                    f"🏠 מזהה סטודיו: {payload.slug}\n"
+                    f"📧 אימייל: {payload.owner_email}\n"
+                    f"🔑 סיסמה זמנית: {payload.owner_password}\n\n"
+                    f"מומלץ לשנות סיסמה: {frontend_url}/set-password?token={token}"
+                )
+                send_whatsapp_message(owner.phone, wa_body, settings=platform_settings)
+    except Exception as e:
+        print(f"[welcome_wa] failed: {e}")
 
     return StudioOut(
         id=str(studio.id),

@@ -119,6 +119,7 @@ def ensure_schema():
             "ALTER TABLE studios ADD COLUMN IF NOT EXISTS stripe_customer_id VARCHAR(128)",
             "ALTER TABLE studios ADD COLUMN IF NOT EXISTS stripe_subscription_id VARCHAR(128)",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_secret VARCHAR(64)",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(32)",
         ]:
             cur.execute(stmt)
 

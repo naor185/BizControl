@@ -53,6 +53,7 @@ type NewStudioForm = {
     owner_email: string;
     owner_password: string;
     owner_display_name: string;
+    owner_phone: string;
     subscription_plan: string;
     plan_days: number;
 };
@@ -90,7 +91,7 @@ export default function AdminPage() {
     const [testSending, setTestSending] = useState(false);
     const [testResult, setTestResult] = useState<{ ok: boolean; msg: string } | null>(null);
     const [form, setForm] = useState<NewStudioForm>({
-        studio_name: "", slug: "", owner_email: "", owner_password: "",
+        studio_name: "", slug: "", owner_email: "", owner_password: "", owner_phone: "",
         owner_display_name: "", subscription_plan: "starter", plan_days: 30,
     });
 
@@ -127,7 +128,7 @@ export default function AdminPage() {
                 body: JSON.stringify({ ...form, plan_days: Number(form.plan_days) }),
             });
             setShowNew(false);
-            setForm({ studio_name: "", slug: "", owner_email: "", owner_password: "", owner_display_name: "", subscription_plan: "starter", plan_days: 30 });
+            setForm({ studio_name: "", slug: "", owner_email: "", owner_password: "", owner_phone: "", owner_display_name: "", subscription_plan: "starter", plan_days: 30 });
             await load();
         } catch (e: any) {
             setCreateErr(e?.message || "שגיאה ביצירה");
@@ -836,6 +837,13 @@ export default function AdminPage() {
                                     <input className="w-full bg-white/10 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-white/30" dir="ltr"
                                         type="text" value={form.owner_password} onChange={e => setForm(f => ({ ...f, owner_password: e.target.value }))} placeholder="password123" />
                                 </div>
+                            </div>
+
+                            <div>
+                                <label className="text-xs text-slate-400 mb-1 block">טלפון בעלים (WhatsApp) — אופציונלי</label>
+                                <input className="w-full bg-white/10 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-white/30" dir="ltr"
+                                    type="tel" value={form.owner_phone} onChange={e => setForm(f => ({ ...f, owner_phone: e.target.value }))} placeholder="972521234567" />
+                                <p className="text-xs text-slate-500 mt-0.5">פורמט בינלאומי ללא + (לשליחת פרטי כניסה ב-WhatsApp)</p>
                             </div>
 
                             <div className="grid grid-cols-2 gap-3">

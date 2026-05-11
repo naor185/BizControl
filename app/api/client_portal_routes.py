@@ -2,8 +2,6 @@
 Client Portal — unauthenticated login by phone, then JWT-protected views.
 Clients see their own appointments, payments and loyalty points.
 """
-from __future__ import annotations
-
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 

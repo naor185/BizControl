@@ -273,6 +273,12 @@ function LoginContent() {
                                 </span>
                             ) : t("login_btn")}
                         </button>
+
+                        <div className="text-center pt-1">
+                            <a href="/forgot-password" className="text-xs text-blue-200/50 hover:text-blue-200/80 transition-colors">
+                                שכחתי סיסמה
+                            </a>
+                        </div>
                     </form>
                 </div>
 
