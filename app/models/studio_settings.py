@@ -74,7 +74,7 @@ class StudioSettings(Base):
 
     # WhatsApp / SMS Settings
     whatsapp_provider: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    whatsapp_api_key: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    whatsapp_api_key: Mapped[str | None] = mapped_column(Text, nullable=True)
     whatsapp_phone_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     # Branding & Themes

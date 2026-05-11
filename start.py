@@ -110,6 +110,7 @@ def ensure_schema():
             "ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS facebook_page_id VARCHAR(64)",
             "ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS instagram_account_id VARCHAR(64)",
             "ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS meta_page_access_token TEXT",
+            "ALTER TABLE studio_settings ALTER COLUMN whatsapp_api_key TYPE TEXT",
             "ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS self_booking_enabled BOOLEAN NOT NULL DEFAULT false",
             "ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS self_booking_slot_minutes INTEGER NOT NULL DEFAULT 60",
             "ALTER TABLE leads ADD COLUMN IF NOT EXISTS campaign_name VARCHAR(255)",
