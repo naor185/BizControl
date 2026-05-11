@@ -849,14 +849,51 @@ class TestWhatsappIn(BaseModel):
 
 @router.post("/test-whatsapp")
 def test_whatsapp(payload: TestWhatsappIn, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
-    from app.services.message_worker import send_whatsapp_message
+    import urllib.request as _urllib_req, json as _json, urllib.error as _urllib_err
     settings = db.get(StudioSettings, PLATFORM_STUDIO_ID)
     if not settings or not settings.whatsapp_provider:
         raise HTTPException(status_code=400, detail="WhatsApp לא מוגדר בפלטפורמה")
-    try:
-        send_whatsapp_message(payload.phone, "✅ הודעת טסט מ-BizControl — WhatsApp מחובר ועובד!", settings=settings)
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"שליחה נכשלה: {e}")
+
+    if settings.whatsapp_provider == "meta":
+        phone_id = settings.whatsapp_phone_id
+        token = settings.whatsapp_api_key
+        if not phone_id or not token:
+            raise HTTPException(status_code=400, detail="Phone Number ID או Token חסרים")
+        # Use hello_world template — no 24h conversation window required
+        url = f"https://graph.facebook.com/v19.0/{phone_id}/messages"
+        body_bytes = _json.dumps({
+            "messaging_product": "whatsapp",
+            "to": payload.phone,
+            "type": "template",
+            "template": {"name": "hello_world", "language": {"code": "en_US"}},
+        }).encode()
+        req = _urllib_req.Request(url, data=body_bytes, method="POST")
+        req.add_header("Authorization", f"Bearer {token}")
+        req.add_header("Content-Type", "application/json")
+        try:
+            with _urllib_req.urlopen(req, timeout=10) as resp:
+                result = _json.loads(resp.read())
+                if "error" in result:
+                    err_msg = result["error"].get("message", str(result["error"]))
+                    raise HTTPException(status_code=502, detail=f"Meta: {err_msg}")
+        except _urllib_err.HTTPError as e:
+            raw = e.read().decode()
+            try:
+                err_msg = _json.loads(raw).get("error", {}).get("message", raw)
+            except Exception:
+                err_msg = raw
+            raise HTTPException(status_code=502, detail=f"Meta API שגיאה {e.code}: {err_msg}")
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"שליחה נכשלה: {e}")
+    else:
+        try:
+            from app.services.message_worker import send_whatsapp_message
+            send_whatsapp_message(payload.phone, "✅ הודעת טסט מ-BizControl — WhatsApp מחובר ועובד!", settings=settings)
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"שליחה נכשלה: {e}")
+
     return {"status": "sent"}
 
 

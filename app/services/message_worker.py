@@ -13,7 +13,7 @@ from datetime import timedelta
 import asyncio
 
 def _send_via_meta(phone_id: str, token: str, to_phone: str, body: str) -> None:
-    import urllib.request, json as _json
+    import urllib.request, urllib.error, json as _json
     url = f"https://graph.facebook.com/v19.0/{phone_id}/messages"
     payload = _json.dumps({
         "messaging_product": "whatsapp",
@@ -24,9 +24,18 @@ def _send_via_meta(phone_id: str, token: str, to_phone: str, body: str) -> None:
     req = urllib.request.Request(url, data=payload, method="POST")
     req.add_header("Authorization", f"Bearer {token}")
     req.add_header("Content-Type", "application/json")
-    with urllib.request.urlopen(req, timeout=10) as resp:
-        if resp.status >= 300:
-            raise RuntimeError(f"Meta API error {resp.status}")
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            result = _json.loads(resp.read())
+            if "error" in result:
+                raise RuntimeError(f"Meta API error: {result['error'].get('message', result['error'])}")
+    except urllib.error.HTTPError as e:
+        raw = e.read().decode()
+        try:
+            err_msg = _json.loads(raw).get("error", {}).get("message", raw)
+        except Exception:
+            err_msg = raw
+        raise RuntimeError(f"Meta API error {e.code}: {err_msg}")
 
 
 def _send_via_green(instance_id: str, api_key: str, to_phone: str, body: str) -> None:
