@@ -814,6 +814,59 @@ class LeadAnalyticsOut(BaseModel):
     campaigns: list[CampaignStat]
 
 
+# ── Platform WhatsApp Settings ────────────────────────────────────────────────
+
+PLATFORM_STUDIO_ID = "46b85021-8eb4-4e63-a2e1-638dbb3e58fb"
+
+
+class PlatformSettingsOut(BaseModel):
+    whatsapp_provider: str | None
+    whatsapp_phone_id: str | None
+    whatsapp_api_key: str | None
+
+
+class PlatformSettingsIn(BaseModel):
+    whatsapp_provider: str | None = None
+    whatsapp_phone_id: str | None = None
+    whatsapp_api_key: str | None = None
+
+
+@router.get("/platform-settings", response_model=PlatformSettingsOut)
+def get_platform_settings(admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    settings = db.get(StudioSettings, PLATFORM_STUDIO_ID)
+    if not settings:
+        raise HTTPException(status_code=404, detail="Platform settings not found")
+    return PlatformSettingsOut(
+        whatsapp_provider=settings.whatsapp_provider,
+        whatsapp_phone_id=settings.whatsapp_phone_id,
+        whatsapp_api_key=settings.whatsapp_api_key,
+    )
+
+
+@router.patch("/platform-settings", response_model=PlatformSettingsOut)
+def update_platform_settings(
+    payload: PlatformSettingsIn,
+    admin: User = Depends(require_superadmin),
+    db: Session = Depends(get_db),
+):
+    settings = db.get(StudioSettings, PLATFORM_STUDIO_ID)
+    if not settings:
+        raise HTTPException(status_code=404, detail="Platform settings not found")
+    if payload.whatsapp_provider is not None:
+        settings.whatsapp_provider = payload.whatsapp_provider or None
+    if payload.whatsapp_phone_id is not None:
+        settings.whatsapp_phone_id = payload.whatsapp_phone_id or None
+    if payload.whatsapp_api_key is not None:
+        settings.whatsapp_api_key = payload.whatsapp_api_key or None
+    db.commit()
+    db.refresh(settings)
+    return PlatformSettingsOut(
+        whatsapp_provider=settings.whatsapp_provider,
+        whatsapp_phone_id=settings.whatsapp_phone_id,
+        whatsapp_api_key=settings.whatsapp_api_key,
+    )
+
+
 @router.get("/studios/{studio_id}/lead-analytics", response_model=LeadAnalyticsOut)
 def lead_analytics(studio_id: uuid.UUID, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
     studio = db.get(Studio, studio_id)

@@ -79,9 +79,13 @@ export default function AdminPage() {
     const [extendModal, setExtendModal] = useState<{ studio: Studio } | null>(null);
     const [extendDays, setExtendDays] = useState(14);
     const [extending, setExtending] = useState(false);
-    const [tab, setTab] = useState<"studios" | "audit">("studios");
+    const [tab, setTab] = useState<"studios" | "audit" | "platform">("studios");
     const [auditLog, setAuditLog] = useState<AuditEntry[] | null>(null);
     const [auditLoading, setAuditLoading] = useState(false);
+    const [platformSettings, setPlatformSettings] = useState<{ whatsapp_provider: string | null; whatsapp_phone_id: string | null; whatsapp_api_key: string | null } | null>(null);
+    const [platformLoading, setPlatformLoading] = useState(false);
+    const [platformSaving, setPlatformSaving] = useState(false);
+    const [platformForm, setPlatformForm] = useState({ whatsapp_provider: "meta", whatsapp_phone_id: "", whatsapp_api_key: "" });
     const [form, setForm] = useState<NewStudioForm>({
         studio_name: "", slug: "", owner_email: "", owner_password: "",
         owner_display_name: "", subscription_plan: "starter", plan_days: 30,
@@ -200,9 +204,38 @@ export default function AdminPage() {
         }
     };
 
-    const handleTabChange = (t: "studios" | "audit") => {
+    const loadPlatformSettings = async () => {
+        if (platformSettings) return;
+        setPlatformLoading(true);
+        try {
+            const data = await apiFetch<{ whatsapp_provider: string | null; whatsapp_phone_id: string | null; whatsapp_api_key: string | null }>("/api/admin/platform-settings");
+            setPlatformSettings(data);
+            setPlatformForm({
+                whatsapp_provider: data.whatsapp_provider || "meta",
+                whatsapp_phone_id: data.whatsapp_phone_id || "",
+                whatsapp_api_key: data.whatsapp_api_key || "",
+            });
+        } catch { setPlatformSettings(null); }
+        finally { setPlatformLoading(false); }
+    };
+
+    const handleSavePlatform = async () => {
+        setPlatformSaving(true);
+        try {
+            await apiFetch("/api/admin/platform-settings", {
+                method: "PATCH",
+                body: JSON.stringify(platformForm),
+            });
+            setPlatformSettings({ ...platformForm });
+            alert("✅ הגדרות נשמרו בהצלחה!");
+        } catch (e: any) { alert(e?.message); }
+        finally { setPlatformSaving(false); }
+    };
+
+    const handleTabChange = (t: "studios" | "audit" | "platform") => {
         setTab(t);
         if (t === "audit") loadAuditLog();
+        if (t === "platform") loadPlatformSettings();
     };
 
     const handleDelete = async (studio: Studio) => {
@@ -269,7 +302,7 @@ export default function AdminPage() {
 
                 {/* Tabs */}
                 <div className="flex gap-1 bg-white/5 border border-white/10 rounded-2xl p-1 w-fit">
-                    {(["studios", "audit"] as const).map(t => (
+                    {(["studios", "audit", "platform"] as const).map(t => (
                         <button
                             key={t}
                             onClick={() => handleTabChange(t)}
@@ -277,7 +310,7 @@ export default function AdminPage() {
                                 tab === t ? "bg-white text-slate-900" : "text-slate-400 hover:text-white"
                             }`}
                         >
-                            {t === "studios" ? "🏢 סטודיואים" : "📋 לוג פעולות"}
+                            {t === "studios" ? "🏢 סטודיואים" : t === "audit" ? "📋 לוג פעולות" : "⚙️ פלטפורמה"}
                         </button>
                     ))}
                 </div>
@@ -576,6 +609,78 @@ export default function AdminPage() {
                                         ))}
                                     </tbody>
                                 </table>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* Platform Settings Tab */}
+                {tab === "platform" && (
+                    <div className="max-w-xl space-y-6">
+                        <div>
+                            <h2 className="text-lg font-bold">הגדרות WhatsApp — פלטפורמה</h2>
+                            <p className="text-slate-400 text-sm mt-1">הגדרות אלה משמשות כברירת מחדל לכל הסטודיואים שאין להם WhatsApp משלהם.</p>
+                        </div>
+
+                        {platformLoading ? (
+                            <div className="text-slate-400 text-sm">טוען...</div>
+                        ) : (
+                            <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-5">
+                                {/* Provider */}
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-300 mb-2">ספק WhatsApp</label>
+                                    <div className="flex gap-3">
+                                        {["meta", "green_api"].map(p => (
+                                            <button
+                                                key={p}
+                                                onClick={() => setPlatformForm(f => ({ ...f, whatsapp_provider: p }))}
+                                                className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border transition-all ${
+                                                    platformForm.whatsapp_provider === p
+                                                        ? "bg-white text-slate-900 border-white"
+                                                        : "bg-white/5 text-slate-400 border-white/10 hover:border-white/30"
+                                                }`}
+                                            >
+                                                {p === "meta" ? "Meta (WhatsApp Cloud API)" : "Green API"}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Phone Number ID */}
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-300 mb-1.5">Phone Number ID</label>
+                                    <input
+                                        type="text"
+                                        value={platformForm.whatsapp_phone_id}
+                                        onChange={e => setPlatformForm(f => ({ ...f, whatsapp_phone_id: e.target.value }))}
+                                        placeholder="123456789012345"
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-white/30"
+                                        dir="ltr"
+                                    />
+                                    <p className="text-xs text-slate-500 mt-1">מ-Meta Business → WhatsApp → Phone Numbers</p>
+                                </div>
+
+                                {/* Access Token */}
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-300 mb-1.5">Access Token (קבוע)</label>
+                                    <textarea
+                                        value={platformForm.whatsapp_api_key}
+                                        onChange={e => setPlatformForm(f => ({ ...f, whatsapp_api_key: e.target.value }))}
+                                        placeholder="EAAxxxxxxxxxxxxxxx..."
+                                        rows={4}
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-white/30 font-mono resize-none"
+                                        dir="ltr"
+                                    />
+                                    <p className="text-xs text-slate-500 mt-1">System User Token מ-Meta Business → System Users</p>
+                                </div>
+
+                                <button
+                                    onClick={handleSavePlatform}
+                                    disabled={platformSaving}
+                                    className="w-full bg-white text-slate-900 font-bold py-3 rounded-xl hover:bg-slate-100 transition-colors disabled:opacity-50"
+                                >
+                                    {platformSaving ? "שומר..." : "שמור הגדרות"}
+                                </button>
                             </div>
                         )}
                     </div>
