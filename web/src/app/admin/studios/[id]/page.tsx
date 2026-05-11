@@ -550,7 +550,7 @@ export default function StudioDetailPage() {
                                     setSavingWa(true);
                                     try {
                                         await handleSaveSettings({
-                                            whatsapp_provider: waPhoneId || waApiKey ? "meta_cloud" : null,
+                                            whatsapp_provider: waPhoneId || waApiKey ? "meta" : null,
                                             whatsapp_phone_id: waPhoneId || null,
                                             whatsapp_api_key: waApiKey || null,
                                         });
