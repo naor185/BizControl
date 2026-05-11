@@ -83,7 +83,7 @@ export default function AdminPage() {
     const [deleteErr, setDeleteErr] = useState<string | null>(null);
     const [extendDays, setExtendDays] = useState(14);
     const [extending, setExtending] = useState(false);
-    const [tab, setTab] = useState<"studios" | "audit" | "platform">("studios");
+    const [tab, setTab] = useState<"studios" | "audit" | "platform" | "leads">("studios");
     const [auditLog, setAuditLog] = useState<AuditEntry[] | null>(null);
     const [auditLoading, setAuditLoading] = useState(false);
     const [platformSettings, setPlatformSettings] = useState<{ whatsapp_provider: string | null; whatsapp_phone_id: string | null; whatsapp_api_key: string | null } | null>(null);
@@ -93,6 +93,20 @@ export default function AdminPage() {
     const [testPhone, setTestPhone] = useState("");
     const [testSending, setTestSending] = useState(false);
     const [testResult, setTestResult] = useState<{ ok: boolean; msg: string } | null>(null);
+
+    // Leads Inbox
+    type GlobalLead = {
+        id: string; studio_id: string; studio_name: string; studio_slug: string;
+        name: string; phone: string | null; email: string | null; source: string; status: string;
+        service_interest: string | null; notes: string | null; campaign_name: string | null;
+        created_at: string; updated_at: string;
+    };
+    const [leads, setLeads] = useState<GlobalLead[]>([]);
+    const [leadsLoading, setLeadsLoading] = useState(false);
+    const [selectedLead, setSelectedLead] = useState<GlobalLead | null>(null);
+    const [leadNote, setLeadNote] = useState("");
+    const [leadSaving, setLeadSaving] = useState(false);
+    const [leadsFilter, setLeadsFilter] = useState<{ source: string; status: string; search: string }>({ source: "", status: "", search: "" });
     const [form, setForm] = useState<NewStudioForm>({
         studio_name: "", slug: "", owner_email: "", owner_password: "", owner_phone: "",
         owner_display_name: "", subscription_plan: "starter", plan_days: 30,
@@ -256,10 +270,44 @@ export default function AdminPage() {
         finally { setPlatformSaving(false); }
     };
 
-    const handleTabChange = (t: "studios" | "audit" | "platform") => {
+    const loadLeads = async (f = leadsFilter) => {
+        setLeadsLoading(true);
+        try {
+            const params = new URLSearchParams();
+            if (f.source) params.set("source", f.source);
+            if (f.status) params.set("status", f.status);
+            if (f.search) params.set("search", f.search);
+            const data = await apiFetch<GlobalLead[]>(`/api/admin/leads-inbox?${params}`);
+            setLeads(data);
+        } catch { } finally { setLeadsLoading(false); }
+    };
+
+    const handleTabChange = (t: "studios" | "audit" | "platform" | "leads") => {
         setTab(t);
         if (t === "audit") loadAuditLog();
         if (t === "platform") loadPlatformSettings();
+        if (t === "leads") loadLeads();
+    };
+
+    const handleLeadStatusChange = async (lead: GlobalLead, status: string) => {
+        setLeadSaving(true);
+        try {
+            await apiFetch(`/api/admin/leads/${lead.id}`, { method: "PATCH", body: JSON.stringify({ status }) });
+            const updated = { ...lead, status };
+            setLeads(ls => ls.map(l => l.id === lead.id ? updated : l));
+            setSelectedLead(updated);
+        } catch { } finally { setLeadSaving(false); }
+    };
+
+    const handleLeadNoteSave = async () => {
+        if (!selectedLead) return;
+        setLeadSaving(true);
+        try {
+            await apiFetch(`/api/admin/leads/${selectedLead.id}`, { method: "PATCH", body: JSON.stringify({ notes: leadNote }) });
+            const updated = { ...selectedLead, notes: leadNote };
+            setLeads(ls => ls.map(l => l.id === selectedLead.id ? updated : l));
+            setSelectedLead(updated);
+        } catch { } finally { setLeadSaving(false); }
     };
 
     const handleDelete = (studio: Studio) => {
@@ -338,7 +386,7 @@ export default function AdminPage() {
 
                 {/* Tabs */}
                 <div className="flex gap-1 bg-white/5 border border-white/10 rounded-2xl p-1 w-fit">
-                    {(["studios", "audit", "platform"] as const).map(t => (
+                    {(["studios", "leads", "audit", "platform"] as const).map(t => (
                         <button
                             key={t}
                             onClick={() => handleTabChange(t)}
@@ -346,7 +394,7 @@ export default function AdminPage() {
                                 tab === t ? "bg-white text-slate-900" : "text-slate-400 hover:text-white"
                             }`}
                         >
-                            {t === "studios" ? "🏢 סטודיואים" : t === "audit" ? "📋 לוג פעולות" : "⚙️ פלטפורמה"}
+                            {t === "studios" ? "🏢 סטודיואים" : t === "leads" ? "📥 לידים" : t === "audit" ? "📋 לוג פעולות" : "⚙️ פלטפורמה"}
                         </button>
                     ))}
                 </div>
@@ -752,6 +800,161 @@ export default function AdminPage() {
                             </div>
                             </>
                         )}
+                    </div>
+                )}
+
+                {/* ── Leads Inbox Tab ── */}
+                {tab === "leads" && (
+                    <div className="flex gap-4 h-[calc(100vh-280px)] min-h-[500px]">
+
+                        {/* Left: Lead List */}
+                        <div className="w-80 flex-shrink-0 flex flex-col gap-3">
+                            {/* Filters */}
+                            <div className="flex gap-2">
+                                <input
+                                    placeholder="חיפוש שם / טלפון..."
+                                    value={leadsFilter.search}
+                                    onChange={e => { const f = { ...leadsFilter, search: e.target.value }; setLeadsFilter(f); loadLeads(f); }}
+                                    className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder:text-slate-500 outline-none focus:border-white/30"
+                                    dir="rtl"
+                                />
+                            </div>
+                            <div className="flex gap-2">
+                                <select value={leadsFilter.source} onChange={e => { const f = { ...leadsFilter, source: e.target.value }; setLeadsFilter(f); loadLeads(f); }}
+                                    className="flex-1 bg-white/5 border border-white/10 rounded-xl px-2 py-1.5 text-xs text-white outline-none">
+                                    <option value="">כל המקורות</option>
+                                    <option value="whatsapp">WhatsApp</option>
+                                    <option value="facebook">Facebook</option>
+                                    <option value="instagram">Instagram</option>
+                                    <option value="manual">ידני</option>
+                                </select>
+                                <select value={leadsFilter.status} onChange={e => { const f = { ...leadsFilter, status: e.target.value }; setLeadsFilter(f); loadLeads(f); }}
+                                    className="flex-1 bg-white/5 border border-white/10 rounded-xl px-2 py-1.5 text-xs text-white outline-none">
+                                    <option value="">כל הסטטוסים</option>
+                                    <option value="new">חדש</option>
+                                    <option value="contacted">נענה</option>
+                                    <option value="interested">מעוניין</option>
+                                    <option value="booked">נקבע תור</option>
+                                    <option value="lost">אבוד</option>
+                                </select>
+                            </div>
+
+                            {/* Lead list */}
+                            <div className="flex-1 overflow-y-auto space-y-2 pl-1">
+                                {leadsLoading && <div className="text-slate-400 text-sm text-center py-8">טוען...</div>}
+                                {!leadsLoading && leads.length === 0 && <div className="text-slate-500 text-sm text-center py-8">אין לידים</div>}
+                                {leads.map(lead => {
+                                    const srcIcon = lead.source === "whatsapp" ? "💬" : lead.source === "facebook" ? "📘" : lead.source === "instagram" ? "📸" : "✏️";
+                                    const statusColor = lead.status === "new" ? "bg-blue-500/20 text-blue-300" : lead.status === "contacted" ? "bg-yellow-500/20 text-yellow-300" : lead.status === "interested" ? "bg-orange-500/20 text-orange-300" : lead.status === "booked" ? "bg-green-500/20 text-green-300" : "bg-red-500/20 text-red-300";
+                                    const statusLabel = lead.status === "new" ? "חדש" : lead.status === "contacted" ? "נענה" : lead.status === "interested" ? "מעוניין" : lead.status === "booked" ? "נקבע תור" : "אבוד";
+                                    return (
+                                        <button key={lead.id} onClick={() => { setSelectedLead(lead); setLeadNote(lead.notes || ""); }}
+                                            className={`w-full text-right rounded-xl p-3 border transition-all ${selectedLead?.id === lead.id ? "bg-white/15 border-white/30" : "bg-white/5 border-white/10 hover:bg-white/10"}`}>
+                                            <div className="flex items-center justify-between mb-1">
+                                                <span className="text-xs text-slate-400">{srcIcon} {lead.studio_name}</span>
+                                                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColor}`}>{statusLabel}</span>
+                                            </div>
+                                            <div className="font-semibold text-sm text-white truncate">{lead.name}</div>
+                                            <div className="text-xs text-slate-500 mt-0.5">{lead.phone || lead.email || "—"}</div>
+                                            <div className="text-xs text-slate-600 mt-0.5">{new Date(lead.created_at).toLocaleDateString("he-IL")}</div>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        {/* Right: Lead Detail */}
+                        <div className="flex-1 bg-white/5 border border-white/10 rounded-2xl p-6 overflow-y-auto">
+                            {!selectedLead ? (
+                                <div className="h-full flex flex-col items-center justify-center text-slate-500">
+                                    <div className="text-5xl mb-3">📥</div>
+                                    <p className="text-sm">בחר ליד מהרשימה לצפייה בפרטים</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-5" dir="rtl">
+                                    {/* Header */}
+                                    <div className="flex items-start justify-between">
+                                        <div>
+                                            <h2 className="text-xl font-bold text-white">{selectedLead.name}</h2>
+                                            <p className="text-sm text-slate-400 mt-0.5">
+                                                {selectedLead.source === "whatsapp" ? "💬 WhatsApp" : selectedLead.source === "facebook" ? "📘 Facebook" : selectedLead.source === "instagram" ? "📸 Instagram" : "✏️ ידני"}
+                                                {" · "}סטודיו: <span className="text-slate-300">{selectedLead.studio_name}</span>
+                                            </p>
+                                        </div>
+                                        <div className="text-xs text-slate-500">{new Date(selectedLead.created_at).toLocaleString("he-IL")}</div>
+                                    </div>
+
+                                    {/* Contact Info */}
+                                    <div className="grid grid-cols-2 gap-3">
+                                        {selectedLead.phone && (
+                                            <div className="bg-white/5 rounded-xl px-4 py-3">
+                                                <div className="text-xs text-slate-500 mb-1">טלפון</div>
+                                                <div className="text-sm text-white font-mono">{selectedLead.phone}</div>
+                                            </div>
+                                        )}
+                                        {selectedLead.email && (
+                                            <div className="bg-white/5 rounded-xl px-4 py-3">
+                                                <div className="text-xs text-slate-500 mb-1">אימייל</div>
+                                                <div className="text-sm text-white">{selectedLead.email}</div>
+                                            </div>
+                                        )}
+                                        {selectedLead.service_interest && (
+                                            <div className="bg-white/5 rounded-xl px-4 py-3">
+                                                <div className="text-xs text-slate-500 mb-1">עניין בשירות</div>
+                                                <div className="text-sm text-white">{selectedLead.service_interest}</div>
+                                            </div>
+                                        )}
+                                        {selectedLead.campaign_name && (
+                                            <div className="bg-white/5 rounded-xl px-4 py-3">
+                                                <div className="text-xs text-slate-500 mb-1">קמפיין</div>
+                                                <div className="text-sm text-white">{selectedLead.campaign_name}</div>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Status */}
+                                    <div>
+                                        <div className="text-xs text-slate-400 mb-2">סטטוס טיפול</div>
+                                        <div className="flex flex-wrap gap-2">
+                                            {[
+                                                { v: "new", label: "חדש", color: "bg-blue-500/20 text-blue-300 border-blue-500/30" },
+                                                { v: "contacted", label: "נענה", color: "bg-yellow-500/20 text-yellow-300 border-yellow-500/30" },
+                                                { v: "interested", label: "מעוניין", color: "bg-orange-500/20 text-orange-300 border-orange-500/30" },
+                                                { v: "booked", label: "✅ נקבע תור", color: "bg-green-500/20 text-green-300 border-green-500/30" },
+                                                { v: "lost", label: "❌ אבוד", color: "bg-red-500/20 text-red-300 border-red-500/30" },
+                                            ].map(({ v, label, color }) => (
+                                                <button key={v}
+                                                    onClick={() => handleLeadStatusChange(selectedLead, v)}
+                                                    disabled={leadSaving}
+                                                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${selectedLead.status === v ? color + " ring-1 ring-white/20" : "bg-white/5 text-slate-400 border-white/10 hover:border-white/30"}`}>
+                                                    {label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Notes */}
+                                    <div>
+                                        <div className="text-xs text-slate-400 mb-2">הערות פנימיות</div>
+                                        <textarea
+                                            value={leadNote}
+                                            onChange={e => setLeadNote(e.target.value)}
+                                            rows={4}
+                                            placeholder="הוסף הערה על הליד..."
+                                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-600 outline-none focus:border-white/30 resize-none"
+                                            dir="rtl"
+                                        />
+                                        <button
+                                            onClick={handleLeadNoteSave}
+                                            disabled={leadSaving || leadNote === (selectedLead.notes || "")}
+                                            className="mt-2 px-4 py-2 bg-white text-slate-900 text-sm font-bold rounded-xl hover:bg-slate-100 disabled:opacity-40 transition-colors"
+                                        >
+                                            {leadSaving ? "שומר..." : "שמור הערה"}
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 )}
 

@@ -985,3 +985,92 @@ def lead_analytics(studio_id: uuid.UUID, admin: User = Depends(require_superadmi
         by_status=by_status,
         campaigns=campaign_list,
     )
+
+
+# ── Global Leads Inbox ────────────────────────────────────────────────────────
+
+class GlobalLeadOut(BaseModel):
+    id: str
+    studio_id: str
+    studio_name: str
+    studio_slug: str
+    name: str
+    phone: Optional[str]
+    email: Optional[str]
+    source: str
+    status: str
+    service_interest: Optional[str]
+    notes: Optional[str]
+    campaign_name: Optional[str]
+    created_at: datetime
+    updated_at: datetime
+
+
+class GlobalLeadUpdate(BaseModel):
+    status: Optional[str] = None
+    notes: Optional[str] = None
+
+
+@router.get("/leads-inbox", response_model=list[GlobalLeadOut])
+def leads_inbox(
+    source: Optional[str] = None,
+    status: Optional[str] = None,
+    search: Optional[str] = None,
+    limit: int = 200,
+    admin: User = Depends(require_superadmin),
+    db: Session = Depends(get_db),
+):
+    stmt = (
+        select(Lead, Studio.name, Studio.slug)
+        .join(Studio, Lead.studio_id == Studio.id)
+        .where(Studio.is_platform == False)  # noqa: E712
+    )
+    if source:
+        stmt = stmt.where(Lead.source == source)
+    if status:
+        stmt = stmt.where(Lead.status == status)
+    if search:
+        q = f"%{search}%"
+        stmt = stmt.where(
+            (Lead.name.ilike(q)) | (Lead.phone.ilike(q)) | (Lead.email.ilike(q))
+        )
+    stmt = stmt.order_by(Lead.created_at.desc()).limit(limit)
+
+    rows = db.execute(stmt).all()
+    return [
+        GlobalLeadOut(
+            id=str(r.Lead.id),
+            studio_id=str(r.Lead.studio_id),
+            studio_name=r[1],
+            studio_slug=r[2],
+            name=r.Lead.name,
+            phone=r.Lead.phone,
+            email=r.Lead.email,
+            source=r.Lead.source,
+            status=r.Lead.status,
+            service_interest=r.Lead.service_interest,
+            notes=r.Lead.notes,
+            campaign_name=r.Lead.campaign_name,
+            created_at=r.Lead.created_at,
+            updated_at=r.Lead.updated_at,
+        )
+        for r in rows
+    ]
+
+
+@router.patch("/leads/{lead_id}")
+def update_global_lead(
+    lead_id: uuid.UUID,
+    payload: GlobalLeadUpdate,
+    admin: User = Depends(require_superadmin),
+    db: Session = Depends(get_db),
+):
+    lead = db.get(Lead, lead_id)
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    if payload.status is not None:
+        lead.status = payload.status
+    if payload.notes is not None:
+        lead.notes = payload.notes
+    db.commit()
+    return {"status": "updated"}
