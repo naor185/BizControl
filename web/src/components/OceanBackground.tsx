@@ -10,21 +10,20 @@ export default function OceanBackground() {
         const mount = mountRef.current;
         if (!mount) return;
 
-        // ── Renderer ─────────────────────────────────────────────────────────
         const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         renderer.setSize(mount.clientWidth, mount.clientHeight);
-        renderer.shadowMap.enabled = true;
         mount.appendChild(renderer.domElement);
 
-        // ── Scene & Camera ───────────────────────────────────────────────────
         const scene = new THREE.Scene();
-        scene.fog = new THREE.FogExp2(0x001a2e, 0.018);
+        scene.fog = new THREE.FogExp2(0x001a2e, 0.014);
 
-        const camera = new THREE.PerspectiveCamera(60, mount.clientWidth / mount.clientHeight, 0.1, 300);
-        camera.position.set(0, 0, 28);
+        // Fixed camera — never moves
+        const camera = new THREE.PerspectiveCamera(55, mount.clientWidth / mount.clientHeight, 0.1, 300);
+        camera.position.set(0, 0, 30);
+        camera.lookAt(0, 0, 0);
 
-        // ── Ocean Background Gradient ─────────────────────────────────────────
+        // ── Static ocean gradient background ─────────────────────────────────
         const bgGeom = new THREE.PlaneGeometry(300, 300);
         const bgMat = new THREE.ShaderMaterial({
             uniforms: { uTime: { value: 0 } },
@@ -33,13 +32,14 @@ export default function OceanBackground() {
                 uniform float uTime;
                 varying vec2 vUv;
                 void main(){
-                    vec3 deep   = vec3(0.0, 0.04, 0.12);
-                    vec3 mid    = vec3(0.0, 0.13, 0.30);
-                    vec3 top    = vec3(0.0, 0.22, 0.45);
+                    vec3 deep = vec3(0.0, 0.03, 0.10);
+                    vec3 mid  = vec3(0.0, 0.10, 0.26);
+                    vec3 surf = vec3(0.0, 0.20, 0.42);
                     float t = vUv.y;
-                    vec3 col = mix(deep, mix(mid,top,t*t), t);
-                    float shimmer = sin(vUv.x*18.0+uTime*0.4)*sin(vUv.y*12.0+uTime*0.3)*0.03;
-                    gl_FragColor = vec4(col+shimmer, 1.0);
+                    vec3 col = mix(deep, mix(mid, surf, t * t), t);
+                    // subtle caustic shimmer — very gentle, not moving
+                    float shimmer = sin(vUv.x * 22.0 + uTime * 0.25) * sin(vUv.y * 14.0 + uTime * 0.18) * 0.018;
+                    gl_FragColor = vec4(col + shimmer, 1.0);
                 }
             `,
             side: THREE.FrontSide,
@@ -48,215 +48,165 @@ export default function OceanBackground() {
         bg.position.z = -60;
         scene.add(bg);
 
-        // ── Caustics / God Rays ───────────────────────────────────────────────
-        const rayCount = 12;
-        const rays: THREE.Mesh[] = [];
-        for (let i = 0; i < rayCount; i++) {
-            const h = THREE.MathUtils.randFloat(18, 35);
-            const geom = new THREE.CylinderGeometry(0.05, THREE.MathUtils.randFloat(1.5, 3.5), h, 6, 1, true);
+        // ── Static god rays ───────────────────────────────────────────────────
+        for (let i = 0; i < 10; i++) {
+            const h = THREE.MathUtils.randFloat(20, 38);
+            const geom = new THREE.CylinderGeometry(0.04, THREE.MathUtils.randFloat(1.2, 3.0), h, 6, 1, true);
             const mat = new THREE.MeshBasicMaterial({
-                color: 0x88ddff,
+                color: 0x66ccff,
                 transparent: true,
-                opacity: THREE.MathUtils.randFloat(0.03, 0.09),
+                opacity: THREE.MathUtils.randFloat(0.025, 0.07),
                 side: THREE.DoubleSide,
                 depthWrite: false,
             });
             const ray = new THREE.Mesh(geom, mat);
             ray.position.set(
-                THREE.MathUtils.randFloatSpread(40),
-                h / 2 + 8,
-                THREE.MathUtils.randFloat(20) - 10,
+                THREE.MathUtils.randFloatSpread(50),
+                h / 2 + 6,
+                THREE.MathUtils.randFloat(-18, -6),
             );
-            ray.rotation.z = THREE.MathUtils.randFloatSpread(0.3);
-            ray.userData = {
-                speed: THREE.MathUtils.randFloat(0.3, 0.9),
-                phase: Math.random() * Math.PI * 2,
-                baseOpacity: (mat as THREE.MeshBasicMaterial).opacity,
-            };
-            rays.push(ray);
+            ray.rotation.z = THREE.MathUtils.randFloatSpread(0.25);
             scene.add(ray);
         }
 
-        // ── Bubble Particles ─────────────────────────────────────────────────
-        const BUBBLE_COUNT = 600;
+        // ── Bubble particles ──────────────────────────────────────────────────
+        const BUBBLE_COUNT = 500;
         const bPos = new Float32Array(BUBBLE_COUNT * 3);
-        const bSizes = new Float32Array(BUBBLE_COUNT);
         const bSpeeds = new Float32Array(BUBBLE_COUNT);
         for (let i = 0; i < BUBBLE_COUNT; i++) {
             bPos[i * 3]     = THREE.MathUtils.randFloatSpread(80);
-            bPos[i * 3 + 1] = THREE.MathUtils.randFloatSpread(50) - 10;
+            bPos[i * 3 + 1] = THREE.MathUtils.randFloatSpread(60) - 10;
             bPos[i * 3 + 2] = THREE.MathUtils.randFloatSpread(30) - 20;
-            bSizes[i]  = THREE.MathUtils.randFloat(1.5, 5);
-            bSpeeds[i] = THREE.MathUtils.randFloat(0.4, 1.4);
+            bSpeeds[i] = THREE.MathUtils.randFloat(0.3, 1.2);
         }
         const bubbleGeom = new THREE.BufferGeometry();
         bubbleGeom.setAttribute("position", new THREE.BufferAttribute(bPos, 3));
-        bubbleGeom.setAttribute("size", new THREE.BufferAttribute(bSizes, 1));
         const bubbleMat = new THREE.PointsMaterial({
-            color: 0xaaddff,
-            size: 0.25,
-            transparent: true,
-            opacity: 0.5,
-            sizeAttenuation: true,
-            depthWrite: false,
+            color: 0xaaddff, size: 0.2, transparent: true, opacity: 0.45,
+            sizeAttenuation: true, depthWrite: false,
         });
-        const bubbles = new THREE.Points(bubbleGeom, bubbleMat);
-        scene.add(bubbles);
+        scene.add(new THREE.Points(bubbleGeom, bubbleMat));
 
-        // ── Whale Body Builder ────────────────────────────────────────────────
+        // ── Whale builder ─────────────────────────────────────────────────────
         function buildWhale(): THREE.Group {
-            const whale = new THREE.Group();
-            const skinColor = 0x2a4a6b;
-            const bellyColor = 0x8ab4c8;
-
-            const skin = new THREE.MeshPhongMaterial({ color: skinColor, shininess: 40, specular: 0x224466 });
-            const belly = new THREE.MeshPhongMaterial({ color: bellyColor, shininess: 20 });
+            const g = new THREE.Group();
+            const skin  = new THREE.MeshPhongMaterial({ color: 0x1e3d5a, shininess: 50, specular: 0x1a3355 });
+            const belly = new THREE.MeshPhongMaterial({ color: 0x7aaabf, shininess: 15 });
 
             // Body
-            const bodyGeom = new THREE.SphereGeometry(1, 32, 24);
-            const bodyPos = bodyGeom.attributes.position;
-            for (let i = 0; i < bodyPos.count; i++) {
-                const x = bodyPos.getX(i), y = bodyPos.getY(i), z = bodyPos.getZ(i);
-                bodyPos.setXYZ(i,
-                    x * 4.5 + (x > 0 ? x * 0.5 : x * 0.3),
-                    y * (x > 1 ? 0.7 : 1.0),
-                    z * 1.3
-                );
+            const bodyG = new THREE.SphereGeometry(1, 36, 24);
+            const bp = bodyG.attributes.position;
+            for (let i = 0; i < bp.count; i++) {
+                const x = bp.getX(i), y = bp.getY(i), z = bp.getZ(i);
+                bp.setXYZ(i, x * 4.8 + (x > 0 ? x * 0.45 : x * 0.25), y * (x > 1 ? 0.68 : 1.0), z * 1.25);
             }
-            bodyGeom.computeVertexNormals();
-            const body = new THREE.Mesh(bodyGeom, skin);
-            whale.add(body);
+            bodyG.computeVertexNormals();
+            g.add(new THREE.Mesh(bodyG, skin));
 
             // Belly patch
-            const bellyGeom = new THREE.SphereGeometry(0.95, 24, 16, 0, Math.PI * 2, 0, Math.PI * 0.6);
-            for (let i = 0; i < bellyGeom.attributes.position.count; i++) {
-                const x = bellyGeom.attributes.position.getX(i);
-                const z = bellyGeom.attributes.position.getZ(i);
-                bellyGeom.attributes.position.setXYZ(i,
-                    x * 4.2, bellyGeom.attributes.position.getY(i) * 0.5 - 0.55, z * 1.1
+            const bellyG = new THREE.SphereGeometry(0.93, 24, 16, 0, Math.PI * 2, 0, Math.PI * 0.58);
+            const bellyP = bellyG.attributes.position;
+            for (let i = 0; i < bellyP.count; i++) {
+                bellyG.attributes.position.setXYZ(i,
+                    bellyP.getX(i) * 4.1,
+                    bellyP.getY(i) * 0.48 - 0.52,
+                    bellyP.getZ(i) * 1.05,
                 );
             }
-            bellyGeom.computeVertexNormals();
-            const bellyMesh = new THREE.Mesh(bellyGeom, belly);
-            whale.add(bellyMesh);
+            bellyG.computeVertexNormals();
+            g.add(new THREE.Mesh(bellyG, belly));
 
-            // Head bump (rostrum)
-            const headGeom = new THREE.SphereGeometry(0.7, 20, 16);
-            const headMesh = new THREE.Mesh(headGeom, skin);
-            headMesh.position.set(4.8, 0.1, 0);
-            headMesh.scale.set(1.3, 0.7, 0.9);
-            whale.add(headMesh);
+            // Rostrum / head
+            const headM = new THREE.Mesh(new THREE.SphereGeometry(0.68, 20, 16), skin);
+            headM.position.set(4.9, 0.1, 0);
+            headM.scale.set(1.25, 0.65, 0.85);
+            g.add(headM);
 
-            // Tail stock
-            const tailGeom = new THREE.CylinderGeometry(0.25, 0.7, 4, 20);
-            const tailStock = new THREE.Mesh(tailGeom, skin);
+            // Tail stock (child[3])
+            const tsGeom = new THREE.CylinderGeometry(0.22, 0.68, 4.2, 20);
+            const tailStock = new THREE.Mesh(tsGeom, skin);
             tailStock.rotation.z = Math.PI / 2;
-            tailStock.position.set(-5.5, 0, 0);
-            whale.add(tailStock);
+            tailStock.position.set(-5.6, 0, 0);
+            g.add(tailStock); // index 3
 
-            // Tail flukes
+            // Fluke top (child[4])
             const flukeShape = new THREE.Shape();
             flukeShape.moveTo(0, 0);
-            flukeShape.bezierCurveTo(1, 2.5, 3, 2.8, 3.5, 1.5);
-            flukeShape.bezierCurveTo(3.8, 0.5, 2, -0.3, 0, 0);
-            const flukeSettings = { depth: 0.12, bevelEnabled: true, bevelSize: 0.05, bevelThickness: 0.05 };
-            const flukeGeom = new THREE.ExtrudeGeometry(flukeShape, flukeSettings);
+            flukeShape.bezierCurveTo(0.8, 2.6, 2.8, 3.0, 3.6, 1.6);
+            flukeShape.bezierCurveTo(3.9, 0.4, 2.2, -0.4, 0, 0);
+            const flukeOpts = { depth: 0.11, bevelEnabled: true, bevelSize: 0.04, bevelThickness: 0.04 };
+            const flukeG = new THREE.ExtrudeGeometry(flukeShape, flukeOpts);
 
-            const flukeTop = new THREE.Mesh(flukeGeom, skin);
-            flukeTop.position.set(-7.2, 0, 0.06);
-            flukeTop.rotation.set(0, Math.PI / 2, -0.2);
-            flukeTop.scale.set(0.85, 0.85, 0.85);
-            whale.add(flukeTop);
+            const flukeTop = new THREE.Mesh(flukeG, skin);
+            flukeTop.position.set(-7.4, 0, 0.06);
+            flukeTop.rotation.set(0, Math.PI / 2, -0.18);
+            flukeTop.scale.setScalar(0.82);
+            g.add(flukeTop); // index 4
 
-            const flukeBot = new THREE.Mesh(flukeGeom, skin);
-            flukeBot.position.set(-7.2, 0, -0.06);
-            flukeBot.rotation.set(Math.PI, Math.PI / 2, 0.2);
-            flukeBot.scale.set(0.85, 0.85, 0.85);
-            whale.add(flukeBot);
+            const flukeBot = new THREE.Mesh(flukeG, skin);
+            flukeBot.position.set(-7.4, 0, -0.06);
+            flukeBot.rotation.set(Math.PI, Math.PI / 2, 0.18);
+            flukeBot.scale.setScalar(0.82);
+            g.add(flukeBot); // index 5
 
-            // Pectoral fins (long — humpback signature)
+            // Pec fin L (child[6])
             const pectShape = new THREE.Shape();
             pectShape.moveTo(0, 0);
-            pectShape.bezierCurveTo(1, 0.5, 4, 0.8, 5.5, 0.2);
-            pectShape.bezierCurveTo(4.5, -0.1, 1.5, -0.5, 0, 0);
-            const pectGeom = new THREE.ExtrudeGeometry(pectShape, { depth: 0.08, bevelEnabled: false });
+            pectShape.bezierCurveTo(1.2, 0.6, 4.2, 0.9, 5.6, 0.2);
+            pectShape.bezierCurveTo(4.5, -0.15, 1.4, -0.55, 0, 0);
+            const pectG = new THREE.ExtrudeGeometry(pectShape, { depth: 0.07, bevelEnabled: false });
 
-            const finL = new THREE.Mesh(pectGeom, skin);
-            finL.position.set(2, -0.8, 1.25);
-            finL.rotation.set(-0.4, 0.3, 0.5);
-            finL.scale.set(0.9, 0.9, 0.9);
-            whale.add(finL);
+            const finL = new THREE.Mesh(pectG, skin);
+            finL.position.set(1.8, -0.85, 1.3);
+            finL.rotation.set(-0.38, 0.28, 0.52);
+            finL.scale.setScalar(0.88);
+            g.add(finL); // index 6
 
             const finR = finL.clone();
-            finR.position.set(2, -0.8, -1.25);
-            finR.rotation.set(0.4, -0.3, 0.5);
-            whale.add(finR);
+            finR.position.set(1.8, -0.85, -1.3);
+            finR.rotation.set(0.38, -0.28, 0.52);
+            g.add(finR); // index 7
 
             // Dorsal fin
-            const dorsalShape = new THREE.Shape();
-            dorsalShape.moveTo(0, 0);
-            dorsalShape.bezierCurveTo(0.5, 1.2, 1.5, 1.5, 2, 0.8);
-            dorsalShape.bezierCurveTo(1.5, 0.2, 0.5, 0, 0, 0);
-            const dorsalGeom = new THREE.ExtrudeGeometry(dorsalShape, { depth: 0.08, bevelEnabled: false });
-            const dorsal = new THREE.Mesh(dorsalGeom, skin);
-            dorsal.position.set(-1.5, 1.0, -0.04);
-            dorsal.rotation.set(0, 0, 0.1);
-            whale.add(dorsal);
-
-            // Tubercles (bumps on head — humpback characteristic)
-            for (let i = 0; i < 8; i++) {
-                const tbGeom = new THREE.SphereGeometry(THREE.MathUtils.randFloat(0.07, 0.14), 8, 6);
-                const tb = new THREE.Mesh(tbGeom, skin);
-                tb.position.set(
-                    THREE.MathUtils.randFloat(3.5, 5.2),
-                    THREE.MathUtils.randFloat(0.3, 0.7),
-                    THREE.MathUtils.randFloatSpread(0.8),
-                );
-                whale.add(tb);
-            }
+            const dorsShape = new THREE.Shape();
+            dorsShape.moveTo(0, 0);
+            dorsShape.bezierCurveTo(0.4, 1.3, 1.6, 1.6, 2.1, 0.85);
+            dorsShape.bezierCurveTo(1.6, 0.2, 0.5, 0, 0, 0);
+            const dorsM = new THREE.Mesh(new THREE.ExtrudeGeometry(dorsShape, { depth: 0.07, bevelEnabled: false }), skin);
+            dorsM.position.set(-1.6, 1.05, -0.035);
+            g.add(dorsM);
 
             // Eye
-            const eyeGeom = new THREE.SphereGeometry(0.1, 12, 8);
-            const eyeMat = new THREE.MeshPhongMaterial({ color: 0x0a0a0a, shininess: 100, specular: 0x444444 });
-            const eyeL = new THREE.Mesh(eyeGeom, eyeMat);
-            eyeL.position.set(3.8, 0.35, 1.1);
-            whale.add(eyeL);
-            const eyeR = eyeL.clone();
-            eyeR.position.z = -1.1;
-            whale.add(eyeR);
+            const eyeM = new THREE.Mesh(
+                new THREE.SphereGeometry(0.09, 10, 8),
+                new THREE.MeshPhongMaterial({ color: 0x060606, shininess: 120, specular: 0x555555 }),
+            );
+            eyeM.position.set(3.9, 0.32, 1.08);
+            g.add(eyeM);
+            const eyeR2 = eyeM.clone();
+            eyeR2.position.z = -1.08;
+            g.add(eyeR2);
 
-            return whale;
+            return g;
         }
 
         const whale = buildWhale();
-        whale.position.set(8, -1, -5);
-        whale.rotation.y = -0.3;
-        whale.scale.setScalar(1.2);
+        whale.scale.setScalar(1.25);
         scene.add(whale);
 
-        // ── Second distant whale ─────────────────────────────────────────────
-        const whale2 = buildWhale();
-        whale2.position.set(-30, 5, -25);
-        whale2.rotation.y = Math.PI + 0.4;
-        whale2.scale.setScalar(0.55);
-        scene.add(whale2);
+        // ── Lighting ──────────────────────────────────────────────────────────
+        scene.add(new THREE.AmbientLight(0x002255, 1.4));
+        const sun = new THREE.DirectionalLight(0x88ccff, 2.0);
+        sun.position.set(8, 28, 6);
+        scene.add(sun);
+        const fill = new THREE.PointLight(0x003388, 1.1, 70);
+        fill.position.set(-12, 4, 12);
+        scene.add(fill);
+        const rim = new THREE.PointLight(0x0099cc, 0.7, 45);
+        rim.position.set(2, -10, 18);
+        scene.add(rim);
 
-        // ── Lighting ─────────────────────────────────────────────────────────
-        scene.add(new THREE.AmbientLight(0x003366, 1.2));
-
-        const sunLight = new THREE.DirectionalLight(0x88ccff, 1.8);
-        sunLight.position.set(10, 30, 5);
-        scene.add(sunLight);
-
-        const fillLight = new THREE.PointLight(0x0044aa, 1.0, 60);
-        fillLight.position.set(-10, 5, 10);
-        scene.add(fillLight);
-
-        const rimLight = new THREE.PointLight(0x00aadd, 0.6, 40);
-        rimLight.position.set(0, -8, 15);
-        scene.add(rimLight);
-
-        // ── Resize ───────────────────────────────────────────────────────────
+        // ── Resize ────────────────────────────────────────────────────────────
         const onResize = () => {
             if (!mount) return;
             camera.aspect = mount.clientWidth / mount.clientHeight;
@@ -265,10 +215,17 @@ export default function OceanBackground() {
         };
         window.addEventListener("resize", onResize);
 
-        // ── Animation Loop ────────────────────────────────────────────────────
+        // ── Animation loop ────────────────────────────────────────────────────
         let frame = 0;
         const clock = new THREE.Clock();
         const bPosArr = bubbleGeom.attributes.position.array as Float32Array;
+
+        // Whale swim constants
+        const SWIM_SPEED = 0.28;   // units/sec
+        const X_START    = 60;     // enters from right
+        const X_END      = -58;    // exits to left
+        const SWIM_RANGE = X_START - X_END;
+        const DEPTH      = -4;     // z position of whale
 
         const animate = () => {
             frame = requestAnimationFrame(animate);
@@ -276,55 +233,48 @@ export default function OceanBackground() {
 
             bgMat.uniforms.uTime.value = t;
 
-            // Whale swimming
-            whale.position.x = 8 - t * 0.35;
-            if (whale.position.x < -50) whale.position.x = 55;
-            whale.position.y = -1 + Math.sin(t * 0.4) * 1.2;
-            whale.rotation.z = Math.sin(t * 0.4) * 0.06;
-            whale.rotation.y = -0.3 + Math.sin(t * 0.15) * 0.08;
+            // ── Whale position: smooth cyclic loop ────────────────────────────
+            const progress = (t * SWIM_SPEED) % SWIM_RANGE;
+            whale.position.x = X_START - progress;
+            whale.position.z = DEPTH;
 
-            // Tail undulation
+            // Natural vertical undulation (sine wave path)
+            const bobCycle = t * 0.38;
+            whale.position.y = Math.sin(bobCycle) * 1.8;
+
+            // Body tilt follows the vertical path (pitches with the sine)
+            whale.rotation.z = Math.cos(bobCycle) * 0.055;
+
+            // Slight heading yaw — gentle weave
+            whale.rotation.y = -0.25 + Math.sin(t * 0.18) * 0.06;
+
+            // ── Tail undulation (drives from the stock outward) ───────────────
+            const tailFreq = t * 1.6;
+            const tailAmp  = 0.32;
             const tailStock = whale.children[3] as THREE.Mesh;
-            if (tailStock) tailStock.rotation.y = Math.sin(t * 1.8) * 0.35;
+            if (tailStock) tailStock.rotation.y = Math.sin(tailFreq) * tailAmp;
+
             const flukeTop = whale.children[4] as THREE.Mesh;
-            if (flukeTop) flukeTop.rotation.z = Math.sin(t * 1.8) * 0.25 - 0.2;
+            if (flukeTop) flukeTop.rotation.z = Math.sin(tailFreq + 0.4) * 0.22 - 0.18;
             const flukeBot = whale.children[5] as THREE.Mesh;
-            if (flukeBot) flukeBot.rotation.z = Math.sin(t * 1.8) * 0.25 + 0.2;
+            if (flukeBot) flukeBot.rotation.z = Math.sin(tailFreq + 0.4) * 0.22 + 0.18;
 
-            // Fin gentle wave
+            // ── Pectoral fin gentle sweep ─────────────────────────────────────
             const finL = whale.children[6] as THREE.Mesh;
-            if (finL) finL.rotation.z = 0.5 + Math.sin(t * 0.9) * 0.1;
+            if (finL) finL.rotation.z = 0.52 + Math.sin(t * 0.7) * 0.09;
             const finR = whale.children[7] as THREE.Mesh;
-            if (finR) finR.rotation.z = 0.5 + Math.sin(t * 0.9 + 0.5) * 0.1;
+            if (finR) finR.rotation.z = 0.52 + Math.sin(t * 0.7 + 0.6) * 0.09;
 
-            // Distant whale
-            whale2.position.x = -30 + t * 0.18;
-            if (whale2.position.x > 50) whale2.position.x = -55;
-            whale2.position.y = 5 + Math.sin(t * 0.35 + 1) * 0.8;
-
-            // God rays pulse
-            rays.forEach(ray => {
-                const { speed, phase, baseOpacity } = ray.userData;
-                (ray.material as THREE.MeshBasicMaterial).opacity =
-                    baseOpacity * (0.7 + 0.3 * Math.sin(t * speed + phase));
-                ray.rotation.z = Math.sin(t * speed * 0.5 + phase) * 0.04;
-            });
-
-            // Bubbles rise
+            // ── Bubbles rise ──────────────────────────────────────────────────
             for (let i = 0; i < BUBBLE_COUNT; i++) {
-                bPosArr[i * 3 + 1] += bSpeeds[i] * 0.015;
-                bPosArr[i * 3]     += Math.sin(t * 0.5 + i) * 0.003;
-                if (bPosArr[i * 3 + 1] > 30) {
-                    bPosArr[i * 3 + 1] = -20;
+                bPosArr[i * 3 + 1] += bSpeeds[i] * 0.012;
+                bPosArr[i * 3]     += Math.sin(t * 0.4 + i) * 0.002;
+                if (bPosArr[i * 3 + 1] > 32) {
+                    bPosArr[i * 3 + 1] = -25;
                     bPosArr[i * 3]     = THREE.MathUtils.randFloatSpread(80);
                 }
             }
             bubbleGeom.attributes.position.needsUpdate = true;
-
-            // Camera gentle drift
-            camera.position.x = Math.sin(t * 0.07) * 1.5;
-            camera.position.y = Math.cos(t * 0.05) * 0.8;
-            camera.lookAt(0, 0, 0);
 
             renderer.render(scene, camera);
         };
