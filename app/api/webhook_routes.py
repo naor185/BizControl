@@ -140,12 +140,27 @@ async def meta_incoming(request: Request, db: Session = Depends(get_db)):
     return {"status": "ok"}
 
 
+PLATFORM_STUDIO_ID = os.getenv("PLATFORM_STUDIO_ID", "46b85021-8eb4-4e63-a2e1-638dbb3e58fb")
+
+
+def _find_settings_for_phone_id(db: Session, phone_id: str) -> StudioSettings | None:
+    """Find studio settings by phone_id — falls back to platform studio settings."""
+    settings = _find_by_phone_id(db, phone_id)
+    if settings:
+        return settings
+    # If it's the platform's own number, route to platform studio
+    platform = db.get(StudioSettings, PLATFORM_STUDIO_ID)
+    if platform and platform.whatsapp_phone_id == phone_id:
+        return platform
+    return None
+
+
 def _handle_whatsapp(db: Session, data: dict):
     for entry in data.get("entry", []):
         for change in entry.get("changes", []):
             value    = change.get("value", {})
             phone_id = value.get("metadata", {}).get("phone_number_id", "")
-            settings = _find_by_phone_id(db, phone_id)
+            settings = _find_settings_for_phone_id(db, phone_id)
             if not settings:
                 continue
 

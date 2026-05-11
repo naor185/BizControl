@@ -852,6 +852,17 @@ class PlatformSettingsIn(BaseModel):
     whatsapp_api_key: str | None = None
 
 
+@router.get("/webhook-config")
+def get_webhook_config(admin: User = Depends(require_superadmin)):
+    verify_token = os.getenv("META_WEBHOOK_VERIFY_TOKEN", "bizcontrol_verify")
+    backend_url = os.getenv("BACKEND_URL", "")
+    webhook_url = f"{backend_url}/api/webhook/meta" if backend_url else ""
+    return {
+        "webhook_url": webhook_url,
+        "verify_token": verify_token,
+    }
+
+
 @router.get("/platform-settings", response_model=PlatformSettingsOut)
 def get_platform_settings(admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
     settings = db.get(StudioSettings, PLATFORM_STUDIO_ID)

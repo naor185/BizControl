@@ -87,6 +87,7 @@ export default function AdminPage() {
     const [auditLog, setAuditLog] = useState<AuditEntry[] | null>(null);
     const [auditLoading, setAuditLoading] = useState(false);
     const [platformSettings, setPlatformSettings] = useState<{ whatsapp_provider: string | null; whatsapp_phone_id: string | null; whatsapp_api_key: string | null } | null>(null);
+    const [webhookConfig, setWebhookConfig] = useState<{ webhook_url: string; verify_token: string } | null>(null);
     const [platformLoading, setPlatformLoading] = useState(false);
     const [platformSaving, setPlatformSaving] = useState(false);
     const [platformForm, setPlatformForm] = useState({ whatsapp_provider: "meta", whatsapp_phone_id: "", whatsapp_api_key: "" });
@@ -229,8 +230,12 @@ export default function AdminPage() {
         if (platformSettings) return;
         setPlatformLoading(true);
         try {
-            const data = await apiFetch<{ whatsapp_provider: string | null; whatsapp_phone_id: string | null; whatsapp_api_key: string | null }>("/api/admin/platform-settings");
+            const [data, wh] = await Promise.all([
+                apiFetch<{ whatsapp_provider: string | null; whatsapp_phone_id: string | null; whatsapp_api_key: string | null }>("/api/admin/platform-settings"),
+                apiFetch<{ webhook_url: string; verify_token: string }>("/api/admin/webhook-config"),
+            ]);
             setPlatformSettings(data);
+            setWebhookConfig(wh);
             setPlatformForm({
                 whatsapp_provider: data.whatsapp_provider || "meta",
                 whatsapp_phone_id: data.whatsapp_phone_id || "",
@@ -700,7 +705,75 @@ export default function AdminPage() {
 
                 {/* Platform Settings Tab */}
                 {tab === "platform" && (
-                    <div className="max-w-xl space-y-6">
+                    <div className="max-w-2xl space-y-6">
+
+                        {/* Webhook Config Card */}
+                        {webhookConfig && (
+                            <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-5">
+                                <div>
+                                    <h2 className="text-lg font-bold">🔗 חיבור פלטפורמות — Meta Webhook</h2>
+                                    <p className="text-slate-400 text-sm mt-1">הכנס את הפרטים האלה בקונסול Meta Developer כדי לקבל הודעות מ-WhatsApp, Facebook ו-Instagram.</p>
+                                </div>
+
+                                <div className="space-y-3">
+                                    <div>
+                                        <label className="text-xs text-slate-400 block mb-1.5">Callback URL (הכנס ב-Meta → Webhooks)</label>
+                                        <div className="flex gap-2">
+                                            <input readOnly value={webhookConfig.webhook_url} dir="ltr"
+                                                className="flex-1 bg-black/30 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-mono" />
+                                            <button onClick={() => navigator.clipboard.writeText(webhookConfig.webhook_url)}
+                                                className="px-3 py-2 bg-white/10 hover:bg-white/20 rounded-xl text-xs text-slate-300 transition-colors">העתק</button>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-slate-400 block mb-1.5">Verify Token (הכנס ב-Meta → Webhooks)</label>
+                                        <div className="flex gap-2">
+                                            <input readOnly value={webhookConfig.verify_token} dir="ltr"
+                                                className="flex-1 bg-black/30 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-mono" />
+                                            <button onClick={() => navigator.clipboard.writeText(webhookConfig.verify_token)}
+                                                className="px-3 py-2 bg-white/10 hover:bg-white/20 rounded-xl text-xs text-slate-300 transition-colors">העתק</button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Platform connection status */}
+                                <div>
+                                    <div className="text-xs text-slate-400 mb-3">פלטפורמות מחוברות — BizControl</div>
+                                    <div className="grid grid-cols-3 gap-3">
+                                        {[
+                                            { icon: "💬", name: "WhatsApp", connected: !!platformSettings?.whatsapp_phone_id, detail: platformSettings?.whatsapp_phone_id ? `ID: ${platformSettings.whatsapp_phone_id}` : "לא מוגדר" },
+                                            { icon: "📘", name: "Facebook", connected: false, detail: "הגדר Page ID בסטודיו" },
+                                            { icon: "📸", name: "Instagram", connected: false, detail: "הגדר Account ID בסטודיו" },
+                                        ].map(p => (
+                                            <div key={p.name} className={`rounded-xl p-3 border text-center ${p.connected ? "bg-green-900/20 border-green-500/30" : "bg-white/5 border-white/10"}`}>
+                                                <div className="text-2xl mb-1">{p.icon}</div>
+                                                <div className="text-xs font-semibold text-white">{p.name}</div>
+                                                <div className={`text-xs mt-1 ${p.connected ? "text-green-400" : "text-slate-500"}`}>
+                                                    {p.connected ? "✅ מחובר" : "⚪ לא מחובר"}
+                                                </div>
+                                                <div className="text-xs text-slate-600 mt-0.5 truncate">{p.detail}</div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Instructions */}
+                                <details className="group">
+                                    <summary className="text-xs text-blue-300 cursor-pointer hover:text-blue-200 transition-colors">📋 הוראות חיבור ב-Meta Developer Console</summary>
+                                    <ol className="mt-3 space-y-2 text-xs text-slate-400 list-decimal list-inside leading-relaxed">
+                                        <li>כנס ל-<span className="text-blue-300">developers.facebook.com</span> → האפליקציה שלך</li>
+                                        <li>בתפריט שמאל: <strong className="text-slate-300">WhatsApp → Configuration</strong> (או Messenger/Instagram)</li>
+                                        <li>לחץ <strong className="text-slate-300">Edit</strong> ב-Webhook</li>
+                                        <li>הכנס את ה-<strong className="text-slate-300">Callback URL</strong> וה-<strong className="text-slate-300">Verify Token</strong> מלמעלה</li>
+                                        <li>לחץ <strong className="text-slate-300">Verify and Save</strong></li>
+                                        <li>עבור לטאב <strong className="text-slate-300">Webhook Fields</strong> → Subscribe ל: <code className="bg-white/10 px-1 rounded">messages</code></li>
+                                        <li>חזור על הפעולה עבור כל פלטפורמה (WhatsApp, Messenger, Instagram)</li>
+                                        <li>הוסף <code className="bg-white/10 px-1 rounded">META_WEBHOOK_VERIFY_TOKEN</code> ו-<code className="bg-white/10 px-1 rounded">BACKEND_URL</code> ב-Railway Environment Variables</li>
+                                    </ol>
+                                </details>
+                            </div>
+                        )}
+
                         <div>
                             <h2 className="text-lg font-bold">הגדרות WhatsApp — פלטפורמה</h2>
                             <p className="text-slate-400 text-sm mt-1">הגדרות אלה משמשות כברירת מחדל לכל הסטודיואים שאין להם WhatsApp משלהם.</p>
