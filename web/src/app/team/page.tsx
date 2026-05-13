@@ -79,7 +79,7 @@ export default function TeamPage() {
         setRole("artist");
         setCalendarColor(COLOR_PRESETS[0]);
         setIsActive(true);
-        setPayType("none");
+        setPayType("hourly");
         setHourlyRate(0);
         setCommissionRate(0);
         setIsModalOpen(true);
@@ -93,7 +93,7 @@ export default function TeamPage() {
         setRole((artist.role === "admin" ? "admin" : artist.role === "staff" ? "staff" : "artist") as "artist" | "admin" | "staff");
         setCalendarColor(artist.calendar_color || COLOR_PRESETS[0]);
         setIsActive(artist.is_active);
-        setPayType(artist.pay_type || "none");
+        setPayType((artist.pay_type === "none" || !artist.pay_type) ? "hourly" : artist.pay_type);
         setHourlyRate(artist.hourly_rate || 0);
         setCommissionRate(artist.commission_rate || 0);
         setIsModalOpen(true);
@@ -348,18 +348,18 @@ export default function TeamPage() {
                                 <div className="pt-4 border-t border-slate-100">
                                     <label className="block text-sm font-semibold text-slate-700 mb-1">הגדרות שכר (Payroll)</label>
                                     <div className="flex gap-2 mb-3">
-                                        {(["none", "hourly", "commission"] as const).map((t) => (
+                                        {(["hourly", "commission"] as const).map((t) => (
                                             <button
                                                 key={t}
                                                 type="button"
                                                 onClick={() => setPayType(t)}
                                                 className={`flex-1 py-2 text-xs font-bold rounded-xl border transition-all ${
-                                                    payType === t 
-                                                    ? 'bg-slate-900 text-white border-slate-900 shadow-md' 
+                                                    payType === t
+                                                    ? 'bg-slate-900 text-white border-slate-900 shadow-md'
                                                     : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'
                                                 }`}
                                             >
-                                                {t === "none" ? "ללא" : t === "hourly" ? "שעתי" : "עמלה"}
+                                                {t === "hourly" ? "שעתי" : "עמלה"}
                                             </button>
                                         ))}
                                     </div>
@@ -399,6 +399,7 @@ export default function TeamPage() {
                                         onChange={e => setEmail(e.target.value)}
                                         disabled={!!editingUserId}
                                         dir="ltr"
+                                        autoComplete="off"
                                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-slate-800 disabled:opacity-50"
                                         placeholder="user@example.com"
                                     />
@@ -412,8 +413,9 @@ export default function TeamPage() {
                                         value={password}
                                         onChange={e => setPassword(e.target.value)}
                                         dir="ltr"
+                                        autoComplete="new-password"
                                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-slate-800"
-                                        placeholder="********"
+                                        placeholder="••••••••"
                                     />
                                 </div>
 
