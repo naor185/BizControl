@@ -209,6 +209,24 @@ def set_password(payload: SetPasswordRequest, db: Session = Depends(get_db)):
     return {"status": "ok"}
 
 
+# ── Change Password ───────────────────────────────────────────────────────────
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+
+@router.post("/change-password")
+def change_password(payload: ChangePasswordRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    try:
+        ph.verify(current_user.password_hash, payload.current_password)
+    except VerifyMismatchError:
+        raise HTTPException(status_code=400, detail="הסיסמה הנוכחית שגויה")
+    current_user.password_hash = ph.hash(payload.new_password)
+    db.commit()
+    return {"status": "ok"}
+
+
 # ── Me ────────────────────────────────────────────────────────────────────────
 
 @router.get("/me")
