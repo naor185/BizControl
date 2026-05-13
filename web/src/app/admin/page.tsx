@@ -1708,11 +1708,7 @@ export default function AdminPage() {
                             </div>
                         </div>
 
-                        {createErr && (
-                            <div className="mt-4 text-sm text-red-400 bg-red-900/30 border border-red-500/20 rounded-xl px-3 py-2">{createErr}</div>
-                        )}
-
-                        <div className="flex gap-3 mt-6">
+                        <div className="flex gap-3 p-6 pt-4 flex-shrink-0">
                             <button
                                 onClick={handleCreate}
                                 disabled={creating || !form.studio_name || !form.slug || !form.owner_email || !form.owner_password}
