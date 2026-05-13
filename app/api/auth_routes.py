@@ -20,6 +20,7 @@ from app.models.user import User
 from app.models.refresh_token import RefreshToken
 from app.schemas.auth_schemas import LoginRequest, TokenResponse, RefreshRequest
 from app.utils.email_utils import send_email_sync
+from app.utils.email_templates import reset_password_email_html
 from jose import jwt as jose_jwt
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -169,26 +170,15 @@ def forgot_password(request: Request, payload: ForgotPasswordIn, db: Session = D
     try:
         smtp_host = os.getenv("PLATFORM_SMTP_HOST", "")
         smtp_port = int(os.getenv("PLATFORM_SMTP_PORT", "587"))
-        smtp_user = os.getenv("PLATFORM_SMTP_USER", "")
+        smtp_user_env = os.getenv("PLATFORM_SMTP_USER", "")
         smtp_pass = os.getenv("PLATFORM_SMTP_PASS", "")
-        smtp_from = os.getenv("PLATFORM_SMTP_FROM", smtp_user)
+        smtp_from = os.getenv("PLATFORM_SMTP_FROM", smtp_user_env)
         send_email_sync(
-            host=smtp_host, port=smtp_port, user=smtp_user,
+            host=smtp_host, port=smtp_port, user=smtp_user_env,
             password=smtp_pass, from_email=smtp_from,
             to_email=user.email,
             subject="איפוס סיסמה — BizControl",
-            html_content=f"""
-            <div dir="rtl" style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
-              <h2 style="color:#1a1a2e;">איפוס סיסמה 🔐</h2>
-              <p>שלום {user.display_name or user.email},</p>
-              <p>קיבלנו בקשה לאיפוס הסיסמה שלך ב-BizControl.</p>
-              <p>לחץ על הכפתור כדי להגדיר סיסמה חדשה:</p>
-              <a href="{reset_link}" style="display:inline-block;background:#1a1a2e;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;margin:16px 0;">הגדר סיסמה חדשה</a>
-              <p style="font-size:12px;color:#888;margin-top:20px;">הקישור תקף ל-72 שעות.</p>
-              <p style="font-size:12px;color:#888;">אם לא ביקשת איפוס סיסמה, התעלם מהודעה זו.</p>
-              <hr style="border:none;border-top:1px solid #eaeaea;margin:20px 0;"/>
-              <p style="font-size:12px;color:#888;">הודעה זו נשלחה אוטומטית ממערכת BizControl.</p>
-            </div>""",
+            html_content=reset_password_email_html(user.display_name or user.email, reset_link),
         )
     except Exception as e:
         print(f"[forgot_password] email failed: {e}")

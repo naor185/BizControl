@@ -36,6 +36,11 @@ ADMIN_SETUP_SECRET = os.getenv("ADMIN_SETUP_SECRET", "bizcontrol-setup-secret")
 PLATFORM_SLUG = os.getenv("PLATFORM_SLUG", "bizcontrol-platform")
 
 
+from app.utils.email_templates import welcome_email_html as _welcome_email_html
+from app.utils.email_templates import reset_password_email_html as _reset_password_email_html
+from app.utils.email_templates import invite_user_email_html as _invite_user_email_html
+
+
 def _audit(db: Session, admin: User, action: str, studio: Studio | None = None, details: dict | None = None) -> None:
     db.add(AuditLog(
         admin_id=str(admin.id),
@@ -302,47 +307,19 @@ def create_studio(payload: CreateStudioIn, admin: User = Depends(require_superad
             host=smtp_host, port=smtp_port, user=smtp_user,
             password=smtp_pass, from_email=smtp_from,
             to_email=owner.email,
-            subject="ברוך הבא ל-BizControl! פרטי הגישה שלך",
-            html_content=f"""
-            <div dir="rtl" style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
-              <h2 style="color:#1a1a2e;">ברוך הבא ל-BizControl! 🎉</h2>
-              <p>שלום {payload.owner_display_name},</p>
-              <p>הסטודיו <strong>{payload.studio_name}</strong> נוצר בהצלחה.</p>
-              <div style="background:#f8f9fa;border-radius:8px;padding:20px;margin:20px 0;">
-                <h3 style="margin-top:0;">פרטי הגישה שלך:</h3>
-                <p><strong>כתובת האתר:</strong> <a href="{frontend_url}">{frontend_url}</a></p>
-                <p><strong>מזהה סטודיו (Slug):</strong> {payload.slug}</p>
-                <p><strong>אימייל:</strong> {payload.owner_email}</p>
-                <p><strong>סיסמה זמנית:</strong> {payload.owner_password}</p>
-              </div>
-              <p>מומלץ להגדיר סיסמה אישית בלחיצה כאן:</p>
-              <a href="{set_pw_link}" style="display:inline-block;background:#1a1a2e;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;">הגדר סיסמה חדשה</a>
-              <p style="font-size:12px;color:#888;margin-top:20px;">הקישור תקף ל-72 שעות.</p>
-              <hr style="border:none;border-top:1px solid #eaeaea;margin:20px 0;"/>
-              <p style="font-size:12px;color:#888;">הודעה זו נשלחה אוטומטית ממערכת BizControl.</p>
-            </div>"""
+            subject=f"ברוך הבא ל-BizControl — פרטי הגישה שלך 🎉",
+            html_content=_welcome_email_html(
+                name=payload.owner_display_name,
+                studio_name=payload.studio_name,
+                slug=payload.slug,
+                email=payload.owner_email,
+                tmp_password=payload.owner_password,
+                set_pw_link=set_pw_link,
+                frontend_url=frontend_url,
+            )
         )
     except Exception as e:
         print(f"[welcome_email] failed: {e}")
-
-    # Send WhatsApp welcome via platform number
-    try:
-        if owner.phone:
-            from app.services.message_worker import send_whatsapp_message
-            platform_settings = db.get(StudioSettings, PLATFORM_STUDIO_ID)
-            if platform_settings and platform_settings.whatsapp_provider:
-                wa_body = (
-                    f"שלום {payload.owner_display_name}! 👋\n"
-                    f"ברוכים הבאים ל-BizControl — ניהול העסק שלך ברמה שעדיין לא הכרת. 🚀\n\n"
-                    f"פרטי כניסה למערכת:\n"
-                    f"🏠 מזהה סטודיו: {payload.slug}\n"
-                    f"📧 אימייל: {payload.owner_email}\n"
-                    f"🔑 סיסמה זמנית: {payload.owner_password}\n\n"
-                    f"מומלץ לשנות סיסמה: {frontend_url}/set-password?token={token}"
-                )
-                send_whatsapp_message(owner.phone, wa_body, settings=platform_settings)
-    except Exception as e:
-        print(f"[welcome_wa] failed: {e}")
 
     return StudioOut(
         id=str(studio.id),
@@ -451,29 +428,23 @@ def add_studio_user(studio_id: uuid.UUID, payload: AddUserIn, admin: User = Depe
     _audit(db, admin, "add_user", studio, {"email": user.email, "role": user.role})
     db.commit()
 
-    # Send set-password link
+    # Send invite email with set-password link
     try:
         frontend_url = os.getenv("FRONTEND_URL", "https://bizcontrol-seven.vercel.app")
         token = create_set_password_token(str(user.id))
         set_pw_link = f"{frontend_url}/set-password?token={token}"
         smtp_host = os.getenv("PLATFORM_SMTP_HOST", "")
         smtp_port = int(os.getenv("PLATFORM_SMTP_PORT", "587"))
-        smtp_user = os.getenv("PLATFORM_SMTP_USER", "")
+        smtp_user_env = os.getenv("PLATFORM_SMTP_USER", "")
         smtp_pass = os.getenv("PLATFORM_SMTP_PASS", "")
-        smtp_from = os.getenv("PLATFORM_SMTP_FROM", smtp_user)
+        smtp_from = os.getenv("PLATFORM_SMTP_FROM", smtp_user_env)
         role_he = {"admin": "מנהל", "artist": "אמן/אמנית", "staff": "צוות"}.get(payload.role, payload.role)
         send_email_sync(
-            host=smtp_host, port=smtp_port, user=smtp_user,
+            host=smtp_host, port=smtp_port, user=smtp_user_env,
             password=smtp_pass, from_email=smtp_from,
             to_email=user.email,
             subject=f"הוזמנת ל-{studio.name} ב-BizControl",
-            html_content=f"""
-            <div dir="rtl" style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
-              <h2>הוזמנת ל-{studio.name}! 🎉</h2>
-              <p>שלום {payload.display_name}, נוספת כ<strong>{role_he}</strong> לסטודיו <strong>{studio.name}</strong>.</p>
-              <a href="{set_pw_link}" style="display:inline-block;background:#1a1a2e;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;">הגדר סיסמה והתחבר</a>
-              <p style="font-size:12px;color:#888;margin-top:16px;">הקישור תקף ל-72 שעות.</p>
-            </div>"""
+            html_content=_invite_user_email_html(payload.display_name, studio.name, role_he, set_pw_link),
         )
     except Exception as e:
         print(f"[add_user_email] failed: {e}")
@@ -523,21 +494,15 @@ def reset_user_password(user_id: uuid.UUID, admin: User = Depends(require_supera
     try:
         smtp_host = os.getenv("PLATFORM_SMTP_HOST", "")
         smtp_port = int(os.getenv("PLATFORM_SMTP_PORT", "587"))
-        smtp_user = os.getenv("PLATFORM_SMTP_USER", "")
+        smtp_user_env = os.getenv("PLATFORM_SMTP_USER", "")
         smtp_pass = os.getenv("PLATFORM_SMTP_PASS", "")
-        smtp_from = os.getenv("PLATFORM_SMTP_FROM", smtp_user)
+        smtp_from = os.getenv("PLATFORM_SMTP_FROM", smtp_user_env)
         send_email_sync(
-            host=smtp_host, port=smtp_port, user=smtp_user,
+            host=smtp_host, port=smtp_port, user=smtp_user_env,
             password=smtp_pass, from_email=smtp_from,
             to_email=user.email,
             subject="איפוס סיסמה — BizControl",
-            html_content=f"""
-            <div dir="rtl" style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
-              <h2>איפוס סיסמה 🔐</h2>
-              <p>שלום {user.display_name}, קיבלת בקשה לאיפוס הסיסמה שלך.</p>
-              <a href="{set_pw_link}" style="display:inline-block;background:#1a1a2e;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;">הגדר סיסמה חדשה</a>
-              <p style="font-size:12px;color:#888;margin-top:16px;">הקישור תקף ל-72 שעות.</p>
-            </div>"""
+            html_content=_reset_password_email_html(user.display_name or user.email, set_pw_link),
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"שליחת מייל נכשלה: {e}")
