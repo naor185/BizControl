@@ -83,6 +83,8 @@ class StudioOut(BaseModel):
     plan_expires_at: Optional[datetime]
     created_at: datetime
     owner_email: Optional[str]
+    owner_display_name: Optional[str] = None
+    owner_phone: Optional[str] = None
     client_count: int
     appointment_count_month: int
     has_whatsapp: bool = False   # whatsapp_provider configured in studio_settings
@@ -268,6 +270,8 @@ def list_studios(admin: User = Depends(require_superadmin), db: Session = Depend
             plan_expires_at=s.plan_expires_at,
             created_at=s.created_at,
             owner_email=owner.email if owner else None,
+            owner_display_name=owner.display_name if owner else None,
+            owner_phone=owner.phone if owner else None,
             client_count=client_count,
             appointment_count_month=appt_count,
             has_whatsapp=has_whatsapp,

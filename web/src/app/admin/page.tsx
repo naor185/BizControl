@@ -26,6 +26,8 @@ type Studio = {
     plan_expires_at: string | null;
     created_at: string;
     owner_email: string | null;
+    owner_display_name: string | null;
+    owner_phone: string | null;
     client_count: number;
     appointment_count_month: number;
     has_whatsapp: boolean;
@@ -400,7 +402,13 @@ export default function AdminPage() {
 
     const openEditModal = (studio: Studio) => {
         setEditErr(null);
-        setEditForm({ name: studio.name, slug: studio.slug, owner_display_name: "", owner_email: studio.owner_email || "", owner_phone: "" });
+        setEditForm({
+            name: studio.name,
+            slug: studio.slug,
+            owner_display_name: studio.owner_display_name || "",
+            owner_email: studio.owner_email || "",
+            owner_phone: studio.owner_phone || "",
+        });
         setEditModal(studio);
     };
 
