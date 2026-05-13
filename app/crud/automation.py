@@ -2,6 +2,7 @@ import os
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 from sqlalchemy.orm import Session
+import pytz
 
 from app.models.studio_settings import StudioSettings
 from app.models.client import Client
@@ -58,8 +59,8 @@ def _build_context(settings: StudioSettings, client: Client, appt: Appointment, 
     return {
         "client_name": client.full_name or "",
         "appointment_title": appt.title or "",
-        "appointment_date": appt.starts_at.strftime("%d/%m/%Y"),
-        "appointment_time": appt.starts_at.strftime("%H:%M"),
+        "appointment_date": appt.starts_at.astimezone(pytz.timezone(settings.timezone or "Asia/Jerusalem")).strftime("%d/%m/%Y"),
+        "appointment_time": appt.starts_at.astimezone(pytz.timezone(settings.timezone or "Asia/Jerusalem")).strftime("%H:%M"),
         "payment_link": f"{base_url}/pay/{appt.id}",
         "deposit_amount": f"{deposit_amount:.0f}" if deposit_amount == int(deposit_amount) else f"{deposit_amount:.2f}",
         "artist_name": artist_name,
@@ -158,8 +159,8 @@ def enqueue_reschedule_message(db: Session, appt: Appointment) -> None:
     context = {
         "client_name": client.full_name,
         "appointment_title": appt.title,
-        "appointment_date": appt.starts_at.strftime("%d/%m/%Y"),
-        "appointment_time": appt.starts_at.strftime("%H:%M"),
+        "appointment_date": appt.starts_at.astimezone(pytz.timezone(settings.timezone or "Asia/Jerusalem")).strftime("%d/%m/%Y"),
+        "appointment_time": appt.starts_at.astimezone(pytz.timezone(settings.timezone or "Asia/Jerusalem")).strftime("%H:%M"),
     }
 
     now = datetime.now(timezone.utc)
@@ -223,8 +224,8 @@ def enqueue_cancel_message(db: Session, appt: Appointment) -> None:
     context = {
         "client_name": client.full_name,
         "appointment_title": appt.title,
-        "appointment_date": appt.starts_at.strftime("%d/%m/%Y"),
-        "appointment_time": appt.starts_at.strftime("%H:%M"),
+        "appointment_date": appt.starts_at.astimezone(pytz.timezone(settings.timezone or "Asia/Jerusalem")).strftime("%d/%m/%Y"),
+        "appointment_time": appt.starts_at.astimezone(pytz.timezone(settings.timezone or "Asia/Jerusalem")).strftime("%H:%M"),
     }
 
     now = datetime.now(timezone.utc)
@@ -305,8 +306,8 @@ def enqueue_post_payment_message(db: Session, appt: Appointment, amount_cents: i
     context = {
         "client_name": client.full_name,
         "appointment_title": appt.title,
-        "appointment_date": appt.starts_at.strftime("%d/%m/%Y"),
-        "appointment_time": appt.starts_at.strftime("%H:%M"),
+        "appointment_date": appt.starts_at.astimezone(pytz.timezone(settings.timezone or "Asia/Jerusalem")).strftime("%d/%m/%Y"),
+        "appointment_time": appt.starts_at.astimezone(pytz.timezone(settings.timezone or "Asia/Jerusalem")).strftime("%H:%M"),
         "payment_amount": f"{amount_cents / 100:.2f}",
         "points_earned": str(points_earned),
         "points_total": str(points_total),

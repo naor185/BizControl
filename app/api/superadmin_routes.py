@@ -89,9 +89,30 @@ class CreateStudioIn(BaseModel):
     plan_days: int = 30
 
 class UpdateStudioIn(BaseModel):
+    name: Optional[str] = None
+    slug: Optional[str] = None
     is_active: Optional[bool] = None
     subscription_plan: Optional[str] = None
     plan_days: Optional[int] = None  # extend by N days from now
+
+class UpdateOwnerIn(BaseModel):
+    display_name: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+
+class AddUserIn(BaseModel):
+    email: str
+    display_name: str
+    role: str = "staff"
+    phone: str = ""
+    password: str = ""
+
+class UpdateUserIn(BaseModel):
+    display_name: Optional[str] = None
+    email: Optional[str] = None
+    role: Optional[str] = None
+    phone: Optional[str] = None
+    is_active: Optional[bool] = None
 
 class AdminSettingsIn(BaseModel):
     self_booking_enabled: Optional[bool] = None
@@ -346,6 +367,16 @@ def update_studio(studio_id: uuid.UUID, payload: UpdateStudioIn, admin: User = D
         raise HTTPException(status_code=404, detail="Studio not found")
 
     changes: dict = {}
+    if payload.name is not None and payload.name.strip():
+        changes["name"] = payload.name.strip()
+        studio.name = payload.name.strip()
+    if payload.slug is not None and payload.slug.strip():
+        new_slug = payload.slug.strip().lower()
+        existing = db.scalar(select(Studio).where(Studio.slug == new_slug, Studio.id != studio_id))
+        if existing:
+            raise HTTPException(status_code=409, detail="Slug כבר תפוס")
+        changes["slug"] = new_slug
+        studio.slug = new_slug
     if payload.is_active is not None:
         changes["is_active"] = payload.is_active
         studio.is_active = payload.is_active
@@ -360,6 +391,161 @@ def update_studio(studio_id: uuid.UUID, payload: UpdateStudioIn, admin: User = D
     _audit(db, admin, "update_studio", studio, changes)
     db.commit()
     return {"status": "updated"}
+
+
+@router.patch("/studios/{studio_id}/owner")
+def update_owner(studio_id: uuid.UUID, payload: UpdateOwnerIn, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    studio = db.get(Studio, studio_id)
+    if not studio or studio.is_platform:
+        raise HTTPException(status_code=404, detail="Studio not found")
+    owner = db.scalar(select(User).where(User.studio_id == studio_id, User.role == "owner"))
+    if not owner:
+        raise HTTPException(status_code=404, detail="Owner not found")
+
+    changes: dict = {}
+    if payload.display_name is not None:
+        changes["display_name"] = payload.display_name
+        owner.display_name = payload.display_name
+    if payload.email is not None and payload.email.strip():
+        changes["email"] = payload.email.strip()
+        owner.email = payload.email.strip().lower()
+    if payload.phone is not None:
+        changes["phone"] = payload.phone
+        owner.phone = payload.phone.strip() or None
+
+    _audit(db, admin, "update_owner", studio, changes)
+    db.commit()
+    return {"status": "updated"}
+
+
+@router.get("/studios/{studio_id}/users")
+def list_studio_users(studio_id: uuid.UUID, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    studio = db.get(Studio, studio_id)
+    if not studio or studio.is_platform:
+        raise HTTPException(status_code=404, detail="Studio not found")
+    users = db.scalars(select(User).where(User.studio_id == studio_id).order_by(User.role)).all()
+    return [{"id": str(u.id), "email": u.email, "display_name": u.display_name, "role": u.role, "phone": u.phone, "is_active": u.is_active} for u in users]
+
+
+@router.post("/studios/{studio_id}/users", status_code=201)
+def add_studio_user(studio_id: uuid.UUID, payload: AddUserIn, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    studio = db.get(Studio, studio_id)
+    if not studio or studio.is_platform:
+        raise HTTPException(status_code=404, detail="Studio not found")
+    if db.scalar(select(User).where(User.studio_id == studio_id, User.email == payload.email.lower().strip())):
+        raise HTTPException(status_code=409, detail="אימייל כבר קיים בסטודיו")
+
+    import secrets
+    tmp_password = payload.password or secrets.token_urlsafe(10)
+    user = User(
+        id=uuid.uuid4(),
+        studio_id=studio_id,
+        email=payload.email.lower().strip(),
+        password_hash=ph.hash(tmp_password),
+        role=payload.role,
+        display_name=payload.display_name,
+        phone=payload.phone.strip() or None,
+        is_active=True,
+    )
+    db.add(user)
+    _audit(db, admin, "add_user", studio, {"email": user.email, "role": user.role})
+    db.commit()
+
+    # Send set-password link
+    try:
+        frontend_url = os.getenv("FRONTEND_URL", "https://bizcontrol-seven.vercel.app")
+        token = create_set_password_token(str(user.id))
+        set_pw_link = f"{frontend_url}/set-password?token={token}"
+        smtp_host = os.getenv("PLATFORM_SMTP_HOST", "")
+        smtp_port = int(os.getenv("PLATFORM_SMTP_PORT", "587"))
+        smtp_user = os.getenv("PLATFORM_SMTP_USER", "")
+        smtp_pass = os.getenv("PLATFORM_SMTP_PASS", "")
+        smtp_from = os.getenv("PLATFORM_SMTP_FROM", smtp_user)
+        role_he = {"admin": "מנהל", "artist": "אמן/אמנית", "staff": "צוות"}.get(payload.role, payload.role)
+        send_email_sync(
+            host=smtp_host, port=smtp_port, user=smtp_user,
+            password=smtp_pass, from_email=smtp_from,
+            to_email=user.email,
+            subject=f"הוזמנת ל-{studio.name} ב-BizControl",
+            html_content=f"""
+            <div dir="rtl" style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
+              <h2>הוזמנת ל-{studio.name}! 🎉</h2>
+              <p>שלום {payload.display_name}, נוספת כ<strong>{role_he}</strong> לסטודיו <strong>{studio.name}</strong>.</p>
+              <a href="{set_pw_link}" style="display:inline-block;background:#1a1a2e;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;">הגדר סיסמה והתחבר</a>
+              <p style="font-size:12px;color:#888;margin-top:16px;">הקישור תקף ל-72 שעות.</p>
+            </div>"""
+        )
+    except Exception as e:
+        print(f"[add_user_email] failed: {e}")
+
+    return {"id": str(user.id), "email": user.email, "display_name": user.display_name, "role": user.role, "phone": user.phone, "is_active": user.is_active}
+
+
+@router.patch("/users/{user_id}")
+def update_studio_user(user_id: uuid.UUID, payload: UpdateUserIn, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    user = db.get(User, user_id)
+    if not user or user.role == "superadmin":
+        raise HTTPException(status_code=404, detail="User not found")
+    studio = db.get(Studio, user.studio_id)
+
+    changes: dict = {}
+    if payload.display_name is not None:
+        changes["display_name"] = payload.display_name
+        user.display_name = payload.display_name
+    if payload.email is not None and payload.email.strip():
+        changes["email"] = payload.email.strip()
+        user.email = payload.email.strip().lower()
+    if payload.role is not None:
+        changes["role"] = payload.role
+        user.role = payload.role
+    if payload.phone is not None:
+        changes["phone"] = payload.phone
+        user.phone = payload.phone.strip() or None
+    if payload.is_active is not None:
+        changes["is_active"] = payload.is_active
+        user.is_active = payload.is_active
+
+    _audit(db, admin, "update_user", studio, {"user_email": user.email, **changes})
+    db.commit()
+    return {"status": "updated"}
+
+
+@router.post("/users/{user_id}/reset-password")
+def reset_user_password(user_id: uuid.UUID, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    user = db.get(User, user_id)
+    if not user or user.role == "superadmin":
+        raise HTTPException(status_code=404, detail="User not found")
+
+    frontend_url = os.getenv("FRONTEND_URL", "https://bizcontrol-seven.vercel.app")
+    token = create_set_password_token(str(user.id))
+    set_pw_link = f"{frontend_url}/set-password?token={token}"
+
+    try:
+        smtp_host = os.getenv("PLATFORM_SMTP_HOST", "")
+        smtp_port = int(os.getenv("PLATFORM_SMTP_PORT", "587"))
+        smtp_user = os.getenv("PLATFORM_SMTP_USER", "")
+        smtp_pass = os.getenv("PLATFORM_SMTP_PASS", "")
+        smtp_from = os.getenv("PLATFORM_SMTP_FROM", smtp_user)
+        send_email_sync(
+            host=smtp_host, port=smtp_port, user=smtp_user,
+            password=smtp_pass, from_email=smtp_from,
+            to_email=user.email,
+            subject="איפוס סיסמה — BizControl",
+            html_content=f"""
+            <div dir="rtl" style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
+              <h2>איפוס סיסמה 🔐</h2>
+              <p>שלום {user.display_name}, קיבלת בקשה לאיפוס הסיסמה שלך.</p>
+              <a href="{set_pw_link}" style="display:inline-block;background:#1a1a2e;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;">הגדר סיסמה חדשה</a>
+              <p style="font-size:12px;color:#888;margin-top:16px;">הקישור תקף ל-72 שעות.</p>
+            </div>"""
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"שליחת מייל נכשלה: {e}")
+
+    studio = db.get(Studio, user.studio_id)
+    _audit(db, admin, "reset_password", studio, {"user_email": user.email})
+    db.commit()
+    return {"status": "sent", "link": set_pw_link}
 
 
 # ── Delete Studio ─────────────────────────────────────────────────────────────
@@ -1085,3 +1271,113 @@ def update_global_lead(
         lead.notes = payload.notes
     db.commit()
     return {"status": "updated"}
+
+
+# ── Global Contacts (all clients across studios) ──────────────────────────────
+
+class GlobalClientOut(BaseModel):
+    id: str
+    studio_id: str
+    studio_name: str
+    studio_slug: str
+    full_name: str
+    phone: Optional[str]
+    email: Optional[str]
+    is_active: bool
+    created_at: datetime
+
+
+class GlobalAppointmentOut(BaseModel):
+    id: str
+    studio_id: str
+    studio_name: str
+    studio_slug: str
+    client_name: str
+    client_phone: Optional[str]
+    title: str
+    starts_at: datetime
+    status: str
+    total_price_cents: int
+
+
+@router.get("/contacts", response_model=list[GlobalClientOut])
+def global_contacts(
+    search: Optional[str] = None,
+    studio_id: Optional[str] = None,
+    limit: int = 300,
+    admin: User = Depends(require_superadmin),
+    db: Session = Depends(get_db),
+):
+    stmt = (
+        select(Client, Studio.name, Studio.slug)
+        .join(Studio, Client.studio_id == Studio.id)
+        .where(Studio.is_platform == False)  # noqa: E712
+    )
+    if studio_id:
+        stmt = stmt.where(Client.studio_id == studio_id)
+    if search:
+        q = f"%{search}%"
+        stmt = stmt.where(
+            (Client.full_name.ilike(q)) | (Client.phone.ilike(q)) | (Client.email.ilike(q))
+        )
+    stmt = stmt.order_by(Client.created_at.desc()).limit(limit)
+
+    rows = db.execute(stmt).all()
+    return [
+        GlobalClientOut(
+            id=str(r.Client.id),
+            studio_id=str(r.Client.studio_id),
+            studio_name=r[1],
+            studio_slug=r[2],
+            full_name=r.Client.full_name,
+            phone=r.Client.phone,
+            email=r.Client.email,
+            is_active=r.Client.is_active,
+            created_at=r.Client.created_at,
+        )
+        for r in rows
+    ]
+
+
+@router.get("/appointments", response_model=list[GlobalAppointmentOut])
+def global_appointments(
+    search: Optional[str] = None,
+    studio_id: Optional[str] = None,
+    status: Optional[str] = None,
+    limit: int = 300,
+    admin: User = Depends(require_superadmin),
+    db: Session = Depends(get_db),
+):
+    stmt = (
+        select(Appointment, Client.full_name, Client.phone, Studio.name, Studio.slug)
+        .join(Client, Appointment.client_id == Client.id)
+        .join(Studio, Appointment.studio_id == Studio.id)
+        .where(Studio.is_platform == False)  # noqa: E712
+    )
+    if studio_id:
+        stmt = stmt.where(Appointment.studio_id == studio_id)
+    if status:
+        stmt = stmt.where(Appointment.status == status)
+    if search:
+        q = f"%{search}%"
+        stmt = stmt.where(
+            (Client.full_name.ilike(q)) | (Client.phone.ilike(q))
+        )
+    stmt = stmt.order_by(Appointment.starts_at.desc()).limit(limit)
+
+    rows = db.execute(stmt).all()
+    return [
+        GlobalAppointmentOut(
+            id=str(r.Appointment.id),
+            studio_id=str(r.Appointment.studio_id),
+            studio_name=r[3],
+            studio_slug=r[4],
+            client_name=r[1],
+            client_phone=r[2],
+            title=r.Appointment.title,
+            starts_at=r.Appointment.starts_at,
+            status=r.Appointment.status,
+            total_price_cents=r.Appointment.total_price_cents,
+        )
+        for r in rows
+    ]

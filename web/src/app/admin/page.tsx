@@ -58,6 +58,40 @@ type NewStudioForm = {
     plan_days: number;
 };
 
+type StudioUser = {
+    id: string;
+    email: string;
+    display_name: string;
+    role: string;
+    phone: string | null;
+    is_active: boolean;
+};
+
+type GlobalClient = {
+    id: string;
+    studio_id: string;
+    studio_name: string;
+    studio_slug: string;
+    full_name: string;
+    phone: string | null;
+    email: string | null;
+    is_active: boolean;
+    created_at: string;
+};
+
+type GlobalAppointment = {
+    id: string;
+    studio_id: string;
+    studio_name: string;
+    studio_slug: string;
+    client_name: string;
+    client_phone: string | null;
+    title: string;
+    starts_at: string;
+    status: string;
+    total_price_cents: number;
+};
+
 const PLAN_LABELS: Record<string, { label: string; color: string }> = {
     free:     { label: "חינמי",   color: "bg-slate-100 text-slate-600" },
     starter:  { label: "Starter", color: "bg-blue-100 text-blue-700" },
@@ -83,7 +117,7 @@ export default function AdminPage() {
     const [deleteErr, setDeleteErr] = useState<string | null>(null);
     const [extendDays, setExtendDays] = useState(14);
     const [extending, setExtending] = useState(false);
-    const [tab, setTab] = useState<"studios" | "audit" | "platform" | "leads">("studios");
+    const [tab, setTab] = useState<"studios" | "audit" | "platform" | "leads" | "contacts">("studios");
     const [auditLog, setAuditLog] = useState<AuditEntry[] | null>(null);
     const [auditLoading, setAuditLoading] = useState(false);
     const [platformSettings, setPlatformSettings] = useState<{ whatsapp_provider: string | null; whatsapp_phone_id: string | null; whatsapp_api_key: string | null } | null>(null);
@@ -108,6 +142,34 @@ export default function AdminPage() {
     const [leadNote, setLeadNote] = useState("");
     const [leadSaving, setLeadSaving] = useState(false);
     const [leadsFilter, setLeadsFilter] = useState<{ source: string; status: string; search: string }>({ source: "", status: "", search: "" });
+    // Edit studio/owner modal
+    const [editModal, setEditModal] = useState<Studio | null>(null);
+    const [editForm, setEditForm] = useState({ name: "", slug: "", owner_display_name: "", owner_email: "", owner_phone: "" });
+    const [editSaving, setEditSaving] = useState(false);
+    const [editErr, setEditErr] = useState<string | null>(null);
+
+    // Users management modal
+    const [usersModal, setUsersModal] = useState<Studio | null>(null);
+    const [studioUsers, setStudioUsers] = useState<StudioUser[]>([]);
+    const [usersLoading, setUsersLoading] = useState(false);
+    const [addUserForm, setAddUserForm] = useState({ email: "", display_name: "", role: "staff", phone: "" });
+    const [addingUser, setAddingUser] = useState(false);
+    const [addUserErr, setAddUserErr] = useState<string | null>(null);
+    const [editingUser, setEditingUser] = useState<StudioUser | null>(null);
+    const [editUserForm, setEditUserForm] = useState({ display_name: "", email: "", role: "", phone: "", is_active: true });
+    const [savingUser, setSavingUser] = useState(false);
+    const [resetingPw, setResetingPw] = useState<string | null>(null);
+
+    // Contacts tab
+    const [contacts, setContacts] = useState<GlobalClient[]>([]);
+    const [contactsLoading, setContactsLoading] = useState(false);
+    const [contactsSearch, setContactsSearch] = useState("");
+    const [appts, setAppts] = useState<GlobalAppointment[]>([]);
+    const [apptsLoading, setApptsLoading] = useState(false);
+    const [apptsSearch, setApptsSearch] = useState("");
+    const [apptsStatus, setApptsStatus] = useState("");
+    const [contactsSubTab, setContactsSubTab] = useState<"clients" | "appointments">("clients");
+
     const [form, setForm] = useState<NewStudioForm>({
         studio_name: "", slug: "", owner_email: "", owner_password: "", owner_phone: "",
         owner_display_name: "", subscription_plan: "starter", plan_days: 30,
@@ -287,11 +349,121 @@ export default function AdminPage() {
         } catch { } finally { setLeadsLoading(false); }
     };
 
-    const handleTabChange = (t: "studios" | "audit" | "platform" | "leads") => {
+    const handleTabChange = (t: "studios" | "audit" | "platform" | "leads" | "contacts") => {
         setTab(t);
         if (t === "audit") loadAuditLog();
         if (t === "platform") loadPlatformSettings();
         if (t === "leads") loadLeads();
+        if (t === "contacts") { loadContacts(); loadAppts(); }
+    };
+
+    const openEditModal = (studio: Studio) => {
+        setEditErr(null);
+        setEditForm({ name: studio.name, slug: studio.slug, owner_display_name: "", owner_email: studio.owner_email || "", owner_phone: "" });
+        setEditModal(studio);
+    };
+
+    const handleEditSave = async () => {
+        if (!editModal) return;
+        setEditSaving(true);
+        setEditErr(null);
+        try {
+            await apiFetch(`/api/admin/studios/${editModal.id}`, {
+                method: "PATCH",
+                body: JSON.stringify({ name: editForm.name, slug: editForm.slug }),
+            });
+            if (editForm.owner_display_name || editForm.owner_email || editForm.owner_phone) {
+                await apiFetch(`/api/admin/studios/${editModal.id}/owner`, {
+                    method: "PATCH",
+                    body: JSON.stringify({
+                        display_name: editForm.owner_display_name || undefined,
+                        email: editForm.owner_email || undefined,
+                        phone: editForm.owner_phone || undefined,
+                    }),
+                });
+            }
+            setEditModal(null);
+            await load();
+        } catch (e: any) {
+            setEditErr(e?.message || "שגיאה בשמירה");
+        } finally {
+            setEditSaving(false);
+        }
+    };
+
+    const openUsersModal = async (studio: Studio) => {
+        setUsersModal(studio);
+        setUsersLoading(true);
+        setAddUserErr(null);
+        setEditingUser(null);
+        setAddUserForm({ email: "", display_name: "", role: "staff", phone: "" });
+        try {
+            const data = await apiFetch<StudioUser[]>(`/api/admin/studios/${studio.id}/users`);
+            setStudioUsers(data);
+        } catch { setStudioUsers([]); }
+        finally { setUsersLoading(false); }
+    };
+
+    const handleAddUser = async () => {
+        if (!usersModal) return;
+        setAddingUser(true);
+        setAddUserErr(null);
+        try {
+            const u = await apiFetch<StudioUser>(`/api/admin/studios/${usersModal.id}/users`, {
+                method: "POST",
+                body: JSON.stringify(addUserForm),
+            });
+            setStudioUsers(prev => [...prev, u]);
+            setAddUserForm({ email: "", display_name: "", role: "staff", phone: "" });
+        } catch (e: any) {
+            setAddUserErr(e?.message || "שגיאה בהוספה");
+        } finally {
+            setAddingUser(false);
+        }
+    };
+
+    const handleSaveUser = async () => {
+        if (!editingUser) return;
+        setSavingUser(true);
+        try {
+            await apiFetch(`/api/admin/users/${editingUser.id}`, {
+                method: "PATCH",
+                body: JSON.stringify(editUserForm),
+            });
+            setStudioUsers(prev => prev.map(u => u.id === editingUser.id ? { ...u, ...editUserForm } : u));
+            setEditingUser(null);
+        } catch (e: any) { alert(e?.message); }
+        finally { setSavingUser(false); }
+    };
+
+    const handleResetPassword = async (user: StudioUser) => {
+        setResetingPw(user.id);
+        try {
+            await apiFetch(`/api/admin/users/${user.id}/reset-password`, { method: "POST" });
+            alert(`✅ קישור איפוס סיסמה נשלח ל-${user.email}`);
+        } catch (e: any) { alert(e?.message); }
+        finally { setResetingPw(null); }
+    };
+
+    const loadContacts = async (search = contactsSearch) => {
+        setContactsLoading(true);
+        try {
+            const params = new URLSearchParams();
+            if (search) params.set("search", search);
+            const data = await apiFetch<GlobalClient[]>(`/api/admin/contacts?${params}`);
+            setContacts(data);
+        } catch { } finally { setContactsLoading(false); }
+    };
+
+    const loadAppts = async (search = apptsSearch, status = apptsStatus) => {
+        setApptsLoading(true);
+        try {
+            const params = new URLSearchParams();
+            if (search) params.set("search", search);
+            if (status) params.set("status", status);
+            const data = await apiFetch<GlobalAppointment[]>(`/api/admin/appointments?${params}`);
+            setAppts(data);
+        } catch { } finally { setApptsLoading(false); }
     };
 
     const handleLeadStatusChange = async (lead: GlobalLead, status: string) => {
@@ -390,16 +562,16 @@ export default function AdminPage() {
             <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
 
                 {/* Tabs */}
-                <div className="flex gap-1 bg-white/5 border border-white/10 rounded-2xl p-1 w-fit">
-                    {(["studios", "leads", "audit", "platform"] as const).map(t => (
+                <div className="flex flex-wrap gap-1 bg-white/5 border border-white/10 rounded-2xl p-1 w-fit">
+                    {(["studios", "contacts", "leads", "audit", "platform"] as const).map(t => (
                         <button
                             key={t}
                             onClick={() => handleTabChange(t)}
-                            className={`px-5 py-2 rounded-xl text-sm font-semibold transition-colors ${
+                            className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
                                 tab === t ? "bg-white text-slate-900" : "text-slate-400 hover:text-white"
                             }`}
                         >
-                            {t === "studios" ? "🏢 סטודיואים" : t === "leads" ? "📥 לידים" : t === "audit" ? "📋 לוג פעולות" : "⚙️ פלטפורמה"}
+                            {t === "studios" ? "🏢 סטודיואים" : t === "contacts" ? "👥 אנשי קשר" : t === "leads" ? "📥 לידים" : t === "audit" ? "📋 לוג פעולות" : "⚙️ פלטפורמה"}
                         </button>
                     ))}
                 </div>
@@ -600,10 +772,16 @@ export default function AdminPage() {
                                                 <td className="px-4 py-4">
                                                     <div className="flex items-center gap-2 flex-wrap">
                                                         <button
-                                                            onClick={() => router.push(`/admin/studios/${s.id}`)}
+                                                            onClick={() => openEditModal(s)}
+                                                            className="text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg transition-colors"
+                                                        >
+                                                            ✏️ ערוך
+                                                        </button>
+                                                        <button
+                                                            onClick={() => openUsersModal(s)}
                                                             className="text-xs bg-slate-600 hover:bg-slate-500 text-white px-3 py-1.5 rounded-lg transition-colors"
                                                         >
-                                                            פרטים
+                                                            👤 משתמשים
                                                         </button>
                                                         <button
                                                             onClick={() => handleImpersonate(s)}
@@ -876,6 +1054,157 @@ export default function AdminPage() {
                     </div>
                 )}
 
+                {/* ── Contacts Tab ── */}
+                {tab === "contacts" && (
+                    <div className="space-y-4">
+                        {/* Sub-tabs */}
+                        <div className="flex gap-1 bg-white/5 border border-white/10 rounded-xl p-1 w-fit">
+                            {(["clients", "appointments"] as const).map(st => (
+                                <button key={st} onClick={() => setContactsSubTab(st)}
+                                    className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-colors ${contactsSubTab === st ? "bg-white text-slate-900" : "text-slate-400 hover:text-white"}`}>
+                                    {st === "clients" ? "👥 לקוחות" : "📅 תורים"}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Clients sub-tab */}
+                        {contactsSubTab === "clients" && (
+                            <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
+                                <div className="px-6 py-4 border-b border-white/10 flex items-center gap-3">
+                                    <h2 className="font-bold text-lg flex-1">כל הלקוחות ({contacts.length})</h2>
+                                    <input
+                                        placeholder="חיפוש שם / טלפון / אימייל..."
+                                        value={contactsSearch}
+                                        onChange={e => { setContactsSearch(e.target.value); loadContacts(e.target.value); }}
+                                        className="bg-white/10 border border-white/10 rounded-xl px-3 py-1.5 text-sm text-white placeholder:text-slate-500 outline-none focus:border-white/30 w-64"
+                                        dir="rtl"
+                                    />
+                                    <button onClick={() => loadContacts()} className="text-xs text-slate-400 hover:text-white transition-colors">↻ רענן</button>
+                                </div>
+                                {contactsLoading ? (
+                                    <div className="flex justify-center py-12"><div className="animate-spin w-8 h-8 border-4 border-white/20 border-t-white rounded-full" /></div>
+                                ) : contacts.length === 0 ? (
+                                    <div className="text-center text-slate-500 py-12">אין לקוחות</div>
+                                ) : (
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-sm">
+                                            <thead>
+                                                <tr className="border-b border-white/10 text-slate-400 text-xs uppercase">
+                                                    <th className="text-right px-6 py-3 font-medium">שם</th>
+                                                    <th className="text-right px-4 py-3 font-medium">טלפון</th>
+                                                    <th className="text-right px-4 py-3 font-medium">אימייל</th>
+                                                    <th className="text-right px-4 py-3 font-medium">סטודיו</th>
+                                                    <th className="text-right px-4 py-3 font-medium">הצטרף</th>
+                                                    <th className="text-right px-4 py-3 font-medium">סטטוס</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-white/5">
+                                                {contacts.map(c => (
+                                                    <tr key={c.id} className="hover:bg-white/5 transition-colors">
+                                                        <td className="px-6 py-3 font-medium">{c.full_name}</td>
+                                                        <td className="px-4 py-3 text-slate-300 font-mono text-xs">{c.phone || "—"}</td>
+                                                        <td className="px-4 py-3 text-slate-400 text-xs">{c.email || "—"}</td>
+                                                        <td className="px-4 py-3">
+                                                            <span className="text-xs bg-white/10 rounded-lg px-2 py-0.5 text-slate-300">{c.studio_name}</span>
+                                                        </td>
+                                                        <td className="px-4 py-3 text-slate-500 text-xs whitespace-nowrap">
+                                                            {new Date(c.created_at).toLocaleDateString("he-IL")}
+                                                        </td>
+                                                        <td className="px-4 py-3">
+                                                            <span className={`text-xs px-2 py-0.5 rounded-full ${c.is_active ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400"}`}>
+                                                                {c.is_active ? "פעיל" : "לא פעיל"}
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Appointments sub-tab */}
+                        {contactsSubTab === "appointments" && (
+                            <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
+                                <div className="px-6 py-4 border-b border-white/10 flex items-center gap-3 flex-wrap">
+                                    <h2 className="font-bold text-lg flex-1">כל התורים ({appts.length})</h2>
+                                    <input
+                                        placeholder="חיפוש שם / טלפון..."
+                                        value={apptsSearch}
+                                        onChange={e => { setApptsSearch(e.target.value); loadAppts(e.target.value, apptsStatus); }}
+                                        className="bg-white/10 border border-white/10 rounded-xl px-3 py-1.5 text-sm text-white placeholder:text-slate-500 outline-none focus:border-white/30 w-52"
+                                        dir="rtl"
+                                    />
+                                    <select
+                                        value={apptsStatus}
+                                        onChange={e => { setApptsStatus(e.target.value); loadAppts(apptsSearch, e.target.value); }}
+                                        className="bg-white/10 border border-white/10 rounded-xl px-3 py-1.5 text-sm text-white outline-none"
+                                    >
+                                        <option value="">כל הסטטוסים</option>
+                                        <option value="scheduled">מתוכנן</option>
+                                        <option value="done">הסתיים</option>
+                                        <option value="canceled">בוטל</option>
+                                        <option value="no_show">לא הגיע</option>
+                                    </select>
+                                    <button onClick={() => loadAppts()} className="text-xs text-slate-400 hover:text-white transition-colors">↻ רענן</button>
+                                </div>
+                                {apptsLoading ? (
+                                    <div className="flex justify-center py-12"><div className="animate-spin w-8 h-8 border-4 border-white/20 border-t-white rounded-full" /></div>
+                                ) : appts.length === 0 ? (
+                                    <div className="text-center text-slate-500 py-12">אין תורים</div>
+                                ) : (
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-sm">
+                                            <thead>
+                                                <tr className="border-b border-white/10 text-slate-400 text-xs uppercase">
+                                                    <th className="text-right px-6 py-3 font-medium">לקוח</th>
+                                                    <th className="text-right px-4 py-3 font-medium">טלפון</th>
+                                                    <th className="text-right px-4 py-3 font-medium">שירות</th>
+                                                    <th className="text-right px-4 py-3 font-medium">סטודיו</th>
+                                                    <th className="text-right px-4 py-3 font-medium">תאריך ושעה</th>
+                                                    <th className="text-right px-4 py-3 font-medium">סטטוס</th>
+                                                    <th className="text-right px-4 py-3 font-medium">מחיר</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-white/5">
+                                                {appts.map(a => {
+                                                    const statusMap: Record<string, { label: string; color: string }> = {
+                                                        scheduled: { label: "מתוכנן", color: "bg-blue-500/20 text-blue-300" },
+                                                        done: { label: "הסתיים", color: "bg-emerald-500/20 text-emerald-400" },
+                                                        canceled: { label: "בוטל", color: "bg-red-500/20 text-red-400" },
+                                                        no_show: { label: "לא הגיע", color: "bg-amber-500/20 text-amber-400" },
+                                                    };
+                                                    const st = statusMap[a.status] || { label: a.status, color: "bg-slate-500/20 text-slate-400" };
+                                                    return (
+                                                        <tr key={a.id} className="hover:bg-white/5 transition-colors">
+                                                            <td className="px-6 py-3 font-medium">{a.client_name}</td>
+                                                            <td className="px-4 py-3 text-slate-300 font-mono text-xs">{a.client_phone || "—"}</td>
+                                                            <td className="px-4 py-3 text-slate-300 text-xs">{a.title}</td>
+                                                            <td className="px-4 py-3">
+                                                                <span className="text-xs bg-white/10 rounded-lg px-2 py-0.5 text-slate-300">{a.studio_name}</span>
+                                                            </td>
+                                                            <td className="px-4 py-3 text-slate-300 text-xs whitespace-nowrap">
+                                                                {new Date(a.starts_at).toLocaleString("he-IL", { dateStyle: "short", timeStyle: "short" })}
+                                                            </td>
+                                                            <td className="px-4 py-3">
+                                                                <span className={`text-xs px-2 py-0.5 rounded-full ${st.color}`}>{st.label}</span>
+                                                            </td>
+                                                            <td className="px-4 py-3 text-slate-300 text-xs">
+                                                                {a.total_price_cents > 0 ? `₪${(a.total_price_cents / 100).toLocaleString()}` : "—"}
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 {/* ── Leads Inbox Tab ── */}
                 {tab === "leads" && (
                     <div className="flex gap-4 h-[calc(100vh-280px)] min-h-[500px]">
@@ -1033,6 +1362,188 @@ export default function AdminPage() {
 
             </div>
 
+            {/* Edit Studio + Owner Modal */}
+            {editModal && (
+                <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+                    <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-lg max-h-[90vh] flex flex-col" dir="rtl">
+                        <div className="flex items-center justify-between p-6 pb-4 flex-shrink-0">
+                            <h3 className="font-bold text-lg">✏️ עריכת סטודיו — {editModal.name}</h3>
+                            <button onClick={() => setEditModal(null)} className="text-slate-400 hover:text-white text-xl">✕</button>
+                        </div>
+                        {editErr && <div className="mx-6 mb-2 text-sm text-red-400 bg-red-900/30 border border-red-500/20 rounded-xl px-3 py-2 flex-shrink-0">⚠️ {editErr}</div>}
+                        <div className="overflow-y-auto flex-1 px-6 pb-2 space-y-5">
+                            <div>
+                                <p className="text-xs text-slate-400 mb-3 font-semibold uppercase tracking-wide">פרטי הסטודיו</p>
+                                <div className="space-y-3">
+                                    <div>
+                                        <label className="text-xs text-slate-400 mb-1 block">שם הסטודיו</label>
+                                        <input className="w-full bg-white/10 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-white/30"
+                                            value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-slate-400 mb-1 block">Slug (מזהה ייחודי)</label>
+                                        <input className="w-full bg-white/10 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-white/30 font-mono" dir="ltr"
+                                            value={editForm.slug} onChange={e => setEditForm(f => ({ ...f, slug: e.target.value.toLowerCase().replace(/\s/g, "-") }))} />
+                                    </div>
+                                </div>
+                            </div>
+                            <div>
+                                <p className="text-xs text-slate-400 mb-3 font-semibold uppercase tracking-wide">פרטי בעל העסק</p>
+                                <div className="space-y-3">
+                                    <div>
+                                        <label className="text-xs text-slate-400 mb-1 block">שם בעלים (השאר ריק לאי-שינוי)</label>
+                                        <input className="w-full bg-white/10 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-white/30"
+                                            value={editForm.owner_display_name} onChange={e => setEditForm(f => ({ ...f, owner_display_name: e.target.value }))} placeholder="שם נוכחי" />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-slate-400 mb-1 block">אימייל בעלים</label>
+                                        <input className="w-full bg-white/10 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-white/30" dir="ltr"
+                                            type="email" value={editForm.owner_email} onChange={e => setEditForm(f => ({ ...f, owner_email: e.target.value }))} />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-slate-400 mb-1 block">טלפון בעלים (WhatsApp)</label>
+                                        <input className="w-full bg-white/10 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-white/30" dir="ltr"
+                                            type="tel" value={editForm.owner_phone} onChange={e => setEditForm(f => ({ ...f, owner_phone: e.target.value }))} placeholder="972521234567" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="flex gap-3 p-6 pt-4 flex-shrink-0">
+                            <button onClick={handleEditSave} disabled={editSaving || !editForm.name || !editForm.slug}
+                                className="flex-1 bg-white text-slate-900 font-bold py-2.5 rounded-xl hover:bg-slate-100 disabled:opacity-40 transition-colors">
+                                {editSaving ? "שומר..." : "💾 שמור שינויים"}
+                            </button>
+                            <button onClick={() => setEditModal(null)} className="px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-sm transition-colors">ביטול</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Users Management Modal */}
+            {usersModal && (
+                <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+                    <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col" dir="rtl">
+                        <div className="flex items-center justify-between p-6 pb-4 flex-shrink-0">
+                            <h3 className="font-bold text-lg">👤 משתמשי הסטודיו — {usersModal.name}</h3>
+                            <button onClick={() => { setUsersModal(null); setEditingUser(null); }} className="text-slate-400 hover:text-white text-xl">✕</button>
+                        </div>
+                        <div className="overflow-y-auto flex-1 px-6 pb-6 space-y-5">
+                            {/* Current users */}
+                            {usersLoading ? (
+                                <div className="flex justify-center py-6"><div className="animate-spin w-6 h-6 border-4 border-white/20 border-t-white rounded-full" /></div>
+                            ) : (
+                                <div className="space-y-2">
+                                    {studioUsers.map(u => (
+                                        <div key={u.id} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 flex items-center gap-3">
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="font-semibold text-sm">{u.display_name}</span>
+                                                    <span className={`text-xs px-2 py-0.5 rounded-full ${u.role === "owner" ? "bg-purple-500/20 text-purple-300" : u.role === "admin" ? "bg-blue-500/20 text-blue-300" : u.role === "artist" ? "bg-pink-500/20 text-pink-300" : "bg-slate-500/20 text-slate-400"}`}>
+                                                        {u.role === "owner" ? "בעלים" : u.role === "admin" ? "מנהל" : u.role === "artist" ? "אמן" : "צוות"}
+                                                    </span>
+                                                    {!u.is_active && <span className="text-xs text-red-400">מושבת</span>}
+                                                </div>
+                                                <div className="text-xs text-slate-400 mt-0.5" dir="ltr">{u.email}</div>
+                                                {u.phone && <div className="text-xs text-slate-500 font-mono">{u.phone}</div>}
+                                            </div>
+                                            <div className="flex gap-1.5 flex-shrink-0">
+                                                <button onClick={() => { setEditingUser(u); setEditUserForm({ display_name: u.display_name, email: u.email, role: u.role, phone: u.phone || "", is_active: u.is_active }); }}
+                                                    className="text-xs bg-indigo-600/30 hover:bg-indigo-600/60 text-indigo-300 px-2.5 py-1.5 rounded-lg transition-colors">ערוך</button>
+                                                <button onClick={() => handleResetPassword(u)} disabled={resetingPw === u.id}
+                                                    className="text-xs bg-amber-600/20 hover:bg-amber-600/40 text-amber-300 px-2.5 py-1.5 rounded-lg transition-colors disabled:opacity-40">
+                                                    {resetingPw === u.id ? "..." : "🔑 סיסמה"}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* Edit user inline */}
+                            {editingUser && (
+                                <div className="bg-indigo-900/20 border border-indigo-500/30 rounded-xl p-4 space-y-3">
+                                    <p className="text-sm font-bold text-indigo-300">עריכת {editingUser.display_name}</p>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="text-xs text-slate-400 mb-1 block">שם</label>
+                                            <input className="w-full bg-white/10 border border-white/10 rounded-lg px-3 py-1.5 text-sm outline-none focus:border-white/30"
+                                                value={editUserForm.display_name} onChange={e => setEditUserForm(f => ({ ...f, display_name: e.target.value }))} />
+                                        </div>
+                                        <div>
+                                            <label className="text-xs text-slate-400 mb-1 block">אימייל</label>
+                                            <input className="w-full bg-white/10 border border-white/10 rounded-lg px-3 py-1.5 text-sm outline-none focus:border-white/30" dir="ltr"
+                                                value={editUserForm.email} onChange={e => setEditUserForm(f => ({ ...f, email: e.target.value }))} />
+                                        </div>
+                                        <div>
+                                            <label className="text-xs text-slate-400 mb-1 block">תפקיד</label>
+                                            <select className="w-full bg-white/10 border border-white/10 rounded-lg px-3 py-1.5 text-sm outline-none"
+                                                value={editUserForm.role} onChange={e => setEditUserForm(f => ({ ...f, role: e.target.value }))}>
+                                                <option value="owner">בעלים</option>
+                                                <option value="admin">מנהל</option>
+                                                <option value="artist">אמן/אמנית</option>
+                                                <option value="staff">צוות</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="text-xs text-slate-400 mb-1 block">טלפון</label>
+                                            <input className="w-full bg-white/10 border border-white/10 rounded-lg px-3 py-1.5 text-sm outline-none focus:border-white/30" dir="ltr"
+                                                value={editUserForm.phone} onChange={e => setEditUserForm(f => ({ ...f, phone: e.target.value }))} />
+                                        </div>
+                                    </div>
+                                    <label className="flex items-center gap-2 text-sm cursor-pointer">
+                                        <input type="checkbox" checked={editUserForm.is_active} onChange={e => setEditUserForm(f => ({ ...f, is_active: e.target.checked }))} className="w-4 h-4 accent-indigo-400" />
+                                        <span className="text-slate-300">משתמש פעיל</span>
+                                    </label>
+                                    <div className="flex gap-2">
+                                        <button onClick={handleSaveUser} disabled={savingUser}
+                                            className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold py-2 rounded-lg transition-colors disabled:opacity-40">
+                                            {savingUser ? "שומר..." : "💾 שמור"}
+                                        </button>
+                                        <button onClick={() => setEditingUser(null)} className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-sm transition-colors">ביטול</button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Add new user */}
+                            <div className="border-t border-white/10 pt-4 space-y-3">
+                                <p className="text-sm font-bold text-slate-300">+ הוסף משתמש חדש</p>
+                                {addUserErr && <div className="text-xs text-red-400 bg-red-900/20 border border-red-500/20 rounded-lg px-3 py-2">⚠️ {addUserErr}</div>}
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="text-xs text-slate-400 mb-1 block">שם</label>
+                                        <input className="w-full bg-white/10 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-white/30"
+                                            value={addUserForm.display_name} onChange={e => setAddUserForm(f => ({ ...f, display_name: e.target.value }))} placeholder="ישראל ישראלי" />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-slate-400 mb-1 block">אימייל</label>
+                                        <input className="w-full bg-white/10 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-white/30" dir="ltr"
+                                            type="email" value={addUserForm.email} onChange={e => setAddUserForm(f => ({ ...f, email: e.target.value }))} placeholder="user@studio.com" />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-slate-400 mb-1 block">תפקיד</label>
+                                        <select className="w-full bg-white/10 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none"
+                                            value={addUserForm.role} onChange={e => setAddUserForm(f => ({ ...f, role: e.target.value }))}>
+                                            <option value="admin">מנהל</option>
+                                            <option value="artist">אמן/אמנית</option>
+                                            <option value="staff">צוות</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-slate-400 mb-1 block">טלפון (אופציונלי)</label>
+                                        <input className="w-full bg-white/10 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-white/30" dir="ltr"
+                                            type="tel" value={addUserForm.phone} onChange={e => setAddUserForm(f => ({ ...f, phone: e.target.value }))} placeholder="972521234567" />
+                                    </div>
+                                </div>
+                                <button onClick={handleAddUser} disabled={addingUser || !addUserForm.email || !addUserForm.display_name}
+                                    className="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold py-2.5 rounded-xl transition-colors disabled:opacity-40">
+                                    {addingUser ? "מוסיף..." : "✅ הוסף משתמש ושלח הזמנה"}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Delete Confirmation Modal */}
             {deleteModal && (
                 <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
@@ -1128,13 +1639,17 @@ export default function AdminPage() {
             {/* New Studio Modal */}
             {showNew && (
                 <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-                    <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-lg p-6" dir="rtl">
-                        <div className="flex items-center justify-between mb-6">
+                    <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-lg max-h-[90vh] flex flex-col" dir="rtl">
+                        <div className="flex items-center justify-between p-6 pb-4 flex-shrink-0">
                             <h3 className="font-bold text-lg">הקמת סטודיו חדש</h3>
                             <button onClick={() => setShowNew(false)} className="text-slate-400 hover:text-white text-xl">✕</button>
                         </div>
 
-                        <div className="space-y-4">
+                        {createErr && (
+                            <div className="mx-6 mb-2 text-sm text-red-400 bg-red-900/30 border border-red-500/20 rounded-xl px-3 py-2 flex-shrink-0">⚠️ {createErr}</div>
+                        )}
+
+                        <div className="overflow-y-auto flex-1 px-6 pb-6 space-y-4">
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
                                     <label className="text-xs text-slate-400 mb-1 block">שם הסטודיו</label>

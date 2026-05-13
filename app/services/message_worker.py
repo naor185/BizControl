@@ -1,7 +1,9 @@
 from __future__ import annotations
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+import asyncio
+import pytz
 
 from app.models.message_job import MessageJob
 from app.models.studio_settings import StudioSettings
@@ -9,8 +11,6 @@ from app.models.appointment import Appointment
 from app.models.client import Client
 from app.crud.automation import format_template
 from app.utils.email_utils import send_email
-from datetime import timedelta
-import asyncio
 
 def _send_via_meta(phone_id: str, token: str, to_phone: str, body: str) -> None:
     import urllib.request, urllib.error, json as _json
@@ -170,8 +170,8 @@ def _sweep_reminders_for_window(
         context = {
             "client_name": client.full_name,
             "appointment_title": appt.title,
-            "appointment_date": appt.starts_at.strftime("%d/%m/%Y"),
-            "appointment_time": appt.starts_at.strftime("%H:%M"),
+            "appointment_date": appt.starts_at.astimezone(pytz.timezone(settings.timezone or "Asia/Jerusalem")).strftime("%d/%m/%Y"),
+            "appointment_time": appt.starts_at.astimezone(pytz.timezone(settings.timezone or "Asia/Jerusalem")).strftime("%H:%M"),
             "payment_link": payment_link,
             "deposit_amount": f"{appt.deposit_amount_cents / 100:.2f}" if appt.deposit_amount_cents else "0.00",
         }
@@ -244,8 +244,8 @@ def sweep_upcoming_reminders(db: Session) -> int:
         context = {
             "client_name": client.full_name,
             "appointment_title": appt.title,
-            "appointment_date": appt.starts_at.strftime("%d/%m/%Y"),
-            "appointment_time": appt.starts_at.strftime("%H:%M"),
+            "appointment_date": appt.starts_at.astimezone(pytz.timezone(settings.timezone or "Asia/Jerusalem")).strftime("%d/%m/%Y"),
+            "appointment_time": appt.starts_at.astimezone(pytz.timezone(settings.timezone or "Asia/Jerusalem")).strftime("%H:%M"),
             "payment_link": payment_link,
             "deposit_amount": f"{appt.deposit_amount_cents / 100:.2f}" if appt.deposit_amount_cents else "0.00",
         }
