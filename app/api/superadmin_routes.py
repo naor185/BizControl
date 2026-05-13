@@ -10,7 +10,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import select, func, extract
+from sqlalchemy import select, func, extract, text
 from pydantic import BaseModel
 from argon2 import PasswordHasher
 
@@ -521,6 +521,13 @@ def delete_studio(studio_id: uuid.UUID, admin: User = Depends(require_superadmin
     if not studio or studio.is_platform:
         raise HTTPException(status_code=404, detail="Studio not found")
     _audit(db, admin, "delete_studio", studio, {"slug": studio.slug})
+    sid = str(studio_id)
+    # Delete in FK-safe order: appointments first (artist_id RESTRICT), then rest
+    for tbl in ("message_jobs", "payments", "appointments", "booking_requests",
+                "product_sales", "work_sessions", "client_points_ledger",
+                "expenses", "monthly_goals", "leads", "clients",
+                "products", "users", "studio_notes", "studio_integrations"):
+        db.execute(text(f"DELETE FROM {tbl} WHERE studio_id = :sid"), {"sid": sid})
     db.delete(studio)
     db.commit()
     return {"status": "deleted"}
