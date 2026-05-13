@@ -234,6 +234,15 @@ export default function AppShell({
                             </div>
                         </div>
 
+                        {me?.role === "superadmin" && (
+                            <Link
+                                href="/admin"
+                                className="w-full flex items-center justify-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm py-2 font-semibold transition-colors"
+                            >
+                                <span>🛡️</span>
+                                <span>פאנל ניהול</span>
+                            </Link>
+                        )}
                         <button
                             onClick={logout}
                             className="w-full rounded-xl border border-slate-200 bg-white hover:bg-red-50 hover:border-red-200 hover:text-red-600 text-sm py-2 font-medium text-slate-600 transition-colors"
