@@ -2,18 +2,39 @@ export const API_BASE =
     process.env.NEXT_PUBLIC_API_BASE || "https://api.biz-control.com";
 
 const TOKEN_KEY = "bizcontrol_token";
+const REFRESH_TOKEN_KEY = "bizcontrol_refresh_token";
 
 export function getToken(): string | null {
     if (typeof window === "undefined") return null;
     return localStorage.getItem(TOKEN_KEY);
 }
 
-export function setToken(token: string) {
-    localStorage.setItem(TOKEN_KEY, token);
+export function setToken(access: string, refresh?: string) {
+    localStorage.setItem(TOKEN_KEY, access);
+    if (refresh) localStorage.setItem(REFRESH_TOKEN_KEY, refresh);
 }
 
 export function clearToken() {
     localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(REFRESH_TOKEN_KEY);
+}
+
+async function tryRefresh(): Promise<boolean> {
+    const refresh = localStorage.getItem(REFRESH_TOKEN_KEY);
+    if (!refresh) return false;
+    try {
+        const res = await fetch(`${API_BASE}/api/auth/refresh`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ refresh_token: refresh }),
+        });
+        if (!res.ok) return false;
+        const data = await res.json();
+        setToken(data.access_token, data.refresh_token);
+        return true;
+    } catch {
+        return false;
+    }
 }
 
 export function getCurrentUserRole(): string | null {
@@ -50,7 +71,18 @@ export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promi
     const data = text ? safeJson(text) : null;
 
     if (!res.ok) {
-        if (res.status === 401 && typeof window !== "undefined" && !url.includes("/api/auth/login")) {
+        if (res.status === 401 && typeof window !== "undefined" && !url.includes("/api/auth/")) {
+            const refreshed = await tryRefresh();
+            if (refreshed) {
+                // retry once with new token
+                const newHeaders = new Headers(headers);
+                newHeaders.set("Authorization", `Bearer ${getToken()}`);
+                const retry = await fetch(url, { ...options, headers: newHeaders });
+                if (retry.ok) {
+                    const retryText = await retry.text();
+                    return (retryText ? safeJson(retryText) : {}) as T;
+                }
+            }
             clearToken();
             window.location.href = "/login";
             throw new Error("Session expired");

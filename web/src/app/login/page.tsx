@@ -44,7 +44,7 @@ function LoginContent() {
         setErr(null);
         setLoading(true);
         try {
-            const res = await apiFetch<{ access_token?: string; requires_2fa?: boolean; pending_token?: string }>(
+            const res = await apiFetch<{ access_token?: string; refresh_token?: string; requires_2fa?: boolean; pending_token?: string }>(
                 "/api/auth/login",
                 { method: "POST", auth: false, body: JSON.stringify({ studio_slug: studioSlug, email, password }) },
             );
@@ -61,7 +61,7 @@ function LoginContent() {
                 localStorage.removeItem(LS_KEY);
             }
 
-            setToken(res.access_token!);
+            setToken(res.access_token!, res.refresh_token);
             const me = await apiFetch<{ role: string }>("/api/auth/me");
             router.replace(me.role === "superadmin" ? "/admin" : nextUrl);
         } catch (e: unknown) {
@@ -77,11 +77,11 @@ function LoginContent() {
         setErr(null);
         setLoading(true);
         try {
-            const res = await apiFetch<{ access_token: string }>(
+            const res = await apiFetch<{ access_token: string; refresh_token?: string }>(
                 "/api/auth/2fa/verify",
                 { method: "POST", auth: false, body: JSON.stringify({ pending_token: pendingToken, code: totpCode }) },
             );
-            setToken(res.access_token);
+            setToken(res.access_token, res.refresh_token);
             const me = await apiFetch<{ role: string }>("/api/auth/me");
             router.replace(me.role === "superadmin" ? "/admin" : nextUrl);
         } catch (e: unknown) {
