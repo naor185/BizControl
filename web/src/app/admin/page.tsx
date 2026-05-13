@@ -28,6 +28,9 @@ type Studio = {
     owner_email: string | null;
     client_count: number;
     appointment_count_month: number;
+    has_whatsapp: boolean;
+    has_branding: boolean;
+    has_activity: boolean;
 };
 
 type ChartsData = {
@@ -566,6 +569,8 @@ export default function AdminPage() {
         return d !== null && d <= 0;
     }).length;
 
+    const incompleteSetupStudios = studios.filter(s => !s.has_whatsapp || !s.has_branding || !s.has_activity);
+
     if (loading) return (
         <div className="min-h-screen bg-slate-950 flex items-center justify-center">
             <div className="animate-spin w-10 h-10 border-4 border-white/20 border-t-white rounded-full" />
@@ -627,9 +632,9 @@ export default function AdminPage() {
                             { label: "חדשים החודש", value: stats.new_studios_month, icon: "🆕", color: "" },
                             { label: "בניסיון (<14י׳)", value: trialCount, icon: "🔬", color: trialCount > 0 ? "border-amber-500/40 bg-amber-500/10" : "" },
                             { label: "פג תוקף", value: expiredCount, icon: "⏰", color: expiredCount > 0 ? "border-red-500/40 bg-red-500/10" : "" },
+                            { label: "טרם הגדירו", value: incompleteSetupStudios.length, icon: "⚙️", color: incompleteSetupStudios.length > 0 ? "border-orange-500/40 bg-orange-500/10" : "" },
                             { label: "לקוחות סה\"כ", value: stats.total_clients, icon: "👥", color: "" },
                             { label: "תורים החודש", value: stats.total_appointments_month, icon: "📅", color: "" },
-                            { label: "הודעות ממתינות", value: stats.pending_messages, icon: "📬", color: "" },
                         ].map(k => (
                             <div key={k.label} className={`bg-white/5 border border-white/10 rounded-2xl p-4 ${k.color}`}>
                                 <div className="text-2xl mb-2">{k.icon}</div>
@@ -742,6 +747,34 @@ export default function AdminPage() {
                     );
                 })()}
 
+                {/* Incomplete setup notification */}
+                {tab === "studios" && incompleteSetupStudios.length > 0 && (
+                    <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl px-5 py-4">
+                        <div className="flex items-center gap-3 mb-3">
+                            <span className="text-xl">⚠️</span>
+                            <span className="font-bold text-amber-300">{incompleteSetupStudios.length} סטודיו{incompleteSetupStudios.length === 1 ? "" : "אים"} לא השלימו הגדרה</span>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            {incompleteSetupStudios.map(s => (
+                                <div key={s.id} className="bg-black/30 border border-white/10 rounded-xl px-3 py-2 flex items-center gap-2">
+                                    <span className="font-semibold text-sm text-white">{s.name}</span>
+                                    <div className="flex gap-1">
+                                        <span title="WhatsApp" className={`text-xs px-1.5 py-0.5 rounded-full font-bold ${s.has_whatsapp ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400"}`}>
+                                            {s.has_whatsapp ? "✓" : "✗"} WA
+                                        </span>
+                                        <span title="מיתוג" className={`text-xs px-1.5 py-0.5 rounded-full font-bold ${s.has_branding ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400"}`}>
+                                            {s.has_branding ? "✓" : "✗"} מיתוג
+                                        </span>
+                                        <span title="פעילות" className={`text-xs px-1.5 py-0.5 rounded-full font-bold ${s.has_activity ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400"}`}>
+                                            {s.has_activity ? "✓" : "✗"} לקוחות
+                                        </span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 {/* Studios Table */}
                 {tab === "studios" && <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
                     <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between">
@@ -767,6 +800,7 @@ export default function AdminPage() {
                                         <th className="text-right px-4 py-3 font-medium">מנוי</th>
                                         <th className="text-right px-4 py-3 font-medium">לקוחות</th>
                                         <th className="text-right px-4 py-3 font-medium">תורים החודש</th>
+                                        <th className="text-right px-4 py-3 font-medium">הגדרה</th>
                                         <th className="text-right px-4 py-3 font-medium">סטטוס</th>
                                         <th className="text-right px-4 py-3 font-medium">פעולות</th>
                                     </tr>
@@ -802,6 +836,13 @@ export default function AdminPage() {
                                                 </td>
                                                 <td className="px-4 py-4 text-slate-300">{s.client_count}</td>
                                                 <td className="px-4 py-4 text-slate-300">{s.appointment_count_month}</td>
+                                                <td className="px-4 py-4">
+                                                    <div className="flex gap-1">
+                                                        <span title="WhatsApp מחובר" className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${s.has_whatsapp ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400"}`}>W</span>
+                                                        <span title="מיתוג הוגדר" className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${s.has_branding ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400"}`}>B</span>
+                                                        <span title="יש לקוחות" className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${s.has_activity ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400"}`}>A</span>
+                                                    </div>
+                                                </td>
                                                 <td className="px-4 py-4">
                                                     <span className={`text-xs font-bold px-2 py-1 rounded-full ${s.is_active ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400"}`}>
                                                         {s.is_active ? "פעיל" : "מושבת"}

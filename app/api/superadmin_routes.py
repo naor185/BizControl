@@ -4,6 +4,7 @@ Provides full control over all studios in the platform.
 """
 from __future__ import annotations
 import os
+import threading
 import uuid
 from datetime import datetime, timezone, timedelta
 from typing import Optional
@@ -41,6 +42,16 @@ from app.utils.email_templates import reset_password_email_html as _reset_passwo
 from app.utils.email_templates import invite_user_email_html as _invite_user_email_html
 
 
+def _send_email_bg(**kwargs) -> None:
+    """Fire-and-forget: run send_email_sync in a daemon thread so it never blocks the HTTP response."""
+    def _run():
+        try:
+            send_email_sync(**kwargs)
+        except Exception as e:
+            print(f"[email_bg] failed: {e}")
+    threading.Thread(target=_run, daemon=True).start()
+
+
 def _audit(db: Session, admin: User, action: str, studio: Studio | None = None, details: dict | None = None) -> None:
     db.add(AuditLog(
         admin_id=str(admin.id),
@@ -74,6 +85,9 @@ class StudioOut(BaseModel):
     owner_email: Optional[str]
     client_count: int
     appointment_count_month: int
+    has_whatsapp: bool = False   # whatsapp_provider configured in studio_settings
+    has_branding: bool = False   # logo or landing page title set
+    has_activity: bool = False   # at least 1 client
 
 class GlobalStats(BaseModel):
     total_studios: int
@@ -241,6 +255,10 @@ def list_studios(admin: User = Depends(require_superadmin), db: Session = Depend
                 Appointment.starts_at >= month_start
             )
         ) or 0
+        settings = db.get(StudioSettings, s.id)
+        has_whatsapp = bool(settings and settings.whatsapp_provider and (settings.whatsapp_phone_id or settings.whatsapp_instance_id))
+        has_branding = bool(settings and (settings.logo_filename or settings.landing_page_title))
+        has_activity = client_count > 0
         result.append(StudioOut(
             id=str(s.id),
             name=s.name,
@@ -252,6 +270,9 @@ def list_studios(admin: User = Depends(require_superadmin), db: Session = Depend
             owner_email=owner.email if owner else None,
             client_count=client_count,
             appointment_count_month=appt_count,
+            has_whatsapp=has_whatsapp,
+            has_branding=has_branding,
+            has_activity=has_activity,
         ))
     return result
 
@@ -293,33 +314,28 @@ def create_studio(payload: CreateStudioIn, admin: User = Depends(require_superad
     _audit(db, admin, "create_studio", studio, {"owner_email": owner.email, "plan": studio.subscription_plan})
     db.commit()
 
-    # Send welcome email with credentials and set-password link
-    try:
-        frontend_url = os.getenv("FRONTEND_URL", "https://bizcontrol-seven.vercel.app")
-        token = create_set_password_token(str(owner.id))
-        set_pw_link = f"{frontend_url}/set-password?token={token}"
-        smtp_host = os.getenv("PLATFORM_SMTP_HOST", "")
-        smtp_port = int(os.getenv("PLATFORM_SMTP_PORT", "587"))
-        smtp_user = os.getenv("PLATFORM_SMTP_USER", "")
-        smtp_pass = os.getenv("PLATFORM_SMTP_PASS", "")
-        smtp_from = os.getenv("PLATFORM_SMTP_FROM", smtp_user)
-        send_email_sync(
-            host=smtp_host, port=smtp_port, user=smtp_user,
-            password=smtp_pass, from_email=smtp_from,
-            to_email=owner.email,
-            subject=f"ברוך הבא ל-BizControl — פרטי הגישה שלך 🎉",
-            html_content=_welcome_email_html(
-                name=payload.owner_display_name,
-                studio_name=payload.studio_name,
-                slug=payload.slug,
-                email=payload.owner_email,
-                tmp_password=payload.owner_password,
-                set_pw_link=set_pw_link,
-                frontend_url=frontend_url,
-            )
-        )
-    except Exception as e:
-        print(f"[welcome_email] failed: {e}")
+    # Send welcome email in background so it doesn't block the response
+    frontend_url = os.getenv("FRONTEND_URL", "https://bizcontrol-seven.vercel.app")
+    token = create_set_password_token(str(owner.id))
+    set_pw_link = f"{frontend_url}/set-password?token={token}"
+    _send_email_bg(
+        host=os.getenv("PLATFORM_SMTP_HOST", ""),
+        port=int(os.getenv("PLATFORM_SMTP_PORT", "587")),
+        user=os.getenv("PLATFORM_SMTP_USER", ""),
+        password=os.getenv("PLATFORM_SMTP_PASS", ""),
+        from_email=os.getenv("PLATFORM_SMTP_FROM", os.getenv("PLATFORM_SMTP_USER", "")),
+        to_email=owner.email,
+        subject="ברוך הבא ל-BizControl — פרטי הגישה שלך 🎉",
+        html_content=_welcome_email_html(
+            name=payload.owner_display_name,
+            studio_name=payload.studio_name,
+            slug=payload.slug,
+            email=payload.owner_email,
+            tmp_password=payload.owner_password,
+            set_pw_link=set_pw_link,
+            frontend_url=frontend_url,
+        ),
+    )
 
     return StudioOut(
         id=str(studio.id),
@@ -428,26 +444,21 @@ def add_studio_user(studio_id: uuid.UUID, payload: AddUserIn, admin: User = Depe
     _audit(db, admin, "add_user", studio, {"email": user.email, "role": user.role})
     db.commit()
 
-    # Send invite email with set-password link
-    try:
-        frontend_url = os.getenv("FRONTEND_URL", "https://bizcontrol-seven.vercel.app")
-        token = create_set_password_token(str(user.id))
-        set_pw_link = f"{frontend_url}/set-password?token={token}"
-        smtp_host = os.getenv("PLATFORM_SMTP_HOST", "")
-        smtp_port = int(os.getenv("PLATFORM_SMTP_PORT", "587"))
-        smtp_user_env = os.getenv("PLATFORM_SMTP_USER", "")
-        smtp_pass = os.getenv("PLATFORM_SMTP_PASS", "")
-        smtp_from = os.getenv("PLATFORM_SMTP_FROM", smtp_user_env)
-        role_he = {"admin": "מנהל", "artist": "אמן/אמנית", "staff": "צוות"}.get(payload.role, payload.role)
-        send_email_sync(
-            host=smtp_host, port=smtp_port, user=smtp_user_env,
-            password=smtp_pass, from_email=smtp_from,
-            to_email=user.email,
-            subject=f"הוזמנת ל-{studio.name} ב-BizControl",
-            html_content=_invite_user_email_html(payload.display_name, studio.name, role_he, set_pw_link),
-        )
-    except Exception as e:
-        print(f"[add_user_email] failed: {e}")
+    # Send invite email in background
+    frontend_url = os.getenv("FRONTEND_URL", "https://bizcontrol-seven.vercel.app")
+    token = create_set_password_token(str(user.id))
+    set_pw_link = f"{frontend_url}/set-password?token={token}"
+    role_he = {"admin": "מנהל", "artist": "אמן/אמנית", "staff": "צוות"}.get(payload.role, payload.role)
+    _send_email_bg(
+        host=os.getenv("PLATFORM_SMTP_HOST", ""),
+        port=int(os.getenv("PLATFORM_SMTP_PORT", "587")),
+        user=os.getenv("PLATFORM_SMTP_USER", ""),
+        password=os.getenv("PLATFORM_SMTP_PASS", ""),
+        from_email=os.getenv("PLATFORM_SMTP_FROM", os.getenv("PLATFORM_SMTP_USER", "")),
+        to_email=user.email,
+        subject=f"הוזמנת ל-{studio.name} ב-BizControl",
+        html_content=_invite_user_email_html(payload.display_name, studio.name, role_he, set_pw_link),
+    )
 
     return {"id": str(user.id), "email": user.email, "display_name": user.display_name, "role": user.role, "phone": user.phone, "is_active": user.is_active}
 
