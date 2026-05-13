@@ -3,12 +3,12 @@
 
 def _email_base(title: str, body_html: str) -> str:
     return f"""<!DOCTYPE html>
-<html dir="rtl" lang="he">
+<html lang="he">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#f1f5f9;font-family:Arial,Helvetica,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:40px 16px;">
+<body style="margin:0;padding:0;background:#f1f5f9;font-family:Arial,Helvetica,sans-serif;direction:rtl;text-align:right;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:40px 16px;direction:rtl;">
     <tr><td align="center">
-      <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
+      <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;direction:rtl;">
 
         <!-- Header -->
         <tr><td style="background:#0f172a;border-radius:16px 16px 0 0;padding:28px 32px;text-align:center;">
@@ -17,8 +17,8 @@ def _email_base(title: str, body_html: str) -> str:
         </td></tr>
 
         <!-- Body -->
-        <tr><td style="background:#ffffff;padding:36px 32px;border-right:1px solid #e2e8f0;border-left:1px solid #e2e8f0;">
-          <h2 style="margin:0 0 8px;font-size:22px;color:#0f172a;">{title}</h2>
+        <tr><td style="background:#ffffff;padding:36px 32px;border-right:1px solid #e2e8f0;border-left:1px solid #e2e8f0;direction:rtl;text-align:right;">
+          <h2 style="margin:0 0 8px;font-size:22px;color:#0f172a;text-align:right;">{title}</h2>
           {body_html}
         </td></tr>
 
