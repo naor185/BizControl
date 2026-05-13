@@ -8,6 +8,11 @@ export const metadata = {
   title: "BizControl",
   description: "Studio CRM",
   manifest: "/manifest.json",
+  icons: {
+    icon: "/logo.png",
+    apple: "/logo.png",
+    shortcut: "/logo.png",
+  },
 };
 
 export const viewport = {

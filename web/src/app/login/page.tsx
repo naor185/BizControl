@@ -167,8 +167,8 @@ function LoginContent() {
 
             {/* Logo / Title */}
             <div className="mb-8 flex flex-col items-center">
-                <div className="w-16 h-16 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center shadow-2xl mb-3 overflow-hidden">
-                    <img src="/logo.png" alt="BizControl" className="w-full h-full object-contain p-1" />
+                <div className="mb-3">
+                    <img src="/logo.png" alt="BizControl" className="w-24 h-24 object-contain drop-shadow-2xl" />
                 </div>
                 <div className="font-black text-3xl text-white tracking-tight drop-shadow-lg">BizControl</div>
                 <div className="text-sm text-blue-200/80 mt-1">ניהול העסק שלך, בפשטות</div>
