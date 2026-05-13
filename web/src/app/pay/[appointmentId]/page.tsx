@@ -28,7 +28,7 @@ export default function PublicPaymentPage() {
     const [notes, setNotes] = useState("");
 
     useEffect(() => {
-        fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/public/payment/${apptId}`)
+        fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://api.biz-control.com"}/api/public/payment/${apptId}`)
             .then(res => {
                 if (!res.ok) throw new Error("לא נמצאו פרטי תור");
                 return res.json();
@@ -46,7 +46,7 @@ export default function PublicPaymentPage() {
     const handleConfirm = async () => {
         setConfirming(true);
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/public/payment/${apptId}/confirm`, {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://api.biz-control.com"}/api/public/payment/${apptId}/confirm`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ notes })
@@ -101,7 +101,7 @@ export default function PublicPaymentPage() {
                 <div className="flex flex-col items-center text-center mb-10">
                     <div className="w-20 h-20 bg-white rounded-2xl shadow-lg flex items-center justify-center mb-4 border border-slate-100">
                         {info.logo_filename ? (
-                            <img src={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/uploads/${info.logo_filename}`} alt="Logo" className="max-w-[70%] max-h-[70%] object-contain" />
+                            <img src={`${process.env.NEXT_PUBLIC_API_URL || "https://api.biz-control.com"}/uploads/${info.logo_filename}`} alt="Logo" className="max-w-[70%] max-h-[70%] object-contain" />
                         ) : (
                             <span className="text-2xl font-bold" style={{ color: info.theme_primary_color }}>B</span>
                         )}

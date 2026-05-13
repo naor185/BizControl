@@ -498,7 +498,7 @@ export default function StudioDetailPage() {
                             <div className="bg-gray-50 rounded-xl p-3 space-y-2 text-xs">
                                 <p className="text-gray-500 font-medium">הגדרות Webhook למרכז העסקים של Meta:</p>
                                 {[
-                                    { label: "Webhook URL", value: "https://web-production-68695.up.railway.app/api/webhook/meta" },
+                                    { label: "Webhook URL", value: "https://api.biz-control.com/api/webhook/meta" },
                                     { label: "Verify Token", value: "bizcontrol_verify" },
                                 ].map(({ label, value }) => (
                                     <div key={label} className="flex items-center gap-2">
