@@ -92,6 +92,8 @@ type Settings = {
     bank_account?: string | null;
     cancellation_free_days: number;
     deposit_lock_days: number;
+    deposit_fixed_amount_ils: number;
+    deposit_min_duration_minutes: number | null;
 };
 
 function WebhookUrlBox({ provider, instanceId }: { provider: "green_api" | "meta"; instanceId: string }) {
@@ -223,6 +225,8 @@ export default function AutomationSettingsPage() {
                     calendar_end_hour: data.calendar_end_hour ?? "23:00",
                     cancellation_free_days: data.cancellation_free_days ?? 7,
                     deposit_lock_days: data.deposit_lock_days ?? 7,
+                    deposit_fixed_amount_ils: data.deposit_fixed_amount_ils ?? 0,
+                    deposit_min_duration_minutes: data.deposit_min_duration_minutes ?? null,
                     studio_address: data.studio_address ?? "",
                     studio_map_link: data.studio_map_link ?? "",
                     studio_portfolio_link: data.studio_portfolio_link ?? "",
@@ -1145,6 +1149,38 @@ export default function AutomationSettingsPage() {
                                     <div className="mt-6 bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
                                         <span className="font-bold">תצוגה מקדימה של מדיניות הביטולים: </span>
                                         ביטול עד {settings.cancellation_free_days ?? 7} ימים לפני — החזר מלא של המקדמה. פחות מ-{settings.cancellation_free_days ?? 7} ימים — ללא החזר. שינוי תור אפשרי עד {settings.deposit_lock_days ?? 7} ימים לפני בלבד.
+                                    </div>
+                                </div>
+
+                                {/* Deposit Auto-Fill */}
+                                <div className="bg-white rounded-2xl border border-slate-100 shadow-xl shadow-slate-200/40 p-6 md:p-10 relative overflow-hidden">
+                                    <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-bl-full -z-10"></div>
+                                    <h3 className="text-2xl font-bold text-slate-800 mb-2">מקדמה אוטומטית ביומן</h3>
+                                    <p className="text-slate-500 text-sm mb-8">כאשר קובעים תור ביומן, שדה המקדמה יתמלא אוטומטית על פי הגדרות אלו.</p>
+                                    <div className="grid md:grid-cols-2 gap-8">
+                                        <div className="bg-emerald-50 p-6 rounded-2xl border border-emerald-100">
+                                            <label className="block text-base font-bold text-slate-800 mb-2">סכום מקדמה קבוע 💳</label>
+                                            <p className="text-sm text-slate-500 mb-4">כמה ₪ יוצג אוטומטית בשדה המקדמה בעת קביעת תור? (0 = ללא)</p>
+                                            <div className="flex items-center gap-3">
+                                                <input type="number" min="0"
+                                                    value={settings.deposit_fixed_amount_ils ?? 0}
+                                                    onChange={e => handleChange("deposit_fixed_amount_ils", parseInt(e.target.value) || 0)}
+                                                    className="w-24 text-center bg-white border border-emerald-200 rounded-xl px-4 py-3 font-bold text-xl outline-none focus:ring-2 focus:ring-emerald-500" />
+                                                <span className="text-slate-600 font-medium">₪</span>
+                                            </div>
+                                        </div>
+                                        <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
+                                            <label className="block text-base font-bold text-slate-800 mb-2">מינימום דקות לתור עם מקדמה ⏱️</label>
+                                            <p className="text-sm text-slate-500 mb-4">מקדמה תתמלא אוטומטית רק אם התור ארוך מ-X דקות. (ריק = תמיד)</p>
+                                            <div className="flex items-center gap-3">
+                                                <input type="number" min="0"
+                                                    value={settings.deposit_min_duration_minutes ?? ""}
+                                                    onChange={e => handleChange("deposit_min_duration_minutes", e.target.value === "" ? null : parseInt(e.target.value) || 0)}
+                                                    placeholder="ללא הגבלה"
+                                                    className="w-24 text-center bg-white border border-slate-200 rounded-xl px-4 py-3 font-bold text-xl outline-none focus:ring-2 focus:ring-blue-500" />
+                                                <span className="text-slate-600 font-medium">דקות</span>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
