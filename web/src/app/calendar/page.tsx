@@ -1,10 +1,44 @@
 "use client";
 
-import { useEffect, useState, useMemo, useRef } from "react";
+import { useEffect, useState, useMemo, useRef, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import AppShell from "@/components/AppShell";
 import RequireAuth from "@/components/RequireAuth";
 import { apiFetch } from "@/lib/api";
 import PaymentModal from "@/components/PaymentModal";
+
+const IL_HOLIDAYS = [
+    { date: "2025-09-22", name: "🍎 ראש השנה א׳",   info: 'ראש השנה תשפ"ו' },
+    { date: "2025-09-23", name: "🍎 ראש השנה ב׳",   info: 'ראש השנה — יום שני' },
+    { date: "2025-10-01", name: "🤍 יום כיפור",      info: 'יום הכיפורים תשפ"ו' },
+    { date: "2025-10-06", name: "🌿 סוכות א׳",       info: 'חג הסוכות א׳' },
+    { date: "2025-10-13", name: "🌿 הושענא רבה",     info: 'הושענא רבה' },
+    { date: "2025-10-14", name: "🌿 שמחת תורה",      info: 'שמיני עצרת / שמחת תורה' },
+    { date: "2025-12-14", name: "🕎 חנוכה א׳",       info: 'חנוכה — נר ראשון' },
+    { date: "2025-12-15", name: "🕎 חנוכה ב׳",       info: 'חנוכה — נר שני' },
+    { date: "2025-12-16", name: "🕎 חנוכה ג׳",       info: 'חנוכה — נר שלישי' },
+    { date: "2025-12-17", name: "🕎 חנוכה ד׳",       info: 'חנוכה — נר רביעי' },
+    { date: "2025-12-18", name: "🕎 חנוכה ה׳",       info: 'חנוכה — נר חמישי' },
+    { date: "2025-12-19", name: "🕎 חנוכה ו׳",       info: 'חנוכה — נר שישי' },
+    { date: "2025-12-20", name: "🕎 חנוכה ז׳",       info: 'חנוכה — נר שביעי' },
+    { date: "2025-12-21", name: "🕎 חנוכה ח׳",       info: 'זאת חנוכה — נר שמיני' },
+    { date: "2026-02-13", name: '🌳 ט"ו בשבט',       info: 'ט"ו בשבט תשפ"ו — חג האילנות' },
+    { date: "2026-03-04", name: "🎭 פורים",           info: 'פורים תשפ"ו' },
+    { date: "2026-03-05", name: "🎭 שושן פורים",      info: 'שושן פורים תשפ"ו' },
+    { date: "2026-04-01", name: "🫓 ערב פסח",         info: 'ערב פסח תשפ"ו' },
+    { date: "2026-04-02", name: "🫓 פסח א׳",          info: 'פסח — יום ראשון' },
+    { date: "2026-04-08", name: "🫓 פסח ז׳",          info: 'פסח — יום שביעי' },
+    { date: "2026-04-09", name: "🫓 אסרו חג",         info: 'אסרו חג פסח' },
+    { date: "2026-04-16", name: "🕯️ יום השואה",      info: 'יום הזיכרון לשואה ולגבורה' },
+    { date: "2026-05-05", name: "🪖 יום הזיכרון",    info: 'יום הזיכרון לחללי מערכות ישראל' },
+    { date: "2026-05-06", name: "🇮🇱 יום העצמאות",   info: 'יום העצמאות ה-78 למדינת ישראל' },
+    { date: "2026-05-14", name: '🔥 ל"ג בעומר',       info: 'ל"ג בעומר תשפ"ו' },
+    { date: "2026-05-22", name: "📜 שבועות א׳",       info: 'שבועות תשפ"ו — יום ראשון' },
+    { date: "2026-05-23", name: "📜 שבועות ב׳",       info: 'שבועות — יום שני' },
+    { date: "2026-08-01", name: "😢 תשעה באב",        info: 'תשעה באב תשפ"ו' },
+    { date: "2026-09-11", name: "🍎 ראש השנה א׳",   info: 'ראש השנה תשפ"ז' },
+    { date: "2026-09-12", name: "🍎 ראש השנה ב׳",   info: 'ראש השנה תשפ"ז — יום שני' },
+];
 
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
@@ -39,6 +73,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export default function CalendarPage() {
+    const router = useRouter();
     const calendarRef = useRef<FullCalendar>(null);
     const [clients, setClients] = useState<Client[]>([]);
     const [artists, setArtists] = useState<Artist[]>([]);
@@ -49,11 +84,38 @@ export default function CalendarPage() {
     const [calendarEndHour, setCalendarEndHour] = useState("23:00:00");
     const [toast, setToast] = useState<{message: string; type: "success"|"error"} | null>(null);
     const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" ? window.innerWidth < 768 : false);
+    const [showHolidays, setShowHolidays] = useState(() => {
+        if (typeof window === "undefined") return true;
+        const saved = localStorage.getItem("biz_show_holidays");
+        return saved === null ? true : saved === "true";
+    });
+    const [currentDateRange, setCurrentDateRange] = useState("");
+    const [holidayPopup, setHolidayPopup] = useState<{ name: string; info: string } | null>(null);
 
     useEffect(() => {
         const onResize = () => setIsMobile(window.innerWidth < 768);
         window.addEventListener("resize", onResize);
         return () => window.removeEventListener("resize", onResize);
+    }, []);
+
+    const toggleHolidays = useCallback(() => {
+        setShowHolidays(prev => {
+            const next = !prev;
+            localStorage.setItem("biz_show_holidays", String(next));
+            return next;
+        });
+    }, []);
+
+    const handleDatesSet = useCallback((info: any) => {
+        const HE_MONTHS = ["ינואר","פברואר","מרץ","אפריל","מאי","יוני","יולי","אוגוסט","ספטמבר","אוקטובר","נובמבר","דצמבר"];
+        const start = new Date(info.start);
+        const end   = new Date(info.end);
+        end.setDate(end.getDate() - 1);
+        if (start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear()) {
+            setCurrentDateRange(`${start.getDate()}–${end.getDate()} ב${HE_MONTHS[start.getMonth()]} ${start.getFullYear()}`);
+        } else {
+            setCurrentDateRange(`${start.getDate()}/${start.getMonth()+1} – ${end.getDate()}/${end.getMonth()+1} ${start.getFullYear()}`);
+        }
     }, []);
 
     const showToast = (message: string, type: "success"|"error" = "success") => {
@@ -128,6 +190,22 @@ export default function CalendarPage() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [from, to]);
 
+    const holidayEvents = useMemo(() => {
+        if (!showHolidays) return [];
+        return IL_HOLIDAYS.map(h => ({
+            id: `holiday-${h.date}`,
+            title: h.name,
+            start: h.date,
+            allDay: true,
+            display: "block" as const,
+            backgroundColor: "#fef9c3",
+            borderColor: "#fde047",
+            textColor: "#713f12",
+            classNames: ["holiday-event"],
+            extendedProps: { isHoliday: true, holidayInfo: h.info, holidayName: h.name },
+        }));
+    }, [showHolidays]);
+
     // Format appointments for FullCalendar
     const events = useMemo(() => {
         return appointments
@@ -192,8 +270,12 @@ export default function CalendarPage() {
 
     const handleEventClick = (clickInfo: any) => {
         const app = clickInfo.event.extendedProps;
+        if (app.isHoliday) {
+            setHolidayPopup({ name: app.holidayName, info: app.holidayInfo });
+            return;
+        }
         if (app.isExternalGoogle) {
-            alert("זהו אירוע מיומן גוגל החיצוני הכללי. לא ניתן לערוך אותו מתוך המערכת כאן.");
+            showToast("זהו אירוע מיומן גוגל — לא ניתן לערוך אותו מכאן.", "error");
             return;
         }
 
@@ -333,7 +415,18 @@ export default function CalendarPage() {
 
     return (
         <RequireAuth>
-            <AppShell title="יומן סטודיו">
+            <AppShell
+                title="יומן תורים"
+                titleAction={
+                    <button
+                        onClick={() => router.push("/clients?create=1")}
+                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-900 text-white hover:bg-slate-700 transition-colors shadow-sm"
+                    >
+                        <span className="text-sm leading-none">+</span>
+                        לקוח חדש
+                    </button>
+                }
+            >
                 {/* Toast Notification */}
                 {toast && (
                     <div
@@ -345,30 +438,52 @@ export default function CalendarPage() {
                 <style dangerouslySetInnerHTML={{
                     __html: `
                     .fc .fc-toolbar.fc-header-toolbar { margin-bottom: 0.5rem !important; }
-                    .fc .fc-button { padding: 0.3rem 0.6rem !important; font-size: 0.85rem !important; border-radius: 8px !important; }
+                    .fc .fc-button { padding: 0.3rem 0.7rem !important; font-size: 0.85rem !important; border-radius: 8px !important; }
                     .fc .fc-button:active { transform: scale(0.95) !important; }
-                    .fc .fc-toolbar-title { font-size: 1.15rem !important; font-weight: bold !important; }
+                    .fc .fc-today-button { min-width: 3.5rem !important; }
+                    .fc .fc-toolbar-title { font-size: 1.1rem !important; font-weight: bold !important; }
                     .fc-timegrid-slot { height: 1.5em !important; }
                     .fc .fc-toolbar.fc-footer-toolbar { margin-top: 0.4rem !important; justify-content: center !important; }
+                    .fc .fc-toolbar.fc-footer-toolbar .fc-button { min-width: 3.5rem !important; }
+                    .holiday-event { font-size: 0.7rem !important; opacity: 0.9; }
                     @media (max-width: 640px) {
-                        .fc .fc-toolbar-title { font-size: 0.85rem !important; }
-                        .fc .fc-button { padding: 0.25rem 0.5rem !important; font-size: 0.75rem !important; min-width: 2rem !important; }
-                        .fc-timegrid-slot-label { font-size: 0.65rem !important; }
-                        .fc-event { font-size: 0.75rem !important; border-radius: 6px !important; }
-                        .fc-event-title { font-size: 0.75rem !important; }
-                        .fc-timegrid-event .fc-event-main { padding: 2px 4px !important; }
-                        .fc-col-header-cell { font-size: 0.75rem !important; }
-                        .fc .fc-toolbar.fc-footer-toolbar .fc-button { padding: 0.35rem 0.9rem !important; font-size: 0.8rem !important; }
+                        .fc .fc-toolbar-title { font-size: 0.8rem !important; }
+                        .fc .fc-button { padding: 0.2rem 0.45rem !important; font-size: 0.72rem !important; min-width: 1.8rem !important; }
+                        .fc .fc-today-button { min-width: 2.8rem !important; }
+                        .fc-timegrid-slot-label { font-size: 0.6rem !important; }
+                        .fc-timegrid-axis { width: 2.2rem !important; }
+                        .fc-event { font-size: 0.68rem !important; border-radius: 4px !important; }
+                        .fc-event-title { font-size: 0.68rem !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; }
+                        .fc-timegrid-event .fc-event-main { padding: 1px 3px !important; }
+                        .fc-col-header-cell { font-size: 0.68rem !important; }
+                        .fc-col-header-cell-cushion { padding: 2px 1px !important; }
+                        .fc .fc-toolbar.fc-footer-toolbar .fc-button { padding: 0.3rem 0.8rem !important; font-size: 0.78rem !important; min-width: 3rem !important; }
                     }
                 `}} />
                 <div className="p-2 md:p-4 max-w-[1600px] w-full mx-auto flex flex-col h-[calc(100vh-5rem-4rem)] md:h-[calc(100vh-5rem)]">
 
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
-                        <p className="text-sm text-slate-500 hidden sm:block">לחץ וגרור כדי לקבוע תורים, לחץ על תור קיים כדי לערוך אותו.</p>
-                        <p className="text-xs text-slate-400 sm:hidden">לחיצה ארוכה לבחירת זמן • לחץ על תור לעריכה</p>
-                        <div className="flex items-center gap-3">
-                            {loading && <div className="animate-spin h-4 w-4 border-2 border-slate-800 border-t-transparent rounded-full"></div>}
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                        <div className="flex items-center gap-2">
+                            {currentDateRange && (
+                                <span className="text-sm font-semibold text-slate-700">{currentDateRange}</span>
+                            )}
+                            {loading && <div className="animate-spin h-4 w-4 border-2 border-slate-800 border-t-transparent rounded-full flex-shrink-0"></div>}
                             {err && <div className="text-xs font-medium text-red-600 bg-red-50 px-2 py-1 rounded">{err}</div>}
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                            <button
+                                onClick={toggleHolidays}
+                                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                                    showHolidays
+                                        ? "bg-yellow-50 border-yellow-300 text-yellow-800"
+                                        : "bg-slate-50 border-slate-200 text-slate-400"
+                                }`}
+                            >
+                                🗓️ {showHolidays ? "חגים" : "חגים"}
+                                <span className={`w-6 h-3.5 rounded-full transition-colors flex-shrink-0 relative ${showHolidays ? "bg-yellow-400" : "bg-slate-300"}`}>
+                                    <span className={`absolute top-0.5 w-2.5 h-2.5 rounded-full bg-white shadow transition-all ${showHolidays ? "left-3" : "left-0.5"}`} />
+                                </span>
+                            </button>
                         </div>
                     </div>
 
@@ -401,7 +516,7 @@ export default function CalendarPage() {
                             selectLongPressDelay={300}
                             dayMaxEvents={true}
                             nowIndicator={true}
-                            allDaySlot={false}
+                            allDaySlot={showHolidays}
                             slotMinTime={calendarStartHour}
                             slotMaxTime={calendarEndHour}
                             expandRows={true}
@@ -409,11 +524,12 @@ export default function CalendarPage() {
                             slotDuration="00:30:00"
                             slotLabelInterval="01:00"
                             slotEventOverlap={false}
-                            events={events}
+                            events={[...events, ...holidayEvents]}
                             select={handleDateSelect}
                             eventClick={handleEventClick}
                             eventDrop={handleEventDrop}
                             eventResize={handleEventDrop}
+                            datesSet={handleDatesSet}
                             height="100%"
                         />
                     </div>
@@ -677,6 +793,31 @@ export default function CalendarPage() {
                                 <button onClick={() => setIsDeleteModalOpen(false)} className="px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-200 rounded-xl transition-colors">בטל החלטה</button>
                                 <button onClick={confirmDelete} className="px-5 py-2 text-sm font-bold text-white bg-red-600 shadow-lg shadow-red-600/20 hover:bg-red-700 hover:-translate-y-0.5 rounded-xl transition-all">
                                     אישור מחיקה
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Holiday popup */}
+                {holidayPopup && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={() => setHolidayPopup(null)}>
+                        <div className="bg-white rounded-3xl shadow-2xl p-6 max-w-xs w-full text-center animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+                            <div className="text-4xl mb-2">{holidayPopup.name.split(" ")[0]}</div>
+                            <h3 className="text-lg font-bold text-slate-900 mb-1">{holidayPopup.name.slice(2)}</h3>
+                            <p className="text-sm text-slate-500 mb-4">{holidayPopup.info}</p>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => { toggleHolidays(); setHolidayPopup(null); }}
+                                    className="flex-1 py-2 rounded-xl text-sm border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors"
+                                >
+                                    הסתר חגים
+                                </button>
+                                <button
+                                    onClick={() => setHolidayPopup(null)}
+                                    className="flex-1 py-2 rounded-xl text-sm bg-slate-900 text-white font-semibold hover:bg-slate-700 transition-colors"
+                                >
+                                    סגור
                                 </button>
                             </div>
                         </div>

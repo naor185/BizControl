@@ -43,9 +43,11 @@ const ALL_NAV = [...MAIN_NAV, ...SETTINGS_NAV];
 
 export default function AppShell({
     title,
+    titleAction,
     children,
 }: {
     title: string;
+    titleAction?: React.ReactNode;
     children: React.ReactNode;
 }) {
     const pathname = usePathname();
@@ -258,7 +260,10 @@ export default function AppShell({
                     {/* Topbar */}
                     <header className="sticky top-0 z-10 h-14 bg-white/95 backdrop-blur-sm border-b border-slate-100">
                         <div className="h-full px-5 flex items-center justify-between">
-                            <h1 className="text-lg font-bold text-slate-900">{title}</h1>
+                            <div className="flex items-center gap-2">
+                                <h1 className="text-lg font-bold text-slate-900">{title}</h1>
+                                {titleAction}
+                            </div>
 
                             <div className="flex items-center gap-3">
                                 <NotificationBell />
