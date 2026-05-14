@@ -3,10 +3,6 @@ import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
-import sentry_sdk
-from sentry_sdk.integrations.fastapi import FastApiIntegration
-from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
-
 logging.basicConfig(
     format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
@@ -15,13 +11,20 @@ logging.basicConfig(
 
 _sentry_dsn = os.getenv("SENTRY_DSN", "")
 if _sentry_dsn:
-    sentry_sdk.init(
-        dsn=_sentry_dsn,
-        integrations=[FastApiIntegration(), SqlalchemyIntegration()],
-        traces_sample_rate=0.1,
-        environment=os.getenv("ENVIRONMENT", "production"),
-        send_default_pii=False,
-    )
+    try:
+        import sentry_sdk
+        from sentry_sdk.integrations.fastapi import FastApiIntegration
+        from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
+        sentry_sdk.init(
+            dsn=_sentry_dsn,
+            integrations=[FastApiIntegration(), SqlalchemyIntegration()],
+            traces_sample_rate=0.1,
+            environment=os.getenv("ENVIRONMENT", "production"),
+            send_default_pii=False,
+        )
+        logging.getLogger(__name__).info("Sentry initialized")
+    except ImportError:
+        logging.getLogger(__name__).warning("sentry-sdk not installed, skipping")
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from slowapi import _rate_limit_exceeded_handler

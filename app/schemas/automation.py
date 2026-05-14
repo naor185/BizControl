@@ -76,6 +76,10 @@ class AutomationSettingsOut(BaseModel):
     calendar_start_hour: str = "08:00"
     calendar_end_hour: str = "23:00"
 
+    # Deposit defaults
+    deposit_fixed_amount_ils: int = 0
+    deposit_min_duration_minutes: int | None = None
+
     # AI Limits
     ai_generations_count: int = 0
     ai_generations_reset_date: date | None = None
@@ -178,6 +182,10 @@ class AutomationSettingsUpdate(BaseModel):
 
     calendar_start_hour: str | None = None
     calendar_end_hour: str | None = None
+
+    # Deposit defaults
+    deposit_fixed_amount_ils: int | None = Field(default=None, ge=0)
+    deposit_min_duration_minutes: int | None = Field(default=None, ge=0)
 
     # Studio Info & Policy
     studio_address: str | None = None

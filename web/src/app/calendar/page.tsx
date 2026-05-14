@@ -148,7 +148,7 @@ export default function CalendarPage() {
     const [paymentAppt, setPaymentAppt] = useState<any>(null);
 
     // Modal Form State
-    const [title, setTitle] = useState("קעקוע חדש");
+    const [title, setTitle] = useState("");
     const [startAt, setStartAt] = useState("");
     const [endAt, setEndAt] = useState("");
     const [clientId, setClientId] = useState("");
@@ -159,7 +159,16 @@ export default function CalendarPage() {
     const [status, setStatus] = useState("scheduled");
     const [notes, setNotes] = useState("");
     const [depositAmount, setDepositAmount] = useState<number | "">("");
-    const [totalPrice, setTotalPrice] = useState<number | "">("");
+    const [defaultDepositAmount, setDefaultDepositAmount] = useState(0);
+    const [depositMinDuration, setDepositMinDuration] = useState<number | null>(null);
+
+    // New client mini-form state
+    const [showNewClientForm, setShowNewClientForm] = useState(false);
+    const [newClientName, setNewClientName] = useState("");
+    const [newClientPhone, setNewClientPhone] = useState("");
+    const [newClientClub, setNewClientClub] = useState(false);
+    const [newClientLoading, setNewClientLoading] = useState(false);
+    const [newClientErr, setNewClientErr] = useState<string | null>(null);
 
     const loadData = async () => {
         setLoading(true);
@@ -177,6 +186,8 @@ export default function CalendarPage() {
             if (settings) {
                 if (settings.calendar_start_hour) setCalendarStartHour(`${settings.calendar_start_hour}:00`);
                 if (settings.calendar_end_hour) setCalendarEndHour(`${settings.calendar_end_hour}:00`);
+                if (settings.deposit_fixed_amount_ils) setDefaultDepositAmount(settings.deposit_fixed_amount_ils);
+                if (settings.deposit_min_duration_minutes) setDepositMinDuration(settings.deposit_min_duration_minutes);
             }
         } catch (e: any) {
             setErr(e?.message || "שגיאה בטעינת נתוני היומן");
@@ -238,6 +249,44 @@ export default function CalendarPage() {
             });
     }, [appointments, clients]);
 
+    function autoDeposit(startIso: string, endIso: string): number | "" {
+        if (!defaultDepositAmount) return "";
+        if (depositMinDuration) {
+            const diffMin = (new Date(endIso).getTime() - new Date(startIso).getTime()) / 60000;
+            if (diffMin < depositMinDuration) return "";
+        }
+        return defaultDepositAmount;
+    }
+
+    async function handleCreateNewClient() {
+        if (!newClientName.trim()) { setNewClientErr("שם חובה"); return; }
+        setNewClientErr(null);
+        setNewClientLoading(true);
+        try {
+            const created = await apiFetch<Client>("/api/clients", {
+                method: "POST",
+                body: JSON.stringify({
+                    full_name: newClientName.trim(),
+                    phone: newClientPhone.trim() || null,
+                    is_club_member: newClientClub,
+                }),
+            });
+            setClients(prev => [created, ...prev]);
+            setClientId(created.id);
+            setClientSearch(created.full_name);
+            setIsWalkIn(false);
+            setShowNewClientForm(false);
+            setNewClientName(""); setNewClientPhone(""); setNewClientClub(false);
+        } catch (e: any) {
+            const msg = String(e?.message || "");
+            setNewClientErr(msg.includes("כבר קיים") || msg.includes("already") || msg.includes("duplicate")
+                ? "לקוח עם מספר טלפון זה כבר קיים במערכת"
+                : msg || "שגיאה ביצירת לקוח");
+        } finally {
+            setNewClientLoading(false);
+        }
+    }
+
     // Handle Calendar Actions
     const handleDateSelect = (selectInfo: any) => {
         // Unselect the area on UI
@@ -246,16 +295,18 @@ export default function CalendarPage() {
 
         // Open Modal for New Event
         setSelectedEventId(null);
-        setTitle("תור חדש");
+        setTitle("");
 
-        // Format dates for datetime-local input
         const localStart = new Date(selectInfo.startStr);
         const localEnd = new Date(selectInfo.endStr);
         const pad = (n: number) => String(n).padStart(2, "0");
         const formatForInput = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 
-        setStartAt(formatForInput(localStart));
-        setEndAt(formatForInput(localEnd));
+        const startStr = formatForInput(localStart);
+        const endStr   = formatForInput(localEnd);
+        setStartAt(startStr);
+        setEndAt(endStr);
+        setDepositAmount(autoDeposit(localStart.toISOString(), localEnd.toISOString()));
 
         setClientId("");
         setClientSearch("");
@@ -263,8 +314,7 @@ export default function CalendarPage() {
         setArtistId("");
         setStatus("scheduled");
         setNotes("");
-        setDepositAmount("");
-        setTotalPrice("");
+        setShowNewClientForm(false);
         setIsModalOpen(true);
     };
 
@@ -302,7 +352,6 @@ export default function CalendarPage() {
         setStatus(app.status);
         setNotes(app.notes || "");
         setDepositAmount(app.deposit_amount_cents ? Math.round(app.deposit_amount_cents / 100) : "");
-        setTotalPrice(app.total_price_cents ? Math.round(app.total_price_cents / 100) : "");
         setIsModalOpen(true);
     };
 
@@ -348,7 +397,6 @@ export default function CalendarPage() {
                 status,
                 notes: notes || null,
                 deposit_amount_cents: depositAmount !== "" ? Math.round(Number(depositAmount) * 100) : 0,
-                total_price_cents: totalPrice !== "" ? Math.round(Number(totalPrice) * 100) : 0,
             };
 
             if (selectedEventId) {
@@ -550,8 +598,9 @@ export default function CalendarPage() {
                                     <input value={title} onChange={e => setTitle(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500" />
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
+                                {/* Date & Time */}
+                                <div className="flex gap-3">
+                                    <div className="flex-1">
                                         <label className="block text-sm font-semibold text-slate-700 mb-1">התחלה</label>
                                         <input
                                             type="datetime-local"
@@ -559,18 +608,17 @@ export default function CalendarPage() {
                                             onChange={e => {
                                                 const newVal = e.target.value;
                                                 setStartAt(newVal);
-                                                // Sync end date with start date
                                                 if (newVal && endAt) {
                                                     const [d] = newVal.split("T");
                                                     const [, t] = endAt.split("T");
                                                     setEndAt(`${d}T${t}`);
                                                 }
                                             }}
-                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                                             dir="ltr"
                                         />
                                     </div>
-                                    <div>
+                                    <div className="w-28">
                                         <label className="block text-sm font-semibold text-slate-700 mb-1">סיום</label>
                                         <input
                                             type="time"
@@ -579,16 +627,24 @@ export default function CalendarPage() {
                                                 const [d] = startAt.split("T");
                                                 setEndAt(`${d}T${e.target.value}`);
                                             }}
-                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                                             dir="ltr"
                                         />
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="relative">
-                                        <label className="block text-sm font-semibold text-slate-700 mb-1">לקוח (חובה)</label>
-                                        {/* Walk-in shortcut button */}
+                                {/* Client section */}
+                                <div>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">לקוח</label>
+                                    {/* Row 1: action buttons */}
+                                    <div className="flex gap-2 mb-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => { setShowNewClientForm(v => !v); setNewClientErr(null); }}
+                                            className={`flex-1 py-2 px-3 rounded-xl text-sm font-bold border-2 transition-all ${showNewClientForm ? "bg-blue-600 border-blue-600 text-white" : "bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"}`}
+                                        >
+                                            + צור לקוח חדש
+                                        </button>
                                         <button
                                             type="button"
                                             onClick={async () => {
@@ -598,125 +654,118 @@ export default function CalendarPage() {
                                                     setClientSearch("לקוח מזדמן 🚶");
                                                     setIsWalkIn(true);
                                                     setIsClientDropdownOpen(false);
-                                                } catch (e: any) {
-                                                    alert("שגיאה בטעינת לקוח מזדמן: " + e?.message);
-                                                }
+                                                    setShowNewClientForm(false);
+                                                } catch (e: any) { showToast("שגיאה בלקוח מזדמן", "error"); }
                                             }}
-                                            className={`w-full mb-2 py-2 px-4 rounded-xl text-sm font-bold transition-all border-2 ${isWalkIn
-                                                ? "bg-orange-500 border-orange-500 text-white shadow-md shadow-orange-200"
-                                                : "bg-orange-50 border-orange-200 text-orange-700 hover:bg-orange-100"
-                                                }`}
+                                            className={`flex-1 py-2 px-3 rounded-xl text-sm font-bold border-2 transition-all ${isWalkIn ? "bg-orange-500 border-orange-500 text-white" : "bg-orange-50 border-orange-200 text-orange-700 hover:bg-orange-100"}`}
                                         >
-                                            🚶 {isWalkIn ? "לקוח מזדמן נבחר" : "לקוח מזדמן (ספונטני)"}
+                                            🚶 {isWalkIn ? "מזדמן ✓" : "לקוח מזדמן"}
                                         </button>
-                                        <div className="relative">
+                                    </div>
+
+                                    {/* New client mini-form */}
+                                    {showNewClientForm && (
+                                        <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-2 space-y-2">
                                             <input
                                                 type="text"
-                                                placeholder="חפש לפי שם או טלפון..."
-                                                value={clientSearch}
-                                                onChange={e => {
-                                                    setClientSearch(e.target.value);
-                                                    setClientId("");
-                                                    setIsWalkIn(false);
-                                                    setIsClientDropdownOpen(true);
-                                                }}
-                                                onFocus={() => setIsClientDropdownOpen(true)}
-                                                onBlur={() => setTimeout(() => setIsClientDropdownOpen(false), 200)}
-                                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+                                                placeholder="שם מלא *"
+                                                value={newClientName}
+                                                onChange={e => setNewClientName(e.target.value)}
+                                                className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-400"
                                             />
-                                            {clientSearch && clientId && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => { setClientSearch(""); setClientId(""); setIsWalkIn(false); }}
-                                                    className="absolute left-3 top-1.5 text-slate-400 hover:text-red-500 font-bold text-2xl leading-none"
-                                                    title="נקה בחירה"
-                                                >&times;</button>
+                                            <input
+                                                type="tel"
+                                                placeholder="מספר טלפון"
+                                                value={newClientPhone}
+                                                onChange={e => setNewClientPhone(e.target.value)}
+                                                className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-400"
+                                                dir="ltr"
+                                            />
+                                            <label className="flex items-center gap-2 text-sm text-blue-800 cursor-pointer">
+                                                <input type="checkbox" checked={newClientClub} onChange={e => setNewClientClub(e.target.checked)} className="accent-blue-600" />
+                                                הוסף למועדון לקוחות
+                                            </label>
+                                            {newClientErr && <p className="text-xs text-red-600">{newClientErr}</p>}
+                                            <button
+                                                type="button"
+                                                onClick={handleCreateNewClient}
+                                                disabled={newClientLoading}
+                                                className="w-full py-2 rounded-lg bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                                            >
+                                                {newClientLoading ? "יוצר..." : "צור לקוח"}
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {/* Row 2: search */}
+                                    <div className="relative">
+                                        <input
+                                            type="text"
+                                            placeholder="חפש לפי שם או טלפון..."
+                                            value={clientSearch}
+                                            onChange={e => { setClientSearch(e.target.value); setClientId(""); setIsWalkIn(false); setIsClientDropdownOpen(true); }}
+                                            onFocus={() => setIsClientDropdownOpen(true)}
+                                            onBlur={() => setTimeout(() => setIsClientDropdownOpen(false), 200)}
+                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+                                        />
+                                        {clientSearch && clientId && (
+                                            <button type="button" onClick={() => { setClientSearch(""); setClientId(""); setIsWalkIn(false); }}
+                                                className="absolute left-3 top-1.5 text-slate-400 hover:text-red-500 font-bold text-2xl leading-none">&times;</button>
+                                        )}
+                                    </div>
+                                    {isClientDropdownOpen && (
+                                        <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto">
+                                            {filteredClients.filter(c => !c.is_walk_in).length > 0 ? (
+                                                filteredClients.filter(c => !c.is_walk_in).map(c => (
+                                                    <div key={c.id} className="px-4 py-2 hover:bg-slate-50 cursor-pointer border-b border-slate-50 last:border-0 text-right"
+                                                        onMouseDown={() => { setClientId(c.id); setClientSearch(c.full_name || c.phone || ""); setIsWalkIn(false); setIsClientDropdownOpen(false); }}>
+                                                        <div className="font-semibold text-slate-800 text-sm">{c.full_name}</div>
+                                                        {c.phone && <div className="text-xs text-slate-500" dir="ltr">{c.phone}</div>}
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <div className="px-4 py-3 text-sm text-slate-500 text-center">לא נמצאו לקוחות</div>
                                             )}
                                         </div>
-                                        {isClientDropdownOpen && (
-                                            <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto">
-                                                {filteredClients.length > 0 ? (
-                                                    filteredClients.filter(c => !c.is_walk_in).map(c => (
-                                                        <div
-                                                            key={c.id}
-                                                            className="px-4 py-2 hover:bg-slate-50 cursor-pointer border-b border-slate-50 last:border-0 text-right"
-                                                            onMouseDown={() => {
-                                                                setClientId(c.id);
-                                                                setClientSearch(c.full_name || c.phone || "");
-                                                                setIsWalkIn(false);
-                                                                setIsClientDropdownOpen(false);
-                                                            }}
-                                                        >
-                                                            <div className="font-semibold text-slate-800 text-sm">{c.full_name}</div>
-                                                            {c.phone && <div className="text-xs text-slate-500" dir="ltr">{c.phone}</div>}
-                                                        </div>
-                                                    ))
-                                                ) : (
-                                                    <div className="px-4 py-3 text-sm text-slate-500 text-center">לא נמצאו לקוחות מתאימים</div>
-                                                )}
-                                            </div>
-                                        )}
-                                        {clientId && !isWalkIn && (() => {
-                                            const selectedClient = clients.find(c => c.id === clientId);
-                                            if (selectedClient && ((selectedClient.cancellation_count || 0) > 0 || (selectedClient.no_show_count || 0) > 0)) {
-                                                return (
-                                                    <div className="mt-2 text-sm font-medium text-amber-700 bg-amber-50 p-2.5 rounded-lg border border-amber-200 flex items-start gap-2">
-                                                        <span>⚠️</span>
-                                                        <span>
-                                                            לקוח מועד לפורענות:
-                                                            {(selectedClient.cancellation_count || 0) > 0 && ` ביטל ${selectedClient.cancellation_count} תורים`}
-                                                            {(selectedClient.cancellation_count || 0) > 0 && (selectedClient.no_show_count || 0) > 0 && " ו-"}
-                                                            {(selectedClient.no_show_count || 0) > 0 && `לא הגיע ל-${selectedClient.no_show_count} תורים`}
-                                                            .
-                                                        </span>
-                                                    </div>
-                                                );
-                                            }
-                                            return null;
-                                        })()}
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-semibold text-slate-700 mb-1">מקעקע/ת (חובה)</label>
-                                        <select value={artistId} onChange={e => setArtistId(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500">
-                                            <option value="">בחירה...</option>
-                                            {artists.map(a => <option key={a.id} value={a.id}>{a.display_name || a.email}</option>)}
-                                        </select>
-                                    </div>
+                                    )}
+                                    {clientId && !isWalkIn && (() => {
+                                        const sc = clients.find(c => c.id === clientId);
+                                        if (sc && ((sc.cancellation_count || 0) > 0 || (sc.no_show_count || 0) > 0)) {
+                                            return (
+                                                <div className="mt-2 text-sm font-medium text-amber-700 bg-amber-50 p-2.5 rounded-lg border border-amber-200 flex items-start gap-2">
+                                                    <span>⚠️</span>
+                                                    <span>
+                                                        לקוח מועד לפורענות:
+                                                        {(sc.cancellation_count || 0) > 0 && ` ביטל ${sc.cancellation_count} תורים`}
+                                                        {(sc.cancellation_count || 0) > 0 && (sc.no_show_count || 0) > 0 && " ו-"}
+                                                        {(sc.no_show_count || 0) > 0 && `לא הגיע ל-${sc.no_show_count} תורים`}.
+                                                    </span>
+                                                </div>
+                                            );
+                                        }
+                                        return null;
+                                    })()}
                                 </div>
 
+                                {/* Artist */}
                                 <div>
-                                    <label className="block text-sm font-semibold text-slate-700 mb-1">סטטוס</label>
-                                    <select value={status} onChange={e => setStatus(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500">
-                                        <option value="scheduled">מתוכנן 🔵</option>
-                                        <option value="completed">בוצע / הושלם 🟢</option>
-                                        <option value="cancelled">בוטל 🔴</option>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-1">מקעקע/ת</label>
+                                    <select value={artistId} onChange={e => setArtistId(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500">
+                                        <option value="">בחירה...</option>
+                                        {artists.map(a => <option key={a.id} value={a.id}>{a.display_name || a.email}</option>)}
                                     </select>
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div>
-                                        <label className="block text-sm font-semibold text-slate-700 mb-1">מחיר כולל (₪)</label>
-                                        <input
-                                            type="number"
-                                            min="0"
-                                            value={totalPrice}
-                                            onChange={e => setTotalPrice(e.target.value === "" ? "" : Number(e.target.value))}
-                                            placeholder="לדוג׳ 800"
-                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-semibold text-slate-700 mb-1">מקדמה (₪) 💳</label>
-                                        <input
-                                            type="number"
-                                            min="0"
-                                            value={depositAmount}
-                                            onChange={e => setDepositAmount(e.target.value === "" ? "" : Number(e.target.value))}
-                                            placeholder="לדוג׳ 100"
-                                            className="w-full bg-slate-50 border border-emerald-300 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-semibold"
-                                        />
-                                        <p className="text-xs text-slate-400 mt-1">סכום זה יופיע בהודעת הוואטסאפ עם קישור לתשלום</p>
-                                    </div>
+                                {/* Deposit */}
+                                <div>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-1">מקדמה (₪) 💳</label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        value={depositAmount}
+                                        onChange={e => setDepositAmount(e.target.value === "" ? "" : Number(e.target.value))}
+                                        className="w-full bg-slate-50 border border-emerald-300 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-semibold"
+                                    />
                                 </div>
 
                                 <div>
@@ -833,12 +882,13 @@ export default function CalendarPage() {
                         const pad = (n: number) => String(n).padStart(2, "0");
                         const fmt = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
                         setSelectedEventId(null);
-                        setTitle("תור חדש");
+                        setTitle("");
                         setStartAt(fmt(now));
                         setEndAt(fmt(later));
+                        setDepositAmount(autoDeposit(now.toISOString(), later.toISOString()));
                         setClientId(""); setClientSearch(""); setIsWalkIn(false);
                         setArtistId(""); setStatus("scheduled"); setNotes("");
-                        setDepositAmount(""); setTotalPrice("");
+                        setShowNewClientForm(false);
                         setIsModalOpen(true);
                     }}
                 >
