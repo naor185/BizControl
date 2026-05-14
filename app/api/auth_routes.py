@@ -54,19 +54,20 @@ def _issue_full_tokens(user: User, db: Session) -> TokenResponse:
 @router.post("/login")
 @limiter.limit("10/minute")
 def login(request: Request, payload: LoginRequest, db: Session = Depends(get_db)):
-    studio = db.query(Studio).filter(Studio.slug == payload.studio_slug, Studio.is_active == True).first()  # noqa: E712
+    slug = payload.studio_slug.lower().strip()
+    studio = db.query(Studio).filter(Studio.slug == slug, Studio.is_active == True).first()  # noqa: E712
     if not studio:
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+        raise HTTPException(status_code=401, detail="studio_not_found")
 
     email = str(payload.email).lower().strip()
     user = db.query(User).filter(User.studio_id == studio.id, User.email == email, User.is_active == True).first()  # noqa: E712
     if not user:
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+        raise HTTPException(status_code=401, detail="email_not_found")
 
     try:
         ph.verify(user.password_hash, payload.password)
     except VerifyMismatchError:
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+        raise HTTPException(status_code=401, detail="wrong_password")
 
     if user.totp_secret:
         return {
@@ -153,18 +154,18 @@ class ForgotPasswordIn(BaseModel):
 @router.post("/forgot-password")
 @limiter.limit("5/minute")
 def forgot_password(request: Request, payload: ForgotPasswordIn, db: Session = Depends(get_db)):
-    studio = db.scalar(select(Studio).where(Studio.slug == payload.studio_slug))
-    user = None
-    if studio:
-        user = db.scalar(select(User).where(
-            User.studio_id == studio.id,
-            User.email == payload.email.lower().strip(),
-            User.is_active == True,  # noqa: E712
-        ))
+    slug = payload.studio_slug.lower().strip()
+    studio = db.scalar(select(Studio).where(Studio.slug == slug))
+    if not studio:
+        raise HTTPException(status_code=404, detail="studio_not_found")
 
-    # Always return 200 — prevent email enumeration
+    user = db.scalar(select(User).where(
+        User.studio_id == studio.id,
+        User.email == payload.email.lower().strip(),
+        User.is_active == True,  # noqa: E712
+    ))
     if not user:
-        return {"status": "sent"}
+        raise HTTPException(status_code=404, detail="email_not_found")
 
     token = create_set_password_token(str(user.id))
     frontend_url = os.getenv("FRONTEND_URL", "https://bizcontrol-seven.vercel.app")

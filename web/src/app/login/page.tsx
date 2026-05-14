@@ -10,6 +10,32 @@ const OceanBackground = lazy(() => import("@/components/OceanBackground"));
 
 const LS_KEY = "biz_remember";
 
+type FieldErr = "slug" | "email" | "password" | null;
+type Lang = "he" | "en";
+
+const ERR_TEXT: Record<string, Record<Lang, string>> = {
+    studio_not_found: { he: "מזהה הסטודיו לא קיים במערכת",  en: "Studio ID not found" },
+    email_not_found:  { he: "האימייל לא רשום במערכת",        en: "Email not registered" },
+    wrong_password:   { he: "הסיסמה שגויה",                   en: "Incorrect password" },
+    network:          { he: "לא ניתן להתחבר לשרת",            en: "Cannot connect to server" },
+    default_err:      { he: "שגיאה בהתחברות",                 en: "Login failed" },
+};
+const ERR_FIELD: Record<string, FieldErr> = {
+    studio_not_found: "slug",
+    email_not_found:  "email",
+    wrong_password:   "password",
+};
+
+function parseErr(msg: string, locale: string): { text: string; field: FieldErr } {
+    const l: Lang = locale.startsWith("en") ? "en" : "he";
+    for (const [code, field] of Object.entries(ERR_FIELD)) {
+        if (msg.includes(code)) return { text: ERR_TEXT[code][l], field };
+    }
+    if (msg.includes("Failed to fetch") || msg.includes("NetworkError") || msg.includes("fetch"))
+        return { text: ERR_TEXT.network[l], field: null };
+    return { text: msg || ERR_TEXT.default_err[l], field: null };
+}
+
 function LoginContent() {
     const router = useRouter();
     const sp = useSearchParams();
@@ -23,11 +49,16 @@ function LoginContent() {
     const [showPass, setShowPass] = useState(false);
     const [loading, setLoading] = useState(false);
     const [err, setErr] = useState<string | null>(null);
+    const [fieldErr, setFieldErr] = useState<FieldErr>(null);
     const [step, setStep] = useState<"credentials" | "2fa">("credentials");
     const [pendingToken, setPendingToken] = useState("");
     const [totpCode, setTotpCode] = useState("");
+    const [supportsBiometric, setSupportsBiometric] = useState(false);
 
     useEffect(() => {
+        if (typeof window !== "undefined" && "credentials" in navigator && "PasswordCredential" in window) {
+            setSupportsBiometric(true);
+        }
         try {
             const saved = JSON.parse(localStorage.getItem(LS_KEY) || "null");
             if (saved) {
@@ -39,14 +70,27 @@ function LoginContent() {
         } catch {}
     }, []);
 
-    async function onSubmit(e: React.FormEvent) {
-        e.preventDefault();
+    async function performLogin(slug: string, emailVal: string, pwd: string) {
         setErr(null);
+        setFieldErr(null);
         setLoading(true);
         try {
-            const res = await apiFetch<{ access_token?: string; refresh_token?: string; requires_2fa?: boolean; pending_token?: string }>(
+            const res = await apiFetch<{
+                access_token?: string;
+                refresh_token?: string;
+                requires_2fa?: boolean;
+                pending_token?: string;
+            }>(
                 "/api/auth/login",
-                { method: "POST", auth: false, body: JSON.stringify({ studio_slug: studioSlug, email, password }) },
+                {
+                    method: "POST",
+                    auth: false,
+                    body: JSON.stringify({
+                        studio_slug: slug.toLowerCase().trim(),
+                        email: emailVal.toLowerCase().trim(),
+                        password: pwd,
+                    }),
+                },
             );
 
             if (res.requires_2fa && res.pending_token) {
@@ -56,19 +100,54 @@ function LoginContent() {
             }
 
             if (rememberMe) {
-                localStorage.setItem(LS_KEY, JSON.stringify({ studioSlug, email, password }));
+                localStorage.setItem(LS_KEY, JSON.stringify({ studioSlug: slug, email: emailVal, password: pwd }));
             } else {
                 localStorage.removeItem(LS_KEY);
             }
+
+            // Store credentials for biometric auto-fill (Chrome / Android)
+            try {
+                if ("PasswordCredential" in window) {
+                    const cred = new (window as any).PasswordCredential({
+                        id: emailVal.toLowerCase().trim(),
+                        password: pwd,
+                        name: slug.toLowerCase().trim(),
+                    });
+                    await navigator.credentials.store(cred);
+                }
+            } catch {}
 
             setToken(res.access_token!, res.refresh_token);
             const me = await apiFetch<{ role: string }>("/api/auth/me");
             router.replace(me.role === "superadmin" ? "/admin" : nextUrl);
         } catch (e: unknown) {
             const msg = String((e as Error)?.message || "");
-            setErr(msg.includes("Failed to fetch") || msg.includes("NetworkError") ? "לא ניתן להתחבר לשרת." : msg || "שגיאה בהתחברות");
+            const { text, field } = parseErr(msg, locale);
+            setErr(text);
+            setFieldErr(field);
         } finally {
             setLoading(false);
+        }
+    }
+
+    async function onSubmit(e: React.FormEvent) {
+        e.preventDefault();
+        await performLogin(studioSlug, email, password);
+    }
+
+    async function loginWithBiometrics() {
+        try {
+            const cred = await (navigator.credentials as any).get({ password: true, mediation: "optional" });
+            if (!cred) return;
+            const slug     = (cred.name as string) || studioSlug;
+            const emailVal = cred.id as string;
+            const pwd      = (cred as any).password as string;
+            if (!slug || !emailVal || !pwd) return;
+            setStudioSlug(slug);
+            setEmail(emailVal);
+            await performLogin(slug, emailVal, pwd);
+        } catch {
+            // cancelled or not supported — silent
         }
     }
 
@@ -90,6 +169,10 @@ function LoginContent() {
             setLoading(false);
         }
     }
+
+    const slugBorder  = fieldErr === "slug"     ? "border-red-400/70 bg-red-500/10"  : "border-white/20 focus:border-white/50 bg-white/10 focus:bg-white/15";
+    const emailBorder = fieldErr === "email"    ? "border-red-400/70 bg-red-500/10"  : "border-white/20 focus:border-white/50 bg-white/10 focus:bg-white/15";
+    const passBorder  = fieldErr === "password" ? "border-red-400/70 bg-red-500/10"  : "border-white/20 focus:border-white/50 bg-white/10 focus:bg-white/15";
 
     /* ── 2FA step ── */
     if (step === "2fa") return (
@@ -137,12 +220,10 @@ function LoginContent() {
     return (
         <div className="min-h-screen relative overflow-hidden" dir={dir}>
 
-            {/* 3D Ocean Background */}
             <Suspense fallback={<div className="absolute inset-0 bg-gradient-to-b from-[#001a2e] to-[#003055]" />}>
                 <OceanBackground />
             </Suspense>
 
-            {/* Overlay gradient for readability */}
             <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/30 pointer-events-none" />
 
             {/* Language switcher */}
@@ -162,132 +243,146 @@ function LoginContent() {
                 ))}
             </div>
 
-            {/* Centered content */}
             <div className="relative z-10 min-h-screen flex flex-col items-center justify-center p-6">
 
-            {/* Logo / Title */}
-            <div className="mb-8 flex flex-col items-center">
-                <div className="mb-3">
-                    <img src="/logo.png" alt="BizControl" className="w-24 h-24 object-contain drop-shadow-2xl" />
-                </div>
-                <div className="font-black text-3xl text-white tracking-tight drop-shadow-lg">BizControl</div>
-                <div className="text-sm text-blue-200/80 mt-1">ניהול העסק שלך, בפשטות</div>
-            </div>
-
-            {/* Card */}
-            <div className="w-full max-w-sm">
-                <div className="bg-white/10 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 p-8">
-                    <div className="mb-6">
-                        <h1 className="text-xl font-bold text-white">{t("login_title")}</h1>
-                        <p className="text-sm text-blue-200/70 mt-0.5">{t("login_subtitle")}</p>
+                <div className="mb-8 flex flex-col items-center">
+                    <div className="mb-3">
+                        <img src="/logo.png" alt="BizControl" className="w-24 h-24 object-contain drop-shadow-2xl" />
                     </div>
+                    <div className="font-black text-3xl text-white tracking-tight drop-shadow-lg">BizControl</div>
+                    <div className="text-sm text-blue-200/80 mt-1">ניהול העסק שלך, בפשטות</div>
+                </div>
 
-                    <form onSubmit={onSubmit} className="space-y-4">
-                        <div>
-                            <label className="text-xs font-semibold text-blue-100/80 block mb-1.5">{t("login_slug")}</label>
-                            <input
-                                className="w-full rounded-xl border border-white/20 focus:border-white/50 px-3.5 py-2.5 text-sm outline-none text-left bg-white/10 text-white placeholder-white/30 focus:bg-white/15 transition-all"
-                                value={studioSlug}
-                                onChange={e => setStudioSlug(e.target.value)}
-                                autoComplete="organization"
-                                dir="ltr"
-                                placeholder="my-studio"
-                            />
+                <div className="w-full max-w-sm">
+                    <div className="bg-white/10 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 p-8">
+                        <div className="mb-6">
+                            <h1 className="text-xl font-bold text-white">{t("login_title")}</h1>
+                            <p className="text-sm text-blue-200/70 mt-0.5">{t("login_subtitle")}</p>
                         </div>
 
-                        <div>
-                            <label className="text-xs font-semibold text-blue-100/80 block mb-1.5">{t("login_email")}</label>
-                            <input
-                                className="w-full rounded-xl border border-white/20 focus:border-white/50 px-3.5 py-2.5 text-sm outline-none text-left bg-white/10 text-white placeholder-white/30 focus:bg-white/15 transition-all"
-                                value={email}
-                                onChange={e => setEmail(e.target.value)}
-                                type="email"
-                                autoComplete="email"
-                                dir="ltr"
-                                placeholder="you@example.com"
-                            />
-                        </div>
-
-                        <div>
-                            <label className="text-xs font-semibold text-blue-100/80 block mb-1.5">{t("login_password")}</label>
-                            <div className="relative">
+                        <form onSubmit={onSubmit} className="space-y-4" autoComplete="on">
+                            <div>
+                                <label className="text-xs font-semibold text-blue-100/80 block mb-1.5">{t("login_slug")}</label>
                                 <input
-                                    className="w-full rounded-xl border border-white/20 focus:border-white/50 px-3.5 py-2.5 text-sm outline-none text-left bg-white/10 text-white placeholder-white/30 focus:bg-white/15 transition-all pl-11"
-                                    value={password}
-                                    onChange={e => setPassword(e.target.value)}
-                                    type={showPass ? "text" : "password"}
-                                    autoComplete="current-password"
+                                    name="username"
+                                    className={`w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none text-left text-white placeholder-white/30 transition-all ${slugBorder}`}
+                                    value={studioSlug}
+                                    onChange={e => setStudioSlug(e.target.value)}
+                                    autoComplete="username"
                                     dir="ltr"
-                                    placeholder="••••••••"
+                                    placeholder="my-studio"
                                 />
+                            </div>
+
+                            <div>
+                                <label className="text-xs font-semibold text-blue-100/80 block mb-1.5">{t("login_email")}</label>
+                                <input
+                                    name="email"
+                                    className={`w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none text-left text-white placeholder-white/30 transition-all ${emailBorder}`}
+                                    value={email}
+                                    onChange={e => setEmail(e.target.value)}
+                                    type="email"
+                                    autoComplete="email"
+                                    dir="ltr"
+                                    placeholder="you@example.com"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="text-xs font-semibold text-blue-100/80 block mb-1.5">{t("login_password")}</label>
+                                <div className="relative">
+                                    <input
+                                        name="password"
+                                        className={`w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none text-left text-white placeholder-white/30 transition-all pl-11 ${passBorder}`}
+                                        value={password}
+                                        onChange={e => setPassword(e.target.value)}
+                                        type={showPass ? "text" : "password"}
+                                        autoComplete="current-password"
+                                        dir="ltr"
+                                        placeholder="••••••••"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPass(!showPass)}
+                                        className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/80 transition-colors"
+                                    >
+                                        {showPass ? (
+                                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                                            </svg>
+                                        ) : (
+                                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                            </svg>
+                                        )}
+                                    </button>
+                                </div>
+                            </div>
+
+                            <label className="flex items-center gap-2.5 cursor-pointer">
+                                <input
+                                    id="remember"
+                                    type="checkbox"
+                                    checked={rememberMe}
+                                    onChange={e => setRememberMe(e.target.checked)}
+                                    className="w-4 h-4 rounded accent-blue-400"
+                                />
+                                <span className="text-sm text-blue-100/60">{t("login_remember")}</span>
+                            </label>
+
+                            {err && (
+                                <div className="text-sm text-red-200 bg-red-500/20 border border-red-400/30 rounded-xl p-3 flex items-center gap-2">
+                                    <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.997L13.732 4.997c-.77-1.33-2.694-1.33-3.464 0L3.34 16.003c-.77 1.33.192 2.997 1.732 2.997z" />
+                                    </svg>
+                                    {err}
+                                </div>
+                            )}
+
+                            <button
+                                disabled={loading}
+                                className="w-full rounded-2xl bg-white/20 hover:bg-white/30 border border-white/30 text-white py-3 font-semibold disabled:opacity-50 transition-all backdrop-blur mt-1 shadow-lg"
+                            >
+                                {loading ? (
+                                    <span className="flex items-center justify-center gap-2">
+                                        <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                        </svg>
+                                        {t("login_loading")}
+                                    </span>
+                                ) : t("login_btn")}
+                            </button>
+
+                            {supportsBiometric && (
                                 <button
                                     type="button"
-                                    onClick={() => setShowPass(!showPass)}
-                                    className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/80 transition-colors"
+                                    onClick={loginWithBiometrics}
+                                    disabled={loading}
+                                    className="w-full rounded-2xl bg-white/10 hover:bg-white/20 border border-white/20 text-white/80 py-2.5 text-sm font-medium disabled:opacity-50 transition-all flex items-center justify-center gap-2"
                                 >
-                                    {showPass ? (
-                                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                                        </svg>
-                                    ) : (
-                                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                        </svg>
-                                    )}
-                                </button>
-                            </div>
-                        </div>
-
-                        <label className="flex items-center gap-2.5 cursor-pointer">
-                            <input
-                                id="remember"
-                                type="checkbox"
-                                checked={rememberMe}
-                                onChange={e => setRememberMe(e.target.checked)}
-                                className="w-4 h-4 rounded accent-blue-400"
-                            />
-                            <span className="text-sm text-blue-100/60">{t("login_remember")}</span>
-                        </label>
-
-                        {err && (
-                            <div className="text-sm text-red-200 bg-red-500/20 border border-red-400/30 rounded-xl p-3 flex items-center gap-2">
-                                <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.997L13.732 4.997c-.77-1.33-2.694-1.33-3.464 0L3.34 16.003c-.77 1.33.192 2.997 1.732 2.997z" />
-                                </svg>
-                                {err}
-                            </div>
-                        )}
-
-                        <button
-                            disabled={loading}
-                            className="w-full rounded-2xl bg-white/20 hover:bg-white/30 border border-white/30 text-white py-3 font-semibold disabled:opacity-50 transition-all backdrop-blur mt-1 shadow-lg"
-                        >
-                            {loading ? (
-                                <span className="flex items-center justify-center gap-2">
-                                    <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M7.864 4.243A7.5 7.5 0 0119.5 10.5c0 2.92-.556 5.709-1.568 8.268M5.742 6.364A7.465 7.465 0 004.5 10.5a7.464 7.464 0 01-1.15 3.993m1.989 3.559A11.209 11.209 0 008.25 10.5a3.75 3.75 0 117.5 0c0 .527-.021 1.049-.064 1.565M12 10.5a14.94 14.94 0 01-3.6 9.75m6.633-4.596a18.666 18.666 0 01-2.485 5.33" />
                                     </svg>
-                                    {t("login_loading")}
-                                </span>
-                            ) : t("login_btn")}
-                        </button>
+                                    {locale.startsWith("en") ? "Use Face ID / Fingerprint" : "התחבר עם Face ID / טביעת אצבע"}
+                                </button>
+                            )}
 
-                        <div className="text-center pt-1">
-                            <a href="/forgot-password" className="text-xs text-blue-200/50 hover:text-blue-200/80 transition-colors">
-                                שכחתי סיסמה
-                            </a>
-                        </div>
-                    </form>
+                            <div className="text-center pt-1">
+                                <a href="/forgot-password" className="text-xs text-blue-200/50 hover:text-blue-200/80 transition-colors">
+                                    {locale.startsWith("en") ? "Forgot password?" : "שכחתי סיסמה"}
+                                </a>
+                            </div>
+                        </form>
+                    </div>
+
+                    <p className="text-center text-xs text-blue-200/40 mt-4">
+                        BizControl © {new Date().getFullYear()}
+                    </p>
                 </div>
 
-                <p className="text-center text-xs text-blue-200/40 mt-4">
-                    BizControl © {new Date().getFullYear()}
-                </p>
             </div>
-
-            </div>{/* end centered */}
         </div>
     );
 }
