@@ -107,6 +107,42 @@ def reset_password_email_html(name: str, reset_link: str) -> str:
     return _email_base("איפוס סיסמה — BizControl", body)
 
 
+def new_club_member_email_html(studio_name: str, member_name: str, phone: str, email: str, points: int, joined_at: str) -> str:
+    email_row = f'<tr><td style="font-size:13px;color:#64748b;padding:8px 0;border-bottom:1px solid #e2e8f0;">📧 אימייל</td><td style="font-size:13px;color:#0f172a;font-weight:bold;border-bottom:1px solid #e2e8f0;">{email}</td></tr>' if email else ""
+    body = f"""
+      <p style="color:#475569;font-size:15px;margin:0 0 20px;">חבר/ה חדש/ה הצטרפ/ה למועדון הלקוחות של <strong style="color:#0f172a;">{studio_name}</strong>!</p>
+
+      <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;margin-bottom:24px;">
+        <tr><td style="padding:20px 24px;">
+          <table width="100%" cellpadding="6" cellspacing="0">
+            <tr>
+              <td style="font-size:13px;color:#64748b;width:40%;padding:8px 0;border-bottom:1px solid #e2e8f0;">👤 שם מלא</td>
+              <td style="font-size:14px;color:#0f172a;font-weight:bold;border-bottom:1px solid #e2e8f0;">{member_name}</td>
+            </tr>
+            <tr>
+              <td style="font-size:13px;color:#64748b;padding:8px 0;border-bottom:1px solid #e2e8f0;">📱 טלפון</td>
+              <td style="font-size:13px;color:#0f172a;font-weight:bold;border-bottom:1px solid #e2e8f0;">{phone or "—"}</td>
+            </tr>
+            {email_row}
+            <tr>
+              <td style="font-size:13px;color:#64748b;padding:8px 0;border-bottom:1px solid #e2e8f0;">⭐ נקודות התחלה</td>
+              <td style="font-size:13px;color:#10b981;font-weight:bold;border-bottom:1px solid #e2e8f0;">{points} נקודות</td>
+            </tr>
+            <tr>
+              <td style="font-size:13px;color:#64748b;padding:8px 0;">🕐 זמן הצטרפות</td>
+              <td style="font-size:13px;color:#0f172a;font-weight:bold;">{joined_at}</td>
+            </tr>
+          </table>
+        </td></tr>
+      </table>
+
+      <p style="font-size:13px;color:#94a3b8;margin:0;text-align:center;">
+        ניתן לצפות בפרטי הלקוח בפאנל הניהול של BizControl.
+      </p>
+    """
+    return _email_base(f"🎉 חבר/ה חדש/ה הצטרפ/ה למועדון — {studio_name}", body)
+
+
 def invite_user_email_html(name: str, studio_name: str, role_he: str, set_pw_link: str) -> str:
     body = f"""
       <p style="color:#475569;font-size:15px;margin:0 0 20px;">שלום <strong>{name}</strong>,</p>

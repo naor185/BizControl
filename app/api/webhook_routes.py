@@ -8,6 +8,9 @@ import os
 import uuid
 from datetime import datetime, timezone
 from fastapi import APIRouter, Request, Response, HTTPException, Depends
+from app.utils.logger import get_logger
+
+log = get_logger(__name__)
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 
@@ -136,11 +139,11 @@ async def meta_incoming(request: Request, db: Session = Depends(get_db)):
             _handle_facebook(db, data)
 
     except Exception as e:
-        print(f"[meta_webhook] error: {e}")
+        log.exception("[meta_webhook] error: %s", e)
     return {"status": "ok"}
 
 
-PLATFORM_STUDIO_ID = os.getenv("PLATFORM_STUDIO_ID", "46b85021-8eb4-4e63-a2e1-638dbb3e58fb")
+PLATFORM_STUDIO_ID = os.getenv("PLATFORM_STUDIO_ID", "")
 
 
 def _find_settings_for_phone_id(db: Session, phone_id: str) -> StudioSettings | None:
@@ -320,5 +323,5 @@ async def green_incoming(instance_id: str, request: Request, db: Session = Depen
         _auto_lead(db, settings.studio_id, "whatsapp", raw_phone, from_name, body)
 
     except Exception as e:
-        print(f"[green_webhook] error: {e}")
+        log.exception("[green_webhook] error: %s", e)
     return {"status": "ok"}

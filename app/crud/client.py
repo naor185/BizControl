@@ -1,6 +1,6 @@
 from __future__ import annotations
 from uuid import UUID
-from sqlalchemy import select, func, or_
+from sqlalchemy import select, or_
 from sqlalchemy.orm import Session
 
 from app.models.client import Client
@@ -51,6 +51,17 @@ def _handle_new_club_member(db: Session, studio_id: UUID, client: Client):
             scheduled_at=datetime.now(timezone.utc),
             status="pending",
         ))
+
+    # In-app notification to studio owner
+    from app.models.notification import Notification
+    points_text = f" • {points} נקודות" if points > 0 else ""
+    db.add(Notification(
+        studio_id=studio_id,
+        type="new_member",
+        title=f"חבר/ה חדש/ה הצטרפ/ה למועדון",
+        body=f"{client.full_name} | {client.phone or client.email or ''}{points_text}",
+        action_url="/clients",
+    ))
 
     # Email Welcome
     if client.email and settings.smtp_host:
@@ -104,7 +115,6 @@ def create_client(db: Session, studio_id: UUID, data: ClientCreate) -> Client:
             raise ValueError("לקוח עם טלפון או אימייל זהה כבר קיים במערכת")
         
         # Reactivate and update inactive client
-        was_club_member = existing.is_club_member
         existing.is_active = True
         existing.full_name = full_name_clean
         existing.phone = phone_clean

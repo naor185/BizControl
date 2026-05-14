@@ -38,3 +38,4 @@ argon2-cffi==23.1.0
 stripe==12.1.0
 slowapi==0.1.9
 pyotp==2.9.0
+sentry-sdk[fastapi]==2.25.1

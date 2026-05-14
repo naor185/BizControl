@@ -1,6 +1,9 @@
 import os
 import uuid
 from datetime import datetime, timezone, timedelta
+from app.utils.logger import get_logger
+
+log = get_logger(__name__)
 
 import pyotp
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -181,7 +184,7 @@ def forgot_password(request: Request, payload: ForgotPasswordIn, db: Session = D
             html_content=reset_password_email_html(user.display_name or user.email, reset_link),
         )
     except Exception as e:
-        print(f"[forgot_password] email failed: {e}")
+        log.error("[forgot_password] email failed: %s", e)
 
     return {"status": "sent"}
 

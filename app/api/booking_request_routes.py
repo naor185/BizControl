@@ -6,6 +6,9 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime, timedelta, timezone
+from app.utils.logger import get_logger
+
+log = get_logger(__name__)
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -196,7 +199,7 @@ def approve_request(
         from app.crud.automation import enqueue_confirmation_message
         enqueue_confirmation_message(db, appt, artist_name=artist_name)
     except Exception as e:
-        print(f"[booking-approve] automation failed: {e}")
+        log.error("[booking-approve] automation failed: %s", e)
 
     db.commit()
     return {"status": "approved", "appointment_id": str(appt.id)}

@@ -4,6 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from datetime import datetime
+from app.utils.logger import get_logger
+
+log = get_logger(__name__)
 
 from app.db.deps import get_db
 from app.core.deps import require_studio_ctx, AuthContext
@@ -56,7 +59,7 @@ def create(payload: AppointmentCreate, ctx: AuthContext = Depends(require_studio
                     appt_obj.google_event_id = google_id
                     db.commit()
             except Exception as e:
-                print(f"Failed to create Google event: {e}")
+                log.warning("Failed to create Google event: %s", e)
 
         return get_appointment_out(db, ctx.studio_id, created["id"])
     except ValueError as e:
@@ -133,7 +136,7 @@ def list_(
                         "google_event_id": g_id
                     })
         except Exception as e:
-            print(f"Failed to fetch Google Calendar events: {e}")
+            log.warning("Failed to fetch Google Calendar events: %s", e)
 
     return db_events
 
@@ -194,7 +197,7 @@ def patch(appointment_id: UUID, payload: AppointmentUpdate, ctx: AuthContext = D
                     description=desc
                 )
             except Exception as e:
-                print(f"Failed to update Google event: {e}")
+                log.warning("Failed to update Google event: %s", e)
     
     return get_appointment_out(db, ctx.studio_id, appointment_id)
 
@@ -222,7 +225,7 @@ def cancel(appointment_id: UUID, reason: str | None = Query(default=None), hard_
                 )
                 delete_google_event(service, appt_obj.google_event_id)
             except Exception as e:
-                print(f"Failed to delete Google event: {e}")
+                log.warning("Failed to delete Google event: %s", e)
                 
     return None
 
@@ -264,6 +267,6 @@ def verify_sent_payment(appointment_id: UUID, ctx: AuthContext = Depends(require
     try:
         enqueue_deposit_approved_message(db, appt)
     except Exception as e:
-        print(f"[deposit_approved_msg] failed: {e}")
+        log.error("[deposit_approved_msg] failed: %s", e)
 
     return {"message": "Payment verified and recorded"}

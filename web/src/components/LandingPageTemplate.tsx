@@ -25,6 +25,7 @@ export type LandingPageContentProps = {
     onSubmit?: (e: React.FormEvent) => void;
     submitting?: boolean;
     success?: boolean;
+    joinedPoints?: number;
     submitErr?: string | null;
     marketingConsent?: boolean;
     setMarketingConsent?: (val: boolean) => void;
@@ -54,6 +55,7 @@ export default function LandingPageTemplate({
     onSubmit,
     submitting = false,
     success = false,
+    joinedPoints = 0,
     submitErr = null,
     marketingConsent = true,
     setMarketingConsent,
@@ -114,6 +116,11 @@ export default function LandingPageTemplate({
             <div className="w-20 h-20 mx-auto rounded-full flex items-center justify-center text-white text-4xl shadow-xl shadow-slate-200/50" style={{ backgroundColor: themePrimary }}>✓</div>
             <h2 className="text-3xl font-bold tracking-tight" style={{ color: themePrimary }}>איזה כיף שהצטרפת!</h2>
             <p className="text-slate-600 font-medium text-lg">הפרטים שלך נקלטו בהצלחה במערכת של {studioName}. נהיה בקשר!</p>
+            {joinedPoints > 0 && (
+                <div className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl text-white font-bold text-lg shadow-lg" style={{ backgroundColor: themePrimary }}>
+                    ⭐ קיבלת {joinedPoints} נקודות במתנה!
+                </div>
+            )}
         </div>
     );
 

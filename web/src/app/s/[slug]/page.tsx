@@ -44,6 +44,7 @@ export default function StudioLandingPage() {
     const [marketingConsent, setMarketingConsent] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [success, setSuccess] = useState(false);
+    const [joinedPoints, setJoinedPoints] = useState<number>(0);
     const [submitErr, setSubmitErr] = useState<string | null>(null);
 
     const apiBase = process.env.NEXT_PUBLIC_API_BASE || "";
@@ -81,6 +82,8 @@ export default function StudioLandingPage() {
                 const err = await res.json().catch(() => ({}));
                 throw new Error(err?.detail || "שגיאה בהרשמה");
             }
+            const result = await res.json().catch(() => ({}));
+            setJoinedPoints(result?.loyalty_points ?? 0);
             setSuccess(true);
         } catch (e: unknown) {
             setSubmitErr((e as Error)?.message || "שגיאה בהרשמה, נסה שוב");
@@ -139,6 +142,7 @@ export default function StudioLandingPage() {
                 onSubmit={handleSubmit}
                 submitting={submitting}
                 success={success}
+                joinedPoints={joinedPoints}
                 submitErr={submitErr}
                 marketingConsent={marketingConsent}
                 setMarketingConsent={setMarketingConsent}

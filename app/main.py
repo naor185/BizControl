@@ -1,6 +1,27 @@
 import os
+import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
+
+import sentry_sdk
+from sentry_sdk.integrations.fastapi import FastApiIntegration
+from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
+
+logging.basicConfig(
+    format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+    level=getattr(logging, os.getenv("LOG_LEVEL", "INFO").upper(), logging.INFO),
+)
+
+_sentry_dsn = os.getenv("SENTRY_DSN", "")
+if _sentry_dsn:
+    sentry_sdk.init(
+        dsn=_sentry_dsn,
+        integrations=[FastApiIntegration(), SqlalchemyIntegration()],
+        traces_sample_rate=0.1,
+        environment=os.getenv("ENVIRONMENT", "production"),
+        send_default_pii=False,
+    )
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from slowapi import _rate_limit_exceeded_handler
@@ -58,7 +79,7 @@ def stop_scheduler():
         pass
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(_app: FastAPI):
     start_scheduler()
     AutomationService.register() # Register event handlers
     os.makedirs("uploads", exist_ok=True)
@@ -93,4 +114,8 @@ app.include_router(api_router, prefix="/api")
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    missing = [k for k in ("JWT_SECRET", "DATABASE_URL", "RESEND_API_KEY") if not os.getenv(k)]
+    if missing:
+        import logging
+        logging.getLogger("bizcontrol.health").warning("Missing env vars: %s", missing)
+    return {"status": "ok", "missing_config": missing}

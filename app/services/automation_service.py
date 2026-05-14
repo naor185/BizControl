@@ -1,8 +1,11 @@
 from sqlalchemy import text
 from app.db.session import SessionLocal
 from app.events.event_bus import EventBus
+from app.utils.logger import get_logger
 import uuid
 from datetime import datetime
+
+log = get_logger(__name__)
 
 class AutomationService:
 
@@ -24,7 +27,7 @@ class AutomationService:
             db.commit()
         except Exception as e:
             db.rollback()
-            print(f"Error in automation: {e}")
+            log.exception("Error in automation handler: %s", e)
         finally:
             db.close()
 
@@ -58,14 +61,14 @@ class AutomationService:
                 "created_at": datetime.now()
             }
         )
-        print(f"✅ Added {points_to_add} points for client {client_id}")
+        log.info("Added %d points for client %s", points_to_add, client_id)
 
     @staticmethod
     def aftercare_message(db, data):
         # Placeholder for messaging logic
-        print(f"📩 Sending aftercare message to {data.get('client_id')}")
+        log.info("Aftercare message placeholder for client %s", data.get("client_id"))
 
     @staticmethod
     def ask_for_review(db, data):
         # Placeholder for review request logic
-        print(f"⭐️ Asking for review from {data.get('client_id')}")
+        log.info("Review request placeholder for client %s", data.get("client_id"))

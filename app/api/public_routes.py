@@ -169,7 +169,7 @@ def join_studio(studio_id: str, payload: ClientJoinRequest, db: Session = Depend
     db.commit()
     db.refresh(new_client)
 
-    return {"message": "Successfully joined", "client_id": new_client.id}
+    return {"message": "Successfully joined", "client_id": new_client.id, "loyalty_points": new_client.loyalty_points}
 
 @router.get("/payment/{appointment_id}", response_model=PublicPaymentInfo)
 def get_public_payment_info(appointment_id: str, db: Session = Depends(get_db)):

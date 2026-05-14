@@ -11,6 +11,9 @@ from app.models.appointment import Appointment
 from app.models.client import Client
 from app.crud.automation import format_template
 from app.utils.email_utils import send_email
+from app.utils.logger import get_logger
+
+log = get_logger(__name__)
 
 def _send_via_meta(phone_id: str, token: str, to_phone: str, body: str) -> None:
     import urllib.request, urllib.error, json as _json
@@ -54,21 +57,18 @@ def _send_via_green(instance_id: str, api_key: str, to_phone: str, body: str) ->
             raise RuntimeError(f"Green API error {resp.status}")
 
 
-PLATFORM_STUDIO_ID = "46b85021-8eb4-4e63-a2e1-638dbb3e58fb"
-
-
-def send_whatsapp_message(to_phone: str, body: str, settings=None, db: Session = None) -> None:
-    # If studio has no WhatsApp configured, fall back to platform settings
+def send_whatsapp_message(to_phone: str, body: str, settings=None) -> None:
     provider = getattr(settings, "whatsapp_provider", None) if settings else None
-    if not provider and db:
-        settings = db.get(StudioSettings, PLATFORM_STUDIO_ID)
-        provider = getattr(settings, "whatsapp_provider", None) if settings else None
+
+    if not provider:
+        log.warning("WhatsApp לא מוגדר לסטודיו זה — הודעה לא נשלחה ל-%s", to_phone)
+        return
 
     if provider == "green_api":
         instance_id = getattr(settings, "whatsapp_instance_id", None)
         api_key = getattr(settings, "whatsapp_api_key", None)
         if not instance_id or not api_key:
-            print(f"[WA-GREEN] חסרים פרטי Green API, לא נשלח ל-{to_phone}")
+            log.warning("[WA-GREEN] חסרים פרטי Green API, לא נשלח ל-%s", to_phone)
             return
         _send_via_green(instance_id, api_key, to_phone, body)
 
@@ -76,7 +76,7 @@ def send_whatsapp_message(to_phone: str, body: str, settings=None, db: Session =
         _send_via_meta(settings.whatsapp_phone_id, settings.whatsapp_api_key, to_phone, body)
 
     else:
-        print(f"[WHATSAPP LOG-ONLY] to={to_phone}\n{body}\n")
+        log.warning("[WHATSAPP] ספק לא מזוהה '%s' — הודעה לא נשלחה ל-%s", provider, to_phone)
 
 def process_due_jobs(db: Session, limit: int = 20) -> int:
     now = datetime.now(timezone.utc)
@@ -114,7 +114,7 @@ def process_due_jobs(db: Session, limit: int = 20) -> int:
                 )
             else:
                 settings = db.get(StudioSettings, job.studio_id)
-                send_whatsapp_message(job.to_phone, job.body, settings, db=db)
+                send_whatsapp_message(job.to_phone, job.body, settings)
             
             job.status = "sent"
             job.sent_at = now

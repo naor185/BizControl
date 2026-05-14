@@ -2,6 +2,9 @@ import datetime
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 import pytz
+from app.utils.logger import get_logger
+
+log = get_logger(__name__)
 
 def get_google_calendar_service(client_id: str, client_secret: str, refresh_token: str):
     """Builds and returns a Google Calendar service object."""
@@ -62,15 +65,14 @@ def update_google_event(service, event_id: str, title: str = None, start_time: d
 
         service.events().update(calendarId='primary', eventId=event_id, body=event).execute()
     except Exception as e:
-        print(f"Failed to update Google event {event_id}: {e}")
-        # Not throwing hard if the event was deleted manually from google calendar
+        log.warning("Failed to update Google event %s: %s", event_id, e)
 
 def delete_google_event(service, event_id: str):
     """Deletes an event from Google Calendar."""
     try:
         service.events().delete(calendarId='primary', eventId=event_id).execute()
     except Exception as e:
-        print(f"Failed to delete Google event {event_id}: {e}")
+        log.warning("Failed to delete Google event %s: %s", event_id, e)
 
 def list_google_events(service, start_time: datetime.datetime, end_time: datetime.datetime) -> list:
     """Fetches events from the primary calendar within the specified time range."""
@@ -90,5 +92,5 @@ def list_google_events(service, start_time: datetime.datetime, end_time: datetim
         ).execute()
         return events_result.get('items', [])
     except Exception as e:
-        print(f"Failed to fetch Google events: {e}")
+        log.warning("Failed to fetch Google events: %s", e)
         return []

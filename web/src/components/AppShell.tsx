@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { apiFetch, clearToken, getToken, setToken } from "@/lib/api";
 import ClockWidget from "./ClockWidget";
 import BottomNav from "./BottomNav";
+import NotificationBell from "./NotificationBell";
 import { useLang } from "./LanguageProvider";
 import { LOCALES, TranslationKey } from "@/lib/i18n";
 
@@ -260,6 +261,7 @@ export default function AppShell({
                             <h1 className="text-lg font-bold text-slate-900">{title}</h1>
 
                             <div className="flex items-center gap-3">
+                                <NotificationBell />
                                 {/* User greeting — desktop */}
                                 <div className="hidden sm:flex items-center gap-2.5">
                                     <div className="w-7 h-7 rounded-full bg-slate-900 text-white flex items-center justify-center text-xs font-bold">

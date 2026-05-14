@@ -8,6 +8,9 @@ import threading
 import uuid
 from datetime import datetime, timezone, timedelta
 from typing import Optional
+from app.utils.logger import get_logger
+
+log = get_logger(__name__)
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -48,7 +51,7 @@ def _send_email_bg(**kwargs) -> None:
         try:
             send_email_sync(**kwargs)
         except Exception as e:
-            print(f"[email_bg] failed: {e}")
+            log.error("[email_bg] failed: %s", e)
     threading.Thread(target=_run, daemon=True).start()
 
 
@@ -1010,7 +1013,7 @@ class LeadAnalyticsOut(BaseModel):
 
 # ── Platform WhatsApp Settings ────────────────────────────────────────────────
 
-PLATFORM_STUDIO_ID = "46b85021-8eb4-4e63-a2e1-638dbb3e58fb"
+PLATFORM_STUDIO_ID = os.getenv("PLATFORM_STUDIO_ID", "")
 
 
 class PlatformSettingsOut(BaseModel):
