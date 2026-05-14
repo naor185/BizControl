@@ -75,6 +75,30 @@ const STATUS_COLORS: Record<string, string> = {
 export default function CalendarPage() {
     const router = useRouter();
     const calendarRef = useRef<FullCalendar>(null);
+    const touchStartX = useRef<number | null>(null);
+    const touchStartY = useRef<number | null>(null);
+
+    const handleTouchStart = useCallback((e: React.TouchEvent) => {
+        touchStartX.current = e.touches[0].clientX;
+        touchStartY.current = e.touches[0].clientY;
+    }, []);
+
+    const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+        if (touchStartX.current === null || touchStartY.current === null) return;
+        const dx = touchStartX.current - e.changedTouches[0].clientX;
+        const dy = touchStartY.current - e.changedTouches[0].clientY;
+        // רק אם התנועה היא בעיקרה אופקית (לא גלילה אנכית)
+        if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+            const api = calendarRef.current?.getApi();
+            if (dx > 0) {
+                api?.next();  // החלקה שמאלה → שבוע הבא
+            } else {
+                api?.prev(); // החלקה ימינה → שבוע קודם
+            }
+        }
+        touchStartX.current = null;
+        touchStartY.current = null;
+    }, []);
     const [clients, setClients] = useState<Client[]>([]);
     const [artists, setArtists] = useState<Artist[]>([]);
     const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -536,7 +560,11 @@ export default function CalendarPage() {
                     </div>
 
                     {/* Calendar Container */}
-                    <div className="flex-1 bg-white rounded-xl shadow-lg p-2 sm:p-3 border border-slate-100 overflow-hidden relative">
+                    <div
+                        className="flex-1 bg-white rounded-xl shadow-lg p-2 sm:p-3 border border-slate-100 overflow-hidden relative"
+                        onTouchStart={handleTouchStart}
+                        onTouchEnd={handleTouchEnd}
+                    >
                         <FullCalendar
                             ref={calendarRef}
                             plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
