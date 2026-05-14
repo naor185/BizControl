@@ -99,8 +99,8 @@ export default function BottomNav() {
                                 className={[
                                     "flex flex-col items-center gap-1.5 py-3 rounded-2xl text-center transition-all active:scale-95",
                                     active
-                                        ? "bg-black text-white shadow-md"
-                                        : "bg-gray-50 text-gray-700 hover:bg-gray-100",
+                                        ? "bg-sky-600 text-white shadow-md"
+                                        : "bg-gray-50 text-gray-700 hover:bg-sky-50",
                                 ].join(" ")}
                             >
                                 <span className="text-2xl leading-none">{item.icon}</span>
@@ -137,7 +137,7 @@ export default function BottomNav() {
                                 className="flex-1 relative flex flex-col items-center justify-center gap-0.5 transition-all active:scale-90"
                             >
                                 {active && (
-                                    <span className="absolute top-1.5 inset-x-1.5 h-9 bg-black/6 rounded-2xl" />
+                                    <span className="absolute top-1.5 inset-x-1.5 h-9 bg-sky-500/10 rounded-2xl" />
                                 )}
 
                                 <div className="relative z-10">
@@ -156,13 +156,13 @@ export default function BottomNav() {
 
                                 <span className={[
                                     "text-[10px] font-semibold z-10 transition-colors",
-                                    active ? "text-black" : "text-gray-400",
+                                    active ? "text-sky-600" : "text-gray-400",
                                 ].join(" ")}>
                                     {t(item.labelKey)}
                                 </span>
 
                                 {active && (
-                                    <span className="absolute bottom-0 inset-x-4 h-[3px] bg-black rounded-t-full" />
+                                    <span className="absolute bottom-0 inset-x-4 h-[3px] bg-sky-500 rounded-t-full" />
                                 )}
                             </Link>
                         );
@@ -175,7 +175,7 @@ export default function BottomNav() {
                             className="flex-none w-14 flex items-center justify-center self-center mx-1"
                             aria-label="קבע תור חדש"
                         >
-                            <span className="w-11 h-11 bg-black rounded-full flex items-center justify-center shadow-lg active:scale-90 transition-transform">
+                            <span className="w-11 h-11 bg-sky-600 rounded-full flex items-center justify-center shadow-lg shadow-sky-500/30 active:scale-90 transition-transform">
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round">
                                     <path d="M12 5v14M5 12h14" />
                                 </svg>
@@ -190,7 +190,7 @@ export default function BottomNav() {
                             className="flex-1 relative flex flex-col items-center justify-center gap-0.5 transition-all active:scale-90"
                         >
                             {(moreActive || sheetOpen) && (
-                                <span className="absolute top-1.5 inset-x-1.5 h-9 bg-black/6 rounded-2xl" />
+                                <span className="absolute top-1.5 inset-x-1.5 h-9 bg-sky-500/10 rounded-2xl" />
                             )}
 
                             <span className={[
@@ -202,13 +202,13 @@ export default function BottomNav() {
 
                             <span className={[
                                 "text-[10px] font-semibold z-10",
-                                moreActive || sheetOpen ? "text-black" : "text-gray-400",
+                                moreActive || sheetOpen ? "text-sky-600" : "text-gray-400",
                             ].join(" ")}>
                                 עוד
                             </span>
 
                             {moreActive && !sheetOpen && (
-                                <span className="absolute bottom-0 inset-x-4 h-[3px] bg-black rounded-t-full" />
+                                <span className="absolute bottom-0 inset-x-4 h-[3px] bg-sky-500 rounded-t-full" />
                             )}
                         </button>
                     )}

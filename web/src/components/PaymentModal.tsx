@@ -82,7 +82,7 @@ export default function PaymentModal({ isOpen, onClose, onSuccess, appointment }
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-2 animate-in fade-in duration-200" dir="rtl">
             <div className="bg-white rounded-2xl w-full max-w-[340px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-                <div className="bg-slate-900 p-3 text-white text-right">
+                <div className="bg-sky-600 p-3 text-white text-right">
                     <div className="flex justify-between items-center">
                         <h3 className="text-sm font-bold truncate ml-2">תשלום: {appointment.client_name}</h3>
                         <button onClick={onClose} className="text-white/60 hover:text-white text-lg">✕</button>
@@ -292,7 +292,7 @@ export default function PaymentModal({ isOpen, onClose, onSuccess, appointment }
                     <button
                         onClick={handleSave}
                         disabled={isSaving || (!amount && (!pointsRedeemed || pointsRedeemed === "0"))}
-                        className="flex-[2] py-2 bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold rounded-lg shadow-lg transition-all disabled:opacity-50"
+                        className="flex-[2] py-2 bg-sky-600 hover:bg-sky-700 text-white text-sm font-bold rounded-lg shadow-lg transition-all disabled:opacity-50"
                     >
                         {isSaving ? "שומר..." : "אישור תשלום ✅"}
                     </button>

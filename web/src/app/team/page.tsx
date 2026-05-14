@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import AppShell from "@/components/AppShell";
@@ -171,7 +171,7 @@ export default function TeamPage() {
                         </div>
                         <button
                             onClick={openCreateModal}
-                            className="flex items-center justify-center gap-2 bg-slate-900 text-white px-5 py-2.5 rounded-xl font-bold shadow-lg shadow-slate-900/20 hover:bg-slate-800 hover:-translate-y-0.5 transition-all w-full md:w-auto"
+                            className="flex items-center justify-center gap-2 bg-sky-600 text-white px-5 py-2.5 rounded-xl font-bold shadow-lg shadow-sky-600/20 hover:bg-sky-700 hover:-translate-y-0.5 transition-all w-full md:w-auto"
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -304,7 +304,7 @@ export default function TeamPage() {
                                         type="text"
                                         value={displayName}
                                         onChange={e => setDisplayName(e.target.value)}
-                                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-slate-800"
+                                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-sky-600"
                                         placeholder="לדוגמא: דניאל המקעקע"
                                     />
                                 </div>
@@ -324,7 +324,7 @@ export default function TeamPage() {
                                                 className={[
                                                     "flex flex-col items-start gap-0.5 p-3 rounded-xl border-2 text-right transition-all",
                                                     role === opt.value
-                                                        ? "border-slate-900 bg-slate-900 text-white"
+                                                        ? "border-sky-600 bg-sky-600 text-white"
                                                         : "border-slate-200 bg-white text-slate-700 hover:border-slate-400",
                                                 ].join(" ")}
                                             >
@@ -365,7 +365,7 @@ export default function TeamPage() {
                                                 onClick={() => setPayType(t.value)}
                                                 className={`flex-1 py-2 text-xs font-bold rounded-xl border transition-all ${
                                                     payType === t.value
-                                                    ? 'bg-slate-900 text-white border-slate-900 shadow-md'
+                                                    ? 'bg-sky-600 text-white border-sky-600 shadow-md'
                                                     : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'
                                                 }`}
                                             >
@@ -381,7 +381,7 @@ export default function TeamPage() {
                                                 type="number"
                                                 value={hourlyRate}
                                                 onChange={e => setHourlyRate(Number(e.target.value))}
-                                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-slate-800"
+                                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-sky-600"
                                                 placeholder="לדוגמא: 50"
                                             />
                                         </div>
@@ -394,7 +394,7 @@ export default function TeamPage() {
                                                 type="number"
                                                 value={commissionRate}
                                                 onChange={e => setCommissionRate(Number(e.target.value))}
-                                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-slate-800"
+                                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-sky-600"
                                                 placeholder="לדוגמא: 30"
                                             />
                                         </div>
@@ -408,7 +408,7 @@ export default function TeamPage() {
                                                 type="number"
                                                 value={globalSalary}
                                                 onChange={e => setGlobalSalary(Number(e.target.value))}
-                                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-slate-800"
+                                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-sky-600"
                                                 placeholder="לדוגמא: 6000"
                                             />
                                         </div>
@@ -424,7 +424,7 @@ export default function TeamPage() {
                                         disabled={!!editingUserId}
                                         dir="ltr"
                                         autoComplete="off"
-                                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-slate-800 disabled:opacity-50"
+                                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-sky-600 disabled:opacity-50"
                                         placeholder="user@example.com"
                                     />
                                     {editingUserId && <p className="text-xs text-slate-500 mt-1">לא ניתן לשנות אימייל למשתמש קיים.</p>}
@@ -438,7 +438,7 @@ export default function TeamPage() {
                                         onChange={e => setPassword(e.target.value)}
                                         dir="ltr"
                                         autoComplete="new-password"
-                                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-slate-800"
+                                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-sky-600"
                                         placeholder="••••••••"
                                     />
                                 </div>
@@ -464,7 +464,7 @@ export default function TeamPage() {
 
                             <div className="bg-slate-50 p-5 flex justify-end gap-3 shrink-0 rounded-b-3xl">
                                 <button onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-200 rounded-xl transition-colors">ביטול</button>
-                                <button onClick={handleSave} className="px-6 py-2.5 text-sm font-bold text-white bg-slate-900 shadow-lg shadow-slate-900/20 hover:bg-slate-800 rounded-xl transition-all">
+                                <button onClick={handleSave} className="px-6 py-2.5 text-sm font-bold text-white bg-sky-600 shadow-lg shadow-sky-600/20 hover:bg-sky-700 rounded-xl transition-all">
                                     שמור שינויים
                                 </button>
                             </div>

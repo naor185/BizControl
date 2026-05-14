@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import RequireAuth from "@/components/RequireAuth";
@@ -187,10 +187,10 @@ export default function Page() {
                                             "px-4 py-1.5 rounded-full text-sm font-bold transition-all border",
                                             m.key === "all"
                                                 ? selectedMethods.size === 0
-                                                    ? "bg-slate-900 text-white border-slate-900 shadow-lg"
+                                                    ? "bg-sky-600 text-white border-slate-900 shadow-lg"
                                                     : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"
                                                 : selectedMethods.has(m.key)
-                                                    ? "bg-slate-900 text-white border-slate-900 shadow-lg"
+                                                    ? "bg-sky-600 text-white border-slate-900 shadow-lg"
                                                     : "bg-white text-slate-600 border-slate-200 hover:border-slate-400",
                                         ].join(" ")}
                                     >

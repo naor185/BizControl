@@ -141,8 +141,8 @@ export default function AppShell({
                                     className={[
                                         "flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium transition-all",
                                         active
-                                            ? "bg-black text-white shadow-sm"
-                                            : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
+                                            ? "bg-sky-600 text-white shadow-sm shadow-sky-200"
+                                            : "text-slate-600 hover:bg-sky-50 hover:text-sky-700",
                                     ].join(" ")}
                                 >
                                     <span className="text-base leading-none">{item.icon}</span>
@@ -160,7 +160,7 @@ export default function AppShell({
                                 onClick={() => setSettingsOpen(o => !o)}
                                 className={[
                                     "w-full flex items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium transition-all",
-                                    isInSettings ? "bg-slate-100 text-slate-900" : "text-slate-500 hover:bg-slate-50 hover:text-slate-700",
+                                    isInSettings ? "bg-sky-50 text-sky-800" : "text-slate-500 hover:bg-sky-50 hover:text-sky-700",
                                 ].join(" ")}
                             >
                                 <div className="flex items-center gap-2.5">
@@ -181,8 +181,8 @@ export default function AppShell({
                                                 className={[
                                                     "flex items-center gap-2 rounded-xl px-3 py-2 text-sm transition-all",
                                                     active
-                                                        ? "bg-black text-white font-medium"
-                                                        : "text-slate-500 hover:bg-slate-50 hover:text-slate-800",
+                                                        ? "bg-sky-600 text-white font-medium shadow-sm shadow-sky-200"
+                                                        : "text-slate-500 hover:bg-sky-50 hover:text-sky-700",
                                                 ].join(" ")}
                                             >
                                                 <span className="text-base leading-none">{item.icon}</span>
@@ -226,7 +226,7 @@ export default function AppShell({
 
                         {/* User row */}
                         <div className="flex items-center gap-2.5 px-1">
-                            <div className="w-8 h-8 rounded-full bg-black text-white flex items-center justify-center text-xs font-bold flex-shrink-0">
+                            <div className="w-8 h-8 rounded-full bg-sky-600 text-white flex items-center justify-center text-xs font-bold flex-shrink-0">
                                 {avatarLetter}
                             </div>
                             <div className="flex-1 min-w-0">
@@ -240,7 +240,7 @@ export default function AppShell({
                         {me?.role === "superadmin" && (
                             <Link
                                 href="/admin"
-                                className="w-full flex items-center justify-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm py-2 font-semibold transition-colors"
+                                className="w-full flex items-center justify-center gap-2 rounded-xl bg-sky-700 hover:bg-sky-800 text-white text-sm py-2 font-semibold transition-colors"
                             >
                                 <span>🛡️</span>
                                 <span>פאנל ניהול</span>
@@ -269,7 +269,7 @@ export default function AppShell({
                                 <NotificationBell />
                                 {/* User greeting — desktop */}
                                 <div className="hidden sm:flex items-center gap-2.5">
-                                    <div className="w-7 h-7 rounded-full bg-slate-900 text-white flex items-center justify-center text-xs font-bold">
+                                    <div className="w-7 h-7 rounded-full bg-sky-600 text-white flex items-center justify-center text-xs font-bold">
                                         {avatarLetter}
                                     </div>
                                     <div className="text-sm text-slate-600">

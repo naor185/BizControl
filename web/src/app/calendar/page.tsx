@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
@@ -209,9 +209,9 @@ export default function CalendarPage() {
             start: h.date,
             allDay: true,
             display: "block" as const,
-            backgroundColor: "#fef9c3",
-            borderColor: "#fde047",
-            textColor: "#713f12",
+            backgroundColor: "#e0f2fe",
+            borderColor: "#7dd3fc",
+            textColor: "#0369a1",
             classNames: ["holiday-event"],
             extendedProps: { isHoliday: true, holidayInfo: h.info, holidayName: h.name },
         }));
@@ -468,7 +468,7 @@ export default function CalendarPage() {
                 titleAction={
                     <button
                         onClick={() => router.push("/clients?create=1")}
-                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-900 text-white hover:bg-slate-700 transition-colors shadow-sm"
+                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-sky-600 text-white hover:bg-sky-700 transition-colors shadow-sm shadow-sky-200"
                     >
                         <span className="text-sm leading-none">+</span>
                         לקוח חדש
@@ -523,12 +523,12 @@ export default function CalendarPage() {
                                 onClick={toggleHolidays}
                                 className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
                                     showHolidays
-                                        ? "bg-yellow-50 border-yellow-300 text-yellow-800"
+                                        ? "bg-sky-50 border-sky-300 text-sky-800"
                                         : "bg-slate-50 border-slate-200 text-slate-400"
                                 }`}
                             >
                                 🗓️ {showHolidays ? "חגים" : "חגים"}
-                                <span className={`w-6 h-3.5 rounded-full transition-colors flex-shrink-0 relative ${showHolidays ? "bg-yellow-400" : "bg-slate-300"}`}>
+                                <span className={`w-6 h-3.5 rounded-full transition-colors flex-shrink-0 relative ${showHolidays ? "bg-sky-500" : "bg-slate-300"}`}>
                                     <span className={`absolute top-0.5 w-2.5 h-2.5 rounded-full bg-white shadow transition-all ${showHolidays ? "left-3" : "left-0.5"}`} />
                                 </span>
                             </button>
@@ -794,7 +794,7 @@ export default function CalendarPage() {
                                 </div>
                                 <div className="flex gap-3">
                                     <button onClick={() => setIsModalOpen(false)} className="px-5 py-2 text-sm font-bold text-slate-600 hover:bg-slate-200 rounded-xl transition-colors">סגור</button>
-                                    <button onClick={handleSaveAppointment} className="px-6 py-2 text-sm font-bold text-white bg-slate-900 shadow-lg shadow-slate-900/20 hover:bg-slate-800 hover:-translate-y-0.5 rounded-xl transition-all">
+                                    <button onClick={handleSaveAppointment} className="px-6 py-2 text-sm font-bold text-white bg-sky-600 shadow-lg shadow-sky-600/20 hover:bg-sky-700 hover:-translate-y-0.5 rounded-xl transition-all">
                                         {selectedEventId ? "שמור שינויים" : "קבע תור חדש"}
                                     </button>
                                 </div>
@@ -864,7 +864,7 @@ export default function CalendarPage() {
                                 </button>
                                 <button
                                     onClick={() => setHolidayPopup(null)}
-                                    className="flex-1 py-2 rounded-xl text-sm bg-slate-900 text-white font-semibold hover:bg-slate-700 transition-colors"
+                                    className="flex-1 py-2 rounded-xl text-sm bg-sky-600 text-white font-semibold hover:bg-slate-700 transition-colors"
                                 >
                                     סגור
                                 </button>
@@ -875,7 +875,7 @@ export default function CalendarPage() {
 
                 {/* Mobile FAB */}
                 <button
-                    className="fixed bottom-24 left-4 z-40 sm:hidden w-14 h-14 bg-slate-900 text-white rounded-full shadow-2xl shadow-slate-900/40 flex items-center justify-center text-3xl font-light active:scale-95 transition-transform"
+                    className="fixed bottom-24 left-4 z-40 sm:hidden w-14 h-14 bg-sky-600 text-white rounded-full shadow-2xl shadow-slate-900/40 flex items-center justify-center text-3xl font-light active:scale-95 transition-transform"
                     onClick={() => {
                         const now = new Date();
                         const later = new Date(now.getTime() + 2 * 60 * 60 * 1000);

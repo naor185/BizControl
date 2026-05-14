@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -20,7 +20,7 @@ function Stepper({ current }: { current: Step }) {
             {STEPS.map((s, i) => (
                 <div key={s.id} className="flex items-center flex-1 last:flex-none">
                     <div className="flex flex-col items-center">
-                        <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold transition-all ${current > s.id ? "bg-emerald-500 text-white" : current === s.id ? "bg-slate-900 text-white" : "bg-slate-200 text-slate-400"}`}>
+                        <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold transition-all ${current > s.id ? "bg-emerald-500 text-white" : current === s.id ? "bg-sky-600 text-white" : "bg-slate-200 text-slate-400"}`}>
                             {current > s.id ? "✓" : s.id}
                         </div>
                         <span className={`text-xs mt-1.5 whitespace-nowrap ${current === s.id ? "text-slate-800 font-semibold" : "text-slate-400"}`}>{s.label}</span>

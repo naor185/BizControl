@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -1538,7 +1538,7 @@ export default function AutomationSettingsPage() {
                     <button
                         onClick={handleSave}
                         disabled={saving}
-                        className={`group relative overflow-hidden px-10 py-4 rounded-2xl font-bold text-white shadow-2xl transition-all duration-300 flex items-center gap-3 ${saving ? 'bg-slate-400 scale-95' : 'bg-slate-900 hover:bg-slate-800 hover:-translate-y-1 active:scale-95'
+                        className={`group relative overflow-hidden px-10 py-4 rounded-2xl font-bold text-white shadow-2xl transition-all duration-300 flex items-center gap-3 ${saving ? 'bg-slate-400 scale-95' : 'bg-slate-900 hover:bg-sky-700 hover:-translate-y-1 active:scale-95'
                             }`}
                     >
                         {saving && (

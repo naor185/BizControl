@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
@@ -168,7 +168,7 @@ export default function PublicPaymentPage() {
                                 <button
                                     onClick={handleConfirm}
                                     disabled={confirming}
-                                    className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black text-lg shadow-xl shadow-slate-900/20 hover:bg-slate-800 disabled:opacity-50 transition-all"
+                                    className="w-full bg-sky-600 text-white py-4 rounded-2xl font-black text-lg shadow-xl shadow-sky-600/20 hover:bg-slate-800 disabled:opacity-50 transition-all"
                                 >
                                     {confirming ? "מעדכן..." : "לחצתי ושילמתי - עדכן את הסטודיו! ✅"}
                                 </button>

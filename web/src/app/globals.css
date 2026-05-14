@@ -3,6 +3,12 @@
 :root {
   --background: #f8fafc;
   --foreground: #0f172a;
+  --primary: #0ea5e9;       /* sky-500 */
+  --primary-600: #0284c7;   /* sky-600 */
+  --primary-700: #0369a1;   /* sky-700 */
+  --primary-50: #f0f9ff;    /* sky-50 */
+  --primary-100: #e0f2fe;   /* sky-100 */
+  --primary-200: #bae6fd;   /* sky-200 */
 }
 
 body {
@@ -21,17 +27,16 @@ html {
   box-sizing: border-box;
 }
 
-/* Consistent focus ring across all inputs */
+/* Focus ring — תכלת */
 input:focus-visible,
 textarea:focus-visible,
 select:focus-visible {
-  outline: 2px solid #111827;
+  outline: 2px solid var(--primary-600);
   outline-offset: 1px;
 }
 
-/* Remove default focus ring on buttons (keep only custom) */
 button:focus-visible {
-  outline: 2px solid #111827;
+  outline: 2px solid var(--primary-600);
   outline-offset: 2px;
   border-radius: 8px;
 }
@@ -46,8 +51,8 @@ button:focus-visible {
   animation: fadeIn 0.25s ease-out both;
 }
 
-/* Scrollbar styling */
+/* Scrollbar — תכלת עדין */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+::-webkit-scrollbar-thumb { background: #bae6fd; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #7dd3fc; }

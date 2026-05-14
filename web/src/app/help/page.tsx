@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useMemo } from "react";
 import AppShell from "@/components/AppShell";
@@ -871,7 +871,7 @@ export default function HelpPage() {
                                 className={[
                                     "px-4 py-1.5 rounded-full text-sm font-medium transition-all",
                                     category === cat
-                                        ? "bg-slate-900 text-white"
+                                        ? "bg-sky-600 text-white"
                                         : "bg-slate-100 text-slate-600 hover:bg-slate-200",
                                 ].join(" ")}
                             >
@@ -937,7 +937,7 @@ export default function HelpPage() {
                                                         <ol className="space-y-2">
                                                             {section.steps.map((step, j) => (
                                                                 <li key={j} className="flex items-start gap-3">
-                                                                    <span className="flex-shrink-0 w-6 h-6 rounded-full bg-slate-900 text-white text-xs flex items-center justify-center font-bold mt-0.5">
+                                                                    <span className="flex-shrink-0 w-6 h-6 rounded-full bg-sky-600 text-white text-xs flex items-center justify-center font-bold mt-0.5">
                                                                         {j + 1}
                                                                     </span>
                                                                     <span className="text-sm text-slate-700 leading-relaxed">{step}</span>

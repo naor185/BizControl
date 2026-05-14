@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState, useMemo } from "react";
 import RequireAuth from "@/components/RequireAuth";
@@ -401,7 +401,7 @@ export default function Page() {
                             <div className="px-5 py-4 border-t border-slate-100 flex gap-3">
                                 <button onClick={() => setIsModalOpen(false)} className="flex-1 py-2.5 text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition">ביטול</button>
                                 <button onClick={handleCreateClient} disabled={isSaving}
-                                    className="flex-1 py-2.5 text-sm font-semibold text-white bg-black hover:bg-slate-800 rounded-xl transition disabled:opacity-50">
+                                    className="flex-1 py-2.5 text-sm font-semibold text-white bg-black hover:bg-sky-700 rounded-xl transition disabled:opacity-50">
                                     {isSaving ? "שומר..." : "שמור"}
                                 </button>
                             </div>
