@@ -205,6 +205,7 @@ export interface WorkSession {
 export interface ClockStatus {
     is_clocked_in: boolean;
     active_session?: WorkSession;
+    pay_type: "hourly" | "commission" | "none" | "global";
 }
 
 export interface PayrollItem {

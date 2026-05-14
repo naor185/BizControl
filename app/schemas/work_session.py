@@ -29,6 +29,7 @@ class WorkSessionResponse(WorkSessionBase):
 class ClockStatusResponse(BaseModel):
     is_clocked_in: bool
     active_session: Optional[WorkSessionResponse] = None
+    pay_type: str = "none"
 
 
 class StaffPayrollItem(BaseModel):
@@ -37,7 +38,8 @@ class StaffPayrollItem(BaseModel):
     pay_type: str
     hourly_rate: Decimal
     commission_rate: Decimal
-    
+    global_salary: Decimal = Decimal("0.00")
+
     total_hours: float = 0.0
     hourly_pay: Decimal = Decimal("0.00")
     commission_pay: Decimal = Decimal("0.00")

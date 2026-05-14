@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.core.deps import require_studio_ctx, AuthContext
 from app.db.deps import get_db
 from app.models.studio import Studio
+from app.models.user import User
 from app.repositories.staff_repository import StaffRepository
 from app.schemas.work_session import ClockStatusResponse, WorkSessionResponse, StaffPayrollSummary
 from app.services.pdf_service import generate_payroll_pdf
@@ -25,12 +26,15 @@ def get_staff_repo(db: Session = Depends(get_db)) -> StaffRepository:
 def get_clock_status(
     ctx: AuthContext = Depends(require_studio_ctx),
     repo: StaffRepository = Depends(get_staff_repo),
+    db: Session = Depends(get_db),
 ):
     """Check if the current user is currently clocked in."""
     session = repo.get_active_session(ctx.studio_id, ctx.user_id)
+    user = db.get(User, ctx.user_id)
     return ClockStatusResponse(
         is_clocked_in=session is not None,
-        active_session=WorkSessionResponse.model_validate(session) if session else None
+        active_session=WorkSessionResponse.model_validate(session) if session else None,
+        pay_type=user.pay_type if user else "none",
     )
 
 

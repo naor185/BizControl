@@ -28,7 +28,8 @@ def create_artist(db: Session, studio_id: UUID, data: ArtistCreate) -> User:
         calendar_color=data.calendar_color,
         pay_type=data.pay_type or "none",
         hourly_rate=data.hourly_rate or 0.0,
-        commission_rate=data.commission_rate or 0.0
+        commission_rate=data.commission_rate or 0.0,
+        global_salary=data.global_salary or 0.0,
     )
     db.add(user)
     db.commit()
@@ -59,6 +60,8 @@ def update_artist(db: Session, studio_id: UUID, user_id: UUID, data: ArtistUpdat
         user.hourly_rate = data.hourly_rate
     if data.commission_rate is not None:
         user.commission_rate = data.commission_rate
+    if data.global_salary is not None:
+        user.global_salary = data.global_salary
     if data.password is not None:
         user.password_hash = ph.hash(data.password)
 

@@ -13,6 +13,7 @@ class UserBase(BaseModel):
     pay_type: str = "none"
     hourly_rate: float = 0.0
     commission_rate: float = 0.0
+    global_salary: float = 0.0
 
 class ArtistCreate(BaseModel):
     email: EmailStr
@@ -23,6 +24,7 @@ class ArtistCreate(BaseModel):
     pay_type: str | None = "none"
     hourly_rate: float | None = 0.0
     commission_rate: float | None = 0.0
+    global_salary: float | None = 0.0
 
 class ArtistUpdate(BaseModel):
     is_active: bool | None = None
@@ -32,6 +34,7 @@ class ArtistUpdate(BaseModel):
     pay_type: str | None = None
     hourly_rate: float | None = None
     commission_rate: float | None = None
+    global_salary: float | None = None
     password: str | None = Field(default=None, min_length=6)
 
 class UserOut(UserBase):

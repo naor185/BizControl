@@ -117,16 +117,18 @@ class StaffRepository:
                 # Apply commission percentage
                 c_pay = (total_amount * (user.commission_rate / Decimal(100))).quantize(Decimal("0.01"))
 
+            g_pay = user.global_salary if user.pay_type == "global" else Decimal("0.00")
             results.append({
                 "user_id": user.id,
                 "display_name": user.display_name or user.email,
                 "pay_type": user.pay_type,
                 "hourly_rate": user.hourly_rate,
                 "commission_rate": user.commission_rate,
+                "global_salary": user.global_salary,
                 "total_hours": h_hours,
                 "hourly_pay": h_pay,
                 "commission_pay": c_pay,
-                "total_pay": h_pay + c_pay
+                "total_pay": h_pay + c_pay + g_pay,
             })
             
         return results

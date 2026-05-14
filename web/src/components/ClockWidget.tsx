@@ -26,6 +26,7 @@ export default function ClockWidget() {
     }, []);
 
     if (loading) return null;
+    if (status?.pay_type !== "hourly" && status?.pay_type !== "global") return null;
 
     const handleAction = async () => {
         setLoading(true);

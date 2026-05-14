@@ -26,7 +26,7 @@ class User(Base):
     __table_args__ = (
         UniqueConstraint("studio_id", "email", name="uq_users_studio_email"),
         CheckConstraint("role IN ('owner','admin','artist','staff','superadmin')", name="ck_users_role"),
-        CheckConstraint("pay_type IN ('hourly','commission','none')", name="ck_users_pay_type"),
+        CheckConstraint("pay_type IN ('hourly','commission','none','global')", name="ck_users_pay_type"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -41,9 +41,10 @@ class User(Base):
     calendar_color: Mapped[str | None] = mapped_column(String(16), nullable=True)
 
     # Payroll fields
-    pay_type: Mapped[str] = mapped_column(String(16), nullable=False, server_default="none") # hourly / commission / none
+    pay_type: Mapped[str] = mapped_column(String(16), nullable=False, server_default="none") # hourly / commission / none / global
     hourly_rate: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False, server_default="0.00")
     commission_rate: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False, server_default="0.00")
+    global_salary: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False, server_default="0.00")
 
     phone: Mapped[str | None] = mapped_column(String(32), nullable=True)
     totp_secret: Mapped[str | None] = mapped_column(String(64), nullable=True)

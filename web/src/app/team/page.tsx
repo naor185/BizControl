@@ -12,9 +12,10 @@ type Artist = {
     role: string;
     is_active: boolean;
     calendar_color?: string | null;
-    pay_type: "hourly" | "commission" | "none";
+    pay_type: "hourly" | "commission" | "none" | "global";
     hourly_rate: number;
     commission_rate: number;
+    global_salary: number;
 };
 
 // Preset colors for artists
@@ -47,9 +48,10 @@ export default function TeamPage() {
     const [role, setRole] = useState<"artist" | "admin" | "staff">("artist");
     const [calendarColor, setCalendarColor] = useState(COLOR_PRESETS[0]);
     const [isActive, setIsActive] = useState(true);
-    const [payType, setPayType] = useState<"hourly" | "commission" | "none">("none");
+    const [payType, setPayType] = useState<"hourly" | "commission" | "none" | "global">("none");
     const [hourlyRate, setHourlyRate] = useState(0);
     const [commissionRate, setCommissionRate] = useState(0);
+    const [globalSalary, setGlobalSalary] = useState(0);
 
     // Deletion state
     const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
@@ -82,6 +84,7 @@ export default function TeamPage() {
         setPayType("hourly");
         setHourlyRate(0);
         setCommissionRate(0);
+        setGlobalSalary(0);
         setIsModalOpen(true);
     };
 
@@ -96,6 +99,7 @@ export default function TeamPage() {
         setPayType((artist.pay_type === "none" || !artist.pay_type) ? "hourly" : artist.pay_type);
         setHourlyRate(artist.hourly_rate || 0);
         setCommissionRate(artist.commission_rate || 0);
+        setGlobalSalary(artist.global_salary || 0);
         setIsModalOpen(true);
     };
 
@@ -114,6 +118,7 @@ export default function TeamPage() {
                 pay_type: payType,
                 hourly_rate: hourlyRate,
                 commission_rate: commissionRate,
+                global_salary: globalSalary,
             };
 
             if (editingUserId) {
@@ -231,8 +236,9 @@ export default function TeamPage() {
                                                 </td>
                                                 <td className="p-4">
                                                     <div className="text-xs font-medium text-slate-600">
-                                                        {artist.pay_type === "hourly" ? `שעתי: ₪${artist.hourly_rate}` : 
-                                                         artist.pay_type === "commission" ? `עמלה: ${artist.commission_rate}%` : 
+                                                        {artist.pay_type === "hourly" ? `שעתי: ₪${artist.hourly_rate}/ש` :
+                                                         artist.pay_type === "commission" ? `עמלה: ${artist.commission_rate}%` :
+                                                         artist.pay_type === "global" ? `גלובלי: ₪${artist.global_salary}/חודש` :
                                                          "ללא שכר"}
                                                     </div>
                                                 </td>
@@ -348,18 +354,22 @@ export default function TeamPage() {
                                 <div className="pt-4 border-t border-slate-100">
                                     <label className="block text-sm font-semibold text-slate-700 mb-1">הגדרות שכר (Payroll)</label>
                                     <div className="flex gap-2 mb-3">
-                                        {(["hourly", "commission"] as const).map((t) => (
+                                        {([
+                                            { value: "hourly",     label: "⏱️ שעתי" },
+                                            { value: "commission", label: "📊 עמלה" },
+                                            { value: "global",     label: "💼 גלובלי" },
+                                        ] as const).map((t) => (
                                             <button
-                                                key={t}
+                                                key={t.value}
                                                 type="button"
-                                                onClick={() => setPayType(t)}
+                                                onClick={() => setPayType(t.value)}
                                                 className={`flex-1 py-2 text-xs font-bold rounded-xl border transition-all ${
-                                                    payType === t
+                                                    payType === t.value
                                                     ? 'bg-slate-900 text-white border-slate-900 shadow-md'
                                                     : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'
                                                 }`}
                                             >
-                                                {t === "hourly" ? "שעתי" : "עמלה"}
+                                                {t.label}
                                             </button>
                                         ))}
                                     </div>
@@ -386,6 +396,20 @@ export default function TeamPage() {
                                                 onChange={e => setCommissionRate(Number(e.target.value))}
                                                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-slate-800"
                                                 placeholder="לדוגמא: 30"
+                                            />
+                                        </div>
+                                    )}
+
+                                    {payType === "global" && (
+                                        <div className="animate-in slide-in-from-top-2 duration-200">
+                                            <label className="block text-xs font-bold text-slate-500 mb-1">שכר חודשי קבוע (₪)</label>
+                                            <p className="text-[11px] text-slate-400 mb-1.5">שכר גלובלי — סכום קבוע לחודש ללא קשר לשעות. נדרשת נוכחות לצורך מעקב.</p>
+                                            <input
+                                                type="number"
+                                                value={globalSalary}
+                                                onChange={e => setGlobalSalary(Number(e.target.value))}
+                                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-slate-800"
+                                                placeholder="לדוגמא: 6000"
                                             />
                                         </div>
                                     )}

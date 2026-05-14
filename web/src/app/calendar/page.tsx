@@ -586,7 +586,7 @@ export default function CalendarPage() {
                 {/* Appointment Modal */}
                 {isModalOpen && (
                     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm sm:p-4 animate-in fade-in duration-200">
-                        <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full sm:max-w-lg shadow-2xl overflow-hidden max-h-[92vh] sm:max-h-[90vh] flex flex-col animate-in slide-in-from-bottom sm:zoom-in-95 duration-300">
+                        <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full sm:max-w-lg shadow-2xl overflow-hidden max-h-[78vh] sm:max-h-[90vh] flex flex-col animate-in slide-in-from-bottom sm:zoom-in-95 duration-300">
                             <div className="bg-slate-50 border-b border-slate-100 p-5 flex items-center justify-between flex-shrink-0">
                                 <h3 className="text-xl font-bold text-slate-800">{selectedEventId ? "עריכת תור" : "קביעת תור חדש"}</h3>
                                 <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-2 bg-white rounded-full shadow-sm hover:shadow transition-all">✕</button>
@@ -774,7 +774,7 @@ export default function CalendarPage() {
                                 </div>
                             </div>
 
-                            <div className="bg-slate-50 p-5 flex justify-between items-center rounded-b-3xl border-t border-slate-100 flex-shrink-0">
+                            <div className="bg-slate-50 px-4 py-3 sm:p-5 flex justify-between items-center rounded-b-3xl border-t border-slate-100 flex-shrink-0">
                                 <div>
                                     {selectedEventId && (
                                         <button onClick={handleDeleteClick} className="px-4 py-2 text-sm font-bold text-red-600 hover:bg-red-50 rounded-xl transition-colors flex items-center gap-1">
