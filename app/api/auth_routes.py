@@ -62,6 +62,9 @@ def login(request: Request, payload: LoginRequest, db: Session = Depends(get_db)
     email = str(payload.email).lower().strip()
     user = db.query(User).filter(User.studio_id == studio.id, User.email == email, User.is_active == True).first()  # noqa: E712
     if not user:
+        # Allow superadmin to log in from any studio slug
+        user = db.query(User).filter(User.email == email, User.role == "superadmin", User.is_active == True).first()  # noqa: E712
+    if not user:
         raise HTTPException(status_code=401, detail="email_not_found")
 
     try:
