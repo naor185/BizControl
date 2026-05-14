@@ -6,8 +6,8 @@ from pydantic import BaseModel
 from datetime import datetime
 from typing import Optional
 
-from app.db import get_db
-from app.api.auth_routes import get_current_user
+from app.db.deps import get_db
+from app.core.auth_deps import get_current_user
 from app.models.notification import Notification
 
 router = APIRouter(prefix="/notifications", tags=["Notifications"])
