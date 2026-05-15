@@ -65,12 +65,9 @@ class StudioSettings(Base):
     income_tax_percent: Mapped[float] = mapped_column(Numeric(5, 2), nullable=False, default=10.00, server_default="10.00")
     social_security_percent: Mapped[float] = mapped_column(Numeric(5, 2), nullable=False, default=5.00, server_default="5.00")
 
-    # SMTP Settings
-    smtp_host: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    smtp_port: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    smtp_user: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    smtp_pass: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    smtp_from_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # Email Settings (Resend API)
+    resend_api_key: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    resend_from_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     # WhatsApp / SMS Settings
     whatsapp_provider: Mapped[str | None] = mapped_column(String(64), nullable=True)

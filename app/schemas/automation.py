@@ -38,12 +38,9 @@ class AutomationSettingsOut(BaseModel):
     birthday_email_template: str | None = None
     birthday_benefit_percent: int = 0
 
-    # SMTP Settings
-    smtp_host: str | None = None
-    smtp_port: int | None = None
-    smtp_user: str | None = None
-    smtp_pass: str | None = None
-    smtp_from_email: str | None = None
+    # Email Settings (Resend API)
+    resend_api_key: str | None = None
+    resend_from_email: str | None = None
 
     # WhatsApp Settings
     whatsapp_provider: str | None = None
@@ -146,12 +143,9 @@ class AutomationSettingsUpdate(BaseModel):
     birthday_email_template: str | None = None
     birthday_benefit_percent: int | None = Field(default=None, ge=0, le=100)
 
-    # SMTP Settings
-    smtp_host: str | None = None
-    smtp_port: int | None = Field(default=None, ge=1, le=65535)
-    smtp_user: str | None = None
-    smtp_pass: str | None = None
-    smtp_from_email: str | None = None
+    # Email Settings (Resend API)
+    resend_api_key: str | None = None
+    resend_from_email: str | None = None
 
     # WhatsApp Settings
     whatsapp_provider: str | None = None
