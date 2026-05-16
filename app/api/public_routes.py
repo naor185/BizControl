@@ -13,6 +13,7 @@ from app.models.client import Client
 from app.models.appointment import Appointment
 from app.models.studio_settings import StudioSettings
 from app.models.booking_request import BookingRequest
+from app.models.lead import Lead
 from app.crud.client import _handle_new_club_member
 from pydantic import BaseModel, EmailStr
 
@@ -72,6 +73,10 @@ class ClientJoinRequest(BaseModel):
     email: EmailStr | None = None
     birth_date: date | None = None
     marketing_consent: bool = True
+    utm_source: str | None = None
+    utm_campaign: str | None = None
+    utm_medium: str | None = None
+    service_interest: str | None = None
 
 @router.get("/landing/{slug}", response_model=PublicLandingInfo)
 def get_landing_by_slug(slug: str, db: Session = Depends(get_db)):
@@ -148,6 +153,7 @@ def join_studio(studio_id: str, payload: ClientJoinRequest, db: Session = Depend
     ).first()
     
     if existing:
+        _maybe_create_lead(db, studio_id, existing.full_name, existing.phone, payload)
         return {"message": "Client already exists", "client_id": existing.id}
 
     new_client = Client(
@@ -166,10 +172,37 @@ def join_studio(studio_id: str, payload: ClientJoinRequest, db: Session = Depend
     db.refresh(new_client)
 
     _handle_new_club_member(db, studio_id, new_client)
+    _maybe_create_lead(db, studio_id, new_client.full_name, new_client.phone, payload)
     db.commit()
     db.refresh(new_client)
 
     return {"message": "Successfully joined", "client_id": new_client.id, "loyalty_points": new_client.loyalty_points}
+
+
+def _maybe_create_lead(db: Session, studio_id: str, name: str, phone: str | None, payload: ClientJoinRequest) -> None:
+    """Create a lead from landing page signup only when a UTM source is present."""
+    source = (payload.utm_source or "").strip().lower()
+    if not source:
+        return
+    # Avoid duplicate leads for same phone in same studio
+    if phone:
+        exists = db.query(Lead).filter(
+            Lead.studio_id == studio_id,
+            Lead.phone == phone,
+        ).first()
+        if exists:
+            return
+    db.add(Lead(
+        studio_id=studio_id,
+        name=name,
+        phone=phone,
+        email=str(payload.email) if payload.email else None,
+        source=source,
+        campaign_name=payload.utm_campaign or payload.utm_medium or None,
+        service_interest=payload.service_interest or None,
+        status="new",
+        notes=f"הגיע דרך דף נחיתה — {source}" + (f" / {payload.utm_campaign}" if payload.utm_campaign else ""),
+    ))
 
 @router.get("/payment/{appointment_id}", response_model=PublicPaymentInfo)
 def get_public_payment_info(appointment_id: str, db: Session = Depends(get_db)):

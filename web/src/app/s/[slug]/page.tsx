@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import LandingPageTemplate from "@/components/LandingPageTemplate";
 
 type LandingData = {
@@ -31,6 +31,7 @@ function imgUrl(filename: string | null | undefined): string | null {
 
 export default function StudioLandingPage() {
     const params = useParams();
+    const searchParams = useSearchParams();
     const slug = params?.slug as string;
 
     const [data, setData] = useState<LandingData | null>(null);
@@ -48,6 +49,17 @@ export default function StudioLandingPage() {
     const [submitErr, setSubmitErr] = useState<string | null>(null);
 
     const apiBase = process.env.NEXT_PUBLIC_API_BASE || "";
+
+    // Capture UTM params on mount and persist them in sessionStorage
+    // so they survive any internal navigation (e.g. template switching)
+    useEffect(() => {
+        const src = searchParams.get("utm_source") || searchParams.get("source");
+        const cmp = searchParams.get("utm_campaign") || searchParams.get("campaign");
+        const med = searchParams.get("utm_medium");
+        if (src) sessionStorage.setItem("utm_source", src);
+        if (cmp) sessionStorage.setItem("utm_campaign", cmp);
+        if (med) sessionStorage.setItem("utm_medium", med);
+    }, [searchParams]);
 
     useEffect(() => {
         if (!slug) return;
@@ -67,6 +79,9 @@ export default function StudioLandingPage() {
         setSubmitting(true);
         setSubmitErr(null);
         try {
+            const utmSource = sessionStorage.getItem("utm_source") || searchParams.get("utm_source") || searchParams.get("source") || null;
+            const utmCampaign = sessionStorage.getItem("utm_campaign") || searchParams.get("utm_campaign") || searchParams.get("campaign") || null;
+            const utmMedium = sessionStorage.getItem("utm_medium") || searchParams.get("utm_medium") || null;
             const res = await fetch(`${apiBase}/api/public/studio/${data.studio_id}/join`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -76,6 +91,9 @@ export default function StudioLandingPage() {
                     email: email || null,
                     birth_date: birthDate || null,
                     marketing_consent: marketingConsent,
+                    utm_source: utmSource,
+                    utm_campaign: utmCampaign,
+                    utm_medium: utmMedium,
                 }),
             });
             if (!res.ok) {
