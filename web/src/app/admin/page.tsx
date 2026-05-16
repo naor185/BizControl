@@ -1308,6 +1308,11 @@ export default function AdminPage() {
 
                         {/* Left: Lead List */}
                         <div className="w-80 flex-shrink-0 flex flex-col gap-3">
+                            {/* Open full page button */}
+                            <button onClick={() => router.push("/admin/leads")}
+                                className="w-full text-center text-xs text-slate-400 hover:text-white border border-white/10 rounded-xl py-1.5 transition-colors">
+                                ↗ פתח אינבוקס מלא
+                            </button>
                             {/* Filters */}
                             <div className="flex gap-2">
                                 <input
