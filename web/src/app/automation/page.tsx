@@ -46,16 +46,17 @@ type Settings = {
     birthday_email_template?: string | null;
     birthday_benefit_percent: number;
 
-    smtp_host?: string | null;
-    smtp_port?: number | null;
-    smtp_user?: string | null;
-    smtp_pass?: string | null;
-    smtp_from_email?: string | null;
-
     whatsapp_provider?: string | null;
     whatsapp_api_key?: string | null;
     whatsapp_phone_id?: string | null;
     whatsapp_instance_id?: string | null;
+
+    resend_api_key?: string | null;
+    resend_from_email?: string | null;
+
+    facebook_page_id?: string | null;
+    instagram_account_id?: string | null;
+    meta_page_access_token?: string | null;
 
     theme_primary_color: string;
     theme_secondary_color: string;
@@ -1354,25 +1355,46 @@ export default function AutomationSettingsPage() {
                                             icon: "💬",
                                             color: "bg-emerald-100",
                                             title: "WhatsApp",
-                                            desc: "שלח הודעות אוטומטיות, תזכורות ועדכונים ללקוחות",
+                                            desc: "שלח הודעות אוטומטיות, תזכורות ועדכונים ללקוחות. לידים חדשים נוצרים אוטומטית.",
                                             connected: !!(settings.whatsapp_api_key),
                                             href: "/integrations/whatsapp",
+                                            logo: null,
                                         },
                                         {
                                             icon: "✉️",
                                             color: "bg-indigo-100",
                                             title: "אימייל",
-                                            desc: "שלח אישורי תור, תזכורות ועדכונים ללקוחות באימייל",
-                                            connected: !!(settings.smtp_host && settings.smtp_pass),
+                                            desc: "שלח אישורי תור, תזכורות ועדכונים ללקוחות באימייל דרך Resend",
+                                            connected: !!(settings.resend_api_key),
                                             href: "/integrations/email",
+                                            logo: null,
+                                        },
+                                        {
+                                            icon: "📸",
+                                            color: "bg-gradient-to-br from-purple-100 to-pink-100",
+                                            title: "Instagram",
+                                            desc: "קבל לידים אוטומטית מהודעות DM ומפרסומות Lead Ads באינסטגרם",
+                                            connected: !!(settings.instagram_account_id),
+                                            href: "/integrations/meta",
+                                            logo: null,
+                                        },
+                                        {
+                                            icon: "👍",
+                                            color: "bg-blue-100",
+                                            title: "Facebook",
+                                            desc: "קבל לידים אוטומטית מ-Messenger ומפרסומות Lead Ads בפייסבוק",
+                                            connected: !!(settings.facebook_page_id),
+                                            href: "/integrations/meta",
+                                            logo: null,
                                         },
                                         {
                                             icon: "📅",
-                                            color: "bg-blue-100",
+                                            color: "bg-sky-100",
                                             title: "Google Calendar",
                                             desc: "סנכרן תורים ופגישות ישירות ליומן Google שלך",
                                             connected: !!(settings.google_calendar_refresh_token),
                                             href: "/integrations/google-calendar",
+                                            logo: null,
                                         },
                                     ].map(item => (
                                         <div key={item.href} className="flex items-center gap-5 p-5 rounded-2xl border-2 border-slate-100 hover:border-slate-200 bg-slate-50/50 transition-all">

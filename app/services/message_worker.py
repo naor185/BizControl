@@ -97,19 +97,15 @@ def process_due_jobs(db: Session, limit: int = 20) -> int:
         try:
             if job.channel == "email":
                 settings = db.get(StudioSettings, job.studio_id)
-                if not settings or not settings.smtp_host or not settings.smtp_user or not settings.smtp_pass:
-                    raise ValueError("SMTP variables not set or studio settings missing")
-                
+                if not settings or not settings.resend_api_key:
+                    raise ValueError("Resend API key not configured for this studio")
                 asyncio.run(
                     send_email(
-                        host=settings.smtp_host,
-                        port=settings.smtp_port or 587,
-                        user=settings.smtp_user,
-                        password=settings.smtp_pass,
-                        from_email=settings.smtp_from_email or settings.smtp_user,
+                        api_key=settings.resend_api_key,
+                        from_email=settings.resend_from_email or "",
                         to_email=job.to_phone,
                         subject="הודעה מסטודיו BizControl",
-                        html_content=job.body
+                        html_content=job.body,
                     )
                 )
             else:
@@ -190,7 +186,7 @@ def _sweep_reminders_for_window(
             ))
             count += 1
 
-        email_body = format_template(email_default, context) if email_default and client.email and settings.smtp_host else None
+        email_body = format_template(email_default, context) if email_default and client.email and settings.resend_api_key else None
         if email_body:
             db.add(MessageJob(
                 studio_id=appt.studio_id,
@@ -283,7 +279,7 @@ def sweep_upcoming_reminders(db: Session) -> int:
             </div>
             """
 
-        if client.email and settings.smtp_host:
+        if client.email and settings.resend_api_key:
             db.add(MessageJob(
                 studio_id=appt.studio_id,
                 client_id=client.id,
