@@ -20,6 +20,7 @@ type Section = {
     tip?: string;
     warning?: string;
     code?: string;
+    note?: string;
 };
 
 const ARTICLES: Article[] = [
@@ -673,49 +674,142 @@ const ARTICLES: Article[] = [
         ],
     },
     {
-        id: "settings-smtp",
-        title: "חיבור מייל (SMTP)",
+        id: "settings-email",
+        title: "חיבור מייל — Resend API",
         category: "חיבורים חיצוניים",
         icon: "📧",
         content: [
             {
-                heading: "הגדרות Gmail",
-                table: [
-                    { col1: "SMTP Host", col2: "smtp.gmail.com" },
-                    { col1: "SMTP Port", col2: "587" },
-                    { col1: "SMTP User", col2: "כתובת הג'ימייל שלך" },
-                    { col1: "SMTP Password", col2: "App Password (לא הסיסמה הרגילה!)" },
-                    { col1: "From Email", col2: "כתובת הג'ימייל שלך" },
-                ],
+                text: "BizControl שולח מיילים אוטומטיים (אישורי תור, תזכורות, קבלות תשלום) דרך Resend — שירות מייל מהיר ואמין.",
             },
             {
-                heading: "יצירת App Password בגוגל",
+                heading: "הגדרה שלב אחר שלב",
                 steps: [
-                    "כנס ל-myaccount.google.com/security.",
-                    "ודא שאימות דו-שלבי (2FA) מופעל.",
-                    "חפש 'App Passwords'.",
-                    "בחר 'Other (Custom Name)' ← כתוב 'BizControl' ← Generate.",
-                    "הסיסמה שמופיעה (16 תווים) — זו הסיסמה להכניס ב-SMTP Password.",
+                    "כנס ל-resend.com ← הרשם חינם (אין צורך בכרטיס אשראי לגרסה הבסיסית).",
+                    "בתפריט שמאל לחץ 'API Keys' ← 'Create API Key' ← תן שם כלשהו ← Create.",
+                    "העתק את המפתח (מתחיל ב-re_...).",
+                    "ב-BizControl ← הגדרות ← אינטגרציות ← 'חבר אימייל'.",
+                    "הדבק את ה-API Key ← שמור.",
+                    "לחץ 'שלח מייל בדיקה' ← הכנס כתובת לבדיקה ← ודא שהגיע.",
                 ],
-                warning: "יש להשתמש ב-App Password ולא בסיסמה הרגילה של גוגל. Gmail חוסם כניסה ישירה.",
+                tip: "ללא אימות דומיין — הדומיין השולח יהיה onboarding@resend.dev. זה בסדר לבדיקות. לכתובת ממותגת (studio@yourname.com) יש לאמת דומיין.",
             },
             {
-                heading: "הגדרות Outlook / Office365",
-                table: [
-                    { col1: "SMTP Host", col2: "smtp.office365.com" },
-                    { col1: "SMTP Port", col2: "587" },
-                    { col1: "SMTP User", col2: "כתובת המייל שלך" },
-                    { col1: "SMTP Password", col2: "הסיסמה הרגילה" },
-                ],
-            },
-            {
-                heading: "בדיקת חיבור",
+                heading: "אימות דומיין (אופציונלי — לכתובת מותאמת אישית)",
                 steps: [
-                    "שמור את הגדרות SMTP.",
-                    "לחץ 'שלח מייל בדיקה 📧'.",
-                    "הכנס כתובת מייל לבדיקה.",
-                    "אם הגיע — הכל עובד.",
+                    "ב-Resend ← 'Domains' ← 'Add Domain' ← הכנס את הדומיין שלך.",
+                    "Resend יראה לך רשומות DNS להוסיף אצל ספק הדומיין שלך (Wix / GoDaddy / Cloudflare).",
+                    "הוסף את הרשומות ← המתן עד 24 שעות לאימות.",
+                    "לאחר אימות — הכנס כתובת שולח (studio@yourdomain.com) בשדה 'כתובת שולח' בהגדרות.",
                 ],
+            },
+        ],
+    },
+    {
+        id: "settings-meta-social",
+        title: "Instagram + Facebook — לידים אוטומטיים",
+        category: "חיבורים חיצוניים",
+        icon: "📸",
+        content: [
+            {
+                text: "כל הודעת DM באינסטגרם, הודעת Messenger בפייסבוק, או מילוי טופס Lead Ads — מגיעים אוטומטית לאינבוקס הלידים ב-BizControl.",
+            },
+            {
+                heading: "מה נדרש לפני ההגדרה",
+                steps: [
+                    "דף פייסבוק עסקי פעיל.",
+                    "חשבון Instagram Business מחובר לדף הפייסבוק (הגדרות דף ← Instagram).",
+                    "גישה ל-developers.facebook.com עם חשבון שהוא Admin על הדף.",
+                ],
+            },
+            {
+                heading: "שלב 1 — יצירת Meta App",
+                steps: [
+                    "כנס ל-developers.facebook.com ← 'My Apps' ← 'Create App'.",
+                    "בחר סוג 'Business' ← מלא שם ← Create.",
+                    "בלוח הבקרה של האפליקציה: הוסף מוצרים — Messenger, Instagram, Webhooks.",
+                ],
+            },
+            {
+                heading: "שלב 2 — קבלת Access Token",
+                steps: [
+                    "Business Settings (business.facebook.com) ← System Users ← Add.",
+                    "צור System User מסוג Admin ← Generate Token.",
+                    "בחר את האפליקציה שיצרת ← הרשאות: pages_read_engagement, instagram_basic, leads_retrieval, messages.",
+                    "שמור את ה-Token (מתחיל ב-EAA...).",
+                ],
+            },
+            {
+                heading: "שלב 3 — הגדרה ב-BizControl",
+                steps: [
+                    "הגדרות ← אינטגרציות ← 'חבר Instagram & Facebook'.",
+                    "הכנס Facebook Page ID (נמצא בדף ← About ← Page Transparency).",
+                    "הכנס Instagram Account ID (מהגרף API Explorer: me?fields=instagram_business_account).",
+                    "הכנס את ה-Access Token ← שמור.",
+                ],
+            },
+            {
+                heading: "שלב 4 — הגדרת Webhook ב-Meta",
+                steps: [
+                    "ב-Meta Developers ← האפליקציה שלך ← Webhooks ← Add Callback URL.",
+                    "Callback URL: העתק מ-BizControl (מסך שלב 2 באשף).",
+                    "Verify Token: bizcontrol_verify",
+                    "לחץ Verify and Save.",
+                    "Subscribe לאירועים: messages, messaging_postbacks, leadgen, feed.",
+                ],
+                tip: "לאחר הגדרה: שלח DM לדף/לאינסטגרם ← תוך שניות יופיע ליד חדש בBizControl.",
+            },
+            {
+                heading: "מה מגיע אוטומטית לאחר ההגדרה",
+                table: [
+                    { col1: "Instagram DM", col2: "ליד חדש עם שם + הודעה ראשונה" },
+                    { col1: "Facebook Messenger", col2: "ליד חדש עם שם + הודעה ראשונה" },
+                    { col1: "Lead Ads (טופס מודעה)", col2: "ליד עם כל הפרטים מהטופס" },
+                ],
+            },
+        ],
+    },
+    {
+        id: "settings-utm",
+        title: "TikTok + Google Ads — מעקב UTM",
+        category: "חיבורים חיצוניים",
+        icon: "🎯",
+        content: [
+            {
+                text: "TikTok ו-Google לא מאפשרים גישה ל-DMs דרך API. הדרך לקבל לידים מהם היא להוביל את המשתמשים לדף הנחיתה של הסטודיו עם UTM parameters — המערכת יוצרת ליד אוטומטית.",
+            },
+            {
+                heading: "איך זה עובד",
+                steps: [
+                    "הלקוח לוחץ על המודעה ב-TikTok/Google.",
+                    "מגיע לדף הנחיתה שלך עם UTM בכתובת (לדוגמה: ?utm_source=tiktok&utm_campaign=summer).",
+                    "ממלא את הטופס (שם + טלפון).",
+                    "המערכת יוצרת לקוח + ליד עם source=tiktok ושם הקמפיין.",
+                    "הליד מופיע באינבוקס הלידים עם מקור ברור.",
+                ],
+            },
+            {
+                heading: "פורמט הקישור למודעה",
+                code: "https://bizcontrol.app/s/STUDIO-SLUG?utm_source=tiktok&utm_campaign=CAMPAIGN-NAME",
+            },
+            {
+                heading: "פרמטרים נתמכים",
+                table: [
+                    { col1: "utm_source", col2: "tiktok / google / instagram / facebook (מקור התנועה)" },
+                    { col1: "utm_campaign", col2: "שם הקמפיין (לדוגמה: summer_promo)" },
+                    { col1: "utm_medium", col2: "סוג המדיה (cpc, social, email...)" },
+                    { col1: "source", col2: "קיצור של utm_source (קיצור נוחות)" },
+                ],
+            },
+            {
+                heading: "דוגמאות לקישורים",
+                table: [
+                    { col1: "TikTok", col2: "/s/mystudio?utm_source=tiktok&utm_campaign=tattoo_june" },
+                    { col1: "Google", col2: "/s/mystudio?utm_source=google&utm_campaign=brand" },
+                    { col1: "Instagram Bio", col2: "/s/mystudio?utm_source=instagram&utm_campaign=bio" },
+                    { col1: "Facebook Post", col2: "/s/mystudio?utm_source=facebook&utm_campaign=post_summer" },
+                ],
+                tip: "כל קמפיין בנפרד — תוכל לראות בדיוק איזה מודעה מביאה הכי הרבה לידים בדף האנליטיקס.",
             },
         ],
     },
@@ -822,6 +916,8 @@ export default function HelpPage() {
                     s.text || "",
                     s.tip || "",
                     s.warning || "",
+                    s.code || "",
+                    s.note || "",
                     ...(s.steps || []),
                     ...(s.table || []).flatMap(r => [r.col1, r.col2]),
                 ])
@@ -963,6 +1059,11 @@ export default function HelpPage() {
                                                             </table>
                                                         </div>
                                                     )}
+                                                    {section.code && (
+                                                        <div className="mt-3 bg-slate-900 rounded-xl px-4 py-3 overflow-x-auto">
+                                                            <code className="text-xs text-emerald-300 font-mono whitespace-pre-wrap break-all">{section.code}</code>
+                                                        </div>
+                                                    )}
                                                     {section.tip && (
                                                         <div className="mt-3 flex items-start gap-2 bg-emerald-50 border border-emerald-100 rounded-xl px-4 py-3">
                                                             <span className="text-emerald-600 mt-0.5">💡</span>
@@ -973,6 +1074,12 @@ export default function HelpPage() {
                                                         <div className="mt-3 flex items-start gap-2 bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
                                                             <span className="text-amber-600 mt-0.5">⚠️</span>
                                                             <p className="text-xs text-amber-800 leading-relaxed">{section.warning}</p>
+                                                        </div>
+                                                    )}
+                                                    {section.note && (
+                                                        <div className="mt-3 flex items-start gap-2 bg-blue-50 border border-blue-100 rounded-xl px-4 py-3">
+                                                            <span className="text-blue-600 mt-0.5">ℹ️</span>
+                                                            <p className="text-xs text-blue-800 leading-relaxed">{section.note}</p>
                                                         </div>
                                                     )}
                                                 </div>
