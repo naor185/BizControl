@@ -218,6 +218,22 @@ export default function StudioDetailPage() {
         router.replace("/admin");
     };
 
+    const [deletingClients, setDeletingClients] = useState(false);
+    const handleDeleteAllClients = async () => {
+        if (!detail) return;
+        if (!confirm(`למחוק את כל ${detail.client_count} הלקוחות של ${detail.name}?\n\nפעולה זו בלתי הפיכה — כל הלקוחות, הנקודות וההיסטוריה ימחקו לצמיתות!`)) return;
+        setDeletingClients(true);
+        try {
+            await apiFetch(`/api/admin/studios/${studioId}/clients`, { method: "DELETE" });
+            await load();
+            alert("כל הלקוחות נמחקו בהצלחה");
+        } catch (e: any) {
+            alert(e?.message || "שגיאה במחיקה");
+        } finally {
+            setDeletingClients(false);
+        }
+    };
+
     const handleAddNote = async () => {
         if (!newNote.trim()) return;
         setAddingNote(true);
@@ -381,6 +397,13 @@ export default function StudioDetailPage() {
                             className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 text-sm font-semibold rounded-xl hover:bg-red-100 transition-colors"
                         >
                             🗑 מחק סטודיו
+                        </button>
+                        <button
+                            onClick={handleDeleteAllClients}
+                            disabled={deletingClients || detail.client_count === 0}
+                            className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-xl hover:bg-red-700 transition-colors disabled:opacity-40"
+                        >
+                            🧹 {deletingClients ? "מוחק..." : `מחק כל הלקוחות (${detail.client_count})`}
                         </button>
                     </div>
                 </div>
