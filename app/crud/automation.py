@@ -168,7 +168,14 @@ def enqueue_reschedule_message(db: Session, appt: Appointment) -> None:
     # WhatsApp Reschedule
     wa_template = settings.reschedule_wa_template
     if not wa_template:
-        wa_template = "שלום {client_name}, התור שלך ל-{appointment_title} עודכן ליום {appointment_date} בשעה {appointment_time}. נשמח לראותך!"
+        wa_template = (
+            "🔄 עדכון תור\n\n"
+            "היי {client_name} 👋\n\n"
+            "התור שלך ל{appointment_title} עודכן למועד חדש:\n"
+            "📅 {appointment_date} בשעה {appointment_time}\n\n"
+            "אם יש שאלות אנחנו כאן 😊\n"
+            "מחכים לראותך! 🙏"
+        )
 
     if client.phone:
         body = smart_format(wa_template, context)
