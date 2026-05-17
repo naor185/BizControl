@@ -1,4 +1,5 @@
 import uuid
+from uuid import UUID as PyUUID
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, func, select
@@ -152,6 +153,8 @@ def join_studio(studio_id: str, payload: ClientJoinRequest, db: Session = Depend
         or_(*conditions)
     ).first()
     
+    studio_uuid = PyUUID(studio_id)
+
     if existing:
         _maybe_create_lead(db, studio_id, existing.full_name, existing.phone, payload)
         if existing.is_club_member:
@@ -159,7 +162,7 @@ def join_studio(studio_id: str, payload: ClientJoinRequest, db: Session = Depend
         existing.is_club_member = True
         db.commit()
         db.refresh(existing)
-        _handle_new_club_member(db, studio_id, existing)
+        _handle_new_club_member(db, studio_uuid, existing)
         db.commit()
         db.refresh(existing)
         return {"message": "Successfully joined", "client_id": existing.id, "loyalty_points": existing.loyalty_points}
@@ -179,7 +182,7 @@ def join_studio(studio_id: str, payload: ClientJoinRequest, db: Session = Depend
     db.commit()
     db.refresh(new_client)
 
-    _handle_new_club_member(db, studio_id, new_client)
+    _handle_new_club_member(db, studio_uuid, new_client)
     _maybe_create_lead(db, studio_id, new_client.full_name, new_client.phone, payload)
     db.commit()
     db.refresh(new_client)
