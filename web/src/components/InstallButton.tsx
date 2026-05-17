@@ -32,27 +32,36 @@ export default function InstallButton() {
   if (!isVisible) return null;
 
   return (
-    <button
-      onClick={handleInstallClick}
+    <div
       style={{
         position: "fixed",
-        bottom: "20px",
-        left: "50%",
-        transform: "translateX(-50%)",
+        bottom: "16px",
+        right: "16px",
+        display: "flex",
+        alignItems: "center",
+        gap: "6px",
         backgroundColor: "#000000",
         color: "#ffffff",
-        padding: "10px 20px",
-        borderRadius: "8px",
-        border: "1px solid #333333",
-        boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
+        padding: "8px 12px",
+        borderRadius: "20px",
+        boxShadow: "0 2px 8px rgba(0,0,0,0.4)",
         zIndex: 1000,
-        cursor: "pointer",
-        fontSize: "14px",
-        fontWeight: "bold",
-        transition: "all 0.2s ease"
+        fontSize: "13px",
+        fontWeight: "600",
       }}
     >
-      התקן אפליקציה
-    </button>
+      <button
+        onClick={handleInstallClick}
+        style={{ background: "none", border: "none", color: "#fff", cursor: "pointer", fontSize: "13px", fontWeight: "600", padding: 0 }}
+      >
+        📲 התקן אפליקציה
+      </button>
+      <button
+        onClick={() => setIsVisible(false)}
+        style={{ background: "none", border: "none", color: "#aaa", cursor: "pointer", fontSize: "16px", lineHeight: 1, padding: "0 0 0 4px" }}
+      >
+        ×
+      </button>
+    </div>
   );
 }
