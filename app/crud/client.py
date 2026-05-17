@@ -41,7 +41,15 @@ def _handle_new_club_member(db: Session, studio_id: UUID, client: Client):
     # WhatsApp Welcome
     wa_template = settings.welcome_wa_template
     if not wa_template:
-        wa_template = "שלום {client_name}, ברוכים הבאים למועדון הלקוחות שלנו! שמחים שהצטרפת. צברת {points_added} נקודות במתנה! סה״כ: {points_total}"
+        wa_template = (
+            "🎉 ברוכים הבאים למועדון!\n\n"
+            "שלום {client_name} 👋\n\n"
+            "שמחים מאוד שהצטרפת אלינו!\n\n"
+            "🎁 קיבלת {points_added} נקודות מתנה עם ההצטרפות\n"
+            "⭐ יתרת הנקודות שלך: {points_total}\n\n"
+            "עם כל ביקור תצבור נקודות נוספות שניתן לממש להנחות ומבצעים מיוחדים.\n\n"
+            "מחכים לראותך בקרוב! 💫"
+        )
 
     if client.phone:
         wa_body = format_template(wa_template, context)
