@@ -260,14 +260,19 @@ export default function AutomationSettingsPage() {
         setSettings({ ...settings, [field]: val });
     };
 
-    const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (!e.target.files || e.target.files.length === 0) return;
-        const file = e.target.files[0];
+    const [logoPreview, setLogoPreview] = useState<string | null>(null);
+    const [logoDragging, setLogoDragging] = useState(false);
+    const [logoUploading, setLogoUploading] = useState(false);
+
+    const uploadLogoFile = async (file: File) => {
+        // Show instant local preview
+        const reader = new FileReader();
+        reader.onload = e => setLogoPreview(e.target?.result as string);
+        reader.readAsDataURL(file);
 
         const formData = new FormData();
         formData.append("file", file);
-
-        setSaving(true);
+        setLogoUploading(true);
         setErr(null);
         try {
             const res = await apiFetch<{ filename: string }>("/api/studio/upload/logo", {
@@ -276,14 +281,27 @@ export default function AutomationSettingsPage() {
             });
             if (settings) {
                 setSettings({ ...settings, logo_filename: res.filename });
-                setMsg("לוגו הועלה בהצלחה!");
+                setMsg("לוגו הועלה בהצלחה! ✅");
                 setTimeout(() => setMsg(null), 3000);
             }
-        } catch (e: any) {
-            setErr(e?.message || "שגיאה בהעלאת לוגו");
+        } catch (e: unknown) {
+            setErr((e as { message?: string })?.message || "שגיאה בהעלאת לוגו");
+            setLogoPreview(null);
         } finally {
-            setSaving(false);
+            setLogoUploading(false);
         }
+    };
+
+    const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!e.target.files || e.target.files.length === 0) return;
+        await uploadLogoFile(e.target.files[0]);
+    };
+
+    const handleLogoDrop = async (e: React.DragEvent) => {
+        e.preventDefault();
+        setLogoDragging(false);
+        const file = e.dataTransfer.files[0];
+        if (file && file.type.startsWith("image/")) await uploadLogoFile(file);
     };
 
     const handleGenericUpload = async (e: React.ChangeEvent<HTMLInputElement>, fieldName: keyof Settings) => {
@@ -466,35 +484,61 @@ export default function AutomationSettingsPage() {
                                 <div className="grid md:grid-cols-2 gap-8">
                                     <div className="md:col-span-2">
                                         <label className="block text-sm font-semibold text-slate-700 mb-4">לוגו העסק</label>
-                                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
-                                            {settings.logo_filename ? (
-                                                <div className="relative group">
-                                                    <div className="h-32 w-32 rounded-full border-4 border-slate-200 shadow-lg overflow-hidden bg-white">
-                                                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                        <img src={`${process.env.NEXT_PUBLIC_API_BASE || ""}/uploads/${settings.logo_filename}`} alt="Logo" className="w-full h-full object-cover" />
+                                        <div className="flex flex-col sm:flex-row items-center gap-8">
+
+                                            {/* Circle preview */}
+                                            <div className="relative shrink-0 group"
+                                                onDragOver={e => { e.preventDefault(); setLogoDragging(true); }}
+                                                onDragLeave={() => setLogoDragging(false)}
+                                                onDrop={handleLogoDrop}>
+                                                <div className={`w-36 h-36 rounded-full border-4 overflow-hidden flex items-center justify-center transition-all ${logoDragging ? "border-blue-400 scale-105" : "border-slate-200"} ${logoUploading ? "opacity-60" : ""} bg-slate-50 shadow-lg`}>
+                                                    {logoPreview || settings.logo_filename ? (
+                                                        // eslint-disable-next-line @next/next/no-img-element
+                                                        <img
+                                                            src={logoPreview || `${process.env.NEXT_PUBLIC_API_BASE || ""}/uploads/${settings.logo_filename}`}
+                                                            alt="לוגו"
+                                                            className="w-full h-full object-cover"
+                                                            onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+                                                        />
+                                                    ) : (
+                                                        <div className="text-center text-slate-400 px-2">
+                                                            <div className="text-3xl mb-1">🏢</div>
+                                                            <div className="text-xs">גרור לכאן</div>
+                                                        </div>
+                                                    )}
+                                                    {logoUploading && (
+                                                        <div className="absolute inset-0 flex items-center justify-center bg-white/70 rounded-full">
+                                                            <div className="w-8 h-8 rounded-full border-4 border-slate-200 border-t-sky-500 animate-spin" />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                {logoDragging && (
+                                                    <div className="absolute inset-0 rounded-full border-4 border-blue-400 border-dashed bg-blue-50/50 flex items-center justify-center">
+                                                        <span className="text-blue-500 text-sm font-bold">שחרר כאן</span>
                                                     </div>
-                                                    <label className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
-                                                        <span className="text-white text-xs font-bold">החלף</span>
-                                                        <input type="file" className="hidden" accept="image/png, image/jpeg, image/svg+xml, image/webp" onChange={handleLogoUpload} />
-                                                    </label>
-                                                </div>
-                                            ) : (
-                                                <div className="h-32 w-32 rounded-full border-4 border-dashed border-slate-300 bg-slate-50 flex items-center justify-center text-slate-400 text-sm">
-                                                    אין לוגו
-                                                </div>
-                                            )}
-                                            <div className="flex-1">
-                                                <p className="text-sm text-slate-500 mb-4">מומלץ להעלות תמונה מרובעת (PNG/JPG) ברזולוציה גבוהה — תוצג כעיגול. הלוגו יופיע בממשק ובדפי הנחיתה.</p>
-                                                <label className="cursor-pointer inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-xl transition-colors border border-slate-300">
-                                                    <span>📷</span>
-                                                    <span>{settings.logo_filename ? "החלף לוגו" : "בחר קובץ לוגו"}</span>
-                                                    <input
-                                                        type="file"
-                                                        className="hidden"
-                                                        accept="image/png, image/jpeg, image/svg+xml, image/webp"
-                                                        onChange={handleLogoUpload}
-                                                    />
+                                                )}
+                                            </div>
+
+                                            {/* Upload controls */}
+                                            <div className="flex-1 space-y-3 text-right">
+                                                <p className="text-sm font-semibold text-slate-700">הלוגו של הסטודיו שלך</p>
+                                                <p className="text-xs text-slate-500 leading-relaxed">הלוגו מופיע בדפי הנחיתה, בממשק הכניסה ובהודעות ללקוחות. מומלץ תמונה מרובעת (PNG/JPG) ברזולוציה 400×400 לפחות.</p>
+
+                                                <label className="cursor-pointer flex items-center justify-center gap-2 w-full py-3 rounded-xl border-2 border-dashed border-slate-300 hover:border-sky-400 hover:bg-sky-50 text-slate-600 hover:text-sky-600 font-medium text-sm transition-all">
+                                                    <span className="text-lg">📤</span>
+                                                    <span>{settings.logo_filename ? "החלף תמונה" : "בחר תמונה"}</span>
+                                                    <input type="file" className="hidden" accept="image/*" onChange={handleLogoUpload} />
                                                 </label>
+
+                                                {settings.logo_filename && (
+                                                    <button
+                                                        onClick={() => { setSettings({ ...settings, logo_filename: null }); setLogoPreview(null); }}
+                                                        className="w-full py-2 text-xs text-red-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors border border-red-100">
+                                                        🗑️ הסר לוגו
+                                                    </button>
+                                                )}
+
+                                                <p className="text-[11px] text-slate-400">ניתן גם לגרור קובץ ישירות לעיגול</p>
                                             </div>
                                         </div>
                                     </div>
