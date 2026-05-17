@@ -25,6 +25,7 @@ export type LandingPageContentProps = {
     onSubmit?: (e: React.FormEvent) => void;
     submitting?: boolean;
     success?: boolean;
+    alreadyMember?: boolean;
     joinedPoints?: number;
     submitErr?: string | null;
     marketingConsent?: boolean;
@@ -159,6 +160,7 @@ export default function LandingPageTemplate({
     onSubmit,
     submitting = false,
     success = false,
+    alreadyMember = false,
     joinedPoints = 0,
     submitErr = null,
     marketingConsent = true,
@@ -215,7 +217,24 @@ export default function LandingPageTemplate({
         </form>
     );
 
-    const SuccessMessage = <SuccessScreen themePrimary={themePrimary} studioName={studioName} joinedPoints={joinedPoints} />;
+    const SuccessMessage = success
+        ? <SuccessScreen themePrimary={themePrimary} studioName={studioName} joinedPoints={joinedPoints} />
+        : alreadyMember
+        ? (
+            <div className="flex flex-col items-center justify-center py-16 px-6 text-center space-y-5" dir="rtl">
+                <div className="w-24 h-24 rounded-full flex items-center justify-center text-5xl shadow-xl" style={{ background: `linear-gradient(135deg, ${themePrimary}22, ${themePrimary}44)`, border: `3px solid ${themePrimary}` }}>
+                    👑
+                </div>
+                <h2 className="text-2xl font-black text-slate-800">אתה כבר חבר המועדון!</h2>
+                <p className="text-slate-500 text-base">אנחנו מכירים אותך — אתה כבר VIP אצלנו ב-{studioName}.</p>
+                {joinedPoints > 0 && (
+                    <div className="px-6 py-3 rounded-2xl text-white font-bold text-lg shadow-lg" style={{ background: themePrimary }}>
+                        יש לך {joinedPoints} נקודות בחשבון ⭐
+                    </div>
+                )}
+            </div>
+        )
+        : null;
 
     // Default Fallbacks
     const safeTitle = title || `ברוכים הבאים ל-${studioName}`;
@@ -286,7 +305,7 @@ export default function LandingPageTemplate({
                         <p className="text-slate-500 text-base whitespace-pre-wrap leading-relaxed font-medium" style={fontStyleDesc}>{safeDesc}</p>
                     </div>
 
-                    {success ? SuccessMessage : RegistrationForm}
+                    {(success || alreadyMember) ? SuccessMessage : RegistrationForm}
                     {SliderComponent}
                 </div>
             </div>
@@ -327,7 +346,7 @@ export default function LandingPageTemplate({
                                 <h2 className="text-2xl font-bold text-slate-800" style={fontStyleTitle}>מילוי פרטים אישיים 👋</h2>
                                 <p className="text-slate-500 text-sm mt-2" style={fontStyleDesc}>הזן את פרטיך להצטרפות מהירה למערכת</p>
                             </div>
-                            {success ? SuccessMessage : RegistrationForm}
+                            {(success || alreadyMember) ? SuccessMessage : RegistrationForm}
                         </div>
                     </div>
                 </div>
@@ -365,7 +384,7 @@ export default function LandingPageTemplate({
                 </div>
 
                 <div className="max-w-md mx-auto">
-                    {success ? SuccessMessage : RegistrationForm}
+                    {(success || alreadyMember) ? SuccessMessage : RegistrationForm}
                 </div>
 
                 {SliderComponent}

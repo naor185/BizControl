@@ -45,6 +45,7 @@ export default function StudioLandingPage() {
     const [marketingConsent, setMarketingConsent] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [success, setSuccess] = useState(false);
+    const [alreadyMember, setAlreadyMember] = useState(false);
     const [joinedPoints, setJoinedPoints] = useState<number>(0);
     const [submitErr, setSubmitErr] = useState<string | null>(null);
 
@@ -102,7 +103,11 @@ export default function StudioLandingPage() {
             }
             const result = await res.json().catch(() => ({}));
             setJoinedPoints(result?.loyalty_points ?? 0);
-            setSuccess(true);
+            if (result?.already_member) {
+                setAlreadyMember(true);
+            } else {
+                setSuccess(true);
+            }
         } catch (e: unknown) {
             setSubmitErr((e as Error)?.message || "שגיאה בהרשמה, נסה שוב");
         } finally {
@@ -160,6 +165,7 @@ export default function StudioLandingPage() {
                 onSubmit={handleSubmit}
                 submitting={submitting}
                 success={success}
+                alreadyMember={alreadyMember}
                 joinedPoints={joinedPoints}
                 submitErr={submitErr}
                 marketingConsent={marketingConsent}
