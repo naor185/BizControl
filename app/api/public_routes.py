@@ -1,7 +1,10 @@
+import logging
 import uuid
 from uuid import UUID as PyUUID
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+
+log = logging.getLogger(__name__)
 from sqlalchemy import or_, func, select
 from datetime import datetime, date, timedelta, timezone
 from typing import Optional
@@ -14,7 +17,6 @@ from app.models.appointment import Appointment
 from app.models.studio_settings import StudioSettings
 from app.models.booking_request import BookingRequest
 from app.models.lead import Lead
-from app.crud.client import _handle_new_club_member
 from pydantic import BaseModel, EmailStr
 
 router = APIRouter(prefix="/public", tags=["Public"])
@@ -132,60 +134,66 @@ def get_public_studio_info(studio_id: str, db: Session = Depends(get_db)):
     )
 
 @router.post("/studio/{studio_id}/join")
-def join_studio(studio_id: str, payload: ClientJoinRequest, db: Session = Depends(get_db)):
-    studio = db.query(Studio).filter(Studio.id == studio_id).first()
-    if not studio:
-        raise HTTPException(status_code=404, detail="Studio not found")
+def join_studio(studio_id: str, payload: ClientJoinRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    from app.crud.client import _run_club_member_bg
+    try:
+        studio = db.query(Studio).filter(Studio.id == studio_id).first()
+        if not studio:
+            raise HTTPException(status_code=404, detail="Studio not found")
 
-    full_name_clean = payload.full_name.strip()
-    phone_clean = payload.phone.strip() if payload.phone else None
-    email_clean = str(payload.email).lower().strip() if payload.email else None
+        full_name_clean = payload.full_name.strip()
+        phone_clean = payload.phone.strip() if payload.phone else None
+        email_clean = str(payload.email).lower().strip() if payload.email else None
 
-    conditions = [func.lower(Client.full_name) == full_name_clean.lower()]
-    if phone_clean:
-        conditions.append(Client.phone == phone_clean)
-    if email_clean:
-        conditions.append(Client.email == email_clean)
+        conditions = [func.lower(Client.full_name) == full_name_clean.lower()]
+        if phone_clean:
+            conditions.append(Client.phone == phone_clean)
+        if email_clean:
+            conditions.append(Client.email == email_clean)
 
-    existing = db.query(Client).filter(
-        Client.studio_id == studio_id,
-        Client.is_active == True,  # noqa: E712
-        or_(*conditions)
-    ).first()
-    
-    studio_uuid = PyUUID(studio_id)
+        existing = db.query(Client).filter(
+            Client.studio_id == studio_id,
+            Client.is_active == True,  # noqa: E712
+            or_(*conditions)
+        ).first()
 
-    if existing:
-        _maybe_create_lead(db, studio_id, existing.full_name, existing.phone, payload)
-        if existing.is_club_member:
-            return {"message": "Already a club member", "already_member": True, "client_id": existing.id, "loyalty_points": existing.loyalty_points}
-        existing.is_club_member = True
-        db.flush()
-        _handle_new_club_member(db, studio_uuid, existing)
+        studio_uuid = PyUUID(studio_id)
+
+        if existing:
+            _maybe_create_lead(db, studio_id, existing.full_name, existing.phone, payload)
+            if existing.is_club_member:
+                return {"message": "Already a club member", "already_member": True, "client_id": existing.id, "loyalty_points": existing.loyalty_points}
+            existing.is_club_member = True
+            db.commit()
+            db.refresh(existing)
+            background_tasks.add_task(_run_club_member_bg, studio_uuid, existing.id)
+            return {"message": "Successfully joined", "client_id": existing.id, "loyalty_points": existing.loyalty_points}
+
+        new_client = Client(
+            studio_id=studio_id,
+            full_name=payload.full_name,
+            phone=payload.phone,
+            email=payload.email,
+            birth_date=payload.birth_date,
+            loyalty_points=0,
+            marketing_consent=payload.marketing_consent,
+            is_club_member=True,
+            notes="הצטרף דרך דף נחיתה / מועדון לקוחות"
+        )
+        db.add(new_client)
+        _maybe_create_lead(db, studio_id, new_client.full_name, new_client.phone, payload)
         db.commit()
-        db.refresh(existing)
-        return {"message": "Successfully joined", "client_id": existing.id, "loyalty_points": existing.loyalty_points}
+        db.refresh(new_client)
+        background_tasks.add_task(_run_club_member_bg, studio_uuid, new_client.id)
 
-    new_client = Client(
-        studio_id=studio_id,
-        full_name=payload.full_name,
-        phone=payload.phone,
-        email=payload.email,
-        birth_date=payload.birth_date,
-        loyalty_points=0,
-        marketing_consent=payload.marketing_consent,
-        is_club_member=True,
-        notes="הצטרף דרך דף נחיתה / מועדון לקוחות"
-    )
-    db.add(new_client)
-    db.flush()  # assigns ID without committing — everything stays in one transaction
+        return {"message": "Successfully joined", "client_id": new_client.id, "loyalty_points": new_client.loyalty_points}
 
-    _handle_new_club_member(db, studio_uuid, new_client)
-    _maybe_create_lead(db, studio_id, new_client.full_name, new_client.phone, payload)
-    db.commit()
-    db.refresh(new_client)
-
-    return {"message": "Successfully joined", "client_id": new_client.id, "loyalty_points": new_client.loyalty_points}
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        log.error("join_studio failed for studio %s: %s", studio_id, e, exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 def _maybe_create_lead(db: Session, studio_id: str, name: str, phone: str | None, payload: ClientJoinRequest) -> None:
