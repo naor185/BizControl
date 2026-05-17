@@ -49,6 +49,9 @@ def create(
         return create_client(db, ctx.studio_id, payload)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("", response_model=list[ClientOut])
 def list_(

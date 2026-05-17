@@ -126,7 +126,12 @@ def create_client(db: Session, studio_id: UUID, data: ClientCreate) -> Client:
         db.flush()
 
         if existing.is_club_member:
-            _handle_new_club_member(db, studio_id, existing)
+            sp = db.begin_nested()
+            try:
+                _handle_new_club_member(db, studio_id, existing)
+                sp.commit()
+            except Exception:
+                sp.rollback()
 
         db.commit()
         db.refresh(existing)
@@ -146,7 +151,12 @@ def create_client(db: Session, studio_id: UUID, data: ClientCreate) -> Client:
     db.flush()  # assigns ID without committing
 
     if obj.is_club_member:
-        _handle_new_club_member(db, studio_id, obj)
+        sp = db.begin_nested()
+        try:
+            _handle_new_club_member(db, studio_id, obj)
+            sp.commit()
+        except Exception:
+            sp.rollback()
 
     db.commit()
     db.refresh(obj)
