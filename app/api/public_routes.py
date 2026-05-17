@@ -154,7 +154,14 @@ def join_studio(studio_id: str, payload: ClientJoinRequest, db: Session = Depend
     
     if existing:
         _maybe_create_lead(db, studio_id, existing.full_name, existing.phone, payload)
-        return {"message": "Client already exists", "client_id": existing.id}
+        if not existing.is_club_member:
+            existing.is_club_member = True
+            db.commit()
+            db.refresh(existing)
+            _handle_new_club_member(db, studio_id, existing)
+            db.commit()
+            db.refresh(existing)
+        return {"message": "Client already exists", "client_id": existing.id, "loyalty_points": existing.loyalty_points}
 
     new_client = Client(
         studio_id=studio_id,
