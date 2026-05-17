@@ -1041,7 +1041,7 @@ def get_webhook_config(admin: User = Depends(require_superadmin)):
 
 @router.get("/platform-settings", response_model=PlatformSettingsOut)
 def get_platform_settings(admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
-    settings = db.get(StudioSettings, PLATFORM_STUDIO_ID)
+    settings = db.get(StudioSettings, PLATFORM_STUDIO_ID) if PLATFORM_STUDIO_ID else None
     if not settings:
         raise HTTPException(status_code=404, detail="Platform settings not found")
     return PlatformSettingsOut(
@@ -1058,7 +1058,7 @@ class TestWhatsappIn(BaseModel):
 @router.post("/test-whatsapp")
 def test_whatsapp(payload: TestWhatsappIn, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
     import urllib.request as _urllib_req, json as _json, urllib.error as _urllib_err
-    settings = db.get(StudioSettings, PLATFORM_STUDIO_ID)
+    settings = db.get(StudioSettings, PLATFORM_STUDIO_ID) if PLATFORM_STUDIO_ID else None
     if not settings or not settings.whatsapp_provider:
         raise HTTPException(status_code=400, detail="WhatsApp לא מוגדר בפלטפורמה")
 
@@ -1110,7 +1110,7 @@ def update_platform_settings(
     admin: User = Depends(require_superadmin),
     db: Session = Depends(get_db),
 ):
-    settings = db.get(StudioSettings, PLATFORM_STUDIO_ID)
+    settings = db.get(StudioSettings, PLATFORM_STUDIO_ID) if PLATFORM_STUDIO_ID else None
     if not settings:
         raise HTTPException(status_code=404, detail="Platform settings not found")
     if payload.whatsapp_provider is not None:

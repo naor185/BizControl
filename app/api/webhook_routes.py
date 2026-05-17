@@ -152,9 +152,10 @@ def _find_settings_for_phone_id(db: Session, phone_id: str) -> StudioSettings | 
     if settings:
         return settings
     # If it's the platform's own number, route to platform studio
-    platform = db.get(StudioSettings, PLATFORM_STUDIO_ID)
-    if platform and platform.whatsapp_phone_id == phone_id:
-        return platform
+    if PLATFORM_STUDIO_ID:
+        platform = db.get(StudioSettings, PLATFORM_STUDIO_ID)
+        if platform and platform.whatsapp_phone_id == phone_id:
+            return platform
     return None
 
 
