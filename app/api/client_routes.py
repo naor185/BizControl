@@ -1,6 +1,6 @@
 from __future__ import annotations
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -42,11 +42,12 @@ def get_or_create_walk_in(
 @router.post("", response_model=ClientOut, status_code=status.HTTP_201_CREATED)
 def create(
     payload: ClientCreate,
+    background_tasks: BackgroundTasks,
     ctx: AuthContext = Depends(require_studio_ctx),
     db: Session = Depends(get_db),
 ):
     try:
-        return create_client(db, ctx.studio_id, payload)
+        return create_client(db, ctx.studio_id, payload, background_tasks)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:

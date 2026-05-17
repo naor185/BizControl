@@ -1,10 +1,13 @@
 from __future__ import annotations
+import logging
 from uuid import UUID
 from sqlalchemy import select, or_
 from sqlalchemy.orm import Session
 
 from app.models.client import Client
 from app.schemas.client import ClientCreate, ClientUpdate
+
+log = logging.getLogger(__name__)
 
 def _handle_new_club_member(db: Session, studio_id: UUID, client: Client):
     from app.models.studio_settings import StudioSettings
@@ -93,7 +96,23 @@ def _handle_new_club_member(db: Session, studio_id: UUID, client: Client):
         ))
 
 
-def create_client(db: Session, studio_id: UUID, data: ClientCreate) -> Client:
+def _run_club_member_bg(studio_id: UUID, client_id: UUID) -> None:
+    """Runs in background after client commit — creates points/messages/notification."""
+    from app.db.session import SessionLocal
+    db = SessionLocal()
+    try:
+        client = db.get(Client, client_id)
+        if client:
+            _handle_new_club_member(db, studio_id, client)
+            db.commit()
+    except Exception as e:
+        log.error("_handle_new_club_member failed for client %s: %s", client_id, e, exc_info=True)
+        db.rollback()
+    finally:
+        db.close()
+
+
+def create_client(db: Session, studio_id: UUID, data: ClientCreate, background_tasks=None) -> Client:
     full_name_clean = data.full_name.strip()
     phone_clean = data.phone.strip() if data.phone else None
     email_clean = str(data.email).lower().strip() if data.email else None
@@ -113,8 +132,7 @@ def create_client(db: Session, studio_id: UUID, data: ClientCreate) -> Client:
     if existing:
         if existing.is_active:
             raise ValueError("לקוח עם טלפון או אימייל זהה כבר קיים במערכת")
-        
-        # Reactivate and update inactive client
+
         existing.is_active = True
         existing.full_name = full_name_clean
         existing.phone = phone_clean
@@ -122,19 +140,14 @@ def create_client(db: Session, studio_id: UUID, data: ClientCreate) -> Client:
         existing.birth_date = data.birth_date
         existing.notes = data.notes
         existing.is_club_member = data.is_club_member
-        
-        db.flush()
-
-        if existing.is_club_member:
-            sp = db.begin_nested()
-            try:
-                _handle_new_club_member(db, studio_id, existing)
-                sp.commit()
-            except Exception:
-                sp.rollback()
-
         db.commit()
         db.refresh(existing)
+
+        if existing.is_club_member:
+            if background_tasks:
+                background_tasks.add_task(_run_club_member_bg, studio_id, existing.id)
+            else:
+                _run_club_member_bg(studio_id, existing.id)
         return existing
 
     obj = Client(
@@ -148,18 +161,15 @@ def create_client(db: Session, studio_id: UUID, data: ClientCreate) -> Client:
         is_club_member=data.is_club_member,
     )
     db.add(obj)
-    db.flush()  # assigns ID without committing
-
-    if obj.is_club_member:
-        sp = db.begin_nested()
-        try:
-            _handle_new_club_member(db, studio_id, obj)
-            sp.commit()
-        except Exception:
-            sp.rollback()
-
     db.commit()
     db.refresh(obj)
+
+    if obj.is_club_member:
+        if background_tasks:
+            background_tasks.add_task(_run_club_member_bg, studio_id, obj.id)
+        else:
+            _run_club_member_bg(studio_id, obj.id)
+
     return obj
 
 def get_client(db: Session, studio_id: UUID, client_id: UUID) -> Client | None:
