@@ -48,6 +48,24 @@ def patch_settings(payload: AutomationSettingsUpdate, ctx: AuthContext = Depends
     out.studio_slug = studio.slug if studio else None
     return out
 
+class TestWhatsappIn(BaseModel):
+    phone: str
+
+@router.post("/test-whatsapp")
+def test_whatsapp(payload: TestWhatsappIn, ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+    from app.services.message_worker import send_whatsapp_message
+    if ctx.role not in ("owner", "admin", "manager"):
+        raise HTTPException(status_code=403, detail="Forbidden")
+    settings = db.get(StudioSettings, ctx.studio_id)
+    if not settings or not settings.whatsapp_provider:
+        raise HTTPException(status_code=400, detail="WhatsApp לא מוגדר — יש להגדיר ספק ופרטי חיבור")
+    try:
+        send_whatsapp_message(payload.phone, "✅ הודעת בדיקה ממערכת BizControl — החיבור תקין!", settings)
+        return {"ok": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 class AIGenerateRequest(BaseModel):
     description: str
 

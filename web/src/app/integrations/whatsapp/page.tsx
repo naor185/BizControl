@@ -102,6 +102,9 @@ export default function WhatsAppWizardPage() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [err, setErr] = useState<string | null>(null);
+    const [testPhone, setTestPhone] = useState("");
+    const [testing, setTesting] = useState(false);
+    const [testResult, setTestResult] = useState<{ ok: boolean; msg: string } | null>(null);
 
     useEffect(() => {
         apiFetch<Record<string, string>>("/api/studio/automation")
@@ -114,6 +117,23 @@ export default function WhatsAppWizardPage() {
             .catch(() => {})
             .finally(() => setLoading(false));
     }, []);
+
+    const handleTestSend = async () => {
+        if (!testPhone.trim()) return;
+        setTesting(true);
+        setTestResult(null);
+        try {
+            await apiFetch("/api/studio/automation/test-whatsapp", {
+                method: "POST",
+                body: JSON.stringify({ phone: testPhone.trim() }),
+            });
+            setTestResult({ ok: true, msg: "ההודעה נשלחה! בדוק את הוואטסאפ שלך." });
+        } catch (e: unknown) {
+            setTestResult({ ok: false, msg: (e as { message?: string })?.message || "שגיאה בשליחה" });
+        } finally {
+            setTesting(false);
+        }
+    };
 
     const handleSave = async () => {
         if (!apiKey) { setErr("יש להזין API Token"); return; }
@@ -293,12 +313,39 @@ export default function WhatsAppWizardPage() {
                             )}
 
                             {step === 3 && (
-                                <div className="text-center py-8 space-y-6">
-                                    <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center text-4xl mx-auto">✅</div>
-                                    <div>
-                                        <h2 className="text-2xl font-bold text-slate-800 mb-2">WhatsApp מחובר בהצלחה!</h2>
-                                        <p className="text-slate-500">המערכת מוכנה לשלוח הודעות אוטומטיות ללקוחות שלך</p>
+                                <div className="py-6 space-y-6">
+                                    <div className="text-center space-y-3">
+                                        <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center text-4xl mx-auto">✅</div>
+                                        <h2 className="text-2xl font-bold text-slate-800">WhatsApp מחובר!</h2>
+                                        <p className="text-slate-500">שלח הודעת בדיקה כדי לוודא שהכל עובד</p>
                                     </div>
+
+                                    <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-3" dir="rtl">
+                                        <h4 className="font-bold text-slate-700">שלח הודעת בדיקה</h4>
+                                        <div className="flex gap-2">
+                                            <input
+                                                type="tel"
+                                                dir="ltr"
+                                                placeholder="0501234567"
+                                                value={testPhone}
+                                                onChange={e => setTestPhone(e.target.value)}
+                                                className="flex-1 bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-mono outline-none focus:ring-2 focus:ring-emerald-500"
+                                            />
+                                            <button
+                                                onClick={handleTestSend}
+                                                disabled={testing || !testPhone.trim()}
+                                                className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white px-5 py-2.5 rounded-xl font-bold text-sm transition-all"
+                                            >
+                                                {testing ? "שולח..." : "שלח"}
+                                            </button>
+                                        </div>
+                                        {testResult && (
+                                            <div className={`text-sm font-medium px-4 py-2 rounded-xl ${testResult.ok ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>
+                                                {testResult.ok ? "✅ " : "❌ "}{testResult.msg}
+                                            </div>
+                                        )}
+                                    </div>
+
                                     <div className="bg-slate-50 rounded-2xl border border-slate-100 p-5 text-right">
                                         <h4 className="font-semibold text-slate-700 mb-3">המשך מכאן:</h4>
                                         <ul className="space-y-2 text-sm text-slate-600">
@@ -306,9 +353,11 @@ export default function WhatsAppWizardPage() {
                                             <li className="flex items-center gap-2"><span className="text-emerald-500">✓</span> בדוק הודעות נכנסות ב-<strong>Inbox</strong></li>
                                         </ul>
                                     </div>
-                                    <button onClick={() => router.push("/automation")} className="bg-slate-900 hover:bg-slate-700 text-white px-10 py-3 rounded-xl font-bold transition-all">
-                                        חזור להגדרות
-                                    </button>
+                                    <div className="text-center">
+                                        <button onClick={() => router.push("/automation")} className="bg-slate-900 hover:bg-slate-700 text-white px-10 py-3 rounded-xl font-bold transition-all">
+                                            חזור להגדרות
+                                        </button>
+                                    </div>
                                 </div>
                             )}
                         </div>
