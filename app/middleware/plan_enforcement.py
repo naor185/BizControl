@@ -33,6 +33,7 @@ _BYPASS_PREFIXES = (
     "/api/join",       # public studio landing
     "/api/s/",         # short links
     "/api/book",       # self-booking public
+    "/api/public",     # public landing page + studio join
     "/api/billing/webhook",  # Stripe webhooks (no auth)
 )
 
