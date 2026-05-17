@@ -48,6 +48,41 @@ def patch_settings(payload: AutomationSettingsUpdate, ctx: AuthContext = Depends
     out.studio_slug = studio.slug if studio else None
     return out
 
+class TriggerWelcomeIn(BaseModel):
+    client_id: str
+
+@router.post("/trigger-welcome")
+def trigger_welcome(payload: TriggerWelcomeIn, ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+    """Manually trigger club welcome (points + WhatsApp) for an existing client."""
+    import traceback
+    from uuid import UUID
+    from app.models.client import Client
+    if ctx.role not in ("owner", "admin", "manager"):
+        raise HTTPException(status_code=403, detail="Forbidden")
+    try:
+        client_uuid = UUID(payload.client_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid client_id")
+    client = db.get(Client, client_uuid)
+    if not client or client.studio_id != ctx.studio_id:
+        raise HTTPException(status_code=404, detail="Client not found")
+    try:
+        from app.crud.client import _handle_new_club_member
+        from app.models.studio_settings import StudioSettings
+        settings = db.get(StudioSettings, ctx.studio_id)
+        if not settings:
+            raise HTTPException(status_code=400, detail="Studio settings not found")
+        _handle_new_club_member(db, ctx.studio_id, client)
+        db.commit()
+        db.refresh(client)
+        return {"ok": True, "points": int(client.loyalty_points or 0)}
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"{type(e).__name__}: {e}\n{traceback.format_exc()}")
+
+
 class TestWhatsappIn(BaseModel):
     phone: str
 
