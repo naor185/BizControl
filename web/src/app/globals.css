@@ -51,6 +51,15 @@ button:focus-visible {
   animation: fadeIn 0.25s ease-out both;
 }
 
+@keyframes toastSlideIn {
+  from { opacity: 0; transform: translateX(-24px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.animate-toast-in {
+  animation: toastSlideIn 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 /* Scrollbar — תכלת עדין */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }

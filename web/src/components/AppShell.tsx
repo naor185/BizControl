@@ -7,6 +7,7 @@ import { apiFetch, clearToken, getToken, setToken } from "@/lib/api";
 import ClockWidget from "./ClockWidget";
 import BottomNav from "./BottomNav";
 import NotificationBell from "./NotificationBell";
+import ToastContainer from "./ToastContainer";
 import { useLang } from "./LanguageProvider";
 import { LOCALES, TranslationKey } from "@/lib/i18n";
 
@@ -21,11 +22,12 @@ type Me = {
 type NavItem = { href: string; labelKey: TranslationKey; icon: string };
 
 const MAIN_NAV: NavItem[] = [
-    { href: "/calendar",  labelKey: "nav_calendar",  icon: "📅" },
-    { href: "/expenses",  labelKey: "nav_expenses",  icon: "💼" },
-    { href: "/products",  labelKey: "nav_products",  icon: "📦" },
-    { href: "/dashboard", labelKey: "nav_dashboard", icon: "📊" },
-    { href: "/clients",   labelKey: "nav_clients",   icon: "👥" },
+    { href: "/calendar",      labelKey: "nav_calendar",  icon: "📅" },
+    { href: "/expenses",      labelKey: "nav_expenses",  icon: "💼" },
+    { href: "/products",      labelKey: "nav_products",  icon: "📦" },
+    { href: "/dashboard",     labelKey: "nav_dashboard", icon: "📊" },
+    { href: "/clients",       labelKey: "nav_clients",   icon: "👥" },
+    { href: "/clients/club",  labelKey: "nav_club",      icon: "👑" },
 ];
 
 const SETTINGS_NAV: NavItem[] = [
@@ -295,6 +297,7 @@ export default function AppShell({
 
             <ClockWidget />
             <BottomNav />
+            <ToastContainer />
         </div>
     );
 }
