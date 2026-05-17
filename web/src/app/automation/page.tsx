@@ -468,23 +468,30 @@ export default function AutomationSettingsPage() {
                                         <label className="block text-sm font-semibold text-slate-700 mb-4">לוגו העסק</label>
                                         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
                                             {settings.logo_filename ? (
-                                                <div className="h-32 w-32 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-center p-4 shadow-inner relative group">
-                                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                    <img src={`http://127.0.0.1:8000/uploads/${settings.logo_filename}`} alt="Logo" className="max-h-full max-w-full object-contain drop-shadow" />
+                                                <div className="relative group">
+                                                    <div className="h-32 w-32 rounded-full border-4 border-slate-200 shadow-lg overflow-hidden bg-white">
+                                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                        <img src={`${process.env.NEXT_PUBLIC_API_BASE || ""}/uploads/${settings.logo_filename}`} alt="Logo" className="w-full h-full object-cover" />
+                                                    </div>
+                                                    <label className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                                                        <span className="text-white text-xs font-bold">החלף</span>
+                                                        <input type="file" className="hidden" accept="image/png, image/jpeg, image/svg+xml, image/webp" onChange={handleLogoUpload} />
+                                                    </label>
                                                 </div>
                                             ) : (
-                                                <div className="h-32 w-32 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-300 flex items-center justify-center text-slate-400">
+                                                <div className="h-32 w-32 rounded-full border-4 border-dashed border-slate-300 bg-slate-50 flex items-center justify-center text-slate-400 text-sm">
                                                     אין לוגו
                                                 </div>
                                             )}
                                             <div className="flex-1">
-                                                <p className="text-sm text-slate-500 mb-4">מומלץ להעלות קובץ PNG שקוף ברזולוציה גבוהה. הלוגו יופיע בממשק ההתחברות ובדפי הנחיתה שאתה שולח ללקוחות.</p>
-                                                <label className="cursor-pointer inline-flex items-center justify-center px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-xl transition-colors border border-slate-300">
-                                                    <span>בחר קובץ לוגו</span>
+                                                <p className="text-sm text-slate-500 mb-4">מומלץ להעלות תמונה מרובעת (PNG/JPG) ברזולוציה גבוהה — תוצג כעיגול. הלוגו יופיע בממשק ובדפי הנחיתה.</p>
+                                                <label className="cursor-pointer inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-xl transition-colors border border-slate-300">
+                                                    <span>📷</span>
+                                                    <span>{settings.logo_filename ? "החלף לוגו" : "בחר קובץ לוגו"}</span>
                                                     <input
                                                         type="file"
                                                         className="hidden"
-                                                        accept="image/png, image/jpeg, image/svg+xml"
+                                                        accept="image/png, image/jpeg, image/svg+xml, image/webp"
                                                         onChange={handleLogoUpload}
                                                     />
                                                 </label>
@@ -689,7 +696,7 @@ export default function AutomationSettingsPage() {
                                                 {settings.landing_page_bg_image ? (
                                                     <div className="flex items-center gap-4">
                                                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                        <img src={`http://127.0.0.1:8000/uploads/${settings.landing_page_bg_image}`} alt="BG" className="h-16 w-16 object-cover rounded-lg border border-slate-200" />
+                                                        <img src={`${process.env.NEXT_PUBLIC_API_BASE || ""}/uploads/${settings.landing_page_bg_image}`} alt="BG" className="h-16 w-16 object-cover rounded-lg border border-slate-200" />
                                                         <button onClick={() => handleChange("landing_page_bg_image", null)} className="text-red-500 text-sm font-bold hover:underline">הסר תמונה</button>
                                                     </div>
                                                 ) : (
@@ -732,7 +739,7 @@ export default function AutomationSettingsPage() {
                                                                 {val ? (
                                                                     <>
                                                                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                                        <img src={`http://127.0.0.1:8000/uploads/${val}`} alt={`img-${num}`} className="w-full h-full object-cover" />
+                                                                        <img src={`${process.env.NEXT_PUBLIC_API_BASE || ""}/uploads/${val}`} alt={`img-${num}`} className="w-full h-full object-cover" />
                                                                         <button onClick={() => handleChange(key, null)} className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs shadow-md pb-0.5">&times;</button>
                                                                     </>
                                                                 ) : (
@@ -785,17 +792,17 @@ export default function AutomationSettingsPage() {
                                                     <LandingPageTemplate
                                                         themePrimary={settings.theme_primary_color}
                                                         themeSecondary={settings.theme_secondary_color}
-                                                        logoUrl={settings.logo_filename ? `http://127.0.0.1:8000/uploads/${settings.logo_filename}` : null}
+                                                        logoUrl={settings.logo_filename ? `${process.env.NEXT_PUBLIC_API_BASE || ""}/uploads/${settings.logo_filename}` : null}
                                                         title={settings.landing_page_title || ""}
                                                         description={settings.landing_page_description || ""}
                                                         templateId={settings.landing_page_active_template}
-                                                        bgImage={settings.landing_page_bg_image ? `http://127.0.0.1:8000/uploads/${settings.landing_page_bg_image}` : null}
+                                                        bgImage={settings.landing_page_bg_image ? `${process.env.NEXT_PUBLIC_API_BASE || ""}/uploads/${settings.landing_page_bg_image}` : null}
                                                         titleFont={settings.landing_page_title_font}
                                                         descFont={settings.landing_page_desc_font}
                                                         galleryImages={[
-                                                            settings.landing_page_image_1 ? `http://127.0.0.1:8000/uploads/${settings.landing_page_image_1}` : null,
-                                                            settings.landing_page_image_2 ? `http://127.0.0.1:8000/uploads/${settings.landing_page_image_2}` : null,
-                                                            settings.landing_page_image_3 ? `http://127.0.0.1:8000/uploads/${settings.landing_page_image_3}` : null,
+                                                            settings.landing_page_image_1 ? `${process.env.NEXT_PUBLIC_API_BASE || ""}/uploads/${settings.landing_page_image_1}` : null,
+                                                            settings.landing_page_image_2 ? `${process.env.NEXT_PUBLIC_API_BASE || ""}/uploads/${settings.landing_page_image_2}` : null,
+                                                            settings.landing_page_image_3 ? `${process.env.NEXT_PUBLIC_API_BASE || ""}/uploads/${settings.landing_page_image_3}` : null,
                                                         ]}
                                                         isLive={false}
                                                     />
