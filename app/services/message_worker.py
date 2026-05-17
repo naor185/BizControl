@@ -61,22 +61,24 @@ def send_whatsapp_message(to_phone: str, body: str, settings=None) -> None:
     provider = getattr(settings, "whatsapp_provider", None) if settings else None
 
     if not provider:
-        log.warning("WhatsApp לא מוגדר לסטודיו זה — הודעה לא נשלחה ל-%s", to_phone)
-        return
+        raise ValueError("WhatsApp provider not configured for this studio")
 
     if provider == "green_api":
         instance_id = getattr(settings, "whatsapp_instance_id", None)
         api_key = getattr(settings, "whatsapp_api_key", None)
         if not instance_id or not api_key:
-            log.warning("[WA-GREEN] חסרים פרטי Green API, לא נשלח ל-%s", to_phone)
-            return
+            raise ValueError("Green API credentials missing (instance_id or api_key)")
         _send_via_green(instance_id, api_key, to_phone, body)
 
-    elif provider == "meta" and getattr(settings, "whatsapp_phone_id", None) and getattr(settings, "whatsapp_api_key", None):
-        _send_via_meta(settings.whatsapp_phone_id, settings.whatsapp_api_key, to_phone, body)
+    elif provider == "meta":
+        phone_id = getattr(settings, "whatsapp_phone_id", None)
+        api_key = getattr(settings, "whatsapp_api_key", None)
+        if not phone_id or not api_key:
+            raise ValueError("Meta API credentials missing (phone_id or api_key)")
+        _send_via_meta(phone_id, api_key, to_phone, body)
 
     else:
-        log.warning("[WHATSAPP] ספק לא מזוהה '%s' — הודעה לא נשלחה ל-%s", provider, to_phone)
+        raise ValueError(f"Unknown WhatsApp provider: '{provider}'")
 
 def process_due_jobs(db: Session, limit: int = 20) -> int:
     now = datetime.now(timezone.utc)
