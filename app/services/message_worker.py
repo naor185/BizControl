@@ -45,8 +45,10 @@ def _send_via_green(instance_id: str, api_key: str, to_phone: str, body: str) ->
     import urllib.request, json as _json
     # Green API endpoint: send message
     url = f"https://api.green-api.com/waInstance{instance_id}/sendMessage/{api_key}"
-    # normalize phone: remove +, spaces, dashes
+    # normalize phone: remove +, spaces, dashes, convert IL 05X → 9725X
     clean = to_phone.replace("+", "").replace(" ", "").replace("-", "")
+    if clean.startswith("0") and len(clean) >= 9:
+        clean = "972" + clean[1:]
     if not clean.endswith("@c.us"):
         clean = f"{clean}@c.us"
     payload = _json.dumps({"chatId": clean, "message": body}).encode()

@@ -123,14 +123,13 @@ def create_client(db: Session, studio_id: UUID, data: ClientCreate) -> Client:
         existing.notes = data.notes
         existing.is_club_member = data.is_club_member
         
-        db.commit()
-        db.refresh(existing)
-        
+        db.flush()
+
         if existing.is_club_member:
             _handle_new_club_member(db, studio_id, existing)
-            db.commit()
-            db.refresh(existing)
-            
+
+        db.commit()
+        db.refresh(existing)
         return existing
 
     obj = Client(
@@ -144,14 +143,13 @@ def create_client(db: Session, studio_id: UUID, data: ClientCreate) -> Client:
         is_club_member=data.is_club_member,
     )
     db.add(obj)
-    db.commit()
-    db.refresh(obj)
+    db.flush()  # assigns ID without committing
 
     if obj.is_club_member:
         _handle_new_club_member(db, studio_id, obj)
-        db.commit()
-        db.refresh(obj)
 
+    db.commit()
+    db.refresh(obj)
     return obj
 
 def get_client(db: Session, studio_id: UUID, client_id: UUID) -> Client | None:
