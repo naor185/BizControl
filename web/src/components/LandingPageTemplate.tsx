@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 
 export type LandingPageContentProps = {
     themePrimary: string;
@@ -30,6 +30,110 @@ export type LandingPageContentProps = {
     marketingConsent?: boolean;
     setMarketingConsent?: (val: boolean) => void;
 };
+
+function SuccessScreen({ themePrimary, studioName, joinedPoints }: { themePrimary: string; studioName: string; joinedPoints: number }) {
+    const fired = useRef(false);
+
+    useEffect(() => {
+        if (fired.current) return;
+        fired.current = true;
+        import("canvas-confetti").then(({ default: confetti }) => {
+            const end = Date.now() + 2200;
+            const colors = [themePrimary, "#fbbf24", "#34d399", "#60a5fa", "#f472b6"];
+            const frame = () => {
+                confetti({ particleCount: 6, angle: 60, spread: 55, origin: { x: 0 }, colors });
+                confetti({ particleCount: 6, angle: 120, spread: 55, origin: { x: 1 }, colors });
+                if (Date.now() < end) requestAnimationFrame(frame);
+            };
+            frame();
+        });
+    }, [themePrimary]);
+
+    return (
+        <div className="text-center py-10 px-4 space-y-6" dir="rtl">
+            {/* Animated checkmark */}
+            <div className="relative mx-auto w-28 h-28">
+                <div
+                    className="w-28 h-28 rounded-full flex items-center justify-center text-white text-5xl shadow-2xl"
+                    style={{
+                        backgroundColor: themePrimary,
+                        animation: "successPop 0.6s cubic-bezier(0.175,0.885,0.32,1.275) forwards",
+                    }}
+                >
+                    ✓
+                </div>
+                {/* Pulse ring */}
+                <div
+                    className="absolute inset-0 rounded-full"
+                    style={{
+                        border: `3px solid ${themePrimary}`,
+                        animation: "successRing 1s ease-out 0.3s forwards",
+                        opacity: 0,
+                    }}
+                />
+            </div>
+
+            {/* Text */}
+            <div className="space-y-2">
+                <h2
+                    className="text-3xl font-black tracking-tight"
+                    style={{
+                        color: themePrimary,
+                        animation: "successFade 0.5s ease 0.3s both",
+                    }}
+                >
+                    🎉 ברוך הבא למועדון!
+                </h2>
+                <p
+                    className="text-slate-600 text-lg font-medium"
+                    style={{ animation: "successFade 0.5s ease 0.5s both" }}
+                >
+                    הצטרפת בהצלחה ל{studioName}. נשמח לראותך!
+                </p>
+            </div>
+
+            {/* Points badge */}
+            {joinedPoints > 0 && (
+                <div
+                    className="inline-flex flex-col items-center gap-1 px-8 py-4 rounded-3xl text-white shadow-xl"
+                    style={{
+                        backgroundColor: themePrimary,
+                        animation: "successFade 0.6s ease 0.7s both",
+                    }}
+                >
+                    <span className="text-4xl">⭐</span>
+                    <span className="font-black text-2xl">{joinedPoints} נקודות</span>
+                    <span className="text-sm opacity-80 font-medium">קיבלת מתנת הצטרפות!</span>
+                </div>
+            )}
+
+            {/* What's next */}
+            <div
+                className="bg-slate-50 rounded-2xl border border-slate-100 px-6 py-4 text-sm text-slate-500 space-y-1 max-w-xs mx-auto"
+                style={{ animation: "successFade 0.5s ease 0.9s both" }}
+            >
+                <p>✅ הנקודות נוספו לחשבונך</p>
+                <p>📲 תקבל הודעת וואטסאפ בקרוב</p>
+            </div>
+
+            <style>{`
+                @keyframes successPop {
+                    0%   { transform: scale(0); opacity: 0; }
+                    70%  { transform: scale(1.15); }
+                    100% { transform: scale(1); opacity: 1; }
+                }
+                @keyframes successRing {
+                    0%   { transform: scale(1); opacity: 0.8; }
+                    100% { transform: scale(1.6); opacity: 0; }
+                }
+                @keyframes successFade {
+                    from { opacity: 0; transform: translateY(16px); }
+                    to   { opacity: 1; transform: translateY(0); }
+                }
+            `}</style>
+        </div>
+    );
+}
 
 export default function LandingPageTemplate({
     themePrimary,
@@ -111,18 +215,7 @@ export default function LandingPageTemplate({
         </form>
     );
 
-    const SuccessMessage = (
-        <div className="text-center space-y-4 animate-in fade-in zoom-in duration-500 py-8">
-            <div className="w-20 h-20 mx-auto rounded-full flex items-center justify-center text-white text-4xl shadow-xl shadow-slate-200/50" style={{ backgroundColor: themePrimary }}>✓</div>
-            <h2 className="text-3xl font-bold tracking-tight" style={{ color: themePrimary }}>איזה כיף שהצטרפת!</h2>
-            <p className="text-slate-600 font-medium text-lg">הפרטים שלך נקלטו בהצלחה במערכת של {studioName}. נהיה בקשר!</p>
-            {joinedPoints > 0 && (
-                <div className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl text-white font-bold text-lg shadow-lg" style={{ backgroundColor: themePrimary }}>
-                    ⭐ קיבלת {joinedPoints} נקודות במתנה!
-                </div>
-            )}
-        </div>
-    );
+    const SuccessMessage = <SuccessScreen themePrimary={themePrimary} studioName={studioName} joinedPoints={joinedPoints} />;
 
     // Default Fallbacks
     const safeTitle = title || `ברוכים הבאים ל-${studioName}`;
