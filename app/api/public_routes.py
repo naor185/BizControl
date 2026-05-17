@@ -135,45 +135,51 @@ def get_public_studio_info(studio_id: str, db: Session = Depends(get_db)):
 
 @router.post("/studio/{studio_id}/join")
 def join_studio(studio_id: str, payload: ClientJoinRequest, db: Session = Depends(get_db)):
-    from app.crud.client import _trigger_club_welcome
-    try:
-        studio = db.query(Studio).filter(Studio.id == studio_id).first()
-        if not studio:
-            raise HTTPException(status_code=404, detail="Studio not found")
+    from app.crud.client import _handle_new_club_member
 
-        full_name_clean = payload.full_name.strip()
-        phone_clean = payload.phone.strip() if payload.phone else None
-        email_clean = str(payload.email).lower().strip() if payload.email else None
+    studio = db.query(Studio).filter(Studio.id == studio_id).first()
+    if not studio:
+        raise HTTPException(status_code=404, detail="Studio not found")
 
-        conditions = [func.lower(Client.full_name) == full_name_clean.lower()]
-        if phone_clean:
-            conditions.append(Client.phone == phone_clean)
-        if email_clean:
-            conditions.append(Client.email == email_clean)
+    full_name_clean = payload.full_name.strip()
+    phone_clean = payload.phone.strip() if payload.phone else None
+    email_clean = str(payload.email).lower().strip() if payload.email else None
+    studio_uuid = PyUUID(studio_id)
 
-        existing = db.query(Client).filter(
-            Client.studio_id == studio_id,
-            Client.is_active == True,  # noqa: E712
-            or_(*conditions)
-        ).first()
+    conditions = [func.lower(Client.full_name) == full_name_clean.lower()]
+    if phone_clean:
+        conditions.append(Client.phone == phone_clean)
+    if email_clean:
+        conditions.append(Client.email == email_clean)
 
-        studio_uuid = PyUUID(studio_id)
+    existing = db.query(Client).filter(
+        Client.studio_id == studio_id,
+        Client.is_active == True,  # noqa: E712
+        or_(*conditions)
+    ).first()
 
-        if existing:
-            _maybe_create_lead(db, studio_id, existing.full_name, existing.phone, payload)
-            if existing.is_club_member:
-                return {"message": "Already a club member", "already_member": True, "client_id": existing.id, "loyalty_points": existing.loyalty_points}
-            existing.is_club_member = True
-            _trigger_club_welcome(db, studio_uuid, existing)
+    if existing:
+        _maybe_create_lead(db, studio_id, existing.full_name, existing.phone, payload)
+        if existing.is_club_member:
+            return {"message": "Already a club member", "already_member": True, "client_id": existing.id, "loyalty_points": existing.loyalty_points}
+        existing.is_club_member = True
+        db.commit()
+        db.refresh(existing)
+        try:
+            _handle_new_club_member(db, studio_uuid, existing)
             db.commit()
             db.refresh(existing)
-            return {"message": "Successfully joined", "client_id": existing.id, "loyalty_points": existing.loyalty_points}
+        except Exception as e:
+            log.error("Club welcome failed for existing client %s: %s", existing.id, e, exc_info=True)
+            db.rollback()
+        return {"message": "Successfully joined", "client_id": existing.id, "loyalty_points": existing.loyalty_points}
 
+    try:
         new_client = Client(
-            studio_id=studio_id,
-            full_name=payload.full_name,
-            phone=payload.phone,
-            email=payload.email,
+            studio_id=studio_uuid,
+            full_name=full_name_clean,
+            phone=phone_clean,
+            email=email_clean,
             birth_date=payload.birth_date,
             loyalty_points=0,
             marketing_consent=payload.marketing_consent,
@@ -183,18 +189,24 @@ def join_studio(studio_id: str, payload: ClientJoinRequest, db: Session = Depend
         db.add(new_client)
         db.flush()
         _maybe_create_lead(db, studio_id, new_client.full_name, new_client.phone, payload)
-        _trigger_club_welcome(db, studio_uuid, new_client)
         db.commit()
         db.refresh(new_client)
-
-        return {"message": "Successfully joined", "client_id": new_client.id, "loyalty_points": new_client.loyalty_points}
-
     except HTTPException:
         raise
     except Exception as e:
         db.rollback()
-        log.error("join_studio failed for studio %s: %s", studio_id, e, exc_info=True)
+        log.error("join_studio client creation failed for studio %s: %s", studio_id, e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+    try:
+        _handle_new_club_member(db, studio_uuid, new_client)
+        db.commit()
+        db.refresh(new_client)
+    except Exception as e:
+        log.error("Club welcome failed for new client %s: %s", new_client.id, e, exc_info=True)
+        db.rollback()
+
+    return {"message": "Successfully joined", "client_id": new_client.id, "loyalty_points": new_client.loyalty_points}
 
 
 def _maybe_create_lead(db: Session, studio_id: str, name: str, phone: str | None, payload: ClientJoinRequest) -> None:
