@@ -167,6 +167,7 @@ export default function StudioLandingPage() {
                 success={success}
                 alreadyMember={alreadyMember}
                 joinedPoints={joinedPoints}
+                pointsOnSignup={data.points_on_signup ?? 0}
                 submitErr={submitErr}
                 marketingConsent={marketingConsent}
                 setMarketingConsent={setMarketingConsent}

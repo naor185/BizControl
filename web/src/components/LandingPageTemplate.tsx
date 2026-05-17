@@ -27,6 +27,7 @@ export type LandingPageContentProps = {
     success?: boolean;
     alreadyMember?: boolean;
     joinedPoints?: number;
+    pointsOnSignup?: number;
     submitErr?: string | null;
     marketingConsent?: boolean;
     setMarketingConsent?: (val: boolean) => void;
@@ -162,6 +163,7 @@ export default function LandingPageTemplate({
     success = false,
     alreadyMember = false,
     joinedPoints = 0,
+    pointsOnSignup = 0,
     submitErr = null,
     marketingConsent = true,
     setMarketingConsent,
@@ -210,7 +212,12 @@ export default function LandingPageTemplate({
 
             {submitErr && <div className="text-red-500 font-medium text-sm mt-2">{submitErr}</div>}
 
-            <button disabled={!isLive || submitting} type="submit" className="w-full text-white font-bold py-3.5 rounded-xl mt-6 shadow-xl disabled:opacity-70 hover:opacity-90 hover:-translate-y-0.5 transition-all overflow-hidden relative group" style={{ backgroundColor: themePrimary }}>
+            {pointsOnSignup > 0 && !submitting && (
+                <p className="text-center text-sm font-semibold mt-4" style={{ color: themePrimary }}>
+                    🎁 קבל {pointsOnSignup} נקודות מתנה בהצטרפות!
+                </p>
+            )}
+            <button disabled={!isLive || submitting} type="submit" className="w-full text-white font-bold py-3.5 rounded-xl mt-3 shadow-xl disabled:opacity-70 hover:opacity-90 hover:-translate-y-0.5 transition-all overflow-hidden relative group" style={{ backgroundColor: themePrimary }}>
                 <div className="absolute inset-0 w-full h-full bg-white/20 -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]"></div>
                 <span className="relative z-10">{submitting ? "שולח..." : "הצטרפות למועדון"}</span>
             </button>
