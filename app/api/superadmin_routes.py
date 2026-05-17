@@ -1376,8 +1376,15 @@ def global_appointments(
 @router.delete("/studios/{studio_id}/clients", tags=["SuperAdmin"])
 def delete_all_studio_clients(studio_id: str, _admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
     from app.models.client_points_ledger import ClientPointsLedger
+    from app.models.appointment import Appointment
+    from app.models.payment import Payment
+    from app.models.incoming_message import IncomingMessage
+    # Delete in FK-safe order: dependents before clients
     db.query(ClientPointsLedger).filter(ClientPointsLedger.studio_id == studio_id).delete()
     db.query(MessageJob).filter(MessageJob.studio_id == studio_id).delete()
+    db.query(IncomingMessage).filter(IncomingMessage.studio_id == studio_id).update({"client_id": None})
+    db.query(Payment).filter(Payment.studio_id == studio_id).delete()
+    db.query(Appointment).filter(Appointment.studio_id == studio_id).delete()
     db.query(Client).filter(Client.studio_id == studio_id).delete()
     db.commit()
     return {"deleted": True, "studio_id": studio_id}
