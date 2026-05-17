@@ -82,7 +82,11 @@ def patch(
     ctx: AuthContext = Depends(require_studio_ctx),
     db: Session = Depends(get_db),
 ):
-    obj = update_client(db, ctx.studio_id, client_id, payload)
+    try:
+        obj = update_client(db, ctx.studio_id, client_id, payload)
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
     if not obj:
         raise HTTPException(status_code=404, detail="Client not found")
     return obj

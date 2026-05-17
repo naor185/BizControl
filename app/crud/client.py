@@ -212,14 +212,16 @@ def update_client(db: Session, studio_id: UUID, client_id: UUID, data: ClientUpd
     if data.is_club_member is not None:
         obj.is_club_member = data.is_club_member
 
+    if obj.is_club_member and not was_club_member:
+        sp = db.begin_nested()
+        try:
+            _handle_new_club_member(db, studio_id, obj)
+            sp.commit()
+        except Exception:
+            sp.rollback()
+
     db.commit()
     db.refresh(obj)
-
-    if obj.is_club_member and not was_club_member:
-        _handle_new_club_member(db, studio_id, obj)
-        db.commit()
-        db.refresh(obj)
-
     return obj
 
 def soft_delete_client(db: Session, studio_id: UUID, client_id: UUID) -> bool:
