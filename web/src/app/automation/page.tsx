@@ -811,7 +811,7 @@ export default function AutomationSettingsPage() {
                                         <div className="mb-4 bg-white border border-slate-200 rounded-xl p-3 flex flex-col gap-2">
                                             <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">לינק הצטרפות אישי</label>
                                             <div className="flex items-center gap-2">
-                                                <input readOnly value={settings.studio_slug ? `${typeof window !== "undefined" ? window.location.origin : ""}/s/${settings.studio_slug}` : "טוען..."} className="flex-1 bg-slate-50 text-slate-600 font-mono text-sm px-3 py-2 rounded-lg border border-slate-200 outline-none" dir="ltr" />
+                                                <input readOnly value={settings.studio_slug ? `${typeof window !== "undefined" ? window.location.origin : ""}/s/${settings.studio_slug}` : "לא הוגדר slug לסטודיו"} className="flex-1 bg-slate-50 text-slate-600 font-mono text-sm px-3 py-2 rounded-lg border border-slate-200 outline-none" dir="ltr" />
                                                 <button onClick={() => { const link = `${typeof window !== "undefined" ? window.location.origin : ""}/s/${settings.studio_slug}`; navigator.clipboard.writeText(link); setMsg("הקישור הועתק!"); setTimeout(() => setMsg(null), 2000); }} className="px-3 py-2 bg-pink-50 text-pink-600 hover:bg-pink-100 font-bold rounded-lg text-sm transition-colors ring-1 ring-pink-200">העתק</button>
                                             </div>
                                         </div>
@@ -826,7 +826,7 @@ export default function AutomationSettingsPage() {
                                                     <div className="w-3 h-3 rounded-full bg-green-400"></div>
                                                 </div>
                                                 <div className="flex-1 flex justify-center">
-                                                    <div className="bg-white/60 text-slate-400 text-[10px] font-mono py-1 px-8 rounded-full border border-slate-200">{settings.studio_slug ? `biz-control.com/s/${settings.studio_slug}` : "טוען..."}</div>
+                                                    <div className="bg-white/60 text-slate-400 text-[10px] font-mono py-1 px-8 rounded-full border border-slate-200">{settings.studio_slug ? `biz-control.com/s/${settings.studio_slug}` : "slug לא מוגדר"}</div>
                                                 </div>
                                             </div>
 

@@ -42,7 +42,11 @@ def patch_settings(payload: AutomationSettingsUpdate, ctx: AuthContext = Depends
 
     db.commit()
     db.refresh(settings)
-    return settings
+    from app.models.studio import Studio
+    studio = db.get(Studio, ctx.studio_id)
+    out = AutomationSettingsOut.model_validate(settings)
+    out.studio_slug = studio.slug if studio else None
+    return out
 
 class AIGenerateRequest(BaseModel):
     description: str
