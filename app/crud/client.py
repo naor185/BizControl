@@ -112,7 +112,19 @@ def _run_club_member_bg(studio_id: UUID, client_id: UUID) -> None:
         db.close()
 
 
-def create_client(db: Session, studio_id: UUID, data: ClientCreate, background_tasks=None) -> Client:
+def _trigger_club_welcome(db: Session, studio_id: UUID, client: Client) -> None:
+    """Runs _handle_new_club_member inside a savepoint so failures never block client creation."""
+    sp = db.begin_nested()
+    try:
+        _handle_new_club_member(db, studio_id, client)
+        sp.commit()
+        log.info("Club welcome done for client %s", client.id)
+    except Exception as e:
+        log.error("Club welcome failed for client %s: %s", client.id, e, exc_info=True)
+        sp.rollback()
+
+
+def create_client(db: Session, studio_id: UUID, data: ClientCreate, background_tasks=None) -> Client:  # noqa: ARG001
     full_name_clean = data.full_name.strip()
     phone_clean = data.phone.strip() if data.phone else None
     email_clean = str(data.email).lower().strip() if data.email else None
@@ -133,6 +145,7 @@ def create_client(db: Session, studio_id: UUID, data: ClientCreate, background_t
         if existing.is_active:
             raise ValueError("לקוח עם טלפון או אימייל זהה כבר קיים במערכת")
 
+        was_club = existing.is_club_member
         existing.is_active = True
         existing.full_name = full_name_clean
         existing.phone = phone_clean
@@ -140,14 +153,12 @@ def create_client(db: Session, studio_id: UUID, data: ClientCreate, background_t
         existing.birth_date = data.birth_date
         existing.notes = data.notes
         existing.is_club_member = data.is_club_member
+
+        if existing.is_club_member and not was_club:
+            _trigger_club_welcome(db, studio_id, existing)
+
         db.commit()
         db.refresh(existing)
-
-        if existing.is_club_member:
-            if background_tasks:
-                background_tasks.add_task(_run_club_member_bg, studio_id, existing.id)
-            else:
-                _run_club_member_bg(studio_id, existing.id)
         return existing
 
     obj = Client(
@@ -161,15 +172,13 @@ def create_client(db: Session, studio_id: UUID, data: ClientCreate, background_t
         is_club_member=data.is_club_member,
     )
     db.add(obj)
-    db.commit()
-    db.refresh(obj)
+    db.flush()  # assign ID without committing
 
     if obj.is_club_member:
-        if background_tasks:
-            background_tasks.add_task(_run_club_member_bg, studio_id, obj.id)
-        else:
-            _run_club_member_bg(studio_id, obj.id)
+        _trigger_club_welcome(db, studio_id, obj)
 
+    db.commit()
+    db.refresh(obj)
     return obj
 
 def get_client(db: Session, studio_id: UUID, client_id: UUID) -> Client | None:
@@ -223,12 +232,7 @@ def update_client(db: Session, studio_id: UUID, client_id: UUID, data: ClientUpd
         obj.is_club_member = data.is_club_member
 
     if obj.is_club_member and not was_club_member:
-        sp = db.begin_nested()
-        try:
-            _handle_new_club_member(db, studio_id, obj)
-            sp.commit()
-        except Exception:
-            sp.rollback()
+        _trigger_club_welcome(db, studio_id, obj)
 
     db.commit()
     db.refresh(obj)

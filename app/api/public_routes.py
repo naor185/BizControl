@@ -1,7 +1,7 @@
 import logging
 import uuid
 from uuid import UUID as PyUUID
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 log = logging.getLogger(__name__)
@@ -134,8 +134,8 @@ def get_public_studio_info(studio_id: str, db: Session = Depends(get_db)):
     )
 
 @router.post("/studio/{studio_id}/join")
-def join_studio(studio_id: str, payload: ClientJoinRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
-    from app.crud.client import _run_club_member_bg
+def join_studio(studio_id: str, payload: ClientJoinRequest, db: Session = Depends(get_db)):
+    from app.crud.client import _trigger_club_welcome
     try:
         studio = db.query(Studio).filter(Studio.id == studio_id).first()
         if not studio:
@@ -164,9 +164,9 @@ def join_studio(studio_id: str, payload: ClientJoinRequest, background_tasks: Ba
             if existing.is_club_member:
                 return {"message": "Already a club member", "already_member": True, "client_id": existing.id, "loyalty_points": existing.loyalty_points}
             existing.is_club_member = True
+            _trigger_club_welcome(db, studio_uuid, existing)
             db.commit()
             db.refresh(existing)
-            background_tasks.add_task(_run_club_member_bg, studio_uuid, existing.id)
             return {"message": "Successfully joined", "client_id": existing.id, "loyalty_points": existing.loyalty_points}
 
         new_client = Client(
@@ -181,10 +181,11 @@ def join_studio(studio_id: str, payload: ClientJoinRequest, background_tasks: Ba
             notes="הצטרף דרך דף נחיתה / מועדון לקוחות"
         )
         db.add(new_client)
+        db.flush()
         _maybe_create_lead(db, studio_id, new_client.full_name, new_client.phone, payload)
+        _trigger_club_welcome(db, studio_uuid, new_client)
         db.commit()
         db.refresh(new_client)
-        background_tasks.add_task(_run_club_member_bg, studio_uuid, new_client.id)
 
         return {"message": "Successfully joined", "client_id": new_client.id, "loyalty_points": new_client.loyalty_points}
 
