@@ -820,7 +820,7 @@ export default function AdminPage() {
                                         return (
                                             <tr key={s.id} className="hover:bg-white/5 transition-colors">
                                                 <td className="px-6 py-4">
-                                                    <div className="font-semibold">{s.name}</div>
+                                                    <a href={`/admin/studios/${s.id}`} className="font-semibold hover:text-sky-400 transition-colors cursor-pointer">{s.name}</a>
                                                     <div className="text-slate-400 text-xs" dir="ltr">{s.slug}</div>
                                                 </td>
                                                 <td className="px-4 py-4 text-slate-300 text-xs" dir="ltr">{s.owner_email || "—"}</td>
