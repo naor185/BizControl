@@ -160,8 +160,7 @@ def join_studio(studio_id: str, payload: ClientJoinRequest, db: Session = Depend
         if existing.is_club_member:
             return {"message": "Already a club member", "already_member": True, "client_id": existing.id, "loyalty_points": existing.loyalty_points}
         existing.is_club_member = True
-        db.commit()
-        db.refresh(existing)
+        db.flush()
         _handle_new_club_member(db, studio_uuid, existing)
         db.commit()
         db.refresh(existing)
@@ -179,8 +178,7 @@ def join_studio(studio_id: str, payload: ClientJoinRequest, db: Session = Depend
         notes="הצטרף דרך דף נחיתה / מועדון לקוחות"
     )
     db.add(new_client)
-    db.commit()
-    db.refresh(new_client)
+    db.flush()  # assigns ID without committing — everything stays in one transaction
 
     _handle_new_club_member(db, studio_uuid, new_client)
     _maybe_create_lead(db, studio_id, new_client.full_name, new_client.phone, payload)
