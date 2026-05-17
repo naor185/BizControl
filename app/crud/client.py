@@ -67,7 +67,7 @@ def _handle_new_club_member(db: Session, studio_id: UUID, client: Client):
     ))
 
     # Email Welcome
-    if client.email and settings.smtp_host:
+    if client.email and settings.resend_api_key:
         email_template = settings.welcome_email_template
         if not email_template:
             # Fallback to old hardcoded HTML if template is empty
