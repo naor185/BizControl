@@ -1371,3 +1371,13 @@ def global_appointments(
         )
         for r in rows
     ]
+
+
+@router.delete("/studios/{studio_id}/clients", tags=["SuperAdmin"])
+def delete_all_studio_clients(studio_id: str, _admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    from app.models.client_points_ledger import ClientPointsLedger
+    db.query(ClientPointsLedger).filter(ClientPointsLedger.studio_id == studio_id).delete()
+    db.query(MessageJob).filter(MessageJob.studio_id == studio_id).delete()
+    db.query(Client).filter(Client.studio_id == studio_id).delete()
+    db.commit()
+    return {"deleted": True, "studio_id": studio_id}
