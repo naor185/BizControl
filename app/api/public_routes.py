@@ -1,4 +1,3 @@
-import os
 import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -148,7 +147,8 @@ def join_studio(studio_id: str, payload: ClientJoinRequest, db: Session = Depend
         conditions.append(Client.email == email_clean)
 
     existing = db.query(Client).filter(
-        Client.studio_id == studio_id, 
+        Client.studio_id == studio_id,
+        Client.is_active == True,  # noqa: E712
         or_(*conditions)
     ).first()
     
