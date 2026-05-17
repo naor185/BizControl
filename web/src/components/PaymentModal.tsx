@@ -268,7 +268,7 @@ export default function PaymentModal({ isOpen, onClose, onSuccess, appointment }
                                 <div className="flex items-center gap-2 bg-slate-50 rounded-lg px-2 py-1">
                                     <input type="number" min={0} max={p.price * p.quantity} value={p.discount || ""} placeholder="0"
                                         onChange={e => { const d = parseFloat(e.target.value) || 0; const diff = d - (p.discount || 0); setSelectedProducts(selectedProducts.map(sp => sp.product_id === p.product_id ? { ...sp, discount: d } : sp)); setAmount(prev => Math.max(0, parseFloat(prev || "0") - diff).toFixed(0)); }}
-                                        className="w-16 text-left text-[10px] font-bold text-rose-500 bg-transparent outline-none" dir="ltr" placeholder="0.00" />
+                                        className="w-16 text-left text-[10px] font-bold text-rose-500 bg-transparent outline-none" dir="ltr" />
                                     <span className="text-[10px] text-slate-400">הנחה (₪)</span>
                                 </div>
                             </div>
