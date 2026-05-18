@@ -91,31 +91,6 @@ def create_payment(db: Session, studio_id: UUID, data) -> Payment:
 
                 from app.crud.automation import enqueue_post_payment_message
                 enqueue_post_payment_message(db, appt, obj.amount_cents)
-                
-                # Check if we should queue an email notification regarding the earned points
-                if client.email and settings.smtp_host and settings.smtp_user and settings.smtp_pass:
-                    html_content = f"""
-                    <div dir="rtl" style="font-family: Arial, sans-serif; padding: 20px;">
-                        <h2 style="color: #333;">תודה על התשלום! 🎉</h2>
-                        <p>שלום {client.full_name},</p>
-                        <p>זוהי הודעה אוטומטית לעדכן אותך שהתקבל תשלום לאחרונה, וצברת על כך <strong style="color: #10b981;">{points_earned} נקודות קאשבק!</strong></p>
-                        <p><strong>סה״כ היתרה שלך עומדת כעת על: {client.loyalty_points} נקודות.</strong></p>
-                        <hr style="border: none; border-top: 1px solid #eaeaea; margin: 20px 0;" />
-                        <p style="font-size: 12px; color: #888;">הודעה זו נשלחה אוטומטית ממערכת BizControl.</p>
-                    </div>
-                    """
-                    db.add(MessageJob(
-                        studio_id=studio_id,
-                        client_id=client.id,
-                        appointment_id=appt.id,
-                        channel="email",
-                        to_phone=client.email, # using to_phone field to store the destination (email)
-                        body=html_content,
-                        scheduled_at=datetime.now(timezone.utc),
-                        status="pending",
-                        attempts=0,
-                    ))
-                    db.commit()
 
     # Record product sales if any
     if hasattr(data, 'product_items') and data.product_items:
