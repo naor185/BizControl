@@ -99,6 +99,15 @@ def process_due_jobs(db: Session, limit: int = 20) -> int:
 
     for job in jobs:
         try:
+            # Skip if client opted out of WhatsApp
+            if job.channel == "whatsapp" and job.client_id:
+                client = db.get(Client, job.client_id)
+                if client and getattr(client, "whatsapp_opted_out", False):
+                    job.status = "canceled"
+                    job.last_error = "Client opted out of WhatsApp"
+                    count += 1
+                    continue
+
             if job.channel == "email":
                 settings = db.get(StudioSettings, job.studio_id)
                 if not settings or not settings.resend_api_key:

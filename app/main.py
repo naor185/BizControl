@@ -81,8 +81,16 @@ def stop_scheduler():
     except Exception:
         pass
 
+def run_migrations():
+    from sqlalchemy import text
+    from app.core.database import engine
+    with engine.connect() as conn:
+        conn.execute(text("ALTER TABLE clients ADD COLUMN IF NOT EXISTS whatsapp_opted_out BOOLEAN NOT NULL DEFAULT false"))
+        conn.commit()
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    run_migrations()
     start_scheduler()
     AutomationService.register() # Register event handlers
     os.makedirs("uploads", exist_ok=True)

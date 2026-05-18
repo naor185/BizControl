@@ -23,6 +23,7 @@ class ClientUpdate(BaseModel):
     notes: str | None = None
     is_active: bool | None = None
     is_club_member: bool | None = None
+    whatsapp_opted_out: bool | None = None
 
 class ClientOut(ClientBase):
     id: UUID
@@ -31,6 +32,7 @@ class ClientOut(ClientBase):
     cancellation_count: int
     no_show_count: int
     is_walk_in: bool = False
+    whatsapp_opted_out: bool = False
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -74,6 +76,7 @@ class ClientProfileClient(BaseModel):
     cancellation_count: int
     no_show_count: int
     is_walk_in: bool = False
+    whatsapp_opted_out: bool = False
     created_at: datetime
 
     model_config = {"from_attributes": True}

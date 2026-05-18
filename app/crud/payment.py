@@ -167,7 +167,43 @@ def appointment_balance(db: Session, studio_id: UUID, appointment_id: UUID):
         "total_refund_cents": refund,
         "net_paid_cents": paid - refund,
     }
-def delete_payment(db: Session, studio_id: UUID, payment_id: UUID) -> bool:
+def delete_all_client_payments(db: Session, studio_id: UUID, client_id: UUID) -> int:
+    from app.models.client_points_ledger import ClientPointsLedger
+    payments = list(db.scalars(
+        select(Payment).where(Payment.studio_id == studio_id, Payment.client_id == client_id)
+    ).all())
+    count = 0
+    for p in payments:
+        # revert cashback ledger entries for each payment
+        ledger_entries = list(db.scalars(
+            select(ClientPointsLedger).where(
+                ClientPointsLedger.studio_id == studio_id,
+                ClientPointsLedger.client_id == client_id,
+                ClientPointsLedger.reason.ilike(f"%Cashback for payment {p.id}%")
+            )
+        ).all())
+        for entry in ledger_entries:
+            db.delete(entry)
+        db.delete(p)
+        count += 1
+    # reset client loyalty points to 0
+    client = db.scalar(select(Client).where(Client.id == client_id, Client.studio_id == studio_id))
+    if client:
+        client.loyalty_points = 0
+    # delete all ledger entries for this client
+    all_ledger = list(db.scalars(
+        select(ClientPointsLedger).where(
+            ClientPointsLedger.studio_id == studio_id,
+            ClientPointsLedger.client_id == client_id,
+        )
+    ).all())
+    for entry in all_ledger:
+        db.delete(entry)
+    db.commit()
+    return count
+
+
+def delete_payment(db: Session, studio_id: UUID, payment_id: UUID, with_appointment: bool = False) -> bool:
     from app.models.client_points_ledger import ClientPointsLedger
     
     obj = db.scalar(select(Payment).where(Payment.id == payment_id, Payment.studio_id == studio_id))
@@ -195,6 +231,18 @@ def delete_payment(db: Session, studio_id: UUID, payment_id: UUID) -> bool:
                 db.delete(entry)
     
     # 2. Delete the payment itself
+    appt_id = obj.appointment_id
     db.delete(obj)
+
+    # 3. Optionally delete the associated appointment
+    if with_appointment and appt_id:
+        appt = db.scalar(select(Appointment).where(Appointment.id == appt_id, Appointment.studio_id == studio_id))
+        if appt:
+            # delete remaining payments on this appointment first
+            other_payments = list(db.scalars(select(Payment).where(Payment.appointment_id == appt_id)).all())
+            for p in other_payments:
+                db.delete(p)
+            db.delete(appt)
+
     db.commit()
     return True

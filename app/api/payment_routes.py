@@ -13,8 +13,7 @@ from app.models.appointment import Appointment
 from app.models.client import Client
 from app.models.studio import Studio
 from app.schemas.payment import PaymentCreate, PaymentOut, AppointmentBalanceOut
-from app.services.payment_service import PaymentService
-from app.crud.payment import create_payment, list_payments, appointment_balance
+from app.crud.payment import create_payment, appointment_balance, delete_all_client_payments
 from app.models.studio_settings import StudioSettings
 from app.services.pdf_service import generate_receipt_pdf, generate_invoice_pdf
 
@@ -42,14 +41,25 @@ def list_(
     stmt = stmt.options(joinedload(Payment.client)).order_by(Payment.created_at.desc())
     return list(db.scalars(stmt).all())
 
-@router.delete("/{payment_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete(
-    payment_id: UUID,
+@router.delete("/client/{client_id}/all", status_code=status.HTTP_200_OK)
+def delete_all_for_client(
+    client_id: UUID,
     ctx: AuthContext = Depends(require_studio_ctx),
     db: Session = Depends(get_db),
 ):
-    service = PaymentService(db)
-    ok = service.delete_payment(ctx.studio_id, payment_id)
+    count = delete_all_client_payments(db, ctx.studio_id, client_id)
+    return {"deleted": count}
+
+
+@router.delete("/{payment_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete(
+    payment_id: UUID,
+    with_appointment: bool = Query(default=False),
+    ctx: AuthContext = Depends(require_studio_ctx),
+    db: Session = Depends(get_db),
+):
+    from app.crud.payment import delete_payment
+    ok = delete_payment(db, ctx.studio_id, payment_id, with_appointment=with_appointment)
     if not ok:
         raise HTTPException(status_code=404, detail=f"Payment {payment_id} not found")
     return None

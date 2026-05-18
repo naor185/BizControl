@@ -5,12 +5,25 @@ import RequireAuth from "@/components/RequireAuth";
 import AppShell from "@/components/AppShell";
 import { apiFetch } from "@/lib/api";
 
+type Payment = {
+    id: string;
+    amount_cents: number;
+    currency: string;
+    type: string;
+    method: string;
+    status: string;
+    notes?: string | null;
+    appointment_id?: string | null;
+    created_at: string;
+};
+
 type ClientBasic = {
     id: string;
     full_name: string;
     phone?: string | null;
     email?: string | null;
     notes?: string | null;
+    whatsapp_opted_out?: boolean;
     created_at: string;
 };
 
@@ -61,6 +74,7 @@ export default function ClientProfilePage() {
 
     const [profile, setProfile] = useState<ClientProfile | null>(null);
     const [appointments, setAppointments] = useState<Appointment[]>([]);
+    const [payments, setPayments] = useState<Payment[]>([]);
     const [err, setErr] = useState<string | null>(null);
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
     const [selectedApptId, setSelectedApptId] = useState<string>("");
@@ -76,12 +90,14 @@ export default function ClientProfilePage() {
         if (!id) return;
         try {
             setErr(null);
-            const [profData, apptsData] = await Promise.all([
+            const [profData, apptsData, paymentsData] = await Promise.all([
                 apiFetch<ClientProfile>(`/api/clients/${id}/profile`, { method: "GET" }),
-                apiFetch<Appointment[]>(`/api/appointments?client_id=${id}`, { method: "GET" })
+                apiFetch<Appointment[]>(`/api/appointments?client_id=${id}`, { method: "GET" }),
+                apiFetch<Payment[]>(`/api/payments?client_id=${id}`, { method: "GET" }),
             ]);
             setProfile(profData);
             setAppointments(apptsData);
+            setPayments(paymentsData);
         } catch (e: any) {
             setErr(e?.message || "שגיאה בטעינת פרופיל לקוח");
         }
@@ -131,6 +147,43 @@ export default function ClientProfilePage() {
             loadData();
         } catch (e: any) {
             alert(e?.message || "שגיאה במחיקת התור");
+        }
+    };
+
+    const handleDeletePayment = async (paymentId: string, withAppt: boolean) => {
+        const msg = withAppt
+            ? "למחוק את התשלום ואת הביקור המשויך אליו?"
+            : "למחוק את התשלום הזה בלבד?";
+        if (!confirm(msg)) return;
+        try {
+            await apiFetch(`/api/payments/${paymentId}?with_appointment=${withAppt}`, { method: "DELETE" });
+            loadData();
+        } catch (e: any) {
+            alert(e?.message || "שגיאה במחיקת תשלום");
+        }
+    };
+
+    const handleDeleteAllPayments = async () => {
+        if (!confirm("למחוק את כל היסטוריית התשלומים של הלקוח הזה? הנקודות יתאפסו גם הן. הפעולה אינה הפיכה.")) return;
+        try {
+            await apiFetch(`/api/payments/client/${id}/all`, { method: "DELETE" });
+            loadData();
+        } catch (e: any) {
+            alert(e?.message || "שגיאה במחיקת תשלומים");
+        }
+    };
+
+    const handleToggleOptOut = async () => {
+        if (!profile) return;
+        const newVal = !profile.client.whatsapp_opted_out;
+        try {
+            await apiFetch(`/api/clients/${id}`, {
+                method: "PATCH",
+                body: JSON.stringify({ whatsapp_opted_out: newVal }),
+            });
+            loadData();
+        } catch (e: any) {
+            alert(e?.message || "שגיאה בעדכון הגדרות הודעות");
         }
     };
 
@@ -225,6 +278,66 @@ export default function ClientProfilePage() {
                                 <div className="text-sm text-gray-500">
                                     {appointments.length} תורים מתועדים במערכת. לחץ על הכפתור כדי לראות את כולם.
                                 </div>
+                            </div>
+
+                            {/* Payments */}
+                            <div className="rounded-xl border bg-white p-5 shadow-sm">
+                                <div className="flex justify-between items-center mb-4 border-b pb-2">
+                                    <h3 className="text-lg font-semibold">היסטוריית תשלומים</h3>
+                                    {payments.length > 0 && (
+                                        <button
+                                            onClick={handleDeleteAllPayments}
+                                            className="text-xs text-rose-600 hover:text-rose-700 font-bold bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-100 transition-colors"
+                                        >
+                                            מחק הכל 🗑️
+                                        </button>
+                                    )}
+                                </div>
+                                {payments.length === 0 ? (
+                                    <div className="text-sm text-gray-500">אין תשלומים רשומים.</div>
+                                ) : (
+                                    <div className="space-y-2">
+                                        {payments.map(p => {
+                                            const typeLabel = p.type === "payment" ? "תשלום" : p.type === "deposit" ? "מקדמה" : "זיכוי";
+                                            const methodLabel: Record<string, string> = { cash: "מזומן", credit_card: "אשראי", bit: "Bit", paybox: "Paybox", bank_transfer: "העברה", other: "אחר" };
+                                            return (
+                                                <div key={p.id} className="flex items-center justify-between p-3 rounded-xl border border-slate-100 bg-slate-50 text-sm">
+                                                    <div>
+                                                        <span className="font-bold text-slate-800">{(p.amount_cents / 100).toLocaleString("he-IL", { style: "currency", currency: "ILS" })}</span>
+                                                        <span className="text-slate-500 mr-2">{typeLabel} · {methodLabel[p.method] || p.method}</span>
+                                                        {p.notes && <div className="text-xs text-slate-400">{p.notes}</div>}
+                                                        <div className="text-[10px] text-slate-400">{new Date(p.created_at).toLocaleDateString("he-IL")}</div>
+                                                    </div>
+                                                    <div className="flex gap-1">
+                                                        <button onClick={() => handleDeletePayment(p.id, false)} className="px-2 py-1 text-xs bg-rose-50 text-rose-600 border border-rose-100 rounded-lg hover:bg-rose-100">מחק</button>
+                                                        {p.appointment_id && (
+                                                            <button onClick={() => handleDeletePayment(p.id, true)} className="px-2 py-1 text-xs bg-orange-50 text-orange-600 border border-orange-100 rounded-lg hover:bg-orange-100">+ מחק ביקור</button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* WhatsApp opt-out */}
+                            <div className="rounded-xl border bg-white p-5 shadow-sm">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <h3 className="text-base font-semibold text-slate-800">הודעות וואטסאפ</h3>
+                                        <p className="text-xs text-slate-500 mt-0.5">בטל שליחת הודעות אוטומטיות ללקוח זה</p>
+                                    </div>
+                                    <button
+                                        onClick={handleToggleOptOut}
+                                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${profile.client.whatsapp_opted_out ? "bg-rose-400" : "bg-emerald-500"}`}
+                                    >
+                                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${profile.client.whatsapp_opted_out ? "translate-x-1" : "translate-x-6"}`} />
+                                    </button>
+                                </div>
+                                {profile.client.whatsapp_opted_out && (
+                                    <p className="mt-2 text-xs text-rose-600 font-medium">לקוח זה לא יקבל הודעות וואטסאפ אוטומטיות</p>
+                                )}
                             </div>
 
                             {/* Messages */}
