@@ -48,6 +48,27 @@ def retry_message(
     db.refresh(job)
     return job
 
+@router.post("/retry-all-failed")
+def retry_all_failed(
+    ctx: AuthContext = Depends(require_studio_ctx),
+    db: Session = Depends(get_db),
+):
+    now = datetime.now(timezone.utc)
+    jobs = list(db.scalars(
+        select(MessageJob).where(
+            MessageJob.studio_id == ctx.studio_id,
+            MessageJob.status == "failed",
+        )
+    ).all())
+    for job in jobs:
+        job.status = "pending"
+        job.scheduled_at = now
+        job.attempts = 0
+        job.last_error = None
+    db.commit()
+    return {"reset": len(jobs)}
+
+
 @router.post("/{job_id}/cancel", response_model=MessageJobOut)
 def cancel_message(
     job_id: UUID,

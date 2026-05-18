@@ -39,6 +39,8 @@ export default function MessageLogPage() {
         loadJobs();
     }, []);
 
+    const [retryingAll, setRetryingAll] = useState(false);
+
     const handleAction = async (id: string, action: 'retry' | 'cancel') => {
         try {
             setProcessingId(id);
@@ -48,6 +50,19 @@ export default function MessageLogPage() {
             alert(e?.message || `שגיאה בביצוע פעולת ${action}`);
         } finally {
             setProcessingId(null);
+        }
+    };
+
+    const handleRetryAll = async () => {
+        setRetryingAll(true);
+        try {
+            const res = await apiFetch<{ reset: number }>("/api/messages/retry-all-failed", { method: "POST" });
+            alert(`אופס לשליחה מחדש: ${res.reset} הודעות`);
+            loadJobs();
+        } catch (e: any) {
+            alert(e?.message || "שגיאה");
+        } finally {
+            setRetryingAll(false);
         }
     };
 
@@ -78,13 +93,22 @@ export default function MessageLogPage() {
                                 <h3 className="text-xl font-bold text-slate-800">תור הודעות (Queue) 🤖</h3>
                                 <p className="text-sm text-slate-500 mt-1">מעקב אחרי הודעות אישור תור, תזכורות וצבירת נקודות</p>
                             </div>
-                            <button
-                                onClick={() => { setLoading(true); loadJobs(); }}
-                                className="p-2 hover:bg-slate-200 rounded-full transition-colors"
-                                title="רענן נתונים"
-                            >
-                                🔄
-                            </button>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={handleRetryAll}
+                                    disabled={retryingAll}
+                                    className="px-4 py-2 bg-rose-500 hover:bg-rose-600 disabled:opacity-50 text-white text-sm font-bold rounded-xl transition-colors"
+                                >
+                                    {retryingAll ? "מאפס..." : "נסה שוב את כל הכושלות 🔁"}
+                                </button>
+                                <button
+                                    onClick={() => { setLoading(true); loadJobs(); }}
+                                    className="p-2 hover:bg-slate-200 rounded-full transition-colors"
+                                    title="רענן נתונים"
+                                >
+                                    🔄
+                                </button>
+                            </div>
                         </div>
 
                         {loading ? (
