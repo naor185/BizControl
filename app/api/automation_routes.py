@@ -83,6 +83,64 @@ def trigger_welcome(payload: TriggerWelcomeIn, ctx: AuthContext = Depends(requir
         raise HTTPException(status_code=500, detail=f"{type(e).__name__}: {e}\n{traceback.format_exc()}")
 
 
+@router.post("/retroactive-welcome")
+def retroactive_welcome(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+    """Send welcome message + assign points to club members who never received it."""
+    from sqlalchemy import select, exists
+    from app.models.client import Client
+    from app.models.client_points_ledger import ClientPointsLedger
+    from app.models.message_job import MessageJob
+    from app.crud.client import _handle_new_club_member
+
+    if ctx.role not in ("owner", "admin", "manager"):
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    # Find club members who never got a "Club signup bonus" ledger entry
+    already_welcomed_subq = (
+        select(ClientPointsLedger.client_id)
+        .where(
+            ClientPointsLedger.studio_id == ctx.studio_id,
+            ClientPointsLedger.reason == "Club signup bonus",
+        )
+    )
+    # Also skip those who already have a welcome MessageJob
+    already_messaged_subq = (
+        select(MessageJob.client_id)
+        .where(
+            MessageJob.studio_id == ctx.studio_id,
+            MessageJob.body.ilike("%ברוכים הבאים%"),
+        )
+    )
+
+    clients = db.scalars(
+        select(Client).where(
+            Client.studio_id == ctx.studio_id,
+            Client.is_active.is_(True),
+            Client.is_club_member.is_(True),
+            Client.id.not_in(already_welcomed_subq),
+            Client.id.not_in(already_messaged_subq),
+        )
+    ).all()
+
+    processed = []
+    failed = []
+    for client in clients:
+        try:
+            _handle_new_club_member(db, ctx.studio_id, client)
+            db.commit()
+            processed.append(str(client.id))
+        except Exception as e:
+            db.rollback()
+            failed.append({"client_id": str(client.id), "name": client.full_name, "error": str(e)})
+
+    return {
+        "processed": len(processed),
+        "failed": len(failed),
+        "client_ids": processed,
+        "errors": failed,
+    }
+
+
 class TestWhatsappIn(BaseModel):
     phone: str
 

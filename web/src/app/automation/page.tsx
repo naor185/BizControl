@@ -178,6 +178,8 @@ export default function AutomationSettingsPage() {
 
     const [aiPrompt, setAiPrompt] = useState("");
     const [isAiLoading, setIsAiLoading] = useState(false);
+    const [retroLoading, setRetroLoading] = useState(false);
+    const [retroResult, setRetroResult] = useState<{ processed: number; failed: number } | null>(null);
 
     // 2FA state
     const [totpEnabled, setTotpEnabled] = useState(false);
@@ -398,6 +400,20 @@ export default function AutomationSettingsPage() {
         }
     };
 
+
+    const handleRetroactiveWelcome = async () => {
+        if (!confirm("שלח הודעת ברוכים הבאים לכל חברי המועדון שלא קיבלו הודעה עד עכשיו?")) return;
+        setRetroLoading(true);
+        setRetroResult(null);
+        try {
+            const res = await apiFetch<{ processed: number; failed: number }>("/api/studio/automation/retroactive-welcome", { method: "POST" });
+            setRetroResult(res);
+        } catch (e: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
+            setErr(e?.message || "שגיאה בשליחת הודעות רטרואקטיביות");
+        } finally {
+            setRetroLoading(false);
+        }
+    };
 
     if (loading) {
         return (
@@ -1302,6 +1318,24 @@ export default function AutomationSettingsPage() {
                                                 />
                                                 <span className="text-pink-600 font-medium font-bold">אחוז הנחה (%)</span>
                                             </div>
+                                        </div>
+
+                                        <div className="bg-amber-50 p-6 rounded-2xl border border-amber-200 md:col-span-2">
+                                            <label className="block text-base font-bold text-slate-800 mb-2">שליחה רטרואקטיבית של הודעת ברוכים הבאים</label>
+                                            <p className="text-sm text-slate-500 mb-4">חברי מועדון שנרשמו בעבר ולא קיבלו הודעת ברוכים הבאים — לחץ לשלוח להם עכשיו.</p>
+                                            <button
+                                                type="button"
+                                                onClick={handleRetroactiveWelcome}
+                                                disabled={retroLoading}
+                                                className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white font-semibold rounded-xl transition-colors text-sm"
+                                            >
+                                                {retroLoading ? "שולח..." : "שלח הודעות לחברים שהפספסו"}
+                                            </button>
+                                            {retroResult && (
+                                                <p className="mt-3 text-sm font-semibold text-emerald-700">
+                                                    נשלח ל-{retroResult.processed} חברים {retroResult.failed > 0 ? `• ${retroResult.failed} נכשלו` : ""}
+                                                </p>
+                                            )}
                                         </div>
 
                                         <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 md:col-span-2">
