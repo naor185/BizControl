@@ -85,8 +85,8 @@ def trigger_welcome(payload: TriggerWelcomeIn, ctx: AuthContext = Depends(requir
 
 @router.post("/retroactive-welcome")
 def retroactive_welcome(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
-    """Send welcome message + assign points to club members who never received it."""
-    from sqlalchemy import select, exists
+    """Send welcome message + assign points to ALL active club members who have no sent welcome."""
+    from sqlalchemy import select
     from app.models.client import Client
     from app.models.client_points_ledger import ClientPointsLedger
     from app.models.message_job import MessageJob
@@ -95,40 +95,49 @@ def retroactive_welcome(ctx: AuthContext = Depends(require_studio_ctx), db: Sess
     if ctx.role not in ("owner", "admin", "manager"):
         raise HTTPException(status_code=403, detail="Forbidden")
 
-    # Find club members who never got a "Club signup bonus" ledger entry
-    already_welcomed_subq = (
+    # Skip only clients whose welcome was actually SENT (status=sent)
+    already_sent_subq = (
+        select(MessageJob.client_id)
+        .where(
+            MessageJob.studio_id == ctx.studio_id,
+            MessageJob.status == "sent",
+            MessageJob.body.ilike("%ברוכים הבאים%"),
+        )
+    )
+
+    # Skip clients who already have signup bonus points
+    already_has_bonus_subq = (
         select(ClientPointsLedger.client_id)
         .where(
             ClientPointsLedger.studio_id == ctx.studio_id,
             ClientPointsLedger.reason == "Club signup bonus",
         )
     )
-    # Also skip those who already have a welcome MessageJob
-    already_messaged_subq = (
-        select(MessageJob.client_id)
-        .where(
-            MessageJob.studio_id == ctx.studio_id,
-            MessageJob.body.ilike("%ברוכים הבאים%"),
-        )
-    )
 
-    clients = db.scalars(
+    # All active clients (club member or not) who have no sent welcome
+    all_clients = db.scalars(
         select(Client).where(
             Client.studio_id == ctx.studio_id,
             Client.is_active.is_(True),
-            Client.is_club_member.is_(True),
-            Client.id.not_in(already_welcomed_subq),
-            Client.id.not_in(already_messaged_subq),
+            Client.id.not_in(already_sent_subq),
+            Client.id.not_in(already_has_bonus_subq),
         )
     ).all()
 
+    # Make sure they're club members before sending
+    for c in all_clients:
+        if not c.is_club_member:
+            c.is_club_member = True
+    if all_clients:
+        db.flush()
+
     processed = []
     failed = []
-    for client in clients:
+    for client in all_clients:
         try:
             _handle_new_club_member(db, ctx.studio_id, client)
             db.commit()
-            processed.append(str(client.id))
+            processed.append({"id": str(client.id), "name": client.full_name})
         except Exception as e:
             db.rollback()
             failed.append({"client_id": str(client.id), "name": client.full_name, "error": str(e)})
@@ -136,7 +145,7 @@ def retroactive_welcome(ctx: AuthContext = Depends(require_studio_ctx), db: Sess
     return {
         "processed": len(processed),
         "failed": len(failed),
-        "client_ids": processed,
+        "clients": processed,
         "errors": failed,
     }
 

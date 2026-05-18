@@ -179,7 +179,7 @@ export default function AutomationSettingsPage() {
     const [aiPrompt, setAiPrompt] = useState("");
     const [isAiLoading, setIsAiLoading] = useState(false);
     const [retroLoading, setRetroLoading] = useState(false);
-    const [retroResult, setRetroResult] = useState<{ processed: number; failed: number } | null>(null);
+    const [retroResult, setRetroResult] = useState<{ processed: number; failed: number; clients: { id: string; name: string }[] } | null>(null);
 
     // 2FA state
     const [totpEnabled, setTotpEnabled] = useState(false);
@@ -406,7 +406,7 @@ export default function AutomationSettingsPage() {
         setRetroLoading(true);
         setRetroResult(null);
         try {
-            const res = await apiFetch<{ processed: number; failed: number }>("/api/studio/automation/retroactive-welcome", { method: "POST" });
+            const res = await apiFetch<{ processed: number; failed: number; clients: { id: string; name: string }[] }>("/api/studio/automation/retroactive-welcome", { method: "POST" });
             setRetroResult(res);
         } catch (e: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
             setErr(e?.message || "שגיאה בשליחת הודעות רטרואקטיביות");
@@ -1332,9 +1332,16 @@ export default function AutomationSettingsPage() {
                                                 {retroLoading ? "שולח..." : "שלח הודעות לחברים שהפספסו"}
                                             </button>
                                             {retroResult && (
-                                                <p className="mt-3 text-sm font-semibold text-emerald-700">
-                                                    נשלח ל-{retroResult.processed} חברים {retroResult.failed > 0 ? `• ${retroResult.failed} נכשלו` : ""}
-                                                </p>
+                                                <div className="mt-3">
+                                                    <p className="text-sm font-semibold text-emerald-700">
+                                                        נשלח ל-{retroResult.processed} לקוחות {retroResult.failed > 0 ? `• ${retroResult.failed} נכשלו` : "✓"}
+                                                    </p>
+                                                    {retroResult.clients?.length > 0 && (
+                                                        <ul className="mt-2 text-xs text-slate-600 space-y-0.5">
+                                                            {retroResult.clients.map(c => <li key={c.id}>• {c.name}</li>)}
+                                                        </ul>
+                                                    )}
+                                                </div>
                                             )}
                                         </div>
 
