@@ -87,6 +87,23 @@ def run_migrations():
     with engine.connect() as conn:
         conn.execute(text("ALTER TABLE clients ADD COLUMN IF NOT EXISTS whatsapp_opted_out BOOLEAN NOT NULL DEFAULT false"))
         conn.execute(text("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS treatment_types TEXT"))
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS tasks (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                title VARCHAR(200) NOT NULL,
+                task_date DATE,
+                start_time VARCHAR(5),
+                end_time VARCHAR(5),
+                notes TEXT,
+                color VARCHAR(7) NOT NULL DEFAULT '#8b5cf6',
+                recurrence_type VARCHAR(20) NOT NULL DEFAULT 'none',
+                recurrence_day INTEGER,
+                recurrence_month INTEGER,
+                recurrence_end_date DATE,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """))
         conn.commit()
 
 @asynccontextmanager

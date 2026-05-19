@@ -65,6 +65,18 @@ type Appointment = {
     client_loyalty_points?: number;
 };
 
+type TaskInstance = {
+    id: string;
+    title: string;
+    date: string;
+    start_time?: string | null;
+    end_time?: string | null;
+    notes?: string | null;
+    color: string;
+    recurrence_type: string;
+    is_recurring: boolean;
+};
+
 // Colors based on Status
 const STATUS_COLORS: Record<string, string> = {
     "scheduled": "#3b82f6", // Blue
@@ -102,11 +114,30 @@ export default function CalendarPage() {
     const [clients, setClients] = useState<Client[]>([]);
     const [artists, setArtists] = useState<Artist[]>([]);
     const [appointments, setAppointments] = useState<Appointment[]>([]);
+    const [tasks, setTasks] = useState<TaskInstance[]>([]);
     const [loading, setLoading] = useState(false);
     const [err, setErr] = useState<string | null>(null);
     const [calendarStartHour, setCalendarStartHour] = useState("08:00:00");
     const [calendarEndHour, setCalendarEndHour] = useState("23:00:00");
     const [treatmentTypes, setTreatmentTypes] = useState<string[]>([]);
+
+    // Type chooser (appointment vs task)
+    const [showTypeChooser, setShowTypeChooser] = useState(false);
+    const [pendingSelectInfo, setPendingSelectInfo] = useState<any>(null);
+
+    // Task modal state
+    const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+    const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+    const [taskTitle, setTaskTitle] = useState("");
+    const [taskDate, setTaskDate] = useState("");
+    const [taskStartTime, setTaskStartTime] = useState("");
+    const [taskEndTime, setTaskEndTime] = useState("");
+    const [taskNotes, setTaskNotes] = useState("");
+    const [taskColor, setTaskColor] = useState("#8b5cf6");
+    const [taskRecurrence, setTaskRecurrence] = useState<"none"|"monthly"|"yearly">("none");
+    const [taskRecurrenceDay, setTaskRecurrenceDay] = useState<number|"">("");
+    const [taskRecurrenceMonth, setTaskRecurrenceMonth] = useState<number|"">("");
+    const [taskRecurrenceEndDate, setTaskRecurrenceEndDate] = useState("");
     const [toast, setToast] = useState<{message: string; type: "success"|"error"} | null>(null);
     const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" ? window.innerWidth < 768 : false);
     const [showHolidays, setShowHolidays] = useState(() => {
@@ -199,15 +230,19 @@ export default function CalendarPage() {
         setLoading(true);
         setErr(null);
         try {
-            const [c, a, arts, settings] = await Promise.all([
+            const fromDate = from.split("T")[0];
+            const toDate = to.split("T")[0];
+            const [c, a, arts, settings, t] = await Promise.all([
                 apiFetch<Client[]>("/api/clients?limit=500"),
                 apiFetch<Appointment[]>(`/api/appointments?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`),
                 apiFetch<Artist[]>("/api/users/artists"),
-                apiFetch<any>("/api/studio/automation")
+                apiFetch<any>("/api/studio/automation"),
+                apiFetch<TaskInstance[]>(`/api/tasks?from_date=${fromDate}&to_date=${toDate}`),
             ]);
             setClients(c);
             setAppointments(a);
             setArtists(arts);
+            setTasks(t);
             if (settings) {
                 if (settings.calendar_start_hour) setCalendarStartHour(`${settings.calendar_start_hour}:00`);
                 if (settings.calendar_end_hour) setCalendarEndHour(`${settings.calendar_end_hour}:00`);
@@ -313,41 +348,51 @@ export default function CalendarPage() {
         }
     }
 
-    // Handle Calendar Actions
-    const handleDateSelect = (selectInfo: any) => {
-        // Unselect the area on UI
-        let calendarApi = selectInfo.view.calendar;
-        calendarApi.unselect();
-
-        // Open Modal for New Event
-        setSelectedEventId(null);
-        setTitle("");
-
+    const openAppointmentModal = (selectInfo: any) => {
         const localStart = new Date(selectInfo.startStr);
         const localEnd = new Date(selectInfo.endStr);
         const pad = (n: number) => String(n).padStart(2, "0");
         const formatForInput = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-
-        const startStr = formatForInput(localStart);
-        const endStr   = formatForInput(localEnd);
-        setStartAt(startStr);
-        setEndAt(endStr);
+        setSelectedEventId(null);
+        setTitle("");
+        setStartAt(formatForInput(localStart));
+        setEndAt(formatForInput(localEnd));
         setDepositAmount(autoDeposit(localStart.toISOString(), localEnd.toISOString()));
-
-        setClientId("");
-        setClientSearch("");
-        setIsWalkIn(false);
-        setArtistId("");
-        setStatus("scheduled");
-        setNotes("");
+        setClientId(""); setClientSearch(""); setIsWalkIn(false);
+        setArtistId(""); setStatus("scheduled"); setNotes("");
         setShowNewClientForm(false);
         setIsModalOpen(true);
+    };
+
+    // Handle Calendar Actions
+    const handleDateSelect = (selectInfo: any) => {
+        selectInfo.view.calendar.unselect();
+        setPendingSelectInfo(selectInfo);
+        setShowTypeChooser(true);
     };
 
     const handleEventClick = (clickInfo: any) => {
         const app = clickInfo.event.extendedProps;
         if (app.isHoliday) {
             setHolidayPopup({ name: app.holidayName, info: app.holidayInfo });
+            return;
+        }
+        if (app.isTask) {
+            setSelectedTaskId(app.taskId);
+            setTaskTitle(app.title);
+            setTaskDate(app.date || "");
+            setTaskStartTime(app.start_time || "");
+            setTaskEndTime(app.end_time || "");
+            setTaskNotes(app.notes || "");
+            setTaskColor(app.color || "#8b5cf6");
+            setTaskRecurrence((app.recurrence_type || "none") as "none"|"monthly"|"yearly");
+            // Load full task to get recurrence details
+            apiFetch<any>(`/api/tasks/${app.taskId}`).then(full => {
+                setTaskRecurrenceDay(full.recurrence_day ?? "");
+                setTaskRecurrenceMonth(full.recurrence_month ?? "");
+                setTaskRecurrenceEndDate(full.recurrence_end_date || "");
+            }).catch(() => {});
+            setIsTaskModalOpen(true);
             return;
         }
         if (app.isExternalGoogle) {
@@ -487,6 +532,79 @@ export default function CalendarPage() {
         );
     }, [clients, clientSearch]);
 
+    // Task events for FullCalendar (all-day)
+    const taskEvents = useMemo(() => tasks.map(t => ({
+        id: `task-${t.id}`,
+        title: `${t.is_recurring ? "🔁 " : "📌 "}${t.title}`,
+        start: t.date,
+        allDay: true,
+        backgroundColor: t.color,
+        borderColor: t.color,
+        textColor: "#ffffff",
+        extendedProps: { isTask: true, taskId: t.id, ...t },
+    })), [tasks]);
+
+    const openNewTaskModal = (dateStr: string) => {
+        setSelectedTaskId(null);
+        setTaskTitle("");
+        setTaskDate(dateStr);
+        setTaskStartTime("");
+        setTaskEndTime("");
+        setTaskNotes("");
+        setTaskColor("#8b5cf6");
+        setTaskRecurrence("none");
+        setTaskRecurrenceDay("");
+        setTaskRecurrenceMonth("");
+        setTaskRecurrenceEndDate("");
+        setIsTaskModalOpen(true);
+    };
+
+    const handleSaveTask = async () => {
+        if (!taskTitle.trim()) { alert("יש להזין כותרת למשימה"); return; }
+        if (taskRecurrence === "none" && !taskDate) { alert("יש לבחור תאריך"); return; }
+        if (taskRecurrence === "monthly" && !taskRecurrenceDay) { alert("יש לבחור יום בחודש"); return; }
+        if (taskRecurrence === "yearly" && (!taskRecurrenceDay || !taskRecurrenceMonth)) { alert("יש לבחור יום וחודש"); return; }
+
+        const body: any = {
+            title: taskTitle.trim(),
+            task_date: taskRecurrence === "none" ? taskDate : null,
+            start_time: taskStartTime || null,
+            end_time: taskEndTime || null,
+            notes: taskNotes || null,
+            color: taskColor,
+            recurrence_type: taskRecurrence,
+            recurrence_day: taskRecurrenceDay !== "" ? Number(taskRecurrenceDay) : null,
+            recurrence_month: taskRecurrenceMonth !== "" ? Number(taskRecurrenceMonth) : null,
+            recurrence_end_date: taskRecurrenceEndDate || null,
+        };
+
+        try {
+            if (selectedTaskId) {
+                await apiFetch(`/api/tasks/${selectedTaskId}`, { method: "PUT", body: JSON.stringify(body) });
+            } else {
+                await apiFetch("/api/tasks", { method: "POST", body: JSON.stringify(body) });
+            }
+            setIsTaskModalOpen(false);
+            loadData();
+            showToast(selectedTaskId ? "✅ המשימה עודכנה" : "✅ המשימה נוספה");
+        } catch (e: any) {
+            alert(e?.message || "שגיאה בשמירת המשימה");
+        }
+    };
+
+    const handleDeleteTask = async () => {
+        if (!selectedTaskId) return;
+        if (!confirm("למחוק את המשימה?")) return;
+        try {
+            await apiFetch(`/api/tasks/${selectedTaskId}`, { method: "DELETE" });
+            setIsTaskModalOpen(false);
+            loadData();
+            showToast("המשימה נמחקה");
+        } catch (e: any) {
+            alert(e?.message || "שגיאה במחיקת המשימה");
+        }
+    };
+
     return (
         <RequireAuth>
             <AppShell
@@ -594,7 +712,7 @@ export default function CalendarPage() {
                             selectLongPressDelay={300}
                             dayMaxEvents={true}
                             nowIndicator={true}
-                            allDaySlot={showHolidays}
+                            allDaySlot={true}
                             slotMinTime={calendarStartHour}
                             slotMaxTime={calendarEndHour}
                             expandRows={true}
@@ -602,7 +720,7 @@ export default function CalendarPage() {
                             slotDuration="00:30:00"
                             slotLabelInterval="01:00"
                             slotEventOverlap={false}
-                            events={[...events, ...holidayEvents]}
+                            events={[...events, ...holidayEvents, ...taskEvents]}
                             select={handleDateSelect}
                             eventClick={handleEventClick}
                             eventDrop={handleEventDrop}
@@ -898,6 +1016,170 @@ export default function CalendarPage() {
                                 <button onClick={confirmDelete} className="px-5 py-2 text-sm font-bold text-white bg-red-600 shadow-lg shadow-red-600/20 hover:bg-red-700 hover:-translate-y-0.5 rounded-xl transition-all">
                                     אישור מחיקה
                                 </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Type Chooser — appointment vs task */}
+                {showTypeChooser && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-150"
+                        onClick={() => setShowTypeChooser(false)}>
+                        <div className="bg-white rounded-3xl shadow-2xl p-6 w-full max-w-xs animate-in zoom-in-95 duration-200"
+                            onClick={e => e.stopPropagation()} dir="rtl">
+                            <h3 className="text-lg font-bold text-slate-800 mb-1 text-center">מה תרצה להוסיף?</h3>
+                            <p className="text-xs text-slate-400 text-center mb-5">בחר סוג האירוע ביומן</p>
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => { setShowTypeChooser(false); openAppointmentModal(pendingSelectInfo); }}
+                                    className="flex-1 flex flex-col items-center gap-2 p-4 rounded-2xl border-2 border-sky-200 bg-sky-50 hover:bg-sky-100 transition-colors"
+                                >
+                                    <span className="text-3xl">✂️</span>
+                                    <span className="text-sm font-bold text-sky-700">קביעת תור</span>
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setShowTypeChooser(false);
+                                        const dateStr = pendingSelectInfo?.startStr?.split("T")[0] || new Date().toISOString().split("T")[0];
+                                        openNewTaskModal(dateStr);
+                                    }}
+                                    className="flex-1 flex flex-col items-center gap-2 p-4 rounded-2xl border-2 border-violet-200 bg-violet-50 hover:bg-violet-100 transition-colors"
+                                >
+                                    <span className="text-3xl">📌</span>
+                                    <span className="text-sm font-bold text-violet-700">משימה / תזכורת</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Task Modal */}
+                {isTaskModalOpen && (
+                    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm sm:p-4 animate-in fade-in duration-200">
+                        <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full sm:max-w-md shadow-2xl overflow-hidden max-h-[85vh] flex flex-col animate-in slide-in-from-bottom sm:zoom-in-95 duration-300" dir="rtl">
+                            <div className="bg-violet-50 border-b border-violet-100 p-5 flex items-center justify-between flex-shrink-0">
+                                <h3 className="text-xl font-bold text-violet-900">{selectedTaskId ? "עריכת משימה" : "משימה / תזכורת חדשה"}</h3>
+                                <button onClick={() => setIsTaskModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-2 bg-white rounded-full shadow-sm">✕</button>
+                            </div>
+
+                            <div className="p-5 space-y-4 overflow-y-auto flex-1">
+                                {/* Title */}
+                                <div>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-1">כותרת *</label>
+                                    <input value={taskTitle} onChange={e => setTaskTitle(e.target.value)}
+                                        placeholder="לדוגמה: ארנונה, מרפאה, חופשה..."
+                                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-violet-400 text-sm" />
+                                </div>
+
+                                {/* Recurrence */}
+                                <div>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-2">סוג חזרה</label>
+                                    <div className="flex gap-2">
+                                        {(["none","monthly","yearly"] as const).map(r => (
+                                            <button key={r} type="button" onClick={() => setTaskRecurrence(r)}
+                                                className={`flex-1 py-2 rounded-xl text-xs font-bold border-2 transition-all ${taskRecurrence === r ? "bg-violet-600 border-violet-600 text-white" : "bg-slate-50 border-slate-200 text-slate-600 hover:border-violet-300"}`}>
+                                                {r === "none" ? "חד פעמי" : r === "monthly" ? "חודשי" : "שנתי"}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Date / Recurrence day */}
+                                {taskRecurrence === "none" && (
+                                    <div>
+                                        <label className="block text-sm font-semibold text-slate-700 mb-1">תאריך *</label>
+                                        <input type="date" value={taskDate} onChange={e => setTaskDate(e.target.value)}
+                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-violet-400 text-sm" dir="ltr" />
+                                    </div>
+                                )}
+                                {taskRecurrence === "monthly" && (
+                                    <div>
+                                        <label className="block text-sm font-semibold text-slate-700 mb-1">ביום ה-__ לכל חודש *</label>
+                                        <input type="number" min={1} max={31} value={taskRecurrenceDay}
+                                            onChange={e => setTaskRecurrenceDay(e.target.value === "" ? "" : Number(e.target.value))}
+                                            placeholder="1–31"
+                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-violet-400 text-sm" dir="ltr" />
+                                    </div>
+                                )}
+                                {taskRecurrence === "yearly" && (
+                                    <div className="flex gap-3">
+                                        <div className="flex-1">
+                                            <label className="block text-sm font-semibold text-slate-700 mb-1">חודש *</label>
+                                            <select value={taskRecurrenceMonth} onChange={e => setTaskRecurrenceMonth(Number(e.target.value))}
+                                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-violet-400 text-sm">
+                                                <option value="">בחר...</option>
+                                                {["ינואר","פברואר","מרץ","אפריל","מאי","יוני","יולי","אוגוסט","ספטמבר","אוקטובר","נובמבר","דצמבר"].map((m,i) => (
+                                                    <option key={i} value={i+1}>{m}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div className="w-28">
+                                            <label className="block text-sm font-semibold text-slate-700 mb-1">יום *</label>
+                                            <input type="number" min={1} max={31} value={taskRecurrenceDay}
+                                                onChange={e => setTaskRecurrenceDay(e.target.value === "" ? "" : Number(e.target.value))}
+                                                placeholder="1–31"
+                                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-violet-400 text-sm" dir="ltr" />
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Recurring end date */}
+                                {taskRecurrence !== "none" && (
+                                    <div>
+                                        <label className="block text-sm font-semibold text-slate-700 mb-1">תאריך סיום חזרה (אופציונלי)</label>
+                                        <input type="date" value={taskRecurrenceEndDate} onChange={e => setTaskRecurrenceEndDate(e.target.value)}
+                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-violet-400 text-sm" dir="ltr" />
+                                    </div>
+                                )}
+
+                                {/* Time */}
+                                <div className="flex gap-3">
+                                    <div className="flex-1">
+                                        <label className="block text-sm font-semibold text-slate-700 mb-1">שעת התחלה</label>
+                                        <input type="time" value={taskStartTime} onChange={e => setTaskStartTime(e.target.value)}
+                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-violet-400 text-sm" dir="ltr" />
+                                    </div>
+                                    <div className="flex-1">
+                                        <label className="block text-sm font-semibold text-slate-700 mb-1">שעת סיום</label>
+                                        <input type="time" value={taskEndTime} onChange={e => setTaskEndTime(e.target.value)}
+                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-violet-400 text-sm" dir="ltr" />
+                                    </div>
+                                </div>
+
+                                {/* Color */}
+                                <div>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-2">צבע</label>
+                                    <div className="flex gap-2 flex-wrap">
+                                        {["#8b5cf6","#3b82f6","#10b981","#f59e0b","#ef4444","#f97316","#ec4899","#6b7280"].map(c => (
+                                            <button key={c} type="button" onClick={() => setTaskColor(c)}
+                                                style={{ backgroundColor: c }}
+                                                className={`w-8 h-8 rounded-full transition-transform ${taskColor === c ? "scale-125 ring-2 ring-offset-2 ring-slate-400" : "hover:scale-110"}`} />
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Notes */}
+                                <div>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-1">הערות</label>
+                                    <textarea value={taskNotes} onChange={e => setTaskNotes(e.target.value)} rows={2}
+                                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-violet-400 text-sm" />
+                                </div>
+                            </div>
+
+                            <div className="bg-slate-50 px-4 py-3 flex justify-between items-center border-t border-slate-100 flex-shrink-0">
+                                <div>
+                                    {selectedTaskId && (
+                                        <button onClick={handleDeleteTask} className="px-4 py-2 text-sm font-bold text-red-600 hover:bg-red-50 rounded-xl transition-colors">
+                                            🗑️ מחק
+                                        </button>
+                                    )}
+                                </div>
+                                <div className="flex gap-3">
+                                    <button onClick={() => setIsTaskModalOpen(false)} className="px-5 py-2 text-sm font-bold text-slate-600 hover:bg-slate-200 rounded-xl transition-colors">סגור</button>
+                                    <button onClick={handleSaveTask} className="px-6 py-2 text-sm font-bold text-white bg-violet-600 shadow-lg shadow-violet-600/20 hover:bg-violet-700 hover:-translate-y-0.5 rounded-xl transition-all">
+                                        {selectedTaskId ? "שמור שינויים" : "הוסף משימה"}
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
