@@ -1,5 +1,6 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from datetime import date
+import json as _json
 
 class AutomationSettingsOut(BaseModel):
     aftercare_message: str | None = None
@@ -110,6 +111,18 @@ class AutomationSettingsOut(BaseModel):
 
     # Treatment type templates
     treatment_types: list[str] = []
+
+    @field_validator("treatment_types", mode="before")
+    @classmethod
+    def parse_treatment_types(cls, v):
+        if v is None:
+            return []
+        if isinstance(v, str):
+            try:
+                return _json.loads(v)
+            except Exception:
+                return []
+        return v
 
     class Config:
         from_attributes = True

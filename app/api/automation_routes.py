@@ -21,15 +21,6 @@ import json as _json
 def _settings_to_out(settings, studio) -> AutomationSettingsOut:
     out = AutomationSettingsOut.model_validate(settings)
     out.studio_slug = studio.slug if studio else None
-    # Deserialize treatment_types from JSON string
-    raw = getattr(settings, "treatment_types", None)
-    if isinstance(raw, str) and raw:
-        try:
-            out.treatment_types = _json.loads(raw)
-        except Exception:
-            out.treatment_types = []
-    else:
-        out.treatment_types = []
     return out
 
 @router.get("", response_model=AutomationSettingsOut)
