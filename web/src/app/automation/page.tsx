@@ -95,6 +95,7 @@ type Settings = {
     deposit_lock_days: number;
     deposit_fixed_amount_ils: number;
     deposit_min_duration_minutes: number | null;
+    treatment_types: string[];
 };
 
 function WebhookUrlBox({ provider, instanceId }: { provider: "green_api" | "meta"; instanceId: string }) {
@@ -179,6 +180,7 @@ export default function AutomationSettingsPage() {
     const [aiPrompt, setAiPrompt] = useState("");
     const [isAiLoading, setIsAiLoading] = useState(false);
     const [retroLoading, setRetroLoading] = useState(false);
+    const [newTreatmentType, setNewTreatmentType] = useState("");
     const [retroResult, setRetroResult] = useState<{ processed: number; failed: number; clients: { id: string; name: string }[] } | null>(null);
 
     // 2FA state
@@ -251,6 +253,7 @@ export default function AutomationSettingsPage() {
                     welcome_email_template: data.welcome_email_template ?? "ברוך הבא למועדון! אנחנו שמחים שהצטרפת 🎉",
                     reminder_wa_template: data.reminder_wa_template ?? "תזכורת! יש לך תור מחר. מחכים לך 🕐",
                     reminder_email_template: data.reminder_email_template ?? "תזכורת! יש לך תור מחר. מחכים לך 🕐",
+                    treatment_types: data.treatment_types ?? [],
                 });
             })
             .catch((e) => setErr(e?.message || "שגיאה בטעינת ההגדרות"))
@@ -1343,6 +1346,51 @@ export default function AutomationSettingsPage() {
                                                     )}
                                                 </div>
                                             )}
+                                        </div>
+
+                                        <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 md:col-span-2">
+                                            <label className="block text-base font-bold text-slate-800 mb-2">טמפלטים לכותרת טיפול</label>
+                                            <p className="text-sm text-slate-500 mb-4">הגדר קטגוריות קבועות שיופיעו כפתורים מהירים בזמן קביעת תור (למשל: קעקוע, פירסינג, ייעוץ).</p>
+                                            <div className="flex flex-wrap gap-2 mb-3">
+                                                {(settings.treatment_types || []).map((type, idx) => (
+                                                    <div key={idx} className="flex items-center gap-1 bg-blue-100 text-blue-800 text-sm font-semibold px-3 py-1 rounded-full">
+                                                        <span>{type}</span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleChange("treatment_types", (settings.treatment_types || []).filter((_, i) => i !== idx))}
+                                                            className="text-blue-500 hover:text-blue-700 font-bold ml-1 text-base leading-none"
+                                                        >×</button>
+                                                    </div>
+                                                ))}
+                                                {(settings.treatment_types || []).length === 0 && (
+                                                    <span className="text-sm text-slate-400 italic">אין קטגוריות עדיין</span>
+                                                )}
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <input
+                                                    type="text"
+                                                    value={newTreatmentType}
+                                                    onChange={e => setNewTreatmentType(e.target.value)}
+                                                    onKeyDown={e => {
+                                                        if (e.key === "Enter" && newTreatmentType.trim()) {
+                                                            handleChange("treatment_types", [...(settings.treatment_types || []), newTreatmentType.trim()]);
+                                                            setNewTreatmentType("");
+                                                        }
+                                                    }}
+                                                    placeholder="הוסף קטגוריה..."
+                                                    className="flex-1 bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        if (newTreatmentType.trim()) {
+                                                            handleChange("treatment_types", [...(settings.treatment_types || []), newTreatmentType.trim()]);
+                                                            setNewTreatmentType("");
+                                                        }
+                                                    }}
+                                                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl transition-colors"
+                                                >+ הוסף</button>
+                                            </div>
                                         </div>
 
                                         <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 md:col-span-2">

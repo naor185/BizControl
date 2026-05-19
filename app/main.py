@@ -86,6 +86,7 @@ def run_migrations():
     from app.core.database import engine
     with engine.connect() as conn:
         conn.execute(text("ALTER TABLE clients ADD COLUMN IF NOT EXISTS whatsapp_opted_out BOOLEAN NOT NULL DEFAULT false"))
+        conn.execute(text("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS treatment_types TEXT"))
         conn.commit()
 
 @asynccontextmanager

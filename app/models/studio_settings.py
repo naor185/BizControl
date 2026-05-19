@@ -60,6 +60,9 @@ class StudioSettings(Base):
     points_on_signup: Mapped[int] = mapped_column(Integer, nullable=False, default=50, server_default="50")
     points_percent_per_payment: Mapped[int] = mapped_column(Integer, nullable=False, default=5, server_default="5")
 
+    # Treatment type templates (JSON array stored as text, e.g. ["קעקוע","פירסינג","ייעוץ"])
+    treatment_types: Mapped[str | None] = mapped_column(Text, nullable=True, default=None)
+
     # Financial & Tax Settings
     vat_percent: Mapped[float] = mapped_column(Numeric(5, 2), nullable=False, default=18.00, server_default="18.00")
     income_tax_percent: Mapped[float] = mapped_column(Numeric(5, 2), nullable=False, default=10.00, server_default="10.00")

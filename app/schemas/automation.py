@@ -108,6 +108,9 @@ class AutomationSettingsOut(BaseModel):
     # Studio identifier (for landing page URL)
     studio_slug: str | None = None
 
+    # Treatment type templates
+    treatment_types: list[str] = []
+
     class Config:
         from_attributes = True
 
@@ -209,3 +212,6 @@ class AutomationSettingsUpdate(BaseModel):
     facebook_page_id: str | None = None
     instagram_account_id: str | None = None
     meta_page_access_token: str | None = None
+
+    # Treatment type templates
+    treatment_types: list[str] | None = None

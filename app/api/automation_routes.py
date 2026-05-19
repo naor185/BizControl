@@ -16,6 +16,22 @@ from app.schemas.automation import AutomationSettingsOut, AutomationSettingsUpda
 
 router = APIRouter(prefix="/studio/automation", tags=["Automation"])
 
+import json as _json
+
+def _settings_to_out(settings, studio) -> AutomationSettingsOut:
+    out = AutomationSettingsOut.model_validate(settings)
+    out.studio_slug = studio.slug if studio else None
+    # Deserialize treatment_types from JSON string
+    raw = getattr(settings, "treatment_types", None)
+    if isinstance(raw, str) and raw:
+        try:
+            out.treatment_types = _json.loads(raw)
+        except Exception:
+            out.treatment_types = []
+    else:
+        out.treatment_types = []
+    return out
+
 @router.get("", response_model=AutomationSettingsOut)
 def get_settings(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
     from app.models.studio import Studio
@@ -23,9 +39,7 @@ def get_settings(ctx: AuthContext = Depends(require_studio_ctx), db: Session = D
     if not settings:
         raise HTTPException(status_code=404, detail="Settings not found")
     studio = db.get(Studio, ctx.studio_id)
-    out = AutomationSettingsOut.model_validate(settings)
-    out.studio_slug = studio.slug if studio else None
-    return out
+    return _settings_to_out(settings, studio)
 
 @router.patch("", response_model=AutomationSettingsOut)
 def patch_settings(payload: AutomationSettingsUpdate, ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
@@ -37,6 +51,9 @@ def patch_settings(payload: AutomationSettingsUpdate, ctx: AuthContext = Depends
         raise HTTPException(status_code=404, detail="Settings not found")
 
     data = payload.model_dump(exclude_unset=True)
+    # Serialize treatment_types list → JSON string before saving
+    if "treatment_types" in data and isinstance(data["treatment_types"], list):
+        data["treatment_types"] = _json.dumps(data["treatment_types"], ensure_ascii=False)
     for k, v in data.items():
         setattr(settings, k, v)
 
@@ -44,9 +61,7 @@ def patch_settings(payload: AutomationSettingsUpdate, ctx: AuthContext = Depends
     db.refresh(settings)
     from app.models.studio import Studio
     studio = db.get(Studio, ctx.studio_id)
-    out = AutomationSettingsOut.model_validate(settings)
-    out.studio_slug = studio.slug if studio else None
-    return out
+    return _settings_to_out(settings, studio)
 
 class TriggerWelcomeIn(BaseModel):
     client_id: str
