@@ -418,18 +418,8 @@ def enqueue_aftercare_if_needed(db: Session, appt: Appointment) -> None:
     if appt.done_at is None:
         appt.done_at = now
 
-    # נקודות על סיום תור
-    points = int(settings.points_per_done_appointment or 0)
-    if points > 0:
-        client.loyalty_points = (client.loyalty_points or 0) + points
-        db.add(ClientPointsLedger(
-            studio_id=appt.studio_id,
-            client_id=appt.client_id,
-            appointment_id=appt.id,
-            delta_points=points,
-            reason=f"Appointment done - {points} points awarded",
-        ))
-        db.flush()
+    # נקודות על סיום תור — מבוטל, נקודות ניתנות רק דרך קאשבק על תשלום
+    points = 0
 
     # message job
     delay = int(settings.aftercare_delay_minutes or 0)
