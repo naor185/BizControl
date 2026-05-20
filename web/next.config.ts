@@ -7,10 +7,8 @@ const nextConfig: NextConfig = {
   turbopack: {},
   async rewrites() {
     return [
-      {
-        source: "/api/:path*",
-        destination: `${RAILWAY_URL}/api/:path*`,
-      },
+      { source: "/api/:path*", destination: `${RAILWAY_URL}/api/:path*` },
+      { source: "/uploads/:path*", destination: `${RAILWAY_URL}/uploads/:path*` },
     ];
   },
   async headers() {

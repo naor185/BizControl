@@ -95,7 +95,13 @@ type Settings = {
     deposit_lock_days: number;
     deposit_fixed_amount_ils: number;
     deposit_min_duration_minutes: number | null;
-    treatment_types: string[];
+    treatment_types: TreatmentTypeTemplate[];
+};
+
+type TreatmentTypeTemplate = {
+    name: string;
+    requires_deposit: boolean;
+    deposit_amount_ils: number | null;
 };
 
 function WebhookUrlBox({ provider, instanceId }: { provider: "green_api" | "meta"; instanceId: string }) {
@@ -181,6 +187,8 @@ export default function AutomationSettingsPage() {
     const [isAiLoading, setIsAiLoading] = useState(false);
     const [retroLoading, setRetroLoading] = useState(false);
     const [newTreatmentType, setNewTreatmentType] = useState("");
+    const [newTreatmentRequiresDeposit, setNewTreatmentRequiresDeposit] = useState(false);
+    const [newTreatmentDepositAmount, setNewTreatmentDepositAmount] = useState<number | null>(null);
     const [retroResult, setRetroResult] = useState<{ processed: number; failed: number; clients: { id: string; name: string }[] } | null>(null);
 
     // 2FA state
@@ -1349,48 +1357,86 @@ export default function AutomationSettingsPage() {
                                         </div>
 
                                         <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 md:col-span-2">
-                                            <label className="block text-base font-bold text-slate-800 mb-2">טמפלטים לכותרת טיפול</label>
-                                            <p className="text-sm text-slate-500 mb-4">הגדר קטגוריות קבועות שיופיעו כפתורים מהירים בזמן קביעת תור (למשל: קעקוע, פירסינג, ייעוץ).</p>
-                                            <div className="flex flex-wrap gap-2 mb-3">
-                                                {(settings.treatment_types || []).map((type, idx) => (
-                                                    <div key={idx} className="flex items-center gap-1 bg-blue-100 text-blue-800 text-sm font-semibold px-3 py-1 rounded-full">
-                                                        <span>{type}</span>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => handleChange("treatment_types", (settings.treatment_types || []).filter((_, i) => i !== idx))}
-                                                            className="text-blue-500 hover:text-blue-700 font-bold ml-1 text-base leading-none"
-                                                        >×</button>
-                                                    </div>
-                                                ))}
+                                            <label className="block text-base font-bold text-slate-800 mb-1">טמפלטים לכותרת טיפול</label>
+                                            <p className="text-sm text-slate-500 mb-4">הגדר קטגוריות קבועות שיופיעו כפתורים מהירים בזמן קביעת תור. ניתן לקבוע לכל טמפלט אם לבקש מקדמה אוטומטית.</p>
+
+                                            {/* Existing templates */}
+                                            <div className="space-y-2 mb-4">
                                                 {(settings.treatment_types || []).length === 0 && (
                                                     <span className="text-sm text-slate-400 italic">אין קטגוריות עדיין</span>
                                                 )}
+                                                {(settings.treatment_types || []).map((tpl, idx) => (
+                                                    <div key={idx} className="flex items-center gap-3 bg-white rounded-xl border border-slate-200 px-4 py-3">
+                                                        <span className="flex-1 font-semibold text-slate-800 text-sm">{tpl.name}</span>
+                                                        {tpl.requires_deposit ? (
+                                                            <span className="text-xs bg-emerald-100 text-emerald-700 font-semibold px-2 py-0.5 rounded-full">
+                                                                💳 מקדמה{tpl.deposit_amount_ils ? ` ₪${tpl.deposit_amount_ils}` : ""}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-xs text-slate-400">ללא מקדמה</span>
+                                                        )}
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleChange("treatment_types", (settings.treatment_types || []).filter((_, i) => i !== idx))}
+                                                            className="text-slate-400 hover:text-red-500 font-bold text-lg leading-none"
+                                                        >×</button>
+                                                    </div>
+                                                ))}
                                             </div>
-                                            <div className="flex gap-2">
+
+                                            {/* Add new template */}
+                                            <div className="bg-white rounded-xl border border-dashed border-slate-300 p-4 space-y-3">
+                                                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">הוסף טמפלט חדש</p>
                                                 <input
                                                     type="text"
                                                     value={newTreatmentType}
                                                     onChange={e => setNewTreatmentType(e.target.value)}
                                                     onKeyDown={e => {
                                                         if (e.key === "Enter" && newTreatmentType.trim()) {
-                                                            handleChange("treatment_types", [...(settings.treatment_types || []), newTreatmentType.trim()]);
-                                                            setNewTreatmentType("");
+                                                            handleChange("treatment_types", [...(settings.treatment_types || []), { name: newTreatmentType.trim(), requires_deposit: newTreatmentRequiresDeposit, deposit_amount_ils: newTreatmentRequiresDeposit ? newTreatmentDepositAmount : null }]);
+                                                            setNewTreatmentType(""); setNewTreatmentRequiresDeposit(false); setNewTreatmentDepositAmount(null);
                                                         }
                                                     }}
-                                                    placeholder="הוסף קטגוריה..."
-                                                    className="flex-1 bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                                                    placeholder="שם הטיפול (למשל: קעקוע, פירסינג...)"
+                                                    className="w-full border border-slate-200 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
                                                 />
+                                                <div className="flex items-center gap-3">
+                                                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={newTreatmentRequiresDeposit}
+                                                            onChange={e => setNewTreatmentRequiresDeposit(e.target.checked)}
+                                                            className="w-4 h-4 rounded accent-emerald-600"
+                                                        />
+                                                        <span className="text-sm font-semibold text-slate-700">לבקש מקדמה לטמפלט זה?</span>
+                                                    </label>
+                                                    {newTreatmentRequiresDeposit && (
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-sm text-slate-500">סכום:</span>
+                                                            <input
+                                                                type="number"
+                                                                min="0"
+                                                                value={newTreatmentDepositAmount ?? ""}
+                                                                onChange={e => setNewTreatmentDepositAmount(e.target.value === "" ? null : Number(e.target.value))}
+                                                                placeholder="ברירת מחדל"
+                                                                className="w-28 border border-slate-200 rounded-xl px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-emerald-400"
+                                                            />
+                                                            <span className="text-sm text-slate-500">₪</span>
+                                                        </div>
+                                                    )}
+                                                </div>
                                                 <button
                                                     type="button"
                                                     onClick={() => {
                                                         if (newTreatmentType.trim()) {
-                                                            handleChange("treatment_types", [...(settings.treatment_types || []), newTreatmentType.trim()]);
-                                                            setNewTreatmentType("");
+                                                            handleChange("treatment_types", [...(settings.treatment_types || []), { name: newTreatmentType.trim(), requires_deposit: newTreatmentRequiresDeposit, deposit_amount_ils: newTreatmentRequiresDeposit ? newTreatmentDepositAmount : null }]);
+                                                            setNewTreatmentType(""); setNewTreatmentRequiresDeposit(false); setNewTreatmentDepositAmount(null);
                                                         }
                                                     }}
-                                                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl transition-colors"
+                                                    className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl transition-colors"
                                                 >+ הוסף</button>
                                             </div>
+                                            <p className="text-xs text-amber-600 mt-2">⚠️ לאחר הוספה — לחץ על &quot;שמור הגדרות סטודיו&quot; כדי לשמור את השינויים.</p>
                                         </div>
 
                                         <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 md:col-span-2">

@@ -2,6 +2,16 @@ from pydantic import BaseModel, Field, field_validator
 from datetime import date
 import json as _json
 
+
+class TreatmentTypeTemplate(BaseModel):
+    name: str
+    requires_deposit: bool = False
+    deposit_amount_ils: int | None = None
+
+    class Config:
+        from_attributes = True
+
+
 class AutomationSettingsOut(BaseModel):
     aftercare_message: str | None = None
     review_link_google: str | None = None
@@ -110,7 +120,7 @@ class AutomationSettingsOut(BaseModel):
     studio_slug: str | None = None
 
     # Treatment type templates
-    treatment_types: list[str] = []
+    treatment_types: list[TreatmentTypeTemplate] = []
 
     @field_validator("treatment_types", mode="before")
     @classmethod
@@ -119,10 +129,22 @@ class AutomationSettingsOut(BaseModel):
             return []
         if isinstance(v, str):
             try:
-                return _json.loads(v)
+                parsed = _json.loads(v)
             except Exception:
                 return []
-        return v
+        else:
+            parsed = v
+        if not isinstance(parsed, list):
+            return []
+        result = []
+        for item in parsed:
+            if isinstance(item, str):
+                result.append({"name": item, "requires_deposit": False, "deposit_amount_ils": None})
+            elif isinstance(item, dict):
+                result.append(item)
+            else:
+                result.append(item)
+        return result
 
     class Config:
         from_attributes = True
@@ -227,4 +249,4 @@ class AutomationSettingsUpdate(BaseModel):
     meta_page_access_token: str | None = None
 
     # Treatment type templates
-    treatment_types: list[str] | None = None
+    treatment_types: list[TreatmentTypeTemplate] | None = None

@@ -119,7 +119,7 @@ export default function CalendarPage() {
     const [err, setErr] = useState<string | null>(null);
     const [calendarStartHour, setCalendarStartHour] = useState("08:00:00");
     const [calendarEndHour, setCalendarEndHour] = useState("23:00:00");
-    const [treatmentTypes, setTreatmentTypes] = useState<string[]>([]);
+    const [treatmentTypes, setTreatmentTypes] = useState<{ name: string; requires_deposit: boolean; deposit_amount_ils: number | null }[]>([]);
 
     // Type chooser (appointment vs task)
     const [showTypeChooser, setShowTypeChooser] = useState(false);
@@ -248,7 +248,14 @@ export default function CalendarPage() {
                 if (settings.calendar_end_hour) setCalendarEndHour(`${settings.calendar_end_hour}:00`);
                 if (settings.deposit_fixed_amount_ils) setDefaultDepositAmount(settings.deposit_fixed_amount_ils);
                 if (settings.deposit_min_duration_minutes) setDepositMinDuration(settings.deposit_min_duration_minutes);
-                if (settings.treatment_types?.length) setTreatmentTypes(settings.treatment_types);
+                if (settings.treatment_types?.length) {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    setTreatmentTypes((settings.treatment_types as any[]).map((t: any) =>
+                        typeof t === "string"
+                            ? { name: t, requires_deposit: false, deposit_amount_ils: null }
+                            : t
+                    ));
+                }
             }
         } catch (e: any) {
             setErr(e?.message || "שגיאה בטעינת נתוני היומן");
@@ -745,20 +752,25 @@ export default function CalendarPage() {
                                     <label className="block text-sm font-semibold text-slate-700 mb-1">כותרת הטיפול</label>
                                     {treatmentTypes.length > 0 && (
                                         <div className="flex flex-wrap gap-2 mb-2">
-                                            {treatmentTypes.map(type => (
+                                            {treatmentTypes.map(tpl => (
                                                 <button
-                                                    key={type}
+                                                    key={tpl.name}
                                                     type="button"
-                                                    onClick={() => setTitle(prev => {
-                                                        // If title already starts with this type prefix, keep just that prefix and let user type
-                                                        if (prev.startsWith(type)) return prev;
-                                                        // Strip any existing type prefix and replace
-                                                        const existingSuffix = treatmentTypes.reduce((s, t) => s.startsWith(t + " - ") ? s.slice(t.length + 3) : s.startsWith(t) ? "" : s, prev);
-                                                        return existingSuffix ? `${type} - ${existingSuffix}` : type;
-                                                    })}
-                                                    className={`px-3 py-1 rounded-full text-sm font-semibold border transition-all ${title.startsWith(type) ? "bg-blue-600 text-white border-blue-600" : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-blue-50 hover:border-blue-300"}`}
+                                                    onClick={() => {
+                                                        setTitle(prev => {
+                                                            if (prev.startsWith(tpl.name)) return prev;
+                                                            const existingSuffix = treatmentTypes.reduce((s, t) => s.startsWith(t.name + " - ") ? s.slice(t.name.length + 3) : s.startsWith(t.name) ? "" : s, prev);
+                                                            return existingSuffix ? `${tpl.name} - ${existingSuffix}` : tpl.name;
+                                                        });
+                                                        if (tpl.requires_deposit) {
+                                                            setDepositAmount(tpl.deposit_amount_ils ?? defaultDepositAmount || "");
+                                                        } else {
+                                                            setDepositAmount("");
+                                                        }
+                                                    }}
+                                                    className={`px-3 py-1 rounded-full text-sm font-semibold border transition-all ${title.startsWith(tpl.name) ? "bg-blue-600 text-white border-blue-600" : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-blue-50 hover:border-blue-300"}`}
                                                 >
-                                                    {type}
+                                                    {tpl.name}{tpl.requires_deposit ? " 💳" : ""}
                                                 </button>
                                             ))}
                                         </div>
