@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import RequireAuth from "@/components/RequireAuth";
 import AppShell from "@/components/AppShell";
@@ -45,7 +45,7 @@ type LoyaltyStats = {
 
 const MONTHS = ["ינואר","פברואר","מרץ","אפריל","מאי","יוני","יולי","אוגוסט","ספטמבר","אוקטובר","נובמבר","דצמבר"];
 
-export default function Page() {
+function PageInner() {
     const searchParams = useSearchParams();
     const [tab, setTab] = useState<"all" | "club">(
         searchParams.get("tab") === "club" ? "club" : "all"
@@ -483,5 +483,13 @@ export default function Page() {
                 )}
             </AppShell>
         </RequireAuth>
+    );
+}
+
+export default function Page() {
+    return (
+        <Suspense fallback={null}>
+            <PageInner />
+        </Suspense>
     );
 }

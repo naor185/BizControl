@@ -763,7 +763,7 @@ export default function CalendarPage() {
                                                             return existingSuffix ? `${tpl.name} - ${existingSuffix}` : tpl.name;
                                                         });
                                                         if (tpl.requires_deposit) {
-                                                            setDepositAmount(tpl.deposit_amount_ils ?? defaultDepositAmount || "");
+                                                            setDepositAmount((tpl.deposit_amount_ils ?? defaultDepositAmount) || "");
                                                         } else {
                                                             setDepositAmount("");
                                                         }
