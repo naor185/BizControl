@@ -27,7 +27,6 @@ const MAIN_NAV: NavItem[] = [
     { href: "/products",      labelKey: "nav_products",  icon: "📦" },
     { href: "/dashboard",     labelKey: "nav_dashboard", icon: "📊" },
     { href: "/clients",       labelKey: "nav_clients",   icon: "👥" },
-    { href: "/clients/club",  labelKey: "nav_club",      icon: "👑" },
 ];
 
 const SETTINGS_NAV: NavItem[] = [
