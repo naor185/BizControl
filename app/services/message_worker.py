@@ -330,3 +330,94 @@ def sweep_3day_reminders(db: Session) -> int:
         wa_default="[3day] היי {client_name}! תזכורת התור שלך ל-{appointment_title} בעוד 3 ימים, ב-{appointment_date} בשעה {appointment_time}. אם טרם שילמת מקדמה: {payment_link}",
         email_default="<div dir=rtl>[3day] תזכורת - 3 ימים לתור - {client_name} - {appointment_date} {appointment_time}</div>",
     )
+
+
+def sweep_birthday_messages(db: Session) -> int:
+    """Runs on 1st of each month — sends birthday WhatsApp to club members born this month."""
+    from app.models.client import Client
+    from app.models.studio_settings import StudioSettings
+    from app.models.client_points_ledger import ClientPointsLedger
+    from sqlalchemy import extract
+
+    now = datetime.now(timezone.utc)
+    current_month = now.month
+    current_year = now.year
+    tag = f"[birthday-{current_year}-{current_month:02d}]"
+
+    stmt = (
+        select(Client, StudioSettings)
+        .join(StudioSettings, StudioSettings.studio_id == Client.studio_id)
+        .where(
+            Client.is_club_member.is_(True),
+            Client.is_active.is_(True),
+            Client.birth_date.isnot(None),
+            extract("month", Client.birth_date) == current_month,
+        )
+    )
+    rows = db.execute(stmt).all()
+    count = 0
+
+    for client, settings in rows:
+        if client.whatsapp_opted_out:
+            continue
+
+        # Deduplicate: skip if already sent this month
+        existing = db.scalar(
+            select(MessageJob).where(
+                MessageJob.client_id == client.id,
+                MessageJob.body.contains(tag),
+            )
+        )
+        if existing:
+            continue
+
+        benefit_percent = int(settings.birthday_benefit_percent or 0)
+        context = {
+            "client_name": client.full_name,
+            "benefit_percent": benefit_percent,
+            "birth_day": client.birth_date.day if client.birth_date else "",
+            "birth_month": client.birth_date.month if client.birth_date else "",
+        }
+
+        wa_template = settings.birthday_wa_template
+        if not wa_template:
+            benefit_line = f"\n🎁 הטבת יום הולדת: {benefit_percent}% הנחה בביקורך הקרוב!" if benefit_percent > 0 else ""
+            wa_template = (
+                f"{tag}\n"
+                f"🎂 יום הולדת שמח {{client_name}}!\n\n"
+                f"מאחלים לך יום מיוחד ומלא אהבה 🎉❤️"
+                f"{benefit_line}"
+            )
+        else:
+            wa_template = f"{tag}\n{wa_template}"
+
+        if client.phone:
+            wa_body = format_template(wa_template, context)
+            db.add(MessageJob(
+                studio_id=client.studio_id,
+                client_id=client.id,
+                channel="whatsapp",
+                to_phone=client.phone,
+                body=wa_body,
+                scheduled_at=now,
+                status="pending",
+            ))
+
+            # Award birthday benefit points if configured
+            if benefit_percent > 0:
+                points_to_award = benefit_percent
+                client.loyalty_points = int(client.loyalty_points or 0) + points_to_award
+                db.add(ClientPointsLedger(
+                    studio_id=client.studio_id,
+                    client_id=client.id,
+                    appointment_id=None,
+                    delta_points=points_to_award,
+                    reason=f"Birthday benefit {current_year}-{current_month:02d}",
+                ))
+
+            count += 1
+
+    if count:
+        db.commit()
+    log.info("sweep_birthday_messages: sent %d birthday messages for %d/%d", count, current_month, current_year)
+    return count

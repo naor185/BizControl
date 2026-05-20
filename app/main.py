@@ -33,7 +33,7 @@ from app.core.limiter import limiter
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from app.db.session import SessionLocal
-from app.services.message_worker import process_due_jobs, sweep_upcoming_reminders, sweep_7day_reminders, sweep_3day_reminders
+from app.services.message_worker import process_due_jobs, sweep_upcoming_reminders, sweep_7day_reminders, sweep_3day_reminders, sweep_birthday_messages
 from app.services.plan_alert_service import sweep_plan_expiry_alerts
 from app.api.router import api_router
 from app.services.automation_service import AutomationService
@@ -69,9 +69,17 @@ def start_scheduler():
         finally:
             db.close()
 
+    def tick_birthday_messages():
+        db = SessionLocal()
+        try:
+            sweep_birthday_messages(db)
+        finally:
+            db.close()
+
     scheduler.add_job(tick_jobs, "interval", seconds=20, id="message_jobs_tick", replace_existing=True)
     scheduler.add_job(tick_reminders, "interval", minutes=60, id="reminders_sweep_tick", replace_existing=True)
     scheduler.add_job(tick_plan_alerts, "cron", hour=9, minute=0, id="plan_alerts_tick", replace_existing=True)
+    scheduler.add_job(tick_birthday_messages, "cron", day=1, hour=9, minute=0, id="birthday_messages_tick", replace_existing=True)
     scheduler.start()
 
 def stop_scheduler():
