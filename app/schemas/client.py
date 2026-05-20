@@ -24,6 +24,7 @@ class ClientUpdate(BaseModel):
     is_active: bool | None = None
     is_club_member: bool | None = None
     whatsapp_opted_out: bool | None = None
+    loyalty_points: int | None = Field(default=None, ge=0)
 
 class ClientOut(ClientBase):
     id: UUID

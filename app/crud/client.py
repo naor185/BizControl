@@ -240,6 +240,8 @@ def update_client(db: Session, studio_id: UUID, client_id: UUID, data: ClientUpd
         obj.is_club_member = data.is_club_member
     if data.whatsapp_opted_out is not None:
         obj.whatsapp_opted_out = data.whatsapp_opted_out
+    if getattr(data, "loyalty_points", None) is not None:
+        obj.loyalty_points = data.loyalty_points
 
     if obj.is_club_member and not was_club_member:
         _trigger_club_welcome(db, studio_id, obj)

@@ -85,6 +85,8 @@ export default function ClientProfilePage() {
     const [pointsRedeemed, setPointsRedeemed] = useState<string>("0");
     const [isSavingPayment, setIsSavingPayment] = useState(false);
     const [isApptModalOpen, setIsApptModalOpen] = useState(false);
+    const [editingPoints, setEditingPoints] = useState(false);
+    const [pointsInput, setPointsInput] = useState("");
 
     const loadData = async () => {
         if (!id) return;
@@ -163,6 +165,21 @@ export default function ClientProfilePage() {
         }
     };
 
+    const handleSavePoints = async () => {
+        const pts = parseInt(pointsInput, 10);
+        if (isNaN(pts) || pts < 0) return;
+        try {
+            await apiFetch(`/api/clients/${id}`, {
+                method: "PATCH",
+                body: JSON.stringify({ loyalty_points: pts }),
+            });
+            setEditingPoints(false);
+            loadData();
+        } catch (e: unknown) {
+            alert((e as Error)?.message || "שגיאה בעדכון נקודות");
+        }
+    };
+
     const handleDeleteAllPayments = async () => {
         if (!confirm("למחוק את כל היסטוריית התשלומים של הלקוח הזה? הנקודות יתאפסו גם הן. הפעולה אינה הפיכה.")) return;
         try {
@@ -238,8 +255,30 @@ export default function ClientProfilePage() {
                                     </div>
                                 </div>
                                 <div className="rounded-xl border bg-slate-50 p-4 shadow-sm border-slate-200">
-                                    <div className="text-xs text-slate-500 font-medium">נקודות במועדון</div>
-                                    <div className="text-2xl font-bold mt-1 text-slate-800">{profile.points_balance}</div>
+                                    <div className="flex items-center justify-between">
+                                        <div className="text-xs text-slate-500 font-medium">נקודות במועדון</div>
+                                        <button
+                                            onClick={() => { setPointsInput(String(profile.points_balance)); setEditingPoints(true); }}
+                                            className="text-[10px] text-sky-600 hover:underline font-semibold"
+                                        >ערוך</button>
+                                    </div>
+                                    {editingPoints ? (
+                                        <div className="flex items-center gap-1 mt-1">
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                value={pointsInput}
+                                                onChange={e => setPointsInput(e.target.value)}
+                                                className="w-20 border border-sky-300 rounded-lg px-2 py-1 text-lg font-bold outline-none focus:ring-2 focus:ring-sky-400"
+                                                autoFocus
+                                                onKeyDown={e => { if (e.key === "Enter") handleSavePoints(); if (e.key === "Escape") setEditingPoints(false); }}
+                                            />
+                                            <button onClick={handleSavePoints} className="text-xs bg-sky-600 text-white px-2 py-1 rounded-lg font-bold">שמור</button>
+                                            <button onClick={() => setEditingPoints(false)} className="text-xs text-slate-400 hover:text-slate-600 px-1">ביטול</button>
+                                        </div>
+                                    ) : (
+                                        <div className="text-2xl font-bold mt-1 text-slate-800">{profile.points_balance}</div>
+                                    )}
                                 </div>
                                 <div className="rounded-xl border bg-slate-50 p-4 shadow-sm border-slate-200">
                                     <div className="text-xs text-slate-500 font-medium">סה"כ ביקורים</div>
