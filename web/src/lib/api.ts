@@ -50,7 +50,8 @@ export function getCurrentUserRole(): string | null {
 type ApiOptions = RequestInit & { auth?: boolean };
 
 export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promise<T> {
-    const url = path.startsWith("http") ? path : `${API_BASE}${path}`;
+    let url = path.startsWith("http") ? path : `${API_BASE}${path}`;
+    if (url.startsWith("http://")) url = "https://" + url.slice(7);
 
     const headers = new Headers(options.headers || {});
     headers.set("Accept", "application/json");
