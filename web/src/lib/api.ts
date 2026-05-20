@@ -1,5 +1,4 @@
-const _rawBase = process.env.NEXT_PUBLIC_API_BASE || "https://web-production-68695.up.railway.app";
-export const API_BASE = _rawBase.replace(/^http:\/\//, "https://");
+export const API_BASE = "https://web-production-68695.up.railway.app";
 
 const TOKEN_KEY = "bizcontrol_token";
 const REFRESH_TOKEN_KEY = "bizcontrol_refresh_token";
