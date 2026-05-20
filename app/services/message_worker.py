@@ -333,16 +333,18 @@ def sweep_3day_reminders(db: Session) -> int:
 
 
 def sweep_birthday_messages(db: Session) -> int:
-    """Runs on 1st of each month — sends birthday WhatsApp to club members born this month."""
+    """Runs daily — sends birthday WhatsApp to club members whose birthday is today."""
     from app.models.client import Client
     from app.models.studio_settings import StudioSettings
     from app.models.client_points_ledger import ClientPointsLedger
     from sqlalchemy import extract
 
     now = datetime.now(timezone.utc)
+    current_day = now.day
     current_month = now.month
     current_year = now.year
-    tag = f"[birthday-{current_year}-{current_month:02d}]"
+    # Dedup tag per year so each person gets one message per year
+    tag = f"[birthday-{current_year}-{current_month:02d}-{current_day:02d}]"
 
     stmt = (
         select(Client, StudioSettings)
@@ -352,6 +354,7 @@ def sweep_birthday_messages(db: Session) -> int:
             Client.is_active.is_(True),
             Client.birth_date.isnot(None),
             extract("month", Client.birth_date) == current_month,
+            extract("day", Client.birth_date) == current_day,
         )
     )
     rows = db.execute(stmt).all()
@@ -419,5 +422,5 @@ def sweep_birthday_messages(db: Session) -> int:
 
     if count:
         db.commit()
-    log.info("sweep_birthday_messages: sent %d birthday messages for %d/%d", count, current_month, current_year)
+    log.info("sweep_birthday_messages: sent %d birthday messages for %d/%d/%d", count, current_day, current_month, current_year)
     return count
