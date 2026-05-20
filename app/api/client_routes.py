@@ -185,7 +185,7 @@ def club_stats(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Dep
 
     members = db.scalars(
         select(Client)
-        .where(Client.studio_id == ctx.studio_id, Client.is_club_member == True, Client.is_deleted.is_not(True))
+        .where(Client.studio_id == ctx.studio_id, Client.is_club_member == True, Client.is_active.is_(True))
         .order_by(Client.created_at.desc())
     ).all()
 
@@ -198,6 +198,7 @@ def club_stats(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Dep
             "phone": c.phone,
             "points": int(c.loyalty_points or 0),
             "joined_at": c.created_at.isoformat() if c.created_at else None,
+            "birth_date": c.birth_date.isoformat() if c.birth_date else None,
             "source": source,
         })
 

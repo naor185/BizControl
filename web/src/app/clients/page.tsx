@@ -23,6 +23,7 @@ type ClubMember = {
     phone: string | null;
     points: number;
     joined_at: string | null;
+    birth_date: string | null;
     source: "landing" | "manual";
 };
 
@@ -378,19 +379,29 @@ function PageInner() {
                                                     <th className="text-right px-5 py-3 font-semibold text-slate-500 text-xs">שם</th>
                                                     <th className="text-right px-5 py-3 font-semibold text-slate-500 text-xs hidden sm:table-cell">טלפון</th>
                                                     <th className="text-right px-5 py-3 font-semibold text-slate-500 text-xs">נקודות</th>
-                                                    <th className="text-right px-5 py-3 font-semibold text-slate-500 text-xs hidden md:table-cell">הצטרפות</th>
+                                                    <th className="text-right px-5 py-3 font-semibold text-slate-500 text-xs hidden md:table-cell">יום הולדת</th>
+                                                    <th className="text-right px-5 py-3 font-semibold text-slate-500 text-xs hidden lg:table-cell">הצטרפות</th>
                                                     <th className="text-right px-5 py-3 font-semibold text-slate-500 text-xs">מקור</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-slate-50">
-                                                {filteredMembers.map(m => (
-                                                    <tr key={m.id} className="hover:bg-slate-50 transition-colors">
+                                                {filteredMembers.map(m => {
+                                                    const today = new Date();
+                                                    const isBirthdayThisMonth = m.birth_date
+                                                        ? new Date(m.birth_date).getMonth() === today.getMonth()
+                                                        : false;
+                                                    const isBirthdayToday = m.birth_date
+                                                        ? new Date(m.birth_date).getDate() === today.getDate() && isBirthdayThisMonth
+                                                        : false;
+                                                    return (
+                                                    <tr key={m.id} className={`hover:bg-slate-50 transition-colors ${isBirthdayToday ? "bg-pink-50" : ""}`}>
                                                         <td className="px-5 py-3.5">
                                                             <Link href={`/clients/${m.id}`} className="flex items-center gap-2.5">
                                                                 <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center text-xs font-bold shrink-0">
                                                                     {m.full_name[0] || "?"}
                                                                 </div>
                                                                 <span className="font-medium text-slate-800 hover:text-amber-700">{m.full_name}</span>
+                                                                {isBirthdayToday && <span className="text-base">🎂</span>}
                                                             </Link>
                                                         </td>
                                                         <td className="px-5 py-3.5 text-slate-500 hidden sm:table-cell" dir="ltr">{m.phone || "—"}</td>
@@ -399,7 +410,15 @@ function PageInner() {
                                                                 <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-700 font-semibold px-2.5 py-0.5 rounded-full text-xs">⭐ {m.points}</span>
                                                             ) : <span className="text-slate-300 text-xs">0</span>}
                                                         </td>
-                                                        <td className="px-5 py-3.5 text-slate-500 text-xs hidden md:table-cell">
+                                                        <td className="px-5 py-3.5 hidden md:table-cell">
+                                                            {m.birth_date ? (
+                                                                <span className={`text-xs font-medium ${isBirthdayThisMonth ? "text-pink-600 font-bold" : "text-slate-500"}`}>
+                                                                    {isBirthdayThisMonth && "🎉 "}
+                                                                    {new Date(m.birth_date).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit" })}
+                                                                </span>
+                                                            ) : <span className="text-slate-300 text-xs">—</span>}
+                                                        </td>
+                                                        <td className="px-5 py-3.5 text-slate-500 text-xs hidden lg:table-cell">
                                                             {m.joined_at ? new Date(m.joined_at).toLocaleDateString("he-IL") : "—"}
                                                         </td>
                                                         <td className="px-5 py-3.5">
@@ -408,7 +427,8 @@ function PageInner() {
                                                                 : <span className="inline-flex items-center gap-1 bg-purple-50 text-purple-700 font-medium px-2.5 py-0.5 rounded-full text-xs border border-purple-100">✍️ ידני</span>}
                                                         </td>
                                                     </tr>
-                                                ))}
+                                                    );
+                                                })}
                                             </tbody>
                                         </table>
                                     )}
