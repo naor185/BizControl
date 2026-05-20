@@ -65,6 +65,46 @@ def list_(
 ):
     return list_clients(db, ctx.studio_id, q=q, skip=skip, limit=limit, active_only=active_only)
 
+@router.get("/club/stats")
+def club_stats(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+    from sqlalchemy import func
+    from datetime import datetime, timezone
+    import calendar
+
+    now = datetime.now(timezone.utc)
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    members = db.scalars(
+        select(Client)
+        .where(Client.studio_id == ctx.studio_id, Client.is_club_member == True, Client.is_active.is_(True))
+        .order_by(Client.created_at.desc())
+    ).all()
+
+    result = []
+    for c in members:
+        source = "landing" if "דרך דף נחיתה" in (c.notes or "") else "manual"
+        result.append({
+            "id": str(c.id),
+            "full_name": c.full_name,
+            "phone": c.phone,
+            "points": int(c.loyalty_points or 0),
+            "joined_at": c.created_at.isoformat() if c.created_at else None,
+            "birth_date": c.birth_date.isoformat() if c.birth_date else None,
+            "source": source,
+        })
+
+    this_month = sum(1 for c in members if c.created_at and c.created_at.replace(tzinfo=timezone.utc) >= month_start)
+    via_landing = sum(1 for r in result if r["source"] == "landing")
+
+    return {
+        "total": len(result),
+        "this_month": this_month,
+        "via_landing": via_landing,
+        "via_manual": len(result) - via_landing,
+        "members": result,
+    }
+
+
 @router.get("/{client_id}", response_model=ClientOut)
 def get_one(
     client_id: UUID,
@@ -171,44 +211,4 @@ def profile(
         "net_paid_cents": net_paid,
         "total_appointments_cents": total_appts_cents,
         "remaining_balance_cents": remaining
-    }
-
-
-@router.get("/club/stats")
-def club_stats(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
-    from sqlalchemy import func
-    from datetime import datetime, timezone
-    import calendar
-
-    now = datetime.now(timezone.utc)
-    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-
-    members = db.scalars(
-        select(Client)
-        .where(Client.studio_id == ctx.studio_id, Client.is_club_member == True, Client.is_active.is_(True))
-        .order_by(Client.created_at.desc())
-    ).all()
-
-    result = []
-    for c in members:
-        source = "landing" if "דרך דף נחיתה" in (c.notes or "") else "manual"
-        result.append({
-            "id": str(c.id),
-            "full_name": c.full_name,
-            "phone": c.phone,
-            "points": int(c.loyalty_points or 0),
-            "joined_at": c.created_at.isoformat() if c.created_at else None,
-            "birth_date": c.birth_date.isoformat() if c.birth_date else None,
-            "source": source,
-        })
-
-    this_month = sum(1 for c in members if c.created_at and c.created_at.replace(tzinfo=timezone.utc) >= month_start)
-    via_landing = sum(1 for r in result if r["source"] == "landing")
-
-    return {
-        "total": len(result),
-        "this_month": this_month,
-        "via_landing": via_landing,
-        "via_manual": len(result) - via_landing,
-        "members": result,
     }
