@@ -1,4 +1,4 @@
-export const API_BASE = "https://web-production-68695.up.railway.app";
+export const API_BASE = "https://api.biz-control.com";
 
 const TOKEN_KEY = "bizcontrol_token";
 const REFRESH_TOKEN_KEY = "bizcontrol_refresh_token";
