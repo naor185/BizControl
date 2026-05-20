@@ -173,8 +173,8 @@ export default function ClientProfilePage() {
                 method: "PATCH",
                 body: JSON.stringify({ loyalty_points: pts }),
             });
+            await loadData();
             setEditingPoints(false);
-            loadData();
         } catch (e: unknown) {
             alert((e as Error)?.message || "שגיאה בעדכון נקודות");
         }

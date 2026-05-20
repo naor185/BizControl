@@ -9,12 +9,14 @@ export default function GoalWidget({ month, year }: { month?: number, year?: num
     const [isEditing, setIsEditing] = useState(false);
     const [newTarget, setNewTarget] = useState("");
 
-    const fetchGoal = async () => {
+    const fetchGoal = async (keepEditValue = false) => {
         try {
             setLoading(true);
             const data = await getGoalProgress(month, year);
             setProgress(data);
-            setNewTarget(data.target_amount.toString());
+            if (!keepEditValue) {
+                setNewTarget(data.target_amount > 0 ? data.target_amount.toString() : "");
+            }
         } catch (err) {
             console.error("Failed to fetch goal progress", err);
         } finally {
@@ -42,7 +44,8 @@ export default function GoalWidget({ month, year }: { month?: number, year?: num
         }
     };
 
-    if (loading) return <div className="h-24 bg-slate-50 animate-pulse rounded-3xl" />;
+    // Don't hide the widget while user is editing — let them keep typing
+    if (loading && !isEditing && !progress) return <div className="h-24 bg-slate-50 animate-pulse rounded-3xl" />;
     if (!progress) return null;
 
     const percentage = Math.min(100, progress.progress_percentage);
@@ -68,8 +71,11 @@ export default function GoalWidget({ month, year }: { month?: number, year?: num
                                 type="number"
                                 value={newTarget}
                                 onChange={(e) => setNewTarget(e.target.value)}
+                                onKeyDown={(e) => { if (e.key === "Enter") handleSave(); if (e.key === "Escape") setIsEditing(false); }}
                                 className="w-32 px-4 py-2 border rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-left"
                                 dir="ltr"
+                                autoFocus
+                                placeholder="הזן יעד"
                             />
                             <button onClick={handleSave} className="px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold">שמור</button>
                             <button onClick={() => setIsEditing(false)} className="px-4 py-2 text-slate-500 font-bold">ביטול</button>
@@ -80,7 +86,7 @@ export default function GoalWidget({ month, year }: { month?: number, year?: num
                                 <span className="text-3xl font-black text-slate-900" dir="ltr">₪{progress.current_revenue.toLocaleString()}</span>
                                 <span className="text-slate-400 font-bold">/ ₪{progress.target_amount.toLocaleString()}</span>
                             </div>
-                            <button onClick={() => setIsEditing(true)} className="text-xs text-indigo-600 font-bold hover:underline">עדכן יעד</button>
+                            <button onClick={() => { setNewTarget(progress.target_amount > 0 ? progress.target_amount.toString() : ""); setIsEditing(true); }} className="text-xs text-indigo-600 font-bold hover:underline">עדכן יעד</button>
                         </div>
                     )}
                 </div>

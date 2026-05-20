@@ -230,7 +230,7 @@ def update_client(db: Session, studio_id: UUID, client_id: UUID, data: ClientUpd
         obj.phone = data.phone.strip() if data.phone else None
     if data.email is not None:
         obj.email = str(data.email).lower().strip() if data.email else None
-    if data.birth_date is not None or data.birth_date is None:
+    if "birth_date" in data.model_fields_set:
         obj.birth_date = data.birth_date
     if data.notes is not None:
         obj.notes = data.notes
