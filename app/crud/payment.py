@@ -205,30 +205,52 @@ def delete_all_client_payments(db: Session, studio_id: UUID, client_id: UUID) ->
 
 def delete_payment(db: Session, studio_id: UUID, payment_id: UUID, with_appointment: bool = False) -> bool:
     from app.models.client_points_ledger import ClientPointsLedger
-    
+
     obj = db.scalar(select(Payment).where(Payment.id == payment_id, Payment.studio_id == studio_id))
     if not obj:
         return False
-    
-    # 1. Find and revert cashback if applicable
-    # We look for ledger entries associated with this specific payment
-    ledger_entries = db.scalars(
+
+    # 1. Find and revert cashback entries — handle two historical formats:
+    #    New format: "Cashback for payment {payment_uuid}"
+    #    Old format: "cashback X% on payment ₪..." (linked only by appointment_id)
+    seen_ids: set = set()
+    cashback_entries: list = []
+
+    # New format — by payment UUID in reason
+    for e in db.scalars(
         select(ClientPointsLedger).where(
             ClientPointsLedger.studio_id == studio_id,
             ClientPointsLedger.client_id == obj.client_id,
-            ClientPointsLedger.reason.ilike(f"%Cashback for payment {obj.id}%")
+            ClientPointsLedger.reason.ilike(f"%{obj.id}%"),
+            ClientPointsLedger.delta_points > 0,
         )
-    ).all()
-    
-    if ledger_entries:
+    ).all():
+        if e.id not in seen_ids:
+            seen_ids.add(e.id)
+            cashback_entries.append(e)
+
+    # Old format — any positive cashback entry on this appointment
+    if obj.appointment_id:
+        for e in db.scalars(
+            select(ClientPointsLedger).where(
+                ClientPointsLedger.studio_id == studio_id,
+                ClientPointsLedger.client_id == obj.client_id,
+                ClientPointsLedger.appointment_id == obj.appointment_id,
+                ClientPointsLedger.reason.ilike("%cashback%"),
+                ClientPointsLedger.delta_points > 0,
+            )
+        ).all():
+            if e.id not in seen_ids:
+                seen_ids.add(e.id)
+                cashback_entries.append(e)
+
+    if cashback_entries:
         client = db.get(Client, obj.client_id)
         if client:
-            total_points_to_revert = sum(entry.delta_points for entry in ledger_entries)
-            client.loyalty_points = int(client.loyalty_points or 0) - total_points_to_revert
-            
-            # Delete those ledger entries
-            for entry in ledger_entries:
-                db.delete(entry)
+            total_points_to_revert = sum(e.delta_points for e in cashback_entries)
+            client.loyalty_points = max(0, int(client.loyalty_points or 0) - total_points_to_revert)
+            for e in cashback_entries:
+                db.delete(e)
     
     # 2. Delete the payment itself
     appt_id = obj.appointment_id
