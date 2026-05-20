@@ -34,6 +34,15 @@ type Analytics = {
     new_vs_returning: { new: number; returning: number };
 };
 
+type LoyaltyStats = {
+    total_points_awarded: number;
+    total_points_redeemed: number;
+    total_points_redeemed_ils: number;
+    total_outstanding_points: number;
+    total_outstanding_ils: number;
+    clients_with_points: number;
+};
+
 const fmt = (n: number) =>
     n.toLocaleString("he-IL", { style: "currency", currency: "ILS", maximumFractionDigits: 0 });
 
@@ -42,8 +51,9 @@ export default function Page() {
     const [stats, setStats] = useState<DashboardStats | null>(null);
     const [dailyPayments, setDailyPayments] = useState<DailyPayment[]>([]);
     const [analytics, setAnalytics] = useState<Analytics | null>(null);
+    const [loyaltyStats, setLoyaltyStats] = useState<LoyaltyStats | null>(null);
     const [loading, setLoading] = useState(true);
-    const [tab, setTab] = useState<"today" | "analytics">("today");
+    const [tab, setTab] = useState<"today" | "analytics" | "loyalty">("today");
     const [error, setError] = useState<string | null>(null);
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
     const [selectedAppt, setSelectedAppt] = useState<DailyPayment | null>(null);
@@ -71,8 +81,16 @@ export default function Page() {
         } catch { /* silent */ }
     };
 
+    const fetchLoyaltyStats = async () => {
+        try {
+            const data = await apiFetch<LoyaltyStats>("/api/dashboard/loyalty-stats");
+            setLoyaltyStats(data);
+        } catch { /* silent */ }
+    };
+
     useEffect(() => { fetchData(); }, []);
     useEffect(() => { if (tab === "analytics" && !analytics) fetchAnalytics(); }, [tab]);
+    useEffect(() => { if (tab === "loyalty" && !loyaltyStats) fetchLoyaltyStats(); }, [tab]);
 
     const handlePaymentSuccess = () => { setIsPaymentModalOpen(false); fetchData(); };
 
@@ -124,13 +142,13 @@ export default function Page() {
 
                     {/* Tabs */}
                     <div className="flex bg-slate-100 rounded-xl p-1 gap-1 w-fit">
-                        {(["today", "analytics"] as const).map(t => (
+                        {(["today", "analytics", "loyalty"] as const).map(t => (
                             <button
                                 key={t}
                                 onClick={() => setTab(t)}
                                 className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${tab === t ? "bg-white shadow text-slate-900" : "text-slate-500 hover:text-slate-700"}`}
                             >
-                                {t === "today" ? "📋 גבייה יומית" : "📊 אנליטיקה"}
+                                {t === "today" ? "📋 גבייה יומית" : t === "analytics" ? "📊 אנליטיקה" : "⭐ מועדון נאמנות"}
                             </button>
                         ))}
                     </div>
@@ -314,6 +332,82 @@ export default function Page() {
                         )
                     )}
                 </div>
+
+                {/* ── LOYALTY TAB ── */}
+                {tab === "loyalty" && (
+                    loyaltyStats ? (
+                        <div className="space-y-6">
+                            {/* כרטיסי סיכום */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+                                    <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">נקודות שהוענקו (קאשבק)</div>
+                                    <div className="text-3xl font-bold text-slate-800">{loyaltyStats.total_points_awarded.toLocaleString()}</div>
+                                    <div className="text-sm text-slate-400 mt-1" dir="ltr">= ₪{loyaltyStats.total_points_awarded.toLocaleString()}</div>
+                                </div>
+                                <div className="bg-emerald-50 rounded-2xl border border-emerald-100 shadow-sm p-6">
+                                    <div className="text-xs font-bold text-emerald-600 uppercase tracking-widest mb-1">נקודות שמומשו</div>
+                                    <div className="text-3xl font-bold text-emerald-700">{loyaltyStats.total_points_redeemed.toLocaleString()}</div>
+                                    <div className="text-sm text-emerald-500 mt-1" dir="ltr">= ₪{loyaltyStats.total_points_redeemed_ils.toLocaleString()} שניתנו כהנחה</div>
+                                </div>
+                                <div className="bg-amber-50 rounded-2xl border border-amber-100 shadow-sm p-6">
+                                    <div className="text-xs font-bold text-amber-600 uppercase tracking-widest mb-1">יתרת נקודות בשוק</div>
+                                    <div className="text-3xl font-bold text-amber-700">{loyaltyStats.total_outstanding_points.toLocaleString()}</div>
+                                    <div className="text-sm text-amber-500 mt-1" dir="ltr">= ₪{loyaltyStats.total_outstanding_ils.toLocaleString()} פוטנציאל מימוש</div>
+                                </div>
+                            </div>
+
+                            {/* פירוט */}
+                            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+                                <h3 className="font-bold text-slate-800 mb-5 text-lg">סיכום מועדון הנאמנות</h3>
+                                <div className="space-y-4">
+                                    <div className="flex items-center justify-between py-3 border-b border-slate-50">
+                                        <span className="text-slate-600 font-medium">לקוחות עם נקודות פעילות</span>
+                                        <span className="font-bold text-slate-900 text-lg">{loyaltyStats.clients_with_points}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between py-3 border-b border-slate-50">
+                                        <div>
+                                            <div className="text-slate-600 font-medium">סה"כ נקודות שהוענקו</div>
+                                            <div className="text-xs text-slate-400">קאשבק על תשלומים</div>
+                                        </div>
+                                        <div className="text-left" dir="ltr">
+                                            <div className="font-bold text-slate-900">{loyaltyStats.total_points_awarded.toLocaleString()} נקודות</div>
+                                            <div className="text-xs text-slate-400">= ₪{loyaltyStats.total_points_awarded.toLocaleString()}</div>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center justify-between py-3 border-b border-slate-50">
+                                        <div>
+                                            <div className="text-slate-600 font-medium">סה"כ נקודות שמומשו</div>
+                                            <div className="text-xs text-slate-400">הנחות שניתנו ללקוחות</div>
+                                        </div>
+                                        <div className="text-left" dir="ltr">
+                                            <div className="font-bold text-emerald-600">{loyaltyStats.total_points_redeemed.toLocaleString()} נקודות</div>
+                                            <div className="text-xs text-emerald-500">= ₪{loyaltyStats.total_points_redeemed_ils.toLocaleString()}</div>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center justify-between py-3">
+                                        <div>
+                                            <div className="text-slate-600 font-medium">יתרה לא ממומשת</div>
+                                            <div className="text-xs text-slate-400">נקודות שנמצאות אצל לקוחות ועוד לא מומשו</div>
+                                        </div>
+                                        <div className="text-left" dir="ltr">
+                                            <div className="font-bold text-amber-600">{loyaltyStats.total_outstanding_points.toLocaleString()} נקודות</div>
+                                            <div className="text-xs text-amber-500">= ₪{loyaltyStats.total_outstanding_ils.toLocaleString()}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* הסבר */}
+                            <div className="bg-slate-50 rounded-2xl border border-slate-100 p-5 text-sm text-slate-500">
+                                <strong className="text-slate-700">איך עובד החישוב:</strong> כל נקודה שווה 1 ש"ח. כשלקוח ממש נקודות — הסכום מנוכה ממחיר התור. לדוגמה: תור ב-₪1,000 + מימוש 100 נקודות = הלקוח משלם ₪900 במזומן.
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="flex justify-center items-center h-48">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-900" />
+                        </div>
+                    )
+                )}
 
                 <PaymentModal
                     isOpen={isPaymentModalOpen}

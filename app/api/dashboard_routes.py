@@ -9,6 +9,7 @@ from app.core.database import get_db
 from app.core.deps import AuthContext, require_studio_ctx
 from app.models.appointment import Appointment
 from app.models.client import Client
+from app.models.client_points_ledger import ClientPointsLedger
 from app.models.payment import Payment
 from app.models.message_job import MessageJob
 from app.models.studio_settings import StudioSettings
@@ -322,4 +323,55 @@ def get_analytics(ctx: AuthContext = Depends(require_studio_ctx), db: Session = 
         "artists": artists,
         "busiest_days": busiest_days,
         "new_vs_returning": {"new": new_clients, "returning": returning},
+    }
+
+
+@router.get("/loyalty-stats")
+def get_loyalty_stats(
+    ctx: AuthContext = Depends(require_studio_ctx),
+    db: Session = Depends(get_db),
+):
+    """סטטיסטיקות מועדון נאמנות: נקודות שהוענקו, מומשו, ויתרה כוללת."""
+    # נקודות שהוענקו (כל ה-delta_points החיוביים)
+    total_awarded = db.scalar(
+        select(func.coalesce(func.sum(ClientPointsLedger.delta_points), 0)).where(
+            ClientPointsLedger.studio_id == ctx.studio_id,
+            ClientPointsLedger.delta_points > 0,
+        )
+    ) or 0
+
+    # נקודות שמומשו (delta_points שליליים עם reason שמכיל "redeemed")
+    total_redeemed = db.scalar(
+        select(func.coalesce(func.sum(ClientPointsLedger.delta_points), 0)).where(
+            ClientPointsLedger.studio_id == ctx.studio_id,
+            ClientPointsLedger.delta_points < 0,
+            ClientPointsLedger.reason.ilike("%redeemed%"),
+        )
+    ) or 0
+    total_redeemed = abs(total_redeemed)
+
+    # יתרה כוללת של כל הלקוחות
+    total_outstanding = db.scalar(
+        select(func.coalesce(func.sum(Client.loyalty_points), 0)).where(
+            Client.studio_id == ctx.studio_id,
+            Client.is_active == True,
+        )
+    ) or 0
+
+    # מספר לקוחות עם נקודות
+    clients_with_points = db.scalar(
+        select(func.count(Client.id)).where(
+            Client.studio_id == ctx.studio_id,
+            Client.loyalty_points > 0,
+            Client.is_active == True,
+        )
+    ) or 0
+
+    return {
+        "total_points_awarded": int(total_awarded),
+        "total_points_redeemed": int(total_redeemed),
+        "total_points_redeemed_ils": int(total_redeemed),  # 1 נקודה = 1 ש"ח
+        "total_outstanding_points": int(total_outstanding),
+        "total_outstanding_ils": int(total_outstanding),
+        "clients_with_points": int(clients_with_points),
     }
