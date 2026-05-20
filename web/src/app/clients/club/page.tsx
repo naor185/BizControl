@@ -21,6 +21,15 @@ type ClubStats = {
     members: Member[];
 };
 
+type LoyaltyStats = {
+    total_points_awarded: number;
+    total_points_redeemed: number;
+    total_points_redeemed_ils: number;
+    total_outstanding_points: number;
+    total_outstanding_ils: number;
+    clients_with_points: number;
+};
+
 function formatDate(iso: string | null): string {
     if (!iso) return "—";
     const d = new Date(iso);
@@ -53,13 +62,17 @@ function StatCard({
 
 export default function ClubPage() {
     const [stats, setStats] = useState<ClubStats | null>(null);
+    const [loyaltyStats, setLoyaltyStats] = useState<LoyaltyStats | null>(null);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
     const [sourceFilter, setSourceFilter] = useState<"all" | "landing" | "manual">("all");
 
     useEffect(() => {
-        apiFetch<ClubStats>("/api/clients/club/stats")
-            .then(setStats)
+        Promise.all([
+            apiFetch<ClubStats>("/api/clients/club/stats"),
+            apiFetch<LoyaltyStats>("/api/dashboard/loyalty-stats"),
+        ])
+            .then(([clubData, loyalData]) => { setStats(clubData); setLoyaltyStats(loyalData); })
             .catch(() => {})
             .finally(() => setLoading(false));
     }, []);
@@ -82,6 +95,30 @@ export default function ClubPage() {
                     <StatCard label="דרך קישור" value={stats?.via_landing ?? 0} icon="🔗" color="bg-green-50" />
                     <StatCard label="הכנסה ידנית" value={stats?.via_manual ?? 0} icon="✍️" color="bg-purple-50" />
                 </div>
+
+                {/* Points summary */}
+                {loyaltyStats && (
+                    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+                        <h3 className="font-bold text-slate-800 mb-4 text-base">⭐ סיכום נקודות נאמנות</h3>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div className="bg-slate-50 rounded-xl p-4">
+                                <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">נקודות שהוענקו (קאשבק)</div>
+                                <div className="text-2xl font-black text-slate-800">{loyaltyStats.total_points_awarded.toLocaleString()}</div>
+                                <div className="text-xs text-slate-400 mt-0.5">= ₪{loyaltyStats.total_points_awarded.toLocaleString()}</div>
+                            </div>
+                            <div className="bg-emerald-50 rounded-xl p-4">
+                                <div className="text-xs font-bold text-emerald-600 uppercase tracking-widest mb-1">נקודות שמומשו</div>
+                                <div className="text-2xl font-black text-emerald-700">{loyaltyStats.total_points_redeemed.toLocaleString()}</div>
+                                <div className="text-xs text-emerald-500 mt-0.5">= ₪{loyaltyStats.total_points_redeemed_ils.toLocaleString()} הנחות שניתנו</div>
+                            </div>
+                            <div className="bg-amber-50 rounded-xl p-4">
+                                <div className="text-xs font-bold text-amber-600 uppercase tracking-widest mb-1">יתרה אצל לקוחות</div>
+                                <div className="text-2xl font-black text-amber-700">{loyaltyStats.total_outstanding_points.toLocaleString()}</div>
+                                <div className="text-xs text-amber-500 mt-0.5">= ₪{loyaltyStats.total_outstanding_ils.toLocaleString()} פוטנציאל מימוש</div>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Filters */}
                 <div className="flex flex-col sm:flex-row gap-3">
