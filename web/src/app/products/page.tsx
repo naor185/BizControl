@@ -24,8 +24,9 @@ export default function ProductsPage() {
             ]);
             setProducts(productsData);
             setSalesHistory(salesData);
-        } catch (err) {
+        } catch (err: any) {
             console.error(err);
+            alert("שגיאה בטעינת מוצרים:\n" + (err?.message || String(err)));
         } finally {
             setLoading(false);
         }

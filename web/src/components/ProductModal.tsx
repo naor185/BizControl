@@ -55,8 +55,8 @@ export default function ProductModal({ isOpen, onClose, onSuccess, product }: Pr
             }
             onSuccess();
             onClose();
-        } catch (err) {
-            alert("שגיאה בשמירת מוצר");
+        } catch (err: any) {
+            alert("שגיאה בשמירת מוצר:\n" + (err?.message || String(err)));
         } finally {
             setLoading(false);
         }
