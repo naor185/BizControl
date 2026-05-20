@@ -269,25 +269,13 @@ def enqueue_cancel_message(db: Session, appt: Appointment) -> None:
 
     db.commit()
 
-def enqueue_post_payment_message(db: Session, appt: Appointment, amount_cents: int) -> None:
+def enqueue_post_payment_message(db: Session, appt: Appointment, amount_cents: int, points_earned: int = 0) -> None:
     settings = db.get(StudioSettings, appt.studio_id)
     client = db.get(Client, appt.client_id)
     if not settings or not client:
         return
 
-    # ── Calculate cashback points ────────────────────────────
-    pct = int(getattr(settings, "points_percent_per_payment", 5) or 5)
-    points_earned = int(amount_cents / 100 * pct / 100)
-    if points_earned > 0:
-        client.loyalty_points = (client.loyalty_points or 0) + points_earned
-        db.add(ClientPointsLedger(
-            studio_id=appt.studio_id,
-            client_id=client.id,
-            appointment_id=appt.id,
-            delta_points=points_earned,
-            reason=f"cashback {pct}% on payment ₪{amount_cents/100:.2f}",
-        ))
-        db.flush()
+    # points are already awarded in create_payment — do not recalculate here
 
     # ── Build review block ───────────────────────────────────
     review_lines: list[str] = []

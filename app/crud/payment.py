@@ -90,7 +90,7 @@ def create_payment(db: Session, studio_id: UUID, data) -> Payment:
                 db.commit()
 
                 from app.crud.automation import enqueue_post_payment_message
-                enqueue_post_payment_message(db, appt, obj.amount_cents)
+                enqueue_post_payment_message(db, appt, obj.amount_cents, points_earned=points_earned)
 
     # Record product sales if any
     if hasattr(data, 'product_items') and data.product_items:
