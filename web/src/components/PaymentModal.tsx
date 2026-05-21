@@ -1,5 +1,6 @@
-"use client";
+﻿"use client";
 
+import { toast } from "@/lib/toast";
 import { useState, useEffect } from "react";
 import { apiFetch, Product, getProducts } from "@/lib/api";
 
@@ -83,7 +84,7 @@ export default function PaymentModal({ isOpen, onClose, onSuccess, appointment }
             });
             onSuccess();
         } catch (e: unknown) {
-            alert((e as { message?: string })?.message || "שגיאה בשמירת תשלום");
+            toast.error((e as { message?: string })?.message || "שגיאה בשמירת תשלום");
         } finally {
             setIsSaving(false);
         }

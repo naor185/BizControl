@@ -8,6 +8,7 @@ import ClockWidget from "./ClockWidget";
 import BottomNav from "./BottomNav";
 import NotificationBell from "./NotificationBell";
 import ToastContainer from "./ToastContainer";
+import GlobalToast from "./GlobalToast";
 import { useLang } from "./LanguageProvider";
 import { LOCALES, TranslationKey } from "@/lib/i18n";
 
@@ -300,6 +301,7 @@ export default function AppShell({
             <ClockWidget />
             <BottomNav />
             <ToastContainer />
+            <GlobalToast />
         </div>
     );
 }

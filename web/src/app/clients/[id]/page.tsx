@@ -1,4 +1,6 @@
+﻿"use client" already handled
 "use client";
+import { toast } from "@/lib/toast";
 
 import { useEffect, useState } from "react";
 import RequireAuth from "@/components/RequireAuth";
@@ -114,7 +116,7 @@ export default function ClientProfilePage() {
 
     const handleSavePayment = async () => {
         if (!selectedApptId || !paymentAmount) {
-            alert("יש להזין סכום ולבחור תור");
+            toast.error("יש להזין סכום ולבחור תור");
             return;
         }
         try {
@@ -142,7 +144,7 @@ export default function ClientProfilePage() {
             setCouponResult(null);
             loadData();
         } catch (e: any) {
-            alert(e?.message || "שגיאה בשמירת תשלום");
+            toast.error(e?.message || "שגיאה בשמירת תשלום");
         } finally {
             setIsSavingPayment(false);
         }
@@ -154,7 +156,7 @@ export default function ClientProfilePage() {
             await apiFetch(`/api/appointments/${apptId}?hard_delete=true`, { method: "DELETE" });
             loadData();
         } catch (e: any) {
-            alert(e?.message || "שגיאה במחיקת התור");
+            toast.error(e?.message || "שגיאה במחיקת התור");
         }
     };
 
@@ -167,7 +169,7 @@ export default function ClientProfilePage() {
             await apiFetch(`/api/payments/${paymentId}?with_appointment=${withAppt}`, { method: "DELETE" });
             loadData();
         } catch (e: any) {
-            alert(e?.message || "שגיאה במחיקת תשלום");
+            toast.error(e?.message || "שגיאה במחיקת תשלום");
         }
     };
 
@@ -182,7 +184,7 @@ export default function ClientProfilePage() {
             await loadData();
             setEditingPoints(false);
         } catch (e: unknown) {
-            alert((e as Error)?.message || "שגיאה בעדכון נקודות");
+            toast.error((e as Error)?.message || "שגיאה בעדכון נקודות");
         }
     };
 
@@ -192,7 +194,7 @@ export default function ClientProfilePage() {
             await apiFetch(`/api/payments/client/${id}/all`, { method: "DELETE" });
             loadData();
         } catch (e: any) {
-            alert(e?.message || "שגיאה במחיקת תשלומים");
+            toast.error(e?.message || "שגיאה במחיקת תשלומים");
         }
     };
 
@@ -222,7 +224,7 @@ export default function ClientProfilePage() {
             });
             loadData();
         } catch (e: any) {
-            alert(e?.message || "שגיאה בעדכון הגדרות הודעות");
+            toast.error(e?.message || "שגיאה בעדכון הגדרות הודעות");
         }
     };
 

@@ -1,4 +1,6 @@
+﻿"use client" already handled
 "use client";
+import { toast } from "@/lib/toast";
 
 import { useState, useEffect, useCallback } from "react";
 import {
@@ -370,7 +372,7 @@ export default function ExpensesPage() {
                             try {
                                 await downloadAccountingExcel(start, end);
                             } catch (err) {
-                                alert("שגיאה בייצוא קובץ");
+                                toast.error("שגיאה בייצוא קובץ");
                             }
                         }}
                     >

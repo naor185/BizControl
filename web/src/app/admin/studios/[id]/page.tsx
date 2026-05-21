@@ -1,4 +1,6 @@
+﻿"use client" already handled
 "use client";
+import { toast } from "@/lib/toast";
 
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -190,7 +192,7 @@ export default function StudioDetailPage() {
             setExtendModal(false);
             await load();
         } catch (e: any) {
-            alert(e?.message);
+            toast.error(e?.message);
         } finally {
             setExtending(false);
         }
@@ -206,7 +208,7 @@ export default function StudioDetailPage() {
             setToken(res.access_token);
             router.push("/dashboard");
         } catch (e: any) {
-            alert(e?.message);
+            toast.error(e?.message);
             setImpersonating(false);
         }
     };
@@ -226,9 +228,9 @@ export default function StudioDetailPage() {
         try {
             await apiFetch(`/api/admin/studios/${studioId}/clients`, { method: "DELETE" });
             await load();
-            alert("כל הלקוחות נמחקו בהצלחה");
+            toast.error("כל הלקוחות נמחקו בהצלחה");
         } catch (e: any) {
-            alert(e?.message || "שגיאה במחיקה");
+            toast.error(e?.message || "שגיאה במחיקה");
         } finally {
             setDeletingClients(false);
         }
@@ -245,7 +247,7 @@ export default function StudioDetailPage() {
             setNotes(prev => [note, ...prev]);
             setNewNote("");
         } catch (e: any) {
-            alert(e?.message);
+            toast.error(e?.message);
         } finally {
             setAddingNote(false);
         }
@@ -270,7 +272,7 @@ export default function StudioDetailPage() {
             });
             await load();
         } catch (e: any) {
-            alert(e?.message);
+            toast.error(e?.message);
         } finally {
             setSavingSettings(false);
         }
@@ -285,7 +287,7 @@ export default function StudioDetailPage() {
             });
             setIntegrations(prev => prev.map(i => i.platform === platform ? updated : i));
         } catch (e: any) {
-            alert(e?.message);
+            toast.error(e?.message);
         } finally {
             setSavingIntegration(null);
         }

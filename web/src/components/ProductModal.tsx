@@ -1,5 +1,6 @@
-"use client";
+﻿"use client";
 
+import { toast } from "@/lib/toast";
 import { useState, useEffect } from "react";
 import { Product, createProduct, updateProduct } from "@/lib/api";
 
@@ -56,7 +57,7 @@ export default function ProductModal({ isOpen, onClose, onSuccess, product }: Pr
             onSuccess();
             onClose();
         } catch (err: any) {
-            alert("שגיאה בשמירת מוצר:\n" + (err?.message || String(err)));
+            toast.error("שגיאה בשמירת מוצר:\n" + (err?.message || String(err)));
         } finally {
             setLoading(false);
         }

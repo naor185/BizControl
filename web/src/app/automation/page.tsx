@@ -1,4 +1,6 @@
+﻿"use client" already handled
 ﻿"use client";
+import { toast } from "@/lib/toast";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -285,7 +287,7 @@ export default function AutomationSettingsPage() {
             });
             setSettings(prev => prev ? { ...prev, treatment_types: res.treatment_types ?? updated } : prev);
         } catch {
-            alert("שגיאה בשמירת הטמפלט — נסה שוב");
+            toast.error("שגיאה בשמירת הטמפלט — נסה שוב");
         } finally {
             setTreatmentSaving(false);
         }

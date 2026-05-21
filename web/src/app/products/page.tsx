@@ -1,4 +1,6 @@
+﻿"use client" already handled
 "use client";
+import { toast } from "@/lib/toast";
 
 import { useEffect, useState } from "react";
 import RequireAuth from "@/components/RequireAuth";
@@ -26,7 +28,7 @@ export default function ProductsPage() {
             setSalesHistory(salesData);
         } catch (err: any) {
             console.error(err);
-            alert("שגיאה בטעינת מוצרים:\n" + (err?.message || String(err)));
+            toast.error("שגיאה בטעינת מוצרים:\n" + (err?.message || String(err)));
         } finally {
             setLoading(false);
         }
@@ -42,7 +44,7 @@ export default function ProductsPage() {
             await deleteProduct(id);
             fetchProducts();
         } catch (err) {
-            alert("שגיאה במחיקת מוצר");
+            toast.error("שגיאה במחיקת מוצר");
         }
     };
 

@@ -1,4 +1,6 @@
+﻿"use client" already handled
 "use client";
+import { toast } from "@/lib/toast";
 
 import { useEffect, useState } from "react";
 import RequireAuth from "@/components/RequireAuth";
@@ -68,7 +70,7 @@ export default function TiersPage() {
             }
             await load();
             close();
-        } catch { alert("שגיאה בשמירה"); }
+        } catch { toast.error("שגיאה בשמירה"); }
         finally { setSaving(false); }
     };
 

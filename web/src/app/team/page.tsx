@@ -1,4 +1,6 @@
+﻿"use client" already handled
 ﻿"use client";
+import { toast } from "@/lib/toast";
 
 import { useEffect, useState } from "react";
 import AppShell from "@/components/AppShell";
@@ -105,7 +107,7 @@ export default function TeamPage() {
 
     const handleSave = async () => {
         if (!displayName.trim() || (!editingUserId && (!email.trim() || !password.trim()))) {
-            alert("נא למלא את כל שדות החובה");
+            toast.error("נא למלא את כל שדות החובה");
             return;
         }
 
@@ -139,7 +141,7 @@ export default function TeamPage() {
             setIsModalOpen(false);
             loadArtists();
         } catch (e: any) {
-            alert(e?.message || "שגיאה בשמירת המקעקע");
+            toast.error(e?.message || "שגיאה בשמירת המקעקע");
         }
     };
 
@@ -150,7 +152,7 @@ export default function TeamPage() {
             setDeletingUserId(null);
             loadArtists();
         } catch (e: any) {
-            alert(e?.message || "שגיאה במחיקת משתמש");
+            toast.error(e?.message || "שגיאה במחיקת משתמש");
         }
     };
 

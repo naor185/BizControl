@@ -1,4 +1,6 @@
+﻿"use client" already handled
 "use client";
+import { toast } from "@/lib/toast";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
@@ -253,7 +255,7 @@ export default function LeadsPage() {
                 setSelected(updated);
             }
             setModal(null);
-        } catch (e: any) { alert(e?.message || "שגיאה"); } finally { setSaving(false); }
+        } catch (e: any) { toast.error(e?.message || "שגיאה"); } finally { setSaving(false); }
     };
 
     const handleMove = async (status: string) => {
@@ -263,7 +265,7 @@ export default function LeadsPage() {
             const updated = await apiFetch<Lead>(`/api/leads/${selected.id}`, { method: "PATCH", body: JSON.stringify({ status }) });
             setLeads(prev => prev.map(l => l.id === updated.id ? updated : l));
             setSelected(updated);
-        } catch (e: any) { alert(e?.message); } finally { setMoving(false); }
+        } catch (e: any) { toast.error(e?.message); } finally { setMoving(false); }
     };
 
     const handleDelete = async () => {
@@ -284,8 +286,8 @@ export default function LeadsPage() {
             await load();
             setSelected(null);
             setShowDetail(false);
-            alert(res.created ? "לקוח חדש נוצר!" : "קושר ללקוח קיים.");
-        } catch (e: any) { alert(e?.message); } finally { setConverting(false); }
+            toast.error(res.created ? "לקוח חדש נוצר!" : "קושר ללקוח קיים.");
+        } catch (e: any) { toast.error(e?.message); } finally { setConverting(false); }
     };
 
     const handleAddNote = async () => {
@@ -297,7 +299,7 @@ export default function LeadsPage() {
             setLeads(prev => prev.map(l => l.id === updated.id ? updated : l));
             setSelected(updated);
             setNoteText("");
-        } catch (e: any) { alert(e?.message); } finally { setAddingNote(false); }
+        } catch (e: any) { toast.error(e?.message); } finally { setAddingNote(false); }
     };
 
     if (loading) return (

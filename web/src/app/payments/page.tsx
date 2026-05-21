@@ -1,5 +1,6 @@
 ﻿"use client";
 
+import { toast } from "@/lib/toast";
 import { useEffect, useMemo, useState } from "react";
 import RequireAuth from "@/components/RequireAuth";
 import AppShell from "@/components/AppShell";
@@ -97,7 +98,7 @@ export default function Page() {
             setDeletingId(null);
             loadPayments();
         } catch (e: any) {
-            alert(e?.message || "שגיאה במחיקת תשלום");
+            toast.error(e?.message || "שגיאה במחיקת תשלום");
         } finally {
             setIsDeleting(false);
         }

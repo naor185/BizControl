@@ -1,5 +1,6 @@
 ﻿"use client";
 
+import { toast } from "@/lib/toast";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 
@@ -54,7 +55,7 @@ export default function PublicPaymentPage() {
             if (!res.ok) throw new Error("שגיאה בעדכון התשלום");
             setDone(true);
         } catch (err: any) {
-            alert(err.message);
+            toast.error(err.message);
         } finally {
             setConfirming(false);
         }

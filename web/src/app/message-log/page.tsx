@@ -1,4 +1,6 @@
+﻿"use client" already handled
 "use client";
+import { toast } from "@/lib/toast";
 
 import { useEffect, useState } from "react";
 import RequireAuth from "@/components/RequireAuth";
@@ -47,7 +49,7 @@ export default function MessageLogPage() {
             await apiFetch(`/api/messages/${id}/${action}`, { method: "POST" });
             loadJobs();
         } catch (e: any) {
-            alert(e?.message || `שגיאה בביצוע פעולת ${action}`);
+            toast.error(e?.message || `שגיאה בביצוע פעולת ${action}`);
         } finally {
             setProcessingId(null);
         }
@@ -57,10 +59,10 @@ export default function MessageLogPage() {
         setRetryingAll(true);
         try {
             const res = await apiFetch<{ reset: number }>("/api/messages/retry-all-failed", { method: "POST" });
-            alert(`אופס לשליחה מחדש: ${res.reset} הודעות`);
+            toast.error(`אופס לשליחה מחדש: ${res.reset} הודעות`);
             loadJobs();
         } catch (e: any) {
-            alert(e?.message || "שגיאה");
+            toast.error(e?.message || "שגיאה");
         } finally {
             setRetryingAll(false);
         }

@@ -1,5 +1,6 @@
-"use client";
+﻿"use client";
 
+import { toast } from "@/lib/toast";
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { API_BASE } from "@/lib/api";
@@ -202,7 +203,7 @@ export default function PortalDashboardPage() {
             const res = await fetch(`${API_BASE}/portal/appointments/${id}/cancel`, {
                 method: "PATCH", headers: authHeaders,
             });
-            if (!res.ok) { const d = await res.json(); alert(d.detail || "שגיאה בביטול"); return; }
+            if (!res.ok) { const d = await res.json(); toast.error(d.detail || "שגיאה בביטול"); return; }
             await load();
         } finally { setCanceling(null); }
     }

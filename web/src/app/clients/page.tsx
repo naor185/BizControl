@@ -1,5 +1,5 @@
-"use client";
-
+﻿"use client";
+import { toast } from "@/lib/toast";
 import { useEffect, useState, useMemo, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import RequireAuth from "@/components/RequireAuth";
@@ -68,6 +68,7 @@ function PageInner() {
     const [newNotes, setNewNotes] = useState("");
     const [isClubMember, setIsClubMember] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [createError, setCreateError] = useState<string | null>(null);
 
     // ── Club state ──
     const [clubStats, setClubStats] = useState<ClubStats | null>(null);
@@ -114,15 +115,16 @@ function PageInner() {
             setDeletingClientId(null);
             loadClients();
         } catch (e: unknown) {
-            alert((e as Error)?.message || "שגיאה במחיקת לקוח");
+            toast.error((e as Error)?.message || "שגיאה במחיקת לקוח");
         }
     };
 
     const handleCreateClient = async () => {
-        if (!newName.trim() || !newPhone.trim()) { alert("יש להזין שם וטלפון"); return; }
+        setCreateError(null);
+        if (!newName.trim() || !newPhone.trim()) { setCreateError("יש להזין שם וטלפון"); return; }
         if (newBirthDate) {
             const year = parseInt(newBirthDate.split("-")[0]);
-            if (year < 1900 || year > new Date().getFullYear()) { alert("תאריך לידה לא תקין"); return; }
+            if (year < 1900 || year > new Date().getFullYear()) { setCreateError("תאריך לידה לא תקין — בדוק את השנה"); return; }
         }
         try {
             setIsSaving(true);
@@ -137,9 +139,10 @@ function PageInner() {
             setIsModalOpen(false);
             setNewName(""); setNewPhone(""); setNewEmail("");
             setNewBirthDate(""); setNewNotes(""); setIsClubMember(false);
+            setCreateError(null);
             loadClients();
         } catch (e: unknown) {
-            alert((e as Error)?.message || "שגיאה ביצירת לקוח");
+            setCreateError((e as Error)?.message || "שגיאה ביצירת לקוח");
         } finally { setIsSaving(false); }
     };
 
@@ -500,8 +503,13 @@ function PageInner() {
                                     </div>
                                 </label>
                             </div>
+                            {createError && (
+                                <div className="mx-5 mb-0 mt-0 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700 font-medium text-right">
+                                    {createError}
+                                </div>
+                            )}
                             <div className="px-5 py-4 border-t border-slate-100 flex gap-3">
-                                <button onClick={() => setIsModalOpen(false)} className="flex-1 py-2.5 text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition">ביטול</button>
+                                <button onClick={() => { setIsModalOpen(false); setCreateError(null); }} className="flex-1 py-2.5 text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition">ביטול</button>
                                 <button onClick={handleCreateClient} disabled={isSaving}
                                     className="flex-1 py-2.5 text-sm font-semibold text-white bg-black hover:bg-slate-800 rounded-xl transition disabled:opacity-50">
                                     {isSaving ? "שומר..." : "שמור"}

@@ -1,5 +1,6 @@
-"use client";
+﻿"use client";
 
+import { toast } from "@/lib/toast";
 import { useState, useEffect } from "react";
 import { getClockStatus, clockIn, clockOut, ClockStatus } from "@/lib/api";
 
@@ -38,7 +39,7 @@ export default function ClockWidget() {
             }
             await fetchStatus();
         } catch (err) {
-            alert("שגיאה בפעולת נוכחות");
+            toast.error("שגיאה בפעולת נוכחות");
         } finally {
             setLoading(false);
         }

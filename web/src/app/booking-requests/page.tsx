@@ -1,4 +1,6 @@
+﻿"use client" already handled
 "use client";
+import { toast } from "@/lib/toast";
 
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -55,7 +57,7 @@ export default function BookingRequestsPage() {
             await apiFetch(`/api/booking-requests/${id}/approve`, { method: "PATCH" });
             await load();
         } catch (e: unknown) {
-            alert(e instanceof Error ? e.message : "שגיאה");
+            toast.error(e instanceof Error ? e.message : "שגיאה");
         } finally { setActionId(null); }
     }
 
@@ -70,7 +72,7 @@ export default function BookingRequestsPage() {
             setRejectReason("");
             await load();
         } catch (e: unknown) {
-            alert(e instanceof Error ? e.message : "שגיאה");
+            toast.error(e instanceof Error ? e.message : "שגיאה");
         } finally { setActionId(null); }
     }
 

@@ -1,4 +1,6 @@
+﻿"use client" already handled
 "use client";
+import { toast } from "@/lib/toast";
 
 import { useEffect, useState } from "react";
 import RequireAuth from "@/components/RequireAuth";
@@ -145,7 +147,7 @@ export default function WalletDesignerPage() {
             setSaved(true);
             setTimeout(() => setSaved(false), 2500);
         } catch {
-            alert("שגיאה בשמירה");
+            toast.error("שגיאה בשמירה");
         } finally {
             setSaving(false);
         }

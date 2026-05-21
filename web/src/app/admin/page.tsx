@@ -1,4 +1,6 @@
+﻿"use client" already handled
 "use client";
+import { toast } from "@/lib/toast";
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
@@ -267,7 +269,7 @@ export default function AdminPage() {
                 body: JSON.stringify({ is_active: !studio.is_active }),
             });
             await load();
-        } catch (e: any) { alert(e?.message); }
+        } catch (e: any) { toast.error(e?.message); }
     };
 
     const handleExtend = (studio: Studio) => {
@@ -286,7 +288,7 @@ export default function AdminPage() {
             setExtendModal(null);
             await load();
         } catch (e: any) {
-            alert(e?.message);
+            toast.error(e?.message);
         } finally {
             setExtending(false);
         }
@@ -299,7 +301,7 @@ export default function AdminPage() {
                 body: JSON.stringify({ plan_days: 14 }),
             });
             await load();
-        } catch (e: any) { alert(e?.message); }
+        } catch (e: any) { toast.error(e?.message); }
     };
 
     const handleImpersonate = async (studio: Studio) => {
@@ -312,7 +314,7 @@ export default function AdminPage() {
             setToken(res.access_token);
             router.push("/dashboard");
         } catch (e: any) {
-            alert(e?.message);
+            toast.error(e?.message);
         } finally {
             setImpersonating(null);
         }
@@ -375,8 +377,8 @@ export default function AdminPage() {
                 body: JSON.stringify(platformForm),
             });
             setPlatformSettings({ ...platformForm });
-            alert("✅ הגדרות נשמרו בהצלחה!");
-        } catch (e: any) { alert(e?.message); }
+            toast.error("✅ הגדרות נשמרו בהצלחה!");
+        } catch (e: any) { toast.error(e?.message); }
         finally { setPlatformSaving(false); }
     };
 
@@ -481,7 +483,7 @@ export default function AdminPage() {
             });
             setStudioUsers(prev => prev.map(u => u.id === editingUser.id ? { ...u, ...editUserForm } : u));
             setEditingUser(null);
-        } catch (e: any) { alert(e?.message); }
+        } catch (e: any) { toast.error(e?.message); }
         finally { setSavingUser(false); }
     };
 
@@ -489,8 +491,8 @@ export default function AdminPage() {
         setResetingPw(user.id);
         try {
             await apiFetch(`/api/admin/users/${user.id}/reset-password`, { method: "POST" });
-            alert(`✅ קישור איפוס סיסמה נשלח ל-${user.email}`);
-        } catch (e: any) { alert(e?.message); }
+            toast.error(`✅ קישור איפוס סיסמה נשלח ל-${user.email}`);
+        } catch (e: any) { toast.error(e?.message); }
         finally { setResetingPw(null); }
     };
 

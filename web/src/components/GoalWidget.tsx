@@ -1,5 +1,6 @@
-"use client";
+﻿"use client";
 
+import { toast } from "@/lib/toast";
 import { useEffect, useState } from "react";
 import { getGoalProgress, setMonthlyGoal, GoalProgress } from "@/lib/api";
 
@@ -40,7 +41,7 @@ export default function GoalWidget({ month, year }: { month?: number, year?: num
             setIsEditing(false);
             fetchGoal();
         } catch (err) {
-            alert("שגיאה בעדכון יעד");
+            toast.error("שגיאה בעדכון יעד");
         }
     };
 
