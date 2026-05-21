@@ -50,7 +50,7 @@ export default function GoalWidget({ month, year }: { month?: number, year?: num
     if (!progress) return null;
 
     const percentage = Math.min(100, progress.progress_percentage);
-    const isTargetMet = progress.current_revenue >= progress.target_amount;
+    const isTargetMet = Number(progress.current_revenue) >= Number(progress.target_amount) && Number(progress.target_amount) > 0;
 
     return (
         <div className="bg-white rounded-3xl border border-slate-100 p-8 shadow-xl relative overflow-hidden group transition-all hover:shadow-2xl">
