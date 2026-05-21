@@ -125,11 +125,12 @@ export default function Page() {
         return Object.entries(groups).sort(([a], [b]) => b.localeCompare(a));
     }, [filtered]);
 
-    // Overall totals by method (all payments, no filter)
+    // Overall totals by method (all payments, no filter, excluding system/points payments)
     const totals = useMemo(() => {
         const t: Record<string, number> = {};
         for (const p of payments) {
             if (p.type === "refund") continue;
+            if (p.notes?.startsWith("[מערכת]")) continue;
             t[p.method] = (t[p.method] || 0) + p.amount_cents;
         }
         return t;
@@ -142,12 +143,14 @@ export default function Page() {
     };
 
     const monthTotal = (ps: Payment[]) =>
-        ps.reduce((s, p) => s + (p.type === "refund" ? -p.amount_cents : p.amount_cents), 0);
+        ps.filter(p => !p.notes?.startsWith("[מערכת]"))
+          .reduce((s, p) => s + (p.type === "refund" ? -p.amount_cents : p.amount_cents), 0);
 
     const monthByMethod = (ps: Payment[]) => {
         const t: Record<string, number> = {};
         for (const p of ps) {
             if (p.type === "refund") continue;
+            if (p.notes?.startsWith("[מערכת]")) continue;
             t[p.method] = (t[p.method] || 0) + p.amount_cents;
         }
         return t;

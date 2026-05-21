@@ -1,7 +1,7 @@
 from typing import Optional
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import select, func, extract, case
+from sqlalchemy import select, func, extract, case, or_
 from datetime import datetime, timezone, timedelta
 import pytz
 
@@ -57,10 +57,11 @@ def get_dashboard_stats(
         .where(Client.studio_id == ctx.studio_id, Client.is_club_member == True, Client.is_active == True)
     ) or 0
 
-    # 3. Revenue from paid payments (Filtered by month/year if provided)
+    # 3. Revenue from paid payments (Filtered by month/year if provided, excludes system/points payments)
     revenue_query = select(func.sum(Payment.amount_cents)).where(
         Payment.studio_id == ctx.studio_id,
-        Payment.status == "paid"
+        Payment.status == "paid",
+        or_(Payment.notes == None, ~Payment.notes.ilike("[מערכת]%")),
     )
     
     if year and month:
@@ -235,6 +236,7 @@ def get_analytics(ctx: AuthContext = Depends(require_studio_ctx), db: Session = 
                 Payment.type != "refund",
                 Payment.created_at >= month_start,
                 Payment.created_at < month_end,
+                or_(Payment.notes == None, ~Payment.notes.ilike("[מערכת]%")),
             )
         ) or 0
         revenue_by_month.append({"month": label, "revenue": round(rev / 100)})
@@ -272,6 +274,7 @@ def get_analytics(ctx: AuthContext = Depends(require_studio_ctx), db: Session = 
                 Payment.studio_id == ctx.studio_id,
                 Payment.status == "paid",
                 Payment.type != "refund",
+                or_(Payment.notes == None, ~Payment.notes.ilike("[מערכת]%")),
                 Payment.appointment_id.in_(
                     select(Appointment.id).where(
                         Appointment.artist_id == artist.id,

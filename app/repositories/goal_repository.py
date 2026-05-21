@@ -4,7 +4,7 @@ from datetime import datetime, date
 from decimal import Decimal
 from typing import Optional, Tuple
 
-from sqlalchemy import select, and_, func
+from sqlalchemy import select, and_, func, or_
 from sqlalchemy.orm import Session
 
 from app.models.monthly_goal import MonthlyGoal
@@ -58,7 +58,8 @@ class GoalRepository:
                 Payment.studio_id == studio_id,
                 Payment.status == "paid",
                 Payment.created_at >= start_date,
-                Payment.created_at <= end_date
+                Payment.created_at <= end_date,
+                or_(Payment.notes == None, ~Payment.notes.ilike("[מערכת]%")),
             )
         )
         total_cents = self.session.execute(stmt).scalar() or 0

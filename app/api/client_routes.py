@@ -179,15 +179,20 @@ def profile(
 
     from app.models.payment import Payment
     from app.models.appointment import Appointment
-    from sqlalchemy import func, case
+    from sqlalchemy import func, case, or_
 
-    # Financial totals
+    # Financial totals (exclude system/points redemption payments)
     totals = db.execute(
         select(
             func.sum(case((Payment.type != 'refund', Payment.amount_cents), else_=0)).label("paid"),
             func.sum(case((Payment.type == 'refund', Payment.amount_cents), else_=0)).label("refund")
         )
-        .where(Payment.client_id == client_id, Payment.studio_id == ctx.studio_id, Payment.status == "paid")
+        .where(
+            Payment.client_id == client_id,
+            Payment.studio_id == ctx.studio_id,
+            Payment.status == "paid",
+            or_(Payment.notes == None, ~Payment.notes.ilike("[מערכת]%")),
+        )
     ).first()
     
     total_paid = int(totals.paid or 0)
