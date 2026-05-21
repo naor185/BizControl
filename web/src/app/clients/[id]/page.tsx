@@ -83,6 +83,9 @@ export default function ClientProfilePage() {
     const [paymentType, setPaymentType] = useState<string>("payment");
     const [paymentNotes, setPaymentNotes] = useState<string>("");
     const [pointsRedeemed, setPointsRedeemed] = useState<string>("0");
+    const [couponCode, setCouponCode] = useState<string>("");
+    const [couponResult, setCouponResult] = useState<{ valid: boolean; discount_percent: number; message: string } | null>(null);
+    const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
     const [isSavingPayment, setIsSavingPayment] = useState(false);
     const [isApptModalOpen, setIsApptModalOpen] = useState(false);
     const [editingPoints, setEditingPoints] = useState(false);
@@ -127,13 +130,16 @@ export default function ClientProfilePage() {
                     type: paymentType,
                     method: paymentMethod,
                     status: "paid",
-                    notes: paymentNotes
+                    notes: paymentNotes,
+                    coupon_code: couponResult?.valid ? couponCode.trim().toUpperCase() : null,
                 })
             });
             setIsPaymentModalOpen(false);
             setPaymentAmount("");
             setPointsRedeemed("0");
             setPaymentNotes("");
+            setCouponCode("");
+            setCouponResult(null);
             loadData();
         } catch (e: any) {
             alert(e?.message || "שגיאה בשמירת תשלום");
@@ -187,6 +193,22 @@ export default function ClientProfilePage() {
             loadData();
         } catch (e: any) {
             alert(e?.message || "שגיאה במחיקת תשלומים");
+        }
+    };
+
+    const handleValidateCoupon = async () => {
+        if (!couponCode.trim()) return;
+        try {
+            setIsValidatingCoupon(true);
+            const result = await apiFetch<{ valid: boolean; discount_percent: number; message: string }>("/api/coupons/validate", {
+                method: "POST",
+                body: JSON.stringify({ client_id: id, code: couponCode.trim().toUpperCase() }),
+            });
+            setCouponResult(result);
+        } catch {
+            setCouponResult({ valid: false, discount_percent: 0, message: "שגיאה בבדיקת הקופון" });
+        } finally {
+            setIsValidatingCoupon(false);
         }
     };
 
@@ -452,7 +474,7 @@ export default function ClientProfilePage() {
                             <div className="bg-emerald-600 p-4 text-white">
                                 <div className="flex justify-between items-center mb-1">
                                     <h3 className="text-lg font-bold">הקלטת תשלום / זיכוי 🎫</h3>
-                                    <button onClick={() => setIsPaymentModalOpen(false)} className="text-white/80 hover:text-white text-xl">✕</button>
+                                    <button onClick={() => { setIsPaymentModalOpen(false); setCouponCode(""); setCouponResult(null); }} className="text-white/80 hover:text-white text-xl">✕</button>
                                 </div>
                             </div>
 
@@ -568,6 +590,41 @@ export default function ClientProfilePage() {
                                     </div>
                                 </div>
 
+                                {/* Birthday Coupon */}
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-2">קוד קופון יום הולדת</label>
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="text"
+                                            value={couponCode}
+                                            onChange={e => { setCouponCode(e.target.value.toUpperCase()); setCouponResult(null); }}
+                                            onKeyDown={e => { if (e.key === "Enter") handleValidateCoupon(); }}
+                                            placeholder="BD202505-XXXXXX"
+                                            className="flex-1 bg-violet-50 border border-violet-200 rounded-xl px-4 py-3 text-sm font-mono font-bold text-violet-800 outline-none focus:ring-2 focus:ring-violet-400 uppercase placeholder:normal-case placeholder:font-normal placeholder:text-slate-400"
+                                            dir="ltr"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={handleValidateCoupon}
+                                            disabled={!couponCode.trim() || isValidatingCoupon}
+                                            className="px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white text-sm font-bold rounded-xl disabled:opacity-40 transition-colors"
+                                        >
+                                            {isValidatingCoupon ? "בודק..." : "אמת"}
+                                        </button>
+                                    </div>
+                                    {couponResult && (
+                                        <div className={`mt-2 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 ${couponResult.valid ? "bg-violet-50 text-violet-700 border border-violet-200" : "bg-rose-50 text-rose-600 border border-rose-200"}`}>
+                                            <span>{couponResult.valid ? "✅" : "❌"}</span>
+                                            <span>{couponResult.message}</span>
+                                            {couponResult.valid && paymentAmount && (
+                                                <span className="mr-auto text-xs font-black text-violet-800">
+                                                    חסכון: ₪{(parseFloat(paymentAmount) * couponResult.discount_percent / 100).toFixed(2)}
+                                                </span>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+
                                 <div>
                                     <label className="block text-xs font-bold text-slate-500 uppercase mb-2">הערות לתיעוד</label>
                                     <textarea
@@ -582,7 +639,7 @@ export default function ClientProfilePage() {
 
                             <div className="p-6 bg-slate-50 border-t border-slate-100 flex gap-3">
                                 <button
-                                    onClick={() => setIsPaymentModalOpen(false)}
+                                    onClick={() => { setIsPaymentModalOpen(false); setCouponCode(""); setCouponResult(null); }}
                                     className="flex-1 py-2 text-sm font-bold text-slate-500 hover:bg-slate-200 rounded-xl transition-colors"
                                 >
                                     ביטול

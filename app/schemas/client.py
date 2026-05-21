@@ -87,3 +87,8 @@ class ClientProfileOut(BaseModel):
     points_balance: int
     ledger: list[ClientLedgerItem]
     messages: list[ClientMessageItem]
+    total_paid_cents: int = 0
+    total_refund_cents: int = 0
+    net_paid_cents: int = 0
+    total_appointments_cents: int = 0
+    remaining_balance_cents: int = 0

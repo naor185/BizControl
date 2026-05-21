@@ -45,6 +45,7 @@ type Settings = {
     birthday_wa_template?: string | null;
     birthday_email_template?: string | null;
     birthday_benefit_percent: number;
+    birthday_automation_enabled: boolean;
 
     whatsapp_provider?: string | null;
     whatsapp_api_key?: string | null;
@@ -220,6 +221,7 @@ export default function AutomationSettingsPage() {
                     income_tax_percent: data.income_tax_percent ?? 10,
                     social_security_percent: data.social_security_percent ?? 5,
                     birthday_benefit_percent: data.birthday_benefit_percent ?? 0,
+                    birthday_automation_enabled: data.birthday_automation_enabled ?? true,
                     birthday_wa_template: data.birthday_wa_template ?? "",
                     birthday_email_template: data.birthday_email_template ?? "",
                     theme_primary_color: data.theme_primary_color ?? "#000000",
@@ -1051,10 +1053,22 @@ export default function AutomationSettingsPage() {
 
                                         {/* Birthday Message */}
                                         <div className="space-y-6">
-                                            <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
-                                                <span className="text-xl">🎉</span>
-                                                <h4 className="font-bold text-slate-800">ברכת יום הולדת והטבה</h4>
+                                            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-xl">🎉</span>
+                                                    <h4 className="font-bold text-slate-800">ברכת יום הולדת + קופון הנחה</h4>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleChange("birthday_automation_enabled", !settings.birthday_automation_enabled)}
+                                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${settings.birthday_automation_enabled ? "bg-pink-500" : "bg-slate-300"}`}
+                                                >
+                                                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${settings.birthday_automation_enabled ? "translate-x-6" : "translate-x-1"}`} />
+                                                </button>
                                             </div>
+                                            {!settings.birthday_automation_enabled && (
+                                                <p className="text-xs text-slate-400 font-medium bg-slate-50 px-3 py-2 rounded-xl border border-slate-200">האוטומציה כבויה — הודעות יום הולדת וקופונים לא יישלחו</p>
+                                            )}
                                             <div className="grid md:grid-cols-2 gap-6">
                                                 <div className="space-y-2">
                                                     <label className="block text-xs font-bold text-slate-600 uppercase tracking-widest text-right">WhatsApp Template</label>

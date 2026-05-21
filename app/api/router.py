@@ -27,6 +27,7 @@ from app.api.client_portal_routes import router as client_portal_router
 from app.api.booking_request_routes import router as booking_request_router
 from app.api.notification_routes import router as notification_router
 from app.api.task_routes import router as task_router
+from app.api.coupon_routes import router as coupon_router
 
 api_router = APIRouter()
 api_router.include_router(studio_router)
@@ -57,3 +58,4 @@ api_router.include_router(client_portal_router)
 api_router.include_router(booking_request_router)
 api_router.include_router(notification_router)
 api_router.include_router(task_router)
+api_router.include_router(coupon_router)

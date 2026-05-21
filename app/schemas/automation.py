@@ -48,6 +48,7 @@ class AutomationSettingsOut(BaseModel):
     birthday_wa_template: str | None = None
     birthday_email_template: str | None = None
     birthday_benefit_percent: int = 0
+    birthday_automation_enabled: bool = True
 
     # Email Settings (Resend API)
     resend_api_key: str | None = None
@@ -185,6 +186,7 @@ class AutomationSettingsUpdate(BaseModel):
     birthday_wa_template: str | None = None
     birthday_email_template: str | None = None
     birthday_benefit_percent: int | None = Field(default=None, ge=0, le=100)
+    birthday_automation_enabled: bool | None = None
 
     # Email Settings (Resend API)
     resend_api_key: str | None = None

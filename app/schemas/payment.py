@@ -30,7 +30,8 @@ class PaymentCreate(BaseModel):
 
     external_ref: str | None = None
     notes: str | None = None
-    
+    coupon_code: str | None = None
+
     # Optional list of products sold
     product_items: Optional[list[ProductItemCreate]] = None
 

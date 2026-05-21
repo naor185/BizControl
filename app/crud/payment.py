@@ -22,11 +22,26 @@ def create_payment(db: Session, studio_id: UUID, data) -> Payment:
             raise ValueError(f"Not enough points. Client has {client.loyalty_points or 0} points.")
         client.loyalty_points = (client.loyalty_points or 0) - data.points_redeemed
 
+    # Validate and apply birthday coupon discount
+    applied_coupon = None
+    coupon_code = getattr(data, "coupon_code", None)
+    if coupon_code:
+        from app.crud.birthday_coupon import validate_coupon
+        applied_coupon = validate_coupon(db, studio_id, data.client_id, coupon_code)
+        if applied_coupon is None:
+            raise ValueError("קוד קופון לא תקין, כבר נוצל, או פג תוקפו")
+        # Apply discount to amount_cents
+        discount_factor = 1.0 - (applied_coupon.discount_percent / 100.0)
+        discounted_cents = int(data.amount_cents * discount_factor)
+        amount_cents = discounted_cents
+    else:
+        amount_cents = int(data.amount_cents)
+
     obj = Payment(
         studio_id=studio_id,
         appointment_id=data.appointment_id,
         client_id=data.client_id,
-        amount_cents=int(data.amount_cents),
+        amount_cents=amount_cents,
         currency=data.currency.upper(),
         type=data.type,
         status=data.status,
@@ -37,6 +52,12 @@ def create_payment(db: Session, studio_id: UUID, data) -> Payment:
     db.add(obj)
     db.commit()
     db.refresh(obj)
+
+    # Mark coupon as redeemed after payment is committed
+    if applied_coupon is not None:
+        from app.crud.birthday_coupon import apply_coupon
+        apply_coupon(db, applied_coupon, payment_id=obj.id, appointment_id=data.appointment_id)
+        db.commit()
 
     # Secondary record representing the payment via points (for balancing the appointment bill, not hitting cash reports)
     if data.points_redeemed > 0:
@@ -251,8 +272,12 @@ def delete_payment(db: Session, studio_id: UUID, payment_id: UUID, with_appointm
             client.loyalty_points = max(0, int(client.loyalty_points or 0) - total_points_to_revert)
             for e in cashback_entries:
                 db.delete(e)
-    
-    # 2. Delete the payment itself
+
+    # 2. Restore birthday coupon if this payment had one applied
+    from app.crud.birthday_coupon import restore_coupon
+    restore_coupon(db, payment_id)
+
+    # 3. Delete the payment itself
     appt_id = obj.appointment_id
     db.delete(obj)
 

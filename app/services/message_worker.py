@@ -333,17 +333,17 @@ def sweep_3day_reminders(db: Session) -> int:
 
 
 def sweep_birthday_messages(db: Session) -> int:
-    """Runs daily — sends birthday WhatsApp to club members whose birthday is today."""
+    """Runs daily — sends birthday WhatsApp + creates coupon for club members whose birthday is today."""
     from app.models.client import Client
     from app.models.studio_settings import StudioSettings
     from app.models.client_points_ledger import ClientPointsLedger
+    from app.crud.birthday_coupon import get_or_create_birthday_coupon
     from sqlalchemy import extract
 
     now = datetime.now(timezone.utc)
     current_day = now.day
     current_month = now.month
     current_year = now.year
-    # Dedup tag per year so each person gets one message per year
     tag = f"[birthday-{current_year}-{current_month:02d}-{current_day:02d}]"
 
     stmt = (
@@ -361,10 +361,14 @@ def sweep_birthday_messages(db: Session) -> int:
     count = 0
 
     for client, settings in rows:
+        # Skip if automation is disabled for this studio
+        if not getattr(settings, "birthday_automation_enabled", True):
+            continue
+
         if client.whatsapp_opted_out:
             continue
 
-        # Deduplicate: skip if already sent this month
+        # Deduplicate: skip if we already sent a birthday message today
         existing = db.scalar(
             select(MessageJob).where(
                 MessageJob.client_id == client.id,
@@ -374,22 +378,33 @@ def sweep_birthday_messages(db: Session) -> int:
         if existing:
             continue
 
-        benefit_percent = int(settings.birthday_benefit_percent or 0)
+        discount_percent = int(settings.birthday_benefit_percent or 10) or 10
+        coupon = get_or_create_birthday_coupon(
+            db,
+            studio_id=client.studio_id,
+            client_id=client.id,
+            month=current_month,
+            year=current_year,
+            discount_percent=discount_percent,
+        )
+
         context = {
             "client_name": client.full_name,
-            "benefit_percent": benefit_percent,
+            "benefit_percent": discount_percent,
+            "coupon_code": coupon.code,
             "birth_day": client.birth_date.day if client.birth_date else "",
             "birth_month": client.birth_date.month if client.birth_date else "",
         }
 
         wa_template = settings.birthday_wa_template
         if not wa_template:
-            benefit_line = f"\n🎁 הטבת יום הולדת: {benefit_percent}% הנחה בביקורך הקרוב!" if benefit_percent > 0 else ""
             wa_template = (
                 f"{tag}\n"
-                f"🎂 יום הולדת שמח {{client_name}}!\n\n"
-                f"מאחלים לך יום מיוחד ומלא אהבה 🎉❤️"
-                f"{benefit_line}"
+                "היי, מזל טוב 🎉\n"
+                "אתם חוגגים החודש יום הולדת 🥳\n"
+                "הנה הטבה מיוחדת של {benefit_percent}% הנחה לביצוע קעקוע או לקניית פירסינג "
+                "במהלך החודש הקרוב — במיוחד בשבילך ❤️\n\n"
+                "קוד הקופון שלך: *{coupon_code}*"
             )
         else:
             wa_template = f"{tag}\n{wa_template}"
@@ -405,19 +420,6 @@ def sweep_birthday_messages(db: Session) -> int:
                 scheduled_at=now,
                 status="pending",
             ))
-
-            # Award birthday benefit points if configured
-            if benefit_percent > 0:
-                points_to_award = benefit_percent
-                client.loyalty_points = int(client.loyalty_points or 0) + points_to_award
-                db.add(ClientPointsLedger(
-                    studio_id=client.studio_id,
-                    client_id=client.id,
-                    appointment_id=None,
-                    delta_points=points_to_award,
-                    reason=f"Birthday benefit {current_year}-{current_month:02d}",
-                ))
-
             count += 1
 
     if count:

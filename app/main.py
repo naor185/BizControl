@@ -76,10 +76,21 @@ def start_scheduler():
         finally:
             db.close()
 
+    def tick_expire_coupons():
+        from app.crud.birthday_coupon import expire_old_coupons
+        db = SessionLocal()
+        try:
+            expired = expire_old_coupons(db)
+            if expired:
+                logging.getLogger("bizcontrol.coupons").info("Expired %d birthday coupons", expired)
+        finally:
+            db.close()
+
     scheduler.add_job(tick_jobs, "interval", seconds=20, id="message_jobs_tick", replace_existing=True)
     scheduler.add_job(tick_reminders, "interval", minutes=60, id="reminders_sweep_tick", replace_existing=True)
     scheduler.add_job(tick_plan_alerts, "cron", hour=9, minute=0, id="plan_alerts_tick", replace_existing=True)
-    scheduler.add_job(tick_birthday_messages, "cron", hour=9, minute=0, id="birthday_messages_tick", replace_existing=True)
+    scheduler.add_job(tick_birthday_messages, "cron", hour=10, minute=0, id="birthday_messages_tick", replace_existing=True)
+    scheduler.add_job(tick_expire_coupons, "cron", hour=1, minute=0, id="expire_coupons_tick", replace_existing=True)
     scheduler.start()
 
 def stop_scheduler():
@@ -95,6 +106,7 @@ def run_migrations():
     with engine.connect() as conn:
         conn.execute(text("ALTER TABLE clients ADD COLUMN IF NOT EXISTS whatsapp_opted_out BOOLEAN NOT NULL DEFAULT false"))
         conn.execute(text("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS treatment_types TEXT"))
+        conn.execute(text("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS birthday_automation_enabled BOOLEAN NOT NULL DEFAULT true"))
         conn.execute(text("""
             CREATE TABLE IF NOT EXISTS tasks (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -110,6 +122,26 @@ def run_migrations():
                 recurrence_month INTEGER,
                 recurrence_end_date DATE,
                 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """))
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS birthday_coupons (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+                code VARCHAR(32) NOT NULL,
+                discount_percent INTEGER NOT NULL DEFAULT 10,
+                birthday_month INTEGER NOT NULL,
+                birthday_year INTEGER NOT NULL,
+                starts_at TIMESTAMPTZ NOT NULL,
+                expires_at TIMESTAMPTZ NOT NULL,
+                status VARCHAR(20) NOT NULL DEFAULT 'active',
+                redeemed_at TIMESTAMPTZ,
+                payment_id UUID REFERENCES payments(id) ON DELETE SET NULL,
+                appointment_id UUID REFERENCES appointments(id) ON DELETE SET NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                CONSTRAINT uq_birthday_coupon_code UNIQUE (code),
+                CONSTRAINT uq_birthday_coupon_per_year UNIQUE (studio_id, client_id, birthday_month, birthday_year)
             )
         """))
         conn.commit()

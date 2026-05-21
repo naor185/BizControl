@@ -54,6 +54,7 @@ class StudioSettings(Base):
     birthday_wa_template: Mapped[str | None] = mapped_column(Text, nullable=True)
     birthday_email_template: Mapped[str | None] = mapped_column(Text, nullable=True)
     birthday_benefit_percent: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    birthday_automation_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
 
     aftercare_delay_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=30, server_default="30")
     points_per_done_appointment: Mapped[int] = mapped_column(Integer, nullable=False, default=10, server_default="10")
