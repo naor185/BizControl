@@ -228,8 +228,8 @@ def cancel_appointment(db: Session, studio_id: UUID, appointment_id: UUID, reaso
     
     obj.status = "no_show" if reason == "no_show" else "canceled"
     db.commit()
-    # Send cancellation message to client (only for real cancellations, not no-shows)
-    if obj.status == "canceled":
+    # Send cancellation message only when client initiated or no-show — not on studio admin deletes
+    if reason in ("client_cancelled", "no_show"):
         enqueue_cancel_message(db, obj)
     return True
 
