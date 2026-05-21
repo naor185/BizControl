@@ -1,2 +1,9 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Force LF and no BOM for all JS/TS source files
+*.ts  text eol=lf
+*.tsx text eol=lf
+*.js  text eol=lf
+*.mjs text eol=lf
+*.json text eol=lf
