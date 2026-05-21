@@ -35,6 +35,7 @@ const SETTINGS_NAV: NavItem[] = [
     { href: "/message-log",  labelKey: "nav_messages", icon: "💬" },
     { href: "/payments",     labelKey: "nav_payments", icon: "💳" },
     { href: "/leads",        labelKey: "nav_leads",    icon: "🎯" },
+    { href: "/wallet",       labelKey: "nav_wallet",   icon: "💳" },
     { href: "/billing",      labelKey: "nav_billing",  icon: "💎" },
     { href: "/automation",   labelKey: "nav_settings", icon: "⚙️" },
     { href: "/help",         labelKey: "nav_help",     icon: "🆘" },

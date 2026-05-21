@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { API_BASE } from "@/lib/api";
+import QRCode from "qrcode";
 
 type Me = {
     client_name: string;
@@ -27,11 +28,36 @@ type Appointment = {
     can_cancel: boolean;
 };
 
+type Coupon = {
+    code: string;
+    discount_percent: number;
+    expires_at: string;
+    status: string;
+};
+
+type Card = {
+    qr_token: string;
+    full_name: string;
+    loyalty_points: number;
+    is_club_member: boolean;
+    studio_name: string;
+    background_color: string;
+    text_color: string;
+    strip_color: string;
+    label_color: string;
+    logo_url: string | null;
+    card_title: string | null;
+    apple_wallet_enabled: boolean;
+    google_wallet_enabled: boolean;
+    apple_wallet_url: string | null;
+    google_wallet_url: string | null;
+};
+
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
     scheduled: { label: "מתוכנן",  color: "bg-blue-100 text-blue-700" },
-    done:       { label: "בוצע",    color: "bg-green-100 text-green-700" },
+    done:       { label: "בוצע",   color: "bg-green-100 text-green-700" },
     canceled:   { label: "בוטל",   color: "bg-gray-100 text-gray-500" },
-    no_show:    { label: "לא הגיע", color: "bg-red-100 text-red-600" },
+    no_show:    { label: "לא הגיע",color: "bg-red-100 text-red-600" },
 };
 
 const fmt = (cents: number) =>
@@ -40,16 +66,23 @@ const fmt = (cents: number) =>
 const fmtDate = (iso: string) =>
     new Date(iso).toLocaleString("he-IL", { dateStyle: "medium", timeStyle: "short" });
 
+type Tab = "card" | "appointments" | "coupons";
+
 export default function PortalDashboardPage() {
     const { slug } = useParams<{ slug: string }>();
     const router = useRouter();
 
     const [me, setMe] = useState<Me | null>(null);
     const [appointments, setAppointments] = useState<Appointment[]>([]);
+    const [coupons, setCoupons] = useState<Coupon[]>([]);
+    const [card, setCard] = useState<Card | null>(null);
+    const [qrDataUrl, setQrDataUrl] = useState<string>("");
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [canceling, setCanceling] = useState<string | null>(null);
-    const [tab, setTab] = useState<"upcoming" | "past">("upcoming");
+    const [tab, setTab] = useState<Tab>("card");
+    const [apptTab, setApptTab] = useState<"upcoming" | "past">("upcoming");
+    const [copiedCoupon, setCopiedCoupon] = useState<string | null>(null);
 
     const token = typeof window !== "undefined"
         ? sessionStorage.getItem(`portal_token_${slug}`) ?? ""
@@ -62,13 +95,27 @@ export default function PortalDashboardPage() {
         setLoading(true);
         setError(null);
         try {
-            const [meRes, apptRes] = await Promise.all([
+            const [meRes, apptRes, couponRes, cardRes] = await Promise.all([
                 fetch(`${API_BASE}/portal/me`, { headers: authHeaders }),
                 fetch(`${API_BASE}/portal/appointments`, { headers: authHeaders }),
+                fetch(`${API_BASE}/portal/coupons`, { headers: authHeaders }),
+                fetch(`${API_BASE}/portal/card`, { headers: authHeaders }),
             ]);
             if (meRes.status === 401) { router.replace(`/portal/${slug}`); return; }
             setMe(await meRes.json());
-            setAppointments(await apptRes.json());
+            if (apptRes.ok) setAppointments(await apptRes.json());
+            if (couponRes.ok) setCoupons(await couponRes.json());
+            if (cardRes.ok) {
+                const cardData: Card = await cardRes.json();
+                setCard(cardData);
+                // Generate QR code as data URL
+                const qr = await QRCode.toDataURL(cardData.qr_token, {
+                    width: 200,
+                    margin: 1,
+                    color: { dark: "#1a1a2e", light: "#ffffff" },
+                });
+                setQrDataUrl(qr);
+            }
         } catch {
             setError("שגיאה בטעינת הנתונים");
         } finally {
@@ -84,8 +131,7 @@ export default function PortalDashboardPage() {
         setCanceling(id);
         try {
             const res = await fetch(`${API_BASE}/portal/appointments/${id}/cancel`, {
-                method: "PATCH",
-                headers: authHeaders,
+                method: "PATCH", headers: authHeaders,
             });
             if (!res.ok) {
                 const d = await res.json();
@@ -103,155 +149,291 @@ export default function PortalDashboardPage() {
         router.replace(`/portal/${slug}`);
     }
 
+    function handleCopyCoupon(code: string) {
+        navigator.clipboard.writeText(code).catch(() => {});
+        setCopiedCoupon(code);
+        setTimeout(() => setCopiedCoupon(null), 2000);
+    }
+
     const now = new Date();
     const upcoming = appointments.filter(a => new Date(a.starts_at) >= now && a.status === "scheduled");
     const past = appointments.filter(a => new Date(a.starts_at) < now || a.status !== "scheduled");
-    const shown = tab === "upcoming" ? upcoming : past;
+    const shownAppts = apptTab === "upcoming" ? upcoming : past;
+    const activeCoupons = coupons.filter(c => c.status === "active");
 
     if (loading) return (
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-            <div className="animate-spin w-10 h-10 border-4 border-gray-200 border-t-black rounded-full" />
+        <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+            <div className="animate-spin w-10 h-10 border-4 border-indigo-800 border-t-indigo-400 rounded-full" />
         </div>
     );
 
+    const accentColor = card?.strip_color || me?.primary_color || "#6366f1";
+
     return (
-        <div className="min-h-screen bg-gray-50" dir="rtl">
+        <div className="min-h-screen bg-slate-950 text-white" dir="rtl">
 
             {/* Header */}
-            <header className="bg-white border-b border-gray-100 px-4 py-4">
-                <div className="max-w-2xl mx-auto flex items-center justify-between">
+            <header className="sticky top-0 z-20 backdrop-blur-md bg-slate-950/80 border-b border-white/10 px-4 py-3">
+                <div className="max-w-lg mx-auto flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         {me?.logo_url ? (
-                            <img src={me.logo_url} alt="logo" className="w-9 h-9 rounded-full object-cover" />
+                            <img src={me.logo_url} alt="logo" className="w-9 h-9 rounded-xl object-cover" />
                         ) : (
-                            <div className="w-9 h-9 rounded-full bg-black flex items-center justify-center text-white text-sm font-bold">
+                            <div className="w-9 h-9 rounded-xl flex items-center justify-center font-black text-sm"
+                                style={{ background: accentColor }}>
                                 {me?.studio_name?.[0] ?? "S"}
                             </div>
                         )}
                         <div>
                             <p className="font-bold text-sm leading-none">{me?.studio_name}</p>
-                            <p className="text-xs text-gray-500 mt-0.5">אזור לקוחות</p>
+                            <p className="text-[11px] text-slate-400 mt-0.5">{me?.client_name}</p>
                         </div>
                     </div>
-                    <button onClick={handleLogout} className="text-xs text-gray-400 hover:text-black transition">
+                    <button onClick={handleLogout} className="text-xs text-slate-500 hover:text-white transition px-3 py-1.5 rounded-lg hover:bg-white/10">
                         יציאה
                     </button>
                 </div>
             </header>
 
-            <div className="max-w-2xl mx-auto px-4 py-6 space-y-5">
-
-                {error && (
-                    <div className="bg-red-50 text-red-600 rounded-xl px-4 py-3 text-sm">{error}</div>
-                )}
-
-                {/* Welcome + Points */}
-                {me && (
-                    <div className="bg-white rounded-2xl border border-gray-100 p-5 flex items-center justify-between">
-                        <div>
-                            <p className="text-sm text-gray-500">שלום,</p>
-                            <p className="text-lg font-bold">{me.client_name}</p>
-                            {me.is_club_member && (
-                                <span className="text-xs bg-black text-white px-2 py-0.5 rounded-full mt-1 inline-block">
-                                    חבר מועדון ⭐
-                                </span>
-                            )}
+            {/* Points banner */}
+            <div className="max-w-lg mx-auto px-4 pt-6 pb-2">
+                <div className="rounded-3xl p-6 flex items-center justify-between"
+                    style={{ background: `linear-gradient(135deg, ${accentColor}33, ${accentColor}11)`, border: `1px solid ${accentColor}44` }}>
+                    <div>
+                        <div className="text-xs font-bold uppercase tracking-widest text-slate-400">נקודות מועדון</div>
+                        <div className="text-5xl font-black mt-1" style={{ color: accentColor }}>
+                            {me?.loyalty_points ?? 0}
                         </div>
-                        <div className="text-center">
-                            <p className="text-3xl font-extrabold">{me.loyalty_points}</p>
-                            <p className="text-xs text-gray-400 mt-0.5">נקודות</p>
-                        </div>
+                        <div className="text-xs text-slate-500 mt-1">נקודות זמינות לניצול</div>
                     </div>
-                )}
-
-                {/* Quick stats */}
-                <div className="grid grid-cols-3 gap-3">
-                    {[
-                        { label: "תורים קרובים", value: upcoming.length, icon: "📅" },
-                        { label: "תורים שבוצעו", value: past.filter(a => a.status === "done").length, icon: "✅" },
-                        { label: "בוטלו", value: past.filter(a => a.status === "canceled").length, icon: "❌" },
-                    ].map(s => (
-                        <div key={s.label} className="bg-white rounded-2xl border border-gray-100 p-4 text-center">
-                            <div className="text-xl mb-1">{s.icon}</div>
-                            <div className="text-2xl font-bold">{s.value}</div>
-                            <div className="text-xs text-gray-400 mt-0.5">{s.label}</div>
-                        </div>
-                    ))}
+                    <div className="text-5xl select-none">⭐</div>
                 </div>
 
-                {/* Tabs */}
-                <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
-                    {(["upcoming", "past"] as const).map(t => (
+                {error && (
+                    <div className="mt-3 text-sm text-rose-400 bg-rose-950/50 rounded-xl px-4 py-3 border border-rose-800/50">
+                        {error}
+                    </div>
+                )}
+            </div>
+
+            {/* Tab nav */}
+            <div className="max-w-lg mx-auto px-4 pt-4">
+                <div className="flex gap-1 bg-white/5 rounded-2xl p-1">
+                    {([
+                        ["card",         "💳 הכרטיס שלי"],
+                        ["appointments", `📅 תורים (${appointments.length})`],
+                        ["coupons",      `🎁 קופונים${activeCoupons.length ? ` (${activeCoupons.length})` : ""}`],
+                    ] as [Tab, string][]).map(([t, label]) => (
                         <button
                             key={t}
                             onClick={() => setTab(t)}
-                            className={`flex-1 py-2 rounded-lg text-sm font-semibold transition ${
-                                tab === t ? "bg-white shadow-sm text-black" : "text-gray-500"
-                            }`}
+                            className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all ${tab === t ? "bg-white text-slate-900 shadow" : "text-slate-400 hover:text-white"}`}
                         >
-                            {t === "upcoming" ? `קרובים (${upcoming.length})` : `היסטוריה (${past.length})`}
+                            {label}
                         </button>
                     ))}
                 </div>
+            </div>
 
-                {/* Appointments */}
-                {shown.length === 0 && (
-                    <div className="text-center text-gray-400 py-10 text-sm">
-                        {tab === "upcoming" ? "אין תורים קרובים" : "אין היסטוריה עדיין"}
+            <div className="max-w-lg mx-auto px-4 py-6 space-y-4">
+
+                {/* ── Card tab ───────────────────────────────────────────── */}
+                {tab === "card" && card && (
+                    <div className="space-y-4">
+                        {/* The visual card */}
+                        <div
+                            className="rounded-3xl overflow-hidden shadow-2xl"
+                            style={{ background: card.background_color, color: card.text_color }}
+                        >
+                            {/* Strip */}
+                            <div className="h-3 w-full" style={{ background: card.strip_color }} />
+
+                            <div className="px-6 py-5 space-y-4">
+                                {/* Header */}
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <div className="text-[10px] font-bold uppercase tracking-widest opacity-60"
+                                            style={{ color: card.label_color }}>מועדון לקוחות</div>
+                                        <div className="text-lg font-black leading-tight mt-0.5">
+                                            {card.card_title || card.studio_name}
+                                        </div>
+                                    </div>
+                                    {card.logo_url ? (
+                                        <img src={card.logo_url} alt="logo" className="w-12 h-12 rounded-xl object-cover" />
+                                    ) : (
+                                        <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl"
+                                            style={{ background: card.strip_color }}>💎</div>
+                                    )}
+                                </div>
+
+                                {/* Name + Points */}
+                                <div className="flex gap-6">
+                                    <div>
+                                        <div className="text-[10px] font-bold uppercase tracking-widest opacity-50"
+                                            style={{ color: card.label_color }}>שם חבר/ה</div>
+                                        <div className="text-base font-bold">{card.full_name}</div>
+                                    </div>
+                                    <div>
+                                        <div className="text-[10px] font-bold uppercase tracking-widest opacity-50"
+                                            style={{ color: card.label_color }}>נקודות</div>
+                                        <div className="text-2xl font-black">{card.loyalty_points.toLocaleString()}</div>
+                                    </div>
+                                </div>
+
+                                {/* QR Code */}
+                                {qrDataUrl && (
+                                    <div className="flex justify-center pt-1">
+                                        <div className="rounded-2xl p-3 bg-white">
+                                            <img src={qrDataUrl} alt="QR" className="w-32 h-32" />
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="h-1.5 w-full opacity-50" style={{ background: card.strip_color }} />
+                        </div>
+
+                        {/* Wallet buttons */}
+                        {(card.apple_wallet_enabled || card.google_wallet_enabled) && (
+                            <div className="space-y-2">
+                                <div className="text-xs text-slate-500 text-center font-medium">הוסף לארנק הדיגיטלי</div>
+                                {card.apple_wallet_enabled && card.apple_wallet_url && (
+                                    <a
+                                        href={card.apple_wallet_url}
+                                        className="flex items-center justify-center gap-3 w-full py-3.5 rounded-2xl font-bold text-sm transition-all"
+                                        style={{ background: "#000", color: "#fff" }}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                    >
+                                        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                                            <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" />
+                                        </svg>
+                                        Add to Apple Wallet
+                                    </a>
+                                )}
+                                {card.google_wallet_enabled && card.google_wallet_url && (
+                                    <a
+                                        href={card.google_wallet_url}
+                                        className="flex items-center justify-center gap-3 w-full py-3.5 rounded-2xl font-bold text-sm transition-all"
+                                        style={{ background: "#1a73e8", color: "#fff" }}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                    >
+                                        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                                            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                                            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                                            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                                            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                                        </svg>
+                                        הוסף ל-Google Wallet
+                                    </a>
+                                )}
+                            </div>
+                        )}
+
+                        {!card.apple_wallet_enabled && !card.google_wallet_enabled && (
+                            <div className="text-center py-4 text-xs text-slate-600 bg-white/5 rounded-2xl border border-white/10">
+                                כפתורי Wallet יופיעו כאשר הסטודיו יפעיל את האינטגרציה
+                            </div>
+                        )}
                     </div>
                 )}
 
-                <div className="space-y-3">
-                    {shown.map(a => {
-                        const st = STATUS_LABELS[a.status] ?? { label: a.status, color: "bg-gray-100 text-gray-600" };
-                        const paid = a.deposit_amount_cents > 0;
-                        const remaining = a.total_price_cents - a.deposit_amount_cents;
-                        return (
-                            <div key={a.id} className="bg-white rounded-2xl border border-gray-100 p-4">
-                                <div className="flex items-start justify-between gap-3">
-                                    <div className="flex-1 min-w-0">
-                                        <p className="font-semibold truncate">{a.title}</p>
-                                        <p className="text-sm text-gray-500 mt-0.5">{fmtDate(a.starts_at)}</p>
-                                        <p className="text-xs text-gray-400 mt-0.5">אמן: {a.artist_name}</p>
-                                    </div>
-                                    <span className={`text-xs px-2 py-1 rounded-full whitespace-nowrap font-medium ${st.color}`}>
-                                        {st.label}
-                                    </span>
-                                </div>
+                {/* ── Appointments tab ──────────────────────────────────── */}
+                {tab === "appointments" && (
+                    <div className="space-y-4">
+                        <div className="flex gap-1 bg-white/5 rounded-2xl p-1">
+                            {([["upcoming", `קרובים (${upcoming.length})`], ["past", `עבר (${past.length})`]] as const).map(([t, label]) => (
+                                <button key={t} onClick={() => setApptTab(t)}
+                                    className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${apptTab === t ? "bg-white text-slate-900 shadow" : "text-slate-400 hover:text-white"}`}>
+                                    {label}
+                                </button>
+                            ))}
+                        </div>
 
-                                {a.total_price_cents > 0 && (
-                                    <div className="mt-3 pt-3 border-t border-gray-50 flex items-center justify-between text-sm">
-                                        <div className="flex gap-4">
-                                            <span className="text-gray-500">
-                                                מחיר: <span className="font-medium text-black">{fmt(a.total_price_cents)}</span>
-                                            </span>
-                                            {paid && (
-                                                <span className="text-gray-500">
-                                                    מקדמה: <span className="font-medium text-green-600">{fmt(a.deposit_amount_cents)}</span>
-                                                </span>
-                                            )}
+                        {shownAppts.length === 0 ? (
+                            <div className="text-center py-12 text-slate-600 text-sm">אין תורים להצגה</div>
+                        ) : shownAppts.map(a => {
+                            const st = STATUS_LABELS[a.status] ?? { label: a.status, color: "bg-gray-100 text-gray-700" };
+                            return (
+                                <div key={a.id} className="bg-white/5 rounded-2xl border border-white/10 p-4 space-y-2">
+                                    <div className="flex items-start justify-between gap-2">
+                                        <div>
+                                            <div className="font-bold text-sm">{a.title}</div>
+                                            <div className="text-xs text-slate-400 mt-0.5">{a.artist_name} · {fmtDate(a.starts_at)}</div>
                                         </div>
-                                        {paid && remaining > 0 && (
-                                            <span className="text-xs text-orange-500 font-medium">
-                                                נשאר: {fmt(remaining)}
-                                            </span>
+                                        <span className={`text-[10px] font-bold px-2 py-1 rounded-lg whitespace-nowrap ${st.color}`}>{st.label}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between pt-1 border-t border-white/10">
+                                        <div className="text-xs text-slate-400">
+                                            {fmt(a.total_price_cents)}
+                                            {a.deposit_amount_cents > 0 && ` · מקדמה ${fmt(a.deposit_amount_cents)}`}
+                                        </div>
+                                        {a.can_cancel && (
+                                            <button
+                                                onClick={() => handleCancel(a.id)}
+                                                disabled={canceling === a.id}
+                                                className="text-[11px] text-rose-400 hover:text-rose-300 font-bold transition disabled:opacity-50"
+                                            >
+                                                {canceling === a.id ? "מבטל..." : "ביטול תור"}
+                                            </button>
                                         )}
                                     </div>
-                                )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
 
-                                {a.can_cancel && (
-                                    <button
-                                        onClick={() => handleCancel(a.id)}
-                                        disabled={canceling === a.id}
-                                        className="mt-3 w-full text-sm text-red-500 border border-red-100 rounded-xl py-2 hover:bg-red-50 disabled:opacity-40 transition"
-                                    >
-                                        {canceling === a.id ? "מבטל..." : "ביטול תור"}
-                                    </button>
-                                )}
+                {/* ── Coupons tab ───────────────────────────────────────── */}
+                {tab === "coupons" && (
+                    <div className="space-y-3">
+                        {coupons.length === 0 ? (
+                            <div className="text-center py-12 text-slate-600 text-sm">
+                                <div className="text-4xl mb-3">🎁</div>
+                                אין קופונים פעילים כרגע.<br />
+                                <span className="text-xs">קופוני יום הולדת יישלחו אוטומטית בחודש הרלוונטי.</span>
                             </div>
-                        );
-                    })}
-                </div>
+                        ) : coupons.map(c => {
+                            const isActive = c.status === "active";
+                            const expDate = new Date(c.expires_at).toLocaleDateString("he-IL");
+                            return (
+                                <div key={c.code}
+                                    className={`rounded-2xl border p-4 space-y-2 ${isActive ? "bg-violet-950/40 border-violet-700/50" : "bg-white/5 border-white/10 opacity-60"}`}>
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-2xl">{isActive ? "🎉" : "⏰"}</span>
+                                            <div>
+                                                <div className="text-xs text-slate-400 font-medium">קופון יום הולדת</div>
+                                                <div className="text-lg font-black text-violet-300">{c.discount_percent}% הנחה</div>
+                                            </div>
+                                        </div>
+                                        <div className="text-right">
+                                            <div className={`text-[10px] font-bold px-2 py-1 rounded-lg ${isActive ? "bg-violet-600 text-white" : "bg-slate-700 text-slate-400"}`}>
+                                                {isActive ? "פעיל" : c.status === "redeemed" ? "מומש" : "פג תוקף"}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center justify-between pt-2 border-t border-white/10">
+                                        <div className="font-mono font-black text-base tracking-wider text-white">{c.code}</div>
+                                        <div className="flex items-center gap-2">
+                                            <div className="text-[10px] text-slate-500">תוקף עד {expDate}</div>
+                                            {isActive && (
+                                                <button
+                                                    onClick={() => handleCopyCoupon(c.code)}
+                                                    className={`text-[11px] font-bold px-3 py-1.5 rounded-lg transition-all ${copiedCoupon === c.code ? "bg-emerald-600 text-white" : "bg-violet-600 hover:bg-violet-500 text-white"}`}
+                                                >
+                                                    {copiedCoupon === c.code ? "✅ הועתק!" : "העתק קוד"}
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
             </div>
         </div>
     );

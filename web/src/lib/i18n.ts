@@ -24,6 +24,7 @@ export const translations = {
         nav_help:       "מרכז עזרה",
         nav_inbox:      "הודעות",
         nav_leads:      "לידים",
+        nav_wallet:     "Wallet Card",
         nav_more:       "עוד",
         // Auth
         login_title:    "התחברות למערכת",
@@ -101,6 +102,7 @@ export const translations = {
         nav_help:       "Help",
         nav_inbox:      "Inbox",
         nav_leads:      "Leads",
+        nav_wallet:     "Wallet Card",
         nav_more:       "More",
         // Auth
         login_title:    "Sign in",
@@ -178,6 +180,7 @@ export const translations = {
         nav_help:       "المساعدة",
         nav_inbox:      "الرسائل",
         nav_leads:      "العملاء المحتملون",
+        nav_wallet:     "Wallet Card",
         nav_more:       "المزيد",
         // Auth
         login_title:    "تسجيل الدخول",

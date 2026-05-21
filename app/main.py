@@ -125,6 +125,51 @@ def run_migrations():
             )
         """))
         conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS customer_club_cards (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+                qr_token VARCHAR(64) NOT NULL,
+                status VARCHAR(20) NOT NULL DEFAULT 'active',
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                CONSTRAINT uq_club_card_per_client UNIQUE (studio_id, client_id),
+                CONSTRAINT uq_club_card_token UNIQUE (qr_token)
+            )
+        """))
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS wallet_pass_designs (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                studio_id UUID NOT NULL UNIQUE REFERENCES studios(id) ON DELETE CASCADE,
+                background_color VARCHAR(32) NOT NULL DEFAULT '#1a1a2e',
+                text_color VARCHAR(32) NOT NULL DEFAULT '#ffffff',
+                strip_color VARCHAR(32) NOT NULL DEFAULT '#6366f1',
+                label_color VARCHAR(32) NOT NULL DEFAULT '#a5b4fc',
+                logo_url TEXT,
+                icon_url TEXT,
+                show_points BOOLEAN NOT NULL DEFAULT true,
+                show_tier BOOLEAN NOT NULL DEFAULT true,
+                show_barcode BOOLEAN NOT NULL DEFAULT true,
+                card_title VARCHAR(100),
+                card_description VARCHAR(200),
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """))
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS customer_login_otps (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+                code VARCHAR(6) NOT NULL,
+                channel VARCHAR(20) NOT NULL DEFAULT 'whatsapp',
+                expires_at TIMESTAMPTZ NOT NULL,
+                used BOOLEAN NOT NULL DEFAULT false,
+                attempts INTEGER NOT NULL DEFAULT 0,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """))
+        conn.execute(text("""
             CREATE TABLE IF NOT EXISTS birthday_coupons (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                 studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
