@@ -120,6 +120,10 @@ function PageInner() {
 
     const handleCreateClient = async () => {
         if (!newName.trim() || !newPhone.trim()) { alert("יש להזין שם וטלפון"); return; }
+        if (newBirthDate) {
+            const year = parseInt(newBirthDate.split("-")[0]);
+            if (year < 1900 || year > new Date().getFullYear()) { alert("תאריך לידה לא תקין"); return; }
+        }
         try {
             setIsSaving(true);
             await apiFetch("/api/clients", {
@@ -470,7 +474,6 @@ function PageInner() {
                                     { label: "שם מלא *", val: newName, set: setNewName, type: "text" },
                                     { label: "טלפון *", val: newPhone, set: setNewPhone, type: "tel" },
                                     { label: "אימייל", val: newEmail, set: setNewEmail, type: "email" },
-                                    { label: "תאריך לידה", val: newBirthDate, set: setNewBirthDate, type: "date" },
                                 ].map(f => (
                                     <div key={f.label}>
                                         <label className="block text-xs font-semibold text-slate-600 mb-1.5">{f.label}</label>
@@ -478,6 +481,12 @@ function PageInner() {
                                             className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-black/10 transition" />
                                     </div>
                                 ))}
+                                <div>
+                                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">תאריך לידה</label>
+                                    <input value={newBirthDate} onChange={e => setNewBirthDate(e.target.value)} type="date"
+                                        min="1900-01-01" max={new Date().toISOString().split("T")[0]}
+                                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-black/10 transition" />
+                                </div>
                                 <div>
                                     <label className="block text-xs font-semibold text-slate-600 mb-1.5">הערות</label>
                                     <textarea value={newNotes} onChange={e => setNewNotes(e.target.value)} rows={2}

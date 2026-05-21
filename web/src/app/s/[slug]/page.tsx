@@ -77,6 +77,10 @@ export default function StudioLandingPage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!data) return;
+        if (birthDate) {
+            const year = parseInt(birthDate.split("-")[0]);
+            if (year < 1900 || year > new Date().getFullYear()) { setSubmitErr("תאריך לידה לא תקין"); return; }
+        }
         setSubmitting(true);
         setSubmitErr(null);
         try {
