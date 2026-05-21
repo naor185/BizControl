@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { toast } from "@/lib/toast";
 import { useEffect, useState, useMemo, Suspense } from "react";
 import { useSearchParams } from "next/navigation";

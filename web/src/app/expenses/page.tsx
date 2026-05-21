@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { toast } from "@/lib/toast";
 
 import { useState, useEffect, useCallback } from "react";
