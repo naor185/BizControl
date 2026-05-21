@@ -96,7 +96,12 @@ def enqueue_confirmation_message(db: Session, appt: Appointment, artist_name: st
         elif settings.confirm_wa_template:
             wa_body = smart_format(settings.confirm_wa_template, context)
         else:
-            wa_body = f"שלום {client.full_name}, התור שלך ל-{appt.title} נקבע ליום {context['appointment_date']} בשעה {context['appointment_time']}."
+            payment_part = ""
+            if context.get("bit_link"):
+                payment_part = f"\n💳 לתשלום מקדמה בביט: {context['bit_link']}"
+            elif context.get("paybox_link"):
+                payment_part = f"\n💳 לתשלום מקדמה בפייבוקס: {context['paybox_link']}"
+            wa_body = f"שלום {client.full_name}, התור שלך ל-{appt.title} נקבע ליום {context['appointment_date']} בשעה {context['appointment_time']}.{payment_part}"
         db.add(MessageJob(
             studio_id=appt.studio_id, client_id=client.id, appointment_id=appt.id,
             channel="whatsapp", to_phone=client.phone, body=wa_body,
