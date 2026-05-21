@@ -189,6 +189,7 @@ export default function AutomationSettingsPage() {
     const [newTreatmentType, setNewTreatmentType] = useState("");
     const [newTreatmentRequiresDeposit, setNewTreatmentRequiresDeposit] = useState(false);
     const [newTreatmentDepositAmount, setNewTreatmentDepositAmount] = useState<number | null>(null);
+    const [treatmentSaving, setTreatmentSaving] = useState(false);
     const [retroResult, setRetroResult] = useState<{ processed: number; failed: number; clients: { id: string; name: string }[] } | null>(null);
 
     // 2FA state
@@ -271,6 +272,41 @@ export default function AutomationSettingsPage() {
     const handleChange = (field: keyof Settings, val: any) => {
         if (!settings) return;
         setSettings({ ...settings, [field]: val });
+    };
+
+    const saveTreatmentTypes = async (updated: TreatmentTypeTemplate[]) => {
+        setTreatmentSaving(true);
+        try {
+            const res = await apiFetch<Settings>("/api/studio/automation", {
+                method: "PATCH",
+                body: JSON.stringify({ treatment_types: updated }),
+            });
+            setSettings(prev => prev ? { ...prev, treatment_types: res.treatment_types ?? updated } : prev);
+        } catch {
+            alert("שגיאה בשמירת הטמפלט — נסה שוב");
+        } finally {
+            setTreatmentSaving(false);
+        }
+    };
+
+    const handleAddTreatmentType = async () => {
+        if (!newTreatmentType.trim() || !settings) return;
+        const newTpl: TreatmentTypeTemplate = {
+            name: newTreatmentType.trim(),
+            requires_deposit: newTreatmentRequiresDeposit,
+            deposit_amount_ils: newTreatmentRequiresDeposit ? newTreatmentDepositAmount : null,
+        };
+        const updated = [...(settings.treatment_types || []), newTpl];
+        setNewTreatmentType("");
+        setNewTreatmentRequiresDeposit(false);
+        setNewTreatmentDepositAmount(null);
+        await saveTreatmentTypes(updated);
+    };
+
+    const handleRemoveTreatmentType = async (idx: number) => {
+        if (!settings) return;
+        const updated = (settings.treatment_types || []).filter((_, i) => i !== idx);
+        await saveTreatmentTypes(updated);
     };
 
     const [logoPreview, setLogoPreview] = useState<string | null>(null);
@@ -1377,8 +1413,9 @@ export default function AutomationSettingsPage() {
                                                         )}
                                                         <button
                                                             type="button"
-                                                            onClick={() => handleChange("treatment_types", (settings.treatment_types || []).filter((_, i) => i !== idx))}
-                                                            className="text-slate-400 hover:text-red-500 font-bold text-lg leading-none"
+                                                            onClick={() => handleRemoveTreatmentType(idx)}
+                                                            disabled={treatmentSaving}
+                                                            className="text-slate-400 hover:text-red-500 font-bold text-lg leading-none disabled:opacity-40"
                                                         >×</button>
                                                     </div>
                                                 ))}
@@ -1391,12 +1428,7 @@ export default function AutomationSettingsPage() {
                                                     type="text"
                                                     value={newTreatmentType}
                                                     onChange={e => setNewTreatmentType(e.target.value)}
-                                                    onKeyDown={e => {
-                                                        if (e.key === "Enter" && newTreatmentType.trim()) {
-                                                            handleChange("treatment_types", [...(settings.treatment_types || []), { name: newTreatmentType.trim(), requires_deposit: newTreatmentRequiresDeposit, deposit_amount_ils: newTreatmentRequiresDeposit ? newTreatmentDepositAmount : null }]);
-                                                            setNewTreatmentType(""); setNewTreatmentRequiresDeposit(false); setNewTreatmentDepositAmount(null);
-                                                        }
-                                                    }}
+                                                    onKeyDown={e => { if (e.key === "Enter") handleAddTreatmentType(); }}
                                                     placeholder="שם הטיפול (למשל: קעקוע, פירסינג...)"
                                                     className="w-full border border-slate-200 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
                                                 />
@@ -1427,16 +1459,13 @@ export default function AutomationSettingsPage() {
                                                 </div>
                                                 <button
                                                     type="button"
-                                                    onClick={() => {
-                                                        if (newTreatmentType.trim()) {
-                                                            handleChange("treatment_types", [...(settings.treatment_types || []), { name: newTreatmentType.trim(), requires_deposit: newTreatmentRequiresDeposit, deposit_amount_ils: newTreatmentRequiresDeposit ? newTreatmentDepositAmount : null }]);
-                                                            setNewTreatmentType(""); setNewTreatmentRequiresDeposit(false); setNewTreatmentDepositAmount(null);
-                                                        }
-                                                    }}
-                                                    className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl transition-colors"
-                                                >+ הוסף</button>
+                                                    onClick={handleAddTreatmentType}
+                                                    disabled={treatmentSaving || !newTreatmentType.trim()}
+                                                    className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl transition-colors disabled:opacity-50 flex items-center gap-2"
+                                                >
+                                                    {treatmentSaving ? "שומר..." : "+ הוסף"}
+                                                </button>
                                             </div>
-                                            <p className="text-xs text-amber-600 mt-2">⚠️ לאחר הוספה — לחץ על &quot;שמור הגדרות סטודיו&quot; כדי לשמור את השינויים.</p>
                                         </div>
 
                                         <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 md:col-span-2">
