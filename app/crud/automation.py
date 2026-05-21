@@ -38,10 +38,15 @@ def smart_format(template: str, context: dict) -> str:
             lines.append(f"📅 {context['appointment_date']} בשעה {context['appointment_time']}")
         elif context.get("appointment_date"):
             lines.append(f"📅 {context['appointment_date']}")
-        if context.get("deposit_amount") and float(context.get("deposit_amount", 0)) > 0:
+        has_dep = context.get("deposit_amount") and float(context.get("deposit_amount", 0)) > 0
+        if has_dep:
             lines.append(f"💳 מקדמה: {context['deposit_amount']} ₪")
-        if context.get("payment_link"):
+        if has_dep and context.get("payment_link"):
             lines.append(f"🔗 {context['payment_link']}")
+        if context.get("studio_address"):
+            lines.append(f"📍 {context['studio_address']}")
+        if context.get("map_link"):
+            lines.append(f"🗺️ ניווט: {context['map_link']}")
         if context.get("payment_amount"):
             lines.append(f"💰 סכום ששולם: {context['payment_amount']} ₪")
         if context.get("points_total"):
@@ -89,6 +94,13 @@ def enqueue_confirmation_message(db: Session, appt: Appointment, artist_name: st
     now = datetime.now(timezone.utc)
     has_deposit = bool(appt.deposit_amount_cents and appt.deposit_amount_cents > 0)
 
+    # Strip payment placeholders when no deposit so templates don't leak Bit/Paybox links
+    if not has_deposit:
+        context["bit_link"] = ""
+        context["paybox_link"] = ""
+        context["payment_link"] = ""
+        context["deposit_amount"] = ""
+
     # --- WhatsApp ---
     if client.phone:
         if has_deposit and settings.deposit_request_wa_template:
@@ -97,11 +109,23 @@ def enqueue_confirmation_message(db: Session, appt: Appointment, artist_name: st
             wa_body = smart_format(settings.confirm_wa_template, context)
         else:
             payment_part = ""
-            if context.get("bit_link"):
-                payment_part = f"\n💳 לתשלום מקדמה בביט: {context['bit_link']}"
-            elif context.get("paybox_link"):
-                payment_part = f"\n💳 לתשלום מקדמה בפייבוקס: {context['paybox_link']}"
-            wa_body = f"שלום {client.full_name}, התור שלך ל-{appt.title} נקבע ליום {context['appointment_date']} בשעה {context['appointment_time']}.{payment_part}"
+            if has_deposit:
+                if context.get("bit_link"):
+                    payment_part = f"\n💳 לתשלום מקדמה בביט: {context['bit_link']}"
+                elif context.get("paybox_link"):
+                    payment_part = f"\n💳 לתשלום מקדמה בפייבוקס: {context['paybox_link']}"
+            location_part = ""
+            if context.get("studio_address"):
+                location_part += f"\n📍 {context['studio_address']}"
+            if context.get("map_link"):
+                location_part += f"\n🗺️ ניווט: {context['map_link']}"
+            wa_body = (
+                f"שלום {client.full_name} 👋\n"
+                f"התור שלך ל-{appt.title} נקבע ✅\n"
+                f"📅 {context['appointment_date']} בשעה {context['appointment_time']}"
+                f"{payment_part}"
+                f"{location_part}"
+            )
         db.add(MessageJob(
             studio_id=appt.studio_id, client_id=client.id, appointment_id=appt.id,
             channel="whatsapp", to_phone=client.phone, body=wa_body,
