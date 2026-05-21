@@ -1,5 +1,4 @@
-﻿"use client" already handled
-"use client";
+﻿"use client";
 import { toast } from "@/lib/toast";
 
 import { useEffect, useState, useCallback } from "react";

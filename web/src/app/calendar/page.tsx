@@ -1,6 +1,4 @@
-﻿"use client" already handled
-﻿"use client";
-import { toast } from "@/lib/toast";
+﻿﻿"use client";
 
 import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
@@ -438,7 +436,7 @@ export default function CalendarPage() {
     const handleEventDrop = async (dropInfo: any) => {
         const app = dropInfo.event.extendedProps;
         if (app.isExternalGoogle) {
-            toast.error("לא ניתן להזיז אירועים מגוגל קלנדר חיצוני.");
+            setToast({message: "לא ניתן להזיז אירועים מגוגל קלנדר חיצוני.", type: "error"});
             dropInfo.revert();
             return;
         }
@@ -456,14 +454,14 @@ export default function CalendarPage() {
             // Update local state smoothly
             setAppointments(prev => prev.map(a => a.id === eventId ? { ...a, starts_at: dropInfo.event.startStr, ends_at: dropInfo.event.endStr } : a));
         } catch (e: any) {
-            toast.error("שגיאה בהזזת התור: " + (e?.message || ""));
+            setToast({message: "שגיאה בהזזת התור: " + (e?.message || ""), type: "error"});
             dropInfo.revert(); // revert visual change on failure
         }
     };
 
     const handleSaveAppointment = async () => {
         if (!title || !startAt || !endAt || !artistId || !clientId) {
-            toast.error("יש למלא את כל שדות החובה: כותרת, זמנים, מקעקע ולקוח.");
+            setToast({message: "יש למלא את כל שדות החובה: כותרת, זמנים, מקעקע ולקוח.", type: "error"});
             return;
         }
 
@@ -490,7 +488,7 @@ export default function CalendarPage() {
             setIsModalOpen(false);
             loadData(); // reload
         } catch (e: any) {
-            toast.error(e?.message || "שגיאה בשמירת התור");
+            setToast({message: e?.message || "שגיאה בשמירת התור", type: "error"});
         }
     };
 
@@ -530,7 +528,7 @@ export default function CalendarPage() {
             setIsModalOpen(false);
             loadData();
         } catch (e: any) {
-            toast.error(e?.message || "שגיאה במחיקת התור");
+            setToast({message: e?.message || "שגיאה במחיקת התור", type: "error"});
         }
     };
 
@@ -569,10 +567,10 @@ export default function CalendarPage() {
     };
 
     const handleSaveTask = async () => {
-        if (!taskTitle.trim()) { toast.error("יש להזין כותרת למשימה"); return; }
-        if (taskRecurrence === "none" && !taskDate) { toast.error("יש לבחור תאריך"); return; }
-        if (taskRecurrence === "monthly" && !taskRecurrenceDay) { toast.error("יש לבחור יום בחודש"); return; }
-        if (taskRecurrence === "yearly" && (!taskRecurrenceDay || !taskRecurrenceMonth)) { toast.error("יש לבחור יום וחודש"); return; }
+        if (!taskTitle.trim()) { setToast({message: "יש להזין כותרת למשימה", type: "error"}); return; }
+        if (taskRecurrence === "none" && !taskDate) { setToast({message: "יש לבחור תאריך", type: "error"}); return; }
+        if (taskRecurrence === "monthly" && !taskRecurrenceDay) { setToast({message: "יש לבחור יום בחודש", type: "error"}); return; }
+        if (taskRecurrence === "yearly" && (!taskRecurrenceDay || !taskRecurrenceMonth)) { setToast({message: "יש לבחור יום וחודש", type: "error"}); return; }
 
         const body: any = {
             title: taskTitle.trim(),
@@ -597,7 +595,7 @@ export default function CalendarPage() {
             loadData();
             showToast(selectedTaskId ? "✅ המשימה עודכנה" : "✅ המשימה נוספה");
         } catch (e: any) {
-            toast.error(e?.message || "שגיאה בשמירת המשימה");
+            setToast({message: e?.message || "שגיאה בשמירת המשימה", type: "error"});
         }
     };
 
@@ -610,7 +608,7 @@ export default function CalendarPage() {
             loadData();
             showToast("המשימה נמחקה");
         } catch (e: any) {
-            toast.error(e?.message || "שגיאה במחיקת המשימה");
+            setToast({message: e?.message || "שגיאה במחיקת המשימה", type: "error"});
         }
     };
 
