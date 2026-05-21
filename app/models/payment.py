@@ -16,7 +16,7 @@ class Payment(Base):
         CheckConstraint("type IN ('deposit','payment','refund')", name="ck_payments_type"),
         CheckConstraint("status IN ('pending','paid','void')", name="ck_payments_status"),
         CheckConstraint(
-            "method IN ('cash','bit','credit','paypal','bank','paybox','installment','other')",
+            "method IN ('cash','bit','credit','credit_card','paypal','bank','bank_transfer','paybox','installment','other')",
             name="ck_payments_method",
         ),
         CheckConstraint("amount_cents >= 0", name="ck_payments_amount_nonneg"),

@@ -104,6 +104,12 @@ def run_migrations():
     from sqlalchemy import text
     from app.core.database import engine
     with engine.connect() as conn:
+        # Fix payments method constraint to include all frontend methods
+        conn.execute(text("ALTER TABLE payments DROP CONSTRAINT IF EXISTS ck_payments_method"))
+        conn.execute(text(
+            "ALTER TABLE payments ADD CONSTRAINT ck_payments_method "
+            "CHECK (method IN ('cash','bit','credit','credit_card','paypal','bank','bank_transfer','paybox','installment','other'))"
+        ))
         conn.execute(text("ALTER TABLE clients ADD COLUMN IF NOT EXISTS whatsapp_opted_out BOOLEAN NOT NULL DEFAULT false"))
         conn.execute(text("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS treatment_types TEXT"))
         conn.execute(text("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS birthday_automation_enabled BOOLEAN NOT NULL DEFAULT true"))
