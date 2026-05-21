@@ -62,6 +62,9 @@ class PublicPaymentInfo(BaseModel):
     deposit_amount_cents: int
     bit_link: str | None
     paybox_link: str | None
+    bank_name: str | None
+    bank_branch: str | None
+    bank_account: str | None
     theme_primary_color: str
     theme_secondary_color: str
     logo_filename: str | None
@@ -258,6 +261,9 @@ def get_public_payment_info(appointment_id: str, db: Session = Depends(get_db)):
         deposit_amount_cents=appt.deposit_amount_cents,
         bit_link=settings.bit_link,
         paybox_link=settings.paybox_link,
+        bank_name=settings.bank_name,
+        bank_branch=settings.bank_branch,
+        bank_account=settings.bank_account,
         theme_primary_color=settings.theme_primary_color or "#000000",
         theme_secondary_color=settings.theme_secondary_color or "#ffffff",
         logo_filename=settings.logo_filename

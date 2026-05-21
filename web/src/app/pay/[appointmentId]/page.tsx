@@ -12,6 +12,9 @@ interface PublicPaymentInfo {
     deposit_amount_cents: number;
     bit_link: string | null;
     paybox_link: string | null;
+    bank_name: string | null;
+    bank_branch: string | null;
+    bank_account: string | null;
     theme_primary_color: string;
     theme_secondary_color: string;
     logo_filename: string | null;
@@ -139,7 +142,7 @@ export default function PublicPaymentPage() {
                                         rel="noopener noreferrer"
                                         className="flex items-center justify-center gap-3 w-full bg-[#005aff] text-white py-4 rounded-2xl font-black text-lg shadow-lg shadow-blue-500/30 hover:scale-[1.02] transition-transform active:scale-[0.98]"
                                     >
-                                        שילום מהיר ב-Bit 📱
+                                        <span>💙</span> תשלום מהיר ב-Bit
                                     </a>
                                 )}
                                 {info.paybox_link && (
@@ -149,8 +152,21 @@ export default function PublicPaymentPage() {
                                         rel="noopener noreferrer"
                                         className="flex items-center justify-center gap-3 w-full bg-[#1bc6e5] text-white py-4 rounded-2xl font-black text-lg shadow-lg shadow-cyan-500/30 hover:scale-[1.02] transition-transform active:scale-[0.98]"
                                     >
-                                        שילום מהיר ב-Paybox 💸
+                                        <span>💸</span> תשלום מהיר ב-Paybox
                                     </a>
+                                )}
+                                {(info.bank_name || info.bank_account) && (
+                                    <details className="w-full">
+                                        <summary className="flex items-center justify-center gap-2 w-full bg-slate-100 text-slate-700 py-4 rounded-2xl font-black text-lg cursor-pointer hover:bg-slate-200 transition-colors list-none">
+                                            <span>🏦</span> העברה בנקאית
+                                        </summary>
+                                        <div className="mt-2 bg-slate-50 border border-slate-200 rounded-2xl p-5 text-right space-y-1 text-sm font-semibold text-slate-700" dir="rtl">
+                                            {info.bank_name && <p>🏦 בנק: {info.bank_name}</p>}
+                                            {info.bank_branch && <p>🔢 סניף: {info.bank_branch}</p>}
+                                            {info.bank_account && <p>💳 מספר חשבון: {info.bank_account}</p>}
+                                            <p className="text-slate-500 text-xs pt-1">לאחר ההעברה, לחץ על הכפתור למטה לאישור</p>
+                                        </div>
+                                    </details>
                                 )}
                             </div>
 

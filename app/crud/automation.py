@@ -109,11 +109,8 @@ def enqueue_confirmation_message(db: Session, appt: Appointment, artist_name: st
             wa_body = smart_format(settings.confirm_wa_template, context)
         else:
             payment_part = ""
-            if has_deposit:
-                if context.get("bit_link"):
-                    payment_part = f"\n💳 לתשלום מקדמה בביט: {context['bit_link']}"
-                elif context.get("paybox_link"):
-                    payment_part = f"\n💳 לתשלום מקדמה בפייבוקס: {context['paybox_link']}"
+            if has_deposit and context.get("payment_link"):
+                payment_part = f"\n💳 לתשלום המקדמה לחץ כאן:\n{context['payment_link']}"
             location_part = ""
             if context.get("studio_address"):
                 location_part += f"\n📍 {context['studio_address']}"
