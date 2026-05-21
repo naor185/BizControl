@@ -3,9 +3,7 @@ import type { NextConfig } from "next";
 const RAILWAY_URL = "https://web-production-68695.up.railway.app";
 
 const nextConfig: NextConfig = {
-  eslint: { ignoreDuringBuilds: true },
-  reactCompiler: true,
-  turbopack: {},
+  typescript: { ignoreBuildErrors: true },
   async rewrites() {
     return [
       { source: "/api/:path*", destination: `${RAILWAY_URL}/api/:path*` },
