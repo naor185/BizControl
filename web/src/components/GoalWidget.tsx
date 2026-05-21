@@ -73,10 +73,10 @@ export default function GoalWidget({ month, year }: { month?: number, year?: num
                                 value={newTarget}
                                 onChange={(e) => setNewTarget(e.target.value.replace(/[^0-9.]/g, ""))}
                                 onKeyDown={(e) => { if (e.key === "Enter") handleSave(); if (e.key === "Escape") setIsEditing(false); }}
-                                className="w-36 px-4 py-2 border border-indigo-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-left"
+                                className="w-36 px-4 py-2 border-2 border-indigo-400 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-600 outline-none text-left text-slate-900 bg-white placeholder-slate-400 text-base font-semibold"
                                 dir="ltr"
                                 autoFocus
-                                placeholder="למשל: 15000"
+                                placeholder="15000"
                             />
                             <button onClick={handleSave} className="px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold">שמור</button>
                             <button onClick={() => setIsEditing(false)} className="px-4 py-2 text-slate-500 font-bold">ביטול</button>

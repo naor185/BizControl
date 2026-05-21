@@ -190,6 +190,16 @@ def run_migrations():
             )
         """))
         conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS monthly_goals (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                year INTEGER NOT NULL,
+                month INTEGER NOT NULL,
+                target_amount NUMERIC(12,2) NOT NULL DEFAULT 0.00,
+                CONSTRAINT uq_monthly_goals_studio_date UNIQUE (studio_id, year, month)
+            )
+        """))
+        conn.execute(text("""
             CREATE TABLE IF NOT EXISTS membership_tiers (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                 studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
