@@ -68,14 +68,15 @@ export default function GoalWidget({ month, year }: { month?: number, year?: num
                     {isEditing ? (
                         <div className="flex gap-2">
                             <input
-                                type="number"
+                                type="text"
+                                inputMode="numeric"
                                 value={newTarget}
-                                onChange={(e) => setNewTarget(e.target.value)}
+                                onChange={(e) => setNewTarget(e.target.value.replace(/[^0-9.]/g, ""))}
                                 onKeyDown={(e) => { if (e.key === "Enter") handleSave(); if (e.key === "Escape") setIsEditing(false); }}
-                                className="w-32 px-4 py-2 border rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-left"
+                                className="w-36 px-4 py-2 border border-indigo-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-left"
                                 dir="ltr"
                                 autoFocus
-                                placeholder="הזן יעד"
+                                placeholder="למשל: 15000"
                             />
                             <button onClick={handleSave} className="px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold">שמור</button>
                             <button onClick={() => setIsEditing(false)} className="px-4 py-2 text-slate-500 font-bold">ביטול</button>

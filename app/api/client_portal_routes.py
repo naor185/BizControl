@@ -474,3 +474,95 @@ def portal_apple_wallet(ctx: tuple[Client, Studio] = Depends(portal_auth), db: S
         media_type="application/vnd.apple.pkpass",
         headers={"Content-Disposition": f'attachment; filename="club_card.pkpass"'},
     )
+
+
+@router.get("/tier")
+def portal_tier(ctx: tuple[Client, Studio] = Depends(portal_auth), db: Session = Depends(get_db)):
+    """Returns the client's current membership tier (or null)."""
+    from app.crud.membership_tier import get_client_tier
+    client, studio = ctx
+    tier = get_client_tier(db, studio.id, client.id)
+    if not tier:
+        return {"tier": None}
+    return {
+        "tier": {
+            "name": tier.name,
+            "color": tier.color,
+            "icon": tier.icon,
+            "points_multiplier": tier.points_multiplier,
+            "birthday_gift_percent": tier.birthday_gift_percent,
+        }
+    }
+
+
+@router.get("/stamps")
+def portal_stamps(ctx: tuple[Client, Studio] = Depends(portal_auth), db: Session = Depends(get_db)):
+    """Returns the client's stamp card progress for all active cards."""
+    from app.crud.stamp_card import get_client_progress
+    client, studio = ctx
+    progress = get_client_progress(db, studio.id, client.id)
+    return [
+        {
+            "card_id": str(p["card"].id),
+            "name": p["card"].name,
+            "description": p["card"].description,
+            "required_stamps": p["card"].required_stamps,
+            "stamps_collected": p["stamps_collected"],
+            "completed_count": p["completed_count"],
+            "reward_type": p["card"].reward_type,
+            "reward_value": p["card"].reward_value,
+            "reward_description": p["card"].reward_description,
+        }
+        for p in progress
+    ]
+
+
+@router.get("/timeline")
+def portal_timeline(ctx: tuple[Client, Studio] = Depends(portal_auth), db: Session = Depends(get_db)):
+    """Returns the client's full activity timeline: appointments + points events."""
+    from app.models.payment import Payment
+    from app.models.client_points_ledger import ClientPointsLedger
+    from app.models.user import User
+
+    client, studio = ctx
+    events = []
+
+    # Appointments
+    appts = db.scalars(
+        select(Appointment)
+        .where(Appointment.client_id == client.id, Appointment.studio_id == studio.id)
+        .order_by(Appointment.starts_at.desc())
+        .limit(50)
+    ).all()
+    for a in appts:
+        artist = db.get(User, a.artist_id)
+        events.append({
+            "type": "appointment",
+            "date": a.starts_at.isoformat(),
+            "title": a.title,
+            "status": a.status,
+            "artist_name": artist.display_name if artist else "—",
+            "total_price_cents": a.total_price_cents,
+        })
+
+    # Points ledger
+    ledger = db.scalars(
+        select(ClientPointsLedger)
+        .where(
+            ClientPointsLedger.client_id == client.id,
+            ClientPointsLedger.studio_id == studio.id,
+        )
+        .order_by(ClientPointsLedger.created_at.desc())
+        .limit(50)
+    ).all()
+    for entry in ledger:
+        events.append({
+            "type": "points",
+            "date": entry.created_at.isoformat(),
+            "delta_points": entry.delta_points,
+            "reason": entry.reason,
+        })
+
+    # Sort all events together by date desc
+    events.sort(key=lambda e: e["date"], reverse=True)
+    return events[:60]

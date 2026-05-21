@@ -36,6 +36,8 @@ const SETTINGS_NAV: NavItem[] = [
     { href: "/payments",     labelKey: "nav_payments", icon: "💳" },
     { href: "/leads",        labelKey: "nav_leads",    icon: "🎯" },
     { href: "/wallet",       labelKey: "nav_wallet",   icon: "💳" },
+    { href: "/tiers",        labelKey: "nav_tiers",    icon: "🏆" },
+    { href: "/stamps",       labelKey: "nav_stamps",   icon: "🎫" },
     { href: "/billing",      labelKey: "nav_billing",  icon: "💎" },
     { href: "/automation",   labelKey: "nav_settings", icon: "⚙️" },
     { href: "/help",         labelKey: "nav_help",     icon: "🆘" },
@@ -228,7 +230,7 @@ export default function AppShell({
 
                         {/* User row */}
                         <div className="flex items-center gap-2.5 px-1">
-                            <div className="w-8 h-8 rounded-full bg-sky-600 text-white flex items-center justify-center text-xs font-bold flex-shrink-0">
+                            <div className="w-8 h-8 rounded-full bg-sky-600 text-white flex items-center justify-center text-xs font-bold shrink-0">
                                 {avatarLetter}
                             </div>
                             <div className="flex-1 min-w-0">

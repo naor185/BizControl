@@ -29,6 +29,8 @@ from app.api.notification_routes import router as notification_router
 from app.api.task_routes import router as task_router
 from app.api.coupon_routes import router as coupon_router
 from app.api.customer_club_routes import router as customer_club_router, design_router as wallet_design_router
+from app.api.tier_routes import router as tier_router
+from app.api.stamp_routes import router as stamp_router
 
 api_router = APIRouter()
 api_router.include_router(studio_router)
@@ -62,3 +64,5 @@ api_router.include_router(task_router)
 api_router.include_router(coupon_router)
 api_router.include_router(customer_club_router)
 api_router.include_router(wallet_design_router)
+api_router.include_router(tier_router)
+api_router.include_router(stamp_router)

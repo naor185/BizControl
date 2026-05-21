@@ -165,13 +165,28 @@ def patch(appointment_id: UUID, payload: AppointmentUpdate, ctx: AuthContext = D
         if str(existing_appt.artist_id) != str(ctx.user_id):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot modify another artist's appointment")
 
+    # Capture status before update to detect "done" transition
+    existing_appt = get_appointment(db, ctx.studio_id, appointment_id)
+    prev_status = existing_appt.status if existing_appt else None
+
     try:
         obj = update_appointment(db, ctx.studio_id, appointment_id, payload)
     except ValueError as e:
         raise HTTPException(status_code=409, detail=str(e))
     if not obj:
         raise HTTPException(status_code=404, detail="Appointment not found")
-        
+
+    # Add stamp when appointment transitions to "done"
+    new_status = payload.model_dump(exclude_unset=True).get("status")
+    if new_status == "done" and prev_status != "done" and existing_appt and existing_appt.client_id:
+        try:
+            from app.crud.stamp_card import add_stamp_for_appointment, grant_stamp_reward
+            rewards = add_stamp_for_appointment(db, ctx.studio_id, existing_appt.client_id)
+            for r in rewards:
+                grant_stamp_reward(db, ctx.studio_id, existing_appt.client_id, r["card"])
+        except Exception as e:
+            log.warning("Stamp card error: %s", e)
+
     # Sync to Google Calendar
     appt_obj = get_appointment(db, ctx.studio_id, appointment_id)
     if appt_obj and appt_obj.google_event_id:

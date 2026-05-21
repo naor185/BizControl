@@ -189,6 +189,49 @@ def run_migrations():
                 CONSTRAINT uq_birthday_coupon_per_year UNIQUE (studio_id, client_id, birthday_month, birthday_year)
             )
         """))
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS membership_tiers (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                name VARCHAR(60) NOT NULL,
+                color VARCHAR(20) NOT NULL DEFAULT '#C0C0C0',
+                icon VARCHAR(10) NOT NULL DEFAULT '⭐',
+                rank_order INTEGER NOT NULL DEFAULT 1,
+                threshold_type VARCHAR(30) NOT NULL DEFAULT 'visits',
+                threshold_value INTEGER NOT NULL DEFAULT 1,
+                points_multiplier FLOAT NOT NULL DEFAULT 1.0,
+                birthday_gift_percent INTEGER NOT NULL DEFAULT 10,
+                is_active BOOLEAN NOT NULL DEFAULT true,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """))
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS stamp_cards (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                name VARCHAR(100) NOT NULL,
+                description TEXT,
+                required_stamps INTEGER NOT NULL DEFAULT 5,
+                reward_type VARCHAR(30) NOT NULL DEFAULT 'discount_percent',
+                reward_value INTEGER NOT NULL DEFAULT 10,
+                reward_description VARCHAR(200),
+                is_active BOOLEAN NOT NULL DEFAULT true,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """))
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS client_stamp_progress (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+                stamp_card_id UUID NOT NULL REFERENCES stamp_cards(id) ON DELETE CASCADE,
+                stamps_collected INTEGER NOT NULL DEFAULT 0,
+                completed_count INTEGER NOT NULL DEFAULT 0,
+                last_stamp_at TIMESTAMPTZ,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                CONSTRAINT uq_stamp_progress UNIQUE (studio_id, client_id, stamp_card_id)
+            )
+        """))
         conn.commit()
 
 @asynccontextmanager

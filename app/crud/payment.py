@@ -95,9 +95,11 @@ def create_payment(db: Session, studio_id: UUID, data) -> Payment:
 
         settings = db.get(StudioSettings, studio_id)
         if settings and settings.points_percent_per_payment is not None and settings.points_percent_per_payment > 0:
-            # Calculate points = (amount in cents / 100) * (percent / 100)
             amount_ils = obj.amount_cents / 100.0
-            points_earned = int(amount_ils * (settings.points_percent_per_payment / 100.0))
+            from app.crud.membership_tier import get_client_tier
+            tier = get_client_tier(db, studio_id, client.id)
+            multiplier = tier.points_multiplier if tier else 1.0
+            points_earned = int(amount_ils * (settings.points_percent_per_payment / 100.0) * multiplier)
             
             if points_earned > 0:
                 client.loyalty_points = int(client.loyalty_points or 0) + points_earned
@@ -265,23 +267,53 @@ def delete_payment(db: Session, studio_id: UUID, payment_id: UUID, with_appointm
                 seen_ids.add(e.id)
                 cashback_entries.append(e)
 
-    if cashback_entries:
-        client = db.get(Client, obj.client_id)
-        if client:
-            total_points_to_revert = sum(e.delta_points for e in cashback_entries)
-            client.loyalty_points = max(0, int(client.loyalty_points or 0) - total_points_to_revert)
-            for e in cashback_entries:
+    client = db.get(Client, obj.client_id)
+
+    if cashback_entries and client:
+        total_points_to_revert = sum(e.delta_points for e in cashback_entries)
+        client.loyalty_points = max(0, int(client.loyalty_points or 0) - total_points_to_revert)
+        for e in cashback_entries:
+            db.delete(e)
+
+    # 2. Restore redeemed points — find negative ledger entries for this appointment
+    if obj.appointment_id:
+        redeemed_entries = list(db.scalars(
+            select(ClientPointsLedger).where(
+                ClientPointsLedger.studio_id == studio_id,
+                ClientPointsLedger.client_id == obj.client_id,
+                ClientPointsLedger.appointment_id == obj.appointment_id,
+                ClientPointsLedger.reason.ilike("%redeemed%"),
+                ClientPointsLedger.delta_points < 0,
+            )
+        ).all())
+        if redeemed_entries and client:
+            total_to_restore = sum(abs(e.delta_points) for e in redeemed_entries)
+            client.loyalty_points = int(client.loyalty_points or 0) + total_to_restore
+            for e in redeemed_entries:
                 db.delete(e)
 
-    # 2. Restore birthday coupon if this payment had one applied
+        # Also delete the shadow "points payment" record created during create_payment
+        shadow = db.scalar(
+            select(Payment).where(
+                Payment.studio_id == studio_id,
+                Payment.appointment_id == obj.appointment_id,
+                Payment.client_id == obj.client_id,
+                Payment.notes.ilike("%מימש%"),
+                Payment.id != obj.id,
+            )
+        )
+        if shadow:
+            db.delete(shadow)
+
+    # 3. Restore birthday coupon if this payment had one applied
     from app.crud.birthday_coupon import restore_coupon
     restore_coupon(db, payment_id)
 
-    # 3. Delete the payment itself
+    # 4. Delete the payment itself
     appt_id = obj.appointment_id
     db.delete(obj)
 
-    # 3. Optionally delete the associated appointment
+    # 5. Optionally delete the associated appointment
     if with_appointment and appt_id:
         appt = db.scalar(select(Appointment).where(Appointment.id == appt_id, Appointment.studio_id == studio_id))
         if appt:
