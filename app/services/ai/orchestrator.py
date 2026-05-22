@@ -31,16 +31,24 @@ from app.services.ai.permissions import allowed_tools_for_role, is_forbidden_mes
 from app.services.ai.prompts import SECURITY_BLOCKED_RESPONSE, SYSTEM_PROMPT
 from app.services.ai.tools import ARTIST_TOOLS_SCHEMA, TOOLS_SCHEMA, execute_tool
 
-_MODEL = "gpt-4o-mini"
+_MODEL = "gemini-2.0-flash"
 _MAX_HISTORY = 10  # messages to include in context
 _MAX_TOOL_ROUNDS = 3
 
 
 def _get_client() -> AsyncOpenAI:
-    key = os.getenv("OPENAI_API_KEY")
-    if not key:
-        raise RuntimeError("OPENAI_API_KEY not set")
-    return AsyncOpenAI(api_key=key)
+    # Gemini via OpenAI-compatible endpoint (free tier: 1500 req/day)
+    gemini_key = os.getenv("GEMINI_API_KEY")
+    if gemini_key:
+        return AsyncOpenAI(
+            api_key=gemini_key,
+            base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+        )
+    # Fallback to OpenAI
+    openai_key = os.getenv("OPENAI_API_KEY")
+    if openai_key:
+        return AsyncOpenAI(api_key=openai_key)
+    raise RuntimeError("לא מוגדר GEMINI_API_KEY או OPENAI_API_KEY")
 
 
 def _build_system_prompt(studio_name: str, user_role: str, current_page: str) -> str:
@@ -98,6 +106,13 @@ async def chat_stream(
     # ── 3. Conversation ───────────────────────────────────────────────────────
     conv = get_or_create_conversation(db, studio_id, user_id, conversation_id)
     history = _load_history(db, conv)
+
+    # Validate API key early — fail fast before yielding conversation_id
+    has_key = bool(os.getenv("GEMINI_API_KEY") or os.getenv("OPENAI_API_KEY"))
+    if not has_key:
+        yield f"data: {json.dumps({'type': 'text', 'content': 'לא מוגדר GEMINI_API_KEY ב-Railway Variables. הוסף אותו כדי להפעיל את ויקי.'})}\n\n"
+        yield "data: [DONE]\n\n"
+        return
 
     # Send conversation ID to client so it can maintain continuity
     yield f"data: {json.dumps({'type': 'conversation_id', 'id': str(conv.id)})}\n\n"
