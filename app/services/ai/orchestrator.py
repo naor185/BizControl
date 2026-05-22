@@ -146,17 +146,6 @@ async def chat_stream(
     full_response = ""
     tools_used: list[str] = []
 
-    async def _call_with_retry(kwargs: dict, max_attempts: int = 3):
-        import asyncio
-        for attempt in range(max_attempts):
-            try:
-                return await client.chat.completions.create(**kwargs)
-            except Exception as e:
-                if ("429" in str(e) or "rate" in str(e).lower()) and attempt < max_attempts - 1:
-                    await asyncio.sleep(8 * (attempt + 1))  # 8s, 16s
-                    continue
-                raise
-
     try:
         for _round in range(_MAX_TOOL_ROUNDS):
             create_kwargs: dict = {
@@ -170,7 +159,7 @@ async def chat_stream(
                 create_kwargs["tools"] = tools
                 create_kwargs["tool_choice"] = "auto"
 
-            response = await _call_with_retry(create_kwargs)
+            response = await client.chat.completions.create(**create_kwargs)
             choice = response.choices[0]
             resp_message = choice.message
 
