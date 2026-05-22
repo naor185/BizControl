@@ -119,6 +119,7 @@ class AutomationSettingsOut(BaseModel):
 
     # Studio identifier (for landing page URL)
     studio_slug: str | None = None
+    studio_name: str | None = None
 
     # Treatment type templates
     treatment_types: list[TreatmentTypeTemplate] = []

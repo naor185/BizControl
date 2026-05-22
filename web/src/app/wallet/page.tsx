@@ -4,7 +4,7 @@ import { toast } from "@/lib/toast";
 import { useEffect, useState } from "react";
 import RequireAuth from "@/components/RequireAuth";
 import AppShell from "@/components/AppShell";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, API_BASE } from "@/lib/api";
 
 type Design = {
     background_color: string;
@@ -37,7 +37,7 @@ const DEFAULT_DESIGN: Design = {
     card_description: null,
 };
 
-function PremiumCardPreview({ d, studioName }: { d: Design; studioName: string }) {
+function PremiumCardPreview({ d, studioName, studioLogoUrl }: { d: Design; studioName: string; studioLogoUrl: string | null }) {
     const bg = d.background_color;
     const accent = d.strip_color;
 
@@ -88,8 +88,8 @@ function PremiumCardPreview({ d, studioName }: { d: Design; studioName: string }
                         </div>
 
                         {/* Logo / Studio initial */}
-                        {d.logo_url ? (
-                            <img src={d.logo_url} alt="logo"
+                        {(d.logo_url || studioLogoUrl) ? (
+                            <img src={d.logo_url || studioLogoUrl!} alt="logo"
                                 className="h-9 w-9 rounded-xl object-cover"
                                 style={{ boxShadow: `0 4px 12px ${accent}44` }} />
                         ) : (
@@ -204,6 +204,7 @@ function StatusPill({ configured, label }: { configured: boolean; label: string 
 export default function WalletDesignerPage() {
     const [design, setDesign] = useState<Design>(DEFAULT_DESIGN);
     const [studioName, setStudioName] = useState("הסטודיו שלי");
+    const [studioLogoUrl, setStudioLogoUrl] = useState<string | null>(null);
     const [walletStatus, setWalletStatus] = useState<WalletStatus>({ apple_configured: false, google_configured: false });
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
@@ -212,8 +213,9 @@ export default function WalletDesignerPage() {
         apiFetch<Design>("/api/wallet-design").then(d => {
             setDesign({ ...DEFAULT_DESIGN, ...d });
         }).catch(() => {});
-        apiFetch<{ name: string }>("/api/studios/me").then(s => {
-            setStudioName(s.name || "הסטודיו שלי");
+        apiFetch<{ studio_name?: string; logo_filename?: string | null }>("/api/studio/automation/settings").then(s => {
+            if (s.studio_name) setStudioName(s.studio_name);
+            if (s.logo_filename) setStudioLogoUrl(`${API_BASE}/uploads/${s.logo_filename}`);
         }).catch(() => {});
         apiFetch<WalletStatus>("/api/wallet-design/status").then(s => {
             setWalletStatus(s);
@@ -350,7 +352,7 @@ export default function WalletDesignerPage() {
                     {/* ── Live Preview ── */}
                     <div className="lg:sticky lg:top-6 flex flex-col items-center gap-5">
                         <div className="text-xs text-slate-500 font-bold uppercase tracking-widest">תצוגה מקדימה חיה</div>
-                        <PremiumCardPreview d={design} studioName={studioName} />
+                        <PremiumCardPreview d={design} studioName={studioName} studioLogoUrl={studioLogoUrl} />
                         <p className="text-[11px] text-slate-400 text-center max-w-70 leading-relaxed">
                             כרטיס זה יוצג ללקוחות בפורטל האישי.
                             כפתורי Apple Wallet ו-Google Wallet יופיעו אוטומטית כשהשירות יהיה פעיל.

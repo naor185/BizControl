@@ -21,6 +21,7 @@ import json as _json
 def _settings_to_out(settings, studio) -> AutomationSettingsOut:
     out = AutomationSettingsOut.model_validate(settings)
     out.studio_slug = studio.slug if studio else None
+    out.studio_name = studio.name if studio else None
     return out
 
 @router.get("", response_model=AutomationSettingsOut)
