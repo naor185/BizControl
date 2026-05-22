@@ -79,8 +79,9 @@ function MessageBubble({ msg }: { msg: Message }) {
     return (
         <div className={`flex ${isUser ? "justify-start" : "justify-end"} gap-2`}>
             {!isUser && (
-                <div className="w-7 h-7 rounded-full bg-linear-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-[11px] font-black shrink-0 mt-auto">
-                    AI
+                <div className="w-7 h-7 rounded-full flex items-center justify-center text-sm shrink-0 mt-auto"
+                    style={{ background: "linear-gradient(135deg, #4f46e5, #7c3aed)" }}>
+                    ✨
                 </div>
             )}
             <div className={`max-w-[82%] space-y-1`}>
@@ -317,11 +318,11 @@ export default function AIAssistant() {
                     >
                         <div className="flex items-center gap-3">
                             <div className="w-8 h-8 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center text-white font-black text-xs">
-                                AI
+                                ✨
                             </div>
                             <div>
-                                <div className="text-white font-bold text-sm leading-none">BizAssist</div>
-                                <div className="text-white/60 text-[10px] mt-0.5">עוזר עסקי חכם</div>
+                                <div className="text-white font-bold text-sm leading-none">ויקי</div>
+                                <div className="text-white/60 text-[10px] mt-0.5">העוזרת האישית שלך</div>
                             </div>
                         </div>
                         <div className="flex items-center gap-2">
@@ -347,20 +348,40 @@ export default function AIAssistant() {
                     {/* Messages */}
                     <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/50">
                         {showSuggestions ? (
-                            <div className="space-y-3">
-                                <p className="text-center text-xs text-slate-400 font-medium pt-2">
-                                    שלום! אני BizAssist — מה אפשר לעזור?
-                                </p>
-                                <div className="grid grid-cols-1 gap-2">
-                                    {suggestions.slice(0, 5).map((q, i) => (
-                                        <button
-                                            key={i}
-                                            onClick={() => sendMessage(q)}
-                                            className="text-right text-sm px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 transition-all text-ellipsis overflow-hidden whitespace-nowrap shadow-sm"
-                                        >
-                                            {q}
-                                        </button>
-                                    ))}
+                            <div className="space-y-4">
+                                {/* Welcome bubble */}
+                                <div className="flex justify-end gap-2 pt-1">
+                                    <div className="max-w-[88%]">
+                                        <div className="rounded-2xl rounded-br-sm px-4 py-3 bg-white border border-slate-100 shadow-sm text-sm text-slate-800 leading-relaxed">
+                                            היי, שלום לך! 👋<br />
+                                            אני <strong>ויקי</strong>, העוזרת האישית שלך.<br />
+                                            תוכל להתייעץ איתי על כל דבר שקשור למערכת ואעזור לך בשמחה.<br /><br />
+                                            <span className="text-slate-500">איך אפשר לעזור לך?</span>
+                                        </div>
+                                    </div>
+                                    <div className="w-7 h-7 rounded-full flex items-center justify-center text-sm shrink-0 mt-auto"
+                                        style={{ background: "linear-gradient(135deg, #4f46e5, #7c3aed)" }}>
+                                        ✨
+                                    </div>
+                                </div>
+
+                                {/* Quick template buttons */}
+                                <div className="space-y-1.5">
+                                    <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wide px-1">שאלות נפוצות</p>
+                                    <div className="grid grid-cols-1 gap-1.5">
+                                        {suggestions.slice(0, 5).map((q, i) => (
+                                            <button
+                                                key={i}
+                                                onClick={() => sendMessage(q)}
+                                                className="text-right text-sm px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 transition-all shadow-sm flex items-center gap-2"
+                                            >
+                                                <span className="text-base leading-none shrink-0">
+                                                    {["💰","📅","👥","💳","❓"][i] ?? "💬"}
+                                                </span>
+                                                <span className="truncate">{q}</span>
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
                             </div>
                         ) : (
@@ -417,7 +438,7 @@ export default function AIAssistant() {
                             )}
                         </div>
                         <p className="text-[10px] text-slate-400 text-center mt-1.5">
-                            BizAssist · AI · נתונים בזמן אמת מהמערכת
+                            ויקי · AI · נתונים בזמן אמת מהמערכת
                         </p>
                     </div>
                 </div>
