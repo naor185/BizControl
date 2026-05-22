@@ -33,6 +33,50 @@ from app.services.ai.prompts import SUGGESTED_QUESTIONS
 router = APIRouter(prefix="/ai", tags=["AI Assistant"])
 
 
+# ── Gemini connectivity test (no auth required) ───────────────────────────────
+
+@router.get("/ping")
+async def ai_ping():
+    """Quick Gemini reachability test — returns model response or error details."""
+    import os
+    from openai import AsyncOpenAI
+
+    gemini_key = os.getenv("GEMINI_API_KEY", "")
+    openai_key = os.getenv("OPENAI_API_KEY", "")
+
+    key = None
+    for k in (gemini_key, openai_key):
+        if k and k.startswith("AIza"):
+            key = k
+            break
+    if not key:
+        key = gemini_key or openai_key
+
+    if not key:
+        return {"ok": False, "error": "No API key found", "env_vars": list(os.environ.keys())}
+
+    is_gemini = key.startswith("AIza")
+    try:
+        client = AsyncOpenAI(
+            api_key=key,
+            base_url="https://generativelanguage.googleapis.com/v1beta/openai/" if is_gemini else None,
+        )
+        response = await client.chat.completions.create(
+            model="gemini-2.0-flash" if is_gemini else "gpt-4o-mini",
+            messages=[{"role": "user", "content": "Say 'OK' in one word."}],
+            max_tokens=10,
+        )
+        return {
+            "ok": True,
+            "model": response.model,
+            "content": response.choices[0].message.content,
+            "key_prefix": key[:8] + "...",
+            "using_gemini": is_gemini,
+        }
+    except Exception as e:
+        return {"ok": False, "error": str(e), "key_prefix": key[:8] + "...", "using_gemini": is_gemini}
+
+
 # ── Schemas ────────────────────────────────────────────────────────────────────
 
 class ChatRequest(BaseModel):
