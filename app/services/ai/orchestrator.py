@@ -39,13 +39,25 @@ _MAX_TOOL_ROUNDS = 3
 def _get_client() -> AsyncOpenAI:
     # Gemini via OpenAI-compatible endpoint (free tier: 1500 req/day)
     gemini_key = os.getenv("GEMINI_API_KEY")
+    openai_key = os.getenv("OPENAI_API_KEY")
+
+    # Auto-detect: keys starting with "AIza" are Google/Gemini keys
+    if gemini_key and gemini_key.startswith("AIza"):
+        return AsyncOpenAI(
+            api_key=gemini_key,
+            base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+        )
+    if openai_key and openai_key.startswith("AIza"):
+        # Gemini key was saved under the wrong variable name — handle gracefully
+        return AsyncOpenAI(
+            api_key=openai_key,
+            base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+        )
     if gemini_key:
         return AsyncOpenAI(
             api_key=gemini_key,
             base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
         )
-    # Fallback to OpenAI
-    openai_key = os.getenv("OPENAI_API_KEY")
     if openai_key:
         return AsyncOpenAI(api_key=openai_key)
     raise RuntimeError("לא מוגדר GEMINI_API_KEY או OPENAI_API_KEY")
@@ -109,6 +121,8 @@ async def chat_stream(
 
     # Validate API key early — fail fast before yielding conversation_id
     has_key = bool(os.getenv("GEMINI_API_KEY") or os.getenv("OPENAI_API_KEY"))
+    # Also accept OPENAI_API_KEY that holds a Gemini key (AIza prefix)
+    has_key = has_key or bool(os.getenv("OPENAI_API_KEY", "").startswith("AIza"))
     if not has_key:
         yield f"data: {json.dumps({'type': 'text', 'content': 'לא מוגדר GEMINI_API_KEY ב-Railway Variables. הוסף אותו כדי להפעיל את ויקי.'})}\n\n"
         yield "data: [DONE]\n\n"
