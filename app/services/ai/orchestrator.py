@@ -187,7 +187,10 @@ async def chat_stream(
 
             full_response += accumulated_text
 
-            if not tool_calls_raw or finish_reason == "stop":
+            # Only stop if no tool calls were made.
+            # Gemini sometimes sets finish_reason="stop" even while returning tool calls,
+            # so we can't rely on finish_reason to decide — we check tool_calls_raw instead.
+            if not tool_calls_raw:
                 break
 
             # ── Execute tools ──────────────────────────────────────────────
@@ -247,6 +250,12 @@ async def chat_stream(
         yield f"data: {json.dumps({'type': 'text', 'content': user_msg})}\n\n"
         yield "data: [DONE]\n\n"
         return
+
+    # If all rounds produced only tool calls and no text, send a fallback
+    if not full_response:
+        fallback = "קיבלתי את הנתונים אך לא הצלחתי לנסח תשובה. נסה לשאול מחדש."
+        yield f"data: {json.dumps({'type': 'text', 'content': fallback})}\n\n"
+        full_response = fallback
 
     # ── 6. Persist ────────────────────────────────────────────────────────────
     try:
