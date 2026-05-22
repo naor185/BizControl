@@ -111,107 +111,127 @@ async def chat_stream(
     ]
 
     tools = _tools_for_role(user_role)
-    client = _get_client()
+    try:
+        client = _get_client()
+    except RuntimeError as e:
+        yield f"data: {json.dumps({'type': 'text', 'content': f'שגיאה: {e}'})}\n\n"
+        yield "data: [DONE]\n\n"
+        return
 
     # ── 5. Streaming call + tool loop ─────────────────────────────────────────
     full_response = ""
     tools_used: list[str] = []
     total_tokens = 0
 
-    for _round in range(_MAX_TOOL_ROUNDS):
-        accumulated_text = ""
-        tool_calls_raw: dict[int, dict] = {}
-        finish_reason = None
+    try:
+        for _round in range(_MAX_TOOL_ROUNDS):
+            accumulated_text = ""
+            tool_calls_raw: dict[int, dict] = {}
+            finish_reason = None
 
-        stream = await client.chat.completions.create(
-            model=_MODEL,
-            messages=messages,
-            tools=tools if tools else [],
-            tool_choice="auto" if tools else "none",
-            stream=True,
-            max_tokens=800,
-            temperature=0.4,
-        )
+            create_kwargs: dict = {
+                "model": _MODEL,
+                "messages": messages,
+                "stream": True,
+                "max_tokens": 800,
+                "temperature": 0.4,
+            }
+            if tools:
+                create_kwargs["tools"] = tools
+                create_kwargs["tool_choice"] = "auto"
 
-        async for chunk in stream:
-            choice = chunk.choices[0] if chunk.choices else None
-            if not choice:
-                continue
+            stream = await client.chat.completions.create(**create_kwargs)
 
-            delta = choice.delta
-            finish_reason = choice.finish_reason
+            async for chunk in stream:
+                choice = chunk.choices[0] if chunk.choices else None
+                if not choice:
+                    continue
 
-            # Text token
-            if delta.content:
-                accumulated_text += delta.content
-                yield f"data: {json.dumps({'type': 'text', 'content': delta.content})}\n\n"
+                delta = choice.delta
+                finish_reason = choice.finish_reason
 
-            # Tool call accumulation
-            if delta.tool_calls:
-                for tc in delta.tool_calls:
-                    idx = tc.index
-                    if idx not in tool_calls_raw:
-                        tool_calls_raw[idx] = {
-                            "id": tc.id or str(uuid.uuid4()),
-                            "name": tc.function.name if tc.function else "",
-                            "args": "",
-                        }
-                    if tc.id:
-                        tool_calls_raw[idx]["id"] = tc.id
-                    if tc.function and tc.function.name:
-                        tool_calls_raw[idx]["name"] = tc.function.name
-                    if tc.function and tc.function.arguments:
-                        tool_calls_raw[idx]["args"] += tc.function.arguments
+                if delta.content:
+                    accumulated_text += delta.content
+                    yield f"data: {json.dumps({'type': 'text', 'content': delta.content})}\n\n"
 
-        full_response += accumulated_text
+                if delta.tool_calls:
+                    for tc in delta.tool_calls:
+                        idx = tc.index
+                        if idx not in tool_calls_raw:
+                            tool_calls_raw[idx] = {
+                                "id": tc.id or str(uuid.uuid4()),
+                                "name": tc.function.name if tc.function else "",
+                                "args": "",
+                            }
+                        if tc.id:
+                            tool_calls_raw[idx]["id"] = tc.id
+                        if tc.function and tc.function.name:
+                            tool_calls_raw[idx]["name"] = tc.function.name
+                        if tc.function and tc.function.arguments:
+                            tool_calls_raw[idx]["args"] += tc.function.arguments
 
-        # No tool calls — done
-        if not tool_calls_raw or finish_reason == "stop":
-            break
+            full_response += accumulated_text
 
-        # ── Execute tools ──────────────────────────────────────────────────
-        assistant_tool_calls = []
-        tool_results = []
+            if not tool_calls_raw or finish_reason == "stop":
+                break
 
-        for idx, tc in tool_calls_raw.items():
-            name = tc["name"]
-
-            # Permission check per tool
+            # ── Execute tools ──────────────────────────────────────────────
             from app.services.ai.permissions import can_use_tool
-            if not can_use_tool(user_role, name):
-                log_event(db, "blocked_tool", studio_id, user_id, {"tool": name})
+            assistant_tool_calls = []
+            tool_results = []
+
+            for idx, tc in tool_calls_raw.items():
+                name = tc["name"]
+
+                if not can_use_tool(user_role, name):
+                    log_event(db, "blocked_tool", studio_id, user_id, {"tool": name})
+                    tool_results.append({
+                        "role": "tool",
+                        "tool_call_id": tc["id"],
+                        "content": json.dumps({"error": "אין הרשאה להשתמש בכלי זה"}),
+                    })
+                    continue
+
+                tools_used.append(name)
+                log_event(db, "tool_call", studio_id, user_id, {"tool": name, "args": tc["args"][:500]})
+
+                try:
+                    args = json.loads(tc["args"] or "{}")
+                except json.JSONDecodeError:
+                    args = {}
+
+                result = execute_tool(name, args, studio_id, db)
+                yield f"data: {json.dumps({'type': 'tool', 'name': name})}\n\n"
+
+                assistant_tool_calls.append({
+                    "id": tc["id"],
+                    "type": "function",
+                    "function": {"name": name, "arguments": tc["args"] or "{}"},
+                })
                 tool_results.append({
                     "role": "tool",
                     "tool_call_id": tc["id"],
-                    "content": json.dumps({"error": "אין הרשאה להשתמש בכלי זה"}),
+                    "content": json.dumps(result, ensure_ascii=False),
                 })
-                continue
 
-            tools_used.append(name)
-            log_event(db, "tool_call", studio_id, user_id, {"tool": name, "args": tc["args"][:500]})
+            messages.append({"role": "assistant", "content": accumulated_text or None, "tool_calls": assistant_tool_calls})
+            messages.extend(tool_results)
 
-            try:
-                args = json.loads(tc["args"] or "{}")
-            except json.JSONDecodeError:
-                args = {}
-
-            result = execute_tool(name, args, studio_id, db)
-            yield f"data: {json.dumps({'type': 'tool', 'name': name})}\n\n"
-
-            assistant_tool_calls.append({
-                "id": tc["id"],
-                "type": "function",
-                "function": {"name": name, "arguments": tc["args"] or "{}"},
-            })
-            tool_results.append({
-                "role": "tool",
-                "tool_call_id": tc["id"],
-                "content": json.dumps(result, ensure_ascii=False),
-            })
-
-        # Add assistant + tool results to messages for next round
-        messages.append({"role": "assistant", "content": accumulated_text or None, "tool_calls": assistant_tool_calls})
-        messages.extend(tool_results)
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"AI chat error: {e}", exc_info=True)
+        err_msg = str(e)
+        if "api_key" in err_msg.lower() or "authentication" in err_msg.lower():
+            user_msg = "שגיאת אימות OpenAI — OPENAI_API_KEY לא תקין."
+        elif "rate" in err_msg.lower():
+            user_msg = "חרגת ממכסת ה-API. נסה שוב בעוד רגע."
+        elif "model" in err_msg.lower():
+            user_msg = "המודל לא זמין כרגע. נסה שוב."
+        else:
+            user_msg = "שגיאה זמנית. נסה שוב."
+        yield f"data: {json.dumps({'type': 'text', 'content': user_msg})}\n\n"
+        yield "data: [DONE]\n\n"
+        return
 
     # ── 6. Persist ────────────────────────────────────────────────────────────
     try:
