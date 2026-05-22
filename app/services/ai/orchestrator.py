@@ -2,16 +2,15 @@
 AI Orchestrator — handles the full chat pipeline:
   1. Security check on user message
   2. Build conversation history
-  3. Call OpenAI with tools (streaming)
-  4. Execute tool calls, re-call OpenAI for final answer
-  5. Stream response as SSE
+  3. Call Gemini/OpenAI (non-streaming for reliability with tool calls)
+  4. Execute tool calls, re-call for final answer
+  5. Emit response as SSE (word-by-word for typing feel)
   6. Persist conversation + audit log
 """
 from __future__ import annotations
 
 import json
 import os
-import uuid
 from datetime import datetime, timezone
 from typing import AsyncGenerator
 from uuid import UUID
@@ -23,36 +22,29 @@ from sqlalchemy import select
 from app.models.ai_conversation import AIConversation
 from app.models.ai_message import AIMessage
 from app.models.studio import Studio
-from app.models.user import User
 from app.services.ai.audit import (
     get_or_create_conversation, log_event, save_message, update_conversation_stats,
 )
-from app.services.ai.permissions import allowed_tools_for_role, is_forbidden_message
+from app.services.ai.permissions import allowed_tools_for_role, can_use_tool, is_forbidden_message
 from app.services.ai.prompts import SECURITY_BLOCKED_RESPONSE, SYSTEM_PROMPT
-from app.services.ai.tools import ARTIST_TOOLS_SCHEMA, TOOLS_SCHEMA, execute_tool
+from app.services.ai.tools import TOOLS_SCHEMA, execute_tool
 
 _MODEL = "gemini-2.0-flash"
-_MAX_HISTORY = 10  # messages to include in context
+_MAX_HISTORY = 10
 _MAX_TOOL_ROUNDS = 3
 
 
 def _get_client() -> AsyncOpenAI:
-    # Gemini via OpenAI-compatible endpoint (free tier: 1500 req/day)
     gemini_key = os.getenv("GEMINI_API_KEY")
     openai_key = os.getenv("OPENAI_API_KEY")
 
-    # Auto-detect: keys starting with "AIza" are Google/Gemini keys
-    if gemini_key and gemini_key.startswith("AIza"):
-        return AsyncOpenAI(
-            api_key=gemini_key,
-            base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
-        )
-    if openai_key and openai_key.startswith("AIza"):
-        # Gemini key was saved under the wrong variable name — handle gracefully
-        return AsyncOpenAI(
-            api_key=openai_key,
-            base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
-        )
+    # Keys starting with "AIza" are Google/Gemini keys
+    for key in (gemini_key, openai_key):
+        if key and key.startswith("AIza"):
+            return AsyncOpenAI(
+                api_key=key,
+                base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+            )
     if gemini_key:
         return AsyncOpenAI(
             api_key=gemini_key,
@@ -119,16 +111,16 @@ async def chat_stream(
     conv = get_or_create_conversation(db, studio_id, user_id, conversation_id)
     history = _load_history(db, conv)
 
-    # Validate API key early — fail fast before yielding conversation_id
-    has_key = bool(os.getenv("GEMINI_API_KEY") or os.getenv("OPENAI_API_KEY"))
-    # Also accept OPENAI_API_KEY that holds a Gemini key (AIza prefix)
-    has_key = has_key or bool(os.getenv("OPENAI_API_KEY", "").startswith("AIza"))
+    # Validate API key early
+    gemini_key = os.getenv("GEMINI_API_KEY", "")
+    openai_key = os.getenv("OPENAI_API_KEY", "")
+    has_key = bool(gemini_key or openai_key)
     if not has_key:
         yield f"data: {json.dumps({'type': 'text', 'content': 'לא מוגדר GEMINI_API_KEY ב-Railway Variables. הוסף אותו כדי להפעיל את ויקי.'})}\n\n"
         yield "data: [DONE]\n\n"
         return
 
-    # Send conversation ID to client so it can maintain continuity
+    # Send conversation ID to client
     yield f"data: {json.dumps({'type': 'conversation_id', 'id': str(conv.id)})}\n\n"
 
     # ── 4. Build messages ─────────────────────────────────────────────────────
@@ -140,95 +132,71 @@ async def chat_stream(
     ]
 
     tools = _tools_for_role(user_role)
+
     try:
         client = _get_client()
     except RuntimeError as e:
-        yield f"data: {json.dumps({'type': 'text', 'content': f'שגיאה: {e}'})}\n\n"
+        yield f"data: {json.dumps({'type': 'text', 'content': str(e)})}\n\n"
         yield "data: [DONE]\n\n"
         return
 
-    # ── 5. Streaming call + tool loop ─────────────────────────────────────────
+    # ── 5. Non-streaming call + tool loop ─────────────────────────────────────
+    # Using stream=False for reliability with Gemini tool calls.
+    # The final text response is emitted word-by-word to simulate typing.
     full_response = ""
     tools_used: list[str] = []
-    total_tokens = 0
 
     try:
         for _round in range(_MAX_TOOL_ROUNDS):
-            accumulated_text = ""
-            tool_calls_raw: dict[int, dict] = {}
-            finish_reason = None
-
             create_kwargs: dict = {
                 "model": _MODEL,
                 "messages": messages,
-                "stream": True,
-                "max_tokens": 800,
+                "stream": False,
+                "max_tokens": 1024,
                 "temperature": 0.4,
             }
             if tools:
                 create_kwargs["tools"] = tools
                 create_kwargs["tool_choice"] = "auto"
 
-            stream = await client.chat.completions.create(**create_kwargs)
+            response = await client.chat.completions.create(**create_kwargs)
+            choice = response.choices[0]
+            resp_message = choice.message
 
-            async for chunk in stream:
-                choice = chunk.choices[0] if chunk.choices else None
-                if not choice:
-                    continue
-
-                delta = choice.delta
-                finish_reason = choice.finish_reason
-
-                if delta.content:
-                    accumulated_text += delta.content
-                    yield f"data: {json.dumps({'type': 'text', 'content': delta.content})}\n\n"
-
-                if delta.tool_calls:
-                    for tc in delta.tool_calls:
-                        idx = tc.index
-                        if idx not in tool_calls_raw:
-                            tool_calls_raw[idx] = {
-                                "id": tc.id or str(uuid.uuid4()),
-                                "name": tc.function.name if tc.function else "",
-                                "args": "",
-                            }
-                        if tc.id:
-                            tool_calls_raw[idx]["id"] = tc.id
-                        if tc.function and tc.function.name:
-                            tool_calls_raw[idx]["name"] = tc.function.name
-                        if tc.function and tc.function.arguments:
-                            tool_calls_raw[idx]["args"] += tc.function.arguments
-
-            full_response += accumulated_text
-
-            # Only stop if no tool calls were made.
-            # Gemini sometimes sets finish_reason="stop" even while returning tool calls,
-            # so we can't rely on finish_reason to decide — we check tool_calls_raw instead.
-            if not tool_calls_raw:
+            # ── No tool calls → final answer ───────────────────────────────
+            if not resp_message.tool_calls:
+                full_response = resp_message.content or ""
+                if full_response:
+                    # Emit word-by-word for typing animation
+                    words = full_response.split(" ")
+                    for word in words:
+                        yield f"data: {json.dumps({'type': 'text', 'content': word + ' '})}\n\n"
                 break
 
-            # ── Execute tools ──────────────────────────────────────────────
-            from app.services.ai.permissions import can_use_tool
+            # ── Execute tool calls ─────────────────────────────────────────
             assistant_tool_calls = []
             tool_results = []
 
-            for idx, tc in tool_calls_raw.items():
-                name = tc["name"]
+            for tc in resp_message.tool_calls:
+                name = tc.function.name
 
                 if not can_use_tool(user_role, name):
                     log_event(db, "blocked_tool", studio_id, user_id, {"tool": name})
                     tool_results.append({
                         "role": "tool",
-                        "tool_call_id": tc["id"],
+                        "tool_call_id": tc.id,
                         "content": json.dumps({"error": "אין הרשאה להשתמש בכלי זה"}),
                     })
                     continue
 
                 tools_used.append(name)
-                log_event(db, "tool_call", studio_id, user_id, {"tool": name, "args": tc["args"][:500]})
+                log_event(db, "tool_call", studio_id, user_id, {
+                    "tool": name,
+                    "args": tc.function.arguments[:500],
+                })
 
                 try:
-                    args = json.loads(tc["args"] or "{}")
+                    args = json.loads(tc.function.arguments or "{}")
                 except json.JSONDecodeError:
                     args = {}
 
@@ -236,36 +204,39 @@ async def chat_stream(
                 yield f"data: {json.dumps({'type': 'tool', 'name': name})}\n\n"
 
                 assistant_tool_calls.append({
-                    "id": tc["id"],
+                    "id": tc.id,
                     "type": "function",
-                    "function": {"name": name, "arguments": tc["args"] or "{}"},
+                    "function": {"name": name, "arguments": tc.function.arguments or "{}"},
                 })
                 tool_results.append({
                     "role": "tool",
-                    "tool_call_id": tc["id"],
+                    "tool_call_id": tc.id,
                     "content": json.dumps(result, ensure_ascii=False),
                 })
 
-            messages.append({"role": "assistant", "content": accumulated_text or None, "tool_calls": assistant_tool_calls})
+            messages.append({
+                "role": "assistant",
+                "content": resp_message.content,
+                "tool_calls": assistant_tool_calls,
+            })
             messages.extend(tool_results)
 
     except Exception as e:
         import logging
-        logging.getLogger(__name__).error(f"AI chat error: {e}", exc_info=True)
+        logging.getLogger(__name__).error("AI chat error: %s", e, exc_info=True)
         err_msg = str(e)
-        if "api_key" in err_msg.lower() or "authentication" in err_msg.lower():
-            user_msg = "שגיאת אימות OpenAI — OPENAI_API_KEY לא תקין."
-        elif "rate" in err_msg.lower():
+        if "api_key" in err_msg.lower() or "authentication" in err_msg.lower() or "401" in err_msg:
+            user_msg = "שגיאת אימות — מפתח ה-API לא תקין. בדוק את GEMINI_API_KEY ב-Railway."
+        elif "rate" in err_msg.lower() or "429" in err_msg:
             user_msg = "חרגת ממכסת ה-API. נסה שוב בעוד רגע."
         elif "model" in err_msg.lower():
             user_msg = "המודל לא זמין כרגע. נסה שוב."
         else:
-            user_msg = "שגיאה זמנית. נסה שוב."
+            user_msg = f"שגיאה: {err_msg[:120]}"
         yield f"data: {json.dumps({'type': 'text', 'content': user_msg})}\n\n"
         yield "data: [DONE]\n\n"
         return
 
-    # If all rounds produced only tool calls and no text, send a fallback
     if not full_response:
         fallback = "קיבלתי את הנתונים אך לא הצלחתי לנסח תשובה. נסה לשאול מחדש."
         yield f"data: {json.dumps({'type': 'text', 'content': fallback})}\n\n"
@@ -275,7 +246,7 @@ async def chat_stream(
     try:
         save_message(db, conv.id, "user", message)
         save_message(db, conv.id, "assistant", full_response, tools_used=tools_used or None)
-        update_conversation_stats(db, conv, added_messages=2, added_tokens=total_tokens)
+        update_conversation_stats(db, conv, added_messages=2, added_tokens=0)
         log_event(db, "message", studio_id, user_id, {
             "question": message[:200],
             "tools": tools_used,
@@ -283,6 +254,6 @@ async def chat_stream(
         })
         db.commit()
     except Exception:
-        pass  # persistence failures must not crash streaming
+        pass
 
     yield "data: [DONE]\n\n"
