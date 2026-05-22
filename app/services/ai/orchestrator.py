@@ -29,30 +29,42 @@ from app.services.ai.permissions import allowed_tools_for_role, can_use_tool, is
 from app.services.ai.prompts import SECURITY_BLOCKED_RESPONSE, SYSTEM_PROMPT
 from app.services.ai.tools import TOOLS_SCHEMA, execute_tool
 
-_MODEL = "gemini-2.0-flash"
 _MAX_HISTORY = 10
 _MAX_TOOL_ROUNDS = 3
 
 
-def _get_client() -> AsyncOpenAI:
+def _get_client() -> tuple[AsyncOpenAI, str]:
+    """Returns (client, model_name)."""
+    groq_key = os.getenv("GROQ_API_KEY")
+    if groq_key:
+        return (
+            AsyncOpenAI(api_key=groq_key, base_url="https://api.groq.com/openai/v1"),
+            "llama-3.3-70b-versatile",
+        )
+
     gemini_key = os.getenv("GEMINI_API_KEY")
     openai_key = os.getenv("OPENAI_API_KEY")
 
-    # Keys starting with "AIza" are Google/Gemini keys
     for key in (gemini_key, openai_key):
         if key and key.startswith("AIza"):
-            return AsyncOpenAI(
-                api_key=key,
-                base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+            return (
+                AsyncOpenAI(
+                    api_key=key,
+                    base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+                ),
+                "gemini-2.0-flash",
             )
     if gemini_key:
-        return AsyncOpenAI(
-            api_key=gemini_key,
-            base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+        return (
+            AsyncOpenAI(
+                api_key=gemini_key,
+                base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+            ),
+            "gemini-2.0-flash",
         )
     if openai_key:
-        return AsyncOpenAI(api_key=openai_key)
-    raise RuntimeError("לא מוגדר GEMINI_API_KEY או OPENAI_API_KEY")
+        return AsyncOpenAI(api_key=openai_key), "gpt-4o-mini"
+    raise RuntimeError("לא מוגדר GROQ_API_KEY / GEMINI_API_KEY / OPENAI_API_KEY")
 
 
 def _build_system_prompt(studio_name: str, user_role: str, current_page: str) -> str:
@@ -112,11 +124,13 @@ async def chat_stream(
     history = _load_history(db, conv)
 
     # Validate API key early
-    gemini_key = os.getenv("GEMINI_API_KEY", "")
-    openai_key = os.getenv("OPENAI_API_KEY", "")
-    has_key = bool(gemini_key or openai_key)
+    has_key = bool(
+        os.getenv("GROQ_API_KEY")
+        or os.getenv("GEMINI_API_KEY")
+        or os.getenv("OPENAI_API_KEY")
+    )
     if not has_key:
-        yield f"data: {json.dumps({'type': 'text', 'content': 'לא מוגדר GEMINI_API_KEY ב-Railway Variables. הוסף אותו כדי להפעיל את ויקי.'})}\n\n"
+        yield f"data: {json.dumps({'type': 'text', 'content': 'לא מוגדר מפתח API. הוסף GROQ_API_KEY או GEMINI_API_KEY ב-Railway Variables.'})}\n\n"
         yield "data: [DONE]\n\n"
         return
 
@@ -134,7 +148,7 @@ async def chat_stream(
     tools = _tools_for_role(user_role)
 
     try:
-        client = _get_client()
+        client, model = _get_client()
     except RuntimeError as e:
         yield f"data: {json.dumps({'type': 'text', 'content': str(e)})}\n\n"
         yield "data: [DONE]\n\n"
@@ -149,7 +163,7 @@ async def chat_stream(
     try:
         for _round in range(_MAX_TOOL_ROUNDS):
             create_kwargs: dict = {
-                "model": _MODEL,
+                "model": model,
                 "messages": messages,
                 "stream": False,
                 "max_tokens": 1024,
