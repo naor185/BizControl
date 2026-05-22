@@ -626,6 +626,12 @@ export default function AdminPage() {
                             {t === "studios" ? "🏢 סטודיואים" : t === "contacts" ? "👥 אנשי קשר" : t === "leads" ? "📥 לידים" : t === "audit" ? "📋 לוג פעולות" : "⚙️ פלטפורמה"}
                         </button>
                     ))}
+                    <a
+                        href="/admin/wallet"
+                        className="px-4 py-2 rounded-xl text-sm font-semibold transition-colors text-slate-400 hover:text-white"
+                    >
+                        💳 Wallet System
+                    </a>
                 </div>
 
                 {err && (

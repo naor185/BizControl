@@ -314,56 +314,129 @@ export default function PortalDashboardPage() {
 
                 {/* ── Card tab ── */}
                 {tab === "card" && card && (
-                    <div className="space-y-4">
-                        <div className="rounded-3xl overflow-hidden shadow-2xl"
-                            style={{ background: card.background_color, color: card.text_color }}>
-                            <div className="h-3 w-full" style={{ background: card.strip_color }} />
-                            <div className="px-6 py-5 space-y-4">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <div className="text-[10px] font-bold uppercase tracking-widest opacity-60" style={{ color: card.label_color }}>מועדון לקוחות</div>
-                                        <div className="text-lg font-black leading-tight mt-0.5">{card.card_title || card.studio_name}</div>
+                    <div className="space-y-5">
+
+                        {/* Premium Card */}
+                        <div
+                            className="relative w-full rounded-3xl overflow-hidden select-none"
+                            style={{
+                                aspectRatio: "1.586 / 1",
+                                background: `linear-gradient(135deg, ${card.background_color} 0%, ${card.background_color}ee 55%, ${card.strip_color}28 100%)`,
+                                color: card.text_color,
+                                boxShadow: `0 32px 64px -16px ${card.background_color}cc, 0 8px 32px -8px ${card.strip_color}55, inset 0 1px 0 rgba(255,255,255,0.07)`,
+                            }}
+                        >
+                            {/* Holographic sheen */}
+                            <div className="absolute inset-0 pointer-events-none"
+                                style={{ background: "linear-gradient(110deg, transparent 25%, rgba(255,255,255,0.055) 50%, transparent 75%)" }} />
+
+                            {/* Radial corner glow */}
+                            <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full pointer-events-none"
+                                style={{ background: `radial-gradient(circle, ${card.strip_color}35, transparent 70%)` }} />
+
+                            {/* Top accent line */}
+                            <div className="absolute top-0 left-0 right-0 h-0.75"
+                                style={{ background: `linear-gradient(90deg, ${card.strip_color}00, ${card.strip_color}cc, ${card.strip_color}00)` }} />
+
+                            <div className="relative h-full flex flex-col justify-between p-5">
+                                {/* Top row: EMV chip + logo */}
+                                <div className="flex items-start justify-between">
+                                    <div
+                                        className="w-9 h-6 rounded-md relative overflow-hidden"
+                                        style={{
+                                            background: `linear-gradient(135deg, ${card.strip_color}bb, ${card.label_color}88)`,
+                                            boxShadow: "inset 0 1px 0 rgba(255,255,255,0.25), 0 2px 6px rgba(0,0,0,0.4)",
+                                        }}
+                                    >
+                                        <div className="absolute inset-0 grid grid-cols-2 gap-px p-1 opacity-50">
+                                            {[0,1,2,3].map(i => (
+                                                <div key={i} className="rounded-sm" style={{ background: "rgba(255,255,255,0.4)" }} />
+                                            ))}
+                                        </div>
+                                        <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-px" style={{ background: "rgba(255,255,255,0.2)" }} />
                                     </div>
                                     {card.logo_url ? (
-                                        <img src={card.logo_url} alt="logo" className="w-12 h-12 rounded-xl object-cover" />
+                                        <img src={card.logo_url} alt="logo"
+                                            className="h-9 w-9 rounded-xl object-cover"
+                                            style={{ boxShadow: `0 4px 12px ${card.strip_color}44` }} />
                                     ) : (
-                                        <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl" style={{ background: card.strip_color }}>💎</div>
+                                        <div
+                                            className="h-9 w-9 rounded-xl flex items-center justify-center font-black text-base"
+                                            style={{
+                                                background: `linear-gradient(135deg, ${card.strip_color}55, ${card.strip_color}22)`,
+                                                border: `1px solid ${card.strip_color}55`,
+                                            }}
+                                        >
+                                            {(card.card_title || card.studio_name)?.[0]?.toUpperCase() ?? "●"}
+                                        </div>
                                     )}
                                 </div>
-                                <div className="flex gap-6">
-                                    <div>
-                                        <div className="text-[10px] font-bold uppercase tracking-widest opacity-50" style={{ color: card.label_color }}>שם חבר/ה</div>
-                                        <div className="text-base font-bold">{card.full_name}</div>
+
+                                {/* Studio name */}
+                                <div>
+                                    <div className="text-[9px] font-bold uppercase tracking-[0.22em] opacity-50"
+                                        style={{ color: card.label_color }}>מועדון לקוחות</div>
+                                    <div className="text-[15px] font-black tracking-wide mt-0.5">
+                                        {card.card_title || card.studio_name}
                                     </div>
-                                    <div>
-                                        <div className="text-[10px] font-bold uppercase tracking-widest opacity-50" style={{ color: card.label_color }}>נקודות</div>
-                                        <div className="text-2xl font-black">{card.loyalty_points.toLocaleString()}</div>
-                                    </div>
-                                    {tier && (
+                                </div>
+
+                                {/* Bottom: member info + QR */}
+                                <div className="flex items-end justify-between gap-3">
+                                    <div className="space-y-1.5 min-w-0 flex-1">
                                         <div>
-                                            <div className="text-[10px] font-bold uppercase tracking-widest opacity-50" style={{ color: card.label_color }}>דרגה</div>
-                                            <div className="text-base font-bold">{tier.icon} {tier.name}</div>
+                                            <div className="text-[8px] font-bold uppercase tracking-widest opacity-40"
+                                                style={{ color: card.label_color }}>שם חבר/ה</div>
+                                            <div className="text-[12px] font-bold truncate mt-0.5">{card.full_name}</div>
+                                        </div>
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <div>
+                                                <div className="text-[8px] font-bold uppercase tracking-widest opacity-40"
+                                                    style={{ color: card.label_color }}>נקודות</div>
+                                                <div className="text-xl font-black leading-none mt-0.5">
+                                                    {card.loyalty_points.toLocaleString()}
+                                                </div>
+                                            </div>
+                                            {tier && (
+                                                <div
+                                                    className="text-[10px] font-black px-2 py-0.5 rounded-full"
+                                                    style={{
+                                                        background: `${tier.color}2a`,
+                                                        border: `1px solid ${tier.color}44`,
+                                                        color: tier.color,
+                                                    }}
+                                                >
+                                                    {tier.icon} {tier.name}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* QR Code */}
+                                    {qrDataUrl && (
+                                        <div className="shrink-0 rounded-xl overflow-hidden p-1.5 shadow-lg"
+                                            style={{ background: "rgba(255,255,255,0.92)" }}>
+                                            <img src={qrDataUrl} alt="QR" className="w-14 h-14 block" />
                                         </div>
                                     )}
                                 </div>
-                                {qrDataUrl && (
-                                    <div className="flex justify-center pt-1">
-                                        <div className="rounded-2xl p-3 bg-white">
-                                            <img src={qrDataUrl} alt="QR" className="w-32 h-32" />
-                                        </div>
-                                    </div>
-                                )}
                             </div>
-                            <div className="h-1.5 w-full opacity-50" style={{ background: card.strip_color }} />
+
+                            {/* Bottom glow line */}
+                            <div className="absolute bottom-0 left-0 right-0 h-px"
+                                style={{ background: `linear-gradient(90deg, transparent, ${card.strip_color}77, transparent)` }} />
                         </div>
 
+                        {/* Wallet buttons */}
                         {(card.apple_wallet_enabled || card.google_wallet_enabled) && (
                             <div className="space-y-2">
-                                <div className="text-xs text-slate-500 text-center font-medium">הוסף לארנק הדיגיטלי</div>
+                                <div className="text-[11px] text-slate-500 text-center font-bold uppercase tracking-widest">
+                                    הוסף לארנק הדיגיטלי
+                                </div>
                                 {card.apple_wallet_enabled && card.apple_wallet_url && (
                                     <a href={card.apple_wallet_url} target="_blank" rel="noreferrer"
-                                        className="flex items-center justify-center gap-3 w-full py-3.5 rounded-2xl font-bold text-sm"
-                                        style={{ background: "#000", color: "#fff" }}>
+                                        className="flex items-center justify-center gap-3 w-full py-4 rounded-2xl font-bold text-sm transition-all active:scale-[0.98]"
+                                        style={{ background: "#000", color: "#fff", boxShadow: "0 4px 16px rgba(0,0,0,0.4)" }}>
                                         <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
                                             <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" />
                                         </svg>
@@ -372,16 +445,11 @@ export default function PortalDashboardPage() {
                                 )}
                                 {card.google_wallet_enabled && card.google_wallet_url && (
                                     <a href={card.google_wallet_url} target="_blank" rel="noreferrer"
-                                        className="flex items-center justify-center gap-3 w-full py-3.5 rounded-2xl font-bold text-sm"
-                                        style={{ background: "#1a73e8", color: "#fff" }}>
+                                        className="flex items-center justify-center gap-3 w-full py-4 rounded-2xl font-bold text-sm transition-all active:scale-[0.98]"
+                                        style={{ background: "#1a73e8", color: "#fff", boxShadow: "0 4px 16px rgba(26,115,232,0.4)" }}>
                                         הוסף ל-Google Wallet
                                     </a>
                                 )}
-                            </div>
-                        )}
-                        {!card.apple_wallet_enabled && !card.google_wallet_enabled && (
-                            <div className="text-center py-4 text-xs text-slate-600 bg-white/5 rounded-2xl border border-white/10">
-                                כפתורי Wallet יופיעו כאשר הסטודיו יפעיל את האינטגרציה
                             </div>
                         )}
                     </div>

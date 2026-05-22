@@ -10,6 +10,7 @@ Studio staff can:
 """
 from __future__ import annotations
 
+import os
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -165,6 +166,21 @@ def scan_card(
 
 
 # ── Design endpoints ───────────────────────────────────────────────────────────
+
+@design_router.get("/status")
+def get_wallet_status(_ctx: AuthContext = Depends(require_studio_ctx)):
+    """Return whether Apple/Google Wallet is globally configured (env vars set)."""
+    apple = all([
+        os.getenv("APPLE_WALLET_PASS_TYPE_ID"),
+        os.getenv("APPLE_WALLET_TEAM_ID"),
+        os.getenv("APPLE_WALLET_CERT_PEM"),
+    ])
+    google = all([
+        os.getenv("GOOGLE_WALLET_SERVICE_ACCOUNT_JSON"),
+        os.getenv("GOOGLE_WALLET_ISSUER_ID"),
+    ])
+    return {"apple_configured": apple, "google_configured": google}
+
 
 @design_router.get("", response_model=DesignOut)
 def get_wallet_design(

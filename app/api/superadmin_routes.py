@@ -1373,6 +1373,32 @@ def global_appointments(
     ]
 
 
+@router.get("/wallet-system", tags=["SuperAdmin"])
+def wallet_system_status(_admin: User = Depends(require_superadmin)):
+    """Return status of all Wallet environment variables — superadmin only."""
+    apple_vars = {
+        "APPLE_WALLET_PASS_TYPE_ID": bool(os.getenv("APPLE_WALLET_PASS_TYPE_ID")),
+        "APPLE_WALLET_TEAM_ID": bool(os.getenv("APPLE_WALLET_TEAM_ID")),
+        "APPLE_WALLET_CERT_PEM": bool(os.getenv("APPLE_WALLET_CERT_PEM")),
+        "APPLE_WALLET_CERT_KEY_PEM": bool(os.getenv("APPLE_WALLET_CERT_KEY_PEM")),
+        "APPLE_WALLET_WWDR_PEM": bool(os.getenv("APPLE_WALLET_WWDR_PEM")),
+    }
+    google_vars = {
+        "GOOGLE_WALLET_SERVICE_ACCOUNT_JSON": bool(os.getenv("GOOGLE_WALLET_SERVICE_ACCOUNT_JSON")),
+        "GOOGLE_WALLET_ISSUER_ID": bool(os.getenv("GOOGLE_WALLET_ISSUER_ID")),
+    }
+    return {
+        "apple": {
+            "configured": all(apple_vars.values()),
+            "vars": apple_vars,
+        },
+        "google": {
+            "configured": all(google_vars.values()),
+            "vars": google_vars,
+        },
+    }
+
+
 @router.delete("/studios/{studio_id}/clients", tags=["SuperAdmin"])
 def delete_all_studio_clients(studio_id: str, _admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
     from app.models.client_points_ledger import ClientPointsLedger
