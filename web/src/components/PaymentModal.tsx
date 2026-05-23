@@ -32,6 +32,12 @@ export default function PaymentModal({ isOpen, onClose, onSuccess, appointment }
     const [selectedProducts, setSelectedProducts] = useState<{ product_id: string; quantity: number; name: string; price: number; discount: number }[]>([]);
     const [showProductPicker, setShowProductPicker] = useState(false);
 
+    const [couponCode, setCouponCode] = useState("");
+    const [couponDiscount, setCouponDiscount] = useState(0);
+    const [couponLoading, setCouponLoading] = useState(false);
+    const [couponError, setCouponError] = useState("");
+    const [couponValid, setCouponValid] = useState(false);
+
     useEffect(() => {
         if (appointment && isOpen) {
             setAmount((appointment.remaining_cents / 100).toFixed(0));
@@ -41,6 +47,10 @@ export default function PaymentModal({ isOpen, onClose, onSuccess, appointment }
             setMethod("cash");
             setType("payment");
             setSelectedProducts([]);
+            setCouponCode("");
+            setCouponDiscount(0);
+            setCouponError("");
+            setCouponValid(false);
             getProducts().then(setAllProducts).catch(console.error);
         }
     }, [appointment, isOpen]);
@@ -51,12 +61,33 @@ export default function PaymentModal({ isOpen, onClose, onSuccess, appointment }
     // 1 point = 1 ₪ discount
     const maxRedeem = Math.min(availablePoints, Math.round(parseFloat(amount || "0")));
     const discountAmount = usePoints ? pointsRedeemed : 0;
-    const cashAmount = Math.max(0, parseFloat(amount || "0") - discountAmount);
+    const couponDiscountAmount = couponValid && couponDiscount > 0
+        ? parseFloat(amount || "0") * couponDiscount / 100
+        : 0;
+    const cashAmount = Math.max(0, parseFloat(amount || "0") - discountAmount - couponDiscountAmount);
     const totalDisplay = parseFloat(amount || "0");
 
     const handlePointsChange = (val: number) => {
         const clamped = Math.max(0, Math.min(val, maxRedeem));
         setPointsRedeemed(clamped);
+    };
+
+    const validateCoupon = async () => {
+        if (!couponCode.trim()) return;
+        setCouponLoading(true);
+        setCouponError("");
+        try {
+            const res = await apiFetch(`/api/coupons/validate?code=${encodeURIComponent(couponCode.trim())}`);
+            setCouponDiscount(res.discount_percent);
+            setCouponValid(true);
+            setCouponError("");
+        } catch {
+            setCouponDiscount(0);
+            setCouponValid(false);
+            setCouponError("קוד קופון לא תקין, כבר נוצל, או פג תוקפו");
+        } finally {
+            setCouponLoading(false);
+        }
     };
 
     const handleSave = async () => {
@@ -68,13 +99,14 @@ export default function PaymentModal({ isOpen, onClose, onSuccess, appointment }
                 body: JSON.stringify({
                     appointment_id: appointment.appointment_id,
                     client_id: appointment.client_id,
-                    amount_cents: Math.round(cashAmount * 100),
+                    amount_cents: Math.round(parseFloat(amount || "0") * 100),
                     points_redeemed: usePoints ? pointsRedeemed : 0,
                     currency: "ILS",
                     type,
                     method,
                     status: "paid",
                     notes,
+                    coupon_code: couponValid && couponCode.trim() ? couponCode.trim().toUpperCase() : null,
                     product_items: selectedProducts.map(p => ({
                         product_id: p.product_id,
                         quantity: p.quantity,
@@ -204,16 +236,24 @@ export default function PaymentModal({ isOpen, onClose, onSuccess, appointment }
                     )}
 
                     {/* Live Breakdown */}
-                    {usePoints && pointsRedeemed > 0 && (
+                    {((usePoints && pointsRedeemed > 0) || (couponValid && couponDiscount > 0)) && (
                         <div className="bg-emerald-50 border border-emerald-100 rounded-xl px-4 py-3 space-y-1.5">
                             <div className="flex justify-between text-sm text-slate-600">
                                 <span>{totalDisplay} ₪</span>
                                 <span>סה"כ מחיר</span>
                             </div>
-                            <div className="flex justify-between text-sm text-amber-600 font-bold">
-                                <span>- {pointsRedeemed} ₪</span>
-                                <span>הנחת נקודות ⭐</span>
-                            </div>
+                            {couponValid && couponDiscount > 0 && (
+                                <div className="flex justify-between text-sm text-indigo-600 font-bold">
+                                    <span>- {couponDiscountAmount.toFixed(0)} ₪</span>
+                                    <span>הנחת קופון 🎟️ ({couponDiscount}%)</span>
+                                </div>
+                            )}
+                            {usePoints && pointsRedeemed > 0 && (
+                                <div className="flex justify-between text-sm text-amber-600 font-bold">
+                                    <span>- {pointsRedeemed} ₪</span>
+                                    <span>הנחת נקודות ⭐</span>
+                                </div>
+                            )}
                             <div className="h-px bg-emerald-200" />
                             <div className="flex justify-between text-base font-black text-emerald-700">
                                 <span>{cashAmount.toFixed(0)} ₪</span>
@@ -276,6 +316,38 @@ export default function PaymentModal({ isOpen, onClose, onSuccess, appointment }
                         ))}
                     </div>
 
+                    {/* Coupon Code */}
+                    <div className={`rounded-2xl border-2 transition-all overflow-hidden ${couponValid ? "border-green-400 bg-green-50" : "border-slate-100 bg-slate-50"}`}>
+                        <div className="px-4 py-3">
+                            <p className="text-[11px] font-bold text-slate-600 mb-2 text-right">🎟️ קוד קופון (אופציונלי)</p>
+                            <div className="flex gap-2" dir="ltr">
+                                <button
+                                    type="button"
+                                    onClick={validateCoupon}
+                                    disabled={couponLoading || !couponCode.trim() || couponValid}
+                                    className="px-3 py-2 bg-indigo-600 text-white text-xs font-bold rounded-xl disabled:opacity-50 shrink-0"
+                                >
+                                    {couponLoading ? "..." : couponValid ? "✓" : "אמת"}
+                                </button>
+                                <input
+                                    type="text"
+                                    value={couponCode}
+                                    onChange={e => { setCouponCode(e.target.value.toUpperCase()); setCouponValid(false); setCouponDiscount(0); setCouponError(""); }}
+                                    onKeyDown={e => e.key === "Enter" && validateCoupon()}
+                                    placeholder="NOA10"
+                                    className="flex-1 bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-indigo-400 text-left tracking-widest"
+                                    dir="ltr"
+                                />
+                            </div>
+                            {couponValid && (
+                                <p className="text-xs text-green-700 font-bold mt-1 text-right">✅ קופון תקין — {couponDiscount}% הנחה ({couponDiscountAmount.toFixed(0)} ₪)</p>
+                            )}
+                            {couponError && (
+                                <p className="text-xs text-red-500 mt-1 text-right">{couponError}</p>
+                            )}
+                        </div>
+                    </div>
+
                     {/* Notes */}
                     <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={1}
                         placeholder="הערות לתיעוד (אופציונלי)..."
@@ -289,7 +361,11 @@ export default function PaymentModal({ isOpen, onClose, onSuccess, appointment }
                     </button>
                     <button onClick={handleSave} disabled={isSaving || (!amount && !usePoints)}
                         className="flex-[2] py-2.5 bg-sky-600 hover:bg-sky-700 text-white text-sm font-bold rounded-xl shadow-lg transition-all disabled:opacity-50">
-                        {isSaving ? "שומר..." : `אישור תשלום${usePoints && pointsRedeemed > 0 ? ` (${cashAmount.toFixed(0)} ₪ + ${pointsRedeemed} ⭐)` : ""} ✅`}
+                        {isSaving ? "שומר..." : (
+                            (usePoints && pointsRedeemed > 0) || (couponValid && couponDiscount > 0)
+                                ? `אישור תשלום (${cashAmount.toFixed(0)} ₪) ✅`
+                                : "אישור תשלום ✅"
+                        )}
                     </button>
                 </div>
             </div>
