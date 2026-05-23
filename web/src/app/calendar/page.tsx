@@ -195,6 +195,9 @@ export default function CalendarPage() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedEventId, setSelectedEventId] = useState<string | null>(null); // null = Creating new
 
+    // Past-date confirmation
+    const [pastDateConfirm, setPastDateConfirm] = useState<null | { onConfirm: () => void; onCancel: () => void }>(null);
+
     // Delete Modal State
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [deleteReason, setDeleteReason] = useState("");
@@ -441,27 +444,65 @@ export default function CalendarPage() {
             return;
         }
 
-        // Update appointment time on drag & drop
-        const eventId = dropInfo.event.id;
-        try {
-            await apiFetch(`/api/appointments/${eventId}`, {
-                method: "PATCH",
-                body: JSON.stringify({
-                    starts_at: dropInfo.event.startStr,
-                    ends_at: dropInfo.event.endStr,
-                })
+        const doMove = async () => {
+            const eventId = dropInfo.event.id;
+            try {
+                await apiFetch(`/api/appointments/${eventId}`, {
+                    method: "PATCH",
+                    body: JSON.stringify({
+                        starts_at: dropInfo.event.startStr,
+                        ends_at: dropInfo.event.endStr,
+                    })
+                });
+                setAppointments(prev => prev.map(a => a.id === eventId ? { ...a, starts_at: dropInfo.event.startStr, ends_at: dropInfo.event.endStr } : a));
+            } catch (e: any) {
+                setToast({message: "שגיאה בהזזת התור: " + (e?.message || ""), type: "error"});
+                dropInfo.revert();
+            }
+        };
+
+        const newStart = new Date(dropInfo.event.startStr);
+        if (newStart < new Date()) {
+            dropInfo.revert(); // visually revert while we ask
+            setPastDateConfirm({
+                onConfirm: async () => {
+                    setPastDateConfirm(null);
+                    // Re-apply the move via API (UI already reverted visually, just save)
+                    const eventId = dropInfo.event.id;
+                    try {
+                        await apiFetch(`/api/appointments/${eventId}`, {
+                            method: "PATCH",
+                            body: JSON.stringify({
+                                starts_at: dropInfo.event.startStr,
+                                ends_at: dropInfo.event.endStr,
+                            })
+                        });
+                        setAppointments(prev => prev.map(a => a.id === eventId ? { ...a, starts_at: dropInfo.event.startStr, ends_at: dropInfo.event.endStr } : a));
+                        showToast("התור הוזז לתאריך שעבר");
+                    } catch (e: any) {
+                        setToast({message: "שגיאה בהזזת התור: " + (e?.message || ""), type: "error"});
+                    }
+                },
+                onCancel: () => setPastDateConfirm(null),
             });
-            // Update local state smoothly
-            setAppointments(prev => prev.map(a => a.id === eventId ? { ...a, starts_at: dropInfo.event.startStr, ends_at: dropInfo.event.endStr } : a));
-        } catch (e: any) {
-            setToast({message: "שגיאה בהזזת התור: " + (e?.message || ""), type: "error"});
-            dropInfo.revert(); // revert visual change on failure
+            return;
         }
+
+        await doMove();
     };
 
-    const handleSaveAppointment = async () => {
+    const handleSaveAppointment = async (skipPastCheck = false) => {
         if (!title || !startAt || !endAt || !artistId || !clientId) {
             setToast({message: "יש למלא את כל שדות החובה: כותרת, זמנים, מקעקע ולקוח.", type: "error"});
+            return;
+        }
+
+        const chosenStart = new Date(startAt);
+        if (!skipPastCheck && chosenStart < new Date()) {
+            setPastDateConfirm({
+                onConfirm: () => { setPastDateConfirm(null); handleSaveAppointment(true); },
+                onCancel: () => setPastDateConfirm(null),
+            });
             return;
         }
 
@@ -478,15 +519,13 @@ export default function CalendarPage() {
             };
 
             if (selectedEventId) {
-                // UPDATE
                 await apiFetch(`/api/appointments/${selectedEventId}`, { method: "PATCH", body: JSON.stringify(body) });
             } else {
-                // CREATE
                 await apiFetch("/api/appointments", { method: "POST", body: JSON.stringify(body) });
             }
 
             setIsModalOpen(false);
-            loadData(); // reload
+            loadData();
         } catch (e: any) {
             setToast({message: e?.message || "שגיאה בשמירת התור", type: "error"});
         }
@@ -1250,6 +1289,37 @@ export default function CalendarPage() {
                     onSuccess={handlePaymentSuccess}
                     appointment={paymentAppt}
                 />
+
+                {/* Past-date confirmation dialog */}
+                {pastDateConfirm && (
+                    <div className="fixed inset-0 z-9999 flex items-center justify-center bg-black/40" dir="rtl">
+                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden">
+                            <div className="bg-amber-50 border-b border-amber-200 px-5 py-4 flex items-start gap-3">
+                                <span className="text-2xl mt-0.5">⚠️</span>
+                                <div>
+                                    <div className="font-bold text-amber-900 text-base">תאריך שעבר</div>
+                                    <div className="text-sm text-amber-700 mt-1">
+                                        התאריך שבחרת כבר עבר. האם אתה בטוח שברצונך לשמור תור בעבר?
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="flex gap-3 px-5 py-4">
+                                <button
+                                    onClick={pastDateConfirm.onCancel}
+                                    className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-700 font-semibold text-sm hover:bg-slate-50 transition-colors"
+                                >
+                                    ביטול
+                                </button>
+                                <button
+                                    onClick={pastDateConfirm.onConfirm}
+                                    className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm transition-colors"
+                                >
+                                    כן, שמור בכל זאת
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
             </AppShell>
         </RequireAuth>
