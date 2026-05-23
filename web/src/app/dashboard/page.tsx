@@ -10,6 +10,18 @@ import {
     ResponsiveContainer,
 } from "recharts";
 
+type PendingPayment = {
+    appointment_id: string;
+    client_id: string;
+    client_name: string;
+    client_phone: string;
+    starts_at: string;
+    total_price_cents: number;
+    paid_cents: number;
+    remaining_cents: number;
+    payment_sent_at: string | null;
+};
+
 type DailyPayment = {
     appointment_id: string;
     client_id: string;
@@ -41,6 +53,8 @@ const fmt = (n: number) =>
 export default function Page() {
     const [stats, setStats] = useState<DashboardStats | null>(null);
     const [dailyPayments, setDailyPayments] = useState<DailyPayment[]>([]);
+    const [pendingPayments, setPendingPayments] = useState<PendingPayment[]>([]);
+    const [pendingExpanded, setPendingExpanded] = useState(false);
     const [analytics, setAnalytics] = useState<Analytics | null>(null);
     const [loading, setLoading] = useState(true);
     const [tab, setTab] = useState<"today" | "analytics">("today");
@@ -51,12 +65,14 @@ export default function Page() {
     const fetchData = async () => {
         try {
             setLoading(true);
-            const [statsData, paymentsData] = await Promise.all([
+            const [statsData, paymentsData, pendingData] = await Promise.all([
                 apiFetch<DashboardStats>("/api/dashboard/stats"),
                 apiFetch<DailyPayment[]>("/api/dashboard/daily-payments"),
+                apiFetch<PendingPayment[]>("/api/dashboard/pending-payments"),
             ]);
             setStats(statsData);
             setDailyPayments(paymentsData);
+            setPendingPayments(pendingData);
         } catch {
             setError("שגיאה בטעינת נתונים");
         } finally {
@@ -110,13 +126,54 @@ export default function Page() {
                                 <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">הכנסה החודש</div>
                                 <div className="text-3xl font-bold text-slate-800" dir="ltr">{fmt(stats.total_revenue_cents / 100)}</div>
                             </div>
-                            {stats.pending_payment_verifications > 0 && (
-                                <div className="col-span-2 lg:col-span-3 rounded-2xl border-2 border-amber-400 bg-amber-50 p-5 flex items-center gap-4">
-                                    <span className="text-3xl">⚠️</span>
-                                    <div>
-                                        <div className="font-bold text-amber-900">{stats.pending_payment_verifications} דיווחי תשלום ממתינים לאישור</div>
-                                        <div className="text-sm text-amber-700">לקוחות שסימנו "שילמתי" — אמת בטאב היומי</div>
-                                    </div>
+                            {pendingPayments.length > 0 && (
+                                <div className="col-span-2 lg:col-span-3 rounded-2xl border-2 border-amber-400 bg-amber-50 overflow-hidden">
+                                    <button
+                                        onClick={() => setPendingExpanded(o => !o)}
+                                        className="w-full p-5 flex items-center gap-4 text-right hover:bg-amber-100/60 transition-colors"
+                                    >
+                                        <span className="text-3xl">⚠️</span>
+                                        <div className="flex-1">
+                                            <div className="font-bold text-amber-900">{pendingPayments.length} דיווחי תשלום ממתינים לאישור</div>
+                                            <div className="text-sm text-amber-700">לקוחות שסימנו "שילמתי" — לחץ לפירוט</div>
+                                        </div>
+                                        <span className="text-amber-600 text-sm font-semibold">{pendingExpanded ? "▲ סגור" : "▼ פרוס"}</span>
+                                    </button>
+                                    {pendingExpanded && (
+                                        <div className="border-t border-amber-300 divide-y divide-amber-200">
+                                            {pendingPayments.map(p => (
+                                                <div key={p.appointment_id} className="px-5 py-3 flex items-center gap-4 bg-white/60">
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="font-semibold text-slate-800">{p.client_name}</div>
+                                                        <div className="text-xs text-slate-500">{p.client_phone} · {new Date(p.starts_at).toLocaleDateString("he-IL")}</div>
+                                                    </div>
+                                                    <div className="text-right shrink-0">
+                                                        <div className="font-bold text-rose-600" dir="ltr">{fmt(p.remaining_cents / 100)}</div>
+                                                        <div className="text-xs text-slate-400">נותר לתשלום</div>
+                                                    </div>
+                                                    <div className="flex gap-2 shrink-0">
+                                                        <a
+                                                            href={`/clients/${p.client_id}`}
+                                                            className="px-3 py-1.5 bg-slate-800 text-white text-xs font-semibold rounded-lg hover:bg-slate-700 transition"
+                                                        >
+                                                            פתח לקוח
+                                                        </a>
+                                                        <button
+                                                            onClick={async () => {
+                                                                if (confirm(`לאשר קבלת תשלום מ-${p.client_name}?`)) {
+                                                                    await apiFetch(`/api/appointments/${p.appointment_id}/verify-payment`, { method: "POST" });
+                                                                    fetchData();
+                                                                }
+                                                            }}
+                                                            className="px-3 py-1.5 bg-emerald-600 text-white text-xs font-semibold rounded-lg hover:bg-emerald-700 transition"
+                                                        >
+                                                            אשר ✅
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>

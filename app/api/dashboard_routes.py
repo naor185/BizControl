@@ -204,6 +204,45 @@ def get_daily_payments(ctx: AuthContext = Depends(require_studio_ctx), db: Sessi
     return data
 
 
+@router.get("/pending-payments")
+def get_pending_payments(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+    """All appointments where client reported payment but studio hasn't verified yet."""
+    stmt = (
+        select(Appointment, Client)
+        .join(Client, Client.id == Appointment.client_id)
+        .where(
+            Appointment.studio_id == ctx.studio_id,
+            Appointment.payment_sent_at.is_not(None),
+            Appointment.payment_verified_at.is_(None),
+            Appointment.status != "canceled",
+        )
+        .order_by(Appointment.payment_sent_at.desc())
+    )
+    results = db.execute(stmt).all()
+
+    data = []
+    for appt, client in results:
+        paid_cents = db.scalar(
+            select(func.sum(Payment.amount_cents)).where(
+                Payment.appointment_id == appt.id,
+                Payment.status == "paid",
+                Payment.type != "refund",
+            )
+        ) or 0
+        data.append({
+            "appointment_id": str(appt.id),
+            "client_id": str(client.id),
+            "client_name": client.full_name,
+            "client_phone": client.phone or "",
+            "starts_at": appt.starts_at.isoformat(),
+            "total_price_cents": appt.total_price_cents,
+            "paid_cents": paid_cents,
+            "remaining_cents": max(0, appt.total_price_cents - paid_cents),
+            "payment_sent_at": appt.payment_sent_at.isoformat() if appt.payment_sent_at else None,
+        })
+    return data
+
+
 @router.get("/analytics")
 def get_analytics(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
     """Deep analytics: revenue/appointments by month, artist performance, busiest days."""
