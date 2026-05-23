@@ -38,28 +38,34 @@ _MAX_TOOL_ROUNDS = 3
 
 
 def _get_client() -> tuple[AsyncOpenAI, str]:
-    """Returns (client, model_name)."""
-    groq_key = os.getenv("GROQ_API_KEY")
-    gemini_key = os.getenv("GEMINI_API_KEY")
-    openai_key = os.getenv("OPENAI_API_KEY")
+    """Returns (client, model_name).
+    Priority: Groq (gsk_) → Gemini (AIza) → OpenAI
+    Detects provider by key prefix, regardless of which env var holds it.
+    """
+    groq_key = os.getenv("GROQ_API_KEY", "")
+    gemini_key = os.getenv("GEMINI_API_KEY", "")
+    openai_key = os.getenv("OPENAI_API_KEY", "")
 
     _logger.info(
         "AI provider env check — GROQ_API_KEY=%s GEMINI_API_KEY=%s OPENAI_API_KEY=%s",
-        "SET" if groq_key else "NOT SET",
-        "SET" if gemini_key else "NOT SET",
-        "SET" if openai_key else "NOT SET",
+        f"SET({groq_key[:6]})" if groq_key else "NOT SET",
+        f"SET({gemini_key[:6]})" if gemini_key else "NOT SET",
+        f"SET({openai_key[:6]})" if openai_key else "NOT SET",
     )
 
-    if groq_key:
-        _logger.info("AI provider: Groq / llama-3.3-70b-versatile")
-        return (
-            AsyncOpenAI(api_key=groq_key, base_url="https://api.groq.com/openai/v1"),
-            "llama-3.3-70b-versatile",
-        )
+    # Detect Groq key by prefix (gsk_) — works from any variable
+    for key in (groq_key, openai_key, gemini_key):
+        if key and key.startswith("gsk_"):
+            _logger.info("AI provider: Groq / llama-3.3-70b-versatile")
+            return (
+                AsyncOpenAI(api_key=key, base_url="https://api.groq.com/openai/v1"),
+                "llama-3.3-70b-versatile",
+            )
 
+    # Detect Gemini key by prefix (AIza)
     for key in (gemini_key, openai_key):
         if key and key.startswith("AIza"):
-            _logger.info("AI provider: Gemini 2.0 Flash (AIza key)")
+            _logger.info("AI provider: Gemini 2.0 Flash")
             return (
                 AsyncOpenAI(
                     api_key=key,
@@ -67,18 +73,11 @@ def _get_client() -> tuple[AsyncOpenAI, str]:
                 ),
                 "gemini-2.0-flash",
             )
-    if gemini_key:
-        _logger.info("AI provider: Gemini 2.0 Flash (GEMINI_API_KEY)")
-        return (
-            AsyncOpenAI(
-                api_key=gemini_key,
-                base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
-            ),
-            "gemini-2.0-flash",
-        )
+
     if openai_key:
         _logger.info("AI provider: OpenAI gpt-4o-mini")
         return AsyncOpenAI(api_key=openai_key), "gpt-4o-mini"
+
     raise RuntimeError("לא מוגדר GROQ_API_KEY / GEMINI_API_KEY / OPENAI_API_KEY")
 
 
