@@ -210,23 +210,33 @@ export default function PosPage() {
 
     const removeItem = (key: string) => setCart(prev => prev.filter(i => i.key !== key));
 
-    const subtotal = cart.reduce((s, i) => s + i.unit_price_cents * i.quantity, 0);
+    const pendingCents = Math.max(0, Math.round(parseFloat(manualPrice || "0") * 100));
+    const subtotal = cart.reduce((s, i) => s + i.unit_price_cents * i.quantity, 0) + pendingCents;
     const discountCents = Math.min(subtotal, Math.max(0, Math.round(parseFloat(discount || "0") * 100)));
     const total = subtotal - discountCents;
 
     const handleCheckout = async () => {
-        if (cart.length === 0) { toast.error("העגלה ריקה"); return; }
+        if (cart.length === 0 && pendingCents === 0) { toast.error("הוסף פריט או סכום לגבייה"); return; }
         setLoading(true);
         try {
+            const pendingItem = pendingCents > 0 ? [{
+                product_id: null,
+                description: manualDesc.trim() || "שירות",
+                quantity: 1,
+                unit_price_cents: pendingCents,
+            }] : [];
             const txn = await apiFetch<TransactionOut>("/api/pos/checkout", {
                 method: "POST",
                 body: JSON.stringify({
-                    items: cart.map(i => ({
-                        product_id: i.product_id,
-                        description: i.description,
-                        quantity: i.quantity,
-                        unit_price_cents: i.unit_price_cents,
-                    })),
+                    items: [
+                        ...cart.map(i => ({
+                            product_id: i.product_id,
+                            description: i.description,
+                            quantity: i.quantity,
+                            unit_price_cents: i.unit_price_cents,
+                        })),
+                        ...pendingItem,
+                    ],
                     method,
                     client_id: client?.id || null,
                     discount_cents: discountCents,
@@ -237,6 +247,8 @@ export default function PosPage() {
             setClient(null);
             setClientSearch("");
             setDiscount("");
+            setManualDesc("");
+            setManualPrice("");
         } catch (e: unknown) {
             const msg = e instanceof Error ? e.message : "שגיאה בעיבוד העסקה";
             toast.error(msg);
