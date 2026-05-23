@@ -178,7 +178,7 @@ export default function PosPage() {
                 product_id: product.id,
                 description: product.name,
                 quantity: 1,
-                unit_price_cents: Math.round(product.price * 100),
+                unit_price_cents: Math.round(Number(product.price) * 100),
             }];
         });
     };
@@ -304,7 +304,7 @@ export default function PosPage() {
                                         </div>
                                     )}
                                     <div className="font-semibold text-slate-800 text-sm leading-tight truncate">{product.name}</div>
-                                    <div className="text-emerald-700 font-bold mt-1">₪{product.price.toFixed(2)}</div>
+                                    <div className="text-emerald-700 font-bold mt-1">₪{Number(product.price).toFixed(2)}</div>
                                     <div className={`text-[10px] mt-0.5 ${product.stock_quantity <= 3 ? "text-rose-500" : "text-slate-400"}`}>
                                         {product.stock_quantity === 0 ? "אזל המלאי" : `${product.stock_quantity} במלאי`}
                                     </div>
