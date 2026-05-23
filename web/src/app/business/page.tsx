@@ -262,7 +262,6 @@ export default function BusinessPage() {
                                     </div>
                                 </div>
                             ))}
-                        </div>
 
                             {/* Change PIN option */}
                             <div className="mt-6 border-t pt-6">
