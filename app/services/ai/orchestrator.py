@@ -15,9 +15,13 @@ from datetime import datetime, timezone
 from typing import AsyncGenerator
 from uuid import UUID
 
+import logging as _logging
+
 from openai import AsyncOpenAI
 from sqlalchemy.orm import Session
 from sqlalchemy import select
+
+_logger = _logging.getLogger(__name__)
 
 from app.models.ai_conversation import AIConversation
 from app.models.ai_message import AIMessage
@@ -36,17 +40,26 @@ _MAX_TOOL_ROUNDS = 3
 def _get_client() -> tuple[AsyncOpenAI, str]:
     """Returns (client, model_name)."""
     groq_key = os.getenv("GROQ_API_KEY")
+    gemini_key = os.getenv("GEMINI_API_KEY")
+    openai_key = os.getenv("OPENAI_API_KEY")
+
+    _logger.info(
+        "AI provider env check — GROQ_API_KEY=%s GEMINI_API_KEY=%s OPENAI_API_KEY=%s",
+        "SET" if groq_key else "NOT SET",
+        "SET" if gemini_key else "NOT SET",
+        "SET" if openai_key else "NOT SET",
+    )
+
     if groq_key:
+        _logger.info("AI provider: Groq / llama-3.3-70b-versatile")
         return (
             AsyncOpenAI(api_key=groq_key, base_url="https://api.groq.com/openai/v1"),
             "llama-3.3-70b-versatile",
         )
 
-    gemini_key = os.getenv("GEMINI_API_KEY")
-    openai_key = os.getenv("OPENAI_API_KEY")
-
     for key in (gemini_key, openai_key):
         if key and key.startswith("AIza"):
+            _logger.info("AI provider: Gemini 2.0 Flash (AIza key)")
             return (
                 AsyncOpenAI(
                     api_key=key,
@@ -55,6 +68,7 @@ def _get_client() -> tuple[AsyncOpenAI, str]:
                 "gemini-2.0-flash",
             )
     if gemini_key:
+        _logger.info("AI provider: Gemini 2.0 Flash (GEMINI_API_KEY)")
         return (
             AsyncOpenAI(
                 api_key=gemini_key,
@@ -63,6 +77,7 @@ def _get_client() -> tuple[AsyncOpenAI, str]:
             "gemini-2.0-flash",
         )
     if openai_key:
+        _logger.info("AI provider: OpenAI gpt-4o-mini")
         return AsyncOpenAI(api_key=openai_key), "gpt-4o-mini"
     raise RuntimeError("לא מוגדר GROQ_API_KEY / GEMINI_API_KEY / OPENAI_API_KEY")
 
@@ -236,8 +251,7 @@ async def chat_stream(
             messages.extend(tool_results)
 
     except Exception as e:
-        import logging
-        logging.getLogger(__name__).error("AI chat error: %s", e, exc_info=True)
+        _logger.error("AI chat error (model=%s): %s", model, e, exc_info=True)
         err_msg = str(e)
         if "api_key" in err_msg.lower() or "authentication" in err_msg.lower() or "401" in err_msg:
             user_msg = "שגיאת אימות — מפתח ה-API לא תקין. בדוק את GEMINI_API_KEY ב-Railway."
