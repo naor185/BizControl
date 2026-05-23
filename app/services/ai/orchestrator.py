@@ -254,13 +254,13 @@ async def chat_stream(
         _logger.error("AI chat error (model=%s): %s", model, e, exc_info=True)
         err_msg = str(e)
         if "api_key" in err_msg.lower() or "authentication" in err_msg.lower() or "401" in err_msg:
-            user_msg = "שגיאת אימות — מפתח ה-API לא תקין. בדוק את GEMINI_API_KEY ב-Railway."
+            user_msg = f"[{model}] שגיאת אימות — מפתח ה-API לא תקין."
         elif "rate" in err_msg.lower() or "429" in err_msg:
-            user_msg = "חרגת ממכסת ה-API. נסה שוב בעוד רגע."
+            user_msg = f"[{model}] חרגת ממכסת ה-API. נסה שוב בעוד רגע."
         elif "model" in err_msg.lower():
-            user_msg = "המודל לא זמין כרגע. נסה שוב."
+            user_msg = f"[{model}] המודל לא זמין כרגע."
         else:
-            user_msg = f"שגיאה: {err_msg[:120]}"
+            user_msg = f"[{model}] שגיאה: {err_msg[:120]}"
         yield f"data: {json.dumps({'type': 'text', 'content': user_msg})}\n\n"
         yield "data: [DONE]\n\n"
         return
