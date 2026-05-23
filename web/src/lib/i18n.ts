@@ -15,7 +15,7 @@ export const translations = {
         nav_dashboard:  "לוח בקרה",
         nav_clients:    "לקוחות",
         nav_club:       "מועדון VIP",
-        nav_team:       "צוות ומקעקעים",
+        nav_team:       "ניהול צוות",
         nav_payroll:    "דוחות שכר",
         nav_messages:   "יומן הודעות",
         nav_payments:   "תשלומים",

@@ -18,21 +18,59 @@ type Section = {
     color: string;
 };
 
-const SECTIONS: Section[] = [
-    { href: "/team", label: "צוות ועובדים", description: "ניהול עובדים, הרשאות וצוות", icon: "👥", color: "from-blue-500 to-blue-600" },
-    { href: "/team/payroll", label: "דוחות שכר", description: "שכר שעתי, עמלות ותשלומים לעובדים", icon: "💰", color: "from-emerald-500 to-emerald-600" },
-    { href: "/payments", label: "תשלומים", description: "היסטוריית תשלומים ואישורים", icon: "💳", color: "from-violet-500 to-violet-600" },
-    { href: "/expenses", label: "ניהול הוצאות", description: "הוצאות עסקיות, קטגוריות ודוחות", icon: "📊", color: "from-orange-500 to-orange-600" },
-    { href: "/products", label: "מוצרים ומלאי", description: "קטלוג מוצרים, מחירים ומלאי", icon: "📦", color: "from-sky-500 to-sky-600" },
-    { href: "/message-log", label: "יומן הודעות", description: "כל ההודעות שנשלחו ללקוחות", icon: "💬", color: "from-pink-500 to-pink-600" },
-    { href: "/booking-requests", label: "בקשות תורים", description: "בקשות ממתינות לאישור", icon: "🔔", color: "from-amber-500 to-amber-600" },
-    { href: "/inbox", label: "תיבת הודעות", description: "הודעות נכנסות ממסרים", icon: "📬", color: "from-teal-500 to-teal-600" },
-    { href: "/automation", label: "אוטומציה והגדרות", description: "כללי אוטומציה, הגדרות מערכת ושילובים", icon: "⚙️", color: "from-slate-500 to-slate-600" },
-    { href: "/leads", label: "לידים", description: "מעקב פניות ולקוחות פוטנציאליים", icon: "🎯", color: "from-rose-500 to-rose-600" },
-    { href: "/stamps", label: "כרטיסי מועדון", description: "כרטיסיות חותמות ותוכנית נאמנות", icon: "🎁", color: "from-purple-500 to-purple-600" },
-    { href: "/billing", label: "מנוי וחיוב", description: "תוכנית מנוי ופרטי חיוב", icon: "🏦", color: "from-indigo-500 to-indigo-600" },
-    { href: "/help", label: "מרכז עזרה", description: "מדריכים, תמיכה ויצירת קשר", icon: "🆘", color: "from-gray-500 to-gray-600" },
+type SectionGroup = {
+    groupLabel: string;
+    items: Section[];
+};
+
+const SECTION_GROUPS: SectionGroup[] = [
+    {
+        groupLabel: "כספים",
+        items: [
+            { href: "/payments", label: "תשלומים", description: "היסטוריית תשלומים ואישורים", icon: "💳", color: "from-violet-500 to-violet-600" },
+            { href: "/expenses", label: "הוצאות עסקיות", description: "הוצאות, קטגוריות ודוחות", icon: "📊", color: "from-orange-500 to-orange-600" },
+            { href: "/billing", label: "מנוי וחיוב", description: "תוכנית מנוי ופרטי חיוב", icon: "🏦", color: "from-indigo-500 to-indigo-600" },
+        ],
+    },
+    {
+        groupLabel: "צוות",
+        items: [
+            { href: "/team", label: "ניהול צוות", description: "עובדים, הרשאות וגדרות אישיות", icon: "👥", color: "from-blue-500 to-blue-600" },
+            { href: "/team/payroll", label: "דוחות שכר", description: "שכר שעתי, עמלות ותשלומים", icon: "💰", color: "from-emerald-500 to-emerald-600" },
+        ],
+    },
+    {
+        groupLabel: "תקשורת ולידים",
+        items: [
+            { href: "/inbox", label: "תיבת הודעות", description: "הודעות נכנסות מלקוחות", icon: "📬", color: "from-teal-500 to-teal-600" },
+            { href: "/message-log", label: "יומן הודעות", description: "כל ההודעות שנשלחו", icon: "💬", color: "from-pink-500 to-pink-600" },
+            { href: "/booking-requests", label: "בקשות תורים", description: "בקשות ממתינות לאישור", icon: "🔔", color: "from-amber-500 to-amber-600" },
+            { href: "/leads", label: "לידים", description: "מעקב פניות ולקוחות פוטנציאליים", icon: "🎯", color: "from-rose-500 to-rose-600" },
+        ],
+    },
+    {
+        groupLabel: "מוצרים ומלאי",
+        items: [
+            { href: "/products", label: "מוצרים ומלאי", description: "קטלוג מוצרים, מחירים ומלאי", icon: "📦", color: "from-sky-500 to-sky-600" },
+        ],
+    },
+    {
+        groupLabel: "מועדון לקוחות",
+        items: [
+            { href: "/stamps", label: "כרטיסי מועדון", description: "כרטיסיות חותמות ותוכנית נאמנות", icon: "🎁", color: "from-purple-500 to-purple-600" },
+        ],
+    },
+    {
+        groupLabel: "הגדרות מערכת",
+        items: [
+            { href: "/automation", label: "הגדרות", description: "מיתוג, אוטומציות, תשלומים, אינטגרציות ועוד", icon: "⚙️", color: "from-slate-500 to-slate-600" },
+            { href: "/help", label: "מרכז עזרה", description: "מדריכים, תמיכה ויצירת קשר", icon: "🆘", color: "from-gray-500 to-gray-600" },
+        ],
+    },
 ];
+
+// Flat list for other uses
+const SECTIONS: Section[] = SECTION_GROUPS.flatMap(g => g.items);
 
 export default function BusinessPage() {
     const router = useRouter();
@@ -122,11 +160,11 @@ export default function BusinessPage() {
     return (
         <RequireAuth>
             <AppShell>
-                <div className="min-h-full bg-gradient-to-br from-slate-50 to-slate-100" dir="rtl">
+                <div className="min-h-full bg-linear-to-br from-slate-50 to-slate-100" dir="rtl">
 
                     {/* Header */}
                     <div className="bg-white border-b px-6 py-5 flex items-center gap-4">
-                        <div className="w-10 h-10 bg-gradient-to-br from-violet-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-md shadow-violet-500/30 shrink-0">
+                        <div className="w-10 h-10 bg-linear-to-br from-violet-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-md shadow-violet-500/30 shrink-0">
                             {unlocked ? (
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="text-white">
                                     <rect x="5" y="11" width="14" height="10" rx="2" stroke="currentColor" strokeWidth="2" fill="none" />
@@ -163,7 +201,7 @@ export default function BusinessPage() {
                     {/* Locked state */}
                     {!unlocked && (
                         <div className="flex flex-col items-center justify-center py-24 px-6 text-center">
-                            <div className="w-20 h-20 bg-gradient-to-br from-violet-500 to-indigo-600 rounded-3xl flex items-center justify-center mb-6 shadow-xl shadow-violet-500/30">
+                            <div className="w-20 h-20 bg-linear-to-br from-violet-500 to-indigo-600 rounded-3xl flex items-center justify-center mb-6 shadow-xl shadow-violet-500/30">
                                 <svg width="36" height="36" viewBox="0 0 24 24" fill="none" className="text-white">
                                     <rect x="5" y="11" width="14" height="10" rx="2" stroke="currentColor" strokeWidth="2" fill="none" />
                                     <path d="M8 11V7a4 4 0 0 1 8 0v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
@@ -179,7 +217,7 @@ export default function BusinessPage() {
 
                             <button
                                 onClick={handleUnlockClick}
-                                className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-bold px-8 py-4 rounded-2xl text-base shadow-lg shadow-violet-500/30 active:scale-95 transition-all"
+                                className="bg-linear-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-bold px-8 py-4 rounded-2xl text-base shadow-lg shadow-violet-500/30 active:scale-95 transition-all"
                             >
                                 {pinStatus.has_pin ? "🔓 הזן PIN לכניסה" : "🔑 הגדר PIN"}
                             </button>
@@ -199,24 +237,32 @@ export default function BusinessPage() {
                         </div>
                     )}
 
-                    {/* Unlocked — sections grid */}
+                    {/* Unlocked — grouped sections */}
                     {unlocked && (
-                        <div className="p-6">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                                {SECTIONS.map(section => (
-                                    <button
-                                        key={section.href}
-                                        onClick={() => router.push(section.href)}
-                                        className="bg-white rounded-2xl border border-slate-200 p-5 text-right hover:shadow-lg hover:border-violet-200 hover:-translate-y-0.5 transition-all group"
-                                    >
-                                        <div className={`w-12 h-12 bg-gradient-to-br ${section.color} rounded-xl flex items-center justify-center text-xl mb-4 shadow-md group-hover:scale-110 transition-transform`}>
-                                            {section.icon}
-                                        </div>
-                                        <div className="font-bold text-slate-900 text-sm mb-1">{section.label}</div>
-                                        <div className="text-xs text-slate-500 leading-relaxed">{section.description}</div>
-                                    </button>
-                                ))}
-                            </div>
+                        <div className="p-6 space-y-8">
+                            {SECTION_GROUPS.map(group => (
+                                <div key={group.groupLabel}>
+                                    <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 px-1">
+                                        {group.groupLabel}
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                                        {group.items.map(section => (
+                                            <button
+                                                key={section.href}
+                                                onClick={() => router.push(section.href)}
+                                                className="bg-white rounded-2xl border border-slate-200 p-4 text-right hover:shadow-lg hover:border-violet-200 hover:-translate-y-0.5 transition-all group"
+                                            >
+                                                <div className={`w-10 h-10 bg-linear-to-br ${section.color} rounded-xl flex items-center justify-center text-lg mb-3 shadow-sm group-hover:scale-110 transition-transform`}>
+                                                    {section.icon}
+                                                </div>
+                                                <div className="font-bold text-slate-900 text-sm mb-0.5">{section.label}</div>
+                                                <div className="text-xs text-slate-500 leading-relaxed">{section.description}</div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
 
                             {/* Change PIN option */}
                             <div className="mt-6 border-t pt-6">

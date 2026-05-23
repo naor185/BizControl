@@ -50,9 +50,9 @@ export default function TeamPage() {
     const [calendarColor, setCalendarColor] = useState(COLOR_PRESETS[0]);
     const [isActive, setIsActive] = useState(true);
     const [payType, setPayType] = useState<"hourly" | "commission" | "none" | "global">("none");
-    const [hourlyRate, setHourlyRate] = useState(0);
-    const [commissionRate, setCommissionRate] = useState(0);
-    const [globalSalary, setGlobalSalary] = useState(0);
+    const [hourlyRate, setHourlyRate] = useState<number | "">("");
+    const [commissionRate, setCommissionRate] = useState<number | "">("");
+    const [globalSalary, setGlobalSalary] = useState<number | "">("");
 
     // Deletion state
     const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
@@ -83,9 +83,9 @@ export default function TeamPage() {
         setCalendarColor(COLOR_PRESETS[0]);
         setIsActive(true);
         setPayType("hourly");
-        setHourlyRate(0);
-        setCommissionRate(0);
-        setGlobalSalary(0);
+        setHourlyRate("");
+        setCommissionRate("");
+        setGlobalSalary("");
         setIsModalOpen(true);
     };
 
@@ -98,9 +98,9 @@ export default function TeamPage() {
         setCalendarColor(artist.calendar_color || COLOR_PRESETS[0]);
         setIsActive(artist.is_active);
         setPayType((artist.pay_type === "none" || !artist.pay_type) ? "hourly" : artist.pay_type);
-        setHourlyRate(artist.hourly_rate || 0);
-        setCommissionRate(artist.commission_rate || 0);
-        setGlobalSalary(artist.global_salary || 0);
+        setHourlyRate(artist.hourly_rate || "");
+        setCommissionRate(artist.commission_rate || "");
+        setGlobalSalary(artist.global_salary || "");
         setIsModalOpen(true);
     };
 
@@ -117,9 +117,9 @@ export default function TeamPage() {
                 calendar_color: calendarColor,
                 is_active: isActive,
                 pay_type: payType,
-                hourly_rate: hourlyRate,
-                commission_rate: commissionRate,
-                global_salary: globalSalary,
+                hourly_rate: hourlyRate === "" ? 0 : hourlyRate,
+                commission_rate: commissionRate === "" ? 0 : commissionRate,
+                global_salary: globalSalary === "" ? 0 : globalSalary,
             };
 
             if (editingUserId) {
@@ -140,7 +140,7 @@ export default function TeamPage() {
             setIsModalOpen(false);
             loadArtists();
         } catch (e: any) {
-            toast.error(e?.message || "שגיאה בשמירת המקעקע");
+            toast.error(e?.message || "שגיאה בשמירת חבר הצוות");
         }
     };
 
@@ -157,17 +157,17 @@ export default function TeamPage() {
 
     return (
         <RequireAuth>
-            <AppShell title="ניהול צוות ומקעקעים">
+            <AppShell title="ניהול צוות">
                 <div className="p-4 md:p-8 max-w-[1200px] mx-auto space-y-8 animate-in fade-in duration-500">
 
                     {/* Header */}
                     <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                         <div>
                             <h1 className="text-3xl font-black text-slate-800 tracking-tight flex items-center gap-3">
-                                צוות הסטודיו 👥
+                                ניהול צוות 👥
                             </h1>
                             <p className="mt-2 text-slate-500 max-w-xl leading-relaxed">
-                                ניהול נציגים, מנהלים ומקעקעים. ניתן לבחור איזה צבע יציג כל מקעקע ביומן.
+                                ניהול חברי צוות, הרשאות, שיטות שכר וצבעים ביומן.
                             </p>
                         </div>
                         <button
@@ -306,7 +306,7 @@ export default function TeamPage() {
                                         value={displayName}
                                         onChange={e => setDisplayName(e.target.value)}
                                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-sky-600"
-                                        placeholder="לדוגמא: דניאל המקעקע"
+                                        placeholder="שם תצוגה"
                                     />
                                 </div>
 
@@ -381,9 +381,9 @@ export default function TeamPage() {
                                             <input
                                                 type="number"
                                                 value={hourlyRate}
-                                                onChange={e => setHourlyRate(Number(e.target.value))}
+                                                onChange={e => setHourlyRate(e.target.value === "" ? "" : Number(e.target.value))}
                                                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-sky-600"
-                                                placeholder="לדוגמא: 50"
+                                                placeholder="₪ לשעה"
                                             />
                                         </div>
                                     )}
@@ -394,9 +394,9 @@ export default function TeamPage() {
                                             <input
                                                 type="number"
                                                 value={commissionRate}
-                                                onChange={e => setCommissionRate(Number(e.target.value))}
+                                                onChange={e => setCommissionRate(e.target.value === "" ? "" : Number(e.target.value))}
                                                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-sky-600"
-                                                placeholder="לדוגמא: 30"
+                                                placeholder="% עמלה"
                                             />
                                         </div>
                                     )}
@@ -408,9 +408,9 @@ export default function TeamPage() {
                                             <input
                                                 type="number"
                                                 value={globalSalary}
-                                                onChange={e => setGlobalSalary(Number(e.target.value))}
+                                                onChange={e => setGlobalSalary(e.target.value === "" ? "" : Number(e.target.value))}
                                                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-sky-600"
-                                                placeholder="לדוגמא: 6000"
+                                                placeholder="₪ לחודש"
                                             />
                                         </div>
                                     )}

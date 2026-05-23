@@ -1258,8 +1258,9 @@ export default function AutomationSettingsPage() {
                                             <p className="text-sm text-slate-500 mb-4">לקוח יקבל החזר מקדמה מלא אם יבטל לפחות X ימים לפני התור.</p>
                                             <div className="flex items-center gap-3">
                                                 <input type="number" min="0" max="60"
-                                                    value={settings.cancellation_free_days ?? 7}
-                                                    onChange={e => handleChange("cancellation_free_days", parseInt(e.target.value) || 0)}
+                                                    value={settings.cancellation_free_days ?? ""}
+                                                    placeholder="7"
+                                                    onChange={e => handleChange("cancellation_free_days", e.target.value === "" ? 0 : parseInt(e.target.value) || 0)}
                                                     className="w-24 text-center bg-white border border-emerald-200 rounded-xl px-4 py-3 font-bold text-xl outline-none focus:ring-2 focus:ring-emerald-500" />
                                                 <span className="text-slate-600 font-medium">ימים לפני</span>
                                             </div>
@@ -1269,8 +1270,9 @@ export default function AutomationSettingsPage() {
                                             <p className="text-sm text-slate-500 mb-4">לאחר תשלום מקדמה, הלקוח לא יוכל לשנות את התור X ימים לפניו.</p>
                                             <div className="flex items-center gap-3">
                                                 <input type="number" min="0" max="60"
-                                                    value={settings.deposit_lock_days ?? 7}
-                                                    onChange={e => handleChange("deposit_lock_days", parseInt(e.target.value) || 0)}
+                                                    value={settings.deposit_lock_days ?? ""}
+                                                    placeholder="7"
+                                                    onChange={e => handleChange("deposit_lock_days", e.target.value === "" ? 0 : parseInt(e.target.value) || 0)}
                                                     className="w-24 text-center bg-white border border-red-200 rounded-xl px-4 py-3 font-bold text-xl outline-none focus:ring-2 focus:ring-red-500" />
                                                 <span className="text-slate-600 font-medium">ימים לפני</span>
                                             </div>
@@ -1293,8 +1295,9 @@ export default function AutomationSettingsPage() {
                                             <p className="text-sm text-slate-500 mb-4">כמה ₪ יוצג אוטומטית בשדה המקדמה בעת קביעת תור? (0 = ללא)</p>
                                             <div className="flex items-center gap-3">
                                                 <input type="number" min="0"
-                                                    value={settings.deposit_fixed_amount_ils ?? 0}
-                                                    onChange={e => handleChange("deposit_fixed_amount_ils", parseInt(e.target.value) || 0)}
+                                                    value={settings.deposit_fixed_amount_ils || ""}
+                                                    placeholder="0"
+                                                    onChange={e => handleChange("deposit_fixed_amount_ils", e.target.value === "" ? 0 : parseInt(e.target.value) || 0)}
                                                     className="w-24 text-center bg-white border border-emerald-200 rounded-xl px-4 py-3 font-bold text-xl outline-none focus:ring-2 focus:ring-emerald-500" />
                                                 <span className="text-slate-600 font-medium">₪</span>
                                             </div>
@@ -1330,8 +1333,9 @@ export default function AutomationSettingsPage() {
                                             <div className="flex items-center gap-3">
                                                 <input
                                                     type="number"
-                                                    value={settings.aftercare_delay_minutes ?? 0}
-                                                    onChange={e => handleChange("aftercare_delay_minutes", parseInt(e.target.value) || 0)}
+                                                    value={settings.aftercare_delay_minutes || ""}
+                                                    placeholder="0"
+                                                    onChange={e => handleChange("aftercare_delay_minutes", e.target.value === "" ? 0 : parseInt(e.target.value) || 0)}
                                                     className="w-24 text-center bg-white border border-slate-200 rounded-xl px-4 py-3 font-semibold text-lg outline-none focus:ring-2 focus:ring-blue-500"
                                                 />
                                                 <span className="text-slate-600 font-medium">דקות</span>
@@ -1344,8 +1348,9 @@ export default function AutomationSettingsPage() {
                                             <div className="flex items-center gap-3">
                                                 <input
                                                     type="number"
-                                                    value={settings.points_on_signup ?? 0}
-                                                    onChange={e => handleChange("points_on_signup", parseInt(e.target.value) || 0)}
+                                                    value={settings.points_on_signup || ""}
+                                                    placeholder="0"
+                                                    onChange={e => handleChange("points_on_signup", e.target.value === "" ? 0 : parseInt(e.target.value) || 0)}
                                                     className="w-24 text-center bg-white border border-slate-200 rounded-xl px-4 py-3 font-semibold text-lg outline-none focus:ring-2 focus:ring-pink-500"
                                                 />
                                                 <span className="text-slate-600 font-medium">נקודות</span>
@@ -1358,8 +1363,9 @@ export default function AutomationSettingsPage() {
                                             <div className="flex items-center gap-3">
                                                 <input
                                                     type="number"
-                                                    value={settings.points_percent_per_payment ?? 0}
-                                                    onChange={e => handleChange("points_percent_per_payment", parseInt(e.target.value) || 0)}
+                                                    value={settings.points_percent_per_payment || ""}
+                                                    placeholder="0"
+                                                    onChange={e => handleChange("points_percent_per_payment", e.target.value === "" ? 0 : parseInt(e.target.value) || 0)}
                                                     className="w-24 text-center bg-white border border-slate-200 rounded-xl px-4 py-3 font-semibold text-lg outline-none focus:ring-2 focus:ring-pink-500"
                                                     min="0" max="100"
                                                 />
@@ -1373,8 +1379,9 @@ export default function AutomationSettingsPage() {
                                             <div className="flex items-center gap-3">
                                                 <input
                                                     type="number"
-                                                    value={settings.birthday_benefit_percent ?? 0}
-                                                    onChange={e => handleChange("birthday_benefit_percent", parseInt(e.target.value) || 0)}
+                                                    value={settings.birthday_benefit_percent || ""}
+                                                    placeholder="0"
+                                                    onChange={e => handleChange("birthday_benefit_percent", e.target.value === "" ? 0 : parseInt(e.target.value) || 0)}
                                                     className="w-24 text-center bg-white border border-pink-200 rounded-xl px-4 py-3 font-semibold text-lg outline-none focus:ring-2 focus:ring-pink-500"
                                                     min="0" max="100"
                                                 />

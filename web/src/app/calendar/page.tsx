@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import AppShell from "@/components/AppShell";
 import RequireAuth from "@/components/RequireAuth";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, getCurrentUserRole } from "@/lib/api";
 import PaymentModal from "@/components/PaymentModal";
 
 const IL_HOLIDAYS = [
@@ -114,6 +114,7 @@ export default function CalendarPage() {
     const [clients, setClients] = useState<Client[]>([]);
     const [artists, setArtists] = useState<Artist[]>([]);
     const [appointments, setAppointments] = useState<Appointment[]>([]);
+    const myRole = getCurrentUserRole();
     const [tasks, setTasks] = useState<TaskInstance[]>([]);
     const [loading, setLoading] = useState(false);
     const [err, setErr] = useState<string | null>(null);
@@ -493,7 +494,7 @@ export default function CalendarPage() {
 
     const handleSaveAppointment = async (skipPastCheck = false) => {
         if (!title || !startAt || !endAt || !artistId || !clientId) {
-            setToast({message: "יש למלא את כל שדות החובה: כותרת, זמנים, מקעקע ולקוח.", type: "error"});
+            setToast({message: "יש למלא את כל שדות החובה: כותרת, זמנים, איש צוות ולקוח.", type: "error"});
             return;
         }
 
@@ -971,14 +972,16 @@ export default function CalendarPage() {
                                     })()}
                                 </div>
 
-                                {/* Artist */}
-                                <div>
-                                    <label className="block text-sm font-semibold text-slate-700 mb-1">מקעקע/ת</label>
-                                    <select value={artistId} onChange={e => setArtistId(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500">
-                                        <option value="">בחירה...</option>
-                                        {artists.map(a => <option key={a.id} value={a.id}>{a.display_name || a.email}</option>)}
-                                    </select>
-                                </div>
+                                {/* Staff member — hidden for artist role (pre-filled by backend) */}
+                                {myRole !== "artist" && myRole !== "staff" && (
+                                    <div>
+                                        <label className="block text-sm font-semibold text-slate-700 mb-1">איש צוות</label>
+                                        <select value={artistId} onChange={e => setArtistId(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500">
+                                            <option value="">בחירה...</option>
+                                            {artists.map(a => <option key={a.id} value={a.id}>{a.display_name || a.email}</option>)}
+                                        </select>
+                                    </div>
+                                )}
 
                                 {/* Deposit */}
                                 <div>

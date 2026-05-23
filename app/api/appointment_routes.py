@@ -78,6 +78,10 @@ def list_(
     ctx: AuthContext = Depends(require_studio_ctx),
     db: Session = Depends(get_db),
 ):
+    # Artists/staff can only see their own appointments — ignore any artist_id param
+    if ctx.role in (Perms.ARTIST, "staff"):
+        artist_id = ctx.user_id
+
     db_events = list_appointments(db, ctx.studio_id, start=start, end=end, artist_id=artist_id, client_id=client_id)
     
     # Optional: Merge external Google events natively into the calendar
