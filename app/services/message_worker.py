@@ -157,6 +157,7 @@ def _sweep_reminders_for_window(
         .join(StudioSettings, StudioSettings.studio_id == Appointment.studio_id)
         .where(
             Appointment.status == "scheduled",
+            Appointment.payment_verified_at.is_(None),  # skip fully-paid appointments
             Appointment.starts_at >= target_start,
             Appointment.starts_at <= target_end,
         )

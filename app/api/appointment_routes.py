@@ -16,6 +16,7 @@ from app.crud.appointment import (
     create_appointment, list_appointments, get_appointment, get_appointment_out, update_appointment, cancel_appointment, hard_delete_appointment
 )
 from app.models.studio_settings import StudioSettings
+from app.models.message_job import MessageJob
 from app.utils.google_calendar import get_google_calendar_service, create_google_event, update_google_event, delete_google_event
 
 router = APIRouter(prefix="/appointments", tags=["Appointments"])
@@ -165,9 +166,10 @@ def patch(appointment_id: UUID, payload: AppointmentUpdate, ctx: AuthContext = D
         if str(existing_appt.artist_id) != str(ctx.user_id):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot modify another artist's appointment")
 
-    # Capture status before update to detect "done" transition
+    # Capture state before update
     existing_appt = get_appointment(db, ctx.studio_id, appointment_id)
     prev_status = existing_appt.status if existing_appt else None
+    prev_starts_at = existing_appt.starts_at if existing_appt else None
 
     try:
         obj = update_appointment(db, ctx.studio_id, appointment_id, payload)
@@ -175,6 +177,21 @@ def patch(appointment_id: UUID, payload: AppointmentUpdate, ctx: AuthContext = D
         raise HTTPException(status_code=409, detail=str(e))
     if not obj:
         raise HTTPException(status_code=404, detail="Appointment not found")
+
+    # If starts_at changed, cancel pending reminder jobs so rescheduled clients
+    # don't receive stale reminders from the old date
+    if payload.starts_at and existing_appt and payload.starts_at != prev_starts_at:
+        from sqlalchemy import update as sa_update
+        db.execute(
+            sa_update(MessageJob)
+            .where(
+                MessageJob.appointment_id == appointment_id,
+                MessageJob.status == "pending",
+            )
+            .values(status="canceled")
+        )
+        db.commit()
+        log.info("Canceled pending message jobs for rescheduled appointment %s", appointment_id)
 
     # Add stamp when appointment transitions to "done"
     new_status = payload.model_dump(exclude_unset=True).get("status")
