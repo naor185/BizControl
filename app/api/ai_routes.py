@@ -33,6 +33,22 @@ from app.services.ai.prompts import SUGGESTED_QUESTIONS
 router = APIRouter(prefix="/ai", tags=["AI Assistant"])
 
 
+# ── Env debug (no auth required) ─────────────────────────────────────────────
+
+@router.get("/env-debug")
+async def ai_env_debug():
+    """Returns which AI env vars are set in the running container."""
+    import os
+    groq = os.getenv("GROQ_API_KEY", "")
+    gemini = os.getenv("GEMINI_API_KEY", "")
+    openai = os.getenv("OPENAI_API_KEY", "")
+    return {
+        "GROQ_API_KEY": f"SET ({groq[:8]}...)" if groq else "NOT SET",
+        "GEMINI_API_KEY": f"SET ({gemini[:8]}...)" if gemini else "NOT SET",
+        "OPENAI_API_KEY": f"SET ({openai[:8]}...)" if openai else "NOT SET",
+    }
+
+
 # ── Gemini connectivity test (no auth required) ───────────────────────────────
 
 @router.get("/ping")
