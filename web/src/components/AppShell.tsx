@@ -98,7 +98,10 @@ export default function AppShell({
             router.push("/business");
             return;
         }
-        if (!pinStatus) return;
+        if (!pinStatus) {
+            router.push("/business");
+            return;
+        }
         setPinMode(pinStatus.has_pin ? "verify" : "set");
         setShowPin(true);
     };

@@ -118,7 +118,11 @@ export default function BusinessPage() {
     }, [unlocked]);
 
     const handleUnlockClick = () => {
-        if (!pinStatus) return;
+        if (!pinStatus) {
+            setPinMode("set");
+            setShowPinModal(true);
+            return;
+        }
         if (!pinStatus.has_pin) {
             setPinMode("set");
         } else {
