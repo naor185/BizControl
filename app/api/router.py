@@ -33,6 +33,7 @@ from app.api.tier_routes import router as tier_router
 from app.api.stamp_routes import router as stamp_router
 from app.api.ai_routes import router as ai_router
 from app.api.nfc_routes import router as nfc_router
+from app.api.pos_routes import router as pos_router
 
 api_router = APIRouter()
 api_router.include_router(studio_router)
@@ -70,3 +71,4 @@ api_router.include_router(tier_router)
 api_router.include_router(stamp_router)
 api_router.include_router(ai_router)
 api_router.include_router(nfc_router)
+api_router.include_router(pos_router)

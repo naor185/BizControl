@@ -11,6 +11,7 @@ const mainItems = [
     { href: "/inbox", label: "תיבת הודעות", icon: "💬" },
     { href: "/expenses", label: "ניהול עסק", icon: "💼" },
     { href: "/products", label: "מוצרים ומלאי", icon: "📦" },
+    { href: "/pos", label: "קופה", icon: "🛒" },
     { href: "/dashboard", label: "לוח בקרה", icon: "📊" },
     { href: "/clients", label: "לקוחות", icon: "👥" },
 ];
