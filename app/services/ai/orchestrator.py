@@ -264,6 +264,23 @@ async def chat_stream(
         yield "data: [DONE]\n\n"
         return
 
+    if not full_response and tools_used:
+        # Model used tools but returned empty text — force a summary round with no tools
+        try:
+            summary_resp = await client.chat.completions.create(
+                model=model,
+                messages=messages,
+                stream=False,
+                max_tokens=1024,
+                temperature=0.4,
+            )
+            full_response = summary_resp.choices[0].message.content or ""
+            if full_response:
+                for word in full_response.split(" "):
+                    yield f"data: {json.dumps({'type': 'text', 'content': word + ' '})}\n\n"
+        except Exception:
+            pass
+
     if not full_response:
         fallback = "קיבלתי את הנתונים אך לא הצלחתי לנסח תשובה. נסה לשאול מחדש."
         yield f"data: {json.dumps({'type': 'text', 'content': fallback})}\n\n"
