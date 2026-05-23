@@ -382,6 +382,39 @@ export default function PosPage() {
 
                 {/* Bottom section */}
                 <div className="border-t px-4 py-4 space-y-4">
+                    {/* Quick manual charge */}
+                    <div>
+                        <div className="text-xs font-semibold text-slate-500 mb-1.5">הוסף פריט ידני</div>
+                        <div className="flex gap-1.5">
+                            <input
+                                value={manualDesc}
+                                onChange={e => setManualDesc(e.target.value)}
+                                placeholder="תיאור..."
+                                className="flex-1 min-w-0 border border-slate-200 rounded-xl px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                                onKeyDown={e => e.key === "Enter" && addManual()}
+                            />
+                            <div className="relative w-24 shrink-0">
+                                <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs">₪</span>
+                                <input
+                                    value={manualPrice}
+                                    onChange={e => setManualPrice(e.target.value)}
+                                    placeholder="0"
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    className="w-full border border-slate-200 rounded-xl pr-6 pl-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                                    onKeyDown={e => e.key === "Enter" && addManual()}
+                                />
+                            </div>
+                            <button
+                                onClick={addManual}
+                                className="shrink-0 bg-emerald-600 hover:bg-emerald-700 text-white px-3 rounded-xl font-bold text-sm transition-colors"
+                            >
+                                +
+                            </button>
+                        </div>
+                    </div>
+
                     {/* Client search */}
                     <div>
                         <div className="text-xs font-semibold text-slate-500 mb-1.5">לקוח (אופציונלי)</div>
@@ -398,16 +431,21 @@ export default function PosPage() {
                                 <input
                                     value={clientSearch}
                                     onChange={e => setClientSearch(e.target.value)}
-                                    placeholder="חפש לקוח..."
+                                    placeholder="חפש שם או טלפון..."
                                     className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
                                 />
+                                {searchLoading && (
+                                    <div className="absolute left-3 top-1/2 -translate-y-1/2">
+                                        <div className="w-3 h-3 border-2 border-slate-300 border-t-emerald-500 rounded-full animate-spin" />
+                                    </div>
+                                )}
                                 {clientResults.length > 0 && (
-                                    <div className="absolute bottom-full mb-1 w-full bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden z-10">
+                                    <div className="absolute top-full mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden z-30">
                                         {clientResults.map(c => (
                                             <button
                                                 key={c.id}
                                                 onClick={() => { setClient(c); setClientSearch(""); setClientResults([]); }}
-                                                className="w-full text-right px-3 py-2 hover:bg-slate-50 transition-colors"
+                                                className="w-full text-right px-3 py-2.5 hover:bg-emerald-50 transition-colors border-b border-slate-100 last:border-0"
                                             >
                                                 <div className="text-sm font-semibold text-slate-800">{c.name}</div>
                                                 {c.phone && <div className="text-xs text-slate-400">{c.phone}</div>}
