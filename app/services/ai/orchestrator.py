@@ -42,9 +42,9 @@ def _get_client() -> tuple[AsyncOpenAI, str]:
     Priority: Groq (gsk_) → Gemini (AIza) → OpenAI
     Detects provider by key prefix, regardless of which env var holds it.
     """
-    groq_key = os.getenv("GROQ_API_KEY", "")
-    gemini_key = os.getenv("GEMINI_API_KEY", "")
-    openai_key = os.getenv("OPENAI_API_KEY", "")
+    groq_key = os.getenv("GROQ_API_KEY", "").strip()
+    gemini_key = os.getenv("GEMINI_API_KEY", "").strip()
+    openai_key = os.getenv("OPENAI_API_KEY", "").strip()
 
     _logger.info(
         "AI provider env check — GROQ_API_KEY=%s GEMINI_API_KEY=%s OPENAI_API_KEY=%s",
