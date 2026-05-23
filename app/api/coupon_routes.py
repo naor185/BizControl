@@ -53,7 +53,7 @@ def validate_coupon_get(
     client_name = None
     if coupon.client_id:
         client = db.scalar(select(Client).where(Client.id == coupon.client_id))
-        client_name = client.name if client else None
+        client_name = client.full_name if client else None
 
     return CouponValidateResponse(
         valid=True,

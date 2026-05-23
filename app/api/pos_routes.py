@@ -182,7 +182,7 @@ def pos_checkout(
     return TransactionOut(
         id=str(txn.id),
         client_id=str(txn.client_id) if txn.client_id else None,
-        client_name=client.name if client else None,
+        client_name=client.full_name if client else None,
         cashier_name=cashier.display_name or cashier.email if cashier else None,
         total_cents=txn.total_cents,
         discount_cents=txn.discount_cents,
@@ -232,7 +232,7 @@ def pos_history(
         ).all()
         result.append({
             "id": str(t.id),
-            "client_name": client.name if client else "אנונימי",
+            "client_name": client.full_name if client else "אנונימי",
             "cashier_name": cashier.display_name or cashier.email if cashier else None,
             "total_cents": t.total_cents,
             "discount_cents": t.discount_cents,
@@ -263,7 +263,7 @@ def pos_transaction_detail(
     return {
         "id": str(txn.id),
         "client_id": str(txn.client_id) if txn.client_id else None,
-        "client_name": client.name if client else "אנונימי",
+        "client_name": client.full_name if client else "אנונימי",
         "cashier_name": cashier.display_name or cashier.email if cashier else None,
         "total_cents": txn.total_cents,
         "discount_cents": txn.discount_cents,
