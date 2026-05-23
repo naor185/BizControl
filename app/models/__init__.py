@@ -24,6 +24,8 @@ from app.models.ai_audit_log import AIAuditLog
 from app.models.employee_nfc_tag import EmployeeNfcTag
 from app.models.attendance_log import AttendanceLog
 from app.models.pos_transaction import PosTransaction, PosTransactionItem
+from app.models.user_pin_settings import UserPinSettings
+from app.models.pin_attempt_log import PinAttemptLog
 
 __all__ = [
     "Base", "Studio", "User", "StudioSettings", "RefreshToken",
@@ -31,4 +33,5 @@ __all__ = [
     "AIConversation", "AIMessage", "AIAuditLog",
     "EmployeeNfcTag", "AttendanceLog",
     "PosTransaction", "PosTransactionItem",
+    "UserPinSettings", "PinAttemptLog",
 ]

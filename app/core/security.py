@@ -28,3 +28,14 @@ def decode_token(token: str) -> Dict[str, Any]:
 def create_set_password_token(user_id: str) -> str:
     expire = datetime.now(timezone.utc) + timedelta(hours=72)
     return jwt.encode({"sub": user_id, "exp": expire, "type": "set_password"}, JWT_SECRET, algorithm=JWT_ALG)
+
+BUSINESS_UNLOCK_MINUTES = 30
+
+def create_business_unlock_token(user_id: str, studio_id: str) -> str:
+    expire = datetime.now(timezone.utc) + timedelta(minutes=BUSINESS_UNLOCK_MINUTES)
+    return jwt.encode({
+        "user_id": user_id,
+        "studio_id": studio_id,
+        "exp": expire,
+        "type": "business_unlock",
+    }, JWT_SECRET, algorithm=JWT_ALG)
