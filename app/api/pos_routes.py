@@ -41,6 +41,7 @@ class CheckoutIn(BaseModel):
     method: str = "cash"
     client_id: Optional[str] = None
     discount_cents: int = 0
+    coupon_code: Optional[str] = None
     notes: Optional[str] = None
 
 
@@ -155,6 +156,21 @@ def pos_checkout(
                     delta_points=points_earned,
                     reason=f"רכישה בקופה — {total / 100:.2f}₪",
                 ))
+
+    # Mark coupon as redeemed
+    if body.coupon_code:
+        from app.models.birthday_coupon import BirthdayCoupon
+        now_utc = datetime.now(timezone.utc)
+        coupon = db.scalar(
+            select(BirthdayCoupon).where(
+                BirthdayCoupon.studio_id == ctx.studio_id,
+                BirthdayCoupon.code == body.coupon_code.upper().strip(),
+                BirthdayCoupon.status == "active",
+            )
+        )
+        if coupon:
+            coupon.status = "redeemed"
+            coupon.redeemed_at = now_utc
 
     db.commit()
     db.refresh(txn)

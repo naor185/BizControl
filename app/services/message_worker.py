@@ -387,6 +387,7 @@ def sweep_birthday_messages(db: Session) -> int:
             month=current_month,
             year=current_year,
             discount_percent=discount_percent,
+            client_name=client.name or client.full_name or "",
         )
 
         context = {

@@ -9,10 +9,43 @@ from sqlalchemy.orm import Session
 
 from app.models.birthday_coupon import BirthdayCoupon
 
+HEBREW_TO_LATIN: dict[str, str] = {
+    'א': 'A', 'ב': 'B', 'ג': 'G', 'ד': 'D', 'ה': 'H',
+    'ו': 'V', 'ז': 'Z', 'ח': 'H', 'ט': 'T', 'י': 'I',
+    'כ': 'K', 'ך': 'K', 'ל': 'L', 'מ': 'M', 'ם': 'M',
+    'נ': 'N', 'ן': 'N', 'ס': 'S', 'ע': 'A', 'פ': 'P',
+    'ף': 'F', 'צ': 'Z', 'ץ': 'Z', 'ק': 'K', 'ר': 'R',
+    'ש': 'S', 'ת': 'T',
+}
 
-def _generate_code(client_id: UUID, month: int, year: int) -> str:
-    suffix = secrets.token_hex(3).upper()
-    return f"BD{year}{month:02d}-{suffix}"
+
+def _name_prefix(name: str, length: int = 4) -> str:
+    """Convert first word of name to Latin letters for coupon code."""
+    first_word = name.strip().split()[0] if name.strip() else name
+    result = ""
+    for ch in first_word:
+        if ch in HEBREW_TO_LATIN:
+            result += HEBREW_TO_LATIN[ch]
+        elif ch.isalpha() and ch.isascii():
+            result += ch.upper()
+        if len(result) >= length:
+            break
+    return result or "BDAY"
+
+
+def _generate_code(db: Session, client_name: str, discount: int) -> str:
+    """Generate unique coupon code like NOA10, NOA10B if collision."""
+    prefix = _name_prefix(client_name, 4)
+    base = f"{prefix}{discount}"
+    code = base
+    i = 0
+    while db.scalar(select(BirthdayCoupon).where(BirthdayCoupon.code == code)) is not None:
+        code = f"{base}{secrets.token_hex(1).upper()}"
+        i += 1
+        if i > 20:
+            code = f"{base}{secrets.token_hex(2).upper()}"
+            break
+    return code
 
 
 def get_or_create_birthday_coupon(
@@ -22,6 +55,7 @@ def get_or_create_birthday_coupon(
     month: int,
     year: int,
     discount_percent: int = 10,
+    client_name: str = "",
 ) -> BirthdayCoupon:
     """Idempotent — returns existing coupon for this client/month/year, or creates one."""
     existing = db.scalar(
@@ -39,7 +73,7 @@ def get_or_create_birthday_coupon(
     coupon = BirthdayCoupon(
         studio_id=studio_id,
         client_id=client_id,
-        code=_generate_code(client_id, month, year),
+        code=_generate_code(db, client_name or str(client_id)[:4], discount_percent),
         discount_percent=discount_percent,
         birthday_month=month,
         birthday_year=year,

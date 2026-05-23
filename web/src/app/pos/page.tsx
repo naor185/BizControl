@@ -140,6 +140,14 @@ export default function PosPage() {
     const [manualDesc, setManualDesc] = useState("");
     const [manualPrice, setManualPrice] = useState("");
     const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+    const [couponCode, setCouponCode] = useState("");
+    const [couponDiscount, setCouponDiscount] = useState<number>(0);
+    const [couponLoading, setCouponLoading] = useState(false);
+    const [couponError, setCouponError] = useState("");
+    const [showAddClient, setShowAddClient] = useState(false);
+    const [newClientName, setNewClientName] = useState("");
+    const [newClientPhone, setNewClientPhone] = useState("");
+    const [addingClient, setAddingClient] = useState(false);
     const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     useEffect(() => {
@@ -210,9 +218,47 @@ export default function PosPage() {
 
     const removeItem = (key: string) => setCart(prev => prev.filter(i => i.key !== key));
 
+    const validateCoupon = async () => {
+        if (!couponCode.trim()) return;
+        setCouponLoading(true);
+        setCouponError("");
+        try {
+            const res = await apiFetch<{ discount_percent: number; client_name: string | null }>(`/api/coupons/validate?code=${encodeURIComponent(couponCode.trim().toUpperCase())}`);
+            setCouponDiscount(res.discount_percent);
+            toast.success(`קוד קופון תקין — ${res.discount_percent}% הנחה${res.client_name ? ` (${res.client_name})` : ""}`);
+        } catch {
+            setCouponError("קוד לא תקין או כבר שומש");
+            setCouponDiscount(0);
+        } finally {
+            setCouponLoading(false);
+        }
+    };
+
+    const handleAddClient = async () => {
+        if (!newClientName.trim()) return;
+        setAddingClient(true);
+        try {
+            const c = await apiFetch<ClientResult>("/api/clients/", {
+                method: "POST",
+                body: JSON.stringify({ name: newClientName.trim(), phone: newClientPhone.trim() || null }),
+            });
+            setClient(c);
+            setShowAddClient(false);
+            setNewClientName("");
+            setNewClientPhone("");
+            toast.success("לקוח נוסף בהצלחה");
+        } catch {
+            toast.error("שגיאה בהוספת לקוח");
+        } finally {
+            setAddingClient(false);
+        }
+    };
+
     const pendingCents = Math.max(0, Math.round(parseFloat(manualPrice || "0") * 100));
     const subtotal = cart.reduce((s, i) => s + i.unit_price_cents * i.quantity, 0) + pendingCents;
-    const discountCents = Math.min(subtotal, Math.max(0, Math.round(parseFloat(discount || "0") * 100)));
+    const manualDiscountCents = Math.min(subtotal, Math.max(0, Math.round(parseFloat(discount || "0") * 100)));
+    const couponDiscountCents = couponDiscount > 0 ? Math.round(subtotal * couponDiscount / 100) : 0;
+    const discountCents = Math.min(subtotal, manualDiscountCents + couponDiscountCents);
     const total = subtotal - discountCents;
 
     const handleCheckout = async () => {
@@ -240,6 +286,7 @@ export default function PosPage() {
                     method,
                     client_id: client?.id || null,
                     discount_cents: discountCents,
+                    coupon_code: couponDiscount > 0 ? couponCode.trim().toUpperCase() : null,
                 }),
             });
             setReceipt(txn);
@@ -249,6 +296,8 @@ export default function PosPage() {
             setDiscount("");
             setManualDesc("");
             setManualPrice("");
+            setCouponCode("");
+            setCouponDiscount(0);
         } catch (e: unknown) {
             const msg = e instanceof Error ? e.message : "שגיאה בעיבוד העסקה";
             toast.error(msg);
@@ -429,7 +478,15 @@ export default function PosPage() {
 
                     {/* Client search */}
                     <div>
-                        <div className="text-xs font-semibold text-slate-500 mb-1.5">לקוח (אופציונלי)</div>
+                        <div className="flex items-center justify-between mb-1.5">
+                            <div className="text-xs font-semibold text-slate-500">לקוח (אופציונלי)</div>
+                            <button
+                                onClick={() => setShowAddClient(true)}
+                                className="flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-700 font-semibold transition-colors"
+                            >
+                                <span className="text-sm leading-none">+</span> לקוח חדש
+                            </button>
+                        </div>
                         {client ? (
                             <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2">
                                 <div className="flex-1">
@@ -486,16 +543,48 @@ export default function PosPage() {
                         </div>
                     </div>
 
+                    {/* Coupon code */}
+                    <div>
+                        <div className="text-xs font-semibold text-slate-500 mb-1.5">קוד קופון</div>
+                        <div className="flex gap-1.5">
+                            <input
+                                value={couponCode}
+                                onChange={e => { setCouponCode(e.target.value.toUpperCase()); setCouponDiscount(0); setCouponError(""); }}
+                                placeholder="הכנס קוד..."
+                                className={`flex-1 border rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-emerald-400 ${couponDiscount > 0 ? "border-emerald-400 bg-emerald-50" : couponError ? "border-rose-400" : "border-slate-200"}`}
+                                onKeyDown={e => e.key === "Enter" && validateCoupon()}
+                            />
+                            <button
+                                onClick={validateCoupon}
+                                disabled={!couponCode.trim() || couponLoading}
+                                className="shrink-0 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-white px-3 rounded-xl text-xs font-bold transition-colors"
+                            >
+                                {couponLoading ? "..." : "אמת"}
+                            </button>
+                            {couponDiscount > 0 && (
+                                <button onClick={() => { setCouponCode(""); setCouponDiscount(0); }} className="text-rose-400 hover:text-rose-600 text-lg leading-none px-1">×</button>
+                            )}
+                        </div>
+                        {couponError && <div className="text-xs text-rose-500 mt-1">{couponError}</div>}
+                        {couponDiscount > 0 && <div className="text-xs text-emerald-600 mt-1 font-semibold">✓ הנחה {couponDiscount}% הופעלה</div>}
+                    </div>
+
                     {/* Totals */}
                     <div className="bg-slate-50 rounded-xl p-3 space-y-1">
                         <div className="flex justify-between text-sm text-slate-600">
                             <span>סכום ביניים</span>
                             <span>₪{(subtotal / 100).toFixed(2)}</span>
                         </div>
-                        {discountCents > 0 && (
+                        {manualDiscountCents > 0 && (
                             <div className="flex justify-between text-sm text-rose-600">
-                                <span>הנחה</span>
-                                <span>-₪{(discountCents / 100).toFixed(2)}</span>
+                                <span>הנחה ידנית</span>
+                                <span>-₪{(manualDiscountCents / 100).toFixed(2)}</span>
+                            </div>
+                        )}
+                        {couponDiscountCents > 0 && (
+                            <div className="flex justify-between text-sm text-violet-600">
+                                <span>קופון {couponCode} ({couponDiscount}%)</span>
+                                <span>-₪{(couponDiscountCents / 100).toFixed(2)}</span>
                             </div>
                         )}
                         <div className="flex justify-between text-base font-bold text-slate-900 border-t pt-1 mt-1">
@@ -528,7 +617,7 @@ export default function PosPage() {
                     {/* Checkout button */}
                     <button
                         onClick={handleCheckout}
-                        disabled={loading || cart.length === 0}
+                        disabled={loading || (cart.length === 0 && pendingCents === 0)}
                         className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold py-4 rounded-2xl text-base transition-all shadow-lg active:scale-95"
                     >
                         {loading ? "מעבד..." : `גבה ₪${(total / 100).toFixed(2)}`}
@@ -538,6 +627,48 @@ export default function PosPage() {
 
             {/* Receipt Modal */}
             {receipt && <ReceiptModal txn={receipt} onClose={() => setReceipt(null)} />}
+
+            {/* Add Client Modal */}
+            {showAddClient && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowAddClient(false)}>
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6" onClick={e => e.stopPropagation()}>
+                        <div className="text-base font-bold text-slate-800 mb-4">הוסף לקוח חדש</div>
+                        <div className="space-y-3">
+                            <input
+                                value={newClientName}
+                                onChange={e => setNewClientName(e.target.value)}
+                                placeholder="שם מלא *"
+                                className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                                autoFocus
+                                onKeyDown={e => e.key === "Enter" && handleAddClient()}
+                            />
+                            <input
+                                value={newClientPhone}
+                                onChange={e => setNewClientPhone(e.target.value)}
+                                placeholder="טלפון (אופציונלי)"
+                                type="tel"
+                                className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                                onKeyDown={e => e.key === "Enter" && handleAddClient()}
+                            />
+                        </div>
+                        <div className="flex gap-2 mt-4">
+                            <button
+                                onClick={handleAddClient}
+                                disabled={!newClientName.trim() || addingClient}
+                                className="flex-1 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold py-2.5 rounded-xl text-sm transition-colors"
+                            >
+                                {addingClient ? "מוסיף..." : "הוסף לקוח"}
+                            </button>
+                            <button
+                                onClick={() => setShowAddClient(false)}
+                                className="px-4 border border-slate-200 rounded-xl text-sm text-slate-600 hover:bg-slate-50 transition-colors"
+                            >
+                                ביטול
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
