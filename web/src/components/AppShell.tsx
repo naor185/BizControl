@@ -36,10 +36,12 @@ export default function AppShell({
     title,
     titleAction,
     children,
+    fullBleed = false,
 }: {
     title?: string;
     titleAction?: React.ReactNode;
     children: React.ReactNode;
+    fullBleed?: boolean;
 }) {
     const pathname = usePathname();
     const router = useRouter();
@@ -284,7 +286,7 @@ export default function AppShell({
                         </div>
                     </header>
 
-                    <main className="p-5 pb-28 md:pb-6">{children}</main>
+                    <main className={fullBleed ? "h-[calc(100vh-3.5rem)] overflow-hidden" : "p-5 pb-28 md:pb-6"}>{children}</main>
                 </div>
             </div>
 

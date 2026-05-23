@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { apiFetch } from "@/lib/api";
 import { toast } from "@/lib/toast";
+import AppShell from "@/components/AppShell";
+import RequireAuth from "@/components/RequireAuth";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -311,11 +313,12 @@ export default function PosPage() {
         : products;
 
     return (
-        <div className="flex h-screen overflow-hidden bg-slate-50" dir="rtl">
+        <RequireAuth>
+        <AppShell title="קופה" fullBleed>
+        <div className="flex h-full overflow-hidden bg-slate-50" dir="rtl">
             {/* ── Left: Product Grid ─────────────────────────────────────── */}
             <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-                <div className="bg-white border-b px-6 py-4 flex items-center gap-4 shrink-0">
-                    <h1 className="text-xl font-bold text-slate-800">🛒 קופה</h1>
+                <div className="bg-white border-b px-4 py-3 flex items-center gap-3 shrink-0">
                     <div className="flex-1" />
                     {/* Category filters */}
                     <div className="flex gap-2 flex-wrap">
@@ -670,5 +673,7 @@ export default function PosPage() {
                 </div>
             )}
         </div>
+        </AppShell>
+        </RequireAuth>
     );
 }
