@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { apiFetch, clearToken, getToken, setToken } from "@/lib/api";
 import ClockWidget from "./ClockWidget";
 import BottomNav from "./BottomNav";
@@ -10,8 +10,10 @@ import NotificationBell from "./NotificationBell";
 import ToastContainer from "./ToastContainer";
 import GlobalToast from "./GlobalToast";
 import AIAssistant from "./AIAssistant";
+import PinModal from "./PinModal";
 import { useLang } from "./LanguageProvider";
-import { LOCALES, TranslationKey } from "@/lib/i18n";
+import { LOCALES } from "@/lib/i18n";
+import { isBusinessSessionValid } from "@/lib/businessSession";
 
 type Me = {
     id: string;
@@ -21,38 +23,21 @@ type Me = {
     display_name?: string | null;
 };
 
-type NavItem = { href: string; labelKey: TranslationKey; icon: string };
+type PinStatus = { has_pin: boolean; is_locked: boolean };
 
-const MAIN_NAV: NavItem[] = [
-    { href: "/calendar",      labelKey: "nav_calendar",  icon: "📅" },
-    { href: "/expenses",      labelKey: "nav_expenses",  icon: "💼" },
-    { href: "/products",      labelKey: "nav_products",  icon: "📦" },
-    { href: "/dashboard",     labelKey: "nav_dashboard", icon: "📊" },
-    { href: "/clients",       labelKey: "nav_clients",   icon: "👥" },
+const MAIN_NAV = [
+    { href: "/dashboard", label: "לוח בקרה",  icon: "📊" },
+    { href: "/calendar",  label: "יומן תורים", icon: "📅" },
+    { href: "/pos",       label: "קופה",        icon: "🛒" },
+    { href: "/clients",   label: "לקוחות",      icon: "👥" },
 ];
-
-const SETTINGS_NAV: NavItem[] = [
-    { href: "/team",         labelKey: "nav_team",     icon: "🎨" },
-    { href: "/team/payroll", labelKey: "nav_payroll",  icon: "💰" },
-    { href: "/message-log",  labelKey: "nav_messages", icon: "💬" },
-    { href: "/payments",     labelKey: "nav_payments", icon: "💳" },
-    { href: "/leads",        labelKey: "nav_leads",    icon: "🎯" },
-    { href: "/wallet",       labelKey: "nav_wallet",   icon: "💳" },
-    { href: "/tiers",        labelKey: "nav_tiers",    icon: "🏆" },
-    { href: "/stamps",       labelKey: "nav_stamps",   icon: "🎫" },
-    { href: "/billing",      labelKey: "nav_billing",  icon: "💎" },
-    { href: "/automation",   labelKey: "nav_settings", icon: "⚙️" },
-    { href: "/help",         labelKey: "nav_help",     icon: "🆘" },
-];
-
-const ALL_NAV = [...MAIN_NAV, ...SETTINGS_NAV];
 
 export default function AppShell({
     title,
     titleAction,
     children,
 }: {
-    title: string;
+    title?: string;
     titleAction?: React.ReactNode;
     children: React.ReactNode;
 }) {
@@ -63,12 +48,20 @@ export default function AppShell({
 
     const [me, setMe] = useState<Me | null>(null);
     const [isImpersonating, setIsImpersonating] = useState(false);
+    const [businessUnlocked, setBusinessUnlocked] = useState(false);
+    const [pinStatus, setPinStatus] = useState<PinStatus | null>(null);
+    const [showPin, setShowPin] = useState(false);
+    const [pinMode, setPinMode] = useState<"verify" | "set">("verify");
 
     useEffect(() => {
         if (typeof window !== "undefined") {
             setIsImpersonating(!!sessionStorage.getItem("admin_return"));
         }
     }, []);
+
+    useEffect(() => {
+        setBusinessUnlocked(isBusinessSessionValid());
+    }, [pathname]);
 
     const handleReturnToAdmin = () => {
         const adminToken = sessionStorage.getItem("admin_token");
@@ -78,24 +71,17 @@ export default function AppShell({
         router.replace("/admin");
     };
 
-    const [settingsOpen, setSettingsOpen] = useState(() =>
-        SETTINGS_NAV.some(n => pathname === n.href || pathname?.startsWith(n.href + "/"))
-    );
-
-    const activeHref = useMemo(() => {
-        const found = ALL_NAV.find(n => pathname === n.href);
-        if (found) return found.href;
-        const prefix = ALL_NAV.find(n => pathname?.startsWith(n.href + "/"));
-        return prefix?.href || "";
-    }, [pathname]);
-
     useEffect(() => {
         (async () => {
             try {
                 const token = getToken();
                 if (!token) return;
-                const data = await apiFetch<Me>("/api/auth/me");
+                const [data, pin] = await Promise.all([
+                    apiFetch<Me>("/api/auth/me"),
+                    apiFetch<PinStatus>("/api/security/pin/status"),
+                ]);
                 setMe(data);
+                setPinStatus(pin);
             } catch { /* silent */ }
         })();
     }, []);
@@ -105,7 +91,27 @@ export default function AppShell({
         router.replace("/login");
     }
 
-    const isInSettings = SETTINGS_NAV.some(n => n.href === activeHref);
+    const handleBusinessClick = () => {
+        if (isBusinessSessionValid()) {
+            router.push("/business");
+            return;
+        }
+        if (!pinStatus) return;
+        setPinMode(pinStatus.has_pin ? "verify" : "set");
+        setShowPin(true);
+    };
+
+    const handlePinSuccess = () => {
+        setShowPin(false);
+        if (!pinStatus?.has_pin) {
+            setPinStatus(s => s ? { ...s, has_pin: true } : s);
+            setPinMode("verify");
+            setShowPin(true);
+        } else {
+            setBusinessUnlocked(true);
+            router.push("/business");
+        }
+    };
 
     const avatarLetter = (me?.display_name || me?.email || "?")[0].toUpperCase();
 
@@ -129,17 +135,17 @@ export default function AppShell({
 
             <div className="flex">
                 {/* Sidebar */}
-                <aside className="hidden md:flex md:w-60 md:flex-col md:fixed md:inset-y-0 bg-white border-l border-slate-100 shadow-sm">
+                <aside className="hidden md:flex md:w-60 md:flex-col md:fixed md:inset-y-0 bg-white border-l border-slate-100 shadow-sm z-20">
                     {/* Logo */}
                     <div className="h-14 px-4 flex items-center justify-between border-b border-slate-100">
                         <div className="font-black text-slate-900 tracking-tight text-lg" dir="ltr">BizControl</div>
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-500 font-semibold" dir="ltr">v1</span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-500 font-semibold" dir="ltr">v2</span>
                     </div>
 
                     {/* Nav */}
                     <nav className="flex-1 p-2.5 space-y-0.5 overflow-y-auto">
                         {MAIN_NAV.map(item => {
-                            const active = item.href === activeHref;
+                            const active = pathname === item.href || pathname.startsWith(item.href + "/");
                             return (
                                 <Link
                                     key={item.href}
@@ -147,61 +153,45 @@ export default function AppShell({
                                     className={[
                                         "flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium transition-all",
                                         active
-                                            ? "bg-sky-600 text-white shadow-sm shadow-sky-200"
-                                            : "text-slate-600 hover:bg-sky-50 hover:text-sky-700",
+                                            ? "bg-slate-900 text-white shadow-sm"
+                                            : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
                                     ].join(" ")}
                                 >
                                     <span className="text-base leading-none">{item.icon}</span>
-                                    <span>{t(item.labelKey)}</span>
+                                    <span>{item.label}</span>
                                 </Link>
                             );
                         })}
 
-                        {/* Settings group */}
-                        <div className="pt-3">
-                            <div className="px-3 mb-1">
-                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">הגדרות</span>
+                        {/* Divider */}
+                        <div className="pt-3 pb-1">
+                            <div className="px-3">
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">ניהול</span>
                             </div>
-                            <button
-                                onClick={() => setSettingsOpen(o => !o)}
-                                className={[
-                                    "w-full flex items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium transition-all",
-                                    isInSettings ? "bg-sky-50 text-sky-800" : "text-slate-500 hover:bg-sky-50 hover:text-sky-700",
-                                ].join(" ")}
-                            >
-                                <div className="flex items-center gap-2.5">
-                                    <span className="text-base leading-none">⚙️</span>
-                                    <span>{t("nav_settings")}</span>
-                                </div>
-                                <span className={`text-[10px] transition-transform duration-200 ${settingsOpen ? "rotate-180" : ""}`}>▼</span>
-                            </button>
-
-                            {settingsOpen && (
-                                <div className="mt-0.5 pr-2 space-y-0.5 border-r-2 border-slate-100 mr-3">
-                                    {SETTINGS_NAV.map(item => {
-                                        const active = item.href === activeHref;
-                                        return (
-                                            <Link
-                                                key={item.href}
-                                                href={item.href}
-                                                className={[
-                                                    "flex items-center gap-2 rounded-xl px-3 py-2 text-sm transition-all",
-                                                    active
-                                                        ? "bg-sky-600 text-white font-medium shadow-sm shadow-sky-200"
-                                                        : "text-slate-500 hover:bg-sky-50 hover:text-sky-700",
-                                                ].join(" ")}
-                                            >
-                                                <span className="text-base leading-none">{item.icon}</span>
-                                                <span>{t(item.labelKey)}</span>
-                                            </Link>
-                                        );
-                                    })}
-                                </div>
-                            )}
                         </div>
+
+                        {/* Business Management — PIN locked */}
+                        <button
+                            onClick={handleBusinessClick}
+                            className={[
+                                "w-full flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium transition-all",
+                                pathname.startsWith("/business")
+                                    ? "bg-violet-600 text-white shadow-sm"
+                                    : "text-slate-600 hover:bg-violet-50 hover:text-violet-700",
+                            ].join(" ")}
+                        >
+                            <span className="text-base leading-none">{businessUnlocked ? "🏢" : "🔐"}</span>
+                            <span className="flex-1 text-right">ניהול עסק</span>
+                            {!businessUnlocked && (
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" className="opacity-50">
+                                    <rect x="5" y="11" width="14" height="10" rx="2" stroke="currentColor" strokeWidth="2.5" fill="none" />
+                                    <path d="M8 11V7a4 4 0 0 1 8 0v4" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+                                </svg>
+                            )}
+                        </button>
                     </nav>
 
-                    {/* Bottom: user + lang + logout */}
+                    {/* Bottom: lang + user + logout */}
                     <div className="p-3 border-t border-slate-100 space-y-2">
                         {/* Language */}
                         <div className="relative">
@@ -267,13 +257,12 @@ export default function AppShell({
                     <header className="sticky top-0 z-10 h-14 bg-white/95 backdrop-blur-sm border-b border-slate-100">
                         <div className="h-full px-5 flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                                <h1 className="text-lg font-bold text-slate-900">{title}</h1>
+                                {title && <h1 className="text-lg font-bold text-slate-900">{title}</h1>}
                                 {titleAction}
                             </div>
 
                             <div className="flex items-center gap-3">
                                 <NotificationBell />
-                                {/* User greeting — desktop */}
                                 <div className="hidden sm:flex items-center gap-2.5">
                                     <div className="w-7 h-7 rounded-full bg-sky-600 text-white flex items-center justify-center text-xs font-bold">
                                         {avatarLetter}
@@ -304,6 +293,14 @@ export default function AppShell({
             <BottomNav />
             <ToastContainer />
             <GlobalToast />
+
+            {showPin && (
+                <PinModal
+                    mode={pinMode}
+                    onSuccess={handlePinSuccess}
+                    onClose={() => setShowPin(false)}
+                />
+            )}
         </div>
     );
 }
