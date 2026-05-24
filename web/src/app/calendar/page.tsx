@@ -445,17 +445,24 @@ export default function CalendarPage() {
             return;
         }
         if (app.isTask) {
-            const newDate = dropInfo.event.startStr.split("T")[0];
-            const [year, month, day] = newDate.split("-").map(Number);
+            const startStr = dropInfo.event.startStr;
+            const newDate = startStr.split("T")[0];
+            const [, month, day] = newDate.split("-").map(Number);
+            const timeMatch = startStr.match(/T(\d{2}:\d{2})/);
+            const newTime = (!dropInfo.event.allDay && timeMatch) ? timeMatch[1] : null;
             const body: Record<string, unknown> = app.is_recurring
                 ? { recurrence_day: day, recurrence_month: month }
                 : { task_date: newDate };
+            if (newTime) body.start_time = newTime;
             try {
                 await apiFetch(`/api/tasks/${app.taskId}`, {
                     method: "PUT",
                     body: JSON.stringify(body),
                 });
-                setTasks(prev => prev.map(t => t.id === app.taskId ? { ...t, date: newDate } : t));
+                setTasks(prev => prev.map(t => t.id === app.taskId
+                    ? { ...t, date: newDate, ...(newTime ? { start_time: newTime } : {}) }
+                    : t
+                ));
             } catch {
                 setToast({ message: "שגיאה בהזזת המשימה", type: "error" });
                 dropInfo.revert();
@@ -597,12 +604,13 @@ export default function CalendarPage() {
         );
     }, [clients, clientSearch]);
 
-    // Task events for FullCalendar (all-day)
+    // Task events for FullCalendar
     const taskEvents = useMemo(() => tasks.map(t => ({
         id: `task-${t.id}`,
         title: `${t.is_recurring ? "🔁 " : "📌 "}${t.title}`,
-        start: t.date,
-        allDay: true,
+        start: t.start_time ? `${t.date}T${t.start_time}` : t.date,
+        end: t.end_time ? `${t.date}T${t.end_time}` : undefined,
+        allDay: !t.start_time,
         backgroundColor: t.color,
         borderColor: t.color,
         textColor: "#ffffff",
