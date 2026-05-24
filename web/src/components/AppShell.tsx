@@ -38,7 +38,6 @@ const MANAGE_NAV = [
     { href: "/team",        label: "צוות",         icon: "🎨" },
     { href: "/stamps",      label: "כרטיסי חותמות", icon: "🎁" },
     { href: "/tiers",       label: "רמות VIP",     icon: "👑" },
-    { href: "/automation",  label: "הגדרות",       icon: "⚙️" },
 ];
 
 export default function AppShell({
