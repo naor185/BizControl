@@ -61,22 +61,45 @@ export default function Page() {
     const [error, setError] = useState<string | null>(null);
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
     const [selectedAppt, setSelectedAppt] = useState<DailyPayment | null>(null);
+    const [pendingDeposits, setPendingDeposits] = useState<any[]>([]);
+    const [confirmingDeposit, setConfirmingDeposit] = useState<string | null>(null);
 
     const fetchData = async () => {
         try {
             setLoading(true);
-            const [statsData, paymentsData, pendingData] = await Promise.all([
+            const skipped = JSON.parse(sessionStorage.getItem("skipped_deposits") || "[]") as string[];
+            const [statsData, paymentsData, pendingData, depositsData] = await Promise.all([
                 apiFetch<DashboardStats>("/api/dashboard/stats"),
                 apiFetch<DailyPayment[]>("/api/dashboard/daily-payments"),
                 apiFetch<PendingPayment[]>("/api/dashboard/pending-payments"),
+                apiFetch<any[]>("/api/appointments/pending-deposits").catch(() => []),
             ]);
             setStats(statsData);
             setDailyPayments(paymentsData);
             setPendingPayments(pendingData);
+            setPendingDeposits(depositsData.filter((d: any) => !skipped.includes(d.appointment_id)));
         } catch {
             setError("שגיאה בטעינת נתונים");
         } finally {
             setLoading(false);
+        }
+    };
+
+    const skipDeposit = (id: string) => {
+        const skipped = JSON.parse(sessionStorage.getItem("skipped_deposits") || "[]") as string[];
+        sessionStorage.setItem("skipped_deposits", JSON.stringify([...skipped, id]));
+        setPendingDeposits(prev => prev.filter(d => d.appointment_id !== id));
+    };
+
+    const confirmDeposit = async (id: string) => {
+        setConfirmingDeposit(id);
+        try {
+            await apiFetch(`/api/appointments/${id}/verify-payment`, { method: "POST" });
+            setPendingDeposits(prev => prev.filter(d => d.appointment_id !== id));
+        } catch (e: any) {
+            alert(e?.message || "שגיאה באישור");
+        } finally {
+            setConfirmingDeposit(null);
         }
     };
 
@@ -176,6 +199,53 @@ export default function Page() {
                                     )}
                                 </div>
                             )}
+                        </div>
+                    )}
+
+                    {/* ── PENDING DEPOSITS ── */}
+                    {pendingDeposits.length > 0 && (
+                        <div className="bg-white rounded-2xl border-2 border-amber-300 shadow-sm overflow-hidden">
+                            <div className="px-5 py-4 bg-amber-50 border-b border-amber-200 flex items-center gap-3">
+                                <span className="text-xl">💰</span>
+                                <div className="flex-1">
+                                    <div className="font-bold text-amber-900">ממתינים לאישור מקדמה</div>
+                                    <div className="text-xs text-amber-700">{pendingDeposits.length} תורים — ראית אסמכתא בוואטסאפ? לחץ אשר</div>
+                                </div>
+                            </div>
+                            <div className="divide-y divide-slate-100">
+                                {pendingDeposits.map(d => (
+                                    <div key={d.appointment_id} className="px-5 py-4 flex items-center gap-3 flex-wrap">
+                                        <div className="flex-1 min-w-0">
+                                            <div className="font-semibold text-slate-800">{d.client_name}</div>
+                                            <div className="text-xs text-slate-500">
+                                                {d.title} · {d.starts_at ? new Date(d.starts_at).toLocaleDateString("he-IL") + " " + new Date(d.starts_at).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" }) : "—"}
+                                            </div>
+                                            <div className="text-xs font-bold text-amber-600 mt-0.5">
+                                                מקדמה: ₪{(d.deposit_amount_cents / 100).toLocaleString()}
+                                            </div>
+                                        </div>
+                                        <div className="flex gap-2 shrink-0">
+                                            <button
+                                                onClick={() => skipDeposit(d.appointment_id)}
+                                                className="px-3 py-1.5 text-xs font-semibold text-slate-500 border border-slate-200 rounded-lg hover:bg-slate-50 transition"
+                                            >
+                                                דלג
+                                            </button>
+                                            <a href={`https://wa.me/${d.client_phone.replace(/\D/g, "")}`} target="_blank" rel="noreferrer"
+                                                className="px-3 py-1.5 text-xs font-semibold text-emerald-700 border border-emerald-200 rounded-lg hover:bg-emerald-50 transition">
+                                                💬 וואטסאפ
+                                            </a>
+                                            <button
+                                                onClick={() => confirmDeposit(d.appointment_id)}
+                                                disabled={confirmingDeposit === d.appointment_id}
+                                                className="px-3 py-1.5 text-xs font-bold text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition disabled:opacity-50"
+                                            >
+                                                {confirmingDeposit === d.appointment_id ? "..." : "קיבלתי ✅"}
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     )}
 

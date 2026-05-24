@@ -30,7 +30,6 @@ const MAIN_NAV = [
     { href: "/pos",       label: "קופה",         icon: "🛒" },
     { href: "/dashboard", label: "לוח בקרה",   icon: "📊" },
     { href: "/clients",   label: "לקוחות",       icon: "👥" },
-    { href: "/deposits",  label: "אישור מקדמות", icon: "💰" },
 ];
 
 const MANAGE_NAV = [
@@ -63,6 +62,7 @@ export default function AppShell({
     const [pinStatus, setPinStatus] = useState<PinStatus | null>(null);
     const [showPin, setShowPin] = useState(false);
     const [pinMode, setPinMode] = useState<"verify" | "set">("verify");
+    const [pendingDepositsCount, setPendingDepositsCount] = useState(0);
 
     useEffect(() => {
         if (typeof window !== "undefined") {
@@ -87,12 +87,14 @@ export default function AppShell({
             try {
                 const token = getToken();
                 if (!token) return;
-                const [data, pin] = await Promise.all([
+                const [data, pin, deposits] = await Promise.all([
                     apiFetch<Me>("/api/auth/me"),
                     apiFetch<PinStatus>("/api/security/pin/status"),
+                    apiFetch<any[]>("/api/appointments/pending-deposits").catch(() => []),
                 ]);
                 setMe(data);
                 setPinStatus(pin);
+                setPendingDepositsCount(deposits.length);
             } catch { /* silent */ }
         })();
     }, []);
@@ -160,6 +162,7 @@ export default function AppShell({
                     <nav className="flex-1 p-2.5 space-y-0.5 overflow-y-auto">
                         {MAIN_NAV.map(item => {
                             const active = pathname === item.href || pathname.startsWith(item.href + "/");
+                            const badge = item.href === "/dashboard" && pendingDepositsCount > 0 ? pendingDepositsCount : 0;
                             return (
                                 <Link
                                     key={item.href}
@@ -172,7 +175,12 @@ export default function AppShell({
                                     ].join(" ")}
                                 >
                                     <span className="text-base leading-none">{item.icon}</span>
-                                    <span>{item.label}</span>
+                                    <span className="flex-1">{item.label}</span>
+                                    {badge > 0 && (
+                                        <span className="bg-amber-500 text-white text-[10px] font-bold rounded-full min-w-4.5 h-4.5 flex items-center justify-center px-1">
+                                            {badge}
+                                        </span>
+                                    )}
                                 </Link>
                             );
                         })}
