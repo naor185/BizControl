@@ -104,6 +104,7 @@ type TreatmentTypeTemplate = {
     name: string;
     requires_deposit: boolean;
     deposit_amount_ils: number | null;
+    send_aftercare: boolean;
 };
 
 function WebhookUrlBox({ provider, instanceId }: { provider: "green_api" | "meta"; instanceId: string }) {
@@ -191,6 +192,7 @@ export default function AutomationSettingsPage() {
     const [newTreatmentType, setNewTreatmentType] = useState("");
     const [newTreatmentRequiresDeposit, setNewTreatmentRequiresDeposit] = useState(false);
     const [newTreatmentDepositAmount, setNewTreatmentDepositAmount] = useState<number | null>(null);
+    const [newTreatmentSendAftercare, setNewTreatmentSendAftercare] = useState(false);
     const [treatmentSaving, setTreatmentSaving] = useState(false);
     const [retroResult, setRetroResult] = useState<{ processed: number; failed: number; clients: { id: string; name: string }[] } | null>(null);
 
@@ -299,11 +301,13 @@ export default function AutomationSettingsPage() {
             name: newTreatmentType.trim(),
             requires_deposit: newTreatmentRequiresDeposit,
             deposit_amount_ils: newTreatmentRequiresDeposit ? newTreatmentDepositAmount : null,
+            send_aftercare: newTreatmentSendAftercare,
         };
         const updated = [...(settings.treatment_types || []), newTpl];
         setNewTreatmentType("");
         setNewTreatmentRequiresDeposit(false);
         setNewTreatmentDepositAmount(null);
+        setNewTreatmentSendAftercare(false);
         await saveTreatmentTypes(updated);
     };
 
@@ -1427,6 +1431,11 @@ export default function AutomationSettingsPage() {
                                                 {(settings.treatment_types || []).map((tpl, idx) => (
                                                     <div key={idx} className="flex items-center gap-3 bg-white rounded-xl border border-slate-200 px-4 py-3">
                                                         <span className="flex-1 font-semibold text-slate-800 text-sm">{tpl.name}</span>
+                                                        {tpl.send_aftercare && (
+                                                            <span className="text-xs bg-blue-100 text-blue-700 font-semibold px-2 py-0.5 rounded-full">
+                                                                📋 הוראות טיפול
+                                                            </span>
+                                                        )}
                                                         {tpl.requires_deposit ? (
                                                             <span className="text-xs bg-emerald-100 text-emerald-700 font-semibold px-2 py-0.5 rounded-full">
                                                                 💳 מקדמה{tpl.deposit_amount_ils ? ` ₪${tpl.deposit_amount_ils}` : ""}
@@ -1455,7 +1464,7 @@ export default function AutomationSettingsPage() {
                                                     placeholder="שם הטיפול (למשל: קעקוע, פירסינג...)"
                                                     className="w-full border border-slate-200 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
                                                 />
-                                                <div className="flex items-center gap-3">
+                                                <div className="flex flex-wrap items-center gap-4">
                                                     <label className="flex items-center gap-2 cursor-pointer select-none">
                                                         <input
                                                             type="checkbox"
@@ -1479,6 +1488,15 @@ export default function AutomationSettingsPage() {
                                                             <span className="text-sm text-slate-500">₪</span>
                                                         </div>
                                                     )}
+                                                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={newTreatmentSendAftercare}
+                                                            onChange={e => setNewTreatmentSendAftercare(e.target.checked)}
+                                                            className="w-4 h-4 rounded accent-blue-600"
+                                                        />
+                                                        <span className="text-sm font-semibold text-slate-700">שלח הוראות טיפול לאחר תור</span>
+                                                    </label>
                                                 </div>
                                                 <button
                                                     type="button"
