@@ -315,7 +315,7 @@ export default function PosPage() {
     return (
         <RequireAuth>
         <AppShell title="קופה" fullBleed>
-        <div className="flex h-full overflow-hidden bg-slate-50">
+        <div className="flex h-full overflow-hidden bg-slate-50" dir="rtl">
 
             {/* ── Cart Panel — LEFT in LTR = RIGHT visually (Hebrew UI) ── */}
             <div className="w-96 shrink-0 bg-white border-l flex flex-col shadow-xl" dir="rtl">
