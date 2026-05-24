@@ -1,6 +1,7 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from datetime import date
 from typing import Literal
+from uuid import UUID
 
 
 class TaskCreate(BaseModel):
@@ -42,6 +43,11 @@ class TaskOut(BaseModel):
     recurrence_month: int | None
     recurrence_end_date: date | None
 
+    @field_validator("id", mode="before")
+    @classmethod
+    def coerce_id(cls, v):
+        return str(v)
+
     class Config:
         from_attributes = True
 
@@ -49,6 +55,11 @@ class TaskOut(BaseModel):
 class TaskInstance(BaseModel):
     """A single occurrence of a task (possibly from a recurring task)."""
     id: str
+
+    @field_validator("id", mode="before")
+    @classmethod
+    def coerce_id(cls, v):
+        return str(v)
     title: str
     date: str          # YYYY-MM-DD — the specific occurrence date
     start_time: str | None
