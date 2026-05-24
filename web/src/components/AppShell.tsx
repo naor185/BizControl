@@ -26,9 +26,9 @@ type Me = {
 type PinStatus = { has_pin: boolean; is_locked: boolean };
 
 const MAIN_NAV = [
-    { href: "/dashboard", label: "לוח בקרה",   icon: "📊" },
     { href: "/calendar",  label: "יומן תורים",  icon: "📅" },
     { href: "/pos",       label: "קופה",         icon: "🛒" },
+    { href: "/dashboard", label: "לוח בקרה",   icon: "📊" },
     { href: "/clients",   label: "לקוחות",       icon: "👥" },
 ];
 
