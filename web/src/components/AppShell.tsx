@@ -30,6 +30,7 @@ const MAIN_NAV = [
     { href: "/pos",       label: "קופה",         icon: "🛒" },
     { href: "/dashboard", label: "לוח בקרה",   icon: "📊" },
     { href: "/clients",   label: "לקוחות",       icon: "👥" },
+    { href: "/deposits",  label: "אישור מקדמות", icon: "💰" },
 ];
 
 const MANAGE_NAV = [
