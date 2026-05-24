@@ -444,6 +444,20 @@ export default function CalendarPage() {
             dropInfo.revert();
             return;
         }
+        if (app.isTask) {
+            const newDate = dropInfo.event.startStr.split("T")[0];
+            try {
+                await apiFetch(`/api/tasks/${app.taskId}`, {
+                    method: "PATCH",
+                    body: JSON.stringify({ task_date: newDate }),
+                });
+                setTasks(prev => prev.map(t => t.id === app.taskId ? { ...t, date: newDate } : t));
+            } catch {
+                setToast({ message: "שגיאה בהזזת המשימה", type: "error" });
+                dropInfo.revert();
+            }
+            return;
+        }
 
         const doMove = async () => {
             const eventId = dropInfo.event.id;
