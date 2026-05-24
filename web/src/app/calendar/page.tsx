@@ -446,10 +446,14 @@ export default function CalendarPage() {
         }
         if (app.isTask) {
             const newDate = dropInfo.event.startStr.split("T")[0];
+            const [year, month, day] = newDate.split("-").map(Number);
+            const body: Record<string, unknown> = app.is_recurring
+                ? { recurrence_day: day, recurrence_month: month }
+                : { task_date: newDate };
             try {
                 await apiFetch(`/api/tasks/${app.taskId}`, {
                     method: "PUT",
-                    body: JSON.stringify({ task_date: newDate }),
+                    body: JSON.stringify(body),
                 });
                 setTasks(prev => prev.map(t => t.id === app.taskId ? { ...t, date: newDate } : t));
             } catch {
@@ -602,7 +606,7 @@ export default function CalendarPage() {
         backgroundColor: t.color,
         borderColor: t.color,
         textColor: "#ffffff",
-        editable: !t.is_recurring,
+
         extendedProps: { isTask: true, taskId: t.id, ...t },
     })), [tasks]);
 
