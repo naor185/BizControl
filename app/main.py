@@ -113,6 +113,8 @@ def run_migrations():
         conn.execute(text("ALTER TABLE clients ADD COLUMN IF NOT EXISTS whatsapp_opted_out BOOLEAN NOT NULL DEFAULT false"))
         conn.execute(text("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS treatment_types TEXT"))
         conn.execute(text("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS birthday_automation_enabled BOOLEAN NOT NULL DEFAULT true"))
+        conn.execute(text("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS reminder_3day_wa_template TEXT"))
+        conn.execute(text("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS reminder_7day_wa_template TEXT"))
         conn.execute(text("""
             CREATE TABLE IF NOT EXISTS tasks (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

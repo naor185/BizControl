@@ -32,6 +32,8 @@ type Settings = {
     confirm_email_template?: string | null;
     reminder_wa_template?: string | null;
     reminder_email_template?: string | null;
+    reminder_3day_wa_template?: string | null;
+    reminder_7day_wa_template?: string | null;
     post_payment_wa_template?: string | null;
     post_payment_email_template?: string | null;
     reschedule_wa_template?: string | null;
@@ -1003,7 +1005,7 @@ export default function AutomationSettingsPage() {
                                             </div>
                                         </div>
 
-                                        {/* Reminder */}
+                                        {/* Reminder 24h */}
                                         <div className="space-y-6">
                                             <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
                                                 <span className="text-xl">🔔</span>
@@ -1018,6 +1020,26 @@ export default function AutomationSettingsPage() {
                                                     <label className="block text-xs font-bold text-slate-600 uppercase tracking-widest text-right">Email Template</label>
                                                     <textarea rows={4} value={settings.reminder_email_template || ""} onChange={e => handleChange("reminder_email_template", e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500 text-sm" placeholder="היי {client_name}, רק מזכירים..." />
                                                 </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Reminder 3 days */}
+                                        <div className="space-y-6">
+                                            <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
+                                                <span className="text-xl">📅</span>
+                                                <h4 className="font-bold text-slate-800">תזכורת 3 ימים לפני תור</h4>
+                                            </div>
+                                            <p className="text-sm text-slate-500 -mt-4">נשלחת רק לתורים עם מקדמה. ללא מקדמה — נשלחת תזכורת רגילה ללא אזכור תשלום.</p>
+                                            <div className="space-y-2">
+                                                <label className="block text-xs font-bold text-slate-600 uppercase tracking-widest text-right">WhatsApp Template</label>
+                                                <textarea
+                                                    rows={4}
+                                                    value={settings.reminder_3day_wa_template || ""}
+                                                    onChange={e => handleChange("reminder_3day_wa_template", e.target.value)}
+                                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500 text-sm"
+                                                    placeholder="היי {client_name}! תזכורת - התור שלך ל-{appointment_title} בעוד 3 ימים..."
+                                                />
+                                                <p className="text-xs text-slate-400">משתנים: {"{client_name}"}, {"{appointment_title}"}, {"{appointment_date}"}, {"{appointment_time}"}, {"{payment_link}"}</p>
                                             </div>
                                         </div>
 

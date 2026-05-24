@@ -144,7 +144,9 @@ def _sweep_reminders_for_window(
     window_hours: int = 4,
     tag: str = "",
     wa_default: str = "",
+    wa_deposit_default: str = "",
     email_default: str = "",
+    settings_wa_attr: str = "",
 ) -> int:
     """Generic reminder sweep for any time window ahead of now."""
     now = datetime.now(timezone.utc)
@@ -176,6 +178,7 @@ def _sweep_reminders_for_window(
         if existing:
             continue
 
+        has_deposit = bool(appt.deposit_amount_cents and appt.deposit_amount_cents > 0)
         payment_link = settings.bit_link or settings.paybox_link or ""
         context = {
             "client_name": client.full_name,
@@ -186,7 +189,16 @@ def _sweep_reminders_for_window(
             "deposit_amount": f"{appt.deposit_amount_cents / 100:.2f}" if appt.deposit_amount_cents else "0.00",
         }
 
-        wa_body = format_template(wa_default, context) if wa_default else None
+        # Pick WA template: custom from settings → deposit-aware default → generic default
+        custom_wa = getattr(settings, settings_wa_attr, None) if settings_wa_attr else None
+        if custom_wa:
+            chosen_wa = custom_wa
+        elif has_deposit and wa_deposit_default:
+            chosen_wa = wa_deposit_default
+        else:
+            chosen_wa = wa_default
+
+        wa_body = format_template(chosen_wa, context) if chosen_wa else None
         if client.phone and wa_body:
             db.add(MessageJob(
                 studio_id=appt.studio_id,
@@ -319,6 +331,7 @@ def sweep_7day_reminders(db: Session) -> int:
         tag="[7day]",
         wa_default="[7day] היי {client_name}! יש לך תור ל-{appointment_title} בעוד שבוע, ב-{appointment_date} בשעה {appointment_time}. מחכים לך!",
         email_default="<div dir=rtl>[7day] תזכורת תור בעוד שבוע - {client_name} - {appointment_date} {appointment_time}</div>",
+        settings_wa_attr="reminder_7day_wa_template",
     )
 
 
@@ -328,8 +341,10 @@ def sweep_3day_reminders(db: Session) -> int:
         hours_ahead=3 * 24,
         window_hours=4,
         tag="[3day]",
-        wa_default="[3day] היי {client_name}! תזכורת התור שלך ל-{appointment_title} בעוד 3 ימים, ב-{appointment_date} בשעה {appointment_time}. אם טרם שילמת מקדמה: {payment_link}",
+        wa_default="[3day] היי {client_name}! תזכורת - התור שלך ל-{appointment_title} בעוד 3 ימים, ב-{appointment_date} בשעה {appointment_time}. מחכים לך! 😊",
+        wa_deposit_default="[3day] היי {client_name}! תזכורת - התור שלך ל-{appointment_title} בעוד 3 ימים, ב-{appointment_date} בשעה {appointment_time}. אם טרם שילמת מקדמה: {payment_link}",
         email_default="<div dir=rtl>[3day] תזכורת - 3 ימים לתור - {client_name} - {appointment_date} {appointment_time}</div>",
+        settings_wa_attr="reminder_3day_wa_template",
     )
 
 

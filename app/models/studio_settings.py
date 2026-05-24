@@ -41,6 +41,8 @@ class StudioSettings(Base):
     
     reminder_wa_template: Mapped[str | None] = mapped_column(Text, nullable=True)
     reminder_email_template: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reminder_3day_wa_template: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reminder_7day_wa_template: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     post_payment_wa_template: Mapped[str | None] = mapped_column(Text, nullable=True)
     post_payment_email_template: Mapped[str | None] = mapped_column(Text, nullable=True)

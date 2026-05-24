@@ -38,6 +38,8 @@ class AutomationSettingsOut(BaseModel):
     confirm_email_template: str | None = None
     reminder_wa_template: str | None = None
     reminder_email_template: str | None = None
+    reminder_3day_wa_template: str | None = None
+    reminder_7day_wa_template: str | None = None
     post_payment_wa_template: str | None = None
     post_payment_email_template: str | None = None
     reschedule_wa_template: str | None = None
@@ -177,6 +179,8 @@ class AutomationSettingsUpdate(BaseModel):
     confirm_email_template: str | None = None
     reminder_wa_template: str | None = None
     reminder_email_template: str | None = None
+    reminder_3day_wa_template: str | None = None
+    reminder_7day_wa_template: str | None = None
     post_payment_wa_template: str | None = None
     post_payment_email_template: str | None = None
     reschedule_wa_template: str | None = None
