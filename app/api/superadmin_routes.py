@@ -1399,6 +1399,65 @@ def wallet_system_status(_admin: User = Depends(require_superadmin)):
     }
 
 
+@router.get("/health", tags=["SuperAdmin"])
+def platform_health(db: Session = Depends(get_db), _admin: User = Depends(require_superadmin)):
+    """Returns health status for all studios: WhatsApp connection + failed message jobs."""
+    import urllib.request as _req
+    import json as _json
+
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
+
+    studios = db.execute(
+        select(Studio, StudioSettings)
+        .join(StudioSettings, StudioSettings.studio_id == Studio.id, isouter=True)
+    ).all()
+
+    results = []
+    for studio, settings in studios:
+        # --- Failed message jobs last 24h ---
+        failed_count = db.scalar(
+            select(func.count(MessageJob.id)).where(
+                MessageJob.studio_id == studio.id,
+                MessageJob.status == "failed",
+                MessageJob.created_at >= cutoff,
+            )
+        ) or 0
+
+        pending_count = db.scalar(
+            select(func.count(MessageJob.id)).where(
+                MessageJob.studio_id == studio.id,
+                MessageJob.status == "pending",
+                MessageJob.scheduled_at <= datetime.now(timezone.utc) - timedelta(minutes=5),
+            )
+        ) or 0
+
+        # --- WhatsApp Green API status ---
+        wa_status = "not_configured"
+        if settings and settings.whatsapp_provider == "green_api" and settings.whatsapp_instance_id and settings.whatsapp_api_key:
+            try:
+                url = f"https://api.green-api.com/waInstance{settings.whatsapp_instance_id}/getStateInstance/{settings.whatsapp_api_key}"
+                with _req.urlopen(_req.Request(url), timeout=5) as resp:
+                    data = _json.loads(resp.read())
+                    state = data.get("stateInstance", "unknown")
+                    wa_status = "connected" if state == "authorized" else f"disconnected:{state}"
+            except Exception as e:
+                wa_status = f"error:{str(e)[:60]}"
+
+        has_alert = failed_count > 0 or pending_count > 0 or (wa_status not in ("not_configured", "connected"))
+
+        results.append({
+            "studio_id": str(studio.id),
+            "studio_name": studio.name,
+            "wa_status": wa_status,
+            "failed_jobs_24h": failed_count,
+            "stuck_pending_jobs": pending_count,
+            "has_alert": has_alert,
+        })
+
+    results.sort(key=lambda x: (not x["has_alert"], x["studio_name"]))
+    return results
+
+
 @router.delete("/studios/{studio_id}/clients", tags=["SuperAdmin"])
 def delete_all_studio_clients(studio_id: str, _admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
     from app.models.client_points_ledger import ClientPointsLedger

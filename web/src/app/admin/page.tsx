@@ -161,7 +161,9 @@ export default function AdminPage() {
     const [deleteErr, setDeleteErr] = useState<string | null>(null);
     const [extendDays, setExtendDays] = useState(14);
     const [extending, setExtending] = useState(false);
-    const [tab, setTab] = useState<"studios" | "audit" | "platform" | "leads" | "contacts">("studios");
+    const [tab, setTab] = useState<"studios" | "audit" | "platform" | "leads" | "contacts" | "health">("studios");
+    const [healthData, setHealthData] = useState<{ studio_id: string; studio_name: string; wa_status: string; failed_jobs_24h: number; stuck_pending_jobs: number; has_alert: boolean }[] | null>(null);
+    const [healthLoading, setHealthLoading] = useState(false);
     const [auditLog, setAuditLog] = useState<AuditEntry[] | null>(null);
     const [auditLoading, setAuditLoading] = useState(false);
     const [platformSettings, setPlatformSettings] = useState<{ whatsapp_provider: string | null; whatsapp_phone_id: string | null; whatsapp_api_key: string | null } | null>(null);
@@ -393,7 +395,14 @@ export default function AdminPage() {
         } catch { } finally { setLeadsLoading(false); }
     };
 
-    const handleTabChange = (t: "studios" | "audit" | "platform" | "leads" | "contacts") => {
+    const handleTabChange = (t: "studios" | "audit" | "platform" | "leads" | "contacts" | "health") => {
+        if (t === "health" && !healthData) {
+            setHealthLoading(true);
+            apiFetch<typeof healthData>("/api/admin/health")
+                .then(d => setHealthData(d))
+                .catch(() => {})
+                .finally(() => setHealthLoading(false));
+        }
         setTab(t);
         if (t === "audit") loadAuditLog();
         if (t === "platform") loadPlatformSettings();
@@ -615,7 +624,7 @@ export default function AdminPage() {
 
                 {/* Tabs */}
                 <div className="flex flex-wrap gap-1 bg-white/5 border border-white/10 rounded-2xl p-1 w-fit">
-                    {(["studios", "contacts", "leads", "audit", "platform"] as const).map(t => (
+                    {(["studios", "contacts", "leads", "audit", "platform", "health"] as const).map(t => (
                         <button
                             key={t}
                             onClick={() => handleTabChange(t)}
@@ -623,7 +632,7 @@ export default function AdminPage() {
                                 tab === t ? "bg-white text-slate-900" : "text-slate-400 hover:text-white"
                             }`}
                         >
-                            {t === "studios" ? "🏢 סטודיואים" : t === "contacts" ? "👥 אנשי קשר" : t === "leads" ? "📥 לידים" : t === "audit" ? "📋 לוג פעולות" : "⚙️ פלטפורמה"}
+                            {t === "studios" ? "🏢 סטודיואים" : t === "contacts" ? "👥 אנשי קשר" : t === "leads" ? "📥 לידים" : t === "audit" ? "📋 לוג פעולות" : t === "platform" ? "⚙️ פלטפורמה" : "🚨 התראות מערכת"}
                         </button>
                     ))}
                     <a
@@ -1838,6 +1847,58 @@ export default function AdminPage() {
                     </div>
                 </div>
             )}
+
+                {/* ── Health Alerts Tab ── */}
+                {tab === "health" && (
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <h2 className="text-xl font-bold text-white">🚨 התראות מערכת</h2>
+                            <button
+                                onClick={() => { setHealthData(null); setHealthLoading(true); apiFetch<typeof healthData>("/api/admin/health").then(d => setHealthData(d)).catch(() => {}).finally(() => setHealthLoading(false)); }}
+                                className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white text-sm font-semibold rounded-xl transition-colors"
+                            >
+                                🔄 רענן
+                            </button>
+                        </div>
+                        {healthLoading && <p className="text-slate-400 text-sm">בודק סטטוס...</p>}
+                        {healthData && (
+                            <>
+                                {healthData.filter(s => s.has_alert).length === 0 && (
+                                    <div className="bg-emerald-900/30 border border-emerald-500/30 rounded-2xl px-6 py-4 text-emerald-300 font-semibold">
+                                        ✅ כל המערכות תקינות — אין התראות פעילות
+                                    </div>
+                                )}
+                                <div className="space-y-3">
+                                    {healthData.map(s => (
+                                        <div key={s.studio_id} className={`rounded-2xl border px-5 py-4 ${s.has_alert ? "bg-red-900/30 border-red-500/30" : "bg-white/5 border-white/10"}`}>
+                                            <div className="flex items-center justify-between flex-wrap gap-2">
+                                                <span className="font-bold text-white text-sm">{s.studio_name}</span>
+                                                <div className="flex gap-2 flex-wrap">
+                                                    <span className={`text-xs font-bold px-2 py-1 rounded-full ${s.wa_status === "connected" ? "bg-emerald-700/50 text-emerald-300" : s.wa_status === "not_configured" ? "bg-slate-700/50 text-slate-400" : "bg-red-700/50 text-red-300"}`}>
+                                                        📱 {s.wa_status === "connected" ? "WhatsApp מחובר" : s.wa_status === "not_configured" ? "WhatsApp לא מוגדר" : `WhatsApp מנותק: ${s.wa_status.replace("disconnected:", "")}`}
+                                                    </span>
+                                                    {s.failed_jobs_24h > 0 && (
+                                                        <span className="text-xs font-bold px-2 py-1 rounded-full bg-orange-700/50 text-orange-300">
+                                                            ⚠️ {s.failed_jobs_24h} הודעות נכשלו (24ש׳)
+                                                        </span>
+                                                    )}
+                                                    {s.stuck_pending_jobs > 0 && (
+                                                        <span className="text-xs font-bold px-2 py-1 rounded-full bg-yellow-700/50 text-yellow-300">
+                                                            ⏳ {s.stuck_pending_jobs} הודעות תקועות
+                                                        </span>
+                                                    )}
+                                                    {!s.has_alert && (
+                                                        <span className="text-xs font-bold px-2 py-1 rounded-full bg-emerald-700/50 text-emerald-300">✅ תקין</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </>
+                        )}
+                    </div>
+                )}
         </div>
     );
 }
