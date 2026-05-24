@@ -361,18 +361,19 @@ def verify_sent_payment(appointment_id: UUID, ctx: AuthContext = Depends(require
     # Mark as verified
     appt.payment_verified_at = func.now()
 
-    # Create the actual Payment record
-    new_payment = Payment(
-        studio_id=ctx.studio_id,
-        appointment_id=appt.id,
-        client_id=appt.client_id,
-        amount_cents=appt.deposit_amount_cents,
-        method="bit", # placeholder, assume bit/paybox digital
-        status="paid",
-        type="deposit",
-        notes="אומת אוטומטית לאחר דיווח לקוח"
-    )
-    db.add(new_payment)
+    # Create payment record only if there's an actual deposit amount
+    if appt.deposit_amount_cents > 0:
+        new_payment = Payment(
+            studio_id=ctx.studio_id,
+            appointment_id=appt.id,
+            client_id=appt.client_id,
+            amount_cents=appt.deposit_amount_cents,
+            method="bit",
+            status="paid",
+            type="deposit",
+            notes="אומת אוטומטית לאחר דיווח לקוח"
+        )
+        db.add(new_payment)
     db.commit()
 
     # שלח הודעת אישור מקדמה עם פרטים מלאים (כתובת, מפה, תיק עבודות, מדיניות ביטולים)
