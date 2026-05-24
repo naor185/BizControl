@@ -18,10 +18,26 @@ router = APIRouter(prefix="/studio/automation", tags=["Automation"])
 
 import json as _json
 
+_DEFAULT_AFTERCARE = (
+    "היי {client_name}! 🎉\n\n"
+    "לאחר סיום הקעקוע נשארים עם הניילון/מדבקה למשך כשעתיים.\n"
+    "לאחר מכן ניתן להסיר את הניילון או המדבקה ולשטוף בעדינות עם מים פושרים וסבון.\n\n"
+    "יום לאחר הקעקוע מתחילים למרוח את החמאה/המשחה פעמיים ביום - בוקר וערב למשך שלושה שבועות.\n"
+    "יש למרוח שכבה דקה ומאוזנת: לא יותר מדי ולא מעט מדי.\n\n"
+    "במקרים של יובש גבוה ניתן למרוח עד 3 פעמים ביום.\n\n"
+    "בזמן ההחלמה:\n"
+    "❌ לא לגרד\n"
+    "❌ לא לקלף\n"
+    "🚫 להימנע מבריכה, ים, ג׳קוזי וסאונה למשך שבועיים\n\n"
+    "לאחר כחודש וחצי מומלץ להגיע לביקורת כדי לוודא החלמה מלאה של הקעקוע. 🙏"
+)
+
 def _settings_to_out(settings, studio) -> AutomationSettingsOut:
     out = AutomationSettingsOut.model_validate(settings)
     out.studio_slug = studio.slug if studio else None
     out.studio_name = studio.name if studio else None
+    if not out.aftercare_message:
+        out.aftercare_message = _DEFAULT_AFTERCARE
     return out
 
 @router.get("", response_model=AutomationSettingsOut)
