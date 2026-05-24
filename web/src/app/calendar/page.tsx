@@ -602,6 +602,7 @@ export default function CalendarPage() {
         backgroundColor: t.color,
         borderColor: t.color,
         textColor: "#ffffff",
+        editable: !t.is_recurring,
         extendedProps: { isTask: true, taskId: t.id, ...t },
     })), [tasks]);
 
