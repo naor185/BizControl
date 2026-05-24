@@ -145,6 +145,38 @@ def list_(
 
     return db_events
 
+@router.get("/pending-deposits")
+def list_pending_deposits(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+    """Return future appointments with a deposit that has not yet been confirmed."""
+    from app.models.appointment import Appointment
+    from app.models.client import Client
+    rows = (
+        db.query(Appointment, Client)
+        .join(Client, Client.id == Appointment.client_id)
+        .filter(
+            Appointment.studio_id == ctx.studio_id,
+            Appointment.deposit_amount_cents > 0,
+            Appointment.payment_verified_at.is_(None),
+            Appointment.status != "cancelled",
+        )
+        .order_by(Appointment.starts_at)
+        .all()
+    )
+    result = []
+    for appt, client in rows:
+        result.append({
+            "appointment_id": str(appt.id),
+            "client_name": client.full_name,
+            "client_phone": client.phone or "",
+            "client_id": str(client.id),
+            "title": appt.title,
+            "starts_at": appt.starts_at.isoformat() if appt.starts_at else None,
+            "deposit_amount_cents": appt.deposit_amount_cents,
+            "payment_sent_at": appt.payment_sent_at.isoformat() if appt.payment_sent_at else None,
+        })
+    return result
+
+
 @router.get("/{appointment_id}", response_model=AppointmentOut)
 def get_one(appointment_id: UUID, ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
     obj = get_appointment_out(db, ctx.studio_id, appointment_id)
@@ -309,39 +341,6 @@ def cancel(appointment_id: UUID, reason: str | None = Query(default=None), hard_
                 log.warning("Failed to delete Google event: %s", e)
                 
     return None
-
-@router.get("/pending-deposits")
-def list_pending_deposits(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
-    """Return future appointments with a deposit that has not yet been confirmed."""
-    from app.models.appointment import Appointment
-    from app.models.client import Client
-    from sqlalchemy import and_
-    rows = (
-        db.query(Appointment, Client)
-        .join(Client, Client.id == Appointment.client_id)
-        .filter(
-            Appointment.studio_id == ctx.studio_id,
-            Appointment.deposit_amount_cents > 0,
-            Appointment.payment_verified_at.is_(None),
-            Appointment.status != "cancelled",
-        )
-        .order_by(Appointment.starts_at)
-        .all()
-    )
-    result = []
-    for appt, client in rows:
-        result.append({
-            "appointment_id": str(appt.id),
-            "client_name": client.full_name,
-            "client_phone": client.phone or "",
-            "client_id": str(client.id),
-            "title": appt.title,
-            "starts_at": appt.starts_at.isoformat() if appt.starts_at else None,
-            "deposit_amount_cents": appt.deposit_amount_cents,
-            "payment_sent_at": appt.payment_sent_at.isoformat() if appt.payment_sent_at else None,
-        })
-    return result
-
 
 @router.post("/{appointment_id}/verify-payment")
 def verify_sent_payment(appointment_id: UUID, ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
