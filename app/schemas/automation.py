@@ -7,6 +7,7 @@ class TreatmentTypeTemplate(BaseModel):
     name: str
     requires_deposit: bool = False
     deposit_amount_ils: int | None = None
+    send_aftercare: bool = False
 
     class Config:
         from_attributes = True
