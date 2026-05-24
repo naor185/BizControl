@@ -176,30 +176,6 @@ export default function AppShell({
                             );
                         })}
 
-                        {/* Manage nav */}
-                        <div className="pt-2 pb-1">
-                            <div className="px-3 pb-1">
-                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">ניהול</span>
-                            </div>
-                        </div>
-                        {MANAGE_NAV.map(item => {
-                            const active = pathname === item.href || pathname.startsWith(item.href + "/");
-                            return (
-                                <Link
-                                    key={item.href}
-                                    href={item.href}
-                                    className={[
-                                        "flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium transition-all",
-                                        active
-                                            ? "bg-slate-900 text-white shadow-sm"
-                                            : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
-                                    ].join(" ")}
-                                >
-                                    <span className="text-base leading-none">{item.icon}</span>
-                                    <span>{item.label}</span>
-                                </Link>
-                            );
-                        })}
 
                         <div className="pt-2 pb-1">
                             <div className="px-3 pb-1">
