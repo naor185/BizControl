@@ -147,9 +147,11 @@ def list_(
 
 @router.get("/pending-deposits")
 def list_pending_deposits(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
-    """Return future appointments with a deposit that has not yet been confirmed."""
+    """Return upcoming appointments with an unconfirmed deposit."""
     from app.models.appointment import Appointment
     from app.models.client import Client
+    from datetime import datetime, timezone, timedelta
+    cutoff = datetime.now(timezone.utc) - timedelta(days=1)
     rows = (
         db.query(Appointment, Client)
         .join(Client, Client.id == Appointment.client_id)
@@ -158,6 +160,7 @@ def list_pending_deposits(ctx: AuthContext = Depends(require_studio_ctx), db: Se
             Appointment.deposit_amount_cents > 0,
             Appointment.payment_verified_at.is_(None),
             Appointment.status != "cancelled",
+            Appointment.starts_at >= cutoff,
         )
         .order_by(Appointment.starts_at)
         .all()
