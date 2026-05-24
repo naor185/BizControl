@@ -221,7 +221,7 @@ export default function PinModal({ mode, onSuccess, onClose }: Props) {
 
                 {/* Numeric pad */}
                 {!locked && (
-                    <div className="grid grid-cols-3 gap-2 px-6 pb-6">
+                    <div className="grid grid-cols-3 gap-2 px-6 pb-6" dir="ltr">
                         {DIGITS.map((d, i) => (
                             <button
                                 key={i}
