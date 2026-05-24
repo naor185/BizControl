@@ -513,14 +513,33 @@ export default function ClientProfilePage() {
                                     <label className="block text-xs font-bold text-slate-500 uppercase mb-2">שיוך לתור (עסקה)</label>
                                     <select
                                         value={selectedApptId}
-                                        onChange={e => setSelectedApptId(e.target.value)}
+                                        onChange={e => {
+                                            const apptId = e.target.value;
+                                            setSelectedApptId(apptId);
+                                            // Auto-fill with remaining balance (total minus already paid)
+                                            const appt = appointments.find(a => a.id === apptId);
+                                            if (appt) {
+                                                const paid = payments
+                                                    .filter(p => p.appointment_id === apptId && p.status === "paid" && p.type !== "refund")
+                                                    .reduce((s, p) => s + p.amount_cents, 0);
+                                                const refunded = payments
+                                                    .filter(p => p.appointment_id === apptId && p.status === "paid" && p.type === "refund")
+                                                    .reduce((s, p) => s + p.amount_cents, 0);
+                                                const remaining = Math.max(0, appt.total_price_cents - paid + refunded);
+                                                setPaymentAmount(remaining > 0 ? (remaining / 100).toFixed(0) : "");
+                                            }
+                                        }}
                                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium text-slate-800 focus:ring-2 focus:ring-emerald-500 outline-none"
                                     >
-                                        {appointments.map(a => (
-                                            <option key={a.id} value={a.id}>
-                                                {new Date(a.starts_at).toLocaleDateString('he-IL')} - {a.title} ({(a.total_price_cents / 100).toFixed(0)} ₪)
-                                            </option>
-                                        ))}
+                                        {appointments.map(a => {
+                                            const paid = payments.filter(p => p.appointment_id === a.id && p.status === "paid" && p.type !== "refund").reduce((s, p) => s + p.amount_cents, 0);
+                                            const remaining = Math.max(0, a.total_price_cents - paid);
+                                            return (
+                                                <option key={a.id} value={a.id}>
+                                                    {new Date(a.starts_at).toLocaleDateString('he-IL')} - {a.title} · יתרה: {(remaining / 100).toFixed(0)}₪ / {(a.total_price_cents / 100).toFixed(0)}₪
+                                                </option>
+                                            );
+                                        })}
                                     </select>
                                 </div>
 
