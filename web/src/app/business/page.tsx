@@ -58,6 +58,8 @@ const SECTION_GROUPS: SectionGroup[] = [
         groupLabel: "מועדון לקוחות",
         items: [
             { href: "/stamps", label: "כרטיסי מועדון", description: "כרטיסיות חותמות ותוכנית נאמנות", icon: "🎁", color: "from-purple-500 to-purple-600" },
+            { href: "/tiers", label: "רמות VIP", description: "דרגות נאמנות, סף ניקוד והטבות לכל רמה", icon: "👑", color: "from-yellow-500 to-amber-600" },
+            { href: "/wallet", label: "כרטיס Wallet", description: "עיצוב כרטיס Apple/Google Wallet ללקוחות", icon: "💳", color: "from-slate-600 to-slate-800" },
         ],
     },
     {
