@@ -89,7 +89,7 @@ def start_scheduler():
     scheduler.add_job(tick_jobs, "interval", seconds=20, id="message_jobs_tick", replace_existing=True)
     scheduler.add_job(tick_reminders, "interval", minutes=60, id="reminders_sweep_tick", replace_existing=True)
     scheduler.add_job(tick_plan_alerts, "cron", hour=9, minute=0, id="plan_alerts_tick", replace_existing=True)
-    scheduler.add_job(tick_birthday_messages, "cron", hour=10, minute=0, id="birthday_messages_tick", replace_existing=True)
+    scheduler.add_job(tick_birthday_messages, "cron", day=25, hour=10, minute=0, id="birthday_messages_tick", replace_existing=True)
     scheduler.add_job(tick_expire_coupons, "cron", hour=1, minute=0, id="expire_coupons_tick", replace_existing=True)
     scheduler.start()
 

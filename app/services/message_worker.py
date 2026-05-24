@@ -334,18 +334,25 @@ def sweep_3day_reminders(db: Session) -> int:
 
 
 def sweep_birthday_messages(db: Session) -> int:
-    """Runs daily — sends birthday WhatsApp + creates coupon for club members whose birthday is today."""
+    """Runs on the 25th of each month — sends birthday WhatsApp + coupon to club members
+    whose birthday falls in the NEXT month, giving them ~5-35 days to book in advance."""
     from app.models.client import Client
     from app.models.studio_settings import StudioSettings
-    from app.models.client_points_ledger import ClientPointsLedger
     from app.crud.birthday_coupon import get_or_create_birthday_coupon
     from sqlalchemy import extract
 
     now = datetime.now(timezone.utc)
-    current_day = now.day
-    current_month = now.month
-    current_year = now.year
-    tag = f"[birthday-{current_year}-{current_month:02d}-{current_day:02d}]"
+
+    # Target = next calendar month
+    if now.month == 12:
+        target_month = 1
+        target_year = now.year + 1
+    else:
+        target_month = now.month + 1
+        target_year = now.year
+
+    # Dedup tag: one message per client per target month
+    tag = f"[birthday-{target_year}-{target_month:02d}]"
 
     stmt = (
         select(Client, StudioSettings)
@@ -354,22 +361,20 @@ def sweep_birthday_messages(db: Session) -> int:
             Client.is_club_member.is_(True),
             Client.is_active.is_(True),
             Client.birth_date.isnot(None),
-            extract("month", Client.birth_date) == current_month,
-            extract("day", Client.birth_date) == current_day,
+            extract("month", Client.birth_date) == target_month,
         )
     )
     rows = db.execute(stmt).all()
     count = 0
 
     for client, settings in rows:
-        # Skip if automation is disabled for this studio
         if not getattr(settings, "birthday_automation_enabled", True):
             continue
 
         if client.whatsapp_opted_out:
             continue
 
-        # Deduplicate: skip if we already sent a birthday message today
+        # Deduplicate: skip if already sent for this target month
         existing = db.scalar(
             select(MessageJob).where(
                 MessageJob.client_id == client.id,
@@ -384,8 +389,8 @@ def sweep_birthday_messages(db: Session) -> int:
             db,
             studio_id=client.studio_id,
             client_id=client.id,
-            month=current_month,
-            year=current_year,
+            month=target_month,
+            year=target_year,
             discount_percent=discount_percent,
             client_name=client.name or client.full_name or "",
         )
@@ -395,17 +400,16 @@ def sweep_birthday_messages(db: Session) -> int:
             "benefit_percent": discount_percent,
             "coupon_code": coupon.code,
             "birth_day": client.birth_date.day if client.birth_date else "",
-            "birth_month": client.birth_date.month if client.birth_date else "",
+            "birth_month": target_month,
         }
 
         wa_template = settings.birthday_wa_template
         if not wa_template:
             wa_template = (
                 f"{tag}\n"
-                "היי, מזל טוב 🎉\n"
-                "אתם חוגגים החודש יום הולדת 🥳\n"
-                "הנה הטבה מיוחדת של {benefit_percent}% הנחה לביצוע קעקוע או לקניית פירסינג "
-                "במהלך החודש הקרוב — במיוחד בשבילך ❤️\n\n"
+                "היי {client_name}, מזל טוב! 🎉\n"
+                "יום ההולדת שלך מתקרב 🥳\n"
+                "הנה הטבה מיוחדת של {benefit_percent}% הנחה לחודש ההולדת שלך — במיוחד בשבילך ❤️\n\n"
                 "קוד הקופון שלך: *{coupon_code}*"
             )
         else:
@@ -426,5 +430,5 @@ def sweep_birthday_messages(db: Session) -> int:
 
     if count:
         db.commit()
-    log.info("sweep_birthday_messages: sent %d birthday messages for %d/%d/%d", count, current_day, current_month, current_year)
+    log.info("sweep_birthday_messages: sent %d messages for birthday month %d/%d", count, target_month, target_year)
     return count
