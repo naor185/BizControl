@@ -143,6 +143,21 @@ def delete(
         raise HTTPException(status_code=404, detail="Client not found")
     return None
 
+@router.post("/{client_id}/reset-points", status_code=200)
+def reset_points(
+    client_id: UUID,
+    ctx: AuthContext = Depends(require_studio_ctx),
+    db: Session = Depends(get_db),
+):
+    """Zero out a client's loyalty points without touching payment history."""
+    client = db.scalar(select(Client).where(Client.id == client_id, Client.studio_id == ctx.studio_id))
+    if not client:
+        raise HTTPException(status_code=404, detail="Client not found")
+    client.loyalty_points = 0
+    db.commit()
+    return {"ok": True, "points": 0}
+
+
 @router.get("/{client_id}/profile", response_model=ClientProfileOut)
 def profile(
     client_id: UUID,
