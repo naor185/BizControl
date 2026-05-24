@@ -315,105 +315,10 @@ export default function PosPage() {
     return (
         <RequireAuth>
         <AppShell title="קופה" fullBleed>
-        <div className="flex h-full overflow-hidden bg-slate-50" dir="rtl">
-            {/* ── Left: Product Grid ─────────────────────────────────────── */}
-            <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-                <div className="bg-white border-b px-4 py-3 flex items-center gap-3 shrink-0">
-                    <div className="flex-1" />
-                    {/* Category filters */}
-                    <div className="flex gap-2 flex-wrap">
-                        <button
-                            onClick={() => setCategoryFilter(null)}
-                            className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${categoryFilter === null ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
-                        >
-                            הכל
-                        </button>
-                        {categories.map(cat => (
-                            <button
-                                key={cat}
-                                onClick={() => setCategoryFilter(cat)}
-                                className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${categoryFilter === cat ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
-                            >
-                                {cat}
-                            </button>
-                        ))}
-                    </div>
-                </div>
+        <div className="flex h-full overflow-hidden bg-slate-50">
 
-                <div className="flex-1 overflow-y-auto p-6">
-                    {filteredProducts.length === 0 ? (
-                        <div className="text-center text-slate-400 mt-16">
-                            <div className="text-4xl mb-2">📦</div>
-                            <div>אין מוצרים פעילים</div>
-                            <a href="/products" className="text-blue-500 text-sm mt-1 block hover:underline">הוסף מוצרים בקטלוג</a>
-                        </div>
-                    ) : (
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-                            {filteredProducts.map(product => (
-                                <button
-                                    key={product.id}
-                                    onClick={() => addProduct(product)}
-                                    disabled={product.stock_quantity === 0}
-                                    className={`bg-white rounded-2xl border-2 p-4 text-right transition-all shadow-sm hover:shadow-md active:scale-95 ${
-                                        product.stock_quantity === 0
-                                            ? "opacity-40 cursor-not-allowed border-slate-100"
-                                            : "border-slate-200 hover:border-emerald-400"
-                                    }`}
-                                >
-                                    {product.image_url ? (
-                                        <img src={product.image_url} alt={product.name} className="w-full h-20 object-cover rounded-xl mb-2" />
-                                    ) : (
-                                        <div className="w-full h-20 bg-slate-100 rounded-xl mb-2 flex items-center justify-center text-2xl">
-                                            📦
-                                        </div>
-                                    )}
-                                    <div className="font-semibold text-slate-800 text-sm leading-tight truncate">{product.name}</div>
-                                    <div className="text-emerald-700 font-bold mt-1">₪{Number(product.price).toFixed(2)}</div>
-                                    <div className={`text-[10px] mt-0.5 ${product.stock_quantity <= 3 ? "text-rose-500" : "text-slate-400"}`}>
-                                        {product.stock_quantity === 0 ? "אזל המלאי" : `${product.stock_quantity} במלאי`}
-                                    </div>
-                                </button>
-                            ))}
-                        </div>
-                    )}
-
-                    {/* Manual item */}
-                    <div className="mt-6 bg-white rounded-2xl border border-dashed border-slate-300 p-4">
-                        <div className="text-sm font-semibold text-slate-600 mb-3">הוספה ידנית</div>
-                        <div className="flex gap-2">
-                            <input
-                                value={manualDesc}
-                                onChange={e => setManualDesc(e.target.value)}
-                                placeholder="תיאור השירות / מוצר"
-                                className="flex-1 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
-                                onKeyDown={e => e.key === "Enter" && addManual()}
-                            />
-                            <div className="relative">
-                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">₪</span>
-                                <input
-                                    value={manualPrice}
-                                    onChange={e => setManualPrice(e.target.value)}
-                                    placeholder="0.00"
-                                    type="number"
-                                    min="0"
-                                    step="0.01"
-                                    className="w-28 border border-slate-200 rounded-xl pr-7 pl-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
-                                    onKeyDown={e => e.key === "Enter" && addManual()}
-                                />
-                            </div>
-                            <button
-                                onClick={addManual}
-                                className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 rounded-xl font-bold text-sm transition-colors"
-                            >
-                                הוסף
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* ── Right: Cart & Checkout ─────────────────────────────────── */}
-            <div className="w-96 shrink-0 bg-white border-r flex flex-col shadow-xl">
+            {/* ── Cart Panel — LEFT in LTR = RIGHT visually (Hebrew UI) ── */}
+            <div className="w-96 shrink-0 bg-white border-l flex flex-col shadow-xl" dir="rtl">
                 <div className="px-5 py-4 border-b">
                     <div className="text-base font-bold text-slate-800">עגלת קנייה</div>
                     {cart.length > 0 && (
@@ -436,7 +341,7 @@ export default function PosPage() {
                                 <span className="w-6 text-center text-sm font-bold">{item.quantity}</span>
                                 <button onClick={() => updateQty(item.key, 1)} className="w-6 h-6 rounded-lg bg-slate-200 hover:bg-slate-300 flex items-center justify-center text-slate-600 font-bold text-sm transition-colors">+</button>
                             </div>
-                            <div className="text-sm font-bold text-slate-800 min-w-12 text-left">
+                            <div className="text-sm font-bold text-slate-800 min-w-12 text-left" dir="ltr">
                                 ₪{((item.unit_price_cents * item.quantity) / 100).toFixed(2)}
                             </div>
                             <button onClick={() => removeItem(item.key)} className="text-slate-300 hover:text-rose-500 transition-colors text-lg leading-none">×</button>
@@ -628,13 +533,76 @@ export default function PosPage() {
                 </div>
             </div>
 
+            {/* ── Products Panel — fills remaining space ── */}
+            <div className="flex-1 flex flex-col overflow-hidden" dir="rtl">
+                {/* Category filters */}
+                <div className="bg-white border-b px-4 py-3 flex items-center gap-3 shrink-0">
+                    <div className="flex gap-2 flex-wrap">
+                        <button
+                            onClick={() => setCategoryFilter(null)}
+                            className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${categoryFilter === null ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+                        >
+                            הכל
+                        </button>
+                        {categories.map(cat => (
+                            <button
+                                key={cat}
+                                onClick={() => setCategoryFilter(cat)}
+                                className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${categoryFilter === cat ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+                            >
+                                {cat}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Products grid */}
+                <div className="flex-1 overflow-y-auto p-6">
+                    {filteredProducts.length === 0 ? (
+                        <div className="text-center text-slate-400 mt-16">
+                            <div className="text-4xl mb-2">📦</div>
+                            <div>אין מוצרים פעילים</div>
+                            <a href="/products" className="text-blue-500 text-sm mt-1 block hover:underline">הוסף מוצרים בקטלוג</a>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+                            {filteredProducts.map(product => (
+                                <button
+                                    key={product.id}
+                                    onClick={() => addProduct(product)}
+                                    disabled={product.stock_quantity === 0}
+                                    className={`bg-white rounded-2xl border-2 p-4 text-right transition-all shadow-sm hover:shadow-md active:scale-95 ${
+                                        product.stock_quantity === 0
+                                            ? "opacity-40 cursor-not-allowed border-slate-100"
+                                            : "border-slate-200 hover:border-emerald-400"
+                                    }`}
+                                >
+                                    {product.image_url ? (
+                                        <img src={product.image_url} alt={product.name} className="w-full h-20 object-cover rounded-xl mb-2" />
+                                    ) : (
+                                        <div className="w-full h-20 bg-slate-100 rounded-xl mb-2 flex items-center justify-center text-2xl">
+                                            📦
+                                        </div>
+                                    )}
+                                    <div className="font-semibold text-slate-800 text-sm leading-tight truncate">{product.name}</div>
+                                    <div className="text-emerald-700 font-bold mt-1">₪{Number(product.price).toFixed(2)}</div>
+                                    <div className={`text-[10px] mt-0.5 ${product.stock_quantity <= 3 ? "text-rose-500" : "text-slate-400"}`}>
+                                        {product.stock_quantity === 0 ? "אזל המלאי" : `${product.stock_quantity} במלאי`}
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
+
             {/* Receipt Modal */}
             {receipt && <ReceiptModal txn={receipt} onClose={() => setReceipt(null)} />}
 
             {/* Add Client Modal */}
             {showAddClient && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowAddClient(false)}>
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6" onClick={e => e.stopPropagation()}>
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6" onClick={e => e.stopPropagation()} dir="rtl">
                         <div className="text-base font-bold text-slate-800 mb-4">הוסף לקוח חדש</div>
                         <div className="space-y-3">
                             <input
