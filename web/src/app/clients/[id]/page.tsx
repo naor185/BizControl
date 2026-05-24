@@ -166,7 +166,7 @@ export default function ClientProfilePage() {
         if (!confirm(msg)) return;
         try {
             await apiFetch(`/api/payments/${paymentId}?with_appointment=${withAppt}`, { method: "DELETE" });
-            loadData();
+            await loadData();
         } catch (e: any) {
             toast.error(e?.message || "שגיאה במחיקת תשלום");
         }
@@ -280,20 +280,10 @@ export default function ClientProfilePage() {
                                 <div className="rounded-xl border bg-slate-50 p-4 shadow-sm border-slate-200">
                                     <div className="flex items-center justify-between">
                                         <div className="text-xs text-slate-500 font-medium">נקודות במועדון</div>
-                                        <div className="flex gap-2">
-                                            <button
-                                                onClick={async () => {
-                                                    if (!confirm("לאפס נקודות ל-0? (התשלומים לא יימחקו)")) return;
-                                                    await apiFetch(`/api/clients/${id}/reset-points`, { method: "POST" });
-                                                    await loadData();
-                                                }}
-                                                className="text-[10px] text-red-500 hover:underline font-semibold"
-                                            >אפס</button>
-                                            <button
-                                                onClick={() => { setPointsInput(String(profile.points_balance)); setEditingPoints(true); }}
-                                                className="text-[10px] text-sky-600 hover:underline font-semibold"
-                                            >ערוך</button>
-                                        </div>
+                                        <button
+                                            onClick={() => { setPointsInput(String(profile.points_balance)); setEditingPoints(true); }}
+                                            className="text-[10px] text-sky-600 hover:underline font-semibold"
+                                        >ערוך</button>
                                     </div>
                                     {editingPoints ? (
                                         <div className="flex items-center gap-1 mt-1">
