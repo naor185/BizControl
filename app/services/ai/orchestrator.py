@@ -265,6 +265,23 @@ async def chat_stream(
             })
             messages.extend(tool_results)
 
+            # ── Short-circuit: if every tool returned an "answer" field,
+            #    emit directly without a second LLM round (saves Groq RPM)
+            direct_answers = []
+            for tr in tool_results:
+                try:
+                    parsed = json.loads(tr["content"])
+                    if "answer" in parsed:
+                        direct_answers.append(parsed["answer"])
+                except Exception:
+                    pass
+
+            if direct_answers and len(direct_answers) == len(tool_results):
+                full_response = "\n".join(direct_answers)
+                for word in full_response.split(" "):
+                    yield f"data: {json.dumps({'type': 'text', 'content': word + ' '})}\n\n"
+                break
+
     except Exception as e:
         _logger.error("AI chat error (model=%s): %s", model, e, exc_info=True)
         err_msg = str(e)

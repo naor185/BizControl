@@ -212,6 +212,15 @@ def get_monthly_revenue(studio_id: UUID, db: Session, year: int | None = None, m
 
     net_cents = total_cents - refund_cents
 
+    month_label = f"{_month_name(month)} {year}"
+    if net_cents == 0:
+        answer = f"ב{month_label} אין הכנסות רשומות עדיין."
+    else:
+        net_ils = round(net_cents / 100, 2)
+        answer = f"הכנסות {month_label}: ₪{net_ils:,.2f} נטו."
+        if refund_cents:
+            answer += f" (כולל החזרים של ₪{round(refund_cents / 100, 2):,.2f})"
+
     return {
         "year": year,
         "month": month,
@@ -220,6 +229,7 @@ def get_monthly_revenue(studio_id: UUID, db: Session, year: int | None = None, m
         "refunds": round(refund_cents / 100, 2),
         "net_revenue": round(net_cents / 100, 2),
         "currency": "ILS",
+        "answer": answer,
     }
 
 
@@ -236,22 +246,31 @@ def search_client(studio_id: UUID, db: Session, query: str, **_) -> dict:
     ).all()
 
     if not clients:
-        return {"found": False, "message": f"לא נמצא לקוח התואם ל-'{query}'"}
+        return {"found": False, "message": f"לא נמצא לקוח התואם ל-'{query}'", "answer": f"לא נמצא לקוח התואם ל'{query}'."}
+
+    items = [
+        {
+            "name": c.full_name,
+            "phone": c.phone or "—",
+            "loyalty_points": c.loyalty_points,
+            "is_club_member": c.is_club_member,
+            "cancellations": c.cancellation_count,
+            "no_shows": c.no_show_count,
+        }
+        for c in clients
+    ]
+    if len(items) == 1:
+        c = items[0]
+        answer = f"מצאתי: {c['name']} ({c['phone']}), נקודות: {c['loyalty_points']}, חבר מועדון: {'כן' if c['is_club_member'] else 'לא'}."
+    else:
+        names = ", ".join(i["name"] for i in items)
+        answer = f"נמצאו {len(items)} לקוחות התואמים ל'{query}': {names}."
 
     return {
         "found": True,
         "count": len(clients),
-        "clients": [
-            {
-                "name": c.full_name,
-                "phone": c.phone or "—",
-                "loyalty_points": c.loyalty_points,
-                "is_club_member": c.is_club_member,
-                "cancellations": c.cancellation_count,
-                "no_shows": c.no_show_count,
-            }
-            for c in clients
-        ],
+        "clients": items,
+        "answer": answer,
     }
 
 
@@ -321,13 +340,21 @@ def get_inactive_clients(studio_id: UUID, db: Session, months: int | None = None
         .limit(10)
     ).all()
 
+    items = [
+        {"name": c.full_name, "phone": c.phone or "—", "points": c.loyalty_points}
+        for c in inactive
+    ]
+    if not items:
+        answer = f"אין לקוחות שלא ביקרו יותר מ-{months} חודשים. כל הלקוחות פעילים!"
+    else:
+        names = ", ".join(i["name"] for i in items[:5])
+        answer = f"נמצאו {len(items)} לקוחות שלא ביקרו ב-{months} חודשים האחרונים: {names}{'...' if len(items) > 5 else ''}."
+
     return {
         "months_inactive": months,
         "count": len(inactive),
-        "clients": [
-            {"name": c.full_name, "phone": c.phone or "—", "points": c.loyalty_points}
-            for c in inactive
-        ],
+        "clients": items,
+        "answer": answer,
     }
 
 
@@ -352,14 +379,25 @@ def get_top_artists(studio_id: UUID, db: Session, year: int | None = None, month
         .order_by(func.sum(Payment.amount_cents).desc())
     ).all()
 
+    artists = [
+        {"name": r.display_name or "—", "revenue": round(r.total_cents / 100, 2)}
+        for r in rows
+    ]
+    if not artists:
+        answer = f"אין נתוני הכנסות לאמנים ב{_month_name(month)} {year}."
+    else:
+        top = artists[0]
+        answer = f"ביצועי אמנים ב{_month_name(month)} {year}: המוביל הוא {top['name']} עם ₪{top['revenue']:,.2f}."
+        if len(artists) > 1:
+            rest = ", ".join(f"{a['name']} ₪{a['revenue']:,.2f}" for a in artists[1:])
+            answer += f" | {rest}"
+
     return {
         "year": year,
         "month": month,
         "month_name": _month_name(month),
-        "artists": [
-            {"name": r.display_name or "—", "revenue": round(r.total_cents / 100, 2)}
-            for r in rows
-        ],
+        "artists": artists,
+        "answer": answer,
     }
 
 
