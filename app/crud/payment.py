@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.models.payment import Payment
 from app.models.appointment import Appointment
 from app.models.client import Client
+from app.models.lead import Lead
 
 def create_payment(db: Session, studio_id: UUID, data) -> Payment:
     # ensure appointment belongs to studio
@@ -114,6 +115,25 @@ def create_payment(db: Session, studio_id: UUID, data) -> Payment:
 
                 from app.crud.automation import enqueue_post_payment_message
                 enqueue_post_payment_message(db, appt, obj.amount_cents, points_earned=points_earned)
+
+    # Attribution revenue tracking — best effort, non-blocking
+    if obj.status == "paid" and obj.type in ("payment", "deposit") and obj.amount_cents > 0:
+        try:
+            from app.services.lead_attribution_service import record_revenue
+            lead = None
+            if client.phone:
+                clean = client.phone.replace("+", "").replace(" ", "").replace("-", "")
+                lead = db.scalar(
+                    select(Lead).where(
+                        Lead.studio_id == studio_id,
+                        Lead.phone.in_([client.phone, f"+{clean}", clean]),
+                        Lead.status == "booked",
+                    )
+                )
+            if lead and record_revenue(db, lead.id, obj.amount_cents):
+                db.commit()
+        except Exception:
+            pass
 
     # Record product sales if any
     if hasattr(data, 'product_items') and data.product_items:

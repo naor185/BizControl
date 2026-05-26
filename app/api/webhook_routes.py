@@ -19,6 +19,8 @@ from app.models.incoming_message import IncomingMessage
 from app.models.studio_settings import StudioSettings
 from app.models.client import Client
 from app.models.lead import Lead
+from app.models.notification import Notification
+from app.services.conversation_service import ConversationService
 
 router = APIRouter(prefix="/webhook", tags=["Webhook"])
 
@@ -98,7 +100,37 @@ def _auto_lead(
     db.add(lead)
     db.commit()
 
-def _save(db: Session, studio_id, from_phone: str, from_name: str | None, body: str, channel: str, client_id=None):
+    # Auto-tag in background (non-blocking)
+    if body:
+        try:
+            from app.services.auto_tag_service import tag_lead
+            import threading
+            from app.core.database import SessionLocal
+            def _tag():
+                _db = SessionLocal()
+                try:
+                    tag_lead(_db, lead.id, body)
+                finally:
+                    _db.close()
+            threading.Thread(target=_tag, daemon=True).start()
+        except Exception:
+            pass
+
+CHANNEL_LABEL = {"whatsapp": "WhatsApp", "instagram": "Instagram", "facebook": "Facebook"}
+
+def _save(
+    db: Session,
+    studio_id,
+    from_phone: str,
+    from_name: str | None,
+    body: str,
+    channel: str,
+    client_id=None,
+    lead_id=None,
+    external_message_id: str | None = None,
+    attribution: dict | None = None,
+):
+    # Legacy IncomingMessage (keeps existing inbox UI working)
     msg = IncomingMessage(
         studio_id=studio_id,
         client_id=client_id,
@@ -109,6 +141,33 @@ def _save(db: Session, studio_id, from_phone: str, from_name: str | None, body: 
         received_at=datetime.now(timezone.utc),
     )
     db.add(msg)
+
+    # Unified conversation model
+    try:
+        ConversationService.upsert_inbound(
+            db=db,
+            studio_id=studio_id,
+            platform=channel,
+            external_id=from_phone,
+            body=body,
+            display_name=from_name,
+            client_id=client_id,
+            lead_id=lead_id,
+            external_message_id=external_message_id,
+            attribution=attribution,
+        )
+    except Exception as e:
+        log.warning("[webhook] conversation upsert failed: %s", e)
+
+    sender = from_name or from_phone
+    ch_label = CHANNEL_LABEL.get(channel, channel)
+    db.add(Notification(
+        studio_id=studio_id,
+        type="new_message",
+        title=f"הודעה חדשה מ-{ch_label}",
+        body=f"{sender}: {body[:80]}",
+        action_url="/inbox",
+    ))
     db.commit()
 
 

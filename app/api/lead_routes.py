@@ -14,6 +14,7 @@ from app.core.auth_deps import get_current_user
 from app.models.user import User
 from app.models.lead import Lead
 from app.models.client import Client
+from app.services.lead_attribution_service import record_conversion
 
 router = APIRouter(prefix="/leads", tags=["Leads"])
 
@@ -172,6 +173,12 @@ def convert_to_client(
 
     if existing:
         lead.status = "booked"
+        try:
+            ls = record_conversion(db, lead)
+            if ls:
+                db.flush()
+        except Exception:
+            pass
         db.commit()
         return {"client_id": str(existing.id), "created": False}
 
@@ -185,6 +192,12 @@ def convert_to_client(
     )
     db.add(client)
     lead.status = "booked"
+    try:
+        ls = record_conversion(db, lead)
+        if ls:
+            db.flush()
+    except Exception:
+        pass
     db.commit()
     db.refresh(client)
     return {"client_id": str(client.id), "created": True}

@@ -119,10 +119,19 @@ class AutomationSettingsOut(BaseModel):
     facebook_page_id: str | None = None
     instagram_account_id: str | None = None
     meta_page_access_token: str | None = None
+    meta_ad_account_id: str | None = None
 
     # Studio identifier (for landing page URL)
     studio_slug: str | None = None
     studio_name: str | None = None
+
+    # Reminder toggles
+    same_day_reminder_enabled: bool = True
+    reminder_1_day_enabled: bool = True
+    reminder_3_days_enabled: bool = True
+    reminder_7_days_enabled: bool = True
+    deposit_warning_enabled: bool = True
+    same_day_reminder_wa_template: str | None = None
 
     # Treatment type templates
     treatment_types: list[TreatmentTypeTemplate] = []
@@ -255,6 +264,15 @@ class AutomationSettingsUpdate(BaseModel):
     facebook_page_id: str | None = None
     instagram_account_id: str | None = None
     meta_page_access_token: str | None = None
+    meta_ad_account_id: str | None = None
+
+    # Reminder toggles
+    same_day_reminder_enabled: bool | None = None
+    reminder_1_day_enabled: bool | None = None
+    reminder_3_days_enabled: bool | None = None
+    reminder_7_days_enabled: bool | None = None
+    deposit_warning_enabled: bool | None = None
+    same_day_reminder_wa_template: str | None = None
 
     # Treatment type templates
     treatment_types: list[TreatmentTypeTemplate] | None = None

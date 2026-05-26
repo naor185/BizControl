@@ -38,6 +38,15 @@ type DailyPayment = {
     payment_verified_at: string | null;
 };
 
+type PendingVisit = {
+    appointment_id: string;
+    client_id: string;
+    client_name: string;
+    client_phone: string;
+    title: string;
+    starts_at: string;
+};
+
 type Analytics = {
     revenue_by_month: { month: string; revenue: number }[];
     appts_by_month: { month: string; count: number }[];
@@ -63,21 +72,25 @@ export default function Page() {
     const [selectedAppt, setSelectedAppt] = useState<DailyPayment | null>(null);
     const [pendingDeposits, setPendingDeposits] = useState<any[]>([]);
     const [confirmingDeposit, setConfirmingDeposit] = useState<string | null>(null);
+    const [pendingVisits, setPendingVisits] = useState<PendingVisit[]>([]);
+    const [confirmingVisit, setConfirmingVisit] = useState<string | null>(null);
 
     const fetchData = async () => {
         try {
             setLoading(true);
             const skipped = JSON.parse(sessionStorage.getItem("skipped_deposits") || "[]") as string[];
-            const [statsData, paymentsData, pendingData, depositsData] = await Promise.all([
+            const [statsData, paymentsData, pendingData, depositsData, visitsData] = await Promise.all([
                 apiFetch<DashboardStats>("/api/dashboard/stats"),
                 apiFetch<DailyPayment[]>("/api/dashboard/daily-payments"),
                 apiFetch<PendingPayment[]>("/api/dashboard/pending-payments"),
                 apiFetch<any[]>("/api/appointments/pending-deposits").catch(() => []),
+                apiFetch<PendingVisit[]>("/api/dashboard/pending-visits").catch(() => []),
             ]);
             setStats(statsData);
             setDailyPayments(paymentsData);
             setPendingPayments(pendingData);
             setPendingDeposits(depositsData.filter((d: any) => !skipped.includes(d.appointment_id)));
+            setPendingVisits(visitsData);
         } catch {
             setError("שגיאה בטעינת נתונים");
         } finally {
@@ -100,6 +113,18 @@ export default function Page() {
             alert(e?.message || "שגיאה באישור");
         } finally {
             setConfirmingDeposit(null);
+        }
+    };
+
+    const confirmVisit = async (id: string) => {
+        setConfirmingVisit(id);
+        try {
+            await apiFetch(`/api/appointments/${id}/mark-done`, { method: "POST" });
+            setPendingVisits(prev => prev.filter(v => v.appointment_id !== id));
+        } catch (e: any) {
+            alert(e?.message || "שגיאה באישור");
+        } finally {
+            setConfirmingVisit(null);
         }
     };
 
@@ -136,7 +161,7 @@ export default function Page() {
 
                     {/* KPI row */}
                     {stats && (
-                        <div className="grid gap-4 grid-cols-2 lg:grid-cols-3">
+                        <div className="grid gap-4 grid-cols-2">
                             <div className="rounded-2xl bg-white border border-slate-100 p-6 shadow-sm">
                                 <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">תורים היום</div>
                                 <div className="text-4xl font-bold text-slate-800">{stats.appointments_today}</div>
@@ -144,10 +169,6 @@ export default function Page() {
                             <div className="rounded-2xl bg-white border border-slate-100 p-6 shadow-sm">
                                 <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">לקוחות מועדון</div>
                                 <div className="text-4xl font-bold text-slate-800">{stats.total_club_members}</div>
-                            </div>
-                            <div className="rounded-2xl bg-white border border-slate-100 p-6 shadow-sm col-span-2 lg:col-span-1">
-                                <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">הכנסה החודש</div>
-                                <div className="text-3xl font-bold text-slate-800" dir="ltr">{fmt(stats.total_revenue_cents / 100)}</div>
                             </div>
                             {pendingPayments.length > 0 && (
                                 <div className="col-span-2 lg:col-span-3 rounded-2xl border-2 border-amber-400 bg-amber-50 overflow-hidden">
@@ -241,6 +262,44 @@ export default function Page() {
                                                 className="px-3 py-1.5 text-xs font-bold text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition disabled:opacity-50"
                                             >
                                                 {confirmingDeposit === d.appointment_id ? "..." : "קיבלתי ✅"}
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ── PENDING VISITS ── */}
+                    {pendingVisits.length > 0 && (
+                        <div className="bg-white rounded-2xl border-2 border-violet-300 shadow-sm overflow-hidden">
+                            <div className="px-5 py-4 bg-violet-50 border-b border-violet-200 flex items-center gap-3">
+                                <span className="text-xl">📋</span>
+                                <div className="flex-1">
+                                    <div className="font-bold text-violet-900">ממתינים לאישור ביקורת</div>
+                                    <div className="text-xs text-violet-700">{pendingVisits.length} תורים שעברו — אשר הגעה כדי לסגור את התור</div>
+                                </div>
+                            </div>
+                            <div className="divide-y divide-slate-100">
+                                {pendingVisits.map(v => (
+                                    <div key={v.appointment_id} className="px-5 py-4 flex items-center gap-3 flex-wrap">
+                                        <div className="flex-1 min-w-0">
+                                            <div className="font-semibold text-slate-800">{v.client_name}</div>
+                                            <div className="text-xs text-slate-500">
+                                                {v.title} · {new Date(v.starts_at).toLocaleDateString("he-IL")} {new Date(v.starts_at).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })}
+                                            </div>
+                                        </div>
+                                        <div className="flex gap-2 shrink-0">
+                                            <a href={`/clients/${v.client_id}`}
+                                                className="px-3 py-1.5 text-xs font-semibold text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 transition">
+                                                כרטיס לקוח
+                                            </a>
+                                            <button
+                                                onClick={() => confirmVisit(v.appointment_id)}
+                                                disabled={confirmingVisit === v.appointment_id}
+                                                className="px-3 py-1.5 text-xs font-bold text-white bg-violet-600 rounded-lg hover:bg-violet-700 transition disabled:opacity-50"
+                                            >
+                                                {confirmingVisit === v.appointment_id ? "..." : "אישור הגעה ✅"}
                                             </button>
                                         </div>
                                     </div>

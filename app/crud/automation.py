@@ -108,21 +108,31 @@ def enqueue_confirmation_message(db: Session, appt: Appointment, artist_name: st
         elif settings.confirm_wa_template:
             wa_body = smart_format(settings.confirm_wa_template, context)
         else:
-            payment_part = ""
+            lines = [
+                f"שלום {client.full_name} 👋",
+                f"התור שלך ל{appt.title} נקבע בהצלחה ✅",
+                "",
+                f"📅 תאריך: {context['appointment_date']}",
+                f"🕐 שעה: {context['appointment_time']}",
+            ]
+            if context.get("artist_name"):
+                lines.append(f"✂️ {context['artist_name']}")
             if has_deposit and context.get("payment_link"):
-                payment_part = f"\n💳 לתשלום המקדמה לחץ כאן:\n{context['payment_link']}"
-            location_part = ""
+                lines += ["", f"💳 לתשלום המקדמה:", context["payment_link"]]
             if context.get("studio_address"):
-                location_part += f"\n📍 {context['studio_address']}"
+                lines += ["", f"📍 {context['studio_address']}"]
             if context.get("map_link"):
-                location_part += f"\n🗺️ ניווט: {context['map_link']}"
-            wa_body = (
-                f"שלום {client.full_name} 👋\n"
-                f"התור שלך ל-{appt.title} נקבע ✅\n"
-                f"📅 {context['appointment_date']} בשעה {context['appointment_time']}"
-                f"{payment_part}"
-                f"{location_part}"
-            )
+                lines.append(f"🗺️ ניווט: {context['map_link']}")
+            if context.get("portfolio_link"):
+                lines.append(f"🖼️ תיק עבודות: {context['portfolio_link']}")
+            cancellation_days = context.get("cancellation_free_days")
+            if cancellation_days:
+                lines += [
+                    "",
+                    f"ביטול ללא עלות עד {cancellation_days} ימים לפני התור.",
+                ]
+            lines += ["", "מחכים לך! 🙏"]
+            wa_body = "\n".join(lines)
         db.add(MessageJob(
             studio_id=appt.studio_id, client_id=client.id, appointment_id=appt.id,
             channel="whatsapp", to_phone=client.phone, body=wa_body,

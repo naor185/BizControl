@@ -384,3 +384,25 @@ def verify_sent_payment(appointment_id: UUID, ctx: AuthContext = Depends(require
         log.error("[deposit_approved_msg] failed: %s", e)
 
     return {"message": "Payment verified and recorded"}
+
+
+@router.post("/{appointment_id}/mark-done")
+def mark_appointment_done(
+    appointment_id: UUID,
+    ctx: AuthContext = Depends(require_studio_ctx),
+    db: Session = Depends(get_db),
+):
+    """Studio marks a consultation / visit as completed (no message sent to client)."""
+    from app.models.appointment import Appointment
+
+    appt = db.get(Appointment, appointment_id)
+    if not appt or appt.studio_id != ctx.studio_id:
+        raise HTTPException(status_code=404, detail="Appointment not found")
+
+    if appt.status == "done":
+        return {"message": "Already marked as done"}
+
+    appt.status = "done"
+    appt.done_at = func.now()
+    db.commit()
+    return {"message": "Appointment marked as done"}

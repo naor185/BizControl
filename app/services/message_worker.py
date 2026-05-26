@@ -1,5 +1,5 @@
 from __future__ import annotations
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone, timedelta, date
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 import asyncio
@@ -14,6 +14,9 @@ from app.utils.email_utils import send_email
 from app.utils.logger import get_logger
 
 log = get_logger(__name__)
+
+_IL_TZ = pytz.timezone("Asia/Jerusalem")
+
 
 def _send_via_meta(phone_id: str, token: str, to_phone: str, body: str) -> None:
     import urllib.request, urllib.error, json as _json
@@ -43,9 +46,7 @@ def _send_via_meta(phone_id: str, token: str, to_phone: str, body: str) -> None:
 
 def _send_via_green(instance_id: str, api_key: str, to_phone: str, body: str) -> None:
     import urllib.request, json as _json
-    # Green API endpoint: send message
     url = f"https://api.green-api.com/waInstance{instance_id}/sendMessage/{api_key}"
-    # normalize phone: remove +, spaces, dashes, convert IL 05X → 9725X
     clean = to_phone.replace("+", "").replace(" ", "").replace("-", "")
     if clean.startswith("0") and len(clean) >= 9:
         clean = "972" + clean[1:]
@@ -82,10 +83,10 @@ def send_whatsapp_message(to_phone: str, body: str, settings=None) -> None:
     else:
         raise ValueError(f"Unknown WhatsApp provider: '{provider}'")
 
+
 def process_due_jobs(db: Session, limit: int = 20) -> int:
     now = datetime.now(timezone.utc)
 
-    # חשוב: נעילה (SKIP LOCKED) כדי למנוע double-send אם רצים כמה workers
     stmt = (
         select(MessageJob)
         .where(MessageJob.status == "pending", MessageJob.scheduled_at <= now)
@@ -99,7 +100,6 @@ def process_due_jobs(db: Session, limit: int = 20) -> int:
 
     for job in jobs:
         try:
-            # Skip if client opted out of WhatsApp
             if job.channel == "whatsapp" and job.client_id:
                 client = db.get(Client, job.client_id)
                 if client and getattr(client, "whatsapp_opted_out", False):
@@ -124,7 +124,7 @@ def process_due_jobs(db: Session, limit: int = 20) -> int:
             else:
                 settings = db.get(StudioSettings, job.studio_id)
                 send_whatsapp_message(job.to_phone, job.body, settings)
-            
+
             job.status = "sent"
             job.sent_at = now
             job.last_error = None
@@ -138,20 +138,51 @@ def process_due_jobs(db: Session, limit: int = 20) -> int:
         db.commit()
     return count
 
+
+def _build_reminder_context(appt: Appointment, client: Client, settings: StudioSettings) -> dict:
+    tz = pytz.timezone(settings.timezone or "Asia/Jerusalem")
+    local_dt = appt.starts_at.astimezone(tz)
+    has_deposit = bool(appt.deposit_amount_cents and appt.deposit_amount_cents > 0)
+    deposit_paid = appt.payment_verified_at is not None
+    payment_link = settings.bit_link or settings.paybox_link or ""
+    return {
+        "client_name": client.full_name,
+        "appointment_title": appt.title,
+        "appointment_date": local_dt.strftime("%d/%m/%Y"),
+        "appointment_time": local_dt.strftime("%H:%M"),
+        "payment_link": payment_link,
+        "deposit_amount": f"{appt.deposit_amount_cents / 100:.0f}" if appt.deposit_amount_cents else "0",
+        "has_deposit": has_deposit,
+        "deposit_paid": deposit_paid,
+        "studio_address": settings.studio_address or "",
+        "map_link": settings.studio_map_link or "",
+    }
+
+
+def _already_enqueued(db: Session, appointment_id, reminder_type: str) -> bool:
+    return bool(db.scalar(
+        select(MessageJob).where(
+            MessageJob.appointment_id == appointment_id,
+            MessageJob.reminder_type == reminder_type,
+        )
+    ))
+
+
 def _sweep_reminders_for_window(
     db: Session,
     hours_ahead: int,
     window_hours: int = 4,
-    tag: str = "",
+    reminder_type: str = "",
+    enabled_attr: str = "",
+    wa_template_attr: str = "",
     wa_default: str = "",
     wa_deposit_default: str = "",
     email_default: str = "",
-    settings_wa_attr: str = "",
 ) -> int:
     """Generic reminder sweep for any time window ahead of now."""
     now = datetime.now(timezone.utc)
-    target_start = now + timedelta(hours=hours_ahead - window_hours // 2)
-    target_end   = now + timedelta(hours=hours_ahead + window_hours // 2)
+    target_start = now + timedelta(hours=hours_ahead - window_hours / 2)
+    target_end   = now + timedelta(hours=hours_ahead + window_hours / 2)
 
     stmt = (
         select(Appointment, Client, StudioSettings)
@@ -159,7 +190,6 @@ def _sweep_reminders_for_window(
         .join(StudioSettings, StudioSettings.studio_id == Appointment.studio_id)
         .where(
             Appointment.status == "scheduled",
-            Appointment.payment_verified_at.is_(None),  # skip fully-paid appointments
             Appointment.starts_at >= target_start,
             Appointment.starts_at <= target_end,
         )
@@ -168,37 +198,34 @@ def _sweep_reminders_for_window(
     count = 0
 
     for appt, client, settings in rows:
-        # Deduplicate: skip if a job with same tag already exists for this appointment
-        existing = db.scalar(
-            select(MessageJob).where(
-                MessageJob.appointment_id == appt.id,
-                MessageJob.body.contains(tag),
-            )
-        )
-        if existing:
+        # Per-studio toggle check
+        if enabled_attr and not getattr(settings, enabled_attr, True):
             continue
 
-        has_deposit = bool(appt.deposit_amount_cents and appt.deposit_amount_cents > 0)
-        payment_link = settings.bit_link or settings.paybox_link or ""
-        context = {
-            "client_name": client.full_name,
-            "appointment_title": appt.title,
-            "appointment_date": appt.starts_at.astimezone(pytz.timezone(settings.timezone or "Asia/Jerusalem")).strftime("%d/%m/%Y"),
-            "appointment_time": appt.starts_at.astimezone(pytz.timezone(settings.timezone or "Asia/Jerusalem")).strftime("%H:%M"),
-            "payment_link": payment_link,
-            "deposit_amount": f"{appt.deposit_amount_cents / 100:.2f}" if appt.deposit_amount_cents else "0.00",
-        }
+        if _already_enqueued(db, appt.id, reminder_type):
+            continue
+
+        ctx = _build_reminder_context(appt, client, settings)
+        has_deposit = ctx["has_deposit"]
+        deposit_paid = ctx["deposit_paid"]
 
         # Pick WA template: custom from settings → deposit-aware default → generic default
-        custom_wa = getattr(settings, settings_wa_attr, None) if settings_wa_attr else None
+        custom_wa = getattr(settings, wa_template_attr, None) if wa_template_attr else None
         if custom_wa:
             chosen_wa = custom_wa
-        elif has_deposit and wa_deposit_default:
+        elif has_deposit and not deposit_paid and wa_deposit_default:
             chosen_wa = wa_deposit_default
         else:
             chosen_wa = wa_default
 
-        wa_body = format_template(chosen_wa, context) if chosen_wa else None
+        # Add deposit warning line if deposit pending and studio has it enabled
+        if (has_deposit and not deposit_paid
+                and getattr(settings, "deposit_warning_enabled", True)
+                and ctx.get("payment_link")
+                and chosen_wa == wa_default):
+            chosen_wa = wa_deposit_default or wa_default
+
+        wa_body = format_template(chosen_wa, ctx) if chosen_wa else None
         if client.phone and wa_body:
             db.add(MessageJob(
                 studio_id=appt.studio_id,
@@ -209,11 +236,12 @@ def _sweep_reminders_for_window(
                 body=wa_body,
                 scheduled_at=now,
                 status="pending",
+                reminder_type=reminder_type,
             ))
             count += 1
 
-        email_body = format_template(email_default, context) if email_default and client.email and settings.resend_api_key else None
-        if email_body:
+        if email_default and client.email and settings.resend_api_key:
+            email_body = format_template(email_default, ctx)
             db.add(MessageJob(
                 studio_id=appt.studio_id,
                 client_id=client.id,
@@ -223,6 +251,7 @@ def _sweep_reminders_for_window(
                 body=email_body,
                 scheduled_at=now,
                 status="pending",
+                reminder_type=f"{reminder_type}_email",
             ))
             count += 1
 
@@ -232,120 +261,195 @@ def _sweep_reminders_for_window(
 
 
 def sweep_upcoming_reminders(db: Session) -> int:
-    """Enqueues reminders for appointments starting in ~24 hours."""
-    now = datetime.now(timezone.utc)
-    target_start = now + timedelta(hours=22)
-    target_end   = now + timedelta(hours=26)
+    """תזכורת יום לפני התור — נשלחת כ-24 שעות מראש."""
+    return _sweep_reminders_for_window(
+        db,
+        hours_ahead=24,
+        window_hours=4,
+        reminder_type="1day",
+        enabled_attr="reminder_1_day_enabled",
+        wa_template_attr="reminder_wa_template",
+        wa_default=(
+            "היי {client_name} 👋\n"
+            "תזכורת ידידותית — מחר יש לך תור!\n\n"
+            "📋 {appointment_title}\n"
+            "📅 {appointment_date} בשעה {appointment_time}\n\n"
+            "מחכים לך!"
+        ),
+        wa_deposit_default=(
+            "היי {client_name} 👋\n"
+            "תזכורת ידידותית — מחר יש לך תור!\n\n"
+            "📋 {appointment_title}\n"
+            "📅 {appointment_date} בשעה {appointment_time}\n\n"
+            "⚠️ שים לב: טרם שולמה מקדמה בסך ₪{deposit_amount}.\n"
+            "לתשלום: {payment_link}\n\n"
+            "מחכים לך!"
+        ),
+        email_default=(
+            "<div dir='rtl' style='font-family:Arial,sans-serif;padding:20px'>"
+            "<h2>תזכורת לתור מחר 📅</h2>"
+            "<p>היי {client_name},</p>"
+            "<p>רק מזכירים שיש לנו פגישה מחר — <strong>{appointment_title}</strong>.</p>"
+            "<p><strong>מתי?</strong> {appointment_date} בשעה {appointment_time}</p>"
+            "<p>נתראה!</p>"
+            "</div>"
+        ),
+    )
 
-    # find appointments in the window that are scheduled and haven't had a reminder
+
+def sweep_7day_reminders(db: Session) -> int:
+    """תזכורת שבוע לפני התור."""
+    return _sweep_reminders_for_window(
+        db,
+        hours_ahead=7 * 24,
+        window_hours=4,
+        reminder_type="7day",
+        enabled_attr="reminder_7_days_enabled",
+        wa_template_attr="reminder_7day_wa_template",
+        wa_default=(
+            "היי {client_name} 👋\n"
+            "רצינו להזכיר — בעוד שבוע יש לך תור!\n\n"
+            "📋 {appointment_title}\n"
+            "📅 {appointment_date} בשעה {appointment_time}\n\n"
+            "מחכים לך!"
+        ),
+        wa_deposit_default=(
+            "היי {client_name} 👋\n"
+            "רצינו להזכיר — בעוד שבוע יש לך תור!\n\n"
+            "📋 {appointment_title}\n"
+            "📅 {appointment_date} בשעה {appointment_time}\n\n"
+            "⚠️ טרם שולמה מקדמה בסך ₪{deposit_amount}.\n"
+            "לתשלום: {payment_link}\n\n"
+            "מחכים לך!"
+        ),
+        email_default=(
+            "<div dir='rtl' style='font-family:Arial,sans-serif;padding:20px'>"
+            "<h2>תזכורת לתור בעוד שבוע 📅</h2>"
+            "<p>היי {client_name},</p>"
+            "<p>רק מזכירים שיש תור ל-<strong>{appointment_title}</strong> בעוד שבוע.</p>"
+            "<p><strong>מתי?</strong> {appointment_date} בשעה {appointment_time}</p>"
+            "<p>נתראה!</p>"
+            "</div>"
+        ),
+    )
+
+
+def sweep_3day_reminders(db: Session) -> int:
+    """תזכורת שלושה ימים לפני התור."""
+    return _sweep_reminders_for_window(
+        db,
+        hours_ahead=3 * 24,
+        window_hours=4,
+        reminder_type="3day",
+        enabled_attr="reminder_3_days_enabled",
+        wa_template_attr="reminder_3day_wa_template",
+        wa_default=(
+            "היי {client_name} 👋\n"
+            "תזכורת — בעוד שלושה ימים יש לך תור!\n\n"
+            "📋 {appointment_title}\n"
+            "📅 {appointment_date} בשעה {appointment_time}\n\n"
+            "מחכים לך!"
+        ),
+        wa_deposit_default=(
+            "היי {client_name} 👋\n"
+            "תזכורת — בעוד שלושה ימים יש לך תור!\n\n"
+            "📋 {appointment_title}\n"
+            "📅 {appointment_date} בשעה {appointment_time}\n\n"
+            "⚠️ טרם שולמה מקדמה בסך ₪{deposit_amount}.\n"
+            "לתשלום: {payment_link}\n\n"
+            "מחכים לך!"
+        ),
+        email_default=(
+            "<div dir='rtl' style='font-family:Arial,sans-serif;padding:20px'>"
+            "<h2>תזכורת לתור בעוד שלושה ימים 📅</h2>"
+            "<p>היי {client_name},</p>"
+            "<p>רק מזכירים שיש תור ל-<strong>{appointment_title}</strong> בעוד שלושה ימים.</p>"
+            "<p><strong>מתי?</strong> {appointment_date} בשעה {appointment_time}</p>"
+            "<p>נתראה!</p>"
+            "</div>"
+        ),
+    )
+
+
+def sweep_same_day_reminders(db: Session) -> int:
+    """תזכורת בוקר ביום התור — רצה כל יום בשעה 08:00 שעון ישראל."""
+    now_utc = datetime.now(timezone.utc)
+    today_il = now_utc.astimezone(_IL_TZ).date()
+
+    # חלון: כל התורים של היום הנוכחי לפי שעון ישראל
+    day_start_utc = _IL_TZ.localize(datetime.combine(today_il, datetime.min.time())).astimezone(timezone.utc)
+    day_end_utc   = _IL_TZ.localize(datetime.combine(today_il, datetime.max.time())).astimezone(timezone.utc)
+
     stmt = (
         select(Appointment, Client, StudioSettings)
         .join(Client, Client.id == Appointment.client_id)
         .join(StudioSettings, StudioSettings.studio_id == Appointment.studio_id)
         .where(
             Appointment.status == "scheduled",
-            Appointment.starts_at >= target_start,
-            Appointment.starts_at <= target_end,
+            Appointment.starts_at >= day_start_utc,
+            Appointment.starts_at <= day_end_utc,
         )
     )
-
     rows = db.execute(stmt).all()
     count = 0
 
     for appt, client, settings in rows:
-        # Check if reminder already enqueued (searching for WA or Email jobs for this appt)
-        # We look for jobs scheduled near 'now' (reminders are sent ~24h before)
-        existing_stmt = select(MessageJob).where(
-            MessageJob.appointment_id == appt.id,
-            MessageJob.scheduled_at >= now - timedelta(hours=12) # safeguard
-        )
-        if db.scalar(existing_stmt):
+        if not getattr(settings, "same_day_reminder_enabled", True):
             continue
 
-        payment_link = settings.bit_link or settings.paybox_link or ""
-        context = {
-            "client_name": client.full_name,
-            "appointment_title": appt.title,
-            "appointment_date": appt.starts_at.astimezone(pytz.timezone(settings.timezone or "Asia/Jerusalem")).strftime("%d/%m/%Y"),
-            "appointment_time": appt.starts_at.astimezone(pytz.timezone(settings.timezone or "Asia/Jerusalem")).strftime("%H:%M"),
-            "payment_link": payment_link,
-            "deposit_amount": f"{appt.deposit_amount_cents / 100:.2f}" if appt.deposit_amount_cents else "0.00",
-        }
+        if client.whatsapp_opted_out:
+            continue
 
-        # WhatsApp Reminder
-        wa_template = settings.reminder_wa_template
-        if not wa_template:
-            wa_template = "היי {client_name}, תזכורת ידידותית לתור שלך מחר ({appointment_date}) בשעה {appointment_time}. מחכים לך! במידה וטרם הועברה מקדמה, ניתן לשלם כאן: {payment_link}"
+        if _already_enqueued(db, appt.id, "same_day"):
+            continue
 
-        if client.phone:
+        ctx = _build_reminder_context(appt, client, settings)
+        has_deposit = ctx["has_deposit"]
+        deposit_paid = ctx["deposit_paid"]
+        deposit_warning_enabled = getattr(settings, "deposit_warning_enabled", True)
+
+        custom_wa = getattr(settings, "same_day_reminder_wa_template", None)
+        if custom_wa:
+            wa_body = format_template(custom_wa, ctx)
+        else:
+            lines = [
+                f"בוקר טוב {ctx['client_name']} ☀️",
+                f"תזכורת — היום יש לך תור!",
+                "",
+                f"📋 {ctx['appointment_title']}",
+                f"🕐 שעה {ctx['appointment_time']}",
+            ]
+            if ctx.get("studio_address"):
+                lines += ["", f"📍 {ctx['studio_address']}"]
+            if ctx.get("map_link"):
+                lines.append(f"🗺️ ניווט: {ctx['map_link']}")
+            if has_deposit and not deposit_paid and deposit_warning_enabled and ctx.get("payment_link"):
+                lines += [
+                    "",
+                    f"⚠️ שים לב: טרם שולמה מקדמה בסך ₪{ctx['deposit_amount']}.",
+                    f"לתשלום: {ctx['payment_link']}",
+                ]
+            lines += ["", "מחכים לך! 🙌"]
+            wa_body = "\n".join(lines)
+
+        if client.phone and wa_body:
             db.add(MessageJob(
                 studio_id=appt.studio_id,
                 client_id=client.id,
                 appointment_id=appt.id,
                 channel="whatsapp",
                 to_phone=client.phone,
-                body=format_template(wa_template, context),
-                scheduled_at=now,
+                body=wa_body,
+                scheduled_at=now_utc,
                 status="pending",
-            ))
-            count += 1
-
-        # Email Reminder
-        email_template = settings.reminder_email_template
-        if not email_template:
-            email_template = """
-            <div dir="rtl" style="font-family: Arial, sans-serif; padding: 20px;">
-                <h2 style="color: #333;">תזכורת לתור למחר 📅</h2>
-                <p>היי {client_name},</p>
-                <p>רק מזכירים שיש לנו פגישה מחר ל-<strong>{appointment_title}</strong>.</p>
-                <p><strong>מתי?</strong> {appointment_date} בשעה {appointment_time}</p>
-                <p>נתראה בקרוב!</p>
-                <hr style="border: none; border-top: 1px solid #eaeaea; margin: 20px 0;" />
-                <p style="font-size: 12px; color: #888;">הודעה זו נשלחה אוטומטית ממערכת BizControl.</p>
-            </div>
-            """
-
-        if client.email and settings.resend_api_key:
-            db.add(MessageJob(
-                studio_id=appt.studio_id,
-                client_id=client.id,
-                appointment_id=appt.id,
-                channel="email",
-                to_phone=client.email,
-                body=format_template(email_template, context),
-                scheduled_at=now,
-                status="pending",
+                reminder_type="same_day",
             ))
             count += 1
 
     if count:
         db.commit()
+    log.info("sweep_same_day_reminders: enqueued %d messages for %s", count, today_il)
     return count
-
-
-def sweep_7day_reminders(db: Session) -> int:
-    return _sweep_reminders_for_window(
-        db,
-        hours_ahead=7 * 24,
-        window_hours=4,
-        tag="[7day]",
-        wa_default="[7day] היי {client_name}! יש לך תור ל-{appointment_title} בעוד שבוע, ב-{appointment_date} בשעה {appointment_time}. מחכים לך!",
-        email_default="<div dir=rtl>[7day] תזכורת תור בעוד שבוע - {client_name} - {appointment_date} {appointment_time}</div>",
-        settings_wa_attr="reminder_7day_wa_template",
-    )
-
-
-def sweep_3day_reminders(db: Session) -> int:
-    return _sweep_reminders_for_window(
-        db,
-        hours_ahead=3 * 24,
-        window_hours=4,
-        tag="[3day]",
-        wa_default="[3day] היי {client_name}! תזכורת - התור שלך ל-{appointment_title} בעוד 3 ימים, ב-{appointment_date} בשעה {appointment_time}. מחכים לך! 😊",
-        wa_deposit_default="[3day] היי {client_name}! תזכורת - התור שלך ל-{appointment_title} בעוד 3 ימים, ב-{appointment_date} בשעה {appointment_time}. אם טרם שילמת מקדמה: {payment_link}",
-        email_default="<div dir=rtl>[3day] תזכורת - 3 ימים לתור - {client_name} - {appointment_date} {appointment_time}</div>",
-        settings_wa_attr="reminder_3day_wa_template",
-    )
 
 
 def sweep_birthday_messages(db: Session) -> int:
@@ -358,7 +462,6 @@ def sweep_birthday_messages(db: Session) -> int:
 
     now = datetime.now(timezone.utc)
 
-    # Target = next calendar month
     if now.month == 12:
         target_month = 1
         target_year = now.year + 1
@@ -366,7 +469,7 @@ def sweep_birthday_messages(db: Session) -> int:
         target_month = now.month + 1
         target_year = now.year
 
-    # Dedup tag: one message per client per target month
+    # Dedup tag — birthday still uses body tag because there's no appointment_id to key on
     tag = f"[birthday-{target_year}-{target_month:02d}]"
 
     stmt = (
@@ -389,7 +492,6 @@ def sweep_birthday_messages(db: Session) -> int:
         if client.whatsapp_opted_out:
             continue
 
-        # Deduplicate: skip if already sent for this target month
         existing = db.scalar(
             select(MessageJob).where(
                 MessageJob.client_id == client.id,

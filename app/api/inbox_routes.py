@@ -1,15 +1,19 @@
 from __future__ import annotations
+import asyncio
+import json
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Optional, AsyncGenerator
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import StreamingResponse
 from sqlalchemy import select, func, desc
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
 from app.core.database import get_db
 from app.core.deps import require_studio_ctx, AuthContext
+from app.core.features import require_feature
 from app.models.incoming_message import IncomingMessage
 from app.models.client import Client
 from app.models.message_job import MessageJob
@@ -151,6 +155,7 @@ def get_conversation(
 @router.post("/reply")
 def reply_to_message(
     payload: ReplyIn,
+    _: None = Depends(require_feature("meta_inbox")),
     ctx: AuthContext = Depends(require_studio_ctx),
     db: Session = Depends(get_db),
 ):
@@ -221,3 +226,65 @@ def unread_count(ctx: AuthContext = Depends(require_studio_ctx), db: Session = D
         )
     )
     return {"unread": count or 0}
+
+
+@router.get("/stream")
+async def inbox_stream(
+    request: Request,
+    token: str | None = None,   # query param fallback for EventSource (can't set headers)
+    ctx: None = None,  # not used — auth resolved manually for EventSource compat
+):
+    """
+    SSE stream — emits unread count every 15 seconds.
+    Accepts ?token=... query param because EventSource cannot set Authorization headers.
+    Event format: data: {"unread": N}
+    """
+    from app.core.security import decode_token
+    from app.core.database import SessionLocal
+
+    # Resolve identity from query param token (EventSource) or Authorization header
+    auth_header = request.headers.get("Authorization", "")
+    raw_token = token or (auth_header.removeprefix("Bearer ").strip() if auth_header.startswith("Bearer ") else None)
+    if not raw_token:
+        return StreamingResponse(
+            (x async for x in _sse_error("Unauthorized")),
+            status_code=401,
+            media_type="text/event-stream",
+        )
+    try:
+        payload = decode_token(raw_token)
+        studio_id = payload["studio_id"]
+    except Exception:
+        return StreamingResponse(
+            (x async for x in _sse_error("Invalid token")),
+            status_code=401,
+            media_type="text/event-stream",
+        )
+
+    async def event_generator() -> AsyncGenerator[str, None]:
+        while not await request.is_disconnected():
+            _db = SessionLocal()
+            try:
+                count = _db.scalar(
+                    select(func.count()).where(
+                        IncomingMessage.studio_id == studio_id,
+                        IncomingMessage.is_read == False,  # noqa: E712
+                    )
+                ) or 0
+            finally:
+                _db.close()
+            yield f"data: {json.dumps({'unread': count})}\n\n"
+            await asyncio.sleep(15)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+async def _sse_error(msg: str) -> AsyncGenerator[str, None]:
+    yield f"data: {json.dumps({'error': msg})}\n\n"

@@ -128,7 +128,10 @@ ARTIST_TOOLS_SCHEMA = [t for t in TOOLS_SCHEMA if t["function"]["name"] in (
 # ── Tool implementations ───────────────────────────────────────────────────────
 
 def get_today_appointments(studio_id: UUID, db: Session, **_) -> dict:
-    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    import pytz
+    il_tz = pytz.timezone("Asia/Jerusalem")
+    today_il = datetime.now(il_tz).date()
+    today_start = il_tz.localize(datetime(today_il.year, today_il.month, today_il.day, 0, 0, 0)).astimezone(timezone.utc)
     today_end = today_start + timedelta(days=1)
 
     rows = db.scalars(
@@ -150,13 +153,27 @@ def get_today_appointments(studio_id: UUID, db: Session, **_) -> dict:
         for a in rows
     ]
 
+    import pytz
+    il_tz = pytz.timezone("Asia/Jerusalem")
+    today_label = datetime.now(il_tz).strftime("%d/%m/%Y")
+    total = len(rows)
+    scheduled = sum(1 for a in rows if a.status == "scheduled")
+    done = sum(1 for a in rows if a.status == "done")
+    canceled = sum(1 for a in rows if a.status == "canceled")
+
+    if total == 0:
+        answer = f"היום ({today_label}) אין אף תור מתוכנן. אין תורים בכלל — זה מידע תקין ומאומת מהמסד."
+    else:
+        answer = f"היום ({today_label}) יש {total} תורים: {scheduled} מתוכננים, {done} הושלמו, {canceled} בוטלו."
+
     return {
-        "date": today_start.strftime("%d/%m/%Y"),
-        "total": len(rows),
-        "scheduled": sum(1 for a in rows if a.status == "scheduled"),
-        "done": sum(1 for a in rows if a.status == "done"),
-        "canceled": sum(1 for a in rows if a.status == "canceled"),
-        "appointments": items[:20],  # cap at 20
+        "date": today_label,
+        "total": total,
+        "scheduled": scheduled,
+        "done": done,
+        "canceled": canceled,
+        "appointments": items[:20],
+        "answer": answer,
     }
 
 

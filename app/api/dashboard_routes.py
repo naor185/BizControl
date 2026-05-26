@@ -243,6 +243,38 @@ def get_pending_payments(ctx: AuthContext = Depends(require_studio_ctx), db: Ses
     return data
 
 
+@router.get("/pending-visits")
+def get_pending_visits(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+    """Appointments that already passed but are still 'scheduled' — studio needs to confirm the visit happened."""
+    now = datetime.now(timezone.utc)
+    cutoff = now - timedelta(days=7)
+
+    stmt = (
+        select(Appointment, Client)
+        .join(Client, Client.id == Appointment.client_id)
+        .where(
+            Appointment.studio_id == ctx.studio_id,
+            Appointment.status == "scheduled",
+            Appointment.starts_at < now,
+            Appointment.starts_at >= cutoff,
+        )
+        .order_by(Appointment.starts_at.desc())
+    )
+    rows = db.execute(stmt).all()
+
+    return [
+        {
+            "appointment_id": str(appt.id),
+            "client_id": str(client.id),
+            "client_name": client.full_name,
+            "client_phone": client.phone or "",
+            "title": appt.title,
+            "starts_at": appt.starts_at.isoformat(),
+        }
+        for appt, client in rows
+    ]
+
+
 @router.get("/analytics")
 def get_analytics(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
     """Deep analytics: revenue/appointments by month, artist performance, busiest days."""

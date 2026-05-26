@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import os
+import pytz
 from datetime import datetime, timezone
 from typing import AsyncGenerator
 from uuid import UUID
@@ -86,8 +87,23 @@ def _build_system_prompt(studio_name: str, user_role: str, current_page: str) ->
         studio_name=studio_name,
         user_role=user_role,
         current_page=current_page or "לא ידוע",
-        current_datetime=datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M"),
+        current_datetime=datetime.now(pytz.timezone("Asia/Jerusalem")).strftime("%d/%m/%Y %H:%M"),
     )
+
+
+_HELP_KEYWORDS = (
+    "איך", "כיצד", "הסבר", "מה זה", "מה הם", "מה היא", "מה הוא",
+    "how", "what is", "explain", "navigate", "ניווט", "הדרכה",
+    "apple wallet", "google wallet", "חיבור", "להוסיף", "לחבר",
+    "אינטגרציה", "whatsapp", "אימייל", "מדיניות", "הגדרות",
+)
+
+def _needs_tools(message: str) -> bool:
+    """Returns False for navigation/help questions that don't need live data."""
+    low = message.lower()
+    if any(kw in low for kw in _HELP_KEYWORDS):
+        return False
+    return True
 
 
 def _tools_for_role(role: str) -> list:
@@ -159,7 +175,7 @@ async def chat_stream(
         {"role": "user", "content": message},
     ]
 
-    tools = _tools_for_role(user_role)
+    tools = _tools_for_role(user_role) if _needs_tools(message) else []
 
     try:
         client, model = _get_client()
@@ -252,6 +268,35 @@ async def chat_stream(
     except Exception as e:
         _logger.error("AI chat error (model=%s): %s", model, e, exc_info=True)
         err_msg = str(e)
+
+        # Groq 400 "Failed to call a function" — retry without tools
+        if ("400" in err_msg or "failed_generation" in err_msg or "Failed to call a function" in err_msg) and tools:
+            _logger.info("Groq function-call failure — retrying without tools")
+            try:
+                fallback_resp = await client.chat.completions.create(
+                    model=model,
+                    messages=messages,
+                    stream=False,
+                    max_tokens=1024,
+                    temperature=0.4,
+                )
+                full_response = fallback_resp.choices[0].message.content or ""
+                if full_response:
+                    for word in full_response.split(" "):
+                        yield f"data: {json.dumps({'type': 'text', 'content': word + ' '})}\n\n"
+                    # Persist and exit cleanly
+                    try:
+                        save_message(db, conv.id, "user", message)
+                        save_message(db, conv.id, "assistant", full_response)
+                        update_conversation_stats(db, conv, added_messages=2, added_tokens=0)
+                        db.commit()
+                    except Exception:
+                        pass
+                    yield "data: [DONE]\n\n"
+                    return
+            except Exception as retry_err:
+                _logger.error("Retry without tools also failed: %s", retry_err)
+
         if "api_key" in err_msg.lower() or "authentication" in err_msg.lower() or "401" in err_msg:
             user_msg = f"[{model}] שגיאת אימות — מפתח ה-API לא תקין."
         elif "rate" in err_msg.lower() or "429" in err_msg:

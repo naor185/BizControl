@@ -38,6 +38,7 @@ export default function MetaWizardPage() {
     const [pageId, setPageId] = useState("");
     const [igAccountId, setIgAccountId] = useState("");
     const [accessToken, setAccessToken] = useState("");
+    const [adAccountId, setAdAccountId] = useState("");
     const [showToken, setShowToken] = useState(false);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -54,6 +55,7 @@ export default function MetaWizardPage() {
                 setPageId(data.facebook_page_id || "");
                 setIgAccountId(data.instagram_account_id || "");
                 setAccessToken(data.meta_page_access_token || "");
+                setAdAccountId(data.meta_ad_account_id || "");
             })
             .catch(() => {})
             .finally(() => setLoading(false));
@@ -76,6 +78,7 @@ export default function MetaWizardPage() {
                     facebook_page_id: pageId || null,
                     instagram_account_id: igAccountId || null,
                     meta_page_access_token: accessToken || null,
+                    meta_ad_account_id: adAccountId || null,
                 }),
             });
             setStep(2);
@@ -147,6 +150,12 @@ export default function MetaWizardPage() {
                                             <label className="block text-sm font-semibold text-slate-700">Instagram Account ID</label>
                                             <input type="text" dir="ltr" value={igAccountId} onChange={e => setIgAccountId(e.target.value)} placeholder="987654321098765" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-mono outline-none focus:ring-2 focus:ring-pink-400" />
                                             <p className="text-xs text-slate-400">ניתן למצוא דרך Graph API Explorer עם token</p>
+                                        </div>
+
+                                        <div className="space-y-1.5">
+                                            <label className="block text-sm font-semibold text-slate-700">Ad Account ID <span className="text-slate-400 font-normal text-xs">(לאנליטיקות מודעות)</span></label>
+                                            <input type="text" dir="ltr" value={adAccountId} onChange={e => setAdAccountId(e.target.value)} placeholder="act_123456789" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-mono outline-none focus:ring-2 focus:ring-purple-400" />
+                                            <p className="text-xs text-slate-400">נמצא ב-Meta Business Manager → Ad Accounts (מתחיל ב-act_)</p>
                                         </div>
 
                                         <div className="space-y-1.5">

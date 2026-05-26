@@ -141,6 +141,16 @@ class StudioSettings(Base):
     self_booking_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     self_booking_slot_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=60, server_default="60")
 
+    # Reminder toggles — כל סטודיו שולט בנפרד
+    same_day_reminder_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+    reminder_1_day_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+    reminder_3_days_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+    reminder_7_days_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+    deposit_warning_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+
+    # Template לתזכורת ביום התור
+    same_day_reminder_wa_template: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     studio: Mapped["Studio"] = relationship(back_populates="settings")

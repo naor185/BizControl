@@ -54,6 +54,13 @@ type Integration = {
     instagram_account_id: string | null;
 };
 
+type FeatureFlag = {
+    feature: string;
+    is_enabled: boolean;
+    enabled_at: string | null;
+    notes: string | null;
+};
+
 type CampaignStat = {
     campaign_name: string;
     source: string;
@@ -79,6 +86,17 @@ const PLATFORM_META = {
 
 const SOURCE_LABELS: Record<string, string> = {
     whatsapp: "💬 WhatsApp", instagram: "📸 Instagram", facebook: "👍 Facebook", manual: "✏️ ידני",
+};
+
+const FEATURE_LABELS: Record<string, { label: string; desc: string; icon: string }> = {
+    meta_inbox:           { label: "Meta Inbox",          desc: "קבלת ושליחת הודעות WhatsApp/Instagram/Facebook",  icon: "💬" },
+    whatsapp_cloud:       { label: "WhatsApp Cloud API",  desc: "WhatsApp Cloud API של Meta (לא Green API)",         icon: "📱" },
+    marketing_analytics:  { label: "Marketing Analytics", desc: "נתוני Meta Ads — קמפיינים, הוצאות, חשיפות",        icon: "📣" },
+    ai_insights:          { label: "AI Insights",         desc: "תובנות עסקיות מבוססות Claude AI",                   icon: "🤖" },
+    ai_auto_tag:          { label: "AI Auto-Tag",         desc: "תיוג אוטומטי של לידים לפי תוכן ההודעה",            icon: "🏷" },
+    lead_attribution:     { label: "Lead Attribution",    desc: "מעקב מלא: מודעה → ליד → תור → הכנסה",              icon: "🎯" },
+    realtime_inbox:       { label: "Realtime Inbox",      desc: "עדכון תיבת הדואר בזמן אמת (SSE)",                  icon: "⚡" },
+    quick_replies:        { label: "Quick Replies",       desc: "תשובות מהירות שמורות לנציג",                       icon: "⚡" },
 };
 
 const PLAN_LABELS: Record<string, { label: string; color: string }> = {
@@ -128,16 +146,20 @@ export default function StudioDetailPage() {
     const [analytics, setAnalytics] = useState<LeadAnalytics | null>(null);
     const [savingIntegration, setSavingIntegration] = useState<string | null>(null);
     const [intCredentials, setIntCredentials] = useState<Record<string, Record<string, string>>>({});
+    const [features, setFeatures] = useState<FeatureFlag[]>([]);
+    const [togglingFeature, setTogglingFeature] = useState<string | null>(null);
+    const [enablingAll, setEnablingAll] = useState(false);
 
     const load = useCallback(async () => {
         setErr(null);
         try {
-            const [d, n, s, ints, anal] = await Promise.all([
+            const [d, n, s, ints, anal, feats] = await Promise.all([
                 apiFetch<StudioDetail>(`/api/admin/studios/${studioId}/detail`),
                 apiFetch<Note[]>(`/api/admin/studios/${studioId}/notes`),
                 apiFetch<StudioSettings>(`/api/admin/studios/${studioId}/settings`),
                 apiFetch<Integration[]>(`/api/admin/studios/${studioId}/integrations`),
                 apiFetch<LeadAnalytics>(`/api/admin/studios/${studioId}/lead-analytics`).catch(() => null),
+                apiFetch<FeatureFlag[]>(`/api/superadmin/features/${studioId}`).catch(() => []),
             ]);
             setDetail(d);
             setNotes(n);
@@ -147,6 +169,7 @@ export default function StudioDetailPage() {
             setWaApiKey(s.whatsapp_api_key || "");
             setIntegrations(ints);
             setAnalytics(anal);
+            setFeatures(feats);
             // Pre-fill credential fields from existing integration data
             const creds: Record<string, Record<string, string>> = {};
             for (const i of ints) {
@@ -289,6 +312,35 @@ export default function StudioDetailPage() {
             toast.error(e?.message);
         } finally {
             setSavingIntegration(null);
+        }
+    };
+
+    const handleToggleFeature = async (feature: string, enabled: boolean) => {
+        setTogglingFeature(feature);
+        try {
+            await apiFetch(`/api/superadmin/features/${studioId}/toggle`, {
+                method: "POST",
+                body: JSON.stringify({ feature, enabled }),
+            });
+            setFeatures(prev => prev.map(f => f.feature === feature ? { ...f, is_enabled: enabled } : f));
+        } catch (e: any) {
+            toast.error(e?.message || "שגיאה");
+        } finally {
+            setTogglingFeature(null);
+        }
+    };
+
+    const handleEnableAllFeatures = async () => {
+        if (!confirm("להפעיל את כל התכונות לסטודיו זה?")) return;
+        setEnablingAll(true);
+        try {
+            await apiFetch(`/api/superadmin/features/${studioId}/enable-all`, { method: "POST" });
+            const feats = await apiFetch<FeatureFlag[]>(`/api/superadmin/features/${studioId}`);
+            setFeatures(feats);
+        } catch (e: any) {
+            toast.error(e?.message || "שגיאה");
+        } finally {
+            setEnablingAll(false);
         }
     };
 
@@ -451,7 +503,7 @@ export default function StudioDetailPage() {
                                 <button
                                     onClick={() => handleSaveSettings({ self_booking_enabled: !settings.self_booking_enabled })}
                                     disabled={savingSettings}
-                                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${settings.self_booking_enabled ? "bg-emerald-500" : "bg-gray-200"}`}
+                                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${settings.self_booking_enabled ? "bg-emerald-500" : "bg-gray-200"}`}
                                 >
                                     <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${settings.self_booking_enabled ? "translate-x-5" : "translate-x-0"}`} />
                                 </button>
@@ -526,7 +578,7 @@ export default function StudioDetailPage() {
                                     { label: "Verify Token", value: "bizcontrol_verify" },
                                 ].map(({ label, value }) => (
                                     <div key={label} className="flex items-center gap-2">
-                                        <span className="text-gray-400 w-24 flex-shrink-0">{label}</span>
+                                        <span className="text-gray-400 w-24 shrink-0">{label}</span>
                                         <code className="flex-1 bg-white border border-gray-200 rounded-lg px-2 py-1 text-gray-800 truncate">{value}</code>
                                         <button
                                             onClick={() => {
@@ -534,7 +586,7 @@ export default function StudioDetailPage() {
                                                 setWaCopied(label);
                                                 setTimeout(() => setWaCopied(null), 2000);
                                             }}
-                                            className="flex-shrink-0 px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors text-gray-600"
+                                            className="shrink-0 px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors text-gray-600"
                                         >
                                             {waCopied === label ? "✓" : "העתק"}
                                         </button>
@@ -642,7 +694,7 @@ export default function StudioDetailPage() {
                                         <button
                                             onClick={() => handleIntegration(platform, { is_active: !isActive })}
                                             disabled={saving}
-                                            className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${isActive && !expired ? "bg-emerald-500" : "bg-gray-200"} disabled:opacity-50`}
+                                            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${isActive && !expired ? "bg-emerald-500" : "bg-gray-200"} disabled:opacity-50`}
                                         >
                                             <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform ${isActive && !expired ? "translate-x-5" : "translate-x-0"}`} />
                                         </button>
@@ -752,6 +804,53 @@ export default function StudioDetailPage() {
                     </div>
                 </div>
 
+                {/* Feature Flags */}
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div className="px-4 py-3 border-b border-gray-50 flex items-center gap-2">
+                        <span className="text-base">🚩</span>
+                        <h2 className="text-sm font-semibold text-gray-700">Feature Flags — שליטה בתכונות</h2>
+                        <span className="text-xs text-red-600 bg-red-50 px-2 py-0.5 rounded-full font-medium mr-auto">סופר-אדמין בלבד</span>
+                        <button
+                            onClick={handleEnableAllFeatures}
+                            disabled={enablingAll}
+                            className="text-xs px-3 py-1 bg-black text-white font-semibold rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-40"
+                        >
+                            {enablingAll ? "מפעיל..." : "הפעל הכל"}
+                        </button>
+                    </div>
+                    <div className="divide-y divide-gray-50">
+                        {features.length === 0 ? (
+                            <p className="text-sm text-gray-400 text-center py-6">אין נתוני feature flags</p>
+                        ) : (
+                            features.map(f => {
+                                const meta = FEATURE_LABELS[f.feature];
+                                const toggling = togglingFeature === f.feature;
+                                return (
+                                    <div key={f.feature} className="px-4 py-3 flex items-center gap-3">
+                                        <span className="text-lg">{meta?.icon ?? "🔧"}</span>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-medium text-gray-900">{meta?.label ?? f.feature}</p>
+                                            <p className="text-xs text-gray-400 truncate">{meta?.desc ?? ""}</p>
+                                        </div>
+                                        {f.is_enabled && f.enabled_at && (
+                                            <span className="text-[10px] text-gray-400 shrink-0 hidden sm:block">
+                                                {new Date(f.enabled_at).toLocaleDateString("he-IL")}
+                                            </span>
+                                        )}
+                                        <button
+                                            onClick={() => handleToggleFeature(f.feature, !f.is_enabled)}
+                                            disabled={toggling}
+                                            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none disabled:opacity-50 ${f.is_enabled ? "bg-emerald-500" : "bg-gray-200"}`}
+                                        >
+                                            <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${f.is_enabled ? "translate-x-5" : "translate-x-0"}`} />
+                                        </button>
+                                    </div>
+                                );
+                            })
+                        )}
+                    </div>
+                </div>
+
                 {/* Lead Analytics */}
                 {analytics && analytics.total_leads > 0 && (
                     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
@@ -796,7 +895,7 @@ export default function StudioDetailPage() {
                                             <div key={c.campaign_name} className="bg-gray-50 rounded-xl px-3 py-2.5">
                                                 <div className="flex items-center justify-between gap-2 mb-1">
                                                     <span className="text-xs font-semibold text-gray-800 truncate">📣 {c.campaign_name}</span>
-                                                    <span className="text-xs text-gray-400 flex-shrink-0">{SOURCE_LABELS[c.source] || c.source}</span>
+                                                    <span className="text-xs text-gray-400 shrink-0">{SOURCE_LABELS[c.source] || c.source}</span>
                                                 </div>
                                                 <div className="flex items-center gap-3 text-xs text-gray-500">
                                                     <span>{c.total} לידים</span>
@@ -835,7 +934,7 @@ export default function StudioDetailPage() {
                                         <div className="text-sm font-medium text-gray-900 truncate">{u.display_name}</div>
                                         <div className="text-xs text-gray-400 truncate">{u.email}</div>
                                     </div>
-                                    <div className="flex items-center gap-2 flex-shrink-0">
+                                    <div className="flex items-center gap-2 shrink-0">
                                         <span className="text-xs text-gray-500">{ROLE_LABELS[u.role] ?? u.role}</span>
                                         <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${u.is_active ? "bg-green-50 text-green-600" : "bg-gray-100 text-gray-400"}`}>
                                             {u.is_active ? "פעיל" : "מושהה"}
@@ -884,7 +983,7 @@ export default function StudioDetailPage() {
                                         <p className="text-sm text-gray-800 whitespace-pre-wrap flex-1">{n.body}</p>
                                         <button
                                             onClick={() => handleDeleteNote(n.id)}
-                                            className="text-gray-300 hover:text-red-500 transition-colors text-xs opacity-0 group-hover:opacity-100 flex-shrink-0 mt-0.5"
+                                            className="text-gray-300 hover:text-red-500 transition-colors text-xs opacity-0 group-hover:opacity-100 shrink-0 mt-0.5"
                                         >
                                             ✕
                                         </button>

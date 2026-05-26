@@ -25,6 +25,13 @@ type Message = {
     channel: string;
 };
 
+type QuickReply = {
+    id: string;
+    title: string;
+    body: string;
+    shortcut: string | null;
+};
+
 // ── Channel config ────────────────────────────────────────────────────────────
 
 const CHANNELS: Record<string, { label: string; icon: string; bubble: string; outBubble: string; badge: string; dot: string }> = {
@@ -84,6 +91,8 @@ export default function InboxPage() {
     const [loadingMsgs, setLoadingMsgs] = useState(false);
     const [sendErr, setSendErr] = useState<string | null>(null);
     const [mobileView, setMobileView] = useState<"list" | "chat">("list");
+    const [quickReplies, setQuickReplies] = useState<QuickReply[]>([]);
+    const [showQR, setShowQR] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     const loadConversations = useCallback(async () => {
@@ -111,6 +120,10 @@ export default function InboxPage() {
         const t = setInterval(loadConversations, 15_000);
         return () => clearInterval(t);
     }, [loadConversations]);
+
+    useEffect(() => {
+        apiFetch<QuickReply[]>("/api/quick-replies").then(setQuickReplies).catch(() => {});
+    }, []);
 
     useEffect(() => {
         if (selected) loadMessages(selected);
@@ -357,7 +370,32 @@ export default function InboxPage() {
                                         {sendErr && (
                                             <div className="text-xs text-red-500 bg-red-50 px-3 py-1.5 rounded-xl mb-2">{sendErr}</div>
                                         )}
+
+                                        {/* Quick replies panel */}
+                                        {showQR && quickReplies.length > 0 && (
+                                            <div className="mb-2 flex flex-wrap gap-1.5 bg-gray-50 rounded-2xl p-2 border border-gray-100">
+                                                {quickReplies.map(qr => (
+                                                    <button
+                                                        key={qr.id}
+                                                        onClick={() => { setReplyText(qr.body); setShowQR(false); }}
+                                                        className="text-xs bg-white border border-gray-200 rounded-xl px-3 py-1.5 hover:bg-sky-50 hover:border-sky-300 hover:text-sky-700 transition-colors font-medium text-gray-700"
+                                                    >
+                                                        {qr.shortcut ? <><span className="opacity-50 ml-1">/{qr.shortcut}</span>{qr.title}</> : qr.title}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+
                                         <div className="flex items-end gap-2">
+                                            {quickReplies.length > 0 && (
+                                                <button
+                                                    onClick={() => setShowQR(v => !v)}
+                                                    title="תשובות מהירות"
+                                                    className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors ${showQR ? "bg-sky-100 text-sky-600" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}
+                                                >
+                                                    ⚡
+                                                </button>
+                                            )}
                                             <textarea
                                                 value={replyText}
                                                 onChange={e => setReplyText(e.target.value)}
