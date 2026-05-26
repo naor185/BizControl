@@ -88,6 +88,7 @@ def create_payment(db: Session, studio_id: UUID, data) -> Payment:
         db.commit()
 
     # Award Cashback if the payment is "paid" and represents positive revenue
+    points_earned = 0
     if obj.status == "paid" and obj.type in ("payment", "deposit"):
         from app.models.studio_settings import StudioSettings
         from app.models.client_points_ledger import ClientPointsLedger
@@ -101,7 +102,7 @@ def create_payment(db: Session, studio_id: UUID, data) -> Payment:
             tier = get_client_tier(db, studio_id, client.id)
             multiplier = tier.points_multiplier if tier else 1.0
             points_earned = int(amount_ils * (settings.points_percent_per_payment / 100.0) * multiplier)
-            
+
             if points_earned > 0:
                 client.loyalty_points = int(client.loyalty_points or 0) + points_earned
                 db.add(ClientPointsLedger(
@@ -113,8 +114,15 @@ def create_payment(db: Session, studio_id: UUID, data) -> Payment:
                 ))
                 db.commit()
 
-                from app.crud.automation import enqueue_post_payment_message
-                enqueue_post_payment_message(db, appt, obj.amount_cents, points_earned=points_earned)
+    # Send review/aftercare message after final payment — only for tattoo appointments, not consultations
+    _CONSULT_KEYWORDS = ("יעוץ", "ייעוץ", "consult")
+    is_consultation = any(kw in (appt.title or "").lower() for kw in _CONSULT_KEYWORDS)
+    if obj.status == "paid" and obj.type == "payment" and not is_consultation:
+        try:
+            from app.crud.automation import enqueue_post_payment_message
+            enqueue_post_payment_message(db, appt, obj.amount_cents, points_earned=points_earned)
+        except Exception:
+            pass
 
     # Attribution revenue tracking — best effort, non-blocking
     if obj.status == "paid" and obj.type in ("payment", "deposit") and obj.amount_cents > 0:
