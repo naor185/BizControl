@@ -14,16 +14,18 @@ type FieldErr = "slug" | "email" | "password" | null;
 type Lang = "he" | "en";
 
 const ERR_TEXT: Record<string, Record<Lang, string>> = {
-    studio_not_found: { he: "מזהה הסטודיו לא קיים במערכת",  en: "Studio ID not found" },
-    email_not_found:  { he: "האימייל לא רשום במערכת",        en: "Email not registered" },
-    wrong_password:   { he: "הסיסמה שגויה",                   en: "Incorrect password" },
-    network:          { he: "לא ניתן להתחבר לשרת",            en: "Cannot connect to server" },
-    default_err:      { he: "שגיאה בהתחברות",                 en: "Login failed" },
+    studio_not_found:   { he: "מזהה הסטודיו לא קיים במערכת", en: "Studio ID not found" },
+    email_not_found:    { he: "האימייל לא רשום במערכת",       en: "Email not registered" },
+    wrong_password:     { he: "הסיסמה שגויה",                  en: "Incorrect password" },
+    string_too_short:   { he: "יש למלא את כל השדות",           en: "Please fill in all fields" },
+    network:            { he: "לא ניתן להתחבר לשרת",           en: "Cannot connect to server" },
+    default_err:        { he: "שגיאה בהתחברות",                en: "Login failed" },
 };
 const ERR_FIELD: Record<string, FieldErr> = {
     studio_not_found: "slug",
     email_not_found:  "email",
     wrong_password:   "password",
+    string_too_short: null,
 };
 
 function parseErr(msg: string, locale: string): { text: string; field: FieldErr } {
@@ -33,6 +35,9 @@ function parseErr(msg: string, locale: string): { text: string; field: FieldErr 
     }
     if (msg.includes("Failed to fetch") || msg.includes("NetworkError") || msg.includes("fetch"))
         return { text: ERR_TEXT.network[l], field: null };
+    // Raw Pydantic/JSON validation error — never show JSON to user
+    if (msg.includes('"type"') || msg.includes("validation") || msg.startsWith("[{"))
+        return { text: ERR_TEXT.default_err[l], field: null };
     return { text: msg || ERR_TEXT.default_err[l], field: null };
 }
 
@@ -73,6 +78,10 @@ function LoginContent() {
     async function performLogin(slug: string, emailVal: string, pwd: string) {
         setErr(null);
         setFieldErr(null);
+        const l: Lang = locale.startsWith("en") ? "en" : "he";
+        if (!slug.trim()) { setErr(l === "he" ? "יש להזין מזהה סטודיו" : "Studio ID is required"); setFieldErr("slug"); return; }
+        if (!emailVal.trim()) { setErr(l === "he" ? "יש להזין אימייל" : "Email is required"); setFieldErr("email"); return; }
+        if (pwd.length < 6) { setErr(l === "he" ? "הסיסמה חייבת להכיל לפחות 6 תווים" : "Password must be at least 6 characters"); setFieldErr("password"); return; }
         setLoading(true);
         try {
             const res = await apiFetch<{
