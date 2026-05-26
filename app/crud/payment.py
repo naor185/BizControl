@@ -114,13 +114,24 @@ def create_payment(db: Session, studio_id: UUID, data) -> Payment:
                 ))
                 db.commit()
 
-    # Send review/aftercare message after final payment — only for tattoo appointments, not consultations
-    _CONSULT_KEYWORDS = ("יעוץ", "ייעוץ", "consult")
-    is_consultation = any(kw in (appt.title or "").lower() for kw in _CONSULT_KEYWORDS)
-    if obj.status == "paid" and obj.type == "payment" and not is_consultation:
+    # Send review/aftercare message after final payment — only if treatment type has send_aftercare=True
+    if obj.status == "paid" and obj.type == "payment":
         try:
-            from app.crud.automation import enqueue_post_payment_message
-            enqueue_post_payment_message(db, appt, obj.amount_cents, points_earned=points_earned)
+            import json as _json
+            from app.models.studio_settings import StudioSettings as _SS
+            _settings = db.get(_SS, studio_id)
+            _should_send = False
+            if _settings and _settings.treatment_types:
+                _types = _json.loads(_settings.treatment_types) if isinstance(_settings.treatment_types, str) else _settings.treatment_types
+                _title_lower = (appt.title or "").lower()
+                for _t in _types:
+                    _tname = _t.get("name", "").strip().lower()
+                    if _tname and _tname in _title_lower and _t.get("send_aftercare"):
+                        _should_send = True
+                        break
+            if _should_send:
+                from app.crud.automation import enqueue_post_payment_message
+                enqueue_post_payment_message(db, appt, obj.amount_cents, points_earned=points_earned)
         except Exception:
             pass
 
