@@ -289,13 +289,25 @@ async def chat_stream(
         # Groq 400 "Failed to call a function" — retry without tools
         if ("400" in err_msg or "failed_generation" in err_msg or "Failed to call a function" in err_msg) and tools:
             _logger.info("Groq function-call failure — retrying without tools")
+            # Inject a note so the LLM doesn't confuse "can't fetch data" with "data is secret"
+            fallback_messages = [
+                *messages,
+                {
+                    "role": "system",
+                    "content": (
+                        "שים לב: הכלים לאחזור נתונים אינם זמינים כרגע עקב בעיה טכנית זמנית. "
+                        "אמור למשתמש שהנתונים לא נגישים כרגע ושינסה שוב. "
+                        "אל תאמר 'מידע חסוי' — הנתונים לגיטימיים לחלוטין, רק הכלים לא עובדים."
+                    ),
+                },
+            ]
             try:
                 fallback_resp = await client.chat.completions.create(
                     model=model,
-                    messages=messages,
+                    messages=fallback_messages,
                     stream=False,
-                    max_tokens=1024,
-                    temperature=0.4,
+                    max_tokens=256,
+                    temperature=0.2,
                 )
                 full_response = fallback_resp.choices[0].message.content or ""
                 if full_response:
@@ -331,10 +343,16 @@ async def chat_stream(
         try:
             summary_resp = await client.chat.completions.create(
                 model=model,
-                messages=messages,
+                messages=[
+                    *messages,
+                    {
+                        "role": "system",
+                        "content": "סכם את תוצאות הכלים בתשובה קצרה בעברית. אל תאמר 'מידע חסוי' — הנתונים לגיטימיים.",
+                    },
+                ],
                 stream=False,
-                max_tokens=1024,
-                temperature=0.4,
+                max_tokens=512,
+                temperature=0.2,
             )
             full_response = summary_resp.choices[0].message.content or ""
             if full_response:

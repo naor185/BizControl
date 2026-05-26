@@ -286,6 +286,11 @@ def get_dashboard_stats(studio_id: UUID, db: Session, **_) -> dict:
     rev = get_monthly_revenue(studio_id, db)
     appts = get_today_appointments(studio_id, db)
 
+    answer = (
+        f"סטטיסטיקות הסטודיו: {total_clients} לקוחות פעילים ({club_members} חברי מועדון), "
+        f"היום {appts['total']} תורים ({appts['scheduled']} מתוכננים), "
+        f"הכנסות החודש ₪{rev['net_revenue']:,.2f}."
+    )
     return {
         "total_active_clients": total_clients,
         "club_members": club_members,
@@ -293,6 +298,7 @@ def get_dashboard_stats(studio_id: UUID, db: Session, **_) -> dict:
         "today_scheduled": appts["scheduled"],
         "current_month_revenue": rev["net_revenue"],
         "currency": "ILS",
+        "answer": answer,
     }
 
 
