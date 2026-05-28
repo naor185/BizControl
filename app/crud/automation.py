@@ -353,7 +353,7 @@ def enqueue_post_payment_message(db: Session, appt: Appointment, amount_cents: i
     wa_template = settings.post_payment_wa_template
     if not wa_template:
         wa_template = (
-            "תודה {client_name}! 🙏 קיבלנו תשלום של ₪{payment_amount}."
+            "תודה {client_name}! 🙏"
             "{points_block}"
             "{aftercare_block}"
             "{review_block}"
@@ -381,7 +381,7 @@ def enqueue_post_payment_message(db: Session, appt: Appointment, amount_cents: i
   </div>
   <div style="padding:24px 30px;background:#fafafa;">
     <p>היי {{client_name}},</p>
-    <p>קיבלנו תשלום של <strong>₪{{payment_amount}}</strong> עבור <strong>{{appointment_title}}</strong>.</p>
+    <p>תודה על הביקור! 🙏</p>
     {points_html}
     {aftercare_html}
     {review_html}
