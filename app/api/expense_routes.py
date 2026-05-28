@@ -89,10 +89,12 @@ async def scan_invoice(
             detail=f"Unsupported file type '{file.content_type}'. Please upload JPG, PNG, or WEBP.",
         )
 
-    if not os.getenv("OPENAI_API_KEY"):
+    openai_key = os.getenv("OPENAI_API_KEY", "").strip()
+    gemini_key = os.getenv("GEMINI_API_KEY", "").strip()
+    if not openai_key and not gemini_key:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="AI scanning is not configured. Please set OPENAI_API_KEY.",
+            detail="AI scanning is not configured. Please set OPENAI_API_KEY or GEMINI_API_KEY.",
         )
 
     image_bytes = await file.read()
