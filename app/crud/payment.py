@@ -118,6 +118,8 @@ def create_payment(db: Session, studio_id: UUID, data) -> Payment:
     if obj.status == "paid" and obj.type == "payment":
         try:
             import json as _json
+            import logging as _log
+            _logger = _log.getLogger(__name__)
             from app.models.studio_settings import StudioSettings as _SS
             _settings = db.get(_SS, studio_id)
             _should_send = False
@@ -129,11 +131,16 @@ def create_payment(db: Session, studio_id: UUID, data) -> Payment:
                     if _tname and _tname in _title_lower and _t.get("send_aftercare"):
                         _should_send = True
                         break
+                _logger.info("Aftercare check — title=%r types=%r should_send=%s", appt.title, [t.get("name") for t in _types], _should_send)
+            else:
+                _logger.info("Aftercare check — no treatment_types configured for studio %s", studio_id)
             if _should_send:
                 from app.crud.automation import enqueue_post_payment_message
                 enqueue_post_payment_message(db, appt, obj.amount_cents, points_earned=points_earned)
+                _logger.info("Aftercare message enqueued for appointment %s", appt.id)
         except Exception:
-            pass
+            import logging as _log
+            _log.getLogger(__name__).exception("Failed to enqueue aftercare message for appointment %s", appt.id)
 
     # Attribution revenue tracking — best effort, non-blocking
     if obj.status == "paid" and obj.type in ("payment", "deposit") and obj.amount_cents > 0:

@@ -392,8 +392,11 @@ def mark_appointment_done(
     ctx: AuthContext = Depends(require_studio_ctx),
     db: Session = Depends(get_db),
 ):
-    """Studio marks a consultation / visit as completed (no message sent to client)."""
+    """Mark appointment done and send aftercare/review message if treatment type requires it."""
+    import json as _json
+    from sqlalchemy import select
     from app.models.appointment import Appointment
+    from app.models.payment import Payment
 
     appt = db.get(Appointment, appointment_id)
     if not appt or appt.studio_id != ctx.studio_id:
@@ -405,4 +408,34 @@ def mark_appointment_done(
     appt.status = "done"
     appt.done_at = func.now()
     db.commit()
+
+    # ── Send aftercare + review message if this treatment type requires it ──
+    try:
+        settings = db.get(StudioSettings, ctx.studio_id)
+        if settings and settings.treatment_types:
+            _types = _json.loads(settings.treatment_types) if isinstance(settings.treatment_types, str) else settings.treatment_types
+            _title_lower = (appt.title or "").lower()
+            _should_send = any(
+                _t.get("name", "").strip().lower() and
+                _t["name"].strip().lower() in _title_lower and
+                _t.get("send_aftercare")
+                for _t in _types
+            )
+            if _should_send:
+                # Find the final payment for this appointment (type=payment, status=paid)
+                final_payment = db.scalar(
+                    select(Payment).where(
+                        Payment.appointment_id == appt.id,
+                        Payment.studio_id == ctx.studio_id,
+                        Payment.type == "payment",
+                        Payment.status == "paid",
+                    ).order_by(Payment.created_at.desc())
+                )
+                amount_cents = final_payment.amount_cents if final_payment else 0
+                from app.crud.automation import enqueue_post_payment_message
+                enqueue_post_payment_message(db, appt, amount_cents)
+                log.info("Aftercare message enqueued for appointment %s", appointment_id)
+    except Exception:
+        log.exception("Failed to enqueue aftercare message for appointment %s", appointment_id)
+
     return {"message": "Appointment marked as done"}
