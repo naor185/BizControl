@@ -96,7 +96,7 @@ def create_payment(db: Session, studio_id: UUID, data) -> Payment:
         from datetime import datetime, timezone
 
         settings = db.get(StudioSettings, studio_id)
-        if settings and settings.points_percent_per_payment is not None and settings.points_percent_per_payment > 0:
+        if settings and settings.points_percent_per_payment is not None and settings.points_percent_per_payment > 0 and client.is_club_member:
             amount_ils = obj.amount_cents / 100.0
             from app.crud.membership_tier import get_client_tier
             tier = get_client_tier(db, studio_id, client.id)
