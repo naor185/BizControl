@@ -24,7 +24,7 @@ class PaymentCreate(BaseModel):
 
     type: str = Field(pattern="^(deposit|payment|refund)$")
     status: str = Field(default="paid", pattern="^(pending|paid|void)$")
-    method: str = Field(default="cash", pattern="^(cash|bit|credit|paypal|bank|paybox|installment|other)$")
+    method: str = Field(default="cash", pattern="^(cash|bit|credit|paypal|bank|bank_transfer|paybox|installment|other)$")
 
     points_redeemed: int = Field(default=0, ge=0)
 
