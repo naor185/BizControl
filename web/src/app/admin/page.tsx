@@ -315,6 +315,7 @@ export default function AdminPage() {
             setToken(res.access_token);
             window.location.href = "/calendar";
         } catch (e: any) {
+            alert("שגיאת כניסה: " + (e?.message || "לא ידוע"));
             toast.error(e?.message);
         } finally {
             setImpersonating(null);
