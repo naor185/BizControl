@@ -647,6 +647,12 @@ export default function AdminPage() {
                     >
                         🤖 AI Dashboard
                     </a>
+                    <a
+                        href="/admin/invoice-scans"
+                        className="px-4 py-2 rounded-xl text-sm font-semibold transition-colors text-slate-400 hover:text-white"
+                    >
+                        📄 סריקות AI
+                    </a>
                 </div>
 
                 {err && (

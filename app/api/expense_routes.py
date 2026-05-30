@@ -79,12 +79,40 @@ def create_expense(
 async def scan_invoice(
     file: UploadFile = File(..., description="Invoice image (JPG, PNG, WEBP)"),
     ctx: AuthContext = Depends(require_studio_ctx),
+    db: Session = Depends(get_db),
 ):
     """
-    Upload a invoice image and use OpenAI Vision to extract:
-    business_name, invoice_number, total_amount, vat_amount, invoice_date.
-    Returns extracted data for user confirmation – does NOT save automatically.
+    Upload an invoice image and extract structured data via Document AI.
+    Requires feature flag 'invoice_ai_scan' enabled and quota not exceeded.
     """
+    from app.models.studio import Studio
+    from app.models.studio_feature import StudioFeature
+    from datetime import datetime
+
+    # Check feature flag
+    feature = db.query(StudioFeature).filter_by(
+        studio_id=ctx.studio_id, feature_name="invoice_ai_scan"
+    ).first()
+    if not feature or not feature.is_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="סריקת חשבוניות AI אינה מופעלת לסטודיו זה. צרו קשר עם התמיכה.",
+        )
+
+    # Check quota + reset monthly
+    studio = db.query(Studio).filter_by(id=ctx.studio_id).first()
+    if studio:
+        current_month = datetime.utcnow().strftime("%Y-%m")
+        if studio.invoice_scan_reset_month != current_month:
+            studio.invoice_scan_used = 0
+            studio.invoice_scan_reset_month = current_month
+            db.commit()
+        if studio.invoice_scan_quota > 0 and studio.invoice_scan_used >= studio.invoice_scan_quota:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=f"חרגתם ממכסת הסריקות החודשית ({studio.invoice_scan_quota} סריקות). פנו לתמיכה להגדלת המכסה.",
+            )
+
     allowed_types = {"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"}
     content_type = (file.content_type or "").split(";")[0].strip().lower()
     if content_type not in allowed_types:
@@ -121,6 +149,11 @@ async def scan_invoice(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"AI parsing failed: {str(e)}",
         )
+
+    # Increment usage counter
+    if studio:
+        studio.invoice_scan_used = (studio.invoice_scan_used or 0) + 1
+        db.commit()
 
     return {
         "business_name": result.business_name,

@@ -1458,6 +1458,97 @@ def platform_health(db: Session = Depends(get_db), _admin: User = Depends(requir
     return results
 
 
+# ── Invoice AI Scan Management ────────────────────────────────────────────────
+
+class InvoiceScanQuotaUpdate(BaseModel):
+    quota: int  # 0 = unlimited
+
+
+@router.get("/invoice-scans/stats", tags=["SuperAdmin"])
+def invoice_scan_stats(_admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    """Get invoice scan usage stats for all studios."""
+    from app.models.studio_feature import StudioFeature
+    studios = db.query(Studio).filter(Studio.is_active == True).order_by(Studio.name).all()
+    result = []
+    for s in studios:
+        feature = db.query(StudioFeature).filter_by(
+            studio_id=s.id, feature_name="invoice_ai_scan"
+        ).first()
+        result.append({
+            "studio_id": str(s.id),
+            "studio_name": s.name,
+            "enabled": feature.is_enabled if feature else False,
+            "quota": getattr(s, "invoice_scan_quota", 0),
+            "used": getattr(s, "invoice_scan_used", 0),
+            "reset_month": getattr(s, "invoice_scan_reset_month", None),
+        })
+    # Sort: most used first
+    result.sort(key=lambda x: x["used"], reverse=True)
+    total_used = sum(r["used"] for r in result)
+    return {"studios": result, "total_used": total_used}
+
+
+@router.put("/studios/{studio_id}/invoice-scan-quota", tags=["SuperAdmin"])
+def set_invoice_scan_quota(
+    studio_id: str,
+    payload: InvoiceScanQuotaUpdate,
+    admin: User = Depends(require_superadmin),
+    db: Session = Depends(get_db),
+):
+    """Set monthly invoice scan quota for a studio (0 = unlimited)."""
+    studio = db.query(Studio).filter_by(id=studio_id).first()
+    if not studio:
+        raise HTTPException(status_code=404, detail="Studio not found")
+    studio.invoice_scan_quota = payload.quota
+    _audit(db, admin, "set_invoice_scan_quota", studio, {"quota": payload.quota})
+    db.commit()
+    return {"studio_id": studio_id, "quota": payload.quota}
+
+
+@router.post("/studios/{studio_id}/invoice-scan-enable", tags=["SuperAdmin"])
+def enable_invoice_scan(
+    studio_id: str,
+    admin: User = Depends(require_superadmin),
+    db: Session = Depends(get_db),
+):
+    """Enable invoice AI scan feature for a studio."""
+    from app.models.studio_feature import StudioFeature
+    studio = db.query(Studio).filter_by(id=studio_id).first()
+    if not studio:
+        raise HTTPException(status_code=404, detail="Studio not found")
+    feature = db.query(StudioFeature).filter_by(
+        studio_id=studio_id, feature_name="invoice_ai_scan"
+    ).first()
+    if feature:
+        feature.is_enabled = True
+    else:
+        db.add(StudioFeature(studio_id=studio_id, feature_name="invoice_ai_scan", is_enabled=True))
+    _audit(db, admin, "enable_invoice_ai_scan", studio)
+    db.commit()
+    return {"enabled": True}
+
+
+@router.post("/studios/{studio_id}/invoice-scan-disable", tags=["SuperAdmin"])
+def disable_invoice_scan(
+    studio_id: str,
+    admin: User = Depends(require_superadmin),
+    db: Session = Depends(get_db),
+):
+    """Disable invoice AI scan feature for a studio."""
+    from app.models.studio_feature import StudioFeature
+    studio = db.query(Studio).filter_by(id=studio_id).first()
+    if not studio:
+        raise HTTPException(status_code=404, detail="Studio not found")
+    feature = db.query(StudioFeature).filter_by(
+        studio_id=studio_id, feature_name="invoice_ai_scan"
+    ).first()
+    if feature:
+        feature.is_enabled = False
+    _audit(db, admin, "disable_invoice_ai_scan", studio)
+    db.commit()
+    return {"enabled": False}
+
+
 @router.delete("/studios/{studio_id}/clients", tags=["SuperAdmin"])
 def delete_all_studio_clients(studio_id: str, _admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
     from app.models.client_points_ledger import ClientPointsLedger

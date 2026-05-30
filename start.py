@@ -120,6 +120,9 @@ def ensure_schema():
             "ALTER TABLE studios ADD COLUMN IF NOT EXISTS stripe_subscription_id VARCHAR(128)",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_secret VARCHAR(64)",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(32)",
+            "ALTER TABLE studios ADD COLUMN IF NOT EXISTS invoice_scan_quota INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE studios ADD COLUMN IF NOT EXISTS invoice_scan_used INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE studios ADD COLUMN IF NOT EXISTS invoice_scan_reset_month VARCHAR(7)",
         ]:
             cur.execute(stmt)
 
