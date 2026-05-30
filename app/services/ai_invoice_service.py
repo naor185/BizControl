@@ -72,29 +72,37 @@ class AIInvoiceService:
         return self._parse_with_openai(image_bytes, content_type)
 
     def _parse_with_gemini(self, image_bytes: bytes, content_type: str) -> "InvoiceParseResult":
-        from google import genai
-        from google.genai import types
-
-        client = genai.Client(api_key=self._gemini_key)
+        import base64
+        import httpx
 
         mime = content_type or "image/jpeg"
-        if mime not in ("image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"):
-            mime = "image/jpeg"
+        b64 = base64.b64encode(image_bytes).decode("utf-8")
 
-        response = client.models.generate_content(
-            model="gemini-1.5-flash",
-            contents=[
-                types.Part.from_bytes(data=image_bytes, mime_type=mime),
-                "Extract all financial data from this invoice. Return only JSON.",
-            ],
-            config=types.GenerateContentConfig(
-                system_instruction=SYSTEM_PROMPT,
-                temperature=0,
-                max_output_tokens=512,
-            ),
-        )
-        raw_text = response.text or ""
-        return self._parse_response(raw_text)
+        # Try models in order until one works
+        for model in ("gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro", "gemini-pro-vision"):
+            url = (
+                f"https://generativelanguage.googleapis.com/v1beta/models/"
+                f"{model}:generateContent?key={self._gemini_key}"
+            )
+            payload = {
+                "system_instruction": {"parts": [{"text": SYSTEM_PROMPT}]},
+                "contents": [{
+                    "parts": [
+                        {"inline_data": {"mime_type": mime, "data": b64}},
+                        {"text": "Extract all financial data from this invoice. Return only JSON."},
+                    ]
+                }],
+                "generationConfig": {"temperature": 0, "maxOutputTokens": 512},
+            }
+            resp = httpx.post(url, json=payload, timeout=30)
+            if resp.status_code == 404:
+                continue  # model not available, try next
+            resp.raise_for_status()
+            data = resp.json()
+            raw_text = data["candidates"][0]["content"]["parts"][0]["text"]
+            return self._parse_response(raw_text)
+
+        raise RuntimeError("אף מודל Gemini לא זמין בחשבון זה. בדוק את הגדרות הפרויקט ב-Google AI Studio.")
 
     def _parse_with_openai(self, image_bytes: bytes, content_type: str) -> "InvoiceParseResult":
         import base64
