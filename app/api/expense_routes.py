@@ -91,7 +91,7 @@ async def scan_invoice(
 
     # Check feature flag
     feature = db.query(StudioFeature).filter_by(
-        studio_id=ctx.studio_id, feature_name="invoice_ai_scan"
+        studio_id=ctx.studio_id, feature="invoice_ai_scan"
     ).first()
     if not feature or not feature.is_enabled:
         raise HTTPException(

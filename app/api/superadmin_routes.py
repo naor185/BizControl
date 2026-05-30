@@ -1472,7 +1472,7 @@ def invoice_scan_stats(_admin: User = Depends(require_superadmin), db: Session =
     result = []
     for s in studios:
         feature = db.query(StudioFeature).filter_by(
-            studio_id=s.id, feature_name="invoice_ai_scan"
+            studio_id=s.id, feature="invoice_ai_scan"
         ).first()
         result.append({
             "studio_id": str(s.id),
@@ -1517,12 +1517,12 @@ def enable_invoice_scan(
     if not studio:
         raise HTTPException(status_code=404, detail="Studio not found")
     feature = db.query(StudioFeature).filter_by(
-        studio_id=studio_id, feature_name="invoice_ai_scan"
+        studio_id=studio_id, feature="invoice_ai_scan"
     ).first()
     if feature:
         feature.is_enabled = True
     else:
-        db.add(StudioFeature(studio_id=studio_id, feature_name="invoice_ai_scan", is_enabled=True))
+        db.add(StudioFeature(studio_id=studio_id, feature="invoice_ai_scan", is_enabled=True))
     _audit(db, admin, "enable_invoice_ai_scan", studio)
     db.commit()
     return {"enabled": True}
@@ -1540,7 +1540,7 @@ def disable_invoice_scan(
     if not studio:
         raise HTTPException(status_code=404, detail="Studio not found")
     feature = db.query(StudioFeature).filter_by(
-        studio_id=studio_id, feature_name="invoice_ai_scan"
+        studio_id=studio_id, feature="invoice_ai_scan"
     ).first()
     if feature:
         feature.is_enabled = False
