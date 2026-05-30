@@ -198,6 +198,7 @@ class AIInvoiceService:
             entities.setdefault(entity.type_, []).append(entity)
 
         _log.info("Document AI entities: %s", {k: [e.mention_text for e in v] for k, v in entities.items()})
+        _log.info("Document AI OCR text (first 800 chars): %r", (doc.text or "")[:800])
 
         def first_text(key: str) -> Optional[str]:
             items = entities.get(key, [])
