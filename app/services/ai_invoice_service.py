@@ -4,7 +4,7 @@ Primary: Google Document AI Invoice Parser processor.
 Fallback: OpenAI GPT-4o Vision (sk-... key).
 
 Required env vars for Document AI:
-  GOOGLE_SA_JSON          — full content of GCP service account key JSON
+  GOOGLE_ADC_JSON         — authorized_user credentials JSON (from gcloud auth application-default login)
   DOCUMENT_AI_PROJECT_ID  — GCP project ID (e.g. "my-project-123456")
   DOCUMENT_AI_PROCESSOR_ID— processor ID from Cloud Console (e.g. "abc123def456")
   DOCUMENT_AI_LOCATION    — "us" or "eu" (default "us")
@@ -76,6 +76,7 @@ def _parse_date(text: str) -> Optional[date]:
 class AIInvoiceService:
 
     def __init__(self):
+        adc_json = os.getenv("GOOGLE_ADC_JSON", "").strip()
         sa_json = os.getenv("GOOGLE_SA_JSON", "").strip()
         project_id = os.getenv("DOCUMENT_AI_PROJECT_ID", "").strip()
         processor_id = os.getenv("DOCUMENT_AI_PROCESSOR_ID", "").strip()
@@ -83,10 +84,11 @@ class AIInvoiceService:
         openai_key = os.getenv("OPENAI_API_KEY", "").strip()
 
         real_openai = openai_key if openai_key.startswith("sk-") else ""
+        google_creds_json = adc_json or sa_json
 
-        if sa_json and project_id and processor_id:
+        if google_creds_json and project_id and processor_id:
             self._provider = "documentai"
-            self._sa_info = json.loads(sa_json)
+            self._creds_info = json.loads(google_creds_json)
             self._project_id = project_id
             self._processor_id = processor_id
             self._location = location
@@ -108,12 +110,23 @@ class AIInvoiceService:
     # ------------------------------------------------------------------
     def _parse_with_documentai(self, image_bytes: bytes, content_type: str) -> "InvoiceParseResult":
         from google.cloud import documentai
-        from google.oauth2 import service_account
 
-        credentials = service_account.Credentials.from_service_account_info(
-            self._sa_info,
-            scopes=["https://www.googleapis.com/auth/cloud-platform"],
-        )
+        creds_type = self._creds_info.get("type", "")
+        if creds_type == "authorized_user":
+            from google.oauth2.credentials import Credentials
+            credentials = Credentials(
+                token=None,
+                refresh_token=self._creds_info["refresh_token"],
+                token_uri="https://oauth2.googleapis.com/token",
+                client_id=self._creds_info["client_id"],
+                client_secret=self._creds_info["client_secret"],
+            )
+        else:
+            from google.oauth2 import service_account
+            credentials = service_account.Credentials.from_service_account_info(
+                self._creds_info,
+                scopes=["https://www.googleapis.com/auth/cloud-platform"],
+            )
         client = documentai.DocumentProcessorServiceClient(
             credentials=credentials,
             client_options={"api_endpoint": f"{self._location}-documentai.googleapis.com"},
