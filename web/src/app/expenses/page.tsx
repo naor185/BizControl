@@ -1,5 +1,8 @@
 "use client";
 import { toast } from "@/lib/toast";
+import dynamic from "next/dynamic";
+
+const DocumentScanner = dynamic(() => import("@/components/DocumentScanner"), { ssr: false });
 
 import { useState, useEffect, useCallback } from "react";
 import {
@@ -42,6 +45,7 @@ function InvoiceUploadModal({ onClose, onSaved }: { onClose: () => void; onSaved
     const [scanning, setScanning] = useState(false);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState("");
+    const [showScanner, setShowScanner] = useState(false);
 
     // Editable fields after AI scan
     const [title, setTitle] = useState("");
@@ -106,6 +110,13 @@ function InvoiceUploadModal({ onClose, onSaved }: { onClose: () => void; onSaved
     };
 
     return (
+        <div>
+        {showScanner && (
+            <DocumentScanner
+                onCapture={(f) => { setFile(f); setShowScanner(false); }}
+                onClose={() => setShowScanner(false)}
+            />
+        )}
         <div className="modal-overlay" onClick={onClose}>
             <div className="modal-panel" onClick={e => e.stopPropagation()}>
                 <div className="modal-header">
@@ -135,12 +146,12 @@ function InvoiceUploadModal({ onClose, onSaved }: { onClose: () => void; onSaved
                         {!file ? (
                             <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
                                 <button
-                                    onClick={() => document.getElementById("invoice-camera-input")?.click()}
+                                    onClick={() => setShowScanner(true)}
                                     style={{ border: "2px dashed rgba(167,139,250,.5)", borderRadius: 14, padding: "2rem", textAlign: "center", background: "rgba(167,139,250,.05)", cursor: "pointer" }}
                                 >
                                     <span style={{ fontSize: "2.5rem", display: "block", marginBottom: ".5rem" }}>📷</span>
-                                    <div style={{ color: "#a78bfa", fontWeight: 700, fontSize: "1rem" }}>סריקת מסמך</div>
-                                    <div style={{ color: "#94a3b8", fontSize: ".8rem", marginTop: ".3rem" }}>פתח מצלמה וסרוק קבלה / חשבונית</div>
+                                    <div style={{ color: "#a78bfa", fontWeight: 700, fontSize: "1rem" }}>סריקת מסמך חכמה</div>
+                                    <div style={{ color: "#94a3b8", fontSize: ".8rem", marginTop: ".3rem" }}>מצלמה עם שיפור תמונה אוטומטי</div>
                                 </button>
 
                                 <button
@@ -219,6 +230,7 @@ function InvoiceUploadModal({ onClose, onSaved }: { onClose: () => void; onSaved
                     </div>
                 )}
             </div>
+        </div>
         </div>
     );
 }
