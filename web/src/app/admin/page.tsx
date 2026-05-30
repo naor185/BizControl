@@ -313,7 +313,7 @@ export default function AdminPage() {
             sessionStorage.setItem("admin_token", getToken() || "");
             sessionStorage.setItem("admin_return", "true");
             setToken(res.access_token);
-            router.push("/dashboard");
+            window.location.href = "/calendar";
         } catch (e: any) {
             toast.error(e?.message);
         } finally {
