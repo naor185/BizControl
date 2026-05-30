@@ -54,21 +54,24 @@ Notes:
         openai_key = os.getenv("OPENAI_API_KEY", "").strip()
         gemini_key = os.getenv("GEMINI_API_KEY", "").strip()
 
-        # Prefer real OpenAI key (sk-...), fall back to Gemini Vision (AIza...)
-        if openai_key and openai_key.startswith("sk-"):
-            self.client = OpenAI(api_key=openai_key)
+        # Groq (gsk_) does NOT support vision — skip it regardless of which var holds it
+        real_openai = openai_key if (openai_key and openai_key.startswith("sk-")) else ""
+        real_gemini = next(
+            (k for k in (gemini_key, openai_key) if k and k.startswith("AIza")),
+            "",
+        )
+
+        if real_openai:
+            self.client = OpenAI(api_key=real_openai)
             self.model = "gpt-4o"
-        elif gemini_key and gemini_key.startswith("AIza"):
+        elif real_gemini:
             self.client = OpenAI(
-                api_key=gemini_key,
+                api_key=real_gemini,
                 base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
             )
             self.model = "gemini-2.0-flash"
-        elif openai_key:
-            self.client = OpenAI(api_key=openai_key)
-            self.model = "gpt-4o"
         else:
-            raise ValueError("No vision-capable API key found. Set OPENAI_API_KEY or GEMINI_API_KEY.")
+            raise ValueError("סריקת חשבוניות דורשת OPENAI_API_KEY (sk-...) או GEMINI_API_KEY (AIza...). מפתח Groq אינו תומך בראיית תמונות.")
 
     def parse_invoice_from_bytes(self, image_bytes: bytes, content_type: str = "image/jpeg") -> InvoiceParseResult:
         """Parse an invoice image and extract structured data using OpenAI Vision."""

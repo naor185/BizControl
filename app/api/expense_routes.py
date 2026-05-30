@@ -92,10 +92,14 @@ async def scan_invoice(
 
     openai_key = os.getenv("OPENAI_API_KEY", "").strip()
     gemini_key = os.getenv("GEMINI_API_KEY", "").strip()
-    if not openai_key and not gemini_key:
+    has_vision_key = (
+        (openai_key and openai_key.startswith("sk-")) or
+        any(k.startswith("AIza") for k in (gemini_key, openai_key) if k)
+    )
+    if not has_vision_key:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="AI scanning is not configured. Please set OPENAI_API_KEY or GEMINI_API_KEY.",
+            detail="סריקת חשבוניות דורשת OPENAI_API_KEY (sk-...) או GEMINI_API_KEY. מפתח Groq אינו תומך בתמונות.",
         )
 
     image_bytes = await file.read()
