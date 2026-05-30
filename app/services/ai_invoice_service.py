@@ -59,16 +59,16 @@ def _money_value_to_decimal(money) -> Optional[Decimal]:
 
 
 def _parse_hebrew_total(text: str) -> Optional[Decimal]:
-    """Extract total amount from Hebrew OCR text."""
-    patterns = [
-        r'סה["ה]כ\s+כולל\s+מע["ה]מ[:\s]+([0-9,]+\.?[0-9]*)',
-        r'סה["ה]כ\s+לתשלום[:\s]+([0-9,]+\.?[0-9]*)',
-        r'סכום\s+לתשלום[:\s]+([0-9,]+\.?[0-9]*)',
-        r'סה["ה]כ\s+שולם[:\s]+NIS\s+([0-9,]+\.?[0-9]*)',
-        r'סה["ה]כ\s+שולם[:\s]+([0-9,]+\.?[0-9]*)',
-        r'סה["ה]כ[:\s]+([0-9,]+\.?[0-9]*)',
-    ]
+    """Extract total-including-VAT from Hebrew OCR text."""
     import re
+    patterns = [
+        r'סה["״]כ\s+כולל\s+מע["״]מ[:\s]+(?:NIS\s+)?([0-9,]+\.?[0-9]*)',
+        r'סה["״]כ\s+לתשלום[:\s]+(?:NIS\s+)?([0-9,]+\.?[0-9]*)',
+        r'סכום\s+לתשלום[:\s]+(?:NIS\s+)?([0-9,]+\.?[0-9]*)',
+        r'סה["״]כ\s+שולם[:\s]+(?:NIS\s+)?([0-9,]+\.?[0-9]*)',
+        r'סה["״]כ\s+שולם:\s*NIS\s+([0-9,]+\.?[0-9]*)',
+        r'סה["״]כ\s+לשלם[:\s]+(?:NIS\s+)?([0-9,]+\.?[0-9]*)',
+    ]
     for p in patterns:
         m = re.search(p, text)
         if m:
@@ -77,14 +77,15 @@ def _parse_hebrew_total(text: str) -> Optional[Decimal]:
 
 
 def _parse_hebrew_vat(text: str) -> Optional[Decimal]:
-    """Extract VAT amount from Hebrew OCR text."""
+    """Extract VAT amount (not taxable base) from Hebrew OCR text."""
     import re
+    # Match "מע"מ XX%" NOT preceded by "חייב" (which gives the taxable base, not VAT)
     patterns = [
-        r'מע["ה]מ\s+[0-9.]+%[:\s]+([0-9,]+\.?[0-9]*)',
-        r'מע["ה]מ[:\s]+([0-9,]+\.?[0-9]*)',
+        r'(?:^|[\n\r])\s*מע["״]מ\s+[0-9.]+%\s+([0-9,]+\.?[0-9]*)',
+        r'(?:^|[\n\r])\s*מע["״]מ[:\s]+([0-9,]+\.?[0-9]*)',
     ]
     for p in patterns:
-        m = re.search(p, text)
+        m = re.search(p, text, re.MULTILINE)
         if m:
             return _clean_amount(m.group(1))
     return None
@@ -94,10 +95,11 @@ def _parse_hebrew_invoice_number(text: str) -> Optional[str]:
     """Extract invoice/receipt number from Hebrew OCR text."""
     import re
     patterns = [
-        r'חשבון\s+קבלה[^\n]*[- ](P\w+)',
+        r'חשבון\s+קבלה[^\n]*[-–]\s*(P\w+)',
+        r'(P\d{7,})',
         r'מספר\s+חשבונית[:\s]+(\w+)',
-        r'מס["ה]\s+חשבונית[:\s]+(\w+)',
-        r'חשבונית\s+מס["ה]?\s*[:\s]+(\w+)',
+        r'מס[\'"״]\s+חשבונית[:\s]+(\w+)',
+        r'חשבונית\s+מס[\'"״]?\s*[:\s]+(\w+)',
     ]
     for p in patterns:
         m = re.search(p, text)
