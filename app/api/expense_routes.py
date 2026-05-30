@@ -100,7 +100,7 @@ async def scan_invoice(
               gemini_key[:8] if gemini_key else "NOT SET")
     has_vision_key = (
         (openai_key and openai_key.startswith("sk-")) or
-        any(k.startswith("AIza") for k in (gemini_key, openai_key) if k)
+        any(k and not k.startswith("gsk_") and not k.startswith("sk-") for k in (gemini_key, openai_key) if k)
     )
     if not has_vision_key:
         raise HTTPException(

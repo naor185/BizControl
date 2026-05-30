@@ -53,9 +53,10 @@ class AIInvoiceService:
         gemini_key = os.getenv("GEMINI_API_KEY", "").strip()
         openai_key = os.getenv("OPENAI_API_KEY", "").strip()
 
-        # Groq (gsk_) does not support vision
+        # Groq (gsk_) does not support vision — skip it
         real_openai = openai_key if openai_key.startswith("sk-") else ""
-        real_gemini = next((k for k in (gemini_key, openai_key) if k.startswith("AIza")), "")
+        # Accept any Gemini key (AIza... or AQ.... formats)
+        real_gemini = next((k for k in (gemini_key, openai_key) if k and not k.startswith("sk-") and not k.startswith("gsk_")), "")
 
         if real_gemini:
             self._provider = "gemini"
