@@ -82,11 +82,12 @@ async def scan_invoice(
     business_name, invoice_number, total_amount, vat_amount, invoice_date.
     Returns extracted data for user confirmation – does NOT save automatically.
     """
-    allowed_types = {"image/jpeg", "image/png", "image/webp"}
-    if file.content_type not in allowed_types:
+    allowed_types = {"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"}
+    content_type = (file.content_type or "").split(";")[0].strip().lower()
+    if content_type not in allowed_types:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Unsupported file type '{file.content_type}'. Please upload JPG, PNG, or WEBP.",
+            detail=f"סוג קובץ לא נתמך '{content_type}'. יש להעלות JPG, PNG, WEBP.",
         )
 
     openai_key = os.getenv("OPENAI_API_KEY", "").strip()

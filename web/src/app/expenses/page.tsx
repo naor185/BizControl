@@ -107,24 +107,54 @@ function InvoiceUploadModal({ onClose, onSaved }: { onClose: () => void; onSaved
 
                 {!scanResult ? (
                     <div className="upload-area">
-                        <div
-                            className="drop-zone"
-                            onClick={() => document.getElementById("invoice-file-input")?.click()}
-                        >
-                            <span className="drop-icon">🧾</span>
-                            <p>{file ? file.name : "לחץ להעלאת תמונה (JPG / PNG / WEBP)"}</p>
-                            <input
-                                id="invoice-file-input"
-                                type="file"
-                                accept="image/jpeg,image/png,image/webp"
-                                style={{ display: "none" }}
-                                onChange={e => setFile(e.target.files?.[0] || null)}
-                            />
-                        </div>
-                        {file && (
-                            <button className="btn-primary" onClick={handleScan} disabled={scanning}>
-                                {scanning ? "⏳ מנתח עם AI..." : "🔍 סרוק עם AI"}
-                            </button>
+                        {/* Hidden inputs */}
+                        <input
+                            id="invoice-file-input"
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp,image/heic"
+                            style={{ display: "none" }}
+                            onChange={e => setFile(e.target.files?.[0] || null)}
+                        />
+                        <input
+                            id="invoice-camera-input"
+                            type="file"
+                            accept="image/*"
+                            capture="environment"
+                            style={{ display: "none" }}
+                            onChange={e => setFile(e.target.files?.[0] || null)}
+                        />
+
+                        {!file ? (
+                            <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                                <button
+                                    onClick={() => document.getElementById("invoice-camera-input")?.click()}
+                                    style={{ border: "2px dashed rgba(167,139,250,.5)", borderRadius: 14, padding: "2rem", textAlign: "center", background: "rgba(167,139,250,.05)", cursor: "pointer" }}
+                                >
+                                    <span style={{ fontSize: "2.5rem", display: "block", marginBottom: ".5rem" }}>📷</span>
+                                    <div style={{ color: "#a78bfa", fontWeight: 700, fontSize: "1rem" }}>סריקת מסמך</div>
+                                    <div style={{ color: "#94a3b8", fontSize: ".8rem", marginTop: ".3rem" }}>פתח מצלמה וסרוק קבלה / חשבונית</div>
+                                </button>
+
+                                <button
+                                    onClick={() => document.getElementById("invoice-file-input")?.click()}
+                                    style={{ border: "2px dashed rgba(96,165,250,.4)", borderRadius: 14, padding: "2rem", textAlign: "center", background: "rgba(96,165,250,.04)", cursor: "pointer" }}
+                                >
+                                    <span style={{ fontSize: "2.5rem", display: "block", marginBottom: ".5rem" }}>📁</span>
+                                    <div style={{ color: "#60a5fa", fontWeight: 700, fontSize: "1rem" }}>העלאה מהגלריה / קבצים</div>
+                                    <div style={{ color: "#94a3b8", fontSize: ".8rem", marginTop: ".3rem" }}>JPG, PNG, WEBP</div>
+                                </button>
+                            </div>
+                        ) : (
+                            <div>
+                                <div style={{ border: "2px dashed rgba(74,222,128,.4)", borderRadius: 14, padding: "1.2rem", textAlign: "center", marginBottom: "1rem", background: "rgba(74,222,128,.04)" }}>
+                                    <span style={{ fontSize: "1.8rem" }}>✅</span>
+                                    <div style={{ color: "#4ade80", fontWeight: 600, marginTop: ".3rem" }}>{file.name}</div>
+                                    <button onClick={() => setFile(null)} style={{ marginTop: ".5rem", background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: ".8rem" }}>החלף ✕</button>
+                                </div>
+                                <button className="btn-primary" onClick={handleScan} disabled={scanning} style={{ width: "100%" }}>
+                                    {scanning ? "⏳ מנתח עם AI..." : "🔍 נתח עם AI"}
+                                </button>
+                            </div>
                         )}
                         {error && <p className="error-msg">{error}</p>}
                     </div>
