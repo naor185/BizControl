@@ -141,9 +141,13 @@ class AIInvoiceService:
         doc = result.document
 
         # Collect all entity values by type
+        import logging as _logging
+        _log = _logging.getLogger(__name__)
         entities: dict[str, list] = {}
         for entity in doc.entities:
             entities.setdefault(entity.type_, []).append(entity)
+
+        _log.info("Document AI entities: %s", {k: [e.mention_text for e in v] for k, v in entities.items()})
 
         def first_text(key: str) -> Optional[str]:
             items = entities.get(key, [])
@@ -162,18 +166,23 @@ class AIInvoiceService:
                     return val.quantize(Decimal("0.01"))
             return _clean_amount(e.mention_text)
 
-        business_name = first_text("supplier_name")
-        invoice_number = first_text("invoice_id")
+        business_name = (first_text("supplier_name") or first_text("merchant_name")
+                         or first_text("vendor_name") or first_text("receiver_name"))
+        invoice_number = (first_text("invoice_id") or first_text("receipt_id")
+                          or first_text("document_id"))
 
-        total_amount = first_amount("total_amount") or first_amount("net_amount")
-        vat_amount = first_amount("vat_tax_amount") or first_amount("total_tax_amount")
+        total_amount = (first_amount("total_amount") or first_amount("net_amount")
+                        or first_amount("total_price") or first_amount("subtotal"))
+        vat_amount = (first_amount("vat_tax_amount") or first_amount("total_tax_amount")
+                      or first_amount("tax_amount") or first_amount("vat_amount"))
 
-        # Fallback VAT calculation
+        # Fallback VAT calculation (18% Israel VAT)
         if total_amount and not vat_amount:
-            vat_amount = (total_amount * Decimal("17") / Decimal("117")).quantize(Decimal("0.01"))
+            vat_amount = (total_amount * Decimal("18") / Decimal("118")).quantize(Decimal("0.01"))
 
         inv_date = None
-        date_items = entities.get("invoice_date", [])
+        date_items = (entities.get("invoice_date") or entities.get("receipt_date")
+                      or entities.get("purchase_date") or entities.get("date") or [])
         if date_items:
             nv = getattr(date_items[0], "normalized_value", None)
             dv = getattr(nv, "date_value", None) if nv else None
