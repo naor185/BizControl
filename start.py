@@ -123,6 +123,11 @@ def ensure_schema():
             "ALTER TABLE studios ADD COLUMN IF NOT EXISTS invoice_scan_quota INTEGER NOT NULL DEFAULT 0",
             "ALTER TABLE studios ADD COLUMN IF NOT EXISTS invoice_scan_used INTEGER NOT NULL DEFAULT 0",
             "ALTER TABLE studios ADD COLUMN IF NOT EXISTS invoice_scan_reset_month VARCHAR(7)",
+            "ALTER TABLE expenses ADD COLUMN IF NOT EXISTS pretax_amount NUMERIC(10,2)",
+            "ALTER TABLE expenses ADD COLUMN IF NOT EXISTS payment_method VARCHAR(64)",
+            "ALTER TABLE expenses ADD COLUMN IF NOT EXISTS notes TEXT",
+            "ALTER TABLE expenses ADD COLUMN IF NOT EXISTS sent_to_accountant BOOLEAN NOT NULL DEFAULT false",
+            "ALTER TABLE expenses ADD COLUMN IF NOT EXISTS sent_to_accountant_at TIMESTAMPTZ",
         ]:
             cur.execute(stmt)
 

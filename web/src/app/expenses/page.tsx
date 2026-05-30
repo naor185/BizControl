@@ -11,13 +11,16 @@ import {
     createExpense,
     deleteExpense,
     scanInvoice,
-    downloadAccountingExcel,
+    markExpenseSent,
+    markMonthSent,
+    downloadExpenseExcel,
     Expense,
     ExpenseSummary,
     InvoiceScanResult,
     ExpenseCreate,
     getDashboardStats,
     DashboardStats,
+    API_BASE,
 } from "@/lib/api";
 import GoalWidget from "@/components/GoalWidget";
 import AppShell from "@/components/AppShell";
@@ -307,6 +310,89 @@ function ManualExpenseModal({ onClose, onSaved }: { onClose: () => void; onSaved
     );
 }
 
+// ── Document Viewer Modal ─────────────────────────────────────────────────────
+function ExpenseViewerModal({ expense, onClose, onUpdated }: { expense: Expense; onClose: () => void; onUpdated: () => void }) {
+    const [sending, setSending] = useState(false);
+    const imgUrl = expense.receipt_url ? `${API_BASE}${expense.receipt_url}` : null;
+
+    const toggleSent = async () => {
+        setSending(true);
+        try {
+            await markExpenseSent(expense.id, !expense.sent_to_accountant);
+            onUpdated();
+            onClose();
+        } catch (e: any) { toast.error(e.message); }
+        finally { setSending(false); }
+    };
+
+    return (
+        <div className="modal-overlay" onClick={onClose}>
+            <div className="modal-panel" style={{ maxWidth: 700 }} onClick={e => e.stopPropagation()}>
+                <div className="modal-header">
+                    <h2>📄 {expense.supplier_name || expense.title}</h2>
+                    <button className="close-btn" onClick={onClose}>✕</button>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: imgUrl ? "1fr 1fr" : "1fr", gap: "1.5rem" }}>
+                    {/* Receipt image */}
+                    {imgUrl && (
+                        <div>
+                            <div style={{ color: "#94a3b8", fontSize: ".8rem", marginBottom: ".5rem" }}>תמונת קבלה מקורית</div>
+                            <img src={imgUrl} alt="receipt" style={{ width: "100%", borderRadius: 12, border: "1px solid rgba(255,255,255,.1)" }} />
+                            <a href={imgUrl} target="_blank" rel="noopener" style={{ display: "block", textAlign: "center", marginTop: ".5rem", color: "#a78bfa", fontSize: ".8rem" }}>
+                                🔍 פתח בגודל מלא
+                            </a>
+                        </div>
+                    )}
+                    {/* Data */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: ".75rem" }}>
+                        {[
+                            ["תאריך", new Date(expense.expense_date).toLocaleDateString("he-IL")],
+                            ["ספק", expense.supplier_name || expense.title],
+                            ["מספר מסמך", expense.invoice_number || "—"],
+                            ["קטגוריה", expense.category || "—"],
+                            ["אמצעי תשלום", expense.payment_method || "—"],
+                            ["לפני מע\"מ", expense.pretax_amount ? `₪${fmt(expense.pretax_amount)}` : "—"],
+                            ["מע\"מ", `₪${fmt(expense.vat_amount)}`],
+                            ["סה\"כ כולל", `₪${fmt(expense.amount)}`],
+                            ["הערות", expense.notes || "—"],
+                        ].map(([label, val]) => (
+                            <div key={label} style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid rgba(255,255,255,.06)", paddingBottom: ".5rem" }}>
+                                <span style={{ color: "#94a3b8", fontSize: ".85rem" }}>{label}</span>
+                                <span style={{ color: "#e2e8f0", fontWeight: 600, fontSize: ".9rem" }}>{val}</span>
+                            </div>
+                        ))}
+                        <div style={{ marginTop: ".5rem" }}>
+                            {expense.sent_to_accountant ? (
+                                <div style={{ background: "rgba(74,222,128,.1)", border: "1px solid rgba(74,222,128,.3)", borderRadius: 10, padding: ".75rem", textAlign: "center" }}>
+                                    <div style={{ color: "#4ade80", fontWeight: 700 }}>✅ נשלח לרו"ח</div>
+                                    {expense.sent_to_accountant_at && (
+                                        <div style={{ color: "#64748b", fontSize: ".75rem" }}>{new Date(expense.sent_to_accountant_at).toLocaleDateString("he-IL")}</div>
+                                    )}
+                                </div>
+                            ) : (
+                                <div style={{ background: "rgba(251,191,36,.1)", border: "1px solid rgba(251,191,36,.3)", borderRadius: 10, padding: ".75rem", textAlign: "center" }}>
+                                    <div style={{ color: "#fbbf24", fontWeight: 700 }}>⏳ טרם נשלח לרו"ח</div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+                <div className="modal-actions">
+                    <button onClick={toggleSent} disabled={sending} style={{
+                        background: expense.sent_to_accountant ? "rgba(251,191,36,.15)" : "rgba(74,222,128,.15)",
+                        border: `1px solid ${expense.sent_to_accountant ? "rgba(251,191,36,.3)" : "rgba(74,222,128,.3)"}`,
+                        color: expense.sent_to_accountant ? "#fbbf24" : "#4ade80",
+                        borderRadius: 10, padding: ".6rem 1.2rem", cursor: "pointer", fontWeight: 600,
+                    }}>
+                        {sending ? "..." : expense.sent_to_accountant ? "↩️ בטל שליחה" : "✅ סמן נשלח לרו\"ח"}
+                    </button>
+                    <button className="btn-secondary" onClick={onClose}>סגור</button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function ExpensesPage() {
     const now = new Date();
@@ -317,6 +403,7 @@ export default function ExpensesPage() {
     const [stats, setStats] = useState<DashboardStats | null>(null);
     const [loading, setLoading] = useState(true);
     const [modal, setModal] = useState<"scan" | "manual" | null>(null);
+    const [viewExpense, setViewExpense] = useState<Expense | null>(null);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -428,21 +515,24 @@ export default function ExpensesPage() {
                     <p className="page-subtitle">מעקב הוצאות, מע"מ וחשבוניות – בזמן אמת</p>
                 </div>
                 <div className="header-actions">
-                    <button 
-                        className="btn-secondary" 
-                        style={{ background: 'rgba(52, 211, 153, 0.1)', borderColor: 'rgba(52, 211, 153, 0.3)', color: '#34d399' }}
+                    <button
+                        className="btn-secondary"
+                        style={{ background: "rgba(52,211,153,.1)", borderColor: "rgba(52,211,153,.3)", color: "#34d399" }}
+                        onClick={() => downloadExpenseExcel(month, year)}
+                    >
+                        📊 Excel לרו"ח
+                    </button>
+                    <button
+                        className="btn-secondary"
+                        style={{ background: "rgba(251,191,36,.1)", borderColor: "rgba(251,191,36,.3)", color: "#fbbf24" }}
                         onClick={async () => {
-                            const lastDay = new Date(year, month, 0).getDate();
-                            const start = `${year}-${String(month).padStart(2, '0')}-01T00:00:00`;
-                            const end = `${year}-${String(month).padStart(2, '0')}-${lastDay}T23:59:59`;
-                            try {
-                                await downloadAccountingExcel(start, end);
-                            } catch (err) {
-                                toast.error("שגיאה בייצוא קובץ");
-                            }
+                            if (!confirm(`לסמן את כל הוצאות ${month}/${year} כ"נשלחו לרו"ח"?`)) return;
+                            await markMonthSent(month, year);
+                            load();
+                            toast.success("כל ההוצאות סומנו כנשלחו!");
                         }}
                     >
-                        📄 ייצוא לרואה חשבון
+                        ✅ סמן חודש נשלח
                     </button>
                     <button className="btn-secondary" onClick={() => setModal("manual")}>✏️ הזנה ידנית</button>
                     <button className="btn-primary" onClick={() => setModal("scan")}>🤖 העלאת חשבונית AI</button>
@@ -538,20 +628,23 @@ export default function ExpensesPage() {
                         </thead>
                         <tbody>
                             {expenses.map(e => (
-                                <tr key={e.id}>
-                                    <td style={{ fontWeight: 600 }}>{e.title}</td>
+                                <tr key={e.id} style={{ cursor: "pointer" }} onClick={() => setViewExpense(e)}>
+                                    <td style={{ fontWeight: 600 }}>
+                                        {e.receipt_url && <span style={{ marginLeft: 4 }}>📎</span>}
+                                        {e.supplier_name || e.title}
+                                    </td>
                                     <td>{e.category ? <span className="badge">{e.category}</span> : <span style={{ color: "#4b5563" }}>—</span>}</td>
                                     <td style={{ color: "#94a3b8", fontSize: ".85rem" }}>{e.invoice_number || "—"}</td>
                                     <td style={{ color: "#94a3b8" }}>{new Date(e.expense_date).toLocaleDateString("he-IL")}</td>
                                     <td style={{ fontWeight: 700, color: "#a78bfa" }}>₪{fmt(e.amount)}</td>
                                     <td style={{ color: "#60a5fa" }}>₪{fmt(e.vat_amount)}</td>
                                     <td>
-                                        {e.is_ai_parsed
-                                            ? <span className="badge ai-badge">🤖 AI</span>
-                                            : <span className="badge">✏️ ידני</span>
+                                        {e.sent_to_accountant
+                                            ? <span className="badge" style={{ background: "rgba(74,222,128,.15)", color: "#4ade80" }}>✅ נשלח</span>
+                                            : <span className="badge" style={{ background: "rgba(251,191,36,.1)", color: "#fbbf24" }}>⏳ ממתין</span>
                                         }
                                     </td>
-                                    <td>
+                                    <td onClick={ev => ev.stopPropagation()}>
                                         <button className="delete-btn" onClick={() => handleDelete(e.id)}>🗑️</button>
                                     </td>
                                 </tr>
@@ -564,6 +657,13 @@ export default function ExpensesPage() {
             {/* Modals */}
             {modal === "scan" && <InvoiceUploadModal onClose={() => setModal(null)} onSaved={load} />}
             {modal === "manual" && <ManualExpenseModal onClose={() => setModal(null)} onSaved={load} />}
+            {viewExpense && (
+                <ExpenseViewerModal
+                    expense={viewExpense}
+                    onClose={() => setViewExpense(null)}
+                    onUpdated={() => { setViewExpense(null); load(); }}
+                />
+            )}
                 </div>
             </AppShell>
         </RequireAuth>

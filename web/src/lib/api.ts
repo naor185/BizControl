@@ -123,11 +123,16 @@ export interface Expense {
     supplier_name?: string;
     category?: string;
     invoice_number?: string;
+    notes?: string;
+    payment_method?: string;
     amount: number;
     vat_amount: number;
+    pretax_amount?: number;
     expense_date: string;
     receipt_url?: string;
     is_ai_parsed: boolean;
+    sent_to_accountant: boolean;
+    sent_to_accountant_at?: string;
     created_at: string;
     updated_at: string;
 }
@@ -136,6 +141,7 @@ export interface ExpenseSummary {
     total_expenses: number;
     total_vat: number;
     invoice_count: number;
+    unsent_count?: number;
 }
 
 export interface ExpenseCreate {
@@ -143,9 +149,13 @@ export interface ExpenseCreate {
     supplier_name?: string;
     category?: string;
     invoice_number?: string;
+    notes?: string;
+    payment_method?: string;
     amount: number;
     vat_amount?: number;
+    pretax_amount?: number;
     expense_date: string;
+    receipt_url?: string;
     is_ai_parsed?: boolean;
 }
 
@@ -154,7 +164,35 @@ export interface InvoiceScanResult {
     invoice_number?: string;
     total_amount?: number;
     vat_amount?: number;
+    pretax_amount?: number;
     invoice_date?: string;
+    payment_method?: string;
+    receipt_url?: string;
+}
+
+export function markExpenseSent(id: string, sent: boolean): Promise<Expense> {
+    return apiFetch<Expense>(`/api/expenses/${id}/${sent ? "mark-sent" : "unmark-sent"}`, { method: "POST" });
+}
+
+export function markMonthSent(month: number, year: number): Promise<void> {
+    return apiFetch<void>(`/api/expenses/mark-month-sent?month=${month}&year=${year}`, { method: "POST" });
+}
+
+export function downloadExpenseExcel(month: number, year: number): void {
+    const token = typeof window !== "undefined" ? localStorage.getItem("bizcontrol_token") : null;
+    const url = `${API_BASE}/api/expenses/export/excel?month=${month}&year=${year}`;
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `expenses_${year}_${String(month).padStart(2, "0")}.xlsx`;
+    // Add auth header via fetch+blob for Railway
+    fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+        .then(r => r.blob())
+        .then(blob => {
+            a.href = URL.createObjectURL(blob);
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        });
 }
 
 export function getExpenses(params?: { month?: number; year?: number }): Promise<Expense[]> {
