@@ -112,7 +112,6 @@ async def scan_invoice(
 
     try:
         service = AIInvoiceService()
-        _log.info("Invoice scan — using model=%s", service.model)
         result = service.parse_invoice_from_bytes(image_bytes, content_type=file.content_type)
     except Exception as e:
         raise HTTPException(
