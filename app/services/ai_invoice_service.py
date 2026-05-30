@@ -1,13 +1,6 @@
 """
-AI Invoice Parsing Service — v3 (Google Document AI).
-Primary: Google Document AI Invoice Parser processor.
-Fallback: OpenAI GPT-4o Vision (sk-... key).
-
-Required env vars for Document AI:
-  GOOGLE_ADC_JSON         — authorized_user credentials JSON (from gcloud auth application-default login)
-  DOCUMENT_AI_PROJECT_ID  — GCP project ID (e.g. "my-project-123456")
-  DOCUMENT_AI_PROCESSOR_ID— processor ID from Cloud Console (e.g. "abc123def456")
-  DOCUMENT_AI_LOCATION    — "us" or "eu" (default "us")
+AI Invoice Parsing Service — v4 (Google Document AI + robust Hebrew OCR parsing).
+Handles both LTR and RTL OCR output for Israeli receipts and invoices.
 """
 import json
 import os
@@ -24,32 +17,35 @@ class InvoiceParseResult:
         invoice_number: Optional[str],
         total_amount: Optional[Decimal],
         vat_amount: Optional[Decimal],
+        pretax_amount: Optional[Decimal],
         invoice_date: Optional[date],
+        payment_method: Optional[str],
         raw_text: str = "",
     ):
         self.business_name = business_name
         self.invoice_number = invoice_number
         self.total_amount = total_amount
         self.vat_amount = vat_amount
+        self.pretax_amount = pretax_amount
         self.invoice_date = invoice_date
+        self.payment_method = payment_method
         self.raw_text = raw_text
 
 
 # ---------- helpers ----------------------------------------------------------
 
 def _clean_amount(text: str) -> Optional[Decimal]:
-    """Parse Israeli amount strings like '1,234.56 ₪' or '1234' into Decimal."""
     if not text:
         return None
-    cleaned = re.sub(r"[^\d.,]", "", text).replace(",", "")
+    cleaned = re.sub(r"[^\d.]", "", text.replace(",", ""))
     try:
-        return Decimal(cleaned).quantize(Decimal("0.01"))
+        val = Decimal(cleaned).quantize(Decimal("0.01"))
+        return val if val > Decimal("0") else None
     except InvalidOperation:
         return None
 
 
 def _money_value_to_decimal(money) -> Optional[Decimal]:
-    """Convert Document AI MoneyValue proto to Decimal."""
     try:
         units = getattr(money, "units", 0) or 0
         nanos = getattr(money, "nanos", 0) or 0
@@ -58,66 +54,135 @@ def _money_value_to_decimal(money) -> Optional[Decimal]:
         return None
 
 
-def _parse_hebrew_total(text: str) -> Optional[Decimal]:
-    """Extract total-including-VAT from Hebrew OCR text."""
-    import re
-    patterns = [
-        r'סה["״]כ\s+כולל\s+מע["״]מ[:\s]+(?:NIS\s+)?([0-9,]+\.?[0-9]*)',
-        r'סה["״]כ\s+לתשלום[:\s]+(?:NIS\s+)?([0-9,]+\.?[0-9]*)',
-        r'סכום\s+לתשלום[:\s]+(?:NIS\s+)?([0-9,]+\.?[0-9]*)',
-        r'סה["״]כ\s+שולם[:\s]+(?:NIS\s+)?([0-9,]+\.?[0-9]*)',
-        r'סה["״]כ\s+שולם:\s*NIS\s+([0-9,]+\.?[0-9]*)',
-        r'סה["״]כ\s+לשלם[:\s]+(?:NIS\s+)?([0-9,]+\.?[0-9]*)',
-    ]
-    for p in patterns:
-        m = re.search(p, text)
-        if m:
-            return _clean_amount(m.group(1))
-    return None
-
-
-def _parse_hebrew_vat(text: str) -> Optional[Decimal]:
-    """Extract VAT amount (not taxable base) from Hebrew OCR text."""
-    import re
-    # Match "מע"מ XX%" NOT preceded by "חייב" (which gives the taxable base, not VAT)
-    patterns = [
-        r'(?:^|[\n\r])\s*מע["״]מ\s+[0-9.]+%\s+([0-9,]+\.?[0-9]*)',
-        r'(?:^|[\n\r])\s*מע["״]מ[:\s]+([0-9,]+\.?[0-9]*)',
-    ]
-    for p in patterns:
-        m = re.search(p, text, re.MULTILINE)
-        if m:
-            return _clean_amount(m.group(1))
-    return None
-
-
-def _parse_hebrew_invoice_number(text: str) -> Optional[str]:
-    """Extract invoice/receipt number from Hebrew OCR text."""
-    import re
-    patterns = [
-        r'חשבון\s+קבלה[^\n]*[-–]\s*(P\w+)',
-        r'(P\d{7,})',
-        r'מספר\s+חשבונית[:\s]+(\w+)',
-        r'מס[\'"״]\s+חשבונית[:\s]+(\w+)',
-        r'חשבונית\s+מס[\'"״]?\s*[:\s]+(\w+)',
-    ]
-    for p in patterns:
-        m = re.search(p, text)
-        if m:
-            return m.group(1).strip()
-    return None
-
-
 def _parse_date(text: str) -> Optional[date]:
-    """Parse DD/MM/YYYY, DD.MM.YYYY, or YYYY-MM-DD into date."""
     if not text:
         return None
-    for fmt in ("%d/%m/%Y", "%d.%m.%Y", "%Y-%m-%d"):
+    for fmt in ("%d/%m/%Y", "%d.%m.%Y", "%Y-%m-%d", "%d-%m-%Y"):
         try:
             from datetime import datetime
             return datetime.strptime(text.strip(), fmt).date()
         except ValueError:
             pass
+    return None
+
+
+# ── OCR text amount extractors (handles RTL + LTR) ───────────────────────────
+
+_AMT = r'([0-9]+\.[0-9]{1,2})'          # decimal amount group
+_OPT_NIS = r'(?:NIS|₪|SIN|NlS)?\s*'    # optional currency prefix
+
+def _find_labeled_amount(text: str, label_patterns: list[str], rtl: bool = True) -> Optional[Decimal]:
+    """
+    Find an amount next to a Hebrew label.
+    Tries both LTR (label → amount) and RTL (amount → label) formats.
+    """
+    for label in label_patterns:
+        # LTR: label comes first, number after
+        ltr = re.search(label + r'[^0-9\n]{0,30}' + _AMT, text, re.IGNORECASE)
+        if ltr:
+            val = _clean_amount(ltr.group(1))
+            if val and val > Decimal("0.10"):
+                return val
+        # RTL: number comes first, label after
+        rtl_pat = _AMT + r'[^0-9\n]{0,15}' + label
+        rtl_m = re.search(rtl_pat, text, re.IGNORECASE)
+        if rtl_m:
+            val = _clean_amount(rtl_m.group(1))
+            if val and val > Decimal("0.10"):
+                return val
+    return None
+
+
+def _parse_hebrew_total(text: str) -> Optional[Decimal]:
+    """Total INCLUDING VAT — סה"כ כולל מע"מ / סה"כ שולם / סכום לתשלום."""
+    labels = [
+        r'סה.כ\s+כולל\s+מע.מ',
+        r'סה.כ\s+שולם',
+        r'סה.כ\s+לשלם',
+        r'סכום\s+לתשלום',
+        r'סה.כ\s+לתשלום',
+        r'סה.כ\s+לחיוב',
+    ]
+    return _find_labeled_amount(text, labels)
+
+
+def _parse_hebrew_vat(text: str) -> Optional[Decimal]:
+    """VAT AMOUNT (not rate, not taxable base) — the actual ₪ amount of VAT."""
+    # Strategy: find a line with VAT% and a decimal amount,
+    # but NOT lines about "taxable base" (סכום החייב).
+    candidates = []
+
+    # Pattern 1: "מע"מ XX.XX% AMOUNT" (LTR)
+    for m in re.finditer(r'מע.מ\s+([0-9]+\.?[0-9]*)%\s+([0-9]+\.[0-9]{1,2})', text):
+        rate = Decimal(m.group(1))
+        if Decimal("5") < rate < Decimal("30"):  # reasonable VAT rate
+            val = _clean_amount(m.group(2))
+            if val:
+                candidates.append((val, m.start()))
+
+    # Pattern 2: "AMOUNT XX.XX% מע"מ" (RTL) — not preceded by "חייב"
+    for m in re.finditer(r'([0-9]+\.[0-9]{1,2})\s+([0-9]+\.?[0-9]*)%\s+מע.מ', text):
+        # Skip if followed by "כולל" (that's the total line)
+        surrounding = text[max(0, m.start()-20):m.end()+20]
+        if 'כולל' in surrounding or 'חייב' in surrounding:
+            continue
+        rate = Decimal(m.group(2))
+        if Decimal("5") < rate < Decimal("30"):
+            val = _clean_amount(m.group(1))
+            if val:
+                candidates.append((val, m.start()))
+
+    # Pattern 3: standalone "מע"מ" line followed/preceded by decimal
+    for m in re.finditer(r'(?:^|[\n\r])[^\n\r]*מע.מ[^\n\r]*[\n\r]+[^\n\r]*?([0-9]+\.[0-9]{1,2})', text, re.MULTILINE):
+        val = _clean_amount(m.group(1))
+        if val and val < Decimal("1000"):
+            candidates.append((val, m.start()))
+
+    if not candidates:
+        return None
+    # Return the VAT from the LAST matching occurrence (usually at bottom of receipt)
+    candidates.sort(key=lambda x: x[1])
+    return candidates[-1][0]
+
+
+def _parse_hebrew_pretax(text: str) -> Optional[Decimal]:
+    """Amount BEFORE VAT — סה"כ לפני מע"מ / סכום החייב."""
+    labels = [
+        r'סה.כ\s+לפני\s+מע.מ',
+        r'סכום\s+החייב\s+מע.מ',
+        r'בסיס\s+מע.מ',
+    ]
+    return _find_labeled_amount(text, labels)
+
+
+def _parse_hebrew_invoice_number(text: str) -> Optional[str]:
+    patterns = [
+        r'חשבון\s+קבלה[^\n]*[-–]\s*(P\w+)',
+        r'\b(P\d{6,})\b',
+        r'מספר\s+(?:חשבונית|קבלה|מסמך)[:\s]+(\w+)',
+        r'מס[\'״״]\s*(?:חשבונית|קבלה)[:\s]+(\w+)',
+        r'(?:Invoice|Receipt)\s*[#:]\s*(\w+)',
+    ]
+    for p in patterns:
+        m = re.search(p, text, re.IGNORECASE)
+        if m:
+            return m.group(1).strip()
+    return None
+
+
+def _parse_payment_method(text: str) -> Optional[str]:
+    """Detect payment method from OCR text."""
+    t = text.lower()
+    if any(w in t for w in ['אשראי', 'credit', 'ויזה', 'visa', 'מסטרכרד', 'mastercard', 'אמקס', 'amex']):
+        return "אשראי"
+    if any(w in t for w in ['מזומן', 'cash', 'כסף מזומן']):
+        return "מזומן"
+    if any(w in t for w in ['ביט', 'bit', 'paybox', 'פייבוקס']):
+        return "ביט/פייבוקס"
+    if any(w in t for w in ['העברה', 'bank transfer', 'העברה בנקאית']):
+        return "העברה בנקאית"
+    if any(w in t for w in ['צ\'ק', "צ'ק", 'cheque', 'check']):
+        return "צ'ק"
     return None
 
 
@@ -147,7 +212,7 @@ class AIInvoiceService:
             self._openai_key = real_openai
         else:
             raise ValueError(
-                "סריקת חשבוניות דורשת Google Document AI (GOOGLE_SA_JSON + "
+                "סריקת חשבוניות דורשת Google Document AI (GOOGLE_ADC_JSON + "
                 "DOCUMENT_AI_PROJECT_ID + DOCUMENT_AI_PROCESSOR_ID) "
                 "או OPENAI_API_KEY (sk-...)."
             )
@@ -177,6 +242,7 @@ class AIInvoiceService:
                 self._creds_info,
                 scopes=["https://www.googleapis.com/auth/cloud-platform"],
             )
+
         client = documentai.DocumentProcessorServiceClient(
             credentials=credentials,
             client_options={"api_endpoint": f"{self._location}-documentai.googleapis.com"},
@@ -190,15 +256,16 @@ class AIInvoiceService:
         result = client.process_document(request=request)
         doc = result.document
 
-        # Collect all entity values by type
         import logging as _logging
         _log = _logging.getLogger(__name__)
+
         entities: dict[str, list] = {}
         for entity in doc.entities:
             entities.setdefault(entity.type_, []).append(entity)
 
-        _log.info("Document AI entities: %s", {k: [e.mention_text for e in v] for k, v in entities.items()})
-        _log.info("Document AI OCR text (first 800 chars): %r", (doc.text or "")[:800])
+        _log.info("DocAI entities: %s", {k: [e.mention_text for e in v] for k, v in entities.items()})
+        ocr = doc.text or ""
+        _log.info("DocAI OCR (800 chars): %r", ocr[:800])
 
         def first_text(key: str) -> Optional[str]:
             items = entities.get(key, [])
@@ -213,36 +280,49 @@ class AIInvoiceService:
             mv = getattr(nv, "money_value", None) if nv else None
             if mv:
                 val = _money_value_to_decimal(mv)
-                if val:
+                if val and val > Decimal("0"):
                     return val.quantize(Decimal("0.01"))
             return _clean_amount(e.mention_text)
 
+        # --- Extract from Document AI entities first ---
         business_name = (first_text("supplier_name") or first_text("merchant_name")
-                         or first_text("vendor_name") or first_text("receiver_name"))
+                         or first_text("vendor_name"))
         invoice_number = (first_text("invoice_id") or first_text("receipt_id")
                           or first_text("document_id"))
+        total_amount = (first_amount("total_amount") or first_amount("net_amount"))
+        vat_amount = (first_amount("vat_tax_amount") or first_amount("total_tax_amount"))
+        pretax_amount = first_amount("subtotal")
 
-        total_amount = (first_amount("total_amount") or first_amount("net_amount")
-                        or first_amount("total_price") or first_amount("subtotal"))
-        vat_amount = (first_amount("vat_tax_amount") or first_amount("total_tax_amount")
-                      or first_amount("tax_amount") or first_amount("vat_amount"))
-
-        # Fallback: parse OCR text for Hebrew receipt patterns
-        ocr_text = doc.text or ""
+        # --- Fallback: parse OCR text ---
         if not total_amount:
-            total_amount = _parse_hebrew_total(ocr_text)
+            total_amount = _parse_hebrew_total(ocr)
         if not vat_amount:
-            vat_amount = _parse_hebrew_vat(ocr_text)
+            vat_amount = _parse_hebrew_vat(ocr)
+        if not pretax_amount:
+            pretax_amount = _parse_hebrew_pretax(ocr)
         if not invoice_number:
-            invoice_number = _parse_hebrew_invoice_number(ocr_text)
+            invoice_number = _parse_hebrew_invoice_number(ocr)
 
-        # Fallback VAT calculation (18% Israel VAT)
+        # --- Cross-check: if vat_amount > total_amount, they're swapped ---
+        if total_amount and vat_amount and vat_amount > total_amount:
+            total_amount, vat_amount = vat_amount, total_amount
+
+        # --- Validate: VAT should be roughly total * 18/118 ---
         if total_amount and not vat_amount:
             vat_amount = (total_amount * Decimal("18") / Decimal("118")).quantize(Decimal("0.01"))
+        elif total_amount and vat_amount:
+            expected_vat = total_amount * Decimal("18") / Decimal("118")
+            if abs(vat_amount - expected_vat) > expected_vat * Decimal("0.3"):
+                # VAT doesn't match expected — recalculate
+                vat_amount = expected_vat.quantize(Decimal("0.01"))
 
+        # --- Pretax from total - vat ---
+        if total_amount and vat_amount and not pretax_amount:
+            pretax_amount = (total_amount - vat_amount).quantize(Decimal("0.01"))
+
+        # --- Date ---
         inv_date = None
-        date_items = (entities.get("invoice_date") or entities.get("receipt_date")
-                      or entities.get("purchase_date") or entities.get("date") or [])
+        date_items = (entities.get("invoice_date") or entities.get("receipt_date") or [])
         if date_items:
             nv = getattr(date_items[0], "normalized_value", None)
             dv = getattr(nv, "date_value", None) if nv else None
@@ -254,13 +334,18 @@ class AIInvoiceService:
             if not inv_date:
                 inv_date = _parse_date(date_items[0].mention_text)
 
+        # --- Payment method ---
+        payment_method = _parse_payment_method(ocr)
+
         return InvoiceParseResult(
             business_name=business_name,
             invoice_number=invoice_number,
             total_amount=total_amount,
             vat_amount=vat_amount,
+            pretax_amount=pretax_amount,
             invoice_date=inv_date,
-            raw_text=doc.text or "",
+            payment_method=payment_method,
+            raw_text=ocr,
         )
 
     # ------------------------------------------------------------------
@@ -272,14 +357,17 @@ Return ONLY valid JSON (no markdown, no explanations):
   "invoice_number": "string or null",
   "total_amount": number or null,
   "vat_amount": number or null,
-  "invoice_date": "YYYY-MM-DD string or null"
+  "pretax_amount": number or null,
+  "invoice_date": "YYYY-MM-DD string or null",
+  "payment_method": "string or null"
 }
 
 Notes:
-- total_amount labels: סך הכל, סה"כ, סכום לתשלום, מחיר סופי
-- VAT label: מע"מ (17%). If not stated, calculate as total * 17/117
-- invoice_date: DD/MM/YYYY or DD.MM.YYYY → convert to YYYY-MM-DD
-- total_amount = final total INCLUDING VAT
+- total_amount = final total INCLUDING VAT (סה"כ כולל מע"מ)
+- vat_amount = the actual VAT shekel amount printed (מע"מ ₪), NOT the rate
+- pretax_amount = total BEFORE VAT (סה"כ לפני מע"מ)
+- invoice_date: DD/MM/YYYY → convert to YYYY-MM-DD
+- payment_method: אשראי / מזומן / ביט / העברה בנקאית / null
 - Use null for any value not found"""
 
     def _parse_with_openai(self, image_bytes: bytes, content_type: str) -> "InvoiceParseResult":
@@ -295,11 +383,10 @@ Notes:
                 {"role": "system", "content": self._OPENAI_PROMPT},
                 {"role": "user", "content": [
                     {"type": "image_url", "image_url": {"url": f"data:{content_type};base64,{b64}", "detail": "high"}},
-                    {"type": "text", "text": "Extract all financial data from this invoice. Return only JSON."},
+                    {"type": "text", "text": "Extract all financial data. Return only JSON."},
                 ]},
             ],
-            max_tokens=512,
-            temperature=0,
+            max_tokens=512, temperature=0,
         )
         raw_text = response.choices[0].message.content or ""
         return self._parse_openai_response(raw_text)
@@ -311,31 +398,41 @@ Notes:
                 cleaned = "\n".join(cleaned.split("\n")[1:-1])
             data = json.loads(cleaned)
 
-            total_amount = None
-            if data.get("total_amount") is not None:
-                total_amount = Decimal(str(data["total_amount"])).quantize(Decimal("0.01"))
+            def to_dec(key: str) -> Optional[Decimal]:
+                v = data.get(key)
+                if v is None:
+                    return None
+                return Decimal(str(v)).quantize(Decimal("0.01"))
 
-            vat_amount = None
-            if data.get("vat_amount") is not None:
-                vat_amount = Decimal(str(data["vat_amount"])).quantize(Decimal("0.01"))
-            elif total_amount is not None:
-                vat_amount = (total_amount * Decimal("17") / Decimal("117")).quantize(Decimal("0.01"))
+            total_amount = to_dec("total_amount")
+            vat_amount = to_dec("vat_amount")
+            pretax_amount = to_dec("pretax_amount")
+
+            if total_amount and not vat_amount:
+                vat_amount = (total_amount * Decimal("18") / Decimal("118")).quantize(Decimal("0.01"))
+            if total_amount and vat_amount and not pretax_amount:
+                pretax_amount = (total_amount - vat_amount).quantize(Decimal("0.01"))
 
             inv_date = None
             if data.get("invoice_date"):
-                inv_date = date.fromisoformat(data["invoice_date"])
+                try:
+                    inv_date = date.fromisoformat(data["invoice_date"])
+                except ValueError:
+                    pass
 
             return InvoiceParseResult(
                 business_name=data.get("business_name"),
                 invoice_number=data.get("invoice_number"),
                 total_amount=total_amount,
                 vat_amount=vat_amount,
+                pretax_amount=pretax_amount,
                 invoice_date=inv_date,
+                payment_method=data.get("payment_method"),
                 raw_text=raw_text,
             )
         except (json.JSONDecodeError, ValueError, KeyError):
             return InvoiceParseResult(
                 business_name=None, invoice_number=None,
-                total_amount=None, vat_amount=None,
-                invoice_date=None, raw_text=raw_text,
+                total_amount=None, vat_amount=None, pretax_amount=None,
+                invoice_date=None, payment_method=None, raw_text=raw_text,
             )

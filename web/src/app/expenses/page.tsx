@@ -47,9 +47,12 @@ function InvoiceUploadModal({ onClose, onSaved }: { onClose: () => void; onSaved
     const [title, setTitle] = useState("");
     const [amount, setAmount] = useState("");
     const [vat, setVat] = useState("");
+    const [pretax, setPretax] = useState("");
     const [invoiceDate, setInvoiceDate] = useState("");
     const [invoiceNum, setInvoiceNum] = useState("");
     const [category, setCategory] = useState("");
+    const [categoryOther, setCategoryOther] = useState("");
+    const [paymentMethod, setPaymentMethod] = useState("");
 
     const handleScan = async () => {
         if (!file) return;
@@ -61,8 +64,10 @@ function InvoiceUploadModal({ onClose, onSaved }: { onClose: () => void; onSaved
             setTitle(res.business_name || "");
             setAmount(res.total_amount != null ? String(res.total_amount) : "");
             setVat(res.vat_amount != null ? String(res.vat_amount) : "");
+            setPretax((res as any).pretax_amount != null ? String((res as any).pretax_amount) : "");
             setInvoiceDate(res.invoice_date || "");
             setInvoiceNum(res.invoice_number || "");
+            setPaymentMethod((res as any).payment_method || "");
         } catch (e: any) {
             setError(e.message || "שגיאה בסריקה");
         } finally {
@@ -87,7 +92,10 @@ function InvoiceUploadModal({ onClose, onSaved }: { onClose: () => void; onSaved
                 expense_date: invoiceDate,
                 is_ai_parsed: !!scanResult,
             };
-            await createExpense(payload);
+            await createExpense({
+                ...payload,
+                category: category === "אחר" && categoryOther ? `אחר: ${categoryOther}` : category || undefined,
+            });
             onSaved();
             onClose();
         } catch (e: any) {
@@ -168,8 +176,11 @@ function InvoiceUploadModal({ onClose, onSaved }: { onClose: () => void; onSaved
                             <label>מספר חשבונית
                                 <input value={invoiceNum} onChange={e => setInvoiceNum(e.target.value)} />
                             </label>
-                            <label>סכום כולל (₪)
+                            <label>סכום כולל מע"מ (₪)
                                 <input type="number" value={amount} onChange={e => setAmount(e.target.value)} />
+                            </label>
+                            <label>לפני מע"מ (₪)
+                                <input type="number" value={pretax} onChange={e => setPretax(e.target.value)} readOnly style={{ opacity: 0.7 }} />
                             </label>
                             <label>מע"מ (₪)
                                 <input type="number" value={vat} onChange={e => setVat(e.target.value)} />
@@ -177,12 +188,26 @@ function InvoiceUploadModal({ onClose, onSaved }: { onClose: () => void; onSaved
                             <label>תאריך חשבונית
                                 <input type="date" value={invoiceDate} onChange={e => setInvoiceDate(e.target.value)} />
                             </label>
+                            {paymentMethod && (
+                                <label>אמצעי תשלום
+                                    <input value={paymentMethod} readOnly style={{ opacity: 0.7 }} />
+                                </label>
+                            )}
                             <label>קטגוריה
                                 <select value={category} onChange={e => setCategory(e.target.value)}>
                                     <option value="">-- בחר קטגוריה --</option>
                                     {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                                 </select>
                             </label>
+                            {category === "אחר" && (
+                                <label>פירוט קטגוריה
+                                    <input
+                                        value={categoryOther}
+                                        onChange={e => setCategoryOther(e.target.value)}
+                                        placeholder="לדוגמה: דלק, ציוד משרדי, חניה..."
+                                    />
+                                </label>
+                            )}
                         </div>
                         {error && <p className="error-msg">{error}</p>}
                         <div className="modal-actions">

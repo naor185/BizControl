@@ -160,7 +160,9 @@ async def scan_invoice(
         "invoice_number": result.invoice_number,
         "total_amount": float(result.total_amount) if result.total_amount else None,
         "vat_amount": float(result.vat_amount) if result.vat_amount else None,
+        "pretax_amount": float(result.pretax_amount) if result.pretax_amount else None,
         "invoice_date": result.invoice_date.isoformat() if result.invoice_date else None,
+        "payment_method": result.payment_method,
     }
 
 
