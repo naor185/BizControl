@@ -306,12 +306,21 @@ def enqueue_cancel_message(db: Session, appt: Appointment) -> None:
     db.commit()
 
 def enqueue_post_payment_message(db: Session, appt: Appointment, amount_cents: int, points_earned: int = 0) -> None:
+    from sqlalchemy import select as _select
     settings = db.get(StudioSettings, appt.studio_id)
     client = db.get(Client, appt.client_id)
     if not settings or not client:
         return
 
-    # points are already awarded in create_payment — do not recalculate here
+    # ── Dedup: skip if aftercare already sent for this appointment ───────────
+    already = db.scalar(
+        _select(MessageJob).where(
+            MessageJob.appointment_id == appt.id,
+            MessageJob.reminder_type == "aftercare",
+        )
+    )
+    if already:
+        return
 
     # ── Build review block ───────────────────────────────────
     review_lines: list[str] = []
@@ -330,18 +339,22 @@ def enqueue_post_payment_message(db: Session, appt: Appointment, amount_cents: i
     if settings.aftercare_message:
         aftercare_block = f"\n\n💊 הוראות טיפול:\n{settings.aftercare_message.strip()}"
 
-    # ── Points block ─────────────────────────────────────────
+    # ── Points block — only for club members ─────────────────
     points_total = client.loyalty_points or 0
-    points_block = f"\n\n🎁 נקודות נאמנות:\nצברת {points_earned} נקודות על התשלום הזה!\nסה\"כ: {points_total} נקודות."
+    if client.is_club_member and points_earned > 0:
+        points_block = f"\n\n🎁 נקודות נאמנות:\nצברת {points_earned} נקודות!\nסה\"כ: {points_total} נקודות."
+    else:
+        points_block = ""
 
+    tz = pytz.timezone(settings.timezone or "Asia/Jerusalem")
     context = {
         "client_name": client.full_name,
         "appointment_title": appt.title,
-        "appointment_date": appt.starts_at.astimezone(pytz.timezone(settings.timezone or "Asia/Jerusalem")).strftime("%d/%m/%Y"),
-        "appointment_time": appt.starts_at.astimezone(pytz.timezone(settings.timezone or "Asia/Jerusalem")).strftime("%H:%M"),
-        "payment_amount": f"{amount_cents / 100:.2f}",
-        "points_earned": str(points_earned),
-        "points_total": str(points_total),
+        "appointment_date": appt.starts_at.astimezone(tz).strftime("%d/%m/%Y"),
+        "appointment_time": appt.starts_at.astimezone(tz).strftime("%H:%M"),
+        "payment_amount": "",          # intentionally blank — never show amount to client
+        "points_earned": str(points_earned) if client.is_club_member else "",
+        "points_total": str(points_total) if client.is_club_member else "",
         "review_block": review_block,
         "aftercare_block": aftercare_block,
         "points_block": points_block,
@@ -364,6 +377,7 @@ def enqueue_post_payment_message(db: Session, appt: Appointment, amount_cents: i
             channel="whatsapp", to_phone=client.phone,
             body=smart_format(wa_template, context),
             scheduled_at=now, status="pending",
+            reminder_type="aftercare",
         ))
 
     # ── Email ─────────────────────────────────────────────────
@@ -394,6 +408,7 @@ def enqueue_post_payment_message(db: Session, appt: Appointment, amount_cents: i
             channel="email", to_phone=client.email,
             body=smart_format(email_template, context),
             scheduled_at=now, status="pending",
+            reminder_type="aftercare",
         ))
 
     db.commit()

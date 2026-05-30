@@ -91,6 +91,12 @@ export default function ClientProfilePage() {
     const [isApptModalOpen, setIsApptModalOpen] = useState(false);
     const [editingPoints, setEditingPoints] = useState(false);
     const [pointsInput, setPointsInput] = useState("");
+    const [editingInfo, setEditingInfo] = useState(false);
+    const [editName, setEditName] = useState("");
+    const [editPhone, setEditPhone] = useState("");
+    const [editEmail, setEditEmail] = useState("");
+    const [editNotes, setEditNotes] = useState("");
+    const [isSavingInfo, setIsSavingInfo] = useState(false);
 
     const loadData = async () => {
         if (!id) return;
@@ -172,6 +178,37 @@ export default function ClientProfilePage() {
         }
     };
 
+    const startEditInfo = () => {
+        if (!profile) return;
+        setEditName(profile.client.full_name);
+        setEditPhone(profile.client.phone || "");
+        setEditEmail(profile.client.email || "");
+        setEditNotes(profile.client.notes || "");
+        setEditingInfo(true);
+    };
+
+    const handleSaveInfo = async () => {
+        setIsSavingInfo(true);
+        try {
+            await apiFetch(`/api/clients/${id}`, {
+                method: "PATCH",
+                body: JSON.stringify({
+                    full_name: editName.trim(),
+                    phone: editPhone.trim() || null,
+                    email: editEmail.trim() || null,
+                    notes: editNotes.trim() || null,
+                }),
+            });
+            setEditingInfo(false);
+            loadData();
+            toast.success("פרטי הלקוח עודכנו");
+        } catch (e: any) {
+            toast.error(e?.message || "שגיאה בשמירה");
+        } finally {
+            setIsSavingInfo(false);
+        }
+    };
+
     const handleSavePoints = async () => {
         const pts = parseInt(pointsInput, 10);
         if (isNaN(pts) || pts < 0) return;
@@ -243,25 +280,63 @@ export default function ClientProfilePage() {
                         {/* Right Column: Profile Info & Stats */}
                         <div className="lg:col-span-1 space-y-6">
                             <div className="rounded-xl border bg-white p-5 shadow-sm">
-                                <div className="text-xl font-bold">{profile.client.full_name || "לקוח ללא שם"}</div>
-                                <div className="text-xs text-gray-400 mt-1">
-                                    לקוח/ה מאז: {new Date(profile.client.created_at).toLocaleDateString("he-IL")}
+                                <div className="flex items-start justify-between gap-2">
+                                    <div>
+                                        <div className="text-xl font-bold">{profile.client.full_name || "לקוח ללא שם"}</div>
+                                        <div className="text-xs text-gray-400 mt-1">
+                                            לקוח/ה מאז: {new Date(profile.client.created_at).toLocaleDateString("he-IL")}
+                                        </div>
+                                    </div>
+                                    {!editingInfo && (
+                                        <button onClick={startEditInfo} className="text-xs text-indigo-600 border border-indigo-200 rounded-lg px-3 py-1 hover:bg-indigo-50 shrink-0">
+                                            ✏️ עריכה
+                                        </button>
+                                    )}
                                 </div>
 
-                                <div className="mt-5 space-y-3 text-sm">
-                                    <div className="flex flex-col">
-                                        <span className="text-gray-500 text-xs">טלפון</span>
-                                        <span className="font-medium" dir="ltr">{profile.client.phone || "לא הוזן"}</span>
+                                {editingInfo ? (
+                                    <div className="mt-4 space-y-3 text-sm">
+                                        <div className="flex flex-col gap-1">
+                                            <label className="text-xs text-gray-500">שם מלא</label>
+                                            <input value={editName} onChange={e => setEditName(e.target.value)} className="border rounded-lg px-3 py-2 text-sm" dir="rtl" />
+                                        </div>
+                                        <div className="flex flex-col gap-1">
+                                            <label className="text-xs text-gray-500">טלפון</label>
+                                            <input value={editPhone} onChange={e => setEditPhone(e.target.value)} className="border rounded-lg px-3 py-2 text-sm" dir="ltr" type="tel" />
+                                        </div>
+                                        <div className="flex flex-col gap-1">
+                                            <label className="text-xs text-gray-500">אימייל</label>
+                                            <input value={editEmail} onChange={e => setEditEmail(e.target.value)} className="border rounded-lg px-3 py-2 text-sm" dir="ltr" type="email" />
+                                        </div>
+                                        <div className="flex flex-col gap-1">
+                                            <label className="text-xs text-gray-500">הערות פנימיות</label>
+                                            <textarea value={editNotes} onChange={e => setEditNotes(e.target.value)} rows={3} className="border rounded-lg px-3 py-2 text-sm resize-none" dir="rtl" />
+                                        </div>
+                                        <div className="flex gap-2 pt-1">
+                                            <button onClick={handleSaveInfo} disabled={isSavingInfo} className="flex-1 bg-indigo-600 text-white rounded-lg py-2 text-sm font-medium hover:bg-indigo-700 disabled:opacity-50">
+                                                {isSavingInfo ? "שומר..." : "שמור"}
+                                            </button>
+                                            <button onClick={() => setEditingInfo(false)} className="flex-1 border rounded-lg py-2 text-sm text-gray-600 hover:bg-gray-50">
+                                                ביטול
+                                            </button>
+                                        </div>
                                     </div>
-                                    <div className="flex flex-col">
-                                        <span className="text-gray-500 text-xs">אימייל</span>
-                                        <span className="font-medium" dir="ltr">{profile.client.email || "לא הוזן"}</span>
+                                ) : (
+                                    <div className="mt-5 space-y-3 text-sm">
+                                        <div className="flex flex-col">
+                                            <span className="text-gray-500 text-xs">טלפון</span>
+                                            <span className="font-medium" dir="ltr">{profile.client.phone || "לא הוזן"}</span>
+                                        </div>
+                                        <div className="flex flex-col">
+                                            <span className="text-gray-500 text-xs">אימייל</span>
+                                            <span className="font-medium" dir="ltr">{profile.client.email || "לא הוזן"}</span>
+                                        </div>
+                                        <div className="flex flex-col">
+                                            <span className="text-gray-500 text-xs">הערות פנימיות</span>
+                                            <span className="font-medium">{profile.client.notes || "אין הערות"}</span>
+                                        </div>
                                     </div>
-                                    <div className="flex flex-col">
-                                        <span className="text-gray-500 text-xs">הערות פנימיות</span>
-                                        <span className="font-medium">{profile.client.notes || "אין הערות"}</span>
-                                    </div>
-                                </div>
+                                )}
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
