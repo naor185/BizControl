@@ -1,12 +1,19 @@
 """
-AI Invoice Parsing Service — v2 (google-genai SDK).
-Uses Google GenAI SDK (Gemini) when GEMINI_API_KEY is set,
-falls back to OpenAI GPT-4o when OPENAI_API_KEY (sk-...) is set.
+AI Invoice Parsing Service — v3 (Google Document AI).
+Primary: Google Document AI Invoice Parser processor.
+Fallback: OpenAI GPT-4o Vision (sk-... key).
+
+Required env vars for Document AI:
+  GOOGLE_SA_JSON          — full content of GCP service account key JSON
+  DOCUMENT_AI_PROJECT_ID  — GCP project ID (e.g. "my-project-123456")
+  DOCUMENT_AI_PROCESSOR_ID— processor ID from Cloud Console (e.g. "abc123def456")
+  DOCUMENT_AI_LOCATION    — "us" or "eu" (default "us")
 """
 import json
 import os
+import re
 from datetime import date
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Optional
 
 
@@ -28,7 +35,154 @@ class InvoiceParseResult:
         self.raw_text = raw_text
 
 
-SYSTEM_PROMPT = """You are an expert Israeli accounting assistant. Extract structured financial data from invoice images.
+# ---------- helpers ----------------------------------------------------------
+
+def _clean_amount(text: str) -> Optional[Decimal]:
+    """Parse Israeli amount strings like '1,234.56 ₪' or '1234' into Decimal."""
+    if not text:
+        return None
+    cleaned = re.sub(r"[^\d.,]", "", text).replace(",", "")
+    try:
+        return Decimal(cleaned).quantize(Decimal("0.01"))
+    except InvalidOperation:
+        return None
+
+
+def _money_value_to_decimal(money) -> Optional[Decimal]:
+    """Convert Document AI MoneyValue proto to Decimal."""
+    try:
+        units = getattr(money, "units", 0) or 0
+        nanos = getattr(money, "nanos", 0) or 0
+        return Decimal(str(units)) + Decimal(str(nanos)) / Decimal("1000000000")
+    except Exception:
+        return None
+
+
+def _parse_date(text: str) -> Optional[date]:
+    """Parse DD/MM/YYYY, DD.MM.YYYY, or YYYY-MM-DD into date."""
+    if not text:
+        return None
+    for fmt in ("%d/%m/%Y", "%d.%m.%Y", "%Y-%m-%d"):
+        try:
+            from datetime import datetime
+            return datetime.strptime(text.strip(), fmt).date()
+        except ValueError:
+            pass
+    return None
+
+
+# ---------- main service -----------------------------------------------------
+
+class AIInvoiceService:
+
+    def __init__(self):
+        sa_json = os.getenv("GOOGLE_SA_JSON", "").strip()
+        project_id = os.getenv("DOCUMENT_AI_PROJECT_ID", "").strip()
+        processor_id = os.getenv("DOCUMENT_AI_PROCESSOR_ID", "").strip()
+        location = os.getenv("DOCUMENT_AI_LOCATION", "us").strip()
+        openai_key = os.getenv("OPENAI_API_KEY", "").strip()
+
+        real_openai = openai_key if openai_key.startswith("sk-") else ""
+
+        if sa_json and project_id and processor_id:
+            self._provider = "documentai"
+            self._sa_info = json.loads(sa_json)
+            self._project_id = project_id
+            self._processor_id = processor_id
+            self._location = location
+        elif real_openai:
+            self._provider = "openai"
+            self._openai_key = real_openai
+        else:
+            raise ValueError(
+                "סריקת חשבוניות דורשת Google Document AI (GOOGLE_SA_JSON + "
+                "DOCUMENT_AI_PROJECT_ID + DOCUMENT_AI_PROCESSOR_ID) "
+                "או OPENAI_API_KEY (sk-...)."
+            )
+
+    def parse_invoice_from_bytes(self, image_bytes: bytes, content_type: str = "image/jpeg") -> "InvoiceParseResult":
+        if self._provider == "documentai":
+            return self._parse_with_documentai(image_bytes, content_type)
+        return self._parse_with_openai(image_bytes, content_type)
+
+    # ------------------------------------------------------------------
+    def _parse_with_documentai(self, image_bytes: bytes, content_type: str) -> "InvoiceParseResult":
+        from google.cloud import documentai
+        from google.oauth2 import service_account
+
+        credentials = service_account.Credentials.from_service_account_info(
+            self._sa_info,
+            scopes=["https://www.googleapis.com/auth/cloud-platform"],
+        )
+        client = documentai.DocumentProcessorServiceClient(
+            credentials=credentials,
+            client_options={"api_endpoint": f"{self._location}-documentai.googleapis.com"},
+        )
+        processor_name = client.processor_path(
+            self._project_id, self._location, self._processor_id
+        )
+
+        raw_doc = documentai.RawDocument(content=image_bytes, mime_type=content_type or "image/jpeg")
+        request = documentai.ProcessRequest(name=processor_name, raw_document=raw_doc)
+        result = client.process_document(request=request)
+        doc = result.document
+
+        # Collect all entity values by type
+        entities: dict[str, list] = {}
+        for entity in doc.entities:
+            entities.setdefault(entity.type_, []).append(entity)
+
+        def first_text(key: str) -> Optional[str]:
+            items = entities.get(key, [])
+            return items[0].mention_text if items else None
+
+        def first_amount(key: str) -> Optional[Decimal]:
+            items = entities.get(key, [])
+            if not items:
+                return None
+            e = items[0]
+            nv = getattr(e, "normalized_value", None)
+            mv = getattr(nv, "money_value", None) if nv else None
+            if mv:
+                val = _money_value_to_decimal(mv)
+                if val:
+                    return val.quantize(Decimal("0.01"))
+            return _clean_amount(e.mention_text)
+
+        business_name = first_text("supplier_name")
+        invoice_number = first_text("invoice_id")
+
+        total_amount = first_amount("total_amount") or first_amount("net_amount")
+        vat_amount = first_amount("vat_tax_amount") or first_amount("total_tax_amount")
+
+        # Fallback VAT calculation
+        if total_amount and not vat_amount:
+            vat_amount = (total_amount * Decimal("17") / Decimal("117")).quantize(Decimal("0.01"))
+
+        inv_date = None
+        date_items = entities.get("invoice_date", [])
+        if date_items:
+            nv = getattr(date_items[0], "normalized_value", None)
+            dv = getattr(nv, "date_value", None) if nv else None
+            if dv and getattr(dv, "year", None):
+                try:
+                    inv_date = date(dv.year, dv.month, dv.day)
+                except Exception:
+                    pass
+            if not inv_date:
+                inv_date = _parse_date(date_items[0].mention_text)
+
+        return InvoiceParseResult(
+            business_name=business_name,
+            invoice_number=invoice_number,
+            total_amount=total_amount,
+            vat_amount=vat_amount,
+            invoice_date=inv_date,
+            raw_text=doc.text or "",
+        )
+
+    # ------------------------------------------------------------------
+    _OPENAI_PROMPT = """You are an expert Israeli accounting assistant. Extract structured financial data from invoice images.
 
 Return ONLY valid JSON (no markdown, no explanations):
 {
@@ -46,65 +200,6 @@ Notes:
 - total_amount = final total INCLUDING VAT
 - Use null for any value not found"""
 
-
-class AIInvoiceService:
-
-    def __init__(self):
-        gemini_key = os.getenv("GEMINI_API_KEY", "").strip()
-        openai_key = os.getenv("OPENAI_API_KEY", "").strip()
-
-        # Groq (gsk_) does not support vision — skip it
-        real_openai = openai_key if openai_key.startswith("sk-") else ""
-        # Accept any Gemini key (AIza... or AQ.... formats)
-        real_gemini = next((k for k in (gemini_key, openai_key) if k and not k.startswith("sk-") and not k.startswith("gsk_")), "")
-
-        if real_gemini:
-            self._provider = "gemini"
-            self._gemini_key = real_gemini
-        elif real_openai:
-            self._provider = "openai"
-            self._openai_key = real_openai
-        else:
-            raise ValueError("סריקת חשבוניות דורשת GEMINI_API_KEY (AIza...) או OPENAI_API_KEY (sk-...).")
-
-    def parse_invoice_from_bytes(self, image_bytes: bytes, content_type: str = "image/jpeg") -> "InvoiceParseResult":
-        if self._provider == "gemini":
-            return self._parse_with_gemini(image_bytes, content_type)
-        return self._parse_with_openai(image_bytes, content_type)
-
-    def _parse_with_gemini(self, image_bytes: bytes, content_type: str) -> "InvoiceParseResult":
-        import base64
-        import httpx
-
-        mime = content_type or "image/jpeg"
-        b64 = base64.b64encode(image_bytes).decode("utf-8")
-
-        # Try models in order until one works
-        for model in ("gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro", "gemini-pro-vision"):
-            url = (
-                f"https://generativelanguage.googleapis.com/v1beta/models/"
-                f"{model}:generateContent?key={self._gemini_key}"
-            )
-            payload = {
-                "system_instruction": {"parts": [{"text": SYSTEM_PROMPT}]},
-                "contents": [{
-                    "parts": [
-                        {"inline_data": {"mime_type": mime, "data": b64}},
-                        {"text": "Extract all financial data from this invoice. Return only JSON."},
-                    ]
-                }],
-                "generationConfig": {"temperature": 0, "maxOutputTokens": 512},
-            }
-            resp = httpx.post(url, json=payload, timeout=30)
-            if resp.status_code in (404, 429):
-                continue  # model not available or quota exhausted, try next
-            resp.raise_for_status()
-            data = resp.json()
-            raw_text = data["candidates"][0]["content"]["parts"][0]["text"]
-            return self._parse_response(raw_text)
-
-        raise RuntimeError("אף מודל Gemini לא זמין בחשבון זה. בדוק את הגדרות הפרויקט ב-Google AI Studio.")
-
     def _parse_with_openai(self, image_bytes: bytes, content_type: str) -> "InvoiceParseResult":
         import base64
         from openai import OpenAI
@@ -115,7 +210,7 @@ class AIInvoiceService:
         response = client.chat.completions.create(
             model="gpt-4o",
             messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "system", "content": self._OPENAI_PROMPT},
                 {"role": "user", "content": [
                     {"type": "image_url", "image_url": {"url": f"data:{content_type};base64,{b64}", "detail": "high"}},
                     {"type": "text", "text": "Extract all financial data from this invoice. Return only JSON."},
@@ -125,14 +220,13 @@ class AIInvoiceService:
             temperature=0,
         )
         raw_text = response.choices[0].message.content or ""
-        return self._parse_response(raw_text)
+        return self._parse_openai_response(raw_text)
 
-    def _parse_response(self, raw_text: str) -> "InvoiceParseResult":
+    def _parse_openai_response(self, raw_text: str) -> "InvoiceParseResult":
         try:
             cleaned = raw_text.strip()
             if cleaned.startswith("```"):
                 cleaned = "\n".join(cleaned.split("\n")[1:-1])
-
             data = json.loads(cleaned)
 
             total_amount = None
@@ -145,16 +239,16 @@ class AIInvoiceService:
             elif total_amount is not None:
                 vat_amount = (total_amount * Decimal("17") / Decimal("117")).quantize(Decimal("0.01"))
 
-            invoice_date = None
+            inv_date = None
             if data.get("invoice_date"):
-                invoice_date = date.fromisoformat(data["invoice_date"])
+                inv_date = date.fromisoformat(data["invoice_date"])
 
             return InvoiceParseResult(
                 business_name=data.get("business_name"),
                 invoice_number=data.get("invoice_number"),
                 total_amount=total_amount,
                 vat_amount=vat_amount,
-                invoice_date=invoice_date,
+                invoice_date=inv_date,
                 raw_text=raw_text,
             )
         except (json.JSONDecodeError, ValueError, KeyError):
