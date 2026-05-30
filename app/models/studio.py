@@ -29,6 +29,10 @@ class Studio(Base):
     stripe_customer_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     stripe_subscription_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
 
+    invoice_scan_quota: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    invoice_scan_used: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    invoice_scan_reset_month: Mapped[str | None] = mapped_column(String(7), nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     users: Mapped[list["User"]] = relationship(back_populates="studio", cascade="all, delete-orphan")
