@@ -25,6 +25,7 @@ type ClientBasic = {
     email?: string | null;
     notes?: string | null;
     whatsapp_opted_out?: boolean;
+    is_club_member?: boolean;
     created_at: string;
 };
 
@@ -352,6 +353,7 @@ export default function ClientProfilePage() {
                                         {((profile.net_paid_cents || 0) / 100).toLocaleString("he-IL", { style: "currency", currency: "ILS" })}
                                     </div>
                                 </div>
+                                {profile.client.is_club_member && (
                                 <div className="rounded-xl border bg-slate-50 p-4 shadow-sm border-slate-200">
                                     <div className="flex items-center justify-between">
                                         <div className="text-xs text-slate-500 font-medium">נקודות במועדון</div>
@@ -378,6 +380,7 @@ export default function ClientProfilePage() {
                                         <div className="text-2xl font-bold mt-1 text-slate-800">{profile.points_balance}</div>
                                     )}
                                 </div>
+                                )}
                                 <div className="rounded-xl border bg-slate-50 p-4 shadow-sm border-slate-200">
                                     <div className="text-xs text-slate-500 font-medium">סה"כ ביקורים</div>
                                     <div className="text-2xl font-bold mt-1 text-slate-800">

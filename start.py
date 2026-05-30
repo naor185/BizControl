@@ -129,6 +129,12 @@ def ensure_schema():
             WHERE external_id IS NOT NULL
         """)
 
+        # Zero out loyalty points for non-club-member clients (one-time cleanup)
+        cur.execute("""
+            UPDATE clients SET loyalty_points = 0
+            WHERE is_club_member = false AND loyalty_points > 0
+        """)
+
         conn.commit()
         cur.close()
         conn.close()
