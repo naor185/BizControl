@@ -79,7 +79,7 @@ Notes:
         base64_image = base64.b64encode(image_bytes).decode("utf-8")
 
         response = self.client.chat.completions.create(
-            model="gpt-4o",
+            model=self.model,
             messages=[
                 {
                     "role": "system",
