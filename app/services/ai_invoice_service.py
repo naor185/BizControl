@@ -67,7 +67,7 @@ Notes:
                 api_key=real_gemini,
                 base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
             )
-            self.model = "gemini-1.5-flash"
+            self.model = "gemini-2.0-flash-exp"
         elif real_openai:
             self.client = OpenAI(api_key=real_openai)
             self.model = "gpt-4o"
