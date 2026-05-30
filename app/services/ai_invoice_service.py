@@ -58,6 +58,54 @@ def _money_value_to_decimal(money) -> Optional[Decimal]:
         return None
 
 
+def _parse_hebrew_total(text: str) -> Optional[Decimal]:
+    """Extract total amount from Hebrew OCR text."""
+    patterns = [
+        r'סה["ה]כ\s+כולל\s+מע["ה]מ[:\s]+([0-9,]+\.?[0-9]*)',
+        r'סה["ה]כ\s+לתשלום[:\s]+([0-9,]+\.?[0-9]*)',
+        r'סכום\s+לתשלום[:\s]+([0-9,]+\.?[0-9]*)',
+        r'סה["ה]כ\s+שולם[:\s]+NIS\s+([0-9,]+\.?[0-9]*)',
+        r'סה["ה]כ\s+שולם[:\s]+([0-9,]+\.?[0-9]*)',
+        r'סה["ה]כ[:\s]+([0-9,]+\.?[0-9]*)',
+    ]
+    import re
+    for p in patterns:
+        m = re.search(p, text)
+        if m:
+            return _clean_amount(m.group(1))
+    return None
+
+
+def _parse_hebrew_vat(text: str) -> Optional[Decimal]:
+    """Extract VAT amount from Hebrew OCR text."""
+    import re
+    patterns = [
+        r'מע["ה]מ\s+[0-9.]+%[:\s]+([0-9,]+\.?[0-9]*)',
+        r'מע["ה]מ[:\s]+([0-9,]+\.?[0-9]*)',
+    ]
+    for p in patterns:
+        m = re.search(p, text)
+        if m:
+            return _clean_amount(m.group(1))
+    return None
+
+
+def _parse_hebrew_invoice_number(text: str) -> Optional[str]:
+    """Extract invoice/receipt number from Hebrew OCR text."""
+    import re
+    patterns = [
+        r'חשבון\s+קבלה[^\n]*[- ](P\w+)',
+        r'מספר\s+חשבונית[:\s]+(\w+)',
+        r'מס["ה]\s+חשבונית[:\s]+(\w+)',
+        r'חשבונית\s+מס["ה]?\s*[:\s]+(\w+)',
+    ]
+    for p in patterns:
+        m = re.search(p, text)
+        if m:
+            return m.group(1).strip()
+    return None
+
+
 def _parse_date(text: str) -> Optional[date]:
     """Parse DD/MM/YYYY, DD.MM.YYYY, or YYYY-MM-DD into date."""
     if not text:
@@ -175,6 +223,15 @@ class AIInvoiceService:
                         or first_amount("total_price") or first_amount("subtotal"))
         vat_amount = (first_amount("vat_tax_amount") or first_amount("total_tax_amount")
                       or first_amount("tax_amount") or first_amount("vat_amount"))
+
+        # Fallback: parse OCR text for Hebrew receipt patterns
+        ocr_text = doc.text or ""
+        if not total_amount:
+            total_amount = _parse_hebrew_total(ocr_text)
+        if not vat_amount:
+            vat_amount = _parse_hebrew_vat(ocr_text)
+        if not invoice_number:
+            invoice_number = _parse_hebrew_invoice_number(ocr_text)
 
         # Fallback VAT calculation (18% Israel VAT)
         if total_amount and not vat_amount:
