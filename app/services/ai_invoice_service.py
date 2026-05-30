@@ -1,5 +1,5 @@
 """
-AI Invoice Parsing Service.
+AI Invoice Parsing Service — v2 (google-genai SDK).
 Uses Google GenAI SDK (Gemini) when GEMINI_API_KEY is set,
 falls back to OpenAI GPT-4o when OPENAI_API_KEY (sk-...) is set.
 """
