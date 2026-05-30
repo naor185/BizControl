@@ -1,15 +1,13 @@
 """
-AI Invoice Parsing Service using OpenAI Vision API.
-Extracts structured data from uploaded invoice images for Israeli businesses.
+AI Invoice Parsing Service.
+Uses Google GenAI SDK (Gemini) when GEMINI_API_KEY is set,
+falls back to OpenAI GPT-4o when OPENAI_API_KEY (sk-...) is set.
 """
-import base64
 import json
 import os
 from datetime import date
 from decimal import Decimal
 from typing import Optional
-
-from openai import OpenAI
 
 
 class InvoiceParseResult:
@@ -30,10 +28,9 @@ class InvoiceParseResult:
         self.raw_text = raw_text
 
 
-class AIInvoiceService:
-    SYSTEM_PROMPT = """You are an expert Israeli accounting assistant. Your task is to extract structured financial data from invoice images.
+SYSTEM_PROMPT = """You are an expert Israeli accounting assistant. Extract structured financial data from invoice images.
 
-Extract the following information from the invoice and return ONLY valid JSON (no markdown, no explanations):
+Return ONLY valid JSON (no markdown, no explanations):
 {
   "business_name": "string or null",
   "invoice_number": "string or null",
@@ -43,77 +40,86 @@ Extract the following information from the invoice and return ONLY valid JSON (n
 }
 
 Notes:
-- In Israeli invoices, total_amount is usually labeled: סך הכל, סה"כ, סכום לתשלום, מחיר סופי
-- VAT is labeled: מע"מ (17% of pre-VAT total)
-- If vat_amount is not explicitly stated but total is known, calculate as total * 17/117
-- invoice_date may appear as DD/MM/YYYY or DD.MM.YYYY, convert to YYYY-MM-DD
-- If a value cannot be found, use null
-- total_amount should be the final total INCLUDING VAT"""
+- total_amount labels: סך הכל, סה"כ, סכום לתשלום, מחיר סופי
+- VAT label: מע"מ (17%). If not stated, calculate as total * 17/117
+- invoice_date: DD/MM/YYYY or DD.MM.YYYY → convert to YYYY-MM-DD
+- total_amount = final total INCLUDING VAT
+- Use null for any value not found"""
+
+
+class AIInvoiceService:
 
     def __init__(self):
-        openai_key = os.getenv("OPENAI_API_KEY", "").strip()
         gemini_key = os.getenv("GEMINI_API_KEY", "").strip()
+        openai_key = os.getenv("OPENAI_API_KEY", "").strip()
 
-        # Groq (gsk_) does NOT support vision — skip it regardless of which var holds it
-        real_openai = openai_key if (openai_key and openai_key.startswith("sk-")) else ""
-        real_gemini = next(
-            (k for k in (gemini_key, openai_key) if k and k.startswith("AIza")),
-            "",
-        )
+        # Groq (gsk_) does not support vision
+        real_openai = openai_key if openai_key.startswith("sk-") else ""
+        real_gemini = next((k for k in (gemini_key, openai_key) if k.startswith("AIza")), "")
 
-        # Prefer Gemini (free, vision-capable), then real OpenAI
         if real_gemini:
-            self.client = OpenAI(
-                api_key=real_gemini,
-                base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
-            )
-            self.model = "gemini-1.5-pro"
+            self._provider = "gemini"
+            self._gemini_key = real_gemini
         elif real_openai:
-            self.client = OpenAI(api_key=real_openai)
-            self.model = "gpt-4o"
+            self._provider = "openai"
+            self._openai_key = real_openai
         else:
-            raise ValueError("סריקת חשבוניות דורשת OPENAI_API_KEY (sk-...) או GEMINI_API_KEY (AIza...). מפתח Groq אינו תומך בראיית תמונות.")
+            raise ValueError("סריקת חשבוניות דורשת GEMINI_API_KEY (AIza...) או OPENAI_API_KEY (sk-...).")
 
-    def parse_invoice_from_bytes(self, image_bytes: bytes, content_type: str = "image/jpeg") -> InvoiceParseResult:
-        """Parse an invoice image and extract structured data using OpenAI Vision."""
-        base64_image = base64.b64encode(image_bytes).decode("utf-8")
+    def parse_invoice_from_bytes(self, image_bytes: bytes, content_type: str = "image/jpeg") -> "InvoiceParseResult":
+        if self._provider == "gemini":
+            return self._parse_with_gemini(image_bytes, content_type)
+        return self._parse_with_openai(image_bytes, content_type)
 
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=[
-                {
-                    "role": "system",
-                    "content": self.SYSTEM_PROMPT,
-                },
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:{content_type};base64,{base64_image}",
-                                "detail": "high",
-                            },
-                        },
-                        {
-                            "type": "text",
-                            "text": "Extract all financial data from this invoice. Return only JSON.",
-                        },
-                    ],
-                },
+    def _parse_with_gemini(self, image_bytes: bytes, content_type: str) -> "InvoiceParseResult":
+        from google import genai
+        from google.genai import types
+
+        client = genai.Client(api_key=self._gemini_key)
+
+        mime = content_type or "image/jpeg"
+        if mime not in ("image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"):
+            mime = "image/jpeg"
+
+        response = client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=[
+                types.Part.from_bytes(data=image_bytes, mime_type=mime),
+                "Extract all financial data from this invoice. Return only JSON.",
             ],
-            max_tokens=500,
-            temperature=0,
+            config=types.GenerateContentConfig(
+                system_instruction=SYSTEM_PROMPT,
+                temperature=0,
+                max_output_tokens=512,
+            ),
         )
-
-        raw_text = response.choices[0].message.content or ""
-
+        raw_text = response.text or ""
         return self._parse_response(raw_text)
 
-    def _parse_response(self, raw_text: str) -> InvoiceParseResult:
-        """Parse the OpenAI response JSON into an InvoiceParseResult object."""
+    def _parse_with_openai(self, image_bytes: bytes, content_type: str) -> "InvoiceParseResult":
+        import base64
+        from openai import OpenAI
+
+        client = OpenAI(api_key=self._openai_key)
+        b64 = base64.b64encode(image_bytes).decode("utf-8")
+
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": [
+                    {"type": "image_url", "image_url": {"url": f"data:{content_type};base64,{b64}", "detail": "high"}},
+                    {"type": "text", "text": "Extract all financial data from this invoice. Return only JSON."},
+                ]},
+            ],
+            max_tokens=512,
+            temperature=0,
+        )
+        raw_text = response.choices[0].message.content or ""
+        return self._parse_response(raw_text)
+
+    def _parse_response(self, raw_text: str) -> "InvoiceParseResult":
         try:
-            # Strip any accidental markdown fences
             cleaned = raw_text.strip()
             if cleaned.startswith("```"):
                 cleaned = "\n".join(cleaned.split("\n")[1:-1])
@@ -128,7 +134,6 @@ Notes:
             if data.get("vat_amount") is not None:
                 vat_amount = Decimal(str(data["vat_amount"])).quantize(Decimal("0.01"))
             elif total_amount is not None:
-                # Estimate VAT if not provided (17% Israeli VAT - 17/117 of total)
                 vat_amount = (total_amount * Decimal("17") / Decimal("117")).quantize(Decimal("0.01"))
 
             invoice_date = None
@@ -143,14 +148,9 @@ Notes:
                 invoice_date=invoice_date,
                 raw_text=raw_text,
             )
-
         except (json.JSONDecodeError, ValueError, KeyError):
-            # Return empty result if parsing fails
             return InvoiceParseResult(
-                business_name=None,
-                invoice_number=None,
-                total_amount=None,
-                vat_amount=None,
-                invoice_date=None,
-                raw_text=raw_text,
+                business_name=None, invoice_number=None,
+                total_amount=None, vat_amount=None,
+                invoice_date=None, raw_text=raw_text,
             )
