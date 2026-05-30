@@ -61,15 +61,16 @@ Notes:
             "",
         )
 
-        if real_openai:
-            self.client = OpenAI(api_key=real_openai)
-            self.model = "gpt-4o"
-        elif real_gemini:
+        # Prefer Gemini (free, vision-capable), then real OpenAI
+        if real_gemini:
             self.client = OpenAI(
                 api_key=real_gemini,
                 base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
             )
-            self.model = "gemini-2.0-flash"
+            self.model = "gemini-1.5-flash"
+        elif real_openai:
+            self.client = OpenAI(api_key=real_openai)
+            self.model = "gpt-4o"
         else:
             raise ValueError("סריקת חשבוניות דורשת OPENAI_API_KEY (sk-...) או GEMINI_API_KEY (AIza...). מפתח Groq אינו תומך בראיית תמונות.")
 
