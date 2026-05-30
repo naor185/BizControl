@@ -4,8 +4,11 @@ All queries are strictly filtered by studio_id for multi-tenant data isolation.
 """
 from __future__ import annotations
 
+import logging
 import os
 import uuid
+
+_log = logging.getLogger(__name__)
 from datetime import date
 from typing import Optional
 
@@ -92,6 +95,9 @@ async def scan_invoice(
 
     openai_key = os.getenv("OPENAI_API_KEY", "").strip()
     gemini_key = os.getenv("GEMINI_API_KEY", "").strip()
+    _log.info("Invoice scan — OPENAI_API_KEY prefix=%s GEMINI_API_KEY prefix=%s",
+              openai_key[:8] if openai_key else "NOT SET",
+              gemini_key[:8] if gemini_key else "NOT SET")
     has_vision_key = (
         (openai_key and openai_key.startswith("sk-")) or
         any(k.startswith("AIza") for k in (gemini_key, openai_key) if k)
@@ -106,6 +112,7 @@ async def scan_invoice(
 
     try:
         service = AIInvoiceService()
+        _log.info("Invoice scan — using model=%s", service.model)
         result = service.parse_invoice_from_bytes(image_bytes, content_type=file.content_type)
     except Exception as e:
         raise HTTPException(
