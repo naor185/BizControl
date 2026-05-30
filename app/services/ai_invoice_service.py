@@ -95,8 +95,8 @@ class AIInvoiceService:
                 "generationConfig": {"temperature": 0, "maxOutputTokens": 512},
             }
             resp = httpx.post(url, json=payload, timeout=30)
-            if resp.status_code == 404:
-                continue  # model not available, try next
+            if resp.status_code in (404, 429):
+                continue  # model not available or quota exhausted, try next
             resp.raise_for_status()
             data = resp.json()
             raw_text = data["candidates"][0]["content"]["parts"][0]["text"]
