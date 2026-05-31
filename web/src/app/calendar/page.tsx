@@ -103,9 +103,9 @@ export default function CalendarPage() {
         if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
             const api = calendarRef.current?.getApi();
             if (dx > 0) {
-                api?.next();  // החלקה שמאלה → שבוע הבא
+                api?.prev();  // החלקה שמאלה → שבוע קודם (RTL: שמאל = ישן יותר)
             } else {
-                api?.prev(); // החלקה ימינה → שבוע קודם
+                api?.next(); // החלקה ימינה → שבוע הבא (RTL: ימין = חדש יותר)
             }
         }
         touchStartX.current = null;
