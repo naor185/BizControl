@@ -3,7 +3,7 @@ import { toast } from "@/lib/toast";
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { apiFetch, clearToken, setToken, getToken } from "@/lib/api";
+import { apiFetch, clearToken, setToken, getToken, API_BASE } from "@/lib/api";
 import {
     LineChart, Line, BarChart, Bar, PieChart, Pie,
     XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -308,15 +308,28 @@ export default function AdminPage() {
     const handleImpersonate = async (studio: Studio) => {
         setImpersonating(studio.id);
         try {
-            const res = await apiFetch<{ access_token: string; studio_name: string }>(`/api/admin/impersonate/${studio.id}`, { method: "POST" });
+            // Use raw fetch to avoid apiFetch redirecting to /login on 401
+            const rawRes = await fetch(`${API_BASE}/api/admin/impersonate/${studio.id}`, {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${getToken()}`,
+                    "Content-Type": "application/json",
+                },
+            });
+            if (!rawRes.ok) {
+                let detail = `HTTP ${rawRes.status}`;
+                try { const j = await rawRes.json(); detail = j.detail || detail; } catch { /* ignore */ }
+                alert(`שגיאת כניסה (${rawRes.status}): ${detail}`);
+                return;
+            }
+            const data = await rawRes.json();
             // Save admin token to restore later
             sessionStorage.setItem("admin_token", getToken() || "");
             sessionStorage.setItem("admin_return", "true");
-            setToken(res.access_token);
+            setToken(data.access_token);
             window.location.href = "/calendar";
         } catch (e: any) {
-            alert("שגיאת כניסה: " + (e?.message || "לא ידוע"));
-            toast.error(e?.message);
+            alert("שגיאת רשת: " + (e?.message || "לא ידוע"));
         } finally {
             setImpersonating(null);
         }
