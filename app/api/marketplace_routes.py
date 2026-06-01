@@ -250,25 +250,53 @@ def submit_review(slug: str, payload: ReviewCreate, db: Session = Depends(get_db
     return {"message": "תודה! הביקורת תפורסם לאחר אישור."}
 
 
-# ── Studio approves reviews (authenticated) ───────────────────────────────────
+# ── Studio manages reviews (authenticated) ────────────────────────────────────
 
-@router.post("/{slug}/reviews/{review_id}/approve")
-def approve_review(slug: str, review_id: str, db: Session = Depends(get_db)):
-    """Studio owner approves a pending review."""
-    from app.core.auth_deps import get_current_user
-    from fastapi import Depends as _Depends
+from app.core.deps import require_studio_ctx, AuthContext
+from app.db.deps import get_db as _get_db
+
+@router.get("/my/reviews/pending")
+def list_pending_reviews(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+    """Return pending (unapproved) reviews for the authenticated studio."""
     from app.models.studio_review import StudioReview
-    from app.models.studio import Studio
+    reviews = db.scalars(
+        select(StudioReview).where(
+            StudioReview.studio_id == ctx.studio_id,
+            StudioReview.is_approved == False,  # noqa
+        ).order_by(StudioReview.created_at.desc())
+    ).all()
+    return [
+        {
+            "id": str(r.id),
+            "client_name": r.client_name,
+            "rating": r.rating,
+            "comment": r.comment,
+            "created_at": r.created_at.isoformat(),
+        }
+        for r in reviews
+    ]
+
+
+@router.post("/my/reviews/{review_id}/approve")
+def approve_review(review_id: str, ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+    """Studio owner approves a pending review."""
+    from app.models.studio_review import StudioReview
     import uuid as _uuid
-
-    studio = db.scalar(select(Studio).where(Studio.slug == slug))
-    if not studio:
-        raise HTTPException(404)
-
     review = db.get(StudioReview, _uuid.UUID(review_id))
-    if not review or review.studio_id != studio.id:
-        raise HTTPException(404)
-
+    if not review or review.studio_id != ctx.studio_id:
+        raise HTTPException(404, "Review not found")
     review.is_approved = True
     db.commit()
     return {"approved": True}
+
+
+@router.delete("/my/reviews/{review_id}", status_code=204)
+def delete_review(review_id: str, ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+    """Studio owner deletes/rejects a review."""
+    from app.models.studio_review import StudioReview
+    import uuid as _uuid
+    review = db.get(StudioReview, _uuid.UUID(review_id))
+    if not review or review.studio_id != ctx.studio_id:
+        raise HTTPException(404, "Review not found")
+    db.delete(review)
+    db.commit()

@@ -87,6 +87,11 @@ type Settings = {
     calendar_end_hour?: string;
     self_booking_enabled?: boolean;
     self_booking_slot_minutes?: number;
+    marketplace_visible?: boolean;
+    marketplace_city?: string | null;
+    marketplace_description?: string | null;
+    marketplace_cover_url?: string | null;
+    marketplace_phone?: string | null;
 
     studio_slug?: string | null;
 
@@ -182,13 +187,135 @@ function WebhookUrlBox({ provider, instanceId }: { provider: "green_api" | "meta
     );
 }
 
+// ── Marketplace Tab Component ─────────────────────────────────────────────────
+function MarketplaceTab({ settings, handleChange, apiFetch }: { settings: any; handleChange: (k: string, v: any) => void; apiFetch: typeof import("@/lib/api").apiFetch }) {
+    const [pendingReviews, setPendingReviews] = useState<{ id: string; client_name: string; rating: number; comment: string | null; created_at: string }[]>([]);
+    const [reviewsLoading, setReviewsLoading] = useState(false);
+    const [reviewsLoaded, setReviewsLoaded] = useState(false);
+
+    const loadReviews = async () => {
+        if (reviewsLoaded) return;
+        setReviewsLoading(true);
+        try {
+            const data = await apiFetch<typeof pendingReviews>("/api/marketplace/my/reviews/pending");
+            setPendingReviews(data);
+            setReviewsLoaded(true);
+        } catch { setPendingReviews([]); setReviewsLoaded(true); }
+        finally { setReviewsLoading(false); }
+    };
+
+    const approveReview = async (id: string) => {
+        await apiFetch(`/api/marketplace/my/reviews/${id}/approve`, { method: "POST" });
+        setPendingReviews(r => r.filter(x => x.id !== id));
+    };
+
+    const deleteReview = async (id: string) => {
+        await apiFetch(`/api/marketplace/my/reviews/${id}`, { method: "DELETE" });
+        setPendingReviews(r => r.filter(x => x.id !== id));
+    };
+
+    useEffect(() => { loadReviews(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    const slug = settings.studio_slug;
+
+    return (
+        <div className="space-y-6">
+            {/* Profile toggle + public link */}
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+                <div className="flex items-center justify-between mb-4">
+                    <div>
+                        <h3 className="text-lg font-bold text-slate-800">🗺️ פרופיל ציבורי ב-Marketplace</h3>
+                        <p className="text-sm text-slate-500 mt-0.5">לקוחות יגלו את הסטודיו שלך בחיפוש</p>
+                    </div>
+                    <button
+                        onClick={() => handleChange("marketplace_visible", !settings.marketplace_visible)}
+                        className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${settings.marketplace_visible ? "bg-violet-500" : "bg-slate-200"}`}
+                    >
+                        <span className={`inline-block h-6 w-6 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${settings.marketplace_visible ? "translate-x-5" : "translate-x-0"}`} />
+                    </button>
+                </div>
+                {settings.marketplace_visible && slug && (
+                    <div className="flex gap-2 items-center p-3 bg-violet-50 rounded-xl border border-violet-200 mb-4">
+                        <span className="text-sm text-violet-700 font-mono flex-1">/profile/{slug}</span>
+                        <a href={`/profile/${slug}`} target="_blank" className="text-xs px-3 py-1.5 bg-violet-500 text-white rounded-lg font-semibold hover:bg-violet-600 transition-colors">פתח ↗</a>
+                        <a href="/explore" target="_blank" className="text-xs px-3 py-1.5 bg-slate-100 text-slate-700 rounded-lg font-semibold hover:bg-slate-200 transition-colors">Explore</a>
+                    </div>
+                )}
+                <div className="grid md:grid-cols-2 gap-4">
+                    {[
+                        { key: "marketplace_city", label: "עיר", placeholder: "תל אביב" },
+                        { key: "marketplace_phone", label: "טלפון לתצוגה ציבורית", placeholder: "050-0000000" },
+                        { key: "marketplace_cover_url", label: "תמונת כריכה (URL)", placeholder: "https://..." },
+                    ].map(f => (
+                        <div key={f.key}>
+                            <label className="block text-sm font-semibold text-slate-700 mb-1">{f.label}</label>
+                            <input
+                                type="text"
+                                value={(settings as any)[f.key] || ""}
+                                onChange={e => handleChange(f.key, e.target.value)}
+                                placeholder={f.placeholder}
+                                className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-violet-400"
+                            />
+                        </div>
+                    ))}
+                    <div className="md:col-span-2">
+                        <label className="block text-sm font-semibold text-slate-700 mb-1">תיאור קצר (מוצג בפרופיל)</label>
+                        <textarea
+                            rows={3}
+                            value={settings.marketplace_description || ""}
+                            onChange={e => handleChange("marketplace_description", e.target.value)}
+                            placeholder="ספר על הסטודיו, הסגנון והחוויה שאתה מציע..."
+                            className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-violet-400 resize-none"
+                        />
+                    </div>
+                </div>
+            </div>
+
+            {/* Pending reviews */}
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+                <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-bold text-slate-800">⭐ ביקורות ממתינות לאישור</h3>
+                    <button onClick={() => { setReviewsLoaded(false); loadReviews(); }} className="text-xs text-slate-400 hover:text-slate-700 transition-colors">↻ רענן</button>
+                </div>
+                {reviewsLoading ? (
+                    <div className="text-center py-8 text-slate-400">⏳ טוען...</div>
+                ) : pendingReviews.length === 0 ? (
+                    <div className="text-center py-8 text-slate-400">
+                        <div className="text-3xl mb-2">✅</div>
+                        <div className="text-sm">אין ביקורות ממתינות</div>
+                    </div>
+                ) : (
+                    <div className="space-y-3">
+                        {pendingReviews.map(r => (
+                            <div key={r.id} className="flex items-start gap-4 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                                <div className="flex-1">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <span className="font-semibold text-slate-800 text-sm">{r.client_name}</span>
+                                        <span className="text-amber-500">{"★".repeat(r.rating)}{"☆".repeat(5 - r.rating)}</span>
+                                        <span className="text-xs text-slate-400">{new Date(r.created_at).toLocaleDateString("he-IL")}</span>
+                                    </div>
+                                    {r.comment && <p className="text-sm text-slate-600">{r.comment}</p>}
+                                </div>
+                                <div className="flex gap-2 shrink-0">
+                                    <button onClick={() => approveReview(r.id)} className="text-xs px-3 py-1.5 bg-emerald-500 text-white rounded-lg font-semibold hover:bg-emerald-600 transition-colors">✅ אשר</button>
+                                    <button onClick={() => deleteReview(r.id)} className="text-xs px-3 py-1.5 bg-red-100 text-red-600 rounded-lg font-semibold hover:bg-red-200 transition-colors">🗑️ מחק</button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
 export default function AutomationSettingsPage() {
     const [settings, setSettings] = useState<Settings | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [err, setErr] = useState<string | null>(null);
     const [msg, setMsg] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<"branding" | "landing" | "communication" | "policy" | "automation" | "finance" | "integrations">("branding");
+    const [activeTab, setActiveTab] = useState<"branding" | "landing" | "communication" | "policy" | "automation" | "finance" | "integrations" | "marketplace">("branding");
 
     const [aiPrompt, setAiPrompt] = useState("");
     const [isAiLoading, setIsAiLoading] = useState(false);
@@ -249,6 +376,11 @@ export default function AutomationSettingsPage() {
                     calendar_end_hour: data.calendar_end_hour ?? "23:00",
                     self_booking_enabled: data.self_booking_enabled ?? false,
                     self_booking_slot_minutes: data.self_booking_slot_minutes ?? 60,
+                    marketplace_visible: data.marketplace_visible ?? false,
+                    marketplace_city: data.marketplace_city ?? "",
+                    marketplace_description: data.marketplace_description ?? "",
+                    marketplace_cover_url: data.marketplace_cover_url ?? "",
+                    marketplace_phone: data.marketplace_phone ?? "",
                     cancellation_free_days: data.cancellation_free_days ?? 7,
                     deposit_lock_days: data.deposit_lock_days ?? 7,
                     deposit_fixed_amount_ils: data.deposit_fixed_amount_ils ?? 0,
@@ -509,6 +641,7 @@ export default function AutomationSettingsPage() {
         { id: "automation", label: "חוקים ואוטומציה", icon: "⚙️" },
         { id: "finance", label: "תשלומים ופיננסים", icon: "💰" },
         { id: "integrations", label: "חיבורים", icon: "🔌" },
+        { id: "marketplace", label: "Marketplace", icon: "🗺️" },
     ] as const;
 
     return (
@@ -1890,6 +2023,11 @@ export default function AutomationSettingsPage() {
                             </div>
                         </div>
                     )}
+
+                        {/* 7. MARKETPLACE TAB */}
+                        {activeTab === "marketplace" && (
+                            <MarketplaceTab settings={settings} handleChange={handleChange} apiFetch={apiFetch} />
+                        )}
                 </div>
 
                 {/* Floating Save Button */}
