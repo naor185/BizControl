@@ -33,6 +33,10 @@ export default function BookingPage() {
     const [booking, setBooking] = useState(false);
     const [bookErr, setBookErr] = useState<string | null>(null);
     const [confirmation, setConfirmation] = useState<any>(null);
+    const [wlForm, setWlForm] = useState({ name: "", phone: "" });
+    const [wlSubmitting, setWlSubmitting] = useState(false);
+    const [wlDone, setWlDone] = useState(false);
+    const [wlErr, setWlErr] = useState<string | null>(null);
 
     useEffect(() => {
         fetch(`${API}/api/book/${slug}/info`)
@@ -249,10 +253,52 @@ export default function BookingPage() {
                         {loadingSlots ? (
                             <div style={{ textAlign: "center", padding: "2rem", color: "#64748b" }}>⏳ טוען זמנים...</div>
                         ) : slots.length === 0 ? (
-                            <div style={{ textAlign: "center", padding: "2rem", color: "#64748b" }}>
+                            <div style={{ textAlign: "center", padding: "1.5rem 0", color: "#64748b" }}>
                                 <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>😔</div>
-                                <div>אין זמנים פנויים ביום זה</div>
-                                <button onClick={() => setStep("date")} style={{ marginTop: "1rem", ...navBtn }}>בחר תאריך אחר</button>
+                                <div style={{ marginBottom: "1rem" }}>אין זמנים פנויים ביום זה</div>
+                                <button onClick={() => setStep("date")} style={{ ...navBtn }}>בחר תאריך אחר</button>
+
+                                {/* Wait List Join */}
+                                <div style={{ marginTop: "1.5rem", background: "rgba(167,139,250,.08)", border: "1px solid rgba(167,139,250,.2)", borderRadius: 16, padding: "1.25rem", textAlign: "right" }}>
+                                    <div style={{ fontWeight: 700, color: "#a78bfa", marginBottom: "0.5rem" }}>⏳ הצטרף/י לרשימת ההמתנה</div>
+                                    <div style={{ color: "#94a3b8", fontSize: "0.82rem", marginBottom: "1rem" }}>נודיע לך ב-WhatsApp ברגע שיתפנה מקום</div>
+                                    {wlDone ? (
+                                        <div style={{ color: "#4ade80", fontWeight: 700, textAlign: "center", padding: "0.75rem" }}>✅ נוספת לרשימה! נחזור אליך בקרוב</div>
+                                    ) : (
+                                        <>
+                                            <input
+                                                type="text" placeholder="שם מלא *" value={wlForm.name}
+                                                onChange={e => setWlForm(v => ({ ...v, name: e.target.value }))}
+                                                style={{ background: "rgba(255,255,255,.08)", border: "1px solid rgba(255,255,255,.15)", borderRadius: 10, padding: "0.6rem 0.9rem", color: "#fff", fontSize: "0.9rem", width: "100%", boxSizing: "border-box", marginBottom: "0.5rem" }}
+                                            />
+                                            <input
+                                                type="tel" placeholder="טלפון (WhatsApp) *" value={wlForm.phone}
+                                                onChange={e => setWlForm(v => ({ ...v, phone: e.target.value }))}
+                                                style={{ background: "rgba(255,255,255,.08)", border: "1px solid rgba(255,255,255,.15)", borderRadius: 10, padding: "0.6rem 0.9rem", color: "#fff", fontSize: "0.9rem", width: "100%", boxSizing: "border-box", marginBottom: "0.75rem" }}
+                                            />
+                                            {wlErr && <div style={{ color: "#f87171", fontSize: "0.8rem", marginBottom: "0.5rem" }}>{wlErr}</div>}
+                                            <button
+                                                disabled={wlSubmitting || !wlForm.name.trim() || !wlForm.phone.trim()}
+                                                onClick={async () => {
+                                                    setWlSubmitting(true); setWlErr(null);
+                                                    try {
+                                                        const r = await fetch(`${API}/api/book/${slug}/wait-list`, {
+                                                            method: "POST",
+                                                            headers: { "Content-Type": "application/json" },
+                                                            body: JSON.stringify({ client_name: wlForm.name.trim(), client_phone: wlForm.phone.trim(), service_id: service?.id }),
+                                                        });
+                                                        if (!r.ok) throw new Error((await r.json()).detail || "שגיאה");
+                                                        setWlDone(true);
+                                                    } catch (e: any) { setWlErr(e.message); }
+                                                    finally { setWlSubmitting(false); }
+                                                }}
+                                                style={{ width: "100%", background: "linear-gradient(135deg,#7c3aed,#4c1d95)", border: "none", borderRadius: 12, color: "#fff", padding: "0.65rem", fontWeight: 700, cursor: "pointer", opacity: wlSubmitting ? 0.6 : 1 }}
+                                            >
+                                                {wlSubmitting ? "⏳..." : "📨 הצטרף/י לרשימה"}
+                                            </button>
+                                        </>
+                                    )}
+                                </div>
                             </div>
                         ) : (
                             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(80px,1fr))", gap: "0.5rem", marginBottom: "1.5rem" }}>

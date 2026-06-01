@@ -311,3 +311,36 @@ def create_booking(slug: str, payload: BookingRequest, db: Session = Depends(get
         "status": "confirmed",
         "message": f"התור נקבע בהצלחה ל-{service.name}",
     }
+
+
+# ── Public wait-list join ─────────────────────────────────────────────────────
+
+class WaitListJoinIn(BaseModel):
+    client_name: str
+    client_phone: str
+    service_id: Optional[str] = None
+    notes: Optional[str] = None
+
+
+@router.post("/{slug}/wait-list", status_code=201)
+def public_join_wait_list(slug: str, payload: WaitListJoinIn, db: Session = Depends(get_db)):
+    """Public endpoint — client self-joins the wait list for a studio."""
+    from app.models.studio import Studio
+    import uuid as _uuid2
+
+    studio = db.scalar(select(Studio).where(Studio.slug == slug, Studio.is_active == True))  # noqa
+    if not studio:
+        raise HTTPException(404, "Studio not found")
+
+    from app.models.wait_list import WaitListEntry
+    entry = WaitListEntry(
+        studio_id=studio.id,
+        client_name=payload.client_name.strip(),
+        client_phone=payload.client_phone.strip(),
+        service_id=_uuid2.UUID(payload.service_id) if payload.service_id else None,
+        notes=payload.notes,
+        status="waiting",
+    )
+    db.add(entry)
+    db.commit()
+    return {"message": "נוספת לרשימת ההמתנה! נודיע לך בWhatsApp כשיתפנה מקום 📅"}
