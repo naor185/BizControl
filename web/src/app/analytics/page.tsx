@@ -90,7 +90,7 @@ function MiniBar({ data, valueKey, labelKey, color = "bg-sky-500" }: { data: any
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function AnalyticsPage() {
-    const [tab, setTab] = useState<"ads" | "organic" | "insights">("ads");
+    const [tab, setTab] = useState<"ads" | "organic" | "insights" | "business">("business");
     const [days, setDays] = useState(30);
     const [adsSummary, setAdsSummary] = useState<AdsSummary | null>(null);
     const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -169,13 +169,13 @@ export default function AnalyticsPage() {
                             ))}
                         </div>
                         <div className="flex bg-white border border-slate-200 rounded-xl overflow-hidden text-sm">
-                            {(["ads", "organic", "insights"] as const).map(t => (
+                            {(["business", "ads", "organic", "insights"] as const).map(t => (
                                 <button
                                     key={t}
                                     onClick={() => setTab(t)}
                                     className={`px-4 py-1.5 font-semibold transition-colors ${tab === t ? "bg-sky-600 text-white" : "text-slate-500 hover:bg-slate-50"}`}
                                 >
-                                    {t === "ads" ? "📣 ממומן" : t === "organic" ? "🌱 אורגני" : "🤖 AI"}
+                                    {t === "business" ? "📊 עסקי" : t === "ads" ? "📣 ממומן" : t === "organic" ? "🌱 אורגני" : "🤖 AI"}
                                 </button>
                             ))}
                         </div>
@@ -397,8 +397,199 @@ export default function AnalyticsPage() {
                             )}
                         </>
                     )}
+
+                    {/* ── Business Analytics Tab ───────────────────────────── */}
+                    {tab === "business" && <BusinessAnalyticsTab />}
                 </div>
             </AppShell>
         </RequireAuth>
+    );
+}
+
+// ── Business Analytics Tab ─────────────────────────────────────────────────────
+function BusinessAnalyticsTab() {
+    const now = new Date();
+    const [month, setMonth] = useState(now.getMonth() + 1);
+    const [year, setYear] = useState(now.getFullYear());
+    const [trend, setTrend] = useState<any[]>([]);
+    const [byService, setByService] = useState<any[]>([]);
+    const [byArtist, setByArtist] = useState<any[]>([]);
+    const [retention, setRetention] = useState<any>(null);
+    const [heatmap, setHeatmap] = useState<any>(null);
+    const [topClients, setTopClients] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    const MONTHS = ["ינואר","פברואר","מרץ","אפריל","מאי","יוני","יולי","אוגוסט","ספטמבר","אוקטובר","נובמבר","דצמבר"];
+
+    useEffect(() => {
+        setLoading(true);
+        Promise.all([
+            apiFetch<any[]>("/api/biz-analytics/revenue-trend?months=6"),
+            apiFetch<any[]>(`/api/biz-analytics/revenue-by-service?year=${year}&month=${month}`),
+            apiFetch<any[]>(`/api/biz-analytics/revenue-by-artist?year=${year}&month=${month}`),
+            apiFetch<any>(`/api/biz-analytics/retention?year=${year}&month=${month}`),
+            apiFetch<any>("/api/biz-analytics/heatmap?months=3"),
+            apiFetch<any[]>("/api/biz-analytics/top-clients?limit=10"),
+        ]).then(([tr, svc, art, ret, hm, tc]) => {
+            setTrend(tr); setByService(svc); setByArtist(art);
+            setRetention(ret); setHeatmap(hm); setTopClients(tc);
+        }).catch(() => {}).finally(() => setLoading(false));
+    }, [month, year]);
+
+    const fmt = (n: number) => n.toLocaleString("he-IL", { minimumFractionDigits: 0 });
+    const maxRevenue = Math.max(...trend.map(t => t.total_ils), 1);
+    const maxHeat = heatmap?.max_val || 1;
+    const heatColor = (v: number) => {
+        const pct = v / maxHeat;
+        if (pct === 0) return "#1e293b";
+        if (pct < 0.3) return "#312e81";
+        if (pct < 0.6) return "#4c1d95";
+        if (pct < 0.85) return "#7c3aed";
+        return "#a78bfa";
+    };
+
+    if (loading) return <div style={{ textAlign: "center", padding: "3rem", color: "#64748b" }}>⏳ טוען נתונים...</div>;
+
+    return (
+        <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
+            {/* Month selector */}
+            <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
+                <select value={month} onChange={e => setMonth(Number(e.target.value))}
+                    className="border border-slate-200 rounded-xl px-3 py-1.5 text-sm bg-white text-slate-700">
+                    {MONTHS.map((m, i) => <option key={i} value={i+1}>{m}</option>)}
+                </select>
+                <select value={year} onChange={e => setYear(Number(e.target.value))}
+                    className="border border-slate-200 rounded-xl px-3 py-1.5 text-sm bg-white text-slate-700">
+                    {[2025,2026,2027].map(y => <option key={y} value={y}>{y}</option>)}
+                </select>
+            </div>
+
+            {/* Revenue trend bar chart */}
+            <div className="bg-white rounded-2xl border border-slate-100 p-5">
+                <div className="font-bold text-slate-800 mb-4">📈 מגמת הכנסות — 6 חודשים</div>
+                <div style={{ display: "flex", alignItems: "flex-end", gap: "0.5rem", height: 140 }}>
+                    {trend.map((t, i) => (
+                        <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: "0.3rem" }}>
+                            <div style={{ fontSize: "0.65rem", color: "#64748b", textAlign: "center" }}>₪{t.total_ils > 999 ? `${(t.total_ils/1000).toFixed(1)}k` : t.total_ils}</div>
+                            <div style={{ width: "100%", background: "#7c3aed", borderRadius: "4px 4px 0 0", height: `${Math.max(4, (t.total_ils / maxRevenue) * 110)}px`, minHeight: 4 }} />
+                            <div style={{ fontSize: "0.65rem", color: "#94a3b8", textAlign: "center" }}>{t.label}</div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            {/* Retention + top cards */}
+            {retention && (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: "1rem" }}>
+                    {[
+                        { label: "סה״כ לקוחות", value: retention.total, icon: "👥" },
+                        { label: "לקוחות חדשים", value: retention.new, icon: "🌱" },
+                        { label: "לקוחות חוזרים", value: retention.returning, icon: "🔄" },
+                        { label: "שיעור שימור", value: `${retention.retention_rate}%`, icon: "💚" },
+                    ].map(card => (
+                        <div key={card.label} className="bg-white rounded-2xl border border-slate-100 p-4 text-center">
+                            <div style={{ fontSize: "1.5rem" }}>{card.icon}</div>
+                            <div className="text-2xl font-bold text-slate-800 mt-1">{card.value}</div>
+                            <div className="text-xs text-slate-500 mt-0.5">{card.label}</div>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {/* By service + by artist */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem" }}>
+                <div className="bg-white rounded-2xl border border-slate-100 p-5">
+                    <div className="font-bold text-slate-800 mb-3">🛎️ הכנסות לפי שירות</div>
+                    {byService.length === 0 ? <div className="text-slate-400 text-sm">אין נתונים</div> : (
+                        byService.slice(0,6).map(s => {
+                            const maxR = Math.max(...byService.map(x => x.revenue_ils), 1);
+                            return (
+                                <div key={s.name} style={{ marginBottom: "0.6rem" }}>
+                                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem", marginBottom: "0.2rem" }}>
+                                        <span style={{ color: "#334155" }}>{s.name}</span>
+                                        <span style={{ color: "#7c3aed", fontWeight: 600 }}>₪{fmt(s.revenue_ils)} · {s.count} תורים</span>
+                                    </div>
+                                    <div style={{ height: 6, background: "#f1f5f9", borderRadius: 3 }}>
+                                        <div style={{ height: "100%", width: `${(s.revenue_ils / maxR) * 100}%`, background: s.color || "#7c3aed", borderRadius: 3 }} />
+                                    </div>
+                                </div>
+                            );
+                        })
+                    )}
+                </div>
+
+                <div className="bg-white rounded-2xl border border-slate-100 p-5">
+                    <div className="font-bold text-slate-800 mb-3">🎨 הכנסות לפי אמן/ית</div>
+                    {byArtist.length === 0 ? <div className="text-slate-400 text-sm">אין נתונים</div> : (
+                        byArtist.slice(0,6).map(a => {
+                            const maxR = Math.max(...byArtist.map(x => x.revenue_ils), 1);
+                            return (
+                                <div key={a.name} style={{ marginBottom: "0.6rem" }}>
+                                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem", marginBottom: "0.2rem" }}>
+                                        <span style={{ color: "#334155" }}>{a.name}</span>
+                                        <span style={{ color: "#7c3aed", fontWeight: 600 }}>{a.count} תורים</span>
+                                    </div>
+                                    <div style={{ height: 6, background: "#f1f5f9", borderRadius: 3 }}>
+                                        <div style={{ height: "100%", width: `${(a.count / Math.max(...byArtist.map(x => x.count), 1)) * 100}%`, background: a.color || "#7c3aed", borderRadius: 3 }} />
+                                    </div>
+                                </div>
+                            );
+                        })
+                    )}
+                </div>
+            </div>
+
+            {/* Heatmap */}
+            {heatmap && (
+                <div className="bg-white rounded-2xl border border-slate-100 p-5">
+                    <div className="font-bold text-slate-800 mb-3">🔥 שעות עמוסות (3 חודשים אחרונים)</div>
+                    <div style={{ overflowX: "auto" }}>
+                        <div style={{ display: "grid", gridTemplateColumns: "48px repeat(24, 1fr)", gap: 2, minWidth: 600 }}>
+                            <div />
+                            {Array.from({length:24}).map((_,h) => (
+                                <div key={h} style={{ textAlign: "center", fontSize: "0.6rem", color: "#94a3b8" }}>{h}</div>
+                            ))}
+                            {heatmap.matrix.map((row: number[], d: number) => (
+                                <>
+                                    <div key={`d${d}`} style={{ fontSize: "0.7rem", color: "#64748b", display: "flex", alignItems: "center" }}>{heatmap.days[d]}</div>
+                                    {row.map((v: number, h: number) => (
+                                        <div key={h} title={`${v} תורים`} style={{ height: 20, borderRadius: 3, background: heatColor(v), cursor: v > 0 ? "pointer" : "default" }} />
+                                    ))}
+                                </>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Top clients LTV */}
+            {topClients.length > 0 && (
+                <div className="bg-white rounded-2xl border border-slate-100 p-5">
+                    <div className="font-bold text-slate-800 mb-3">👑 לקוחות מובילים (LTV)</div>
+                    <table className="w-full text-sm">
+                        <thead>
+                            <tr className="text-slate-400 text-xs border-b border-slate-100">
+                                <th className="text-right pb-2">#</th>
+                                <th className="text-right pb-2">שם</th>
+                                <th className="text-right pb-2">טלפון</th>
+                                <th className="text-right pb-2">תשלומים</th>
+                                <th className="text-right pb-2">סה״כ LTV</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {topClients.map((c, i) => (
+                                <tr key={c.id} className="border-b border-slate-50">
+                                    <td className="py-2 text-slate-400">{i+1}</td>
+                                    <td className="py-2 font-semibold text-slate-800">{c.name}</td>
+                                    <td className="py-2 text-slate-500">{c.phone}</td>
+                                    <td className="py-2 text-slate-600">{c.payment_count}</td>
+                                    <td className="py-2 font-bold text-violet-700">₪{fmt(c.ltv_ils)}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+        </div>
     );
 }

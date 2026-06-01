@@ -117,6 +117,29 @@ TOOLS_SCHEMA = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "find_available_slots",
+            "description": "מוצא חריצי זמן פנויים ביומן לתור. שימוש כאשר לקוח מבקש תור דחוף או ממתין לתור מוקדם יותר.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "service_name": {"type": "string", "description": "שם השירות המבוקש (אופציונלי)"},
+                    "days_ahead": {"type": "integer", "description": "כמה ימים קדימה לחפש (ברירת מחדל: 7)"},
+                },
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_wait_list",
+            "description": "מציג את רשימת הממתינים לתור בסטודיו.",
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
 ]
 
 # artist/staff get a subset
@@ -434,6 +457,90 @@ def get_system_help(topic: str, **_) -> dict:
 
 # ── Dispatcher ────────────────────────────────────────────────────────────────
 
+def find_available_slots(studio_id: UUID, db: Session, service_name: str = "", days_ahead: int = 7, **_) -> dict:
+    """Find available appointment slots in the next N days."""
+    import pytz
+    from app.models.studio_settings import StudioSettings
+    from app.models.service import Service
+
+    settings = db.get(StudioSettings, studio_id)
+    tz = pytz.timezone(getattr(settings, "timezone", None) or "Asia/Jerusalem")
+    start_h = int((getattr(settings, "calendar_start_hour", "09") or "09").split(":")[0])
+    end_h = int((getattr(settings, "calendar_end_hour", "21") or "21").split(":")[0])
+
+    # Find matching service
+    service = None
+    if service_name:
+        service = db.scalar(
+            select(Service).where(
+                Service.studio_id == studio_id,
+                Service.is_active == True,  # noqa
+                Service.name.ilike(f"%{service_name}%"),
+            )
+        )
+    duration = service.duration_minutes if service else 60
+
+    now = datetime.now(tz)
+    available = []
+
+    for day_offset in range(days_ahead):
+        day = (now + timedelta(days=day_offset)).date()
+        day_start = tz.localize(datetime(day.year, day.month, day.day, start_h, 0)).astimezone(timezone.utc)
+        day_end = tz.localize(datetime(day.year, day.month, day.day, end_h, 0)).astimezone(timezone.utc)
+
+        existing = db.scalars(
+            select(Appointment).where(
+                Appointment.studio_id == studio_id,
+                Appointment.status.in_(["scheduled"]),
+                Appointment.starts_at >= day_start,
+                Appointment.starts_at < day_end,
+            )
+        ).all()
+        busy = [(a.starts_at.replace(tzinfo=timezone.utc), a.ends_at.replace(tzinfo=timezone.utc)) for a in existing if a.ends_at]
+
+        # Generate 30-min slots
+        slot = day_start
+        day_slots = []
+        while slot + timedelta(minutes=duration) <= day_end:
+            slot_end = slot + timedelta(minutes=duration)
+            if all(slot_end <= bs or slot >= be for bs, be in busy):
+                local = slot.astimezone(tz)
+                if local > now + timedelta(hours=1):  # at least 1h in future
+                    day_slots.append(local.strftime("%H:%M"))
+            slot += timedelta(minutes=30)
+
+        if day_slots:
+            available.append({"date": day.strftime("%d/%m/%Y"), "slots": day_slots[:6]})
+        if len(available) >= 3:
+            break
+
+    if not available:
+        answer = "לא נמצאו חריצים פנויים ב-7 הימים הקרובים. הלוח מלא."
+    else:
+        svc_label = f" לשירות '{service.name}'" if service else ""
+        lines = [f"📅 {d['date']}: {', '.join(d['slots'])}" for d in available]
+        answer = f"נמצאו חריצים פנויים{svc_label}:\n" + "\n".join(lines)
+
+    return {"answer": answer, "available_days": available}
+
+
+def get_wait_list(studio_id: UUID, db: Session, **_) -> dict:
+    from app.models.wait_list import WaitListEntry
+    entries = db.scalars(
+        select(WaitListEntry).where(
+            WaitListEntry.studio_id == studio_id,
+            WaitListEntry.status.in_(["waiting", "notified"]),
+        ).order_by(WaitListEntry.created_at).limit(10)
+    ).all()
+
+    if not entries:
+        return {"answer": "רשימת ההמתנה ריקה כרגע."}
+
+    lines = [f"• {e.client_name or 'לא ידוע'} ({e.status})" for e in entries]
+    answer = f"יש {len(entries)} ממתינים:\n" + "\n".join(lines)
+    return {"answer": answer, "count": len(entries)}
+
+
 TOOL_MAP: dict[str, Any] = {
     "get_today_appointments": get_today_appointments,
     "get_monthly_revenue": get_monthly_revenue,
@@ -443,6 +550,8 @@ TOOL_MAP: dict[str, Any] = {
     "get_inactive_clients": get_inactive_clients,
     "get_top_artists": get_top_artists,
     "get_system_help": get_system_help,
+    "find_available_slots": find_available_slots,
+    "get_wait_list": get_wait_list,
 }
 
 
