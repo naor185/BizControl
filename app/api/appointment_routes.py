@@ -398,7 +398,7 @@ def cancel(appointment_id: UUID, reason: str | None = Query(default=None), hard_
 
 @router.post("/{appointment_id}/waive-deposit")
 def waive_deposit(appointment_id: UUID, ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
-    """Confirm appointment without collecting a deposit — locks the slot, no payment created."""
+    """Confirm appointment without collecting a deposit — locks the slot and sends confirmation."""
     from app.models.appointment import Appointment
     appt = db.get(Appointment, appointment_id)
     if not appt or appt.studio_id != ctx.studio_id:
@@ -408,6 +408,12 @@ def waive_deposit(appointment_id: UUID, ctx: AuthContext = Depends(require_studi
     appt.payment_verified_at = func.now()
     appt.deposit_amount_cents = 0
     db.commit()
+    # Send confirmation with full appointment details (same as after deposit approved)
+    try:
+        from app.crud.automation import enqueue_deposit_approved_message
+        enqueue_deposit_approved_message(db, appt)
+    except Exception:
+        log.exception("Failed to send waive-deposit confirmation for %s", appointment_id)
     return {"message": "Deposit waived — appointment locked"}
 
 

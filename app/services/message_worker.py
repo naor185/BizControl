@@ -60,8 +60,28 @@ def _send_via_green(instance_id: str, api_key: str, to_phone: str, body: str) ->
             raise RuntimeError(f"Green API error {resp.status}")
 
 
-def send_whatsapp_message(to_phone: str, body: str, settings=None) -> None:
+def _get_platform_settings(db: Session):
+    """Return platform-level StudioSettings as WhatsApp fallback."""
+    import os
+    platform_id = os.getenv("PLATFORM_STUDIO_ID", "")
+    if not platform_id:
+        return None
+    try:
+        import uuid as _uuid
+        return db.get(StudioSettings, _uuid.UUID(platform_id))
+    except Exception:
+        return None
+
+
+def send_whatsapp_message(to_phone: str, body: str, settings=None, db: Session | None = None) -> None:
     provider = getattr(settings, "whatsapp_provider", None) if settings else None
+
+    # Fall back to platform WhatsApp if studio has none configured
+    if not provider and db is not None:
+        platform = _get_platform_settings(db)
+        if platform and platform.whatsapp_provider:
+            settings = platform
+            provider = platform.whatsapp_provider
 
     if not provider:
         raise ValueError("WhatsApp provider not configured for this studio")
@@ -123,7 +143,7 @@ def process_due_jobs(db: Session, limit: int = 20) -> int:
                 )
             else:
                 settings = db.get(StudioSettings, job.studio_id)
-                send_whatsapp_message(job.to_phone, job.body, settings)
+                send_whatsapp_message(job.to_phone, job.body, settings, db=db)
 
             job.status = "sent"
             job.sent_at = now
