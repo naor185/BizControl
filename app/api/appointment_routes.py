@@ -275,7 +275,7 @@ def patch(appointment_id: UUID, payload: AppointmentUpdate, ctx: AuthContext = D
             settings = db.query(StudioSettings).filter(StudioSettings.studio_id == ctx.studio_id).first()
             studio = db.get(Studio, ctx.studio_id)
 
-            if client and settings and not client.is_club_member and (client.loyalty_points or 0) == 0 and client.phone and not getattr(client, "whatsapp_opted_out", False):
+            if client and settings and not client.is_club_member and client.phone and not getattr(client, "whatsapp_opted_out", False):
                 slug = studio.slug if studio else None
                 join_link = f"https://www.biz-control.com/s/{slug}" if slug else ""
                 points_on_signup = getattr(settings, "points_on_signup", 50) or 50
