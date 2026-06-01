@@ -9,9 +9,12 @@ import { toast } from "@/lib/toast";
 interface TriggerEvent { id: string; label: string; icon: string; }
 interface ActionType { id: string; label: string; icon: string; has_template: boolean; has_delay?: boolean; has_amount?: boolean; has_discount?: boolean; }
 interface Meta { trigger_events: TriggerEvent[]; action_types: ActionType[]; template_variables: string[]; }
-
+interface Service { id: string; name: string; color: string; }
 interface Action { type: string; template?: string; delay_minutes?: number; amount?: number; discount_percent?: number; }
 interface Rule { id: string; name: string; is_active: boolean; trigger_event: string; trigger_conditions: Record<string, string>; actions: Action[]; sort_order: number; }
+interface Execution { id: string; status: string; error: string | null; executed_at: string; }
+
+const APPT_TRIGGERS = new Set(["appointment_done", "appointment_created", "appointment_canceled", "payment_received", "deposit_paid"]);
 
 const DEFAULT_TEMPLATES: Record<string, string> = {
     send_whatsapp: "שלום {client_name}! 🙏\n\n",
@@ -19,16 +22,92 @@ const DEFAULT_TEMPLATES: Record<string, string> = {
     send_email: "שלום {client_name},\n\n",
 };
 
+const lStyle: React.CSSProperties = { color: "#94a3b8", fontSize: "0.82rem", fontWeight: 600, display: "block", marginBottom: "0.35rem" };
+const iStyle: React.CSSProperties = { background: "rgba(255,255,255,.08)", border: "1px solid rgba(255,255,255,.15)", borderRadius: 10, padding: "0.6rem 0.9rem", color: "#fff", fontSize: "0.9rem", width: "100%", boxSizing: "border-box" };
+
+// ── Execution History Modal ───────────────────────────────────────────────────
+function ExecHistoryModal({ ruleId, ruleName, onClose }: { ruleId: string; ruleName: string; onClose: () => void }) {
+    const [execs, setExecs] = useState<Execution[] | null>(null);
+
+    useEffect(() => {
+        apiFetch<Execution[]>(`/api/automation-rules/${ruleId}/executions`)
+            .then(setExecs).catch(() => setExecs([]));
+    }, [ruleId]);
+
+    const fmtDate = (iso: string) => new Date(iso).toLocaleString("he-IL", { dateStyle: "short", timeStyle: "short" });
+    const okCount = execs?.filter(e => e.status === "ok").length || 0;
+    const errCount = execs?.filter(e => e.status === "error").length || 0;
+
+    return (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.8)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100, padding: "1rem" }}>
+            <div style={{ background: "linear-gradient(145deg,#0f172a,#1e1b4b)", border: "1px solid rgba(167,139,250,.4)", borderRadius: 24, width: "100%", maxWidth: 600, padding: "2rem", maxHeight: "85vh", display: "flex", flexDirection: "column" }} dir="rtl">
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem" }}>
+                    <div>
+                        <h2 style={{ color: "#a78bfa", fontWeight: 800, fontSize: "1.2rem", margin: 0 }}>📊 היסטוריית הפעלות</h2>
+                        <div style={{ color: "#64748b", fontSize: "0.82rem", marginTop: "0.25rem" }}>{ruleName}</div>
+                    </div>
+                    <button onClick={onClose} style={{ background: "rgba(255,255,255,.1)", border: "none", color: "#fff", width: 36, height: 36, borderRadius: 10, cursor: "pointer", fontSize: "1.1rem" }}>✕</button>
+                </div>
+
+                {execs && execs.length > 0 && (
+                    <div style={{ display: "flex", gap: "1rem", marginBottom: "1rem" }}>
+                        <div style={{ background: "rgba(74,222,128,.1)", border: "1px solid rgba(74,222,128,.2)", borderRadius: 10, padding: "0.5rem 1rem", textAlign: "center" }}>
+                            <div style={{ color: "#4ade80", fontWeight: 800, fontSize: "1.3rem" }}>{okCount}</div>
+                            <div style={{ color: "#64748b", fontSize: "0.75rem" }}>הצלחות</div>
+                        </div>
+                        <div style={{ background: "rgba(239,68,68,.1)", border: "1px solid rgba(239,68,68,.2)", borderRadius: 10, padding: "0.5rem 1rem", textAlign: "center" }}>
+                            <div style={{ color: "#f87171", fontWeight: 800, fontSize: "1.3rem" }}>{errCount}</div>
+                            <div style={{ color: "#64748b", fontSize: "0.75rem" }}>שגיאות</div>
+                        </div>
+                        <div style={{ background: "rgba(167,139,250,.1)", border: "1px solid rgba(167,139,250,.2)", borderRadius: 10, padding: "0.5rem 1rem", textAlign: "center" }}>
+                            <div style={{ color: "#a78bfa", fontWeight: 800, fontSize: "1.3rem" }}>{execs.length}</div>
+                            <div style={{ color: "#64748b", fontSize: "0.75rem" }}>סה&quot;כ</div>
+                        </div>
+                    </div>
+                )}
+
+                <div style={{ flex: 1, overflowY: "auto" }}>
+                    {!execs ? (
+                        <div style={{ textAlign: "center", color: "#64748b", padding: "2rem" }}>⏳ טוען...</div>
+                    ) : execs.length === 0 ? (
+                        <div style={{ textAlign: "center", color: "#64748b", padding: "2rem" }}>
+                            <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>📭</div>
+                            <div>החוק עדיין לא הופעל</div>
+                        </div>
+                    ) : (
+                        <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                            {execs.map(e => (
+                                <div key={e.id} style={{ background: "rgba(255,255,255,.04)", border: `1px solid ${e.status === "ok" ? "rgba(74,222,128,.2)" : "rgba(239,68,68,.2)"}`, borderRadius: 10, padding: "0.65rem 1rem", display: "flex", alignItems: "flex-start", gap: "0.75rem" }}>
+                                    <span style={{ fontSize: "1rem" }}>{e.status === "ok" ? "✅" : "❌"}</span>
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{ color: e.status === "ok" ? "#4ade80" : "#f87171", fontSize: "0.82rem", fontWeight: 600 }}>
+                                            {e.status === "ok" ? "הצליח" : "נכשל"}
+                                        </div>
+                                        {e.error && <div style={{ color: "#94a3b8", fontSize: "0.75rem", marginTop: "0.2rem", fontFamily: "monospace" }}>{e.error}</div>}
+                                    </div>
+                                    <div style={{ color: "#475569", fontSize: "0.75rem", whiteSpace: "nowrap" }}>{fmtDate(e.executed_at)}</div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+}
+
 // ── Action Editor ─────────────────────────────────────────────────────────────
-function ActionEditor({ action, meta, onChange, onRemove }: {
+function ActionEditor({ action, meta, onChange, onRemove, onMoveUp, onMoveDown, isFirst, isLast }: {
     action: Action; meta: Meta;
     onChange: (a: Action) => void; onRemove: () => void;
+    onMoveUp: () => void; onMoveDown: () => void;
+    isFirst: boolean; isLast: boolean;
 }) {
     const def = meta.action_types.find(a => a.id === action.type);
     return (
         <div style={{ background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.12)", borderRadius: 12, padding: "1rem", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flex: 1 }}>
                     <span style={{ fontSize: "1.2rem" }}>{def?.icon || "⚡"}</span>
                     <select value={action.type} onChange={e => onChange({ type: e.target.value, template: DEFAULT_TEMPLATES[e.target.value] || "" })}
                         style={iStyle}>
@@ -37,7 +116,13 @@ function ActionEditor({ action, meta, onChange, onRemove }: {
                         ))}
                     </select>
                 </div>
-                <button onClick={onRemove} style={{ background: "rgba(239,68,68,.2)", border: "none", borderRadius: 8, color: "#f87171", padding: "0.3rem 0.6rem", cursor: "pointer" }}>✕</button>
+                <div style={{ display: "flex", gap: "0.3rem", marginRight: "0.5rem" }}>
+                    <button onClick={onMoveUp} disabled={isFirst} title="הזז למעלה"
+                        style={{ background: "rgba(255,255,255,.08)", border: "none", borderRadius: 6, color: isFirst ? "#334155" : "#94a3b8", padding: "0.25rem 0.5rem", cursor: isFirst ? "default" : "pointer", fontSize: "0.75rem" }}>↑</button>
+                    <button onClick={onMoveDown} disabled={isLast} title="הזז למטה"
+                        style={{ background: "rgba(255,255,255,.08)", border: "none", borderRadius: 6, color: isLast ? "#334155" : "#94a3b8", padding: "0.25rem 0.5rem", cursor: isLast ? "default" : "pointer", fontSize: "0.75rem" }}>↓</button>
+                    <button onClick={onRemove} style={{ background: "rgba(239,68,68,.2)", border: "none", borderRadius: 8, color: "#f87171", padding: "0.25rem 0.6rem", cursor: "pointer" }}>✕</button>
+                </div>
             </div>
 
             {def?.has_template && (
@@ -55,7 +140,6 @@ function ActionEditor({ action, meta, onChange, onRemove }: {
                     </div>
                 </div>
             )}
-
             {def?.has_amount && (
                 <div>
                     <label style={lStyle}>כמות נקודות</label>
@@ -64,7 +148,6 @@ function ActionEditor({ action, meta, onChange, onRemove }: {
                         style={{ ...iStyle, width: 100 }} />
                 </div>
             )}
-
             {def?.has_discount && (
                 <div>
                     <label style={lStyle}>אחוז הנחה (%)</label>
@@ -73,7 +156,6 @@ function ActionEditor({ action, meta, onChange, onRemove }: {
                         style={{ ...iStyle, width: 100 }} />
                 </div>
             )}
-
             {def?.has_delay && (
                 <div>
                     <label style={lStyle}>עיכוב שליחה (דקות)</label>
@@ -87,25 +169,33 @@ function ActionEditor({ action, meta, onChange, onRemove }: {
 }
 
 // ── Rule Builder Modal ─────────────────────────────────────────────────────────
-function RuleModal({ rule, meta, onClose, onSaved }: {
-    rule?: Rule; meta: Meta; onClose: () => void; onSaved: () => void;
+function RuleModal({ rule, meta, services, onClose, onSaved }: {
+    rule?: Rule; meta: Meta; services: Service[]; onClose: () => void; onSaved: () => void;
 }) {
-    const isEdit = !!rule;
+    const isEdit = !!rule?.id;
     const [name, setName] = useState(rule?.name || "");
     const [trigger, setTrigger] = useState(rule?.trigger_event || meta.trigger_events[0]?.id || "");
+    const [condServiceId, setCondServiceId] = useState(rule?.trigger_conditions?.service_id || "");
     const [actions, setActions] = useState<Action[]>(rule?.actions || []);
     const [saving, setSaving] = useState(false);
 
     const addAction = (type: string) => setActions(a => [...a, { type, template: DEFAULT_TEMPLATES[type] || "", delay_minutes: 0 }]);
     const updateAction = (i: number, a: Action) => setActions(prev => prev.map((x, idx) => idx === i ? a : x));
     const removeAction = (i: number) => setActions(prev => prev.filter((_, idx) => idx !== i));
+    const moveAction = (i: number, dir: -1 | 1) => {
+        const j = i + dir;
+        if (j < 0 || j >= actions.length) return;
+        setActions(prev => { const a = [...prev]; [a[i], a[j]] = [a[j], a[i]]; return a; });
+    };
 
     const save = async () => {
         if (!name.trim()) { toast.error("שם חובה"); return; }
         if (actions.length === 0) { toast.error("יש להוסיף לפחות פעולה אחת"); return; }
         setSaving(true);
         try {
-            const body = { name, trigger_event: trigger, actions, is_active: true };
+            const trigger_conditions: Record<string, string> = {};
+            if (condServiceId) trigger_conditions.service_id = condServiceId;
+            const body = { name, trigger_event: trigger, trigger_conditions, actions, is_active: true };
             if (isEdit) await apiFetch(`/api/automation-rules/${rule!.id}`, { method: "PUT", body: JSON.stringify(body) });
             else await apiFetch("/api/automation-rules", { method: "POST", body: JSON.stringify(body) });
             onSaved(); onClose();
@@ -114,6 +204,7 @@ function RuleModal({ rule, meta, onClose, onSaved }: {
     };
 
     const triggerDef = meta.trigger_events.find(t => t.id === trigger);
+    const showServiceFilter = APPT_TRIGGERS.has(trigger) && services.length > 0;
 
     return (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.8)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: "1rem" }}>
@@ -138,7 +229,7 @@ function RuleModal({ rule, meta, onClose, onSaved }: {
                     </div>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
                         {meta.trigger_events.map(t => (
-                            <button key={t.id} onClick={() => setTrigger(t.id)}
+                            <button key={t.id} onClick={() => { setTrigger(t.id); setCondServiceId(""); }}
                                 style={{
                                     padding: "0.5rem 1rem", borderRadius: 12, cursor: "pointer",
                                     border: `1px solid ${trigger === t.id ? "#4ade80" : "rgba(255,255,255,.15)"}`,
@@ -153,6 +244,23 @@ function RuleModal({ rule, meta, onClose, onSaved }: {
                     {triggerDef && (
                         <div style={{ color: "#64748b", fontSize: "0.78rem", marginTop: "0.75rem" }}>
                             אירוע: <strong style={{ color: "#4ade80" }}>{triggerDef.icon} {triggerDef.label}</strong>
+                        </div>
+                    )}
+
+                    {/* Trigger Conditions — service filter */}
+                    {showServiceFilter && (
+                        <div style={{ marginTop: "1rem", borderTop: "1px solid rgba(74,222,128,.15)", paddingTop: "1rem" }}>
+                            <label style={{ ...lStyle, color: "#4ade80" }}>🎯 סינון לפי שירות (אופציונלי)</label>
+                            <select value={condServiceId} onChange={e => setCondServiceId(e.target.value)}
+                                style={iStyle}>
+                                <option value="">כל השירותים</option>
+                                {services.map(s => (
+                                    <option key={s.id} value={s.id}>{s.name}</option>
+                                ))}
+                            </select>
+                            <div style={{ color: "#475569", fontSize: "0.72rem", marginTop: "0.25rem" }}>
+                                {condServiceId ? `החוק יופעל רק לתורים עם שירות זה` : "החוק יופעל לכל התורים ללא קשר לשירות"}
+                            </div>
                         </div>
                     )}
                 </div>
@@ -170,6 +278,10 @@ function RuleModal({ rule, meta, onClose, onSaved }: {
                                 action={a} meta={meta}
                                 onChange={updated => updateAction(i, updated)}
                                 onRemove={() => removeAction(i)}
+                                onMoveUp={() => moveAction(i, -1)}
+                                onMoveDown={() => moveAction(i, 1)}
+                                isFirst={i === 0}
+                                isLast={i === actions.length - 1}
                             />
                         </div>
                     ))}
@@ -195,25 +307,26 @@ function RuleModal({ rule, meta, onClose, onSaved }: {
     );
 }
 
-const lStyle: React.CSSProperties = { color: "#94a3b8", fontSize: "0.82rem", fontWeight: 600, display: "block", marginBottom: "0.35rem" };
-const iStyle: React.CSSProperties = { background: "rgba(255,255,255,.08)", border: "1px solid rgba(255,255,255,.15)", borderRadius: 10, padding: "0.6rem 0.9rem", color: "#fff", fontSize: "0.9rem", width: "100%", boxSizing: "border-box" };
-
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function AutomationsPage() {
     const [rules, setRules] = useState<Rule[]>([]);
     const [meta, setMeta] = useState<Meta | null>(null);
+    const [services, setServices] = useState<Service[]>([]);
     const [loading, setLoading] = useState(true);
     const [modal, setModal] = useState<"new" | Rule | null>(null);
+    const [execModal, setExecModal] = useState<{ ruleId: string; ruleName: string } | null>(null);
 
     const load = useCallback(async () => {
         setLoading(true);
         try {
-            const [r, m] = await Promise.all([
+            const [r, m, svcs] = await Promise.all([
                 apiFetch<Rule[]>("/api/automation-rules"),
                 apiFetch<Meta>("/api/automation-rules/meta"),
+                apiFetch<Service[]>("/api/services?active_only=true").catch(() => []),
             ]);
             setRules(r);
             setMeta(m);
+            setServices(svcs);
         } catch { }
         finally { setLoading(false); }
     }, []);
@@ -234,6 +347,20 @@ export default function AutomationsPage() {
         load();
     };
 
+    const duplicateRule = async (rule: Rule) => {
+        await apiFetch("/api/automation-rules", {
+            method: "POST",
+            body: JSON.stringify({
+                name: `${rule.name} (עותק)`,
+                trigger_event: rule.trigger_event,
+                trigger_conditions: rule.trigger_conditions,
+                actions: rule.actions,
+                is_active: false,
+            }),
+        });
+        load();
+    };
+
     const groupedByTrigger = rules.reduce((acc, r) => {
         (acc[r.trigger_event] = acc[r.trigger_event] || []).push(r);
         return acc;
@@ -244,6 +371,9 @@ export default function AutomationsPage() {
 
     const getActionLabel = (type: string) =>
         meta?.action_types.find(a => a.id === type) || { icon: "⚡", label: type };
+
+    const getServiceName = (id?: string) =>
+        id ? (services.find(s => s.id === id)?.name || id) : null;
 
     return (
         <RequireAuth>
@@ -273,7 +403,7 @@ export default function AutomationsPage() {
                             <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>⚡</div>
                             <div style={{ color: "#a78bfa", fontWeight: 700, fontSize: "1.1rem", marginBottom: "0.5rem" }}>אין חוקי אוטומציה עדיין</div>
                             <div style={{ color: "#64748b", fontSize: "0.85rem", marginBottom: "1.5rem" }}>
-                                צור חוק ראשון — לדוגמה: "כשתור מסתיים → שלח הוראות טיפול"
+                                צור חוק ראשון — לדוגמה: &quot;כשתור מסתיים → שלח הוראות טיפול&quot;
                             </div>
                             {meta && (
                                 <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem", justifyContent: "center" }}>
@@ -302,34 +432,48 @@ export default function AutomationsPage() {
                                         <span style={{ color: "#475569", fontSize: "0.8rem" }}>({triggerRules.length} חוקים)</span>
                                     </div>
                                     <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-                                        {triggerRules.map(rule => (
-                                            <div key={rule.id} style={{ background: "rgba(255,255,255,.04)", border: `1px solid ${rule.is_active ? "rgba(167,139,250,.25)" : "rgba(100,116,139,.2)"}`, borderRadius: 16, padding: "1rem 1.25rem", display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap", opacity: rule.is_active ? 1 : 0.6 }}>
-                                                <div style={{ flex: 1, minWidth: 200 }}>
-                                                    <div style={{ fontWeight: 700, marginBottom: "0.25rem" }}>{rule.name}</div>
-                                                    <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
-                                                        {rule.actions.map((a, i) => {
-                                                            const aDef = getActionLabel(a.type);
-                                                            return (
-                                                                <span key={i} style={{ background: "rgba(167,139,250,.12)", color: "#a78bfa", fontSize: "0.75rem", padding: "0.2rem 0.6rem", borderRadius: 8, fontWeight: 600 }}>
-                                                                    {aDef.icon} {aDef.label}{a.delay_minutes ? ` (${a.delay_minutes}ד)` : ""}
-                                                                </span>
-                                                            );
-                                                        })}
+                                        {triggerRules.map(rule => {
+                                            const svcName = getServiceName(rule.trigger_conditions?.service_id);
+                                            return (
+                                                <div key={rule.id} style={{ background: "rgba(255,255,255,.04)", border: `1px solid ${rule.is_active ? "rgba(167,139,250,.25)" : "rgba(100,116,139,.2)"}`, borderRadius: 16, padding: "1rem 1.25rem", display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap", opacity: rule.is_active ? 1 : 0.6 }}>
+                                                    <div style={{ flex: 1, minWidth: 200 }}>
+                                                        <div style={{ fontWeight: 700, marginBottom: "0.25rem" }}>{rule.name}</div>
+                                                        {svcName && (
+                                                            <div style={{ color: "#4ade80", fontSize: "0.75rem", marginBottom: "0.25rem" }}>
+                                                                🎯 רק לשירות: {svcName}
+                                                            </div>
+                                                        )}
+                                                        <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
+                                                            {rule.actions.map((a, i) => {
+                                                                const aDef = getActionLabel(a.type);
+                                                                return (
+                                                                    <span key={i} style={{ background: "rgba(167,139,250,.12)", color: "#a78bfa", fontSize: "0.75rem", padding: "0.2rem 0.6rem", borderRadius: 8, fontWeight: 600 }}>
+                                                                        {aDef.icon} {aDef.label}{a.delay_minutes ? ` (${a.delay_minutes}ד)` : ""}
+                                                                    </span>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                    <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
+                                                        <button onClick={() => toggleRule(rule)} style={{
+                                                            padding: "0.3rem 0.9rem", borderRadius: 20, border: "none", cursor: "pointer", fontWeight: 600, fontSize: "0.8rem",
+                                                            background: rule.is_active ? "rgba(74,222,128,.15)" : "rgba(100,116,139,.15)",
+                                                            color: rule.is_active ? "#4ade80" : "#64748b",
+                                                        }}>
+                                                            {rule.is_active ? "✅ פעיל" : "❌ כבוי"}
+                                                        </button>
+                                                        <button onClick={() => setExecModal({ ruleId: rule.id, ruleName: rule.name })}
+                                                            title="היסטוריית הפעלות"
+                                                            style={{ background: "rgba(96,165,250,.15)", border: "none", borderRadius: 8, color: "#60a5fa", padding: "0.3rem 0.7rem", cursor: "pointer", fontSize: "0.8rem" }}>📊</button>
+                                                        <button onClick={() => duplicateRule(rule)}
+                                                            title="שכפל חוק"
+                                                            style={{ background: "rgba(255,255,255,.08)", border: "none", borderRadius: 8, color: "#94a3b8", padding: "0.3rem 0.7rem", cursor: "pointer", fontSize: "0.8rem" }}>⎘</button>
+                                                        <button onClick={() => setModal(rule)} style={{ background: "rgba(167,139,250,.15)", border: "none", borderRadius: 8, color: "#a78bfa", padding: "0.3rem 0.7rem", cursor: "pointer", fontSize: "0.8rem" }}>✏️</button>
+                                                        <button onClick={() => deleteRule(rule.id)} style={{ background: "rgba(239,68,68,.15)", border: "none", borderRadius: 8, color: "#f87171", padding: "0.3rem 0.7rem", cursor: "pointer", fontSize: "0.8rem" }}>🗑️</button>
                                                     </div>
                                                 </div>
-                                                <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-                                                    <button onClick={() => toggleRule(rule)} style={{
-                                                        padding: "0.3rem 0.9rem", borderRadius: 20, border: "none", cursor: "pointer", fontWeight: 600, fontSize: "0.8rem",
-                                                        background: rule.is_active ? "rgba(74,222,128,.15)" : "rgba(100,116,139,.15)",
-                                                        color: rule.is_active ? "#4ade80" : "#64748b",
-                                                    }}>
-                                                        {rule.is_active ? "✅ פעיל" : "❌ כבוי"}
-                                                    </button>
-                                                    <button onClick={() => setModal(rule)} style={{ background: "rgba(167,139,250,.15)", border: "none", borderRadius: 8, color: "#a78bfa", padding: "0.3rem 0.7rem", cursor: "pointer", fontSize: "0.8rem" }}>✏️</button>
-                                                    <button onClick={() => deleteRule(rule.id)} style={{ background: "rgba(239,68,68,.15)", border: "none", borderRadius: 8, color: "#f87171", padding: "0.3rem 0.7rem", cursor: "pointer", fontSize: "0.8rem" }}>🗑️</button>
-                                                </div>
-                                            </div>
-                                        ))}
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             );
@@ -340,8 +484,17 @@ export default function AutomationsPage() {
                         <RuleModal
                             rule={modal === "new" ? undefined : modal.id ? modal : undefined}
                             meta={meta}
+                            services={services}
                             onClose={() => setModal(null)}
                             onSaved={load}
+                        />
+                    )}
+
+                    {execModal && (
+                        <ExecHistoryModal
+                            ruleId={execModal.ruleId}
+                            ruleName={execModal.ruleName}
+                            onClose={() => setExecModal(null)}
                         />
                     )}
                 </div>
