@@ -138,6 +138,35 @@ def ensure_schema():
             WHERE external_id IS NOT NULL
         """)
 
+        # ── Phase 1: Service Catalog ──────────────────────────────────────────
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS services (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                name VARCHAR(128) NOT NULL,
+                description TEXT,
+                duration_minutes INTEGER NOT NULL DEFAULT 60,
+                price_cents INTEGER NOT NULL DEFAULT 0,
+                color VARCHAR(16) NOT NULL DEFAULT '#7c3aed',
+                category VARCHAR(64),
+                is_active BOOLEAN NOT NULL DEFAULT true,
+                requires_consultation BOOLEAN NOT NULL DEFAULT false,
+                is_bookable_online BOOLEAN NOT NULL DEFAULT false,
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_services_studio ON services (studio_id)")
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS service_staff (
+                service_id UUID NOT NULL REFERENCES services(id) ON DELETE CASCADE,
+                user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                PRIMARY KEY (service_id, user_id)
+            )
+        """)
+        cur.execute("ALTER TABLE appointments ADD COLUMN IF NOT EXISTS service_id UUID REFERENCES services(id) ON DELETE SET NULL")
+
         # ── Phase 0: Module System ────────────────────────────────────────────
         cur.execute("""
             CREATE TABLE IF NOT EXISTS modules (

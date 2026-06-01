@@ -4,7 +4,11 @@
       "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\naor1\\\\OneDrive\\\\Desktop\\\\BizControl\" -Recurse -Directory | Select-Object -First 20 | ForEach-Object { $_.FullName })",
       "mcp__filesystem__read_text_file",
       "Bash(npm run *)",
-      "Bash(python -c ' *)"
+      "Bash(python -c ' *)",
+      "Bash(mkdir -p \"/c/Users/naor1/OneDrive/Desktop/BizControl/web/src/app/services\")"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\naor1\\OneDrive\\Desktop\\BizControl\\web\\src\\app"
     ]
   }
 }

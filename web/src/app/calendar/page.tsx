@@ -121,6 +121,8 @@ export default function CalendarPage() {
     const [calendarStartHour, setCalendarStartHour] = useState("08:00:00");
     const [calendarEndHour, setCalendarEndHour] = useState("23:00:00");
     const [treatmentTypes, setTreatmentTypes] = useState<{ name: string; requires_deposit: boolean; deposit_amount_ils: number | null }[]>([]);
+    const [services, setServices] = useState<{ id: string; name: string; duration_minutes: number; price_cents: number; color: string; requires_consultation: boolean }[]>([]);
+    const [selectedServiceId, setSelectedServiceId] = useState<string>("");
 
     // Type chooser (appointment vs task)
     const [showTypeChooser, setShowTypeChooser] = useState(false);
@@ -261,6 +263,11 @@ export default function CalendarPage() {
                     ));
                 }
             }
+            // Load service catalog
+            try {
+                const svcs = await apiFetch<typeof services>("/api/services?active_only=true");
+                setServices(svcs);
+            } catch { /* services not critical */ }
         } catch (e: any) {
             setErr(e?.message || "שגיאה בטעינת נתוני היומן");
         } finally {
@@ -370,7 +377,7 @@ export default function CalendarPage() {
         setEndAt(formatForInput(localEnd));
         setDepositAmount(autoDeposit(localStart.toISOString(), localEnd.toISOString()));
         setClientId(""); setClientSearch(""); setIsWalkIn(false);
-        setArtistId(""); setStatus("scheduled"); setNotes("");
+        setArtistId(""); setStatus("scheduled"); setNotes(""); setSelectedServiceId("");
         setShowNewClientForm(false);
         setIsModalOpen(true);
     };
@@ -533,7 +540,7 @@ export default function CalendarPage() {
         }
 
         try {
-            const body = {
+            const body: Record<string, unknown> = {
                 title,
                 client_id: clientId,
                 artist_id: artistId,
@@ -543,6 +550,7 @@ export default function CalendarPage() {
                 notes: notes || null,
                 deposit_amount_cents: depositAmount !== "" ? Math.round(Number(depositAmount) * 100) : 0,
             };
+            if (selectedServiceId) body.service_id = selectedServiceId;
 
             if (selectedEventId) {
                 await apiFetch(`/api/appointments/${selectedEventId}`, { method: "PATCH", body: JSON.stringify(body) });
@@ -815,6 +823,43 @@ export default function CalendarPage() {
                             </div>
 
                             <div className="p-5 space-y-3 overflow-y-auto flex-1">
+                                {/* Service picker from catalog */}
+                                {services.length > 0 && (
+                                    <div>
+                                        <label className="block text-sm font-semibold text-slate-700 mb-1">🛎️ בחר שירות</label>
+                                        <div className="flex flex-wrap gap-2">
+                                            {services.map(svc => (
+                                                <button
+                                                    key={svc.id}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setSelectedServiceId(svc.id === selectedServiceId ? "" : svc.id);
+                                                        if (svc.id !== selectedServiceId) {
+                                                            setTitle(svc.name);
+                                                            // Auto-set end time based on duration
+                                                            if (startAt) {
+                                                                const start = new Date(startAt);
+                                                                const end = new Date(start.getTime() + svc.duration_minutes * 60000);
+                                                                const pad = (n: number) => String(n).padStart(2, "0");
+                                                                setEndAt(`${end.getFullYear()}-${pad(end.getMonth()+1)}-${pad(end.getDate())}T${pad(end.getHours())}:${pad(end.getMinutes())}`);
+                                                            }
+                                                        } else {
+                                                            setTitle("");
+                                                        }
+                                                    }}
+                                                    style={{ borderLeft: `4px solid ${svc.color}` }}
+                                                    className={`px-3 py-1.5 rounded-xl text-sm font-medium border transition-all text-right ${svc.id === selectedServiceId ? "bg-violet-100 border-violet-400 text-violet-800" : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-violet-50"}`}
+                                                >
+                                                    <span>{svc.name}</span>
+                                                    <span className="text-xs text-slate-400 mr-1">
+                                                        {svc.duration_minutes < 60 ? `${svc.duration_minutes}ד` : `${svc.duration_minutes/60}ש`}
+                                                        {svc.price_cents > 0 ? ` · ₪${svc.price_cents/100}` : ""}
+                                                    </span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                                 <div>
                                     <label className="block text-sm font-semibold text-slate-700 mb-1">כותרת הטיפול</label>
                                     {treatmentTypes.length > 0 && (

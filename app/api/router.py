@@ -38,6 +38,7 @@ from app.api.security_routes import router as security_router
 from app.api.analytics_routes import router as analytics_router
 from app.api.quick_reply_routes import router as quick_reply_router
 from app.api.superadmin_features_routes import router as superadmin_features_router
+from app.api.service_routes import router as service_router
 
 api_router = APIRouter()
 api_router.include_router(studio_router)
@@ -80,3 +81,4 @@ api_router.include_router(security_router)
 api_router.include_router(analytics_router)
 api_router.include_router(quick_reply_router)
 api_router.include_router(superadmin_features_router)
+api_router.include_router(service_router)
