@@ -25,6 +25,7 @@ def _has_overlap(db: Session, studio_id: UUID, artist_id: UUID, starts_at, ends_
 
 def _appt_to_out_dict(db: Session, appt: Appointment, client: Client, artist: User) -> dict:
     from app.models.payment import Payment
+    from app.models.service import Service
     from sqlalchemy import select, func
 
     paid_cents = db.scalar(
@@ -35,7 +36,7 @@ def _appt_to_out_dict(db: Session, appt: Appointment, client: Client, artist: Us
             Payment.type != "refund"
         )
     ) or 0
-    
+
     refund_cents = db.scalar(
         select(func.sum(Payment.amount_cents))
         .where(
@@ -44,9 +45,15 @@ def _appt_to_out_dict(db: Session, appt: Appointment, client: Client, artist: Us
             Payment.type == "refund"
         )
     ) or 0
-    
+
     net_paid = paid_cents - refund_cents
     remaining = max(0, appt.total_price_cents - net_paid)
+
+    service_name = None
+    if appt.service_id:
+        svc = db.get(Service, appt.service_id)
+        if svc:
+            service_name = svc.name
 
     return {
         "id": appt.id,
@@ -69,6 +76,8 @@ def _appt_to_out_dict(db: Session, appt: Appointment, client: Client, artist: Us
         "paid_cents": net_paid,
         "remaining_cents": remaining,
         "client_loyalty_points": client.loyalty_points or 0,
+        "service_id": appt.service_id,
+        "service_name": service_name,
     }
 
 def create_appointment(db: Session, studio_id: UUID, data) -> dict:
@@ -76,19 +85,36 @@ def create_appointment(db: Session, studio_id: UUID, data) -> dict:
         raise ValueError("ends_at must be after starts_at")
 
     if _has_overlap(db, studio_id, data.artist_id, data.starts_at, data.ends_at):
-        pass # Allow overlapping appointments
+        pass  # Allow overlapping appointments
+
+    # Resolve service — auto-fill title and price if not explicitly set
+    service_id = getattr(data, "service_id", None)
+    title = data.title.strip()
+    price = data.total_price_cents or 0
+
+    if service_id:
+        from app.models.service import Service
+        svc = db.get(Service, service_id)
+        if svc and svc.studio_id == studio_id:
+            if not title or title == "Tattoo Session":
+                title = svc.name
+            if price == 0 and svc.price_cents > 0:
+                price = svc.price_cents
+        else:
+            service_id = None  # Invalid service — ignore silently
 
     obj = Appointment(
         studio_id=studio_id,
         client_id=data.client_id,
         artist_id=data.artist_id,
-        title=data.title.strip(),
+        title=title,
         starts_at=data.starts_at,
         ends_at=data.ends_at,
         status="scheduled",
         notes=data.notes,
-        total_price_cents=data.total_price_cents or 0,
+        total_price_cents=price,
         deposit_amount_cents=data.deposit_amount_cents or 0,
+        service_id=service_id,
     )
     db.add(obj)
     db.commit()
@@ -185,10 +211,12 @@ def update_appointment(db: Session, studio_id: UUID, appointment_id: UUID, data)
     if data.ends_at is not None:
         obj.ends_at = data.ends_at
 
-    if getattr(data, 'total_price_cents', None) is not None:
+    if getattr(data, "total_price_cents", None) is not None:
         obj.total_price_cents = data.total_price_cents
-    if getattr(data, 'deposit_amount_cents', None) is not None:
+    if getattr(data, "deposit_amount_cents", None) is not None:
         obj.deposit_amount_cents = data.deposit_amount_cents
+    if getattr(data, "service_id", None) is not None:
+        obj.service_id = data.service_id
 
     # אם עבר ל-done עכשיו (או נשאר done) נשתמש בפונקציה האידמפוטנטית
     if (obj.status in ("done", "completed")) and (prev_status not in ("done", "completed")):

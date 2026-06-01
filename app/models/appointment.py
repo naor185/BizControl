@@ -46,6 +46,8 @@ class Appointment(Base):
     payment_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     
     google_event_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+    service_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("services.id", ondelete="SET NULL"), nullable=True, index=True)
 
     client = relationship("Client")
-    artist = relationship("User")  # חשוב: artist_id פה לא nullable כי אתה ביקשת יומן פר סטודיו עם מקעקעים וצבעים — אז לכל תור יש מקעקע.
+    artist = relationship("User")
+    service = relationship("Service", lazy="select", foreign_keys=[service_id])

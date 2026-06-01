@@ -12,6 +12,7 @@ class AppointmentCreate(BaseModel):
     notes: str | None = None
     total_price_cents: int | None = Field(default=0, ge=0)
     deposit_amount_cents: int | None = Field(default=0, ge=0)
+    service_id: UUID | None = None
 
 class AppointmentUpdate(BaseModel):
     title: str | None = Field(default=None, max_length=160)
@@ -23,6 +24,7 @@ class AppointmentUpdate(BaseModel):
     client_id: UUID | None = None
     total_price_cents: int | None = Field(default=None, ge=0)
     deposit_amount_cents: int | None = Field(default=None, ge=0)
+    service_id: UUID | None = None
 
 class AppointmentOut(BaseModel):
     id: UUID
@@ -47,5 +49,7 @@ class AppointmentOut(BaseModel):
     artist_name: str | None
     artist_color: str | None
     google_event_id: str | None = None
+    service_id: UUID | None = None
+    service_name: str | None = None
 
     model_config = {"from_attributes": True}
