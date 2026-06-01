@@ -1,402 +1,325 @@
 "use client";
-
 import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 
-const API = process.env.NEXT_PUBLIC_API_BASE ?? "";
+const API = (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_BASE || "").replace(/^http:\/\//, "https://");
 
-type Artist = { id: string; display_name: string; calendar_color: string | null };
-type StudioInfo = {
-    studio_name: string;
-    primary_color: string;
-    logo_filename: string | null;
-    start_hour: string;
-    end_hour: string;
-    slot_minutes: number;
-    artists: Artist[];
-    self_booking_enabled: boolean;
-};
+interface Service { id: string; name: string; duration_minutes: number; price_ils: number; color: string; description?: string; requires_consultation: boolean; }
+interface Artist { id: string; name: string; }
+interface Slot { starts_at: string; ends_at: string; label: string; }
+interface BookingInfo { studio_id: string; studio_name: string; logo_url?: string; primary_color: string; timezone: string; services: Service[]; artists: Artist[]; }
 
-type Step = "landing" | "artist" | "date" | "time" | "details" | "success";
+type Step = "service" | "artist" | "date" | "time" | "details" | "success";
 
-const HE_DAYS = ["א׳", "ב׳", "ג׳", "ד׳", "ה׳", "ו׳", "ש׳"];
-const HE_MONTHS = ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"];
+const HE_MONTHS = ["ינואר","פברואר","מרץ","אפריל","מאי","יוני","יולי","אוגוסט","ספטמבר","אוקטובר","נובמבר","דצמבר"];
+const HE_DAYS_SHORT = ["א׳","ב׳","ג׳","ד׳","ה׳","ו׳","ש׳"];
 
-function fmtDate(d: Date) {
-    return `${d.getDate()} ${HE_MONTHS[d.getMonth()]} ${d.getFullYear()}`;
-}
-function fmtTime(t: string) {
-    return t; // already HH:MM
-}
-function isoDate(d: Date) {
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
+function isoDate(d: Date) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
 
 export default function BookingPage() {
     const params = useParams();
     const slug = params.slug as string;
-
-    const [info, setInfo] = useState<StudioInfo | null>(null);
-    const [loadErr, setLoadErr] = useState<string | null>(null);
-    const [step, setStep] = useState<Step>("landing");
-
-    // Selections
+    const [info, setInfo] = useState<BookingInfo | null>(null);
+    const [error, setError] = useState<string | null>(null);
+    const [step, setStep] = useState<Step>("service");
+    const [service, setService] = useState<Service | null>(null);
     const [artist, setArtist] = useState<Artist | null>(null);
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
     const [calMonth, setCalMonth] = useState(() => new Date());
-    const [slots, setSlots] = useState<string[]>([]);
+    const [slots, setSlots] = useState<Slot[]>([]);
     const [loadingSlots, setLoadingSlots] = useState(false);
-    const [selectedTime, setSelectedTime] = useState<string | null>(null);
+    const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
     const [form, setForm] = useState({ name: "", phone: "", email: "", notes: "" });
     const [booking, setBooking] = useState(false);
     const [bookErr, setBookErr] = useState<string | null>(null);
-    const [confirmation, setConfirmation] = useState<{ starts_at: string; artist_name: string } | null>(null);
+    const [confirmation, setConfirmation] = useState<any>(null);
 
-    // Load studio info
     useEffect(() => {
-        fetch(`${API}/api/public/book/${slug}`)
-            .then(r => r.ok ? r.json() : Promise.reject(r.statusText))
+        fetch(`${API}/api/book/${slug}/info`)
+            .then(r => r.ok ? r.json() : r.json().then(e => Promise.reject(e.detail || "שגיאה")))
             .then(setInfo)
-            .catch(() => setLoadErr("הסטודיו לא נמצא או שהזמנה מקוונת אינה פעילה."));
+            .catch(e => setError(typeof e === "string" ? e : "קביעת תורים אינה זמינה כרגע"));
     }, [slug]);
 
-    const primary = info?.primary_color ?? "#000000";
-
-    // Load slots when date + artist selected
-    const loadSlots = useCallback(async (date: Date, artistId: string) => {
+    const loadSlots = useCallback(async (date: Date) => {
+        if (!service) return;
         setLoadingSlots(true);
         setSlots([]);
         try {
-            const r = await fetch(`${API}/api/public/book/${slug}/slots?artist_id=${artistId}&date=${isoDate(date)}`);
+            const params = new URLSearchParams({
+                service_id: service.id,
+                booking_date: isoDate(date),
+                ...(artist ? { artist_id: artist.id } : {}),
+            });
+            const r = await fetch(`${API}/api/book/${slug}/slots?${params}`);
             const data = await r.json();
-            setSlots(Array.isArray(data) ? data : []);
-        } catch {
-            setSlots([]);
-        } finally {
-            setLoadingSlots(false);
-        }
-    }, [slug]);
+            setSlots(data.slots || []);
+        } catch { setSlots([]); }
+        finally { setLoadingSlots(false); }
+    }, [service, artist, slug]);
 
-    useEffect(() => {
-        if (selectedDate && artist) loadSlots(selectedDate, artist.id);
-    }, [selectedDate, artist, loadSlots]);
-
-    // Auto-select single artist
-    useEffect(() => {
-        if (info?.artists.length === 1) setArtist(info.artists[0]);
-    }, [info]);
-
-    const goToDate = () => {
-        setSelectedDate(null);
-        setSelectedTime(null);
-        setStep("date");
-    };
-
-    const selectDate = (d: Date) => {
-        setSelectedDate(d);
-        setSelectedTime(null);
-        setStep("time");
-    };
+    useEffect(() => { if (selectedDate) loadSlots(selectedDate); }, [selectedDate, loadSlots]);
 
     const handleBook = async () => {
-        if (!artist || !selectedDate || !selectedTime) return;
-        setBooking(true);
-        setBookErr(null);
+        if (!service || !selectedSlot || !form.name || !form.phone) { setBookErr("נא למלא את כל השדות"); return; }
+        setBooking(true); setBookErr(null);
         try {
-            const r = await fetch(`${API}/api/public/book/${slug}`, {
+            const r = await fetch(`${API}/api/book/${slug}/book`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    artist_id: artist.id,
-                    date: isoDate(selectedDate),
-                    time: selectedTime,
-                    name: form.name.trim(),
-                    phone: form.phone.trim(),
-                    email: form.email.trim() || null,
-                    notes: form.notes.trim() || null,
+                    service_id: service.id,
+                    artist_id: artist?.id || null,
+                    starts_at: selectedSlot.starts_at,
+                    ends_at: selectedSlot.ends_at,
+                    client_name: form.name,
+                    client_phone: form.phone,
+                    client_email: form.email || null,
+                    notes: form.notes || null,
                 }),
             });
-            if (!r.ok) {
-                const err = await r.json();
-                throw new Error(err.detail || "שגיאה בהזמנה");
-            }
+            if (!r.ok) { const e = await r.json(); throw new Error(e.detail || "שגיאה"); }
             const data = await r.json();
-            setConfirmation({ starts_at: data.starts_at, artist_name: data.artist_name });
+            setConfirmation(data);
             setStep("success");
-        } catch (e: any) {
-            setBookErr(e.message || "שגיאה בהזמנה");
-        } finally {
-            setBooking(false);
-        }
+        } catch (e: any) { setBookErr(e.message); }
+        finally { setBooking(false); }
     };
 
+    const primary = info?.primary_color || "#7c3aed";
+
     // Calendar helpers
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    const daysInMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 0).getDate();
-    const firstDow = new Date(calMonth.getFullYear(), calMonth.getMonth(), 1).getDay(); // 0=Sun
+    const daysInMonth = (y: number, m: number) => new Date(y, m + 1, 0).getDate();
+    const firstDayOfMonth = (y: number, m: number) => { const d = new Date(y, m, 1).getDay(); return d; };
+    const isToday = (d: Date) => { const t = new Date(); return d.getDate() === t.getDate() && d.getMonth() === t.getMonth() && d.getFullYear() === t.getFullYear(); };
+    const isPast = (d: Date) => { const t = new Date(); t.setHours(0,0,0,0); return d < t; };
 
-    // ── Render ────────────────────────────────────────────────────────────────
+    if (!info && !error) return (
+        <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#0f172a", color: "#fff", fontSize: "1.5rem" }}>
+            ⏳
+        </div>
+    );
 
-    if (loadErr) return (
-        <div dir="rtl" className="min-h-screen flex items-center justify-center bg-gray-50 px-6">
-            <div className="text-center">
-                <div className="text-5xl mb-4">🚫</div>
-                <p className="text-gray-600 text-sm">{loadErr}</p>
+    if (error) return (
+        <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#0f172a", color: "#f87171", fontSize: "1.1rem", textAlign: "center", padding: "2rem" }} dir="rtl">
+            <div>
+                <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🚫</div>
+                <div>{error}</div>
             </div>
         </div>
     );
 
-    if (!info) return (
-        <div className="min-h-screen flex items-center justify-center">
-            <div className="animate-spin w-8 h-8 border-4 border-gray-200 border-t-gray-800 rounded-full" />
-        </div>
-    );
-
-    const logoUrl = info.logo_filename ? `${API}/uploads/${info.logo_filename}` : null;
-
     return (
-        <div dir="rtl" className="min-h-screen bg-gray-50 flex flex-col items-center pb-16">
+        <div dir="rtl" style={{ minHeight: "100vh", background: "linear-gradient(135deg,#0f0c29,#1e1b4b)", color: "#fff", fontFamily: "sans-serif" }}>
+            {/* Header */}
+            <div style={{ background: `${primary}22`, borderBottom: `1px solid ${primary}44`, padding: "1rem 1.5rem", display: "flex", alignItems: "center", gap: "1rem" }}>
+                {info?.logo_url && <img src={info.logo_url} alt="" style={{ width: 40, height: 40, borderRadius: 10, objectFit: "cover" }} />}
+                <div>
+                    <div style={{ fontWeight: 800, fontSize: "1.1rem" }}>{info?.studio_name}</div>
+                    <div style={{ color: "#94a3b8", fontSize: "0.8rem" }}>קביעת תור אונליין</div>
+                </div>
+            </div>
 
-            {/* ── LANDING ── */}
-            {step === "landing" && (
-                <div className="w-full max-w-md flex flex-col items-center px-6 py-12 gap-8">
-                    {logoUrl ? (
-                        <img src={logoUrl} alt={info.studio_name} className="h-20 w-20 object-contain rounded-2xl shadow-md" />
-                    ) : (
-                        <div className="w-20 h-20 rounded-2xl flex items-center justify-center text-white text-3xl font-bold shadow-md" style={{ background: primary }}>
-                            {info.studio_name.charAt(0)}
-                        </div>
-                    )}
-                    <div className="text-center">
-                        <h1 className="text-2xl font-bold text-gray-900">{info.studio_name}</h1>
-                        <p className="text-gray-500 text-sm mt-1">הזמנת תור מקוונת</p>
-                    </div>
-
-                    {!info.self_booking_enabled ? (
-                        <div className="text-center bg-amber-50 border border-amber-200 rounded-2xl px-6 py-4">
-                            <p className="text-amber-700 text-sm">ההזמנה המקוונת אינה פעילה כרגע.</p>
-                            <p className="text-amber-500 text-xs mt-1">אנא פנה לסטודיו ישירות.</p>
-                        </div>
-                    ) : (
-                        <button
-                            onClick={() => info.artists.length === 1 ? goToDate() : setStep("artist")}
-                            className="w-full py-4 rounded-2xl text-white font-bold text-lg shadow-lg active:scale-[0.98] transition-transform"
-                            style={{ background: primary }}
-                        >
-                            קבע תור עכשיו
-                        </button>
-                    )}
+            {/* Progress */}
+            {step !== "success" && (
+                <div style={{ display: "flex", justifyContent: "center", gap: "0.5rem", padding: "1rem", flexWrap: "wrap" }}>
+                    {[
+                        { key: "service", label: "שירות" },
+                        { key: "artist", label: "מטפל" },
+                        { key: "date", label: "תאריך" },
+                        { key: "time", label: "שעה" },
+                        { key: "details", label: "פרטים" },
+                    ].map((s, i) => {
+                        const steps: Step[] = ["service", "artist", "date", "time", "details"];
+                        const idx = steps.indexOf(step);
+                        const si = steps.indexOf(s.key as Step);
+                        return (
+                            <div key={s.key} style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                                <div style={{
+                                    width: 28, height: 28, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
+                                    fontSize: "0.8rem", fontWeight: 700,
+                                    background: si <= idx ? primary : "rgba(255,255,255,.1)",
+                                    color: si <= idx ? "#fff" : "#64748b",
+                                }}>{i + 1}</div>
+                                <span style={{ fontSize: "0.75rem", color: si === idx ? "#fff" : "#64748b" }}>{s.label}</span>
+                                {i < 4 && <div style={{ width: 20, height: 1, background: "rgba(255,255,255,.15)", margin: "0 0.25rem" }} />}
+                            </div>
+                        );
+                    })}
                 </div>
             )}
 
-            {/* ── ARTIST SELECT ── */}
-            {step === "artist" && (
-                <div className="w-full max-w-md px-4 py-8 space-y-4">
-                    <StepHeader title="בחר/י אמן/ית" onBack={() => setStep("landing")} color={primary} />
-                    <div className="space-y-2">
-                        {info.artists.map(a => (
-                            <button
-                                key={a.id}
-                                onClick={() => { setArtist(a); goToDate(); }}
-                                className="w-full flex items-center gap-4 bg-white rounded-2xl px-4 py-4 border border-gray-100 hover:border-gray-300 transition-all active:scale-[0.99] shadow-sm"
-                            >
-                                <div className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg flex-shrink-0"
-                                    style={{ background: a.calendar_color || primary }}>
-                                    {(a.display_name).charAt(0)}
-                                </div>
-                                <span className="font-semibold text-gray-900 text-base">{a.display_name}</span>
-                                <span className="mr-auto text-gray-400">←</span>
+            <div style={{ maxWidth: 560, margin: "0 auto", padding: "1.5rem" }}>
+
+                {/* Step: Service */}
+                {step === "service" && (
+                    <div>
+                        <h2 style={{ fontWeight: 800, marginBottom: "1.25rem" }}>בחר שירות</h2>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                            {info?.services.map(s => (
+                                <button key={s.id} onClick={() => { setService(s); setStep(info.artists.length > 1 ? "artist" : "date"); }}
+                                    style={{ background: service?.id === s.id ? `${s.color}22` : "rgba(255,255,255,.05)", border: `1px solid ${service?.id === s.id ? s.color : "rgba(255,255,255,.1)"}`, borderRadius: 14, padding: "1rem 1.25rem", cursor: "pointer", textAlign: "right", display: "flex", alignItems: "center", gap: "1rem" }}>
+                                    <div style={{ width: 12, height: 12, borderRadius: "50%", background: s.color, flexShrink: 0 }} />
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{ color: "#fff", fontWeight: 700, fontSize: "1rem" }}>{s.name}</div>
+                                        {s.description && <div style={{ color: "#94a3b8", fontSize: "0.8rem", marginTop: "0.2rem" }}>{s.description}</div>}
+                                        {s.requires_consultation && <div style={{ color: "#fbbf24", fontSize: "0.75rem", marginTop: "0.2rem" }}>📋 דורש ייעוץ קודם</div>}
+                                    </div>
+                                    <div style={{ textAlign: "left", flexShrink: 0 }}>
+                                        <div style={{ color: "#a78bfa", fontWeight: 600 }}>{s.duration_minutes < 60 ? `${s.duration_minutes} דק׳` : `${s.duration_minutes/60} שע׳`}</div>
+                                        {s.price_ils > 0 && <div style={{ color: "#4ade80", fontSize: "0.9rem" }}>₪{s.price_ils}</div>}
+                                    </div>
+                                </button>
+                            ))}
+                            {info?.services.length === 0 && <div style={{ color: "#64748b", textAlign: "center", padding: "2rem" }}>אין שירותים זמינים לקביעה אונליין</div>}
+                        </div>
+                    </div>
+                )}
+
+                {/* Step: Artist */}
+                {step === "artist" && (
+                    <div>
+                        <h2 style={{ fontWeight: 800, marginBottom: "1.25rem" }}>בחר מטפל</h2>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                            <button onClick={() => { setArtist(null); setStep("date"); }}
+                                style={{ background: !artist ? `${primary}22` : "rgba(255,255,255,.05)", border: `1px solid ${!artist ? primary : "rgba(255,255,255,.1)"}`, borderRadius: 14, padding: "1rem 1.25rem", cursor: "pointer", color: "#fff", fontWeight: 600, textAlign: "right" }}>
+                                🎲 כלשהו (הראשון הזמין)
                             </button>
-                        ))}
-                    </div>
-                </div>
-            )}
-
-            {/* ── DATE SELECT ── */}
-            {step === "date" && (
-                <div className="w-full max-w-md px-4 py-8 space-y-4">
-                    <StepHeader title="בחר/י תאריך" onBack={() => info!.artists.length > 1 ? setStep("artist") : setStep("landing")} color={primary} />
-
-                    {/* Month nav */}
-                    <div className="flex items-center justify-between px-2">
-                        <button onClick={() => setCalMonth(m => new Date(m.getFullYear(), m.getMonth() - 1, 1))} className="w-9 h-9 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-50">‹</button>
-                        <span className="font-semibold text-gray-900">{HE_MONTHS[calMonth.getMonth()]} {calMonth.getFullYear()}</span>
-                        <button onClick={() => setCalMonth(m => new Date(m.getFullYear(), m.getMonth() + 1, 1))} className="w-9 h-9 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-50">›</button>
-                    </div>
-
-                    {/* Calendar grid */}
-                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
-                        <div className="grid grid-cols-7 mb-2">
-                            {HE_DAYS.map(d => <div key={d} className="text-center text-xs text-gray-400 font-semibold py-1">{d}</div>)}
-                        </div>
-                        <div className="grid grid-cols-7 gap-1">
-                            {Array.from({ length: firstDow }).map((_, i) => <div key={`e${i}`} />)}
-                            {Array.from({ length: daysInMonth }).map((_, i) => {
-                                const d = new Date(calMonth.getFullYear(), calMonth.getMonth(), i + 1);
-                                const isPast = d < today;
-                                const isSel = selectedDate && isoDate(d) === isoDate(selectedDate);
-                                const isToday = isoDate(d) === isoDate(today);
-                                return (
-                                    <button
-                                        key={i}
-                                        disabled={isPast}
-                                        onClick={() => selectDate(d)}
-                                        className={[
-                                            "aspect-square rounded-xl text-sm font-semibold flex items-center justify-center transition-all active:scale-95",
-                                            isPast ? "text-gray-300 cursor-not-allowed" :
-                                            isSel ? "text-white shadow-md" :
-                                            isToday ? "border-2" :
-                                            "text-gray-700 bg-gray-50 hover:bg-gray-100",
-                                        ].join(" ")}
-                                        style={
-                                            isSel ? { background: primary } :
-                                            isToday ? { borderColor: primary, color: primary } :
-                                            {}
-                                        }
-                                    >
-                                        {i + 1}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* ── TIME SELECT ── */}
-            {step === "time" && selectedDate && (
-                <div className="w-full max-w-md px-4 py-8 space-y-4">
-                    <StepHeader title={`שעות פנויות — ${fmtDate(selectedDate)}`} onBack={() => setStep("date")} color={primary} />
-
-                    {loadingSlots ? (
-                        <div className="flex justify-center py-10">
-                            <div className="animate-spin w-8 h-8 border-4 border-gray-200 border-t-gray-800 rounded-full" />
-                        </div>
-                    ) : slots.length === 0 ? (
-                        <div className="text-center py-10 bg-white rounded-2xl border border-gray-100">
-                            <div className="text-3xl mb-2">😕</div>
-                            <p className="text-gray-500 text-sm">אין שעות פנויות בתאריך זה</p>
-                            <button onClick={() => setStep("date")} className="mt-4 text-sm font-semibold underline" style={{ color: primary }}>בחר תאריך אחר</button>
-                        </div>
-                    ) : (
-                        <div className="grid grid-cols-3 gap-2">
-                            {slots.map(t => (
-                                <button
-                                    key={t}
-                                    onClick={() => { setSelectedTime(t); setStep("details"); }}
-                                    className={[
-                                        "py-3 rounded-2xl text-sm font-bold border transition-all active:scale-95",
-                                        selectedTime === t ? "text-white border-transparent shadow-md" : "bg-white border-gray-200 text-gray-800 hover:border-gray-400",
-                                    ].join(" ")}
-                                    style={selectedTime === t ? { background: primary } : {}}
-                                >
-                                    {fmtTime(t)}
+                            {info?.artists.map(a => (
+                                <button key={a.id} onClick={() => { setArtist(a); setStep("date"); }}
+                                    style={{ background: artist?.id === a.id ? `${primary}22` : "rgba(255,255,255,.05)", border: `1px solid ${artist?.id === a.id ? primary : "rgba(255,255,255,.1)"}`, borderRadius: 14, padding: "1rem 1.25rem", cursor: "pointer", textAlign: "right" }}>
+                                    <span style={{ color: "#fff", fontWeight: 600 }}>👤 {a.name}</span>
                                 </button>
                             ))}
                         </div>
-                    )}
-                </div>
-            )}
-
-            {/* ── DETAILS FORM ── */}
-            {step === "details" && (
-                <div className="w-full max-w-md px-4 py-8 space-y-4">
-                    <StepHeader title="פרטי הזמנה" onBack={() => setStep("time")} color={primary} />
-
-                    {/* Summary */}
-                    <div className="bg-white rounded-2xl border border-gray-100 p-4 space-y-1 text-sm shadow-sm">
-                        <div className="flex justify-between"><span className="text-gray-500">תאריך</span><span className="font-semibold">{selectedDate ? fmtDate(selectedDate) : ""}</span></div>
-                        <div className="flex justify-between"><span className="text-gray-500">שעה</span><span className="font-semibold">{selectedTime}</span></div>
-                        {artist && <div className="flex justify-between"><span className="text-gray-500">אמן/ית</span><span className="font-semibold">{artist.display_name}</span></div>}
+                        <button onClick={() => setStep("service")} style={backBtn}>← חזור</button>
                     </div>
+                )}
 
-                    <div className="space-y-3">
-                        <div>
-                            <label className="text-xs text-gray-500 block mb-1">שם מלא *</label>
-                            <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                                placeholder="ישראל ישראלי"
-                                className="w-full border border-gray-200 rounded-xl px-3 py-3 text-sm text-right focus:outline-none focus:ring-2 focus:ring-black/10" />
-                        </div>
-                        <div>
-                            <label className="text-xs text-gray-500 block mb-1">טלפון *</label>
-                            <input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
-                                placeholder="05X-XXXXXXX" dir="ltr" type="tel"
-                                className="w-full border border-gray-200 rounded-xl px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black/10" />
-                        </div>
-                        <div>
-                            <label className="text-xs text-gray-500 block mb-1">אימייל (לא חובה)</label>
-                            <input value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-                                placeholder="email@example.com" dir="ltr" type="email"
-                                className="w-full border border-gray-200 rounded-xl px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black/10" />
-                        </div>
-                        <div>
-                            <label className="text-xs text-gray-500 block mb-1">הערות (לא חובה)</label>
-                            <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
-                                placeholder="מה תרצה לעשות? רעיון לקעקוע, גודל..."
-                                rows={3}
-                                className="w-full border border-gray-200 rounded-xl px-3 py-3 text-sm text-right resize-none focus:outline-none focus:ring-2 focus:ring-black/10" />
-                        </div>
-                    </div>
-
-                    {bookErr && <div className="bg-red-50 text-red-600 text-sm px-3 py-2 rounded-xl">{bookErr}</div>}
-
-                    <button
-                        onClick={handleBook}
-                        disabled={booking || !form.name.trim() || !form.phone.trim()}
-                        className="w-full py-4 rounded-2xl text-white font-bold text-base shadow-lg disabled:opacity-40 active:scale-[0.98] transition-all"
-                        style={{ background: primary }}
-                    >
-                        {booking ? "שולח..." : "שלח בקשה לתור"}
-                    </button>
-                </div>
-            )}
-
-            {/* ── SUCCESS ── */}
-            {step === "success" && confirmation && (
-                <div className="w-full max-w-md px-6 py-12 flex flex-col items-center gap-6 text-center">
-                    <div className="w-20 h-20 rounded-full flex items-center justify-center text-4xl shadow-lg" style={{ background: primary }}>
-                        ⏳
-                    </div>
+                {/* Step: Date */}
+                {step === "date" && (
                     <div>
-                        <h2 className="text-2xl font-bold text-gray-900">הבקשה נשלחה!</h2>
-                        <p className="text-gray-500 text-sm mt-1">הצוות יבדוק ויאשר בהקדם</p>
+                        <h2 style={{ fontWeight: 800, marginBottom: "1.25rem" }}>בחר תאריך</h2>
+                        <div style={{ background: "rgba(255,255,255,.05)", borderRadius: 16, padding: "1.25rem" }}>
+                            {/* Month nav */}
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+                                <button onClick={() => setCalMonth(m => new Date(m.getFullYear(), m.getMonth() - 1))} style={navBtn}>‹</button>
+                                <span style={{ fontWeight: 700 }}>{HE_MONTHS[calMonth.getMonth()]} {calMonth.getFullYear()}</span>
+                                <button onClick={() => setCalMonth(m => new Date(m.getFullYear(), m.getMonth() + 1))} style={navBtn}>›</button>
+                            </div>
+                            {/* Day headers */}
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 4, marginBottom: "0.5rem" }}>
+                                {HE_DAYS_SHORT.map(d => <div key={d} style={{ textAlign: "center", fontSize: "0.75rem", color: "#64748b", fontWeight: 600 }}>{d}</div>)}
+                            </div>
+                            {/* Days grid */}
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 4 }}>
+                                {Array.from({ length: firstDayOfMonth(calMonth.getFullYear(), calMonth.getMonth()) }).map((_, i) => (
+                                    <div key={`empty-${i}`} />
+                                ))}
+                                {Array.from({ length: daysInMonth(calMonth.getFullYear(), calMonth.getMonth()) }).map((_, i) => {
+                                    const d = new Date(calMonth.getFullYear(), calMonth.getMonth(), i + 1);
+                                    const past = isPast(d);
+                                    const today = isToday(d);
+                                    const selected = selectedDate && isoDate(d) === isoDate(selectedDate);
+                                    return (
+                                        <button key={i} disabled={past} onClick={() => { setSelectedDate(d); setStep("time"); }}
+                                            style={{
+                                                padding: "0.5rem 0", borderRadius: 10, border: "none", cursor: past ? "default" : "pointer",
+                                                background: selected ? primary : today ? `${primary}33` : "transparent",
+                                                color: past ? "#334155" : selected ? "#fff" : "#e2e8f0",
+                                                fontWeight: today ? 700 : 400, fontSize: "0.9rem",
+                                            }}>
+                                            {i + 1}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                        <button onClick={() => setStep(info?.artists.length && info.artists.length > 1 ? "artist" : "service")} style={backBtn}>← חזור</button>
                     </div>
-                    <div className="w-full bg-white rounded-2xl border border-gray-100 p-5 shadow-sm space-y-2 text-sm text-right">
-                        <div className="flex justify-between">
-                            <span className="text-gray-500">תאריך</span>
-                            <span className="font-semibold">{selectedDate ? fmtDate(selectedDate) : ""}</span>
+                )}
+
+                {/* Step: Time */}
+                {step === "time" && (
+                    <div>
+                        <h2 style={{ fontWeight: 800, marginBottom: "0.5rem" }}>בחר שעה</h2>
+                        <div style={{ color: "#94a3b8", fontSize: "0.85rem", marginBottom: "1.25rem" }}>
+                            {selectedDate && `${selectedDate.getDate()} ${HE_MONTHS[selectedDate.getMonth()]} ${selectedDate.getFullYear()}`}
                         </div>
-                        <div className="flex justify-between">
-                            <span className="text-gray-500">שעה</span>
-                            <span className="font-semibold">{selectedTime}</span>
+                        {loadingSlots ? (
+                            <div style={{ textAlign: "center", padding: "2rem", color: "#64748b" }}>⏳ טוען זמנים...</div>
+                        ) : slots.length === 0 ? (
+                            <div style={{ textAlign: "center", padding: "2rem", color: "#64748b" }}>
+                                <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>😔</div>
+                                <div>אין זמנים פנויים ביום זה</div>
+                                <button onClick={() => setStep("date")} style={{ marginTop: "1rem", ...navBtn }}>בחר תאריך אחר</button>
+                            </div>
+                        ) : (
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(80px,1fr))", gap: "0.5rem", marginBottom: "1.5rem" }}>
+                                {slots.map(slot => (
+                                    <button key={slot.starts_at} onClick={() => { setSelectedSlot(slot); setStep("details"); }}
+                                        style={{
+                                            padding: "0.75rem 0", borderRadius: 12, border: `1px solid ${selectedSlot?.starts_at === slot.starts_at ? primary : "rgba(255,255,255,.15)"}`,
+                                            background: selectedSlot?.starts_at === slot.starts_at ? `${primary}33` : "rgba(255,255,255,.04)",
+                                            color: "#fff", fontWeight: 600, cursor: "pointer", fontSize: "0.9rem",
+                                        }}>
+                                        {slot.label}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                        <button onClick={() => setStep("date")} style={backBtn}>← חזור</button>
+                    </div>
+                )}
+
+                {/* Step: Details */}
+                {step === "details" && (
+                    <div>
+                        <h2 style={{ fontWeight: 800, marginBottom: "1.25rem" }}>פרטי הקביעה</h2>
+                        <div style={{ background: `${primary}11`, border: `1px solid ${primary}33`, borderRadius: 14, padding: "1rem", marginBottom: "1.5rem", fontSize: "0.9rem" }}>
+                            <div>🛎️ <strong>{service?.name}</strong></div>
+                            {artist && <div style={{ marginTop: "0.25rem" }}>👤 {artist.name}</div>}
+                            {selectedDate && <div style={{ marginTop: "0.25rem" }}>📅 {selectedDate.getDate()} {HE_MONTHS[selectedDate.getMonth()]} · {selectedSlot?.label}</div>}
                         </div>
-                        <div className="flex justify-between">
-                            <span className="text-gray-500">אמן/ית</span>
-                            <span className="font-semibold">{confirmation.artist_name}</span>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginBottom: "1.5rem" }}>
+                            {[
+                                { key: "name", label: "שם מלא *", type: "text", placeholder: "ישראל ישראלי" },
+                                { key: "phone", label: "טלפון *", type: "tel", placeholder: "050-0000000" },
+                                { key: "email", label: "אימייל", type: "email", placeholder: "you@example.com" },
+                                { key: "notes", label: "הערות", type: "text", placeholder: "משהו שצריך לדעת..." },
+                            ].map(f => (
+                                <div key={f.key}>
+                                    <label style={{ color: "#94a3b8", fontSize: "0.82rem", fontWeight: 600, display: "block", marginBottom: "0.35rem" }}>{f.label}</label>
+                                    <input type={f.type} value={(form as any)[f.key]} onChange={e => setForm(v => ({ ...v, [f.key]: e.target.value }))}
+                                        style={{ background: "rgba(255,255,255,.08)", border: "1px solid rgba(255,255,255,.15)", borderRadius: 10, padding: "0.65rem 0.9rem", color: "#fff", fontSize: "0.9rem", width: "100%", boxSizing: "border-box" as const }}
+                                        placeholder={f.placeholder} />
+                                </div>
+                            ))}
                         </div>
-                        <div className="flex justify-between">
-                            <span className="text-gray-500">שם</span>
-                            <span className="font-semibold">{form.name}</span>
+                        {bookErr && <div style={{ background: "rgba(239,68,68,.15)", border: "1px solid rgba(239,68,68,.3)", borderRadius: 10, padding: "0.75rem", color: "#fca5a5", marginBottom: "1rem", fontSize: "0.85rem" }}>{bookErr}</div>}
+                        <button onClick={handleBook} disabled={booking} style={{ width: "100%", background: `linear-gradient(135deg,${primary},#4c1d95)`, border: "none", borderRadius: 14, color: "#fff", padding: "0.85rem", fontWeight: 700, fontSize: "1rem", cursor: booking ? "default" : "pointer", opacity: booking ? 0.7 : 1 }}>
+                            {booking ? "⏳ שולח..." : "✅ אשר קביעת תור"}
+                        </button>
+                        <button onClick={() => setStep("time")} style={backBtn}>← חזור</button>
+                    </div>
+                )}
+
+                {/* Step: Success */}
+                {step === "success" && (
+                    <div style={{ textAlign: "center", padding: "2rem 0" }}>
+                        <div style={{ fontSize: "4rem", marginBottom: "1rem" }}>✅</div>
+                        <h2 style={{ color: "#4ade80", fontWeight: 800, fontSize: "1.5rem", marginBottom: "0.5rem" }}>התור נקבע!</h2>
+                        <p style={{ color: "#94a3b8" }}>תקבל/י אישור ב-WhatsApp בקרוב</p>
+                        <div style={{ background: "rgba(74,222,128,.08)", border: "1px solid rgba(74,222,128,.2)", borderRadius: 16, padding: "1.25rem", marginTop: "1.5rem", fontSize: "0.95rem" }}>
+                            <div>🛎️ <strong>{service?.name}</strong></div>
+                            {selectedDate && <div style={{ marginTop: "0.5rem" }}>📅 {selectedDate.getDate()} {HE_MONTHS[selectedDate.getMonth()]} · {selectedSlot?.label}</div>}
                         </div>
                     </div>
-                    <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-700 text-right">
-                        🔔 תקבל/י הודעת וואטסאפ עם אישור או דחייה של הבקשה
-                    </div>
-                </div>
-            )}
+                )}
+            </div>
         </div>
     );
 }
 
-// ── Shared components ─────────────────────────────────────────────────────────
-
-function StepHeader({ title, onBack, color }: { title: string; onBack: () => void; color: string }) {
-    return (
-        <div className="flex items-center gap-3 mb-2">
-            <button onClick={onBack} className="w-9 h-9 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-600 flex-shrink-0 hover:bg-gray-50">
-                →
-            </button>
-            <h2 className="text-lg font-bold text-gray-900">{title}</h2>
-        </div>
-    );
-}
+const backBtn: React.CSSProperties = { background: "transparent", border: "none", color: "#94a3b8", cursor: "pointer", marginTop: "1.5rem", fontSize: "0.9rem" };
+const navBtn: React.CSSProperties = { background: "rgba(255,255,255,.1)", border: "1px solid rgba(255,255,255,.15)", borderRadius: 8, color: "#fff", padding: "0.4rem 0.75rem", cursor: "pointer", fontSize: "1rem" };

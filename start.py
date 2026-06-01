@@ -138,6 +138,25 @@ def ensure_schema():
             WHERE external_id IS NOT NULL
         """)
 
+        # ── Phase 3: Wait List + Online Booking ──────────────────────────────
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS wait_list (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                client_id UUID REFERENCES clients(id) ON DELETE SET NULL,
+                client_name VARCHAR(160),
+                client_phone VARCHAR(32),
+                service_id UUID REFERENCES services(id) ON DELETE SET NULL,
+                preferred_artist_id UUID REFERENCES users(id) ON DELETE SET NULL,
+                notes TEXT,
+                status VARCHAR(16) NOT NULL DEFAULT 'waiting',
+                notified_at TIMESTAMPTZ,
+                confirmed_at TIMESTAMPTZ,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_wait_list_studio_status ON wait_list (studio_id, status)")
+
         # ── Phase 2: Automation Rule Engine ──────────────────────────────────
         cur.execute("""
             CREATE TABLE IF NOT EXISTS automation_rules (

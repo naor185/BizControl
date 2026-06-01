@@ -335,14 +335,25 @@ def cancel(appointment_id: UUID, reason: str | None = Query(default=None), hard_
         if settings and settings.google_calendar_refresh_token and settings.google_calendar_client_id and settings.google_calendar_client_secret:
             try:
                 service = get_google_calendar_service(
-                    settings.google_calendar_client_id, 
-                    settings.google_calendar_client_secret, 
+                    settings.google_calendar_client_id,
+                    settings.google_calendar_client_secret,
                     settings.google_calendar_refresh_token
                 )
                 delete_google_event(service, appt_obj.google_event_id)
             except Exception as e:
                 log.warning("Failed to delete Google event: %s", e)
-                
+
+    # ── Notify wait list when slot opens ─────────────────────────────────────
+    if not hard_delete:
+        try:
+            from app.api.wait_list_routes import notify_wait_list_on_cancellation
+            service_id = getattr(appt_obj, "service_id", None) if appt_obj else None
+            n = notify_wait_list_on_cancellation(db, ctx.studio_id, service_id)
+            if n:
+                log.info("Notified %d wait list clients after cancellation", n)
+        except Exception:
+            log.exception("Wait list notification failed")
+
     return None
 
 @router.post("/{appointment_id}/verify-payment")
