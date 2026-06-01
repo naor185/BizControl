@@ -8,7 +8,8 @@ from app.core.deps import require_studio_ctx, AuthContext
 from app.core.permissions import require_roles, Perms
 from app.crud.stamp_card import list_stamp_cards, create_stamp_card, update_stamp_card, delete_stamp_card
 
-router = APIRouter(prefix="/stamp-cards", tags=["Stamp Cards"])
+from app.core.features import require_module
+router = APIRouter(prefix="/stamp-cards", tags=["Stamp Cards"], dependencies=[Depends(require_module("customer_club"))])
 
 
 class StampCardIn(BaseModel):

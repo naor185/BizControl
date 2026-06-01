@@ -25,25 +25,25 @@ type Me = {
 
 type PinStatus = { has_pin: boolean; is_locked: boolean };
 
-const MAIN_NAV = [
+const MAIN_NAV: { href: string; label: string; icon: string; module?: string }[] = [
     { href: "/calendar",  label: "יומן תורים",  icon: "📅" },
     { href: "/pos",       label: "קופה",         icon: "🛒" },
     { href: "/dashboard", label: "לוח בקרה",   icon: "📊" },
     { href: "/clients",   label: "לקוחות",       icon: "👥" },
     { href: "/inbox",     label: "הודעות",       icon: "💬" },
     { href: "/leads",     label: "לידים CRM",   icon: "🎯" },
-    { href: "/analytics", label: "אנליטיקות",   icon: "📈" },
+    { href: "/analytics", label: "אנליטיקות",   icon: "📈", module: "analytics" },
 ];
 
-const MANAGE_NAV = [
-    { href: "/services",     label: "שירותים",      icon: "🛎️" },
-    { href: "/automations", label: "אוטומציות",    icon: "⚡" },
-    { href: "/wait-list",   label: "רשימת המתנה", icon: "⏳" },
-    { href: "/products",    label: "מוצרים",      icon: "📦" },
-    { href: "/expenses",    label: "הוצאות",       icon: "💼" },
-    { href: "/team",        label: "צוות",         icon: "🎨" },
-    { href: "/stamps",      label: "כרטיסי חותמות", icon: "🎁" },
-    { href: "/tiers",       label: "רמות VIP",     icon: "👑" },
+const MANAGE_NAV: { href: string; label: string; icon: string; module?: string }[] = [
+    { href: "/services",     label: "שירותים",        icon: "🛎️" },
+    { href: "/automations",  label: "אוטומציות",      icon: "⚡" },
+    { href: "/wait-list",    label: "רשימת המתנה",   icon: "⏳", module: "wait_list" },
+    { href: "/products",     label: "מוצרים",         icon: "📦" },
+    { href: "/expenses",     label: "הוצאות",          icon: "💼" },
+    { href: "/team",         label: "צוות",            icon: "🎨" },
+    { href: "/stamps",       label: "כרטיסי חותמות",  icon: "🎁", module: "customer_club" },
+    { href: "/tiers",        label: "רמות VIP",        icon: "👑", module: "customer_club" },
 ];
 
 export default function AppShell({
@@ -72,6 +72,7 @@ export default function AppShell({
     const [pinMode, setPinMode] = useState<"verify" | "set">("verify");
     const [pendingDepositsCount, setPendingDepositsCount] = useState(0);
     const [inboxUnreadCount, setInboxUnreadCount] = useState(0);
+    const [enabledModules, setEnabledModules] = useState<Record<string, boolean> | null>(null);
 
     useEffect(() => {
         if (typeof window !== "undefined") {
@@ -96,18 +97,20 @@ export default function AppShell({
             try {
                 const token = getToken();
                 if (!token) return;
-                const [data, pin, deposits, inbox, locs] = await Promise.all([
+                const [data, pin, deposits, inbox, locs, mods] = await Promise.all([
                     apiFetch<Me>("/api/auth/me"),
                     apiFetch<PinStatus>("/api/security/pin/status"),
                     apiFetch<any[]>("/api/appointments/pending-deposits").catch(() => []),
                     apiFetch<{ unread: number }>("/api/inbox/unread-count").catch(() => ({ unread: 0 })),
                     apiFetch<any[]>("/api/locations").catch(() => []),
+                    apiFetch<Record<string, boolean>>("/api/modules/me").catch(() => null),
                 ]);
                 setMe(data);
                 setPinStatus(pin);
                 setPendingDepositsCount(deposits.length);
                 setInboxUnreadCount(inbox.unread);
                 if (locs.length > 1) setLocations(locs);
+                setEnabledModules(mods);
             } catch { /* silent */ }
         })();
     }, []);
@@ -189,7 +192,7 @@ export default function AppShell({
 
                     {/* Nav */}
                     <nav className="flex-1 p-2.5 space-y-0.5 overflow-y-auto">
-                        {MAIN_NAV.map(item => {
+                        {MAIN_NAV.filter(item => !item.module || !enabledModules || enabledModules[item.module] !== false).map(item => {
                             const active = pathname === item.href || pathname.startsWith(item.href + "/");
                             const badge = item.href === "/dashboard" && pendingDepositsCount > 0
                                 ? pendingDepositsCount
@@ -218,6 +221,28 @@ export default function AppShell({
                             );
                         })}
 
+                        <div className="pt-2 pb-1 px-3">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">ניהול</span>
+                        </div>
+
+                        {MANAGE_NAV.filter(item => !item.module || !enabledModules || enabledModules[item.module] !== false).map(item => {
+                            const active = pathname === item.href || pathname.startsWith(item.href + "/");
+                            return (
+                                <Link
+                                    key={item.href}
+                                    href={item.href}
+                                    className={[
+                                        "flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium transition-all",
+                                        active
+                                            ? "bg-slate-900 text-white shadow-sm"
+                                            : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
+                                    ].join(" ")}
+                                >
+                                    <span className="text-base leading-none">{item.icon}</span>
+                                    <span className="flex-1">{item.label}</span>
+                                </Link>
+                            );
+                        })}
 
                         <div className="pt-2 pb-1">
                             <div className="px-3 pb-1">

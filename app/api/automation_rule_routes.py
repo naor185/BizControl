@@ -12,7 +12,8 @@ from app.core.deps import require_studio_ctx, AuthContext
 from app.db.deps import get_db
 from app.models.automation_rule import AutomationRule, AutomationExecution, TRIGGER_EVENTS, ACTION_TYPES
 
-router = APIRouter(prefix="/automation-rules", tags=["AutomationRules"])
+from app.core.features import require_module
+router = APIRouter(prefix="/automation-rules", tags=["AutomationRules"], dependencies=[Depends(require_module("automation_builder"))])
 
 
 class RuleCreate(BaseModel):

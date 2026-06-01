@@ -30,7 +30,8 @@ from app.models.user import User
 from app.services.ai.orchestrator import chat_stream
 from app.services.ai.prompts import SUGGESTED_QUESTIONS
 
-router = APIRouter(prefix="/ai", tags=["AI Assistant"])
+from app.core.features import require_module
+router = APIRouter(prefix="/ai", tags=["AI Assistant"], dependencies=[Depends(require_module("ai_assistant"))])
 
 
 # ── Env debug (no auth required) ─────────────────────────────────────────────

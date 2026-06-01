@@ -12,7 +12,8 @@ from sqlalchemy.orm import Session
 from app.core.deps import require_studio_ctx, AuthContext
 from app.db.deps import get_db
 
-router = APIRouter(prefix="/biz-analytics", tags=["BusinessAnalytics"])
+from app.core.features import require_module
+router = APIRouter(prefix="/biz-analytics", tags=["BusinessAnalytics"], dependencies=[Depends(require_module("analytics"))])
 
 
 def _month_range(year: int, month: int):

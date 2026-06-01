@@ -45,6 +45,7 @@ from app.api.booking_routes import router as booking_router
 from app.api.marketplace_routes import router as marketplace_router
 from app.api.business_analytics_routes import router as biz_analytics_router
 from app.api.location_routes import router as location_router
+from app.api.module_me_routes import router as module_me_router
 
 api_router = APIRouter()
 api_router.include_router(studio_router)
@@ -94,3 +95,4 @@ api_router.include_router(booking_router)
 api_router.include_router(marketplace_router)
 api_router.include_router(biz_analytics_router)
 api_router.include_router(location_router)
+api_router.include_router(module_me_router)

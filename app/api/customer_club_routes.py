@@ -28,8 +28,9 @@ from app.models.client import Client
 from app.models.birthday_coupon import BirthdayCoupon
 from datetime import datetime, timezone
 
-router = APIRouter(prefix="/customer-club", tags=["Customer Club"])
-design_router = APIRouter(prefix="/wallet-design", tags=["Wallet Design"])
+from app.core.features import require_module
+router = APIRouter(prefix="/customer-club", tags=["Customer Club"], dependencies=[Depends(require_module("customer_club"))])
+design_router = APIRouter(prefix="/wallet-design", tags=["Wallet Design"], dependencies=[Depends(require_module("customer_club"))])
 
 
 # ── Schemas ────────────────────────────────────────────────────────────────────

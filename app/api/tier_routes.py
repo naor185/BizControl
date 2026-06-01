@@ -8,7 +8,8 @@ from app.core.deps import require_studio_ctx, AuthContext
 from app.core.permissions import require_roles, Perms
 from app.crud.membership_tier import list_tiers, get_tier, create_tier, update_tier, delete_tier, get_client_tier
 
-router = APIRouter(prefix="/tiers", tags=["Membership Tiers"])
+from app.core.features import require_module
+router = APIRouter(prefix="/tiers", tags=["Membership Tiers"], dependencies=[Depends(require_module("customer_club"))])
 
 
 class TierIn(BaseModel):

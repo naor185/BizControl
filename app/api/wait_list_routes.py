@@ -13,7 +13,8 @@ from app.core.deps import require_studio_ctx, AuthContext
 from app.db.deps import get_db
 from app.models.wait_list import WaitListEntry
 
-router = APIRouter(prefix="/wait-list", tags=["WaitList"])
+from app.core.features import require_module
+router = APIRouter(prefix="/wait-list", tags=["WaitList"], dependencies=[Depends(require_module("wait_list"))])
 
 
 class WaitListAdd(BaseModel):
