@@ -188,7 +188,7 @@ function WebhookUrlBox({ provider, instanceId }: { provider: "green_api" | "meta
 }
 
 // ── Marketplace Tab Component ─────────────────────────────────────────────────
-function MarketplaceTab({ settings, handleChange, apiFetch }: { settings: any; handleChange: (k: string, v: any) => void; apiFetch: typeof import("@/lib/api").apiFetch }) {
+function MarketplaceTab({ settings, handleChange, apiFetch }: { settings: any; handleChange: (k: any, v: any) => void; apiFetch: typeof import("@/lib/api").apiFetch }) {
     const [pendingReviews, setPendingReviews] = useState<{ id: string; client_name: string; rating: number; comment: string | null; created_at: string }[]>([]);
     const [reviewsLoading, setReviewsLoading] = useState(false);
     const [reviewsLoaded, setReviewsLoaded] = useState(false);
