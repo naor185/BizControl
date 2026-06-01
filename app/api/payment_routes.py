@@ -5,6 +5,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 import io
+import os
 
 from app.db.deps import get_db
 from app.core.deps import require_studio_ctx, AuthContext
@@ -84,6 +85,13 @@ def download_receipt(
     appointment = db.get(Appointment, payment.appointment_id) if payment.appointment_id else None
     client = db.get(Client, payment.client_id) if payment.client_id else None
     studio = db.get(Studio, ctx.studio_id)
+    settings = db.get(StudioSettings, ctx.studio_id)
+
+    logo_url = None
+    if settings and settings.logo_filename:
+        logo_url = os.path.join("uploads", settings.logo_filename)
+    elif studio and studio.logo_url:
+        logo_url = studio.logo_url
 
     pdf_bytes = generate_receipt_pdf(
         payment=payment,
@@ -91,6 +99,7 @@ def download_receipt(
         client=client,
         studio_name=studio.name if studio else "Studio",
         studio_slug=studio.slug if studio else "",
+        logo_url=logo_url,
     )
 
     short_id = str(payment_id)[:8].upper()
@@ -116,6 +125,12 @@ def download_invoice(
     studio      = db.get(Studio, ctx.studio_id)
     settings    = db.get(StudioSettings, ctx.studio_id)
 
+    logo_url_inv = None
+    if settings and settings.logo_filename:
+        logo_url_inv = os.path.join("uploads", settings.logo_filename)
+    elif studio and studio.logo_url:
+        logo_url_inv = studio.logo_url
+
     pdf_bytes = generate_invoice_pdf(
         payment=payment,
         appointment=appointment,
@@ -127,6 +142,7 @@ def download_invoice(
         bank_branch=settings.bank_branch if settings else None,
         bank_account=settings.bank_account if settings else None,
         vat_percent=float(settings.vat_percent) if settings else 18.0,
+        logo_url=logo_url_inv,
     )
 
     short_id = str(payment_id)[:8].upper()

@@ -67,6 +67,38 @@ def h(text: Any) -> str:
     return s
 
 
+def _load_logo(logo_url: str | None):
+    """Return a ReportLab ImageReader for the studio logo, or None on failure."""
+    if not logo_url:
+        return None
+    try:
+        from reportlab.lib.utils import ImageReader
+        if logo_url.startswith("http://") or logo_url.startswith("https://"):
+            import urllib.request
+            with urllib.request.urlopen(logo_url, timeout=3) as resp:
+                return ImageReader(io.BytesIO(resp.read()))
+        else:
+            path = logo_url if os.path.isabs(logo_url) else os.path.join(os.getcwd(), logo_url)
+            if os.path.exists(path):
+                return ImageReader(path)
+    except Exception:
+        pass
+    return None
+
+
+def _draw_logo_in_header(c, logo, header_top: float, header_height: float, W: float) -> None:
+    """Draw logo image on the left side of a dark header band."""
+    if logo is None:
+        return
+    try:
+        size = header_height - 16  # padding
+        x = 1.5 * cm
+        y = header_top - header_height + (header_height - size) / 2
+        c.drawImage(logo, x, y, width=size, height=size, preserveAspectRatio=True, mask="auto")
+    except Exception:
+        pass
+
+
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
 def _fmt_ils(cents: int) -> str:
@@ -104,8 +136,10 @@ def generate_receipt_pdf(
     client: Any,
     studio_name: str,
     studio_slug: str,
+    logo_url: str | None = None,
 ) -> bytes:
     font_reg, font_bold = _ensure_fonts()
+    logo = _load_logo(logo_url)
     buf = io.BytesIO()
     c = canvas.Canvas(buf, pagesize=A4)
     W, H = A4
@@ -113,6 +147,7 @@ def generate_receipt_pdf(
     # ── Header band ────────────────────────────────────────
     c.setFillColor(colors.HexColor("#111111"))
     c.rect(0, H - 80, W, 80, fill=1, stroke=0)
+    _draw_logo_in_header(c, logo, H, 80, W)
 
     c.setFont(font_bold, 22)
     c.setFillColor(colors.white)
@@ -227,8 +262,10 @@ def generate_invoice_pdf(
     bank_branch: str | None = None,
     bank_account: str | None = None,
     vat_percent: float = 18.0,
+    logo_url: str | None = None,
 ) -> bytes:
     font_reg, font_bold = _ensure_fonts()
+    logo = _load_logo(logo_url)
     buf = io.BytesIO()
     c = canvas.Canvas(buf, pagesize=A4)
     W, H = A4
@@ -246,6 +283,7 @@ def generate_invoice_pdf(
     # ── Header band ─────────────────────────────────────────
     c.setFillColor(colors.HexColor("#111111"))
     c.rect(0, H - 90, W, 90, fill=1, stroke=0)
+    _draw_logo_in_header(c, logo, H, 90, W)
 
     c.setFont(font_bold, 22)
     c.setFillColor(colors.white)
