@@ -114,30 +114,28 @@ def create_payment(db: Session, studio_id: UUID, data) -> Payment:
                 ))
                 db.commit()
 
-    # Send review/aftercare message after final payment — only if treatment type has send_aftercare=True
+    # Send review/aftercare message after final payment (not deposit)
+    # Sends whenever aftercare_message or any review link is configured.
     if obj.status == "paid" and obj.type == "payment":
         try:
-            import json as _json
             import logging as _log
             _logger = _log.getLogger(__name__)
             from app.models.studio_settings import StudioSettings as _SS
             _settings = db.get(_SS, studio_id)
-            _should_send = False
-            if _settings and _settings.treatment_types:
-                _types = _json.loads(_settings.treatment_types) if isinstance(_settings.treatment_types, str) else _settings.treatment_types
-                _title_lower = (appt.title or "").lower()
-                for _t in _types:
-                    _tname = _t.get("name", "").strip().lower()
-                    if _tname and _tname in _title_lower and _t.get("send_aftercare"):
-                        _should_send = True
-                        break
-                _logger.info("Aftercare check — title=%r types=%r should_send=%s", appt.title, [t.get("name") for t in _types], _should_send)
-            else:
-                _logger.info("Aftercare check — no treatment_types configured for studio %s", studio_id)
-            if _should_send:
-                from app.crud.automation import enqueue_post_payment_message
-                enqueue_post_payment_message(db, appt, obj.amount_cents, points_earned=points_earned)
-                _logger.info("Aftercare message enqueued for appointment %s", appt.id)
+            if _settings:
+                _has_content = bool(
+                    getattr(_settings, "aftercare_message", None) or
+                    getattr(_settings, "review_link_google", None) or
+                    getattr(_settings, "review_link_instagram", None) or
+                    getattr(_settings, "review_link_facebook", None) or
+                    getattr(_settings, "review_link_whatsapp", None)
+                )
+                if _has_content:
+                    from app.crud.automation import enqueue_post_payment_message
+                    enqueue_post_payment_message(db, appt, obj.amount_cents, points_earned=points_earned)
+                    _logger.info("Aftercare message enqueued for appointment %s after payment", appt.id)
+                else:
+                    _logger.info("No aftercare content configured for studio %s — skipping", studio_id)
         except Exception:
             import logging as _log
             _log.getLogger(__name__).exception("Failed to enqueue aftercare message for appointment %s", appt.id)
