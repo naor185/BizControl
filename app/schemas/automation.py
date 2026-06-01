@@ -133,6 +133,10 @@ class AutomationSettingsOut(BaseModel):
     deposit_warning_enabled: bool = True
     same_day_reminder_wa_template: str | None = None
 
+    # Online Self-Booking
+    self_booking_enabled: bool = False
+    self_booking_slot_minutes: int = 60
+
     # Treatment type templates
     treatment_types: list[TreatmentTypeTemplate] = []
 
@@ -273,6 +277,10 @@ class AutomationSettingsUpdate(BaseModel):
     reminder_7_days_enabled: bool | None = None
     deposit_warning_enabled: bool | None = None
     same_day_reminder_wa_template: str | None = None
+
+    # Online Self-Booking
+    self_booking_enabled: bool | None = None
+    self_booking_slot_minutes: int | None = Field(default=None, ge=5, le=480)
 
     # Treatment type templates
     treatment_types: list[TreatmentTypeTemplate] | None = None

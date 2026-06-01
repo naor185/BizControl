@@ -85,6 +85,8 @@ type Settings = {
 
     calendar_start_hour?: string;
     calendar_end_hour?: string;
+    self_booking_enabled?: boolean;
+    self_booking_slot_minutes?: number;
 
     studio_slug?: string | null;
 
@@ -245,6 +247,8 @@ export default function AutomationSettingsPage() {
                     ai_generations_reset_date: data.ai_generations_reset_date ?? null,
                     calendar_start_hour: data.calendar_start_hour ?? "08:00",
                     calendar_end_hour: data.calendar_end_hour ?? "23:00",
+                    self_booking_enabled: data.self_booking_enabled ?? false,
+                    self_booking_slot_minutes: data.self_booking_slot_minutes ?? 60,
                     cancellation_free_days: data.cancellation_free_days ?? 7,
                     deposit_lock_days: data.deposit_lock_days ?? 7,
                     deposit_fixed_amount_ils: data.deposit_fixed_amount_ils ?? 0,
@@ -1556,6 +1560,61 @@ export default function AutomationSettingsPage() {
                                             </div>
                                         </div>
                                     </div>
+                                </div>
+
+                                {/* Online Self-Booking */}
+                                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div>
+                                            <h4 className="text-lg font-bold text-slate-800">📲 קביעת תורים אונליין</h4>
+                                            <p className="text-sm text-slate-500 mt-0.5">לקוחות יוכלו לקבוע תור בעצמם דרך עמוד ציבורי</p>
+                                        </div>
+                                        <button
+                                            onClick={() => handleChange("self_booking_enabled", !settings.self_booking_enabled)}
+                                            className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${settings.self_booking_enabled ? "bg-emerald-500" : "bg-slate-200"}`}
+                                        >
+                                            <span className={`inline-block h-6 w-6 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${settings.self_booking_enabled ? "translate-x-5" : "translate-x-0"}`} />
+                                        </button>
+                                    </div>
+
+                                    {settings.self_booking_enabled && (
+                                        <div className="space-y-4 pt-3 border-t border-slate-100">
+                                            <div>
+                                                <label className="block text-sm font-semibold text-slate-700 mb-1">משך חריץ ברירת מחדל (דקות)</label>
+                                                <p className="text-xs text-slate-400 mb-2">כשלא הוגדר משך לשירות ספציפי</p>
+                                                <input
+                                                    type="number" min={5} max={480} step={5}
+                                                    value={settings.self_booking_slot_minutes ?? 60}
+                                                    onChange={e => handleChange("self_booking_slot_minutes", parseInt(e.target.value) || 60)}
+                                                    className="w-24 text-center bg-white border border-slate-200 rounded-xl px-3 py-2 font-semibold outline-none focus:ring-2 focus:ring-blue-500" dir="ltr"
+                                                />
+                                            </div>
+
+                                            {settings.studio_slug && (
+                                                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+                                                    <p className="text-sm font-semibold text-emerald-700 mb-2">🔗 קישור לקביעת תור:</p>
+                                                    <div className="flex gap-2 items-center">
+                                                        <input
+                                                            readOnly
+                                                            value={`${typeof window !== "undefined" ? window.location.origin : ""}/book/${settings.studio_slug}`}
+                                                            className="flex-1 bg-white text-slate-600 font-mono text-sm px-3 py-2 rounded-lg border border-emerald-200 outline-none" dir="ltr"
+                                                        />
+                                                        <button
+                                                            onClick={() => navigator.clipboard.writeText(`${typeof window !== "undefined" ? window.location.origin : ""}/book/${settings.studio_slug}`)}
+                                                            className="px-3 py-2 bg-emerald-100 text-emerald-700 hover:bg-emerald-200 font-bold rounded-lg text-sm transition-colors"
+                                                        >העתק</button>
+                                                        <a
+                                                            href={`/book/${settings.studio_slug}`} target="_blank"
+                                                            className="px-3 py-2 bg-emerald-500 text-white hover:bg-emerald-600 font-bold rounded-lg text-sm transition-colors"
+                                                        >פתח ↗</a>
+                                                    </div>
+                                                    <p className="text-xs text-emerald-600 mt-2">
+                                                        💡 כל שירות צריך להיות מסומן &quot;זמין להזמנה אונליין&quot; בדף השירותים
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         )}
