@@ -138,6 +138,36 @@ def ensure_schema():
             WHERE external_id IS NOT NULL
         """)
 
+        # ── Phase 2: Automation Rule Engine ──────────────────────────────────
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS automation_rules (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                name VARCHAR(128) NOT NULL,
+                is_active BOOLEAN NOT NULL DEFAULT true,
+                trigger_event VARCHAR(64) NOT NULL,
+                trigger_conditions JSONB NOT NULL DEFAULT '{}',
+                actions JSONB NOT NULL DEFAULT '[]',
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_automation_rules_studio ON automation_rules (studio_id, trigger_event)")
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS automation_executions (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                rule_id UUID NOT NULL REFERENCES automation_rules(id) ON DELETE CASCADE,
+                studio_id UUID NOT NULL,
+                trigger_event VARCHAR(64) NOT NULL,
+                context_data JSONB NOT NULL DEFAULT '{}',
+                status VARCHAR(16) NOT NULL DEFAULT 'ok',
+                error TEXT,
+                executed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_automation_exec_rule ON automation_executions (rule_id)")
+
         # ── Phase 1: Service Catalog ──────────────────────────────────────────
         cur.execute("""
             CREATE TABLE IF NOT EXISTS services (

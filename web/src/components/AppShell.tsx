@@ -36,7 +36,8 @@ const MAIN_NAV = [
 ];
 
 const MANAGE_NAV = [
-    { href: "/services",    label: "שירותים",      icon: "🛎️" },
+    { href: "/services",     label: "שירותים",      icon: "🛎️" },
+    { href: "/automations", label: "אוטומציות",    icon: "⚡" },
     { href: "/products",    label: "מוצרים",      icon: "📦" },
     { href: "/expenses",    label: "הוצאות",       icon: "💼" },
     { href: "/team",        label: "צוות",         icon: "🎨" },

@@ -440,4 +440,25 @@ def mark_appointment_done(
     except Exception:
         log.exception("Failed to enqueue aftercare message for appointment %s", appointment_id)
 
+    # ── Fire automation rules for appointment_done ────────────────────────────
+    try:
+        import pytz as _pytz
+        from app.services.automation_engine import fire_event as _fire
+        _settings = db.get(StudioSettings, ctx.studio_id)
+        _tz = _pytz.timezone(getattr(_settings, "timezone", None) or "Asia/Jerusalem")
+        _local = appt.starts_at.astimezone(_tz)
+        _ctx = {
+            "client_name": appt.client.full_name if appt.client_id and hasattr(appt, "client") and appt.client else "",
+            "client_phone": appt.client_phone or "",
+            "service_name": appt.title or "",
+            "service_id": str(appt.service_id) if getattr(appt, "service_id", None) else "",
+            "appointment_date": _local.strftime("%d/%m/%Y"),
+            "appointment_time": _local.strftime("%H:%M"),
+            "artist_name": "",
+        }
+        _fire(db, ctx.studio_id, "appointment_done", _ctx,
+              appointment_id=appt.id, client_id=appt.client_id)
+    except Exception:
+        log.exception("Automation engine error for appointment_done %s", appointment_id)
+
     return {"message": "Appointment marked as done"}
