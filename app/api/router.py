@@ -42,6 +42,7 @@ from app.api.service_routes import router as service_router
 from app.api.automation_rule_routes import router as automation_rule_router
 from app.api.wait_list_routes import router as wait_list_router
 from app.api.booking_routes import router as booking_router
+from app.api.marketplace_routes import router as marketplace_router
 
 api_router = APIRouter()
 api_router.include_router(studio_router)
@@ -88,3 +89,4 @@ api_router.include_router(service_router)
 api_router.include_router(automation_rule_router)
 api_router.include_router(wait_list_router)
 api_router.include_router(booking_router)
+api_router.include_router(marketplace_router)

@@ -138,6 +138,29 @@ def ensure_schema():
             WHERE external_id IS NOT NULL
         """)
 
+        # ── Phase 4: Marketplace ─────────────────────────────────────────────
+        for stmt in [
+            "ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS marketplace_visible BOOLEAN NOT NULL DEFAULT false",
+            "ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS marketplace_description TEXT",
+            "ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS marketplace_city VARCHAR(64)",
+            "ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS marketplace_cover_url TEXT",
+            "ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS marketplace_phone VARCHAR(32)",
+            "ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS notification_phone VARCHAR(32)",
+        ]:
+            cur.execute(stmt)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS studio_reviews (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                client_name VARCHAR(120) NOT NULL,
+                rating INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
+                comment TEXT,
+                is_approved BOOLEAN NOT NULL DEFAULT false,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_studio_reviews_studio ON studio_reviews (studio_id, is_approved)")
+
         # ── Phase 3: Wait List + Online Booking ──────────────────────────────
         cur.execute("""
             CREATE TABLE IF NOT EXISTS wait_list (

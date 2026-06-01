@@ -151,6 +151,14 @@ class StudioSettings(Base):
     # Template לתזכורת ביום התור
     same_day_reminder_wa_template: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    # ── Marketplace (Phase 4) ─────────────────────────────────────────────────
+    marketplace_visible: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    marketplace_description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    marketplace_city: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    marketplace_cover_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    marketplace_phone: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    notification_phone: Mapped[str | None] = mapped_column(String(32), nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     studio: Mapped["Studio"] = relationship(back_populates="settings")
