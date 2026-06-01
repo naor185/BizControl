@@ -53,6 +53,11 @@ const METHOD_COLORS: Record<string, string> = {
     bank_transfer: "bg-amber-100 text-amber-800",
 };
 
+const currentMonthKey = (() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+})();
+
 export default function Page() {
     const [payments, setPayments] = useState<Payment[]>([]);
     const [loading, setLoading] = useState(true);
@@ -60,6 +65,16 @@ export default function Page() {
     const [selectedMethods, setSelectedMethods] = useState<Set<string>>(new Set());
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [expandedMonths, setExpandedMonths] = useState<Set<string>>(new Set([currentMonthKey]));
+
+    const toggleMonth = (key: string) => {
+        setExpandedMonths(prev => {
+            const next = new Set(prev);
+            if (next.has(key)) next.delete(key);
+            else next.add(key);
+            return next;
+        });
+    };
 
     const toggleMethod = (key: string) => {
         if (key === "all") {
@@ -126,10 +141,13 @@ export default function Page() {
         return Object.entries(groups).sort(([a], [b]) => b.localeCompare(a));
     }, [filtered]);
 
-    // Overall totals by method (all payments, no filter, excluding system/points payments)
+    // Current month totals by method
     const totals = useMemo(() => {
         const t: Record<string, number> = {};
         for (const p of payments) {
+            const d = new Date(p.created_at);
+            const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+            if (key !== currentMonthKey) continue;
             if (p.type === "refund") continue;
             if (p.notes?.startsWith("[מערכת]")) continue;
             t[p.method] = (t[p.method] || 0) + p.amount_cents;
@@ -162,18 +180,23 @@ export default function Page() {
             <AppShell title="תשלומים">
                 <div className="space-y-6">
 
-                    {/* Overall method totals */}
+                    {/* Current month totals */}
                     {!loading && !err && payments.length > 0 && (
-                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                            {METHODS.filter(m => m.key !== "all").map(m => (
-                                <div key={m.key} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
-                                    <div className="text-xl mb-1">{m.icon}</div>
-                                    <div className="text-xs text-slate-500 font-medium">{m.label}</div>
-                                    <div className="text-lg font-black text-slate-800 mt-1" dir="ltr">
-                                        {fmt(totals[m.key] || 0)}
+                        <div>
+                            <div className="text-xs text-slate-400 font-semibold mb-2 px-1">
+                                📅 {new Date().toLocaleDateString("he-IL", { month: "long", year: "numeric" })} — סיכום חודש נוכחי
+                            </div>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                                {METHODS.filter(m => m.key !== "all").map(m => (
+                                    <div key={m.key} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
+                                        <div className="text-xl mb-1">{m.icon}</div>
+                                        <div className="text-xs text-slate-500 font-medium">{m.label}</div>
+                                        <div className="text-lg font-black text-slate-800 mt-1" dir="ltr">
+                                            {fmt(totals[m.key] || 0)}
+                                        </div>
                                     </div>
-                                </div>
-                            ))}
+                                ))}
+                            </div>
                         </div>
                     )}
 
@@ -215,30 +238,41 @@ export default function Page() {
                                 {byMonth.map(([monthKey, ps]) => {
                                     const mTotal = monthTotal(ps);
                                     const mByMethod = monthByMethod(ps);
+                                    const isCurrentMonth = monthKey === currentMonthKey;
+                                    const isExpanded = expandedMonths.has(monthKey);
                                     return (
                                         <div key={monthKey}>
-                                            {/* Month header */}
-                                            <div className="px-6 py-4 bg-slate-50 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                                                <div>
-                                                    <div className="font-bold text-slate-800 text-base">{monthLabel(monthKey)}</div>
-                                                    <div className="flex flex-wrap gap-2 mt-1.5">
-                                                        {Object.entries(mByMethod).map(([method, cents]) => (
-                                                            <span key={method} className={`text-xs px-2 py-0.5 rounded-full font-semibold ${METHOD_COLORS[method] || "bg-slate-100 text-slate-600"}`}>
-                                                                {METHOD_LABELS[method] || method}: {fmt(cents)}
-                                                            </span>
-                                                        ))}
+                                            {/* Month header — clickable to expand/collapse */}
+                                            <button
+                                                onClick={() => toggleMonth(monthKey)}
+                                                className={`w-full px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-right transition-colors ${isCurrentMonth ? "bg-sky-50 hover:bg-sky-100/70" : "bg-slate-50 hover:bg-slate-100/70"}`}
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <span className={`text-lg transition-transform duration-200 ${isExpanded ? "rotate-90" : ""}`}>▶</span>
+                                                    <div>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="font-bold text-slate-800 text-base">{monthLabel(monthKey)}</span>
+                                                            {isCurrentMonth && <span className="text-[10px] bg-sky-600 text-white px-2 py-0.5 rounded-full font-bold">חודש נוכחי</span>}
+                                                        </div>
+                                                        <div className="flex flex-wrap gap-2 mt-1.5">
+                                                            {Object.entries(mByMethod).map(([method, cents]) => (
+                                                                <span key={method} className={`text-xs px-2 py-0.5 rounded-full font-semibold ${METHOD_COLORS[method] || "bg-slate-100 text-slate-600"}`}>
+                                                                    {METHOD_LABELS[method] || method}: {fmt(cents)}
+                                                                </span>
+                                                            ))}
+                                                        </div>
                                                     </div>
                                                 </div>
-                                                <div className="text-right">
+                                                <div className="text-right shrink-0">
                                                     <div className="text-xs text-slate-400 font-medium">סה״כ חודשי</div>
                                                     <div className={`text-xl font-black ${mTotal >= 0 ? "text-emerald-600" : "text-rose-600"}`} dir="ltr">
                                                         {fmt(Math.abs(mTotal))}
                                                     </div>
                                                 </div>
-                                            </div>
+                                            </button>
 
-                                            {/* Payments list */}
-                                            <div className="divide-y divide-slate-50">
+                                            {/* Payments list — hidden when collapsed */}
+                                            <div className={isExpanded ? "divide-y divide-slate-50" : "hidden"}>
                                                 {ps.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).map(p => (
                                                     <div key={p.id} className="px-6 py-3 flex items-center justify-between hover:bg-slate-50/60 transition-colors group">
                                                         <div className="flex items-center gap-3 overflow-hidden">
