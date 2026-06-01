@@ -312,11 +312,11 @@ def enqueue_post_payment_message(db: Session, appt: Appointment, amount_cents: i
     if not settings or not client:
         return
 
-    # ── Dedup: skip if aftercare already sent for this appointment ───────────
+    # ── Dedup: skip if post-payment thank-you already sent for this appointment ──
     already = db.scalar(
         _select(MessageJob).where(
             MessageJob.appointment_id == appt.id,
-            MessageJob.reminder_type == "aftercare",
+            MessageJob.reminder_type == "post_payment",
         )
     )
     if already:
@@ -325,14 +325,18 @@ def enqueue_post_payment_message(db: Session, appt: Appointment, amount_cents: i
     # ── Build review block ───────────────────────────────────
     review_lines: list[str] = []
     if settings.review_link_google:
-        review_lines.append(f"⭐ Google: {settings.review_link_google.strip()}")
+        review_lines.append(f"⭐⭐⭐⭐⭐ Google: {settings.review_link_google.strip()}")
     if settings.review_link_instagram:
         review_lines.append(f"📸 Instagram: {settings.review_link_instagram.strip()}")
     if settings.review_link_facebook:
         review_lines.append(f"👍 Facebook: {settings.review_link_facebook.strip()}")
     if settings.review_link_whatsapp:
         review_lines.append(f"💬 WhatsApp: {settings.review_link_whatsapp.strip()}")
-    review_block = ("\n\n🙏 היה לנו כיף! נשמח אם תשאיר ביקורת:\n" + "\n".join(review_lines)) if review_lines else ""
+    review_block = (
+        "\n\n🌟 נשמח לביקורת שלך!\n"
+        "אם נהנית — ביקורת בגוגל עוזרת לנו המון 🙏\n"
+        + "\n".join(review_lines)
+    ) if review_lines else ""
 
     # ── Aftercare block ──────────────────────────────────────
     aftercare_block = ""
@@ -366,7 +370,8 @@ def enqueue_post_payment_message(db: Session, appt: Appointment, amount_cents: i
     wa_template = settings.post_payment_wa_template
     if not wa_template:
         wa_template = (
-            "תודה {client_name}! 🙏"
+            "תודה {client_name}! 🙏\n"
+            "שמחים שבחרת בנו ❤️"
             "{points_block}"
             "{aftercare_block}"
             "{review_block}"
@@ -377,7 +382,7 @@ def enqueue_post_payment_message(db: Session, appt: Appointment, amount_cents: i
             channel="whatsapp", to_phone=client.phone,
             body=smart_format(wa_template, context),
             scheduled_at=now, status="pending",
-            reminder_type="aftercare",
+            reminder_type="post_payment",
         ))
 
     # ── Email ─────────────────────────────────────────────────

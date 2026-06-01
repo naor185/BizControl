@@ -136,31 +136,14 @@ def create_payment(db: Session, studio_id: UUID, data) -> Payment:
         except Exception:
             import logging as _l; _l.getLogger(__name__).exception("Automation engine error for payment_received")
 
-    # Send review/aftercare message after final payment (not deposit)
-    # Sends whenever aftercare_message or any review link is configured.
-    if obj.status == "paid" and obj.type == "payment":
+    # Send thank-you message after final payment (always — not just when content configured)
+    if obj.status == "paid" and obj.type == "payment" and client.phone:
         try:
-            import logging as _log
-            _logger = _log.getLogger(__name__)
-            from app.models.studio_settings import StudioSettings as _SS
-            _settings = db.get(_SS, studio_id)
-            if _settings:
-                _has_content = bool(
-                    getattr(_settings, "aftercare_message", None) or
-                    getattr(_settings, "review_link_google", None) or
-                    getattr(_settings, "review_link_instagram", None) or
-                    getattr(_settings, "review_link_facebook", None) or
-                    getattr(_settings, "review_link_whatsapp", None)
-                )
-                if _has_content:
-                    from app.crud.automation import enqueue_post_payment_message
-                    enqueue_post_payment_message(db, appt, obj.amount_cents, points_earned=points_earned)
-                    _logger.info("Aftercare message enqueued for appointment %s after payment", appt.id)
-                else:
-                    _logger.info("No aftercare content configured for studio %s — skipping", studio_id)
+            from app.crud.automation import enqueue_post_payment_message
+            enqueue_post_payment_message(db, appt, obj.amount_cents, points_earned=points_earned)
         except Exception:
             import logging as _log
-            _log.getLogger(__name__).exception("Failed to enqueue aftercare message for appointment %s", appt.id)
+            _log.getLogger(__name__).exception("Failed to enqueue post-payment message for appointment %s", appt.id)
 
     # Attribution revenue tracking — best effort, non-blocking
     if obj.status == "paid" and obj.type in ("payment", "deposit") and obj.amount_cents > 0:
