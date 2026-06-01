@@ -22,6 +22,9 @@ def create_payment(db: Session, studio_id: UUID, data) -> Payment:
         if (client.loyalty_points or 0) < data.points_redeemed:
             raise ValueError(f"Not enough points. Client has {client.loyalty_points or 0} points.")
         client.loyalty_points = (client.loyalty_points or 0) - data.points_redeemed
+        # Ensure client is marked as club member when they have/use points
+        if not client.is_club_member:
+            client.is_club_member = True
 
     # Validate and apply birthday coupon discount
     applied_coupon = None
@@ -37,6 +40,10 @@ def create_payment(db: Session, studio_id: UUID, data) -> Payment:
         amount_cents = discounted_cents
     else:
         amount_cents = int(data.amount_cents)
+
+    # Reduce cash amount by points redeemed (staff enters total price; points cover part of it)
+    if data.points_redeemed > 0:
+        amount_cents = max(0, amount_cents - data.points_redeemed * 100)
 
     obj = Payment(
         studio_id=studio_id,
