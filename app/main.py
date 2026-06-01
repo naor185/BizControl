@@ -83,6 +83,37 @@ def start_scheduler():
         finally:
             db.close()
 
+    def tick_birthday_automations():
+        """Fire client_birthday automation rules for clients with a birthday today."""
+        import pytz as _pytz
+        from datetime import date as _date
+        from sqlalchemy import select as _select, extract as _extract
+        from app.models.client import Client as _Client
+        from app.services.automation_engine import fire_event as _fire
+        db = SessionLocal()
+        try:
+            _today = _date.today()  # server date (UTC); birthday month/day still match
+            clients = db.scalars(
+                _select(_Client).where(
+                    _Client.birth_date.isnot(None),
+                    _Client.is_active == True,  # noqa
+                    _extract("month", _Client.birth_date) == _today.month,
+                    _extract("day", _Client.birth_date) == _today.day,
+                )
+            ).all()
+            for c in clients:
+                try:
+                    _fire(db, c.studio_id, "client_birthday", {
+                        "client_name": c.full_name,
+                        "client_phone": c.phone or "",
+                    }, client_id=c.id)
+                except Exception:
+                    pass
+        except Exception:
+            logging.getLogger("bizcontrol.automations").exception("birthday automations sweep failed")
+        finally:
+            db.close()
+
     def tick_expire_coupons():
         from app.crud.birthday_coupon import expire_old_coupons
         db = SessionLocal()
@@ -98,6 +129,7 @@ def start_scheduler():
     scheduler.add_job(tick_same_day_reminders, "cron", hour=8, minute=0, timezone="Asia/Jerusalem", id="same_day_reminders_tick", replace_existing=True)
     scheduler.add_job(tick_plan_alerts, "cron", hour=9, minute=0, id="plan_alerts_tick", replace_existing=True)
     scheduler.add_job(tick_birthday_messages, "cron", day=25, hour=10, minute=0, id="birthday_messages_tick", replace_existing=True)
+    scheduler.add_job(tick_birthday_automations, "cron", hour=9, minute=5, timezone="Asia/Jerusalem", id="birthday_automations_tick", replace_existing=True)
     scheduler.add_job(tick_expire_coupons, "cron", hour=1, minute=0, id="expire_coupons_tick", replace_existing=True)
     scheduler.start()
 

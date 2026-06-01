@@ -161,6 +161,15 @@ def retroactive_welcome(ctx: AuthContext = Depends(require_studio_ctx), db: Sess
             _handle_new_club_member(db, ctx.studio_id, client)
             db.commit()
             processed.append({"id": str(client.id), "name": client.full_name})
+            # Fire automation rule for client_joined_club
+            try:
+                from app.services.automation_engine import fire_event as _fire
+                _fire(db, ctx.studio_id, "client_joined_club", {
+                    "client_name": client.full_name,
+                    "client_phone": client.phone or "",
+                }, client_id=client.id)
+            except Exception:
+                pass
         except Exception as e:
             db.rollback()
             failed.append({"client_id": str(client.id), "name": client.full_name, "error": str(e)})

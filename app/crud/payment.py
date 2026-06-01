@@ -114,6 +114,21 @@ def create_payment(db: Session, studio_id: UUID, data) -> Payment:
                 ))
                 db.commit()
 
+    # Fire automation rules for payment_received
+    if obj.status == "paid" and obj.type == "payment":
+        try:
+            from app.services.automation_engine import fire_event as _fire
+            _fire(db, studio_id, "payment_received", {
+                "client_name": client.full_name,
+                "client_phone": client.phone or "",
+                "service_name": appt.title or "",
+                "service_id": str(appt.service_id) if getattr(appt, "service_id", None) else "",
+                "amount": str(obj.amount_cents // 100),
+                "appointment_date": appt.starts_at.strftime("%d/%m/%Y") if appt.starts_at else "",
+            }, appointment_id=appt.id, client_id=client.id)
+        except Exception:
+            import logging as _l; _l.getLogger(__name__).exception("Automation engine error for payment_received")
+
     # Send review/aftercare message after final payment (not deposit)
     # Sends whenever aftercare_message or any review link is configured.
     if obj.status == "paid" and obj.type == "payment":

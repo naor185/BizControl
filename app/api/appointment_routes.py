@@ -62,6 +62,26 @@ def create(payload: AppointmentCreate, ctx: AuthContext = Depends(require_studio
             except Exception as e:
                 log.warning("Failed to create Google event: %s", e)
 
+        # Fire automation rules for appointment_created
+        try:
+            import pytz as _pytz
+            from app.services.automation_engine import fire_event as _fire
+            _s = db.get(StudioSettings, ctx.studio_id)
+            _tz = _pytz.timezone(getattr(_s, "timezone", None) or "Asia/Jerusalem")
+            _local = payload.starts_at.astimezone(_tz)
+            _out = get_appointment_out(db, ctx.studio_id, created["id"])
+            _fire(db, ctx.studio_id, "appointment_created", {
+                "client_name": _out.get("client_name", ""),
+                "client_phone": "",
+                "service_name": _out.get("title", ""),
+                "service_id": str(created.get("service_id") or ""),
+                "appointment_date": _local.strftime("%d/%m/%Y"),
+                "appointment_time": _local.strftime("%H:%M"),
+                "artist_name": _out.get("artist_name", "") or "",
+            }, appointment_id=created["id"], client_id=payload.client_id)
+        except Exception:
+            log.exception("Automation engine error for appointment_created")
+
         return get_appointment_out(db, ctx.studio_id, created["id"])
     except ValueError as e:
         raise HTTPException(status_code=409, detail=str(e))
@@ -354,6 +374,26 @@ def cancel(appointment_id: UUID, reason: str | None = Query(default=None), hard_
         except Exception:
             log.exception("Wait list notification failed")
 
+    # ── Fire automation rules for appointment_canceled ────────────────────────
+    if not hard_delete and appt_obj:
+        try:
+            import pytz as _pytz
+            from app.services.automation_engine import fire_event as _fire
+            _s = db.get(StudioSettings, ctx.studio_id)
+            _tz = _pytz.timezone(getattr(_s, "timezone", None) or "Asia/Jerusalem")
+            _local = appt_obj.starts_at.astimezone(_tz)
+            _client_name = appt_obj.client.full_name if appt_obj.client else ""
+            _fire(db, ctx.studio_id, "appointment_canceled", {
+                "client_name": _client_name,
+                "client_phone": "",
+                "service_name": appt_obj.title or "",
+                "service_id": str(appt_obj.service_id) if getattr(appt_obj, "service_id", None) else "",
+                "appointment_date": _local.strftime("%d/%m/%Y"),
+                "appointment_time": _local.strftime("%H:%M"),
+            }, appointment_id=appt_obj.id, client_id=appt_obj.client_id)
+        except Exception:
+            log.exception("Automation engine error for appointment_canceled")
+
     return None
 
 @router.post("/{appointment_id}/verify-payment")
@@ -393,6 +433,25 @@ def verify_sent_payment(appointment_id: UUID, ctx: AuthContext = Depends(require
         enqueue_deposit_approved_message(db, appt)
     except Exception as e:
         log.error("[deposit_approved_msg] failed: %s", e)
+
+    # Fire automation rules for deposit_paid
+    try:
+        import pytz as _pytz
+        from app.services.automation_engine import fire_event as _fire
+        _s = db.get(StudioSettings, ctx.studio_id)
+        _tz = _pytz.timezone(getattr(_s, "timezone", None) or "Asia/Jerusalem")
+        _local = appt.starts_at.astimezone(_tz)
+        _client = appt.client if hasattr(appt, "client") else None
+        _fire(db, ctx.studio_id, "deposit_paid", {
+            "client_name": _client.full_name if _client else "",
+            "client_phone": _client.phone if _client else "",
+            "service_name": appt.title or "",
+            "service_id": str(appt.service_id) if getattr(appt, "service_id", None) else "",
+            "amount": str(appt.deposit_amount_cents // 100),
+            "appointment_date": _local.strftime("%d/%m/%Y"),
+        }, appointment_id=appt.id, client_id=appt.client_id)
+    except Exception:
+        log.exception("Automation engine error for deposit_paid")
 
     return {"message": "Payment verified and recorded"}
 
