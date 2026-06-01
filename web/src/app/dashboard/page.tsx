@@ -79,7 +79,6 @@ export default function Page() {
     const fetchData = async () => {
         try {
             setLoading(true);
-            const skipped = JSON.parse(sessionStorage.getItem("skipped_deposits") || "[]") as string[];
             const [statsData, paymentsData, pendingData, depositsData, visitsData] = await Promise.all([
                 apiFetch<DashboardStats>("/api/dashboard/stats"),
                 apiFetch<DailyPayment[]>("/api/dashboard/daily-payments"),
@@ -90,7 +89,7 @@ export default function Page() {
             setStats(statsData);
             setDailyPayments(paymentsData);
             setPendingPayments(pendingData);
-            setPendingDeposits(depositsData.filter((d: any) => !skipped.includes(d.appointment_id)));
+            setPendingDeposits(depositsData);
             setPendingVisits(visitsData);
         } catch {
             setError("שגיאה בטעינת נתונים");
