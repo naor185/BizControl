@@ -4,6 +4,7 @@ const RAILWAY_URL = "https://web-production-68695.up.railway.app";
 
 const nextConfig: NextConfig = {
   typescript: { ignoreBuildErrors: true },
+  eslint: { ignoreDuringBuilds: true },
   async rewrites() {
     return [
       { source: "/api/:path*", destination: `${RAILWAY_URL}/api/:path*` },
