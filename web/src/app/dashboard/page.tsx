@@ -74,6 +74,7 @@ export default function Page() {
     const [confirmingDeposit, setConfirmingDeposit] = useState<string | null>(null);
     const [pendingVisits, setPendingVisits] = useState<PendingVisit[]>([]);
     const [confirmingVisit, setConfirmingVisit] = useState<string | null>(null);
+    const [waivingDeposit, setWaivingDeposit] = useState<string | null>(null);
 
     const fetchData = async () => {
         try {
@@ -98,10 +99,16 @@ export default function Page() {
         }
     };
 
-    const skipDeposit = (id: string) => {
-        const skipped = JSON.parse(sessionStorage.getItem("skipped_deposits") || "[]") as string[];
-        sessionStorage.setItem("skipped_deposits", JSON.stringify([...skipped, id]));
-        setPendingDeposits(prev => prev.filter(d => d.appointment_id !== id));
+    const waiveDeposit = async (id: string) => {
+        setWaivingDeposit(id);
+        try {
+            await apiFetch(`/api/appointments/${id}/waive-deposit`, { method: "POST" });
+            setPendingDeposits(prev => prev.filter(d => d.appointment_id !== id));
+        } catch (e: any) {
+            alert(e?.message || "שגיאה");
+        } finally {
+            setWaivingDeposit(null);
+        }
     };
 
     const confirmDeposit = async (id: string) => {
@@ -245,12 +252,14 @@ export default function Page() {
                                                 מקדמה: ₪{(d.deposit_amount_cents / 100).toLocaleString()}
                                             </div>
                                         </div>
-                                        <div className="flex gap-2 shrink-0">
+                                        <div className="flex gap-2 shrink-0 flex-wrap justify-end">
                                             <button
-                                                onClick={() => skipDeposit(d.appointment_id)}
-                                                className="px-3 py-1.5 text-xs font-semibold text-slate-500 border border-slate-200 rounded-lg hover:bg-slate-50 transition"
+                                                onClick={() => waiveDeposit(d.appointment_id)}
+                                                disabled={waivingDeposit === d.appointment_id}
+                                                className="px-3 py-1.5 text-xs font-semibold text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition disabled:opacity-50"
+                                                title="נועל את התור ללא גביית מקדמה"
                                             >
-                                                דלג
+                                                {waivingDeposit === d.appointment_id ? "..." : "מאשר ללא מקדמה 🔒"}
                                             </button>
                                             <a href={`https://wa.me/${d.client_phone.replace(/\D/g, "")}`} target="_blank" rel="noreferrer"
                                                 className="px-3 py-1.5 text-xs font-semibold text-emerald-700 border border-emerald-200 rounded-lg hover:bg-emerald-50 transition">

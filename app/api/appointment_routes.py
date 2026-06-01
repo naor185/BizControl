@@ -396,6 +396,21 @@ def cancel(appointment_id: UUID, reason: str | None = Query(default=None), hard_
 
     return None
 
+@router.post("/{appointment_id}/waive-deposit")
+def waive_deposit(appointment_id: UUID, ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+    """Confirm appointment without collecting a deposit — locks the slot, no payment created."""
+    from app.models.appointment import Appointment
+    appt = db.get(Appointment, appointment_id)
+    if not appt or appt.studio_id != ctx.studio_id:
+        raise HTTPException(status_code=404, detail="Appointment not found")
+    if appt.payment_verified_at:
+        return {"message": "Already verified"}
+    appt.payment_verified_at = func.now()
+    appt.deposit_amount_cents = 0
+    db.commit()
+    return {"message": "Deposit waived — appointment locked"}
+
+
 @router.post("/{appointment_id}/verify-payment")
 def verify_sent_payment(appointment_id: UUID, ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
     """Studio confirms they received the deposit (manually, after seeing screenshot on WhatsApp)."""

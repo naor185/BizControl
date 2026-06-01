@@ -19,6 +19,19 @@ export default function DepositsPage() {
     const [items, setItems] = useState<PendingDeposit[]>([]);
     const [loading, setLoading] = useState(true);
     const [confirming, setConfirming] = useState<string | null>(null);
+    const [waiving, setWaiving] = useState<string | null>(null);
+
+    async function waive(id: string) {
+        setWaiving(id);
+        try {
+            await apiFetch(`/api/appointments/${id}/waive-deposit`, { method: "POST" });
+            setItems(prev => prev.filter(i => i.appointment_id !== id));
+        } catch (e: any) {
+            alert(e?.message || "שגיאה");
+        } finally {
+            setWaiving(null);
+        }
+    }
 
     async function load() {
         setLoading(true);
@@ -104,11 +117,21 @@ export default function DepositsPage() {
                             </div>
                             <div className="flex flex-col gap-2 shrink-0">
                                 <button
+                                    type="button"
                                     onClick={() => confirm(item.appointment_id)}
                                     disabled={confirming === item.appointment_id}
                                     className="px-4 py-2.5 bg-emerald-600 text-white text-sm font-bold rounded-xl hover:bg-emerald-700 transition disabled:opacity-50 whitespace-nowrap"
                                 >
                                     {confirming === item.appointment_id ? "מאשר..." : "קיבלתי מקדמה ✅"}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => waive(item.appointment_id)}
+                                    disabled={waiving === item.appointment_id}
+                                    className="px-4 py-2.5 bg-blue-50 text-blue-700 border border-blue-200 text-sm font-semibold rounded-xl hover:bg-blue-100 transition disabled:opacity-50 whitespace-nowrap"
+                                    title="נועל את התור ללא גביית מקדמה"
+                                >
+                                    {waiving === item.appointment_id ? "..." : "מאשר ללא מקדמה 🔒"}
                                 </button>
                                 <a
                                     href={`/clients/${item.client_id}`}
