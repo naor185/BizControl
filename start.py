@@ -128,6 +128,7 @@ def ensure_schema():
             "ALTER TABLE expenses ADD COLUMN IF NOT EXISTS notes TEXT",
             "ALTER TABLE expenses ADD COLUMN IF NOT EXISTS sent_to_accountant BOOLEAN NOT NULL DEFAULT false",
             "ALTER TABLE expenses ADD COLUMN IF NOT EXISTS sent_to_accountant_at TIMESTAMPTZ",
+            "ALTER TABLE studios ADD COLUMN IF NOT EXISTS business_type VARCHAR(64) NOT NULL DEFAULT 'other'",
         ]:
             cur.execute(stmt)
 
@@ -136,6 +137,141 @@ def ensure_schema():
             ON leads (studio_id, external_id)
             WHERE external_id IS NOT NULL
         """)
+
+        # ── Phase 0: Module System ────────────────────────────────────────────
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS modules (
+                id VARCHAR(64) PRIMARY KEY,
+                name VARCHAR(128) NOT NULL,
+                description TEXT,
+                category VARCHAR(32) NOT NULL DEFAULT 'core',
+                is_available BOOLEAN NOT NULL DEFAULT true,
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS studio_modules (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                module_id VARCHAR(64) NOT NULL REFERENCES modules(id) ON DELETE CASCADE,
+                is_enabled BOOLEAN NOT NULL,
+                enabled_by_id UUID REFERENCES users(id) ON DELETE SET NULL,
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                UNIQUE(studio_id, module_id)
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_studio_modules_studio ON studio_modules (studio_id)")
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS plan_modules (
+                plan VARCHAR(32) NOT NULL,
+                module_id VARCHAR(64) NOT NULL REFERENCES modules(id) ON DELETE CASCADE,
+                PRIMARY KEY (plan, module_id)
+            )
+        """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS business_type_templates (
+                business_type VARCHAR(64) PRIMARY KEY,
+                display_name VARCHAR(128) NOT NULL,
+                default_modules JSONB NOT NULL DEFAULT '[]',
+                default_services JSONB NOT NULL DEFAULT '[]'
+            )
+        """)
+
+        # ── Seed module registry (idempotent) ─────────────────────────────────
+        MODULES = [
+            ("crm",                "core",          "CRM & לקוחות",              0),
+            ("calendar",           "core",          "יומן & תורים",              1),
+            ("payments",           "core",          "תשלומים & חשבוניות",        2),
+            ("whatsapp",           "communication", "WhatsApp אוטומציה",          3),
+            ("email",              "communication", "Email אוטומציה",             4),
+            ("sms",                "communication", "SMS",                         5),
+            ("customer_club",      "advanced",      "מועדון לקוחות & נקודות",    6),
+            ("wallet",             "advanced",      "Digital Wallet Pass",         7),
+            ("ocr",                "ai",            "סריקת מסמכים & OCR",         8),
+            ("ai_assistant",       "ai",            "עוזר AI (ויקי)",             9),
+            ("online_booking",     "marketplace",   "קביעת תורים אונליין",       10),
+            ("marketplace",        "marketplace",   "פרופיל ציבורי & Marketplace",11),
+            ("wait_list",          "advanced",      "רשימת המתנה",                12),
+            ("gift_cards",         "advanced",      "כרטיסי מתנה",               13),
+            ("analytics",          "advanced",      "Analytics מתקדם",            14),
+            ("multi_location",     "advanced",      "ריבוי סניפים",              15),
+            ("employee_mgmt",      "core",          "ניהול צוות & שכר",          16),
+            ("automation_builder", "advanced",      "בונה אוטומציות (WHEN/THEN)",17),
+        ]
+        for mid, cat, name, sort in MODULES:
+            cur.execute("""
+                INSERT INTO modules (id, name, category, sort_order)
+                VALUES (%s, %s, %s, %s)
+                ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name, category=EXCLUDED.category
+            """, (mid, name, cat, sort))
+
+        # ── Seed plan → module defaults (idempotent) ──────────────────────────
+        PLAN_MODULES = {
+            "free":       ["crm", "calendar"],
+            "starter":    ["crm", "calendar", "payments", "whatsapp", "email"],
+            "pro":        ["crm", "calendar", "payments", "whatsapp", "email",
+                           "customer_club", "ocr", "ai_assistant", "employee_mgmt"],
+            "enterprise": ["crm", "calendar", "payments", "whatsapp", "email", "sms",
+                           "customer_club", "wallet", "ocr", "ai_assistant",
+                           "online_booking", "marketplace", "wait_list", "gift_cards",
+                           "analytics", "multi_location", "employee_mgmt", "automation_builder"],
+            "platform":   ["crm", "calendar", "payments", "whatsapp", "email", "sms",
+                           "customer_club", "wallet", "ocr", "ai_assistant",
+                           "online_booking", "marketplace", "wait_list", "gift_cards",
+                           "analytics", "multi_location", "employee_mgmt", "automation_builder"],
+        }
+        for plan, mods in PLAN_MODULES.items():
+            for mod in mods:
+                cur.execute("""
+                    INSERT INTO plan_modules (plan, module_id) VALUES (%s, %s)
+                    ON CONFLICT DO NOTHING
+                """, (plan, mod))
+
+        # ── Seed business type templates (idempotent) ─────────────────────────
+        import json as _json
+        BT = [
+            ("tattoo", "סטודיו קעקועים", ["crm","calendar","payments","whatsapp","customer_club","ocr"],
+             [{"name":"ייעוץ","duration_minutes":60,"price":0,"color":"#8b5cf6"},
+              {"name":"קעקוע קטן","duration_minutes":120,"price":300,"color":"#7c3aed"},
+              {"name":"קעקוע בינוני","duration_minutes":240,"price":600,"color":"#6d28d9"},
+              {"name":"קעקוע גדול","duration_minutes":360,"price":900,"color":"#5b21b6"}]),
+            ("barber", "ספר / ברברשופ", ["crm","calendar","payments","whatsapp","online_booking","wait_list"],
+             [{"name":"תספורת","duration_minutes":30,"price":60,"color":"#0ea5e9"},
+              {"name":"זקן","duration_minutes":20,"price":40,"color":"#0284c7"},
+              {"name":"תספורת + זקן","duration_minutes":45,"price":90,"color":"#0369a1"}]),
+            ("nails", "ציפורניים", ["crm","calendar","payments","whatsapp","online_booking"],
+             [{"name":"מניקור","duration_minutes":45,"price":80,"color":"#ec4899"},
+              {"name":"פדיקור","duration_minutes":60,"price":100,"color":"#db2777"},
+              {"name":"לק ג'ל","duration_minutes":60,"price":120,"color":"#be185d"},
+              {"name":"בנייה","duration_minutes":90,"price":200,"color":"#9d174d"}]),
+            ("laser", "קליניקת לייזר", ["crm","calendar","payments","whatsapp","email","online_booking"],
+             [{"name":"לייזר שפם","duration_minutes":30,"price":150,"color":"#f59e0b"},
+              {"name":"לייזר ביקיני","duration_minutes":45,"price":250,"color":"#d97706"},
+              {"name":"לייזר גב","duration_minutes":60,"price":350,"color":"#b45309"}]),
+            ("pilates", "פילאטיס / כושר", ["crm","calendar","payments","whatsapp","online_booking","wait_list","customer_club"],
+             [{"name":"שיעור אישי","duration_minutes":60,"price":200,"color":"#10b981"},
+              {"name":"שיעור קבוצתי","duration_minutes":60,"price":80,"color":"#059669"},
+              {"name":"מנוי חודשי","duration_minutes":0,"price":600,"color":"#047857"}]),
+            ("spa", "ספא / קוסמטיקה", ["crm","calendar","payments","whatsapp","online_booking","customer_club"],
+             [{"name":"פנים בסיסי","duration_minutes":60,"price":200,"color":"#6366f1"},
+              {"name":"עיסוי שוודי","duration_minutes":60,"price":250,"color":"#4f46e5"},
+              {"name":"עיסוי רקמות עמוק","duration_minutes":90,"price":320,"color":"#4338ca"}]),
+            ("medical", "קליניקה / מרפאה", ["crm","calendar","payments","whatsapp","email"],
+             [{"name":"ייעוץ","duration_minutes":30,"price":350,"color":"#14b8a6"},
+              {"name":"טיפול","duration_minutes":60,"price":500,"color":"#0d9488"}]),
+            ("other", "אחר", ["crm","calendar","payments","whatsapp"],
+             [{"name":"שירות","duration_minutes":60,"price":0,"color":"#64748b"}]),
+        ]
+        for bt, dn, mods, svcs in BT:
+            cur.execute("""
+                INSERT INTO business_type_templates (business_type, display_name, default_modules, default_services)
+                VALUES (%s, %s, %s, %s)
+                ON CONFLICT (business_type) DO UPDATE
+                    SET display_name=EXCLUDED.display_name,
+                        default_modules=EXCLUDED.default_modules,
+                        default_services=EXCLUDED.default_services
+            """, (bt, dn, _json.dumps(mods, ensure_ascii=False), _json.dumps(svcs, ensure_ascii=False)))
 
         # Zero out loyalty points for non-club-member clients (one-time cleanup)
         cur.execute("""

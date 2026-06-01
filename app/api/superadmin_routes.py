@@ -1549,6 +1549,113 @@ def disable_invoice_scan(
     return {"enabled": False}
 
 
+# ── Phase 0: Module Management ───────────────────────────────────────────────
+
+class ModuleToggle(BaseModel):
+    is_enabled: bool
+
+
+@router.get("/modules", tags=["SuperAdmin"])
+def list_modules(_admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    """List all registered modules."""
+    from app.models.module import Module as ModuleModel
+    mods = db.scalars(select(ModuleModel).order_by(ModuleModel.sort_order)).all()
+    return [{"id": m.id, "name": m.name, "category": m.category,
+             "is_available": m.is_available, "sort_order": m.sort_order} for m in mods]
+
+
+@router.get("/studios/{studio_id}/modules", tags=["SuperAdmin"])
+def get_studio_module_status(
+    studio_id: str,
+    _admin: User = Depends(require_superadmin),
+    db: Session = Depends(get_db),
+):
+    """Get all modules with enabled status for a studio."""
+    from app.core.features import get_studio_modules
+    studio = db.query(Studio).filter_by(id=studio_id).first()
+    if not studio:
+        raise HTTPException(status_code=404, detail="Studio not found")
+    return get_studio_modules(db, studio_id, studio.subscription_plan)
+
+
+@router.put("/studios/{studio_id}/modules/{module_id}", tags=["SuperAdmin"])
+def set_studio_module(
+    studio_id: str,
+    module_id: str,
+    payload: ModuleToggle,
+    admin: User = Depends(require_superadmin),
+    db: Session = Depends(get_db),
+):
+    """Enable or disable a specific module for a studio."""
+    from app.models.module import StudioModule
+    studio = db.query(Studio).filter_by(id=studio_id).first()
+    if not studio:
+        raise HTTPException(status_code=404, detail="Studio not found")
+    override = db.query(StudioModule).filter_by(studio_id=studio_id, module_id=module_id).first()
+    if override:
+        override.is_enabled = payload.is_enabled
+        override.enabled_by_id = admin.id
+    else:
+        db.add(StudioModule(
+            studio_id=studio_id, module_id=module_id,
+            is_enabled=payload.is_enabled, enabled_by_id=admin.id,
+        ))
+    action = f"{'enable' if payload.is_enabled else 'disable'}_module_{module_id}"
+    _audit(db, admin, action, studio, {"module": module_id, "enabled": payload.is_enabled})
+    db.commit()
+    return {"studio_id": studio_id, "module_id": module_id, "is_enabled": payload.is_enabled}
+
+
+@router.get("/plan-modules", tags=["SuperAdmin"])
+def get_plan_modules(_admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    """Get module list per plan."""
+    from app.models.module import PlanModule
+    rows = db.query(PlanModule).all()
+    result: dict = {}
+    for r in rows:
+        result.setdefault(r.plan, []).append(r.module_id)
+    return result
+
+
+@router.get("/business-types", tags=["SuperAdmin"])
+def get_business_types(_admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    """Get all business type templates."""
+    from app.models.module import BusinessTypeTemplate
+    rows = db.query(BusinessTypeTemplate).all()
+    return [{"business_type": r.business_type, "display_name": r.display_name,
+             "default_modules": r.default_modules, "default_services": r.default_services} for r in rows]
+
+
+@router.put("/studios/{studio_id}/business-type", tags=["SuperAdmin"])
+def set_studio_business_type(
+    studio_id: str,
+    payload: dict,
+    admin: User = Depends(require_superadmin),
+    db: Session = Depends(get_db),
+):
+    """Set business type and optionally load default modules."""
+    from app.models.module import BusinessTypeTemplate, StudioModule
+    studio = db.query(Studio).filter_by(id=studio_id).first()
+    if not studio:
+        raise HTTPException(status_code=404, detail="Studio not found")
+    bt = payload.get("business_type", "other")
+    studio.business_type = bt
+    # Optionally load defaults
+    if payload.get("load_defaults"):
+        tmpl = db.query(BusinessTypeTemplate).filter_by(business_type=bt).first()
+        if tmpl:
+            for mod_id in tmpl.default_modules:
+                existing = db.query(StudioModule).filter_by(
+                    studio_id=studio_id, module_id=mod_id
+                ).first()
+                if not existing:
+                    db.add(StudioModule(studio_id=studio_id, module_id=mod_id,
+                                        is_enabled=True, enabled_by_id=admin.id))
+    _audit(db, admin, "set_business_type", studio, {"business_type": bt})
+    db.commit()
+    return {"studio_id": studio_id, "business_type": bt}
+
+
 @router.delete("/studios/{studio_id}/clients", tags=["SuperAdmin"])
 def delete_all_studio_clients(studio_id: str, _admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
     from app.models.client_points_ledger import ClientPointsLedger

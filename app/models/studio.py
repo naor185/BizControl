@@ -26,6 +26,8 @@ class Studio(Base):
     plan_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     is_platform: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
+    business_type: Mapped[str] = mapped_column(String(64), nullable=False, default="other")
+
     stripe_customer_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     stripe_subscription_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
 

@@ -667,6 +667,12 @@ export default function AdminPage() {
                     >
                         📄 סריקות AI
                     </a>
+                    <a
+                        href="/admin/modules"
+                        className="px-4 py-2 rounded-xl text-sm font-semibold transition-colors text-slate-400 hover:text-white"
+                    >
+                        🧩 מודולים
+                    </a>
                 </div>
 
                 {err && (
