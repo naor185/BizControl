@@ -161,8 +161,7 @@ export default function AdminPage() {
     const [deleteErr, setDeleteErr] = useState<string | null>(null);
     const [extendDays, setExtendDays] = useState(14);
     const [extending, setExtending] = useState(false);
-    const [tab, setTab] = useState<"studios" | "audit" | "platform" | "leads" | "contacts" | "health" | "platform-analytics">("studios");
-    const [platformAnalytics, setPlatformAnalytics] = useState<any>(null);
+    const [tab, setTab] = useState<"studios" | "audit" | "platform" | "leads" | "contacts" | "health">("studios");
     const [healthData, setHealthData] = useState<{ studio_id: string; studio_name: string; wa_status: string; failed_jobs_24h: number; stuck_pending_jobs: number; has_alert: boolean }[] | null>(null);
     const [healthLoading, setHealthLoading] = useState(false);
     const [auditLog, setAuditLog] = useState<AuditEntry[] | null>(null);
@@ -410,7 +409,7 @@ export default function AdminPage() {
         } catch { } finally { setLeadsLoading(false); }
     };
 
-    const handleTabChange = (t: "studios" | "audit" | "platform" | "leads" | "contacts" | "health" | "platform-analytics") => {
+    const handleTabChange = (t: "studios" | "audit" | "platform" | "leads" | "contacts" | "health") => {
         if (t === "health" && !healthData) {
             setHealthLoading(true);
             apiFetch<typeof healthData>("/api/admin/health")
@@ -418,12 +417,7 @@ export default function AdminPage() {
                 .catch(() => {})
                 .finally(() => setHealthLoading(false));
         }
-        if (t === "platform-analytics" && !platformAnalytics) {
-            apiFetch<any>("/api/admin/platform-analytics")
-                .then(d => setPlatformAnalytics(d))
-                .catch(() => {});
-        }
-        setTab(t as any);
+        setTab(t);
         if (t === "audit") loadAuditLog();
         if (t === "platform") loadPlatformSettings();
         if (t === "leads") loadLeads();
@@ -644,7 +638,7 @@ export default function AdminPage() {
 
                 {/* Tabs */}
                 <div className="flex flex-wrap gap-1 bg-white/5 border border-white/10 rounded-2xl p-1 w-fit">
-                    {(["studios", "contacts", "leads", "audit", "platform", "health", "platform-analytics"] as const).map(t => (
+                    {(["studios", "contacts", "leads", "audit", "platform", "health"] as const).map(t => (
                         <button
                             key={t}
                             onClick={() => handleTabChange(t)}
@@ -652,7 +646,7 @@ export default function AdminPage() {
                                 tab === t ? "bg-white text-slate-900" : "text-slate-400 hover:text-white"
                             }`}
                         >
-                            {t === "studios" ? "🏢 סטודיואים" : t === "contacts" ? "👥 אנשי קשר" : t === "leads" ? "📥 לידים" : t === "audit" ? "📋 לוג פעולות" : t === "platform" ? "⚙️ פלטפורמה" : t === "platform-analytics" ? "📊 Platform Analytics" : "🚨 התראות"}
+                            {t === "studios" ? "🏢 סטודיואים" : t === "contacts" ? "👥 אנשי קשר" : t === "leads" ? "📥 לידים" : t === "audit" ? "📋 לוג פעולות" : t === "platform" ? "⚙️ פלטפורמה" : "🚨 התראות"}
                         </button>
                     ))}
                     <a
@@ -684,6 +678,12 @@ export default function AdminPage() {
                         className="px-4 py-2 rounded-xl text-sm font-semibold transition-colors text-slate-400 hover:text-white"
                     >
                         📦 חבילות
+                    </a>
+                    <a
+                        href="/admin/platform-analytics"
+                        className="px-4 py-2 rounded-xl text-sm font-semibold transition-colors text-slate-400 hover:text-white"
+                    >
+                        📊 Analytics
                     </a>
                 </div>
 
@@ -1938,83 +1938,7 @@ export default function AdminPage() {
                     </div>
                 )}
 
-                {/* ── Platform Analytics Tab ───────────────────────────────── */}
-                {tab === "platform-analytics" && (
-                    <div className="space-y-6">
-                        {!platformAnalytics ? (
-                            <div className="text-slate-400 text-center py-12">⏳ טוען נתוני פלטפורמה...</div>
-                        ) : (
-                            <>
-                                {/* KPI Cards */}
-                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                                    {[
-                                        { label: "MRR החודש", value: `₪${platformAnalytics.mrr_ils.toLocaleString()}`, icon: "💰", color: "#4ade80" },
-                                        { label: "סטודיוים פעילים", value: platformAnalytics.active_studios, icon: "🏢", color: "#60a5fa" },
-                                        { label: "תורים היום", value: platformAnalytics.appts_today, icon: "📅", color: "#a78bfa" },
-                                        { label: "הודעות החודש", value: platformAnalytics.messages_sent_month.toLocaleString(), icon: "💬", color: "#f59e0b" },
-                                        { label: "תורים החודש", value: platformAnalytics.appts_month.toLocaleString(), icon: "📊", color: "#34d399" },
-                                        { label: "סה״כ לקוחות", value: platformAnalytics.total_clients.toLocaleString(), icon: "👥", color: "#818cf8" },
-                                        { label: "סטודיוים בסיכון", value: platformAnalytics.at_risk_studios, icon: "⚠️", color: "#f87171" },
-                                        { label: "חבילות", value: platformAnalytics.plan_distribution.length, icon: "📦", color: "#fbbf24" },
-                                    ].map(card => (
-                                        <div key={card.label} className="bg-white/5 border border-white/10 rounded-2xl p-4">
-                                            <div className="text-2xl mb-1">{card.icon}</div>
-                                            <div className="font-bold text-2xl" style={{ color: card.color }}>{card.value}</div>
-                                            <div className="text-xs text-slate-400 mt-0.5">{card.label}</div>
-                                        </div>
-                                    ))}
-                                </div>
-
-                                {/* Top studios + plan dist */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
-                                        <div className="font-bold text-white mb-3">🏆 Top סטודיוים (הכנסות החודש)</div>
-                                        {platformAnalytics.top_studios.length === 0 ? (
-                                            <div className="text-slate-500 text-sm">אין נתונים</div>
-                                        ) : platformAnalytics.top_studios.map((s: any, i: number) => (
-                                            <div key={s.slug} className="flex justify-between items-center py-2 border-b border-white/5 last:border-0">
-                                                <span className="text-slate-300 text-sm">#{i+1} {s.name}</span>
-                                                <span className="text-violet-400 font-bold text-sm">₪{s.revenue_ils.toLocaleString()}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-
-                                    <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
-                                        <div className="font-bold text-white mb-3">📦 פילוג חבילות</div>
-                                        {platformAnalytics.plan_distribution.map((p: any) => (
-                                            <div key={p.plan} className="flex justify-between items-center py-2 border-b border-white/5 last:border-0">
-                                                <span className="text-slate-300 text-sm capitalize">{p.plan}</span>
-                                                <div className="flex items-center gap-2">
-                                                    <div className="h-2 rounded-full bg-violet-600" style={{ width: `${Math.max(20, p.count * 15)}px` }} />
-                                                    <span className="text-white font-bold text-sm">{p.count}</span>
-                                                </div>
-                                            </div>
-                                        ))}
-                                        {platformAnalytics.at_risk_studios > 0 && (
-                                            <div className="mt-3 bg-red-900/20 border border-red-500/20 rounded-xl p-3 text-sm text-red-300">
-                                                ⚠️ {platformAnalytics.at_risk_studios} סטודיוים ללא פעילות ב-30 יום
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Quick links */}
-                                <div className="flex gap-3 flex-wrap">
-                                    <a href="/admin/packages" className="px-4 py-2 bg-violet-700 hover:bg-violet-600 text-white rounded-xl text-sm font-semibold transition-colors">
-                                        📦 עורך חבילות
-                                    </a>
-                                    <a href="/admin/modules" className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-sm font-semibold transition-colors">
-                                        🧩 ניהול מודולים
-                                    </a>
-                                    <a href="/admin/invoice-scans" className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-sm font-semibold transition-colors">
-                                        📄 סריקות AI
-                                    </a>
-                                </div>
-                            </>
-                        )}
-                    </div>
-                )}
-            </div>
         </div>
     );
 }
+
