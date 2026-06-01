@@ -1671,3 +1671,135 @@ def delete_all_studio_clients(studio_id: str, _admin: User = Depends(require_sup
     db.query(Client).filter(Client.studio_id == studio_id).delete(synchronize_session=False)
     db.commit()
     return {"deleted": True, "studio_id": studio_id}
+
+
+# ── Package Editor ────────────────────────────────────────────────────────────
+
+class PlanModuleUpdate(BaseModel):
+    plan: str
+    module_ids: list[str]
+
+
+@router.get("/packages", tags=["SuperAdmin"])
+def get_packages(admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    """Get current module list for all plans."""
+    from app.models.module import PlanModule, Module
+    all_modules = db.scalars(select(Module).where(Module.is_available == True).order_by(Module.sort_order)).all()
+    plan_rows = db.query(PlanModule).all()
+    plan_map: dict = {}
+    for row in plan_rows:
+        plan_map.setdefault(row.plan, []).append(row.module_id)
+    return {
+        "plans": ["free", "starter", "pro", "enterprise", "platform"],
+        "modules": [{"id": m.id, "name": m.name, "category": m.category} for m in all_modules],
+        "plan_modules": plan_map,
+    }
+
+
+@router.put("/packages", tags=["SuperAdmin"])
+def update_package(payload: PlanModuleUpdate, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    """Replace the module list for a plan."""
+    from app.models.module import PlanModule
+    db.query(PlanModule).filter(PlanModule.plan == payload.plan).delete()
+    for mid in payload.module_ids:
+        db.add(PlanModule(plan=payload.plan, module_id=mid))
+    _audit(db, admin, "update_package", details={"plan": payload.plan, "modules": payload.module_ids})
+    db.commit()
+    return {"plan": payload.plan, "modules": payload.module_ids}
+
+
+# ── Global Platform Analytics ─────────────────────────────────────────────────
+
+@router.get("/platform-analytics", tags=["SuperAdmin"])
+def platform_analytics(admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    """Aggregate metrics across all studios for the SuperAdmin dashboard."""
+    from app.models.appointment import Appointment
+    from app.models.payment import Payment
+    from app.models.client import Client
+    from app.models.message_job import MessageJob
+    from app.models.studio_feature import StudioFeature
+    import pytz
+    from datetime import datetime, timezone, timedelta
+
+    tz = pytz.timezone("Asia/Jerusalem")
+    now = datetime.now(tz)
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0).astimezone(timezone.utc)
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0).astimezone(timezone.utc)
+    thirty_days_ago = (now - timedelta(days=30)).astimezone(timezone.utc)
+
+    # Studio counts
+    active_studios = db.scalar(select(func.count(Studio.id)).where(
+        Studio.is_active == True, Studio.is_platform == False  # noqa
+    )) or 0
+
+    # MRR (all payments this month)
+    mrr_cents = db.scalar(select(func.sum(Payment.amount_cents)).where(
+        Payment.status == "paid", Payment.type == "payment",
+        Payment.paid_at >= month_start,
+    )) or 0
+
+    # Appointments today
+    appts_today = db.scalar(select(func.count(Appointment.id)).where(
+        Appointment.starts_at >= today_start,
+        Appointment.status != "canceled",
+    )) or 0
+
+    # Total appointments this month
+    appts_month = db.scalar(select(func.count(Appointment.id)).where(
+        Appointment.starts_at >= month_start,
+        Appointment.status.in_(["done", "scheduled"]),
+    )) or 0
+
+    # Messages sent this month
+    messages_sent = db.scalar(select(func.count(MessageJob.id)).where(
+        MessageJob.status == "sent",
+        MessageJob.sent_at >= month_start,
+    )) or 0
+
+    # Total clients
+    total_clients = db.scalar(select(func.count(Client.id))) or 0
+
+    # Top 5 studios by revenue this month
+    top_studios = db.execute(
+        select(Studio.name, Studio.slug, func.sum(Payment.amount_cents).label("rev"))
+        .join(Payment, Payment.studio_id == Studio.id)
+        .where(Payment.status == "paid", Payment.type == "payment", Payment.paid_at >= month_start)
+        .group_by(Studio.id, Studio.name, Studio.slug)
+        .order_by(func.sum(Payment.amount_cents).desc())
+        .limit(5)
+    ).all()
+
+    # At-risk studios (no appointment in 30 days, active subscription)
+    active_studio_ids = db.scalars(
+        select(Studio.id).where(Studio.is_active == True, Studio.is_platform == False)  # noqa
+    ).all()
+    recent_active = set(db.scalars(
+        select(func.distinct(Appointment.studio_id)).where(
+            Appointment.starts_at >= thirty_days_ago
+        )
+    ).all())
+    at_risk_count = sum(1 for sid in active_studio_ids if sid not in recent_active)
+
+    # Plan distribution
+    plan_dist = db.execute(
+        select(Studio.subscription_plan, func.count(Studio.id))
+        .where(Studio.is_active == True, Studio.is_platform == False)  # noqa
+        .group_by(Studio.subscription_plan)
+    ).all()
+
+    return {
+        "active_studios": active_studios,
+        "mrr_ils": mrr_cents / 100,
+        "appts_today": appts_today,
+        "appts_month": appts_month,
+        "messages_sent_month": messages_sent,
+        "total_clients": total_clients,
+        "at_risk_studios": at_risk_count,
+        "top_studios": [
+            {"name": r.name, "slug": r.slug, "revenue_ils": (r.rev or 0) / 100}
+            for r in top_studios
+        ],
+        "plan_distribution": [
+            {"plan": plan, "count": count} for plan, count in plan_dist
+        ],
+    }
