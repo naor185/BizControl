@@ -63,6 +63,8 @@ export default function AppShell({
     const [langOpen, setLangOpen] = useState(false);
 
     const [me, setMe] = useState<Me | null>(null);
+    const [locations, setLocations] = useState<{ id: string; name: string; location_name: string; logo_url?: string; primary_color: string }[]>([]);
+    const [switchingLocation, setSwitchingLocation] = useState(false);
     const [isImpersonating, setIsImpersonating] = useState(false);
     const [businessUnlocked, setBusinessUnlocked] = useState(false);
     const [pinStatus, setPinStatus] = useState<PinStatus | null>(null);
@@ -94,16 +96,18 @@ export default function AppShell({
             try {
                 const token = getToken();
                 if (!token) return;
-                const [data, pin, deposits, inbox] = await Promise.all([
+                const [data, pin, deposits, inbox, locs] = await Promise.all([
                     apiFetch<Me>("/api/auth/me"),
                     apiFetch<PinStatus>("/api/security/pin/status"),
                     apiFetch<any[]>("/api/appointments/pending-deposits").catch(() => []),
                     apiFetch<{ unread: number }>("/api/inbox/unread-count").catch(() => ({ unread: 0 })),
+                    apiFetch<any[]>("/api/locations").catch(() => []),
                 ]);
                 setMe(data);
                 setPinStatus(pin);
                 setPendingDepositsCount(deposits.length);
                 setInboxUnreadCount(inbox.unread);
+                if (locs.length > 1) setLocations(locs);
             } catch { /* silent */ }
         })();
     }, []);
@@ -283,6 +287,38 @@ export default function AppShell({
                                 <div className="text-[10px] text-slate-400">{me?.role || "owner"}</div>
                             </div>
                         </div>
+
+                        {/* Location switcher — shown when studio has multiple branches */}
+                        {locations.length > 1 && (
+                            <div className="w-full">
+                                <div className="text-[10px] text-slate-400 mb-1 px-1">🏢 החלף סניף</div>
+                                <div className="flex flex-col gap-1">
+                                    {locations.map(loc => (
+                                        <button
+                                            key={loc.id}
+                                            disabled={switchingLocation}
+                                            onClick={async () => {
+                                                setSwitchingLocation(true);
+                                                try {
+                                                    const res = await apiFetch<{ access_token: string }>(`/api/locations/switch/${loc.id}`, { method: "POST" });
+                                                    setToken(res.access_token);
+                                                    window.location.href = "/dashboard";
+                                                } catch { }
+                                                finally { setSwitchingLocation(false); }
+                                            }}
+                                            className="w-full flex items-center gap-2 rounded-xl border border-slate-200 bg-white hover:bg-violet-50 hover:border-violet-300 text-xs py-1.5 px-2 font-medium text-slate-600 transition-colors text-right"
+                                        >
+                                            {loc.logo_url ? (
+                                                <img src={loc.logo_url} alt="" className="w-5 h-5 rounded-md object-cover" />
+                                            ) : (
+                                                <span className="w-5 h-5 rounded-md flex items-center justify-center text-xs" style={{ background: loc.primary_color + "33" }}>🏢</span>
+                                            )}
+                                            <span className="truncate">{loc.location_name}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
 
                         {me?.role === "superadmin" && (
                             <Link

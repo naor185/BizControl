@@ -138,6 +138,15 @@ def ensure_schema():
             WHERE external_id IS NOT NULL
         """)
 
+        # ── Phase 6: Multi-Location ──────────────────────────────────────────
+        for stmt in [
+            "ALTER TABLE studios ADD COLUMN IF NOT EXISTS organization_id UUID",
+            "ALTER TABLE studios ADD COLUMN IF NOT EXISTS location_name VARCHAR(128)",
+            "ALTER TABLE studios ADD COLUMN IF NOT EXISTS is_main_location BOOLEAN NOT NULL DEFAULT true",
+        ]:
+            cur.execute(stmt)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_studios_org ON studios (organization_id) WHERE organization_id IS NOT NULL")
+
         # ── Phase 4: Marketplace ─────────────────────────────────────────────
         for stmt in [
             "ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS marketplace_visible BOOLEAN NOT NULL DEFAULT false",

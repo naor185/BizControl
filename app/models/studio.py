@@ -28,6 +28,13 @@ class Studio(Base):
 
     business_type: Mapped[str] = mapped_column(String(64), nullable=False, default="other")
 
+    # Multi-location: studios with the same organization_id are branches
+    organization_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), nullable=True, index=True
+    )
+    location_name: Mapped[str | None] = mapped_column(String(128), nullable=True)  # e.g. "סניף תל אביב"
+    is_main_location: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
     stripe_customer_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     stripe_subscription_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
 
