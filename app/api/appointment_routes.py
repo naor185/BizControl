@@ -409,20 +409,20 @@ def mark_appointment_done(
     appt.done_at = func.now()
     db.commit()
 
-    # ── Send aftercare + review message if this treatment type requires it ──
+    # ── Send aftercare + review message for every completed appointment ──
+    # Sends if aftercare_message OR any review link is configured in settings.
+    # No treatment_type matching needed — every done appointment gets the message.
     try:
         settings = db.get(StudioSettings, ctx.studio_id)
-        if settings and settings.treatment_types:
-            _types = _json.loads(settings.treatment_types) if isinstance(settings.treatment_types, str) else settings.treatment_types
-            _title_lower = (appt.title or "").lower()
-            _should_send = any(
-                _t.get("name", "").strip().lower() and
-                _t["name"].strip().lower() in _title_lower and
-                _t.get("send_aftercare")
-                for _t in _types
+        if settings and appt.client_id:
+            _has_content = bool(
+                getattr(settings, "aftercare_message", None) or
+                getattr(settings, "review_link_google", None) or
+                getattr(settings, "review_link_instagram", None) or
+                getattr(settings, "review_link_facebook", None) or
+                getattr(settings, "review_link_whatsapp", None)
             )
-            if _should_send:
-                # Find the final payment for this appointment (type=payment, status=paid)
+            if _has_content:
                 final_payment = db.scalar(
                     select(Payment).where(
                         Payment.appointment_id == appt.id,
@@ -435,6 +435,8 @@ def mark_appointment_done(
                 from app.crud.automation import enqueue_post_payment_message
                 enqueue_post_payment_message(db, appt, amount_cents)
                 log.info("Aftercare message enqueued for appointment %s", appointment_id)
+            else:
+                log.info("No aftercare content configured for studio %s — skipping", ctx.studio_id)
     except Exception:
         log.exception("Failed to enqueue aftercare message for appointment %s", appointment_id)
 
