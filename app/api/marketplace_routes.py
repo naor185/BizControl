@@ -13,6 +13,8 @@ from sqlalchemy.orm import Session
 
 from sqlalchemy import text
 from app.core.database import get_db
+from app.core.deps import require_studio_ctx, AuthContext
+from app.db.deps import get_db as _get_db
 
 router = APIRouter(prefix="/marketplace", tags=["Marketplace"])
 
@@ -374,9 +376,6 @@ def submit_review(slug: str, payload: ReviewCreate, db: Session = Depends(get_db
 
 
 # ── Studio manages reviews (authenticated) ────────────────────────────────────
-
-from app.core.deps import require_studio_ctx, AuthContext
-from app.db.deps import get_db as _get_db
 
 @router.get("/my/reviews/pending")
 def list_pending_reviews(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
