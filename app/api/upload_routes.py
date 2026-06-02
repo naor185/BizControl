@@ -1,8 +1,11 @@
 import os
 import shutil
+import urllib.request
+import urllib.error
 from uuid import uuid4
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from pydantic import BaseModel
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
@@ -131,6 +134,69 @@ def upload_gallery_photo(
     row = db.execute(
         text("SELECT id, url, caption, sort_order FROM studio_gallery WHERE studio_id=:sid AND url=:url"),
         {"sid": str(ctx.studio_id), "url": url}
+    ).fetchone()
+    return {"id": str(row[0]), "url": row[1], "caption": row[2], "sort_order": row[3]}
+
+
+# ── Import gallery photo from URL ─────────────────────────────────────────────
+
+class GalleryFromUrlIn(BaseModel):
+    url: str
+    caption: Optional[str] = None
+
+
+@router.post("/gallery-from-url")
+def import_gallery_from_url(
+    payload: GalleryFromUrlIn,
+    ctx: AuthContext = Depends(require_studio_ctx),
+    db: Session = Depends(get_db)
+):
+    """Download an image from a public URL and add it to the studio gallery."""
+    if ctx.role not in ("owner", "admin", "manager"):
+        raise HTTPException(status_code=403, detail="Forbidden")
+    count = db.execute(
+        text("SELECT COUNT(*) FROM studio_gallery WHERE studio_id=:sid"),
+        {"sid": str(ctx.studio_id)}
+    ).scalar() or 0
+    if count >= 20:
+        raise HTTPException(status_code=400, detail="מקסימום 20 תמונות בגלריה")
+
+    url = payload.url.strip()
+    if not url.startswith("http"):
+        raise HTTPException(status_code=400, detail="קישור לא תקין")
+
+    gallery_dir = os.path.join(UPLOAD_DIR, "gallery", str(ctx.studio_id))
+    os.makedirs(gallery_dir, exist_ok=True)
+
+    # Detect extension from URL or default to jpg
+    url_path = url.split("?")[0].rstrip("/")
+    ext = url_path.rsplit(".", 1)[-1].lower() if "." in url_path.rsplit("/", 1)[-1] else "jpg"
+    if ext not in ("jpg", "jpeg", "png", "webp", "gif"):
+        ext = "jpg"
+
+    filename = f"{uuid4().hex}.{ext}"
+    dest = os.path.join(gallery_dir, filename)
+
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            content_type = resp.headers.get("Content-Type", "")
+            if "image" not in content_type and "octet-stream" not in content_type:
+                raise HTTPException(status_code=400, detail="הקישור לא מצביע על תמונה")
+            with open(dest, "wb") as f:
+                f.write(resp.read(10 * 1024 * 1024))  # max 10MB
+    except urllib.error.URLError as e:
+        raise HTTPException(status_code=400, detail=f"לא ניתן להוריד את התמונה: {e}")
+
+    saved_url = f"/uploads/gallery/{ctx.studio_id}/{filename}"
+    db.execute(
+        text("INSERT INTO studio_gallery (studio_id, url, caption, sort_order) VALUES (:sid, :url, :caption, :sort)"),
+        {"sid": str(ctx.studio_id), "url": saved_url, "caption": payload.caption, "sort": int(count)}
+    )
+    db.commit()
+    row = db.execute(
+        text("SELECT id, url, caption, sort_order FROM studio_gallery WHERE studio_id=:sid AND url=:url"),
+        {"sid": str(ctx.studio_id), "url": saved_url}
     ).fetchone()
     return {"id": str(row[0]), "url": row[1], "caption": row[2], "sort_order": row[3]}
 

@@ -110,6 +110,9 @@ export default function StudioDashboard() {
     const [saved, setSaved] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [coverUploading, setCoverUploading] = useState(false);
+    const [importUrl, setImportUrl] = useState("");
+    const [importLoading, setImportLoading] = useState(false);
+    const [importError, setImportError] = useState("");
     const [openSection, setOpenSection] = useState<string[]>(["visibility", "basic", "social", "hours"]);
     const fileRef = useRef<HTMLInputElement>(null);
     const coverRef = useRef<HTMLInputElement>(null);
@@ -239,6 +242,24 @@ export default function StudioDashboard() {
             setStudioData(sd => sd ? { ...sd, cover_url: data.cover_url || sd.cover_url } : sd);
         } catch { } finally { setCoverUploading(false); }
     };
+    const importFromUrl = async () => {
+        if (!importUrl.trim()) return;
+        setImportLoading(true); setImportError("");
+        try {
+            const res = await fetch(`${API}/api/studio/upload/gallery-from-url`, {
+                method: "POST",
+                headers: { Authorization: `Bearer ${getToken()}`, "Content-Type": "application/json" },
+                body: JSON.stringify({ url: importUrl.trim() }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || "שגיאה");
+            setGallery(g => [...g, data]);
+            setStudioData(sd => sd ? { ...sd, gallery_count: sd.gallery_count + 1 } : sd);
+            setImportUrl("");
+        } catch (e: any) { setImportError(e.message); }
+        finally { setImportLoading(false); }
+    };
+
     const setHour = (day: Day, field: "open" | "close" | "closed", value: string | boolean) => {
         setProfile(p => ({ ...p, hours: { ...p.hours, [day]: { ...p.hours[day], [field]: value } } }));
     };
@@ -473,6 +494,28 @@ export default function StudioDashboard() {
                                 <img src={studioData.cover_url.startsWith("http") ? studioData.cover_url : `${API}${studioData.cover_url}`} alt="cover"
                                     style={{ width: "100%", height: 140, objectFit: "cover", borderRadius: 12, border: "1px solid #e2e8f0" }} />
                             )}
+                        </div>
+
+                        {/* Import from URL */}
+                        <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 18, padding: "1.1rem 1.25rem" }}>
+                            <div style={{ fontWeight: 800, fontSize: "0.92rem", marginBottom: "0.6rem" }}>📲 ייבוא תמונה מאינסטגרם / כל קישור</div>
+                            <div style={{ fontSize: "0.76rem", color: "#64748b", marginBottom: "0.75rem", background: "#f8fafc", borderRadius: 10, padding: "0.55rem 0.8rem", border: "1px solid #f1f5f9" }}>
+                                <strong>איך לייבא מאינסטגרם:</strong> פתחו פוסט באינסטגרם ← לחצו על התמונה ← "העתק כתובת תמונה" ← הדביקו כאן
+                            </div>
+                            <div style={{ display: "flex", gap: "0.5rem" }}>
+                                <input
+                                    type="url" value={importUrl} dir="ltr"
+                                    onChange={e => { setImportUrl(e.target.value); setImportError(""); }}
+                                    placeholder="https://scontent.cdninstagram.com/... או כל URL תמונה"
+                                    style={{ flex: 1, border: "1.5px solid #e2e8f0", borderRadius: 12, padding: "0.6rem 0.85rem", fontSize: "0.82rem", outline: "none" }}
+                                    onKeyDown={e => e.key === "Enter" && importFromUrl()}
+                                />
+                                <button type="button" onClick={importFromUrl} disabled={importLoading || !importUrl.trim()}
+                                    style={{ background: importLoading ? "#c4b5fd" : "linear-gradient(135deg,#e1306c,#f77737)", color: "#fff", border: "none", borderRadius: 12, padding: "0.6rem 1rem", fontWeight: 700, fontSize: "0.82rem", cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}>
+                                    {importLoading ? "⏳ מייבא..." : "📸 ייבא"}
+                                </button>
+                            </div>
+                            {importError && <div style={{ color: "#dc2626", fontSize: "0.78rem", marginTop: "0.4rem" }}>⚠️ {importError}</div>}
                         </div>
 
                         <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 18, padding: "1.1rem 1.25rem" }}>
