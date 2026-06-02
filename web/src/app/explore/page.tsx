@@ -2,7 +2,8 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 
-const API = (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_BASE || "").replace(/^http:\/\//, "https://");
+const API = (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_BASE || "").replace(/\/$/, "");
+function imgUrl(url?: string) { if (!url) return ""; return url.startsWith("http") ? url : `${API}${url}`; }
 
 interface StudioCard {
     id: string; slug: string; name: string;
@@ -112,9 +113,9 @@ export default function ExplorePage() {
                                     onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.transform = "translateY(-3px)"; (e.currentTarget as HTMLDivElement).style.borderColor = s.primary_color; }}
                                     onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.transform = ""; (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(255,255,255,.1)"; }}>
                                     {/* Cover */}
-                                    <div style={{ height: 140, background: s.cover_url ? `url(${s.cover_url}) center/cover` : `linear-gradient(135deg,${s.primary_color}44,${s.primary_color}22)`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                    <div style={{ height: 140, background: s.cover_url ? `url(${imgUrl(s.cover_url)}) center/cover` : `linear-gradient(135deg,${s.primary_color}44,${s.primary_color}22)`, display: "flex", alignItems: "center", justifyContent: "center" }}>
                                         {!s.cover_url && s.logo_url && (
-                                            <img src={s.logo_url} alt="" style={{ width: 70, height: 70, borderRadius: 16, objectFit: "cover" }} />
+                                            <img src={imgUrl(s.logo_url)} alt="" style={{ width: 70, height: 70, borderRadius: 16, objectFit: "cover" }} />
                                         )}
                                         {!s.cover_url && !s.logo_url && (
                                             <span style={{ fontSize: "3rem" }}>{s.business_type_icon}</span>
@@ -127,7 +128,7 @@ export default function ExplorePage() {
                                                 <div style={{ color: "#94a3b8", fontSize: "0.8rem" }}>{s.business_type_icon} {s.business_type_label}</div>
                                             </div>
                                             {s.logo_url && s.cover_url && (
-                                                <img src={s.logo_url} alt="" style={{ width: 40, height: 40, borderRadius: 10, objectFit: "cover" }} />
+                                                <img src={imgUrl(s.logo_url)} alt="" style={{ width: 40, height: 40, borderRadius: 10, objectFit: "cover" }} />
                                             )}
                                         </div>
                                         {s.city && <div style={{ color: "#64748b", fontSize: "0.8rem", marginBottom: "0.5rem" }}>📍 {s.city}</div>}
