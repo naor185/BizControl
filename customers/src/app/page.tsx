@@ -4,6 +4,74 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { API, imgUrl } from "@/lib/api";
 
+const CAROUSEL_SLIDES = [
+    { url: "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=1400&q=85", label: "מסעדות ואוכל" },
+    { url: "https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=1400&q=85", label: "ספא וטיפולים" },
+    { url: "https://images.unsplash.com/photo-1518611012118-696072aa579a?w=1400&q=85", label: "פילאטיס וכושר" },
+    { url: "https://images.unsplash.com/photo-1487530811015-780d4c13f2e3?w=1400&q=85", label: "פרחים ומתנות" },
+    { url: "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=1400&q=85", label: "תזונה בריאה" },
+    { url: "https://images.unsplash.com/photo-1546833998-877b37c2e5c6?w=1400&q=85", label: "מסעדות בשר" },
+    { url: "https://images.unsplash.com/photo-1528360983277-13d401cdc186?w=1400&q=85", label: "טיפול ורפואה" },
+    { url: "https://images.unsplash.com/photo-1553530666-ba11a7da3888?w=1400&q=85", label: "בריאות ואנרגיה" },
+];
+
+function HeroCarousel() {
+    const [current, setCurrent] = useState(0);
+    const [paused, setPaused] = useState(false);
+    const n = CAROUSEL_SLIDES.length;
+
+    useEffect(() => {
+        if (paused) return;
+        const t = setInterval(() => setCurrent(c => (c + 1) % n), 4500);
+        return () => clearInterval(t);
+    }, [paused, n]);
+
+    return (
+        <div
+            style={{ position: "relative", width: "100%", height: "clamp(220px,40vw,480px)", overflow: "hidden" }}
+            onMouseEnter={() => setPaused(true)}
+            onMouseLeave={() => setPaused(false)}
+        >
+            {CAROUSEL_SLIDES.map((slide, i) => (
+                <div key={i} style={{
+                    position: "absolute", inset: 0,
+                    opacity: i === current ? 1 : 0,
+                    transition: "opacity 1.2s ease",
+                    zIndex: i === current ? 1 : 0,
+                }}>
+                    <img src={slide.url} alt={slide.label}
+                        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                    />
+                    {/* Dark gradient overlay */}
+                    <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,.55) 0%, rgba(0,0,0,.1) 50%, transparent 100%)" }} />
+                    {/* Label */}
+                    <div style={{ position: "absolute", bottom: "1.5rem", right: "1.5rem", color: "#fff", fontWeight: 800, fontSize: "clamp(1rem,3vw,1.5rem)", textShadow: "0 2px 8px rgba(0,0,0,.5)", letterSpacing: "0.02em" }}>
+                        {slide.label}
+                    </div>
+                </div>
+            ))}
+
+            {/* Navigation arrows */}
+            <button onClick={() => { setCurrent(c => (c - 1 + n) % n); setPaused(true); }}
+                style={{ position: "absolute", right: "1rem", top: "50%", transform: "translateY(-50%)", zIndex: 10, background: "rgba(255,255,255,.25)", backdropFilter: "blur(6px)", border: "1px solid rgba(255,255,255,.4)", color: "#fff", width: 36, height: 36, borderRadius: "50%", cursor: "pointer", fontSize: "1rem", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                ‹
+            </button>
+            <button onClick={() => { setCurrent(c => (c + 1) % n); setPaused(true); }}
+                style={{ position: "absolute", left: "1rem", top: "50%", transform: "translateY(-50%)", zIndex: 10, background: "rgba(255,255,255,.25)", backdropFilter: "blur(6px)", border: "1px solid rgba(255,255,255,.4)", color: "#fff", width: 36, height: 36, borderRadius: "50%", cursor: "pointer", fontSize: "1rem", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                ›
+            </button>
+
+            {/* Dots */}
+            <div style={{ position: "absolute", bottom: "0.65rem", left: "50%", transform: "translateX(-50%)", display: "flex", gap: "0.4rem", zIndex: 10 }}>
+                {CAROUSEL_SLIDES.map((_, i) => (
+                    <button key={i} type="button" aria-label={`שקופית ${i + 1}`} onClick={() => { setCurrent(i); setPaused(true); }}
+                        style={{ width: i === current ? 20 : 7, height: 7, borderRadius: 4, border: "none", cursor: "pointer", background: i === current ? "#fff" : "rgba(255,255,255,.5)", transition: "all .3s", padding: 0 }} />
+                ))}
+            </div>
+        </div>
+    );
+}
+
 const MapView = dynamic(() => import("@/components/MapView"), {
     ssr: false,
     loading: () => (
@@ -112,6 +180,9 @@ export default function HomePage() {
                     <Link href="/studio/login" style={{ fontSize: "0.82rem", background: "#2563eb", color: "#fff", textDecoration: "none", fontWeight: 700, padding: "0.35rem 0.85rem", borderRadius: 8 }}>כניסה לעסקים</Link>
                 </div>
             </header>
+
+            {/* ── Carousel ── */}
+            <HeroCarousel />
 
             {/* ── Hero ── */}
             <div style={{ background: "linear-gradient(160deg,#eff6ff 0%,#dbeafe 50%,#eff6ff 100%)", padding: "3rem 1.25rem 2.5rem", position: "relative", overflow: "hidden" }}>
