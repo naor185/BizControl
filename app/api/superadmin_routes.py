@@ -1906,7 +1906,7 @@ def update_hero_slide(
     return {"ok": True}
 
 
-@router.delete("/hero-slides/{slide_id}", status_code=204)
+@router.delete("/hero-slides/{slide_id}")
 def delete_hero_slide(
     slide_id: str,
     current_user: User = Depends(get_current_user),
@@ -1916,3 +1916,4 @@ def delete_hero_slide(
         raise HTTPException(403, "Forbidden")
     db.execute(text("DELETE FROM hero_slides WHERE id=:id::uuid"), {"id": slide_id})
     db.commit()
+    return {"ok": True}
