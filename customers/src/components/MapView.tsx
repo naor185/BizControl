@@ -1,11 +1,10 @@
 "use client";
 import { useEffect, useRef } from "react";
-import { imgUrl } from "@/lib/api";
 
 interface StudioCard {
     id: string; slug: string; name: string;
     business_type: string; business_type_label: string; business_type_icon: string;
-    logo_url?: string; city?: string; description?: string;
+    logo_url?: string; city?: string;
     self_booking_enabled: boolean; avg_rating?: number; review_count: number;
 }
 
@@ -36,6 +35,34 @@ async function geocodeCity(city: string): Promise<[number, number] | null> {
     return null;
 }
 
+function loadLeaflet(): Promise<any> {
+    return new Promise((resolve, reject) => {
+        const win = window as any;
+        if (win.L) { resolve(win.L); return; }
+
+        if (!document.getElementById("leaflet-css")) {
+            const css = document.createElement("link");
+            css.id = "leaflet-css";
+            css.rel = "stylesheet";
+            css.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+            document.head.appendChild(css);
+        }
+
+        const existing = document.getElementById("leaflet-js");
+        if (existing) {
+            existing.addEventListener("load", () => resolve(win.L));
+            return;
+        }
+
+        const script = document.createElement("script");
+        script.id = "leaflet-js";
+        script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+        script.onload = () => resolve(win.L);
+        script.onerror = reject;
+        document.head.appendChild(script);
+    });
+}
+
 export default function MapView({ studios }: Props) {
     const mapRef = useRef<HTMLDivElement>(null);
     const mapInstance = useRef<any>(null);
@@ -43,17 +70,7 @@ export default function MapView({ studios }: Props) {
     useEffect(() => {
         if (!mapRef.current || mapInstance.current) return;
 
-        // Inject Leaflet CSS from CDN (avoids webpack static analysis)
-        if (!document.getElementById("leaflet-css")) {
-            const link = document.createElement("link");
-            link.id = "leaflet-css";
-            link.rel = "stylesheet";
-            link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
-            document.head.appendChild(link);
-        }
-
-        // Load leaflet dynamically at runtime only (never at build time)
-        import("leaflet").then((L) => {
+        loadLeaflet().then((L) => {
             if (!mapRef.current || mapInstance.current) return;
 
             const map = L.map(mapRef.current).setView([31.5, 34.75], 7);
@@ -64,7 +81,6 @@ export default function MapView({ studios }: Props) {
                 maxZoom: 18,
             }).addTo(map);
 
-            // Group studios by city
             const byCity = new Map<string, StudioCard[]>();
             for (const s of studios) {
                 const city = s.city || "אחר";
@@ -72,7 +88,6 @@ export default function MapView({ studios }: Props) {
                 byCity.get(city)!.push(s);
             }
 
-            // Geocode and add markers
             for (const city of Array.from(byCity.keys())) {
                 geocodeCity(city).then(coords => {
                     if (!coords || !mapInstance.current) return;
@@ -81,8 +96,7 @@ export default function MapView({ studios }: Props) {
 
                     const icon = L.divIcon({
                         html: `<div style="background:${color};color:#fff;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.3)">${cityStudios.length}</div>`,
-                        className: "",
-                        iconSize: [32, 32],
+                        className: "", iconSize: [32, 32],
                     });
 
                     const popup = cityStudios.map(s =>
@@ -98,18 +112,15 @@ export default function MapView({ studios }: Props) {
                         .bindPopup(`<div dir="rtl" style="min-width:160px">${popup}</div>`);
                 });
             }
-        }).catch(() => { /* leaflet failed to load */ });
+        }).catch(() => {});
 
         return () => {
-            if (mapInstance.current) {
-                mapInstance.current.remove();
-                mapInstance.current = null;
-            }
+            if (mapInstance.current) { mapInstance.current.remove(); mapInstance.current = null; }
         };
     }, [studios]);
 
     return (
-        <div style={{ borderRadius: 20, overflow: "hidden", border: "1px solid #e2e8f0", boxShadow: "0 2px 12px rgba(0,0,0,.06)" }}>
+        <div style={{ borderRadius: 20, overflow: "hidden", border: "1px solid #e2e8f0" }}>
             <div ref={mapRef} style={{ height: 340, width: "100%" }} />
         </div>
     );
