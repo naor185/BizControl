@@ -1889,7 +1889,7 @@ def update_hero_slide(
     if current_user.role != "superadmin":
         raise HTTPException(403, "Forbidden")
     updates = []
-    params: dict = {"id": slide_id}
+    params: dict = {"sid": slide_id}
     if "label" in payload:
         updates.append("label = :label")
         params["label"] = payload["label"]
@@ -1901,7 +1901,7 @@ def update_hero_slide(
         params["is_active"] = payload["is_active"]
     if not updates:
         raise HTTPException(400, "Nothing to update")
-    db.execute(text(f"UPDATE hero_slides SET {', '.join(updates)} WHERE id=:id::uuid"), params)
+    db.execute(text(f"UPDATE hero_slides SET {', '.join(updates)} WHERE id = :sid"), params)
     db.commit()
     return {"ok": True}
 
@@ -1914,6 +1914,6 @@ def delete_hero_slide(
 ):
     if current_user.role != "superadmin":
         raise HTTPException(403, "Forbidden")
-    db.execute(text("DELETE FROM hero_slides WHERE id=:id::uuid"), {"id": slide_id})
+    db.execute(text("DELETE FROM hero_slides WHERE id = :sid"), {"sid": slide_id})
     db.commit()
     return {"ok": True}
