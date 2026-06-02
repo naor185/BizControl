@@ -322,21 +322,13 @@ def enqueue_post_payment_message(db: Session, appt: Appointment, amount_cents: i
     if already:
         return
 
-    # ── Build review block ───────────────────────────────────
-    review_lines: list[str] = []
+    # ── Build review block — Google only ────────────────────
+    review_block = ""
     if settings.review_link_google:
-        review_lines.append(f"⭐⭐⭐⭐⭐ Google: {settings.review_link_google.strip()}")
-    if settings.review_link_instagram:
-        review_lines.append(f"📸 Instagram: {settings.review_link_instagram.strip()}")
-    if settings.review_link_facebook:
-        review_lines.append(f"👍 Facebook: {settings.review_link_facebook.strip()}")
-    if settings.review_link_whatsapp:
-        review_lines.append(f"💬 WhatsApp: {settings.review_link_whatsapp.strip()}")
-    review_block = (
-        "\n\n🌟 נשמח לביקורת שלך!\n"
-        "אם נהנית — ביקורת בגוגל עוזרת לנו המון 🙏\n"
-        + "\n".join(review_lines)
-    ) if review_lines else ""
+        review_block = (
+            "\n\n⭐ נשמח לביקורת שלך בגוגל!\n"
+            f"{settings.review_link_google.strip()}"
+        )
 
     # ── Aftercare block ──────────────────────────────────────
     aftercare_block = ""
@@ -345,8 +337,11 @@ def enqueue_post_payment_message(db: Session, appt: Appointment, amount_cents: i
 
     # ── Points block — only for club members ─────────────────
     points_total = client.loyalty_points or 0
-    if client.is_club_member and points_earned > 0:
-        points_block = f"\n\n🎁 נקודות נאמנות:\nצברת {points_earned} נקודות!\nסה\"כ: {points_total} נקודות."
+    if client.is_club_member:
+        if points_earned > 0:
+            points_block = f"\n\n🎁 כחבר/ת מועדון צברת {points_earned} נקודות!\nסה\"כ: {points_total} נקודות."
+        else:
+            points_block = f"\n\n🎁 סה\"כ נקודות במועדון: {points_total} נקודות."
     else:
         points_block = ""
 
@@ -370,7 +365,7 @@ def enqueue_post_payment_message(db: Session, appt: Appointment, amount_cents: i
     wa_template = settings.post_payment_wa_template
     if not wa_template:
         wa_template = (
-            "תודה {client_name}! 🙏\n"
+            "היי {client_name}! 😊\n"
             "שמחים שבחרת בנו ❤️"
             "{points_block}"
             "{aftercare_block}"
