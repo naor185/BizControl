@@ -69,32 +69,55 @@ export default function HeroSlidesPage() {
     }
 
     async function toggleActive(slide: HeroSlide) {
-        await apiFetch(`/api/admin/hero-slides/${slide.id}`, {
-            method: "PATCH",
-            body: JSON.stringify({ is_active: !slide.is_active }),
-        });
-        await load();
+        try {
+            await apiFetch(`/api/admin/hero-slides/${slide.id}`, {
+                method: "PATCH",
+                body: JSON.stringify({ is_active: !slide.is_active }),
+            });
+            await load();
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : "שגיאה בעדכון");
+        }
     }
 
     async function updateLabel(slide: HeroSlide, newLabel: string) {
-        await apiFetch(`/api/admin/hero-slides/${slide.id}`, {
-            method: "PATCH",
-            body: JSON.stringify({ label: newLabel }),
-        });
+        try {
+            await apiFetch(`/api/admin/hero-slides/${slide.id}`, {
+                method: "PATCH",
+                body: JSON.stringify({ label: newLabel }),
+            });
+        } catch { /* silent — user will see unchanged label */ }
     }
 
     async function deleteSlide(id: string) {
         if (!confirm("למחוק שקופית זו?")) return;
-        await apiFetch(`/api/admin/hero-slides/${id}`, { method: "DELETE" });
-        await load();
+        setError("");
+        try {
+            const token = typeof window !== "undefined" ? localStorage.getItem("bizcontrol_token") : null;
+            const res = await fetch(`${API_BASE}/api/admin/hero-slides/${id}`, {
+                method: "DELETE",
+                headers: token ? { Authorization: `Bearer ${token}` } : {},
+            });
+            if (!res.ok) {
+                const d = await res.json().catch(() => ({}));
+                throw new Error(d.detail || `שגיאה ${res.status}`);
+            }
+            await load();
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : "שגיאה במחיקה");
+        }
     }
 
     async function moveSlide(slide: HeroSlide, dir: -1 | 1) {
-        await apiFetch(`/api/admin/hero-slides/${slide.id}`, {
-            method: "PATCH",
-            body: JSON.stringify({ sort_order: slide.sort_order + dir }),
-        });
-        await load();
+        try {
+            await apiFetch(`/api/admin/hero-slides/${slide.id}`, {
+                method: "PATCH",
+                body: JSON.stringify({ sort_order: slide.sort_order + dir }),
+            });
+            await load();
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : "שגיאה בשינוי סדר");
+        }
     }
 
     return (
