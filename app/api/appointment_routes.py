@@ -179,7 +179,7 @@ def list_pending_deposits(ctx: AuthContext = Depends(require_studio_ctx), db: Se
             Appointment.studio_id == ctx.studio_id,
             Appointment.deposit_amount_cents > 0,
             Appointment.payment_verified_at.is_(None),
-            Appointment.status != "cancelled",
+            Appointment.status.notin_(["canceled", "cancelled", "done", "no_show"]),
             Appointment.starts_at >= cutoff,
         )
         .order_by(Appointment.starts_at)
