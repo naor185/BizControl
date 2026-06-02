@@ -9,6 +9,33 @@ from pydantic import BaseModel
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
+def _cloudinary_upload(file_bytes: bytes, folder: str, public_id: str) -> str | None:
+    """Upload to Cloudinary if configured. Returns secure URL or None."""
+    cloud_name = os.getenv("CLOUDINARY_CLOUD_NAME")
+    if not cloud_name:
+        return None
+    try:
+        import cloudinary
+        import cloudinary.uploader
+        cloudinary.config(
+            cloud_name=cloud_name,
+            api_key=os.getenv("CLOUDINARY_API_KEY", ""),
+            api_secret=os.getenv("CLOUDINARY_API_SECRET", ""),
+        )
+        import io
+        result = cloudinary.uploader.upload(
+            io.BytesIO(file_bytes),
+            folder=folder,
+            public_id=public_id,
+            overwrite=True,
+            resource_type="image",
+        )
+        return result["secure_url"]
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error("Cloudinary upload failed: %s", e)
+        return None
+
 from app.core.database import get_db
 from app.core.deps import require_studio_ctx, AuthContext
 from app.models.studio_settings import StudioSettings
@@ -20,6 +47,15 @@ UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif", "image/gif"}
+
+
+def _save_image_bytes(file_bytes: bytes, original_filename: str, prefix: str, studio_id) -> str:
+    ext = (original_filename).rsplit(".", 1)[-1].lower() if "." in original_filename else "jpg"
+    filename = f"{prefix}_{studio_id}_{uuid4().hex[:10]}.{ext}"
+    path = os.path.join(UPLOAD_DIR, filename)
+    with open(path, "wb") as f:
+        f.write(file_bytes)
+    return filename
 
 
 def _save_image(file: UploadFile, prefix: str, studio_id) -> str:
@@ -46,11 +82,18 @@ def upload_logo(
     settings = db.get(StudioSettings, ctx.studio_id)
     if not settings:
         raise HTTPException(status_code=404, detail="Settings not found")
-    filename = _save_image(file, "logo", ctx.studio_id)
-    if settings.logo_filename:
-        old = os.path.join(UPLOAD_DIR, settings.logo_filename)
-        if os.path.exists(old):
-            os.remove(old)
+    if file.content_type not in ALLOWED_IMAGE_TYPES:
+        raise HTTPException(status_code=400, detail="Only image files are allowed")
+    file_bytes = file.file.read()
+    cloud_url = _cloudinary_upload(file_bytes, f"bizfind/{ctx.studio_id}", "logo")
+    if cloud_url:
+        from app.models.studio import Studio
+        studio = db.get(Studio, ctx.studio_id)
+        if studio:
+            studio.logo_url = cloud_url
+        db.commit()
+        return {"filename": cloud_url, "url": cloud_url}
+    filename = _save_image_bytes(file_bytes, file.filename or "logo.jpg", "logo", ctx.studio_id)
     settings.logo_filename = filename
     db.commit()
     return {"filename": filename}
@@ -80,11 +123,18 @@ def upload_cover(
     settings = db.get(StudioSettings, ctx.studio_id)
     if not settings:
         raise HTTPException(status_code=404, detail="Settings not found")
-    filename = _save_image(file, "cover", ctx.studio_id)
-    url = f"/uploads/{filename}"
+    if file.content_type not in ALLOWED_IMAGE_TYPES:
+        raise HTTPException(status_code=400, detail="Only image files are allowed")
+    file_bytes = file.file.read()
+    cloud_url = _cloudinary_upload(file_bytes, f"bizfind/{ctx.studio_id}", "cover")
+    if cloud_url:
+        url = cloud_url
+    else:
+        filename = _save_image_bytes(file_bytes, file.filename or "cover.jpg", "cover", ctx.studio_id)
+        url = f"/uploads/{filename}"
     settings.marketplace_cover_url = url
     db.commit()
-    return {"url": url}
+    return {"url": url, "cover_url": url}
 
 
 # ── Gallery ───────────────────────────────────────────────────────────────────
@@ -116,16 +166,22 @@ def upload_gallery_photo(
     ).scalar() or 0
     if count >= 20:
         raise HTTPException(status_code=400, detail="מקסימום 20 תמונות בגלריה")
-    gallery_dir = os.path.join(UPLOAD_DIR, "gallery", str(ctx.studio_id))
-    os.makedirs(gallery_dir, exist_ok=True)
-    ext = (file.filename or "img.jpg").rsplit(".", 1)[-1].lower()
     if file.content_type not in ALLOWED_IMAGE_TYPES:
         raise HTTPException(status_code=400, detail="Only image files are allowed")
-    filename = f"{uuid4().hex}.{ext}"
-    path = os.path.join(gallery_dir, filename)
-    with open(path, "wb") as buf:
-        shutil.copyfileobj(file.file, buf)
-    url = f"/uploads/gallery/{ctx.studio_id}/{filename}"
+    file_bytes = file.file.read()
+    ext = (file.filename or "img.jpg").rsplit(".", 1)[-1].lower()
+    photo_id = uuid4().hex
+    cloud_url = _cloudinary_upload(file_bytes, f"bizfind/{ctx.studio_id}/gallery", photo_id)
+    if cloud_url:
+        url = cloud_url
+    else:
+        gallery_dir = os.path.join(UPLOAD_DIR, "gallery", str(ctx.studio_id))
+        os.makedirs(gallery_dir, exist_ok=True)
+        filename = f"{photo_id}.{ext}"
+        path = os.path.join(gallery_dir, filename)
+        with open(path, "wb") as buf:
+            buf.write(file_bytes)
+        url = f"/uploads/gallery/{ctx.studio_id}/{filename}"
     db.execute(
         text("INSERT INTO studio_gallery (studio_id, url, caption, sort_order) VALUES (:sid, :url, :caption, :sort)"),
         {"sid": str(ctx.studio_id), "url": url, "caption": caption, "sort": int(count)}

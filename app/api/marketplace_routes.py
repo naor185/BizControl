@@ -116,7 +116,7 @@ def get_my_studio_profile(ctx: AuthContext = Depends(require_studio_ctx), db: Se
         "whatsapp": settings.marketplace_whatsapp,
         "facebook": facebook,
         "tiktok": settings.marketplace_tiktok,
-        "website": settings.marketplace_website or settings.studio_portfolio_link,
+        "website": settings.marketplace_website,
         "youtube": settings.marketplace_youtube,
         "hours": settings.marketplace_hours,
         "services": [
