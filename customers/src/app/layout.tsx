@@ -27,6 +27,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                 <nav className="bottom-nav">
                     <a href="/">🔍<span>חיפוש</span></a>
                     <a href="/me">📋<span>ההזמנות שלי</span></a>
+                    <a href="/for-business">🏢<span>לעסקים</span></a>
                 </nav>
             </body>
         </html>
