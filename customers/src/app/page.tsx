@@ -25,7 +25,8 @@ function HeroCarousel() {
         fetch(`${API}/api/marketplace/hero-slides`)
             .then(r => r.json())
             .then((data: { url: string; label: string }[]) => {
-                if (Array.isArray(data) && data.length > 0) setSlides(data);
+                if (Array.isArray(data) && data.length > 0)
+                    setSlides(data.map(s => ({ ...s, url: imgUrl(s.url) })));
             })
             .catch(() => {});
     }, []);
