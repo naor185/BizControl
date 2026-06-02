@@ -89,7 +89,6 @@ def get_my_studio_profile(ctx: AuthContext = Depends(require_studio_ctx), db: Se
     description = (
         settings.marketplace_description
         or settings.landing_page_description
-        or settings.aftercare_message
         or None
     )
     phone = settings.marketplace_phone or settings.whatsapp_phone_id or None
