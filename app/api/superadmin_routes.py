@@ -1809,29 +1809,7 @@ def platform_analytics(admin: User = Depends(require_superadmin), db: Session = 
 
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"}
 
-
-def _cloudinary_upload_hero(file_bytes: bytes, public_id: str) -> str | None:
-    cloud_name = os.getenv("CLOUDINARY_CLOUD_NAME")
-    if not cloud_name:
-        return None
-    try:
-        import cloudinary, cloudinary.uploader, io
-        cloudinary.config(
-            cloud_name=cloud_name,
-            api_key=os.getenv("CLOUDINARY_API_KEY", ""),
-            api_secret=os.getenv("CLOUDINARY_API_SECRET", ""),
-        )
-        result = cloudinary.uploader.upload(
-            io.BytesIO(file_bytes),
-            folder="bizfind/hero",
-            public_id=public_id,
-            overwrite=True,
-            resource_type="image",
-        )
-        return result["secure_url"]
-    except Exception as e:
-        log.error("Cloudinary hero upload failed: %s", e)
-        return None
+from app.api.upload_routes import _cloudinary_upload as _upload_to_cloudinary
 
 
 @router.get("/hero-slides")
@@ -1857,13 +1835,12 @@ def upload_hero_slide(
     if file.content_type not in ALLOWED_IMAGE_TYPES:
         raise HTTPException(400, "Only image files are allowed")
     file_bytes = file.file.read()
-    slide_id = str(uuid.uuid4()).replace("-", "")[:16]
-    cloud_url = _cloudinary_upload_hero(file_bytes, slide_id)
+    slide_id = str(uuid.uuid4()).replace("-", "")
+    cloud_url = _upload_to_cloudinary(file_bytes, "bizfind/hero", slide_id)
     if not cloud_url:
-        import shutil
         os.makedirs("uploads/hero", exist_ok=True)
         ext = (file.filename or "img.jpg").rsplit(".", 1)[-1].lower()
-        fname = f"hero_{slide_id}.{ext}"
+        fname = f"hero_{slide_id[:16]}.{ext}"
         with open(f"uploads/hero/{fname}", "wb") as f:
             f.write(file_bytes)
         cloud_url = f"/uploads/hero/{fname}"
