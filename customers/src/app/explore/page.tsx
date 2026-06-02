@@ -1,7 +1,6 @@
 "use client";
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, Suspense } from "react";
 import Link from "next/link";
-import { useSearchParams, useRouter } from "next/navigation";
 import { API, imgUrl } from "@/lib/api";
 
 interface StudioCard {
@@ -34,16 +33,13 @@ const SORT_OPTIONS: { key: SortKey; label: string }[] = [
     { key: "name",     label: "לפי שם א-ת" },
 ];
 
-export default function ExplorePage() {
-    const searchParams = useSearchParams();
-    const router = useRouter();
-
+function ExploreContent() {
     const [studios, setStudios] = useState<StudioCard[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
     const [loading, setLoading] = useState(true);
-    const [q, setQ] = useState(searchParams.get("q") || "");
-    const [city, setCity] = useState(searchParams.get("city") || "");
-    const [selectedType, setSelectedType] = useState(searchParams.get("type") || "");
+    const [q, setQ] = useState("");
+    const [city, setCity] = useState("");
+    const [selectedType, setSelectedType] = useState("");
     const [sort, setSort] = useState<SortKey>("default");
     const [view, setView] = useState<ViewMode>("grid");
     const [bookingOnly, setBookingOnly] = useState(false);
@@ -299,5 +295,13 @@ function ListCard({ s }: { s: StudioCard }) {
                 </div>
             </div>
         </Link>
+    );
+}
+
+export default function ExplorePage() {
+    return (
+        <Suspense fallback={<div style={{ height: "100vh", background: "#0f172a", display: "flex", alignItems: "center", justifyContent: "center", color: "#64748b" }}>⏳ טוען...</div>}>
+            <ExploreContent />
+        </Suspense>
     );
 }
