@@ -200,6 +200,7 @@ export default function CalendarPage() {
 
     // Past-date confirmation
     const [pastDateConfirm, setPastDateConfirm] = useState<null | { onConfirm: () => void; onCancel: () => void }>(null);
+    const [dragConfirm, setDragConfirm] = useState<null | { label: string; onConfirm: () => void; onCancel: () => void }>(null);
 
     // Delete Modal State
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -494,34 +495,35 @@ export default function CalendarPage() {
             }
         };
 
+        // Always confirm before moving any appointment
+        dropInfo.revert();
         const newStart = new Date(dropInfo.event.startStr);
-        if (newStart < new Date()) {
-            dropInfo.revert(); // visually revert while we ask
-            setPastDateConfirm({
-                onConfirm: async () => {
-                    setPastDateConfirm(null);
-                    // Re-apply the move via API (UI already reverted visually, just save)
-                    const eventId = dropInfo.event.id;
-                    try {
-                        await apiFetch(`/api/appointments/${eventId}`, {
-                            method: "PATCH",
-                            body: JSON.stringify({
-                                starts_at: dropInfo.event.startStr,
-                                ends_at: dropInfo.event.endStr,
-                            })
-                        });
-                        setAppointments(prev => prev.map(a => a.id === eventId ? { ...a, starts_at: dropInfo.event.startStr, ends_at: dropInfo.event.endStr } : a));
-                        showToast("התור הוזז לתאריך שעבר");
-                    } catch (e: any) {
-                        setToast({message: "שגיאה בהזזת התור: " + (e?.message || ""), type: "error"});
-                    }
-                },
-                onCancel: () => setPastDateConfirm(null),
-            });
-            return;
-        }
+        const isPast = newStart < new Date();
+        const dateLabel = newStart.toLocaleDateString("he-IL", { weekday: "long", day: "2-digit", month: "2-digit" });
+        const timeLabel = newStart.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
+        const clientName = dropInfo.event.extendedProps?.client_name || dropInfo.event.title || "התור";
 
-        await doMove();
+        setDragConfirm({
+            label: `להזיז את "${clientName}" ל-${dateLabel} בשעה ${timeLabel}?${isPast ? "\n⚠️ שים לב — תאריך זה כבר עבר." : ""}`,
+            onConfirm: async () => {
+                setDragConfirm(null);
+                const eventId = dropInfo.event.id;
+                try {
+                    await apiFetch(`/api/appointments/${eventId}`, {
+                        method: "PATCH",
+                        body: JSON.stringify({
+                            starts_at: dropInfo.event.startStr,
+                            ends_at: dropInfo.event.endStr,
+                        })
+                    });
+                    setAppointments(prev => prev.map(a => a.id === eventId ? { ...a, starts_at: dropInfo.event.startStr, ends_at: dropInfo.event.endStr } : a));
+                    showToast("התור הוזז בהצלחה ✅");
+                } catch (e: any) {
+                    setToast({ message: "שגיאה בהזזת התור: " + (e?.message || ""), type: "error" });
+                }
+            },
+            onCancel: () => setDragConfirm(null),
+        });
     };
 
     const handleSaveAppointment = async (skipPastCheck = false) => {
@@ -823,78 +825,6 @@ export default function CalendarPage() {
                             </div>
 
                             <div className="p-5 space-y-3 overflow-y-auto flex-1">
-                                {/* Service picker from catalog */}
-                                {services.length > 0 && (
-                                    <div>
-                                        <label className="block text-sm font-semibold text-slate-700 mb-1">🛎️ בחר שירות</label>
-                                        <div className="flex flex-wrap gap-2">
-                                            {services.map(svc => (
-                                                <button
-                                                    key={svc.id}
-                                                    type="button"
-                                                    onClick={() => {
-                                                        setSelectedServiceId(svc.id === selectedServiceId ? "" : svc.id);
-                                                        if (svc.id !== selectedServiceId) {
-                                                            setTitle(svc.name);
-                                                            // Auto-set end time based on duration
-                                                            if (startAt) {
-                                                                const start = new Date(startAt);
-                                                                const end = new Date(start.getTime() + svc.duration_minutes * 60000);
-                                                                const pad = (n: number) => String(n).padStart(2, "0");
-                                                                setEndAt(`${end.getFullYear()}-${pad(end.getMonth()+1)}-${pad(end.getDate())}T${pad(end.getHours())}:${pad(end.getMinutes())}`);
-                                                            }
-                                                        } else {
-                                                            setTitle("");
-                                                        }
-                                                    }}
-                                                    style={{ borderLeft: `4px solid ${svc.color}` }}
-                                                    className={`px-3 py-1.5 rounded-xl text-sm font-medium border transition-all text-right ${svc.id === selectedServiceId ? "bg-violet-100 border-violet-400 text-violet-800" : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-violet-50"}`}
-                                                >
-                                                    <span>{svc.name}</span>
-                                                    <span className="text-xs text-slate-400 mr-1">
-                                                        {svc.duration_minutes < 60 ? `${svc.duration_minutes}ד` : `${svc.duration_minutes/60}ש`}
-                                                        {svc.price_cents > 0 ? ` · ₪${svc.price_cents/100}` : ""}
-                                                    </span>
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-                                <div>
-                                    <label className="block text-sm font-semibold text-slate-700 mb-1">כותרת הטיפול</label>
-                                    {treatmentTypes.length > 0 && (
-                                        <div className="flex flex-wrap gap-2 mb-2">
-                                            {treatmentTypes.map(tpl => (
-                                                <button
-                                                    key={tpl.name}
-                                                    type="button"
-                                                    onClick={() => {
-                                                        setTitle(prev => {
-                                                            if (prev.startsWith(tpl.name)) return prev;
-                                                            const existingSuffix = treatmentTypes.reduce((s, t) => s.startsWith(t.name + " - ") ? s.slice(t.name.length + 3) : s.startsWith(t.name) ? "" : s, prev);
-                                                            return existingSuffix ? `${tpl.name} - ${existingSuffix}` : tpl.name;
-                                                        });
-                                                        if (tpl.requires_deposit) {
-                                                            setDepositAmount((tpl.deposit_amount_ils ?? defaultDepositAmount) || "");
-                                                        } else {
-                                                            setDepositAmount("");
-                                                        }
-                                                    }}
-                                                    className={`px-3 py-1 rounded-full text-sm font-semibold border transition-all ${title.startsWith(tpl.name) ? "bg-blue-600 text-white border-blue-600" : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-blue-50 hover:border-blue-300"}`}
-                                                >
-                                                    {tpl.name}{tpl.requires_deposit ? " 💳" : ""}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    )}
-                                    <input
-                                        value={title}
-                                        onChange={e => setTitle(e.target.value)}
-                                        placeholder={treatmentTypes.length > 0 ? "בחר קטגוריה למעלה או הקלד ישירות..." : "כותרת הטיפול"}
-                                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500"
-                                    />
-                                </div>
-
                                 {/* Date & Time */}
                                 <div className="flex gap-3">
                                     <div className="flex-1">
@@ -1042,6 +972,77 @@ export default function CalendarPage() {
                                         }
                                         return null;
                                     })()}
+                                </div>
+
+                                {/* Service picker from catalog */}
+                                {services.length > 0 && (
+                                    <div>
+                                        <label className="block text-sm font-semibold text-slate-700 mb-1">🛎️ בחר שירות</label>
+                                        <div className="flex flex-wrap gap-2">
+                                            {services.map(svc => (
+                                                <button
+                                                    key={svc.id}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setSelectedServiceId(svc.id === selectedServiceId ? "" : svc.id);
+                                                        if (svc.id !== selectedServiceId) {
+                                                            setTitle(svc.name);
+                                                            if (startAt) {
+                                                                const start = new Date(startAt);
+                                                                const end = new Date(start.getTime() + svc.duration_minutes * 60000);
+                                                                const pad = (n: number) => String(n).padStart(2, "0");
+                                                                setEndAt(`${end.getFullYear()}-${pad(end.getMonth()+1)}-${pad(end.getDate())}T${pad(end.getHours())}:${pad(end.getMinutes())}`);
+                                                            }
+                                                        } else {
+                                                            setTitle("");
+                                                        }
+                                                    }}
+                                                    style={{ borderLeft: `4px solid ${svc.color}` }}
+                                                    className={`px-3 py-1.5 rounded-xl text-sm font-medium border transition-all text-right ${svc.id === selectedServiceId ? "bg-violet-100 border-violet-400 text-violet-800" : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-violet-50"}`}
+                                                >
+                                                    <span>{svc.name}</span>
+                                                    <span className="text-xs text-slate-400 mr-1">
+                                                        {svc.duration_minutes < 60 ? `${svc.duration_minutes}ד` : `${svc.duration_minutes/60}ש`}
+                                                        {svc.price_cents > 0 ? ` · ₪${svc.price_cents/100}` : ""}
+                                                    </span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                                <div>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-1">כותרת הטיפול</label>
+                                    {treatmentTypes.length > 0 && (
+                                        <div className="flex flex-wrap gap-2 mb-2">
+                                            {treatmentTypes.map(tpl => (
+                                                <button
+                                                    key={tpl.name}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setTitle(prev => {
+                                                            if (prev.startsWith(tpl.name)) return prev;
+                                                            const existingSuffix = treatmentTypes.reduce((s, t) => s.startsWith(t.name + " - ") ? s.slice(t.name.length + 3) : s.startsWith(t.name) ? "" : s, prev);
+                                                            return existingSuffix ? `${tpl.name} - ${existingSuffix}` : tpl.name;
+                                                        });
+                                                        if (tpl.requires_deposit) {
+                                                            setDepositAmount((tpl.deposit_amount_ils ?? defaultDepositAmount) || "");
+                                                        } else {
+                                                            setDepositAmount("");
+                                                        }
+                                                    }}
+                                                    className={`px-3 py-1 rounded-full text-sm font-semibold border transition-all ${title.startsWith(tpl.name) ? "bg-blue-600 text-white border-blue-600" : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-blue-50 hover:border-blue-300"}`}
+                                                >
+                                                    {tpl.name}{tpl.requires_deposit ? " 💳" : ""}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                    <input
+                                        value={title}
+                                        onChange={e => setTitle(e.target.value)}
+                                        placeholder={treatmentTypes.length > 0 ? "בחר קטגוריה למעלה או הקלד ישירות..." : "כותרת הטיפול"}
+                                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+                                    />
                                 </div>
 
                                 {/* Staff member — hidden for artist role (pre-filled by backend) */}
@@ -1366,6 +1367,30 @@ export default function CalendarPage() {
                 />
 
                 {/* Past-date confirmation dialog */}
+                {dragConfirm && (
+                    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40" dir="rtl">
+                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden">
+                            <div className="bg-blue-50 border-b border-blue-200 px-5 py-4 flex items-start gap-3">
+                                <span className="text-2xl mt-0.5">📅</span>
+                                <div>
+                                    <div className="font-bold text-blue-900 text-base">אישור הזזת תור</div>
+                                    <div className="text-sm text-blue-700 mt-1 whitespace-pre-line">{dragConfirm.label}</div>
+                                </div>
+                            </div>
+                            <div className="flex gap-3 px-5 py-4">
+                                <button onClick={dragConfirm.onCancel}
+                                    className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-700 font-semibold text-sm hover:bg-slate-50 transition-colors">
+                                    ביטול
+                                </button>
+                                <button onClick={dragConfirm.onConfirm}
+                                    className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm transition-colors">
+                                    ✅ כן, הזז תור
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {pastDateConfirm && (
                     <div className="fixed inset-0 z-9999 flex items-center justify-center bg-black/40" dir="rtl">
                         <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden">
