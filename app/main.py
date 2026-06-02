@@ -540,12 +540,16 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 os.makedirs("uploads", exist_ok=True)
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
+_BUILTIN_ORIGINS = [
+    "https://bizfind-nine.vercel.app",
+    "https://www.biz-control.com",
+    "https://bizcontrol-seven.vercel.app",
+    "http://localhost:3000",
+    "http://localhost:3001",
+]
 _raw_origins = os.getenv("ALLOWED_ORIGINS", "")
-origins = (
-    [o.strip() for o in _raw_origins.split(",") if o.strip()]
-    if _raw_origins
-    else ["*"]
-)
+_extra = [o.strip() for o in _raw_origins.split(",") if o.strip()] if _raw_origins else []
+origins = list(dict.fromkeys(_BUILTIN_ORIGINS + _extra)) if (_BUILTIN_ORIGINS or _extra) else ["*"]
 
 app.add_middleware(
     CORSMiddleware,
