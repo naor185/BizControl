@@ -110,6 +110,8 @@ export default function StudioDashboard() {
     const [saved, setSaved] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [coverUploading, setCoverUploading] = useState(false);
+    const [logoUploading, setLogoUploading] = useState(false);
+    const logoRef = useRef<HTMLInputElement>(null);
     const [importUrl, setImportUrl] = useState("");
     const [importLoading, setImportLoading] = useState(false);
     const [importError, setImportError] = useState("");
@@ -242,6 +244,18 @@ export default function StudioDashboard() {
             setStudioData(sd => sd ? { ...sd, cover_url: data.cover_url || sd.cover_url } : sd);
         } catch { } finally { setCoverUploading(false); }
     };
+    const uploadLogo = async (file: File) => {
+        setLogoUploading(true);
+        const fd = new FormData(); fd.append("file", file);
+        try {
+            const res = await fetch(`${API}/api/studio/upload/logo`, {
+                method: "POST", headers: { Authorization: `Bearer ${getToken()}` }, body: fd,
+            });
+            const data = await res.json();
+            setStudioData(sd => sd ? { ...sd, logo_url: `/uploads/${data.filename}` } : sd);
+        } catch { } finally { setLogoUploading(false); }
+    };
+
     const importFromUrl = async () => {
         if (!importUrl.trim()) return;
         setImportLoading(true); setImportError("");
@@ -284,6 +298,7 @@ export default function StudioDashboard() {
         <div dir="rtl" style={{ minHeight: "100vh", background: "#f1f5f9", fontFamily: "system-ui,sans-serif", color: "#1e293b" }}>
             <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={e => e.target.files?.[0] && uploadPhoto(e.target.files[0])} />
             <input ref={coverRef} type="file" accept="image/*" style={{ display: "none" }} onChange={e => e.target.files?.[0] && uploadCover(e.target.files[0])} />
+            <input ref={logoRef} type="file" accept="image/*" style={{ display: "none" }} onChange={e => e.target.files?.[0] && uploadLogo(e.target.files[0])} />
 
             {/* Header */}
             <header style={{ background: "#fff", borderBottom: "1px solid #e2e8f0", padding: "0 1.25rem", height: 58, display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 40, boxShadow: "0 1px 6px rgba(0,0,0,.06)" }}>
@@ -479,21 +494,47 @@ export default function StudioDashboard() {
                 {/* ── GALLERY TAB ── */}
                 {tab === "gallery" && (
                     <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
-                        <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 18, padding: "1.1rem 1.25rem" }}>
-                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
-                                <div>
-                                    <div style={{ fontWeight: 800, fontSize: "0.95rem" }}>📸 תמונת כיסוי</div>
-                                    <div style={{ fontSize: "0.74rem", color: "#94a3b8", marginTop: "0.15rem" }}>תמונת הרקע שתוצג בפרופיל הציבורי</div>
+                        {/* Logo + Cover in 2 columns */}
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: "0.85rem" }}>
+                            {/* Logo */}
+                            <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 18, padding: "1.1rem" }}>
+                                <div style={{ fontWeight: 800, fontSize: "0.88rem", marginBottom: "0.5rem" }}>🏷️ לוגו</div>
+                                <div style={{ fontSize: "0.72rem", color: "#94a3b8", marginBottom: "0.75rem" }}>יוצג על הפרופיל</div>
+                                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.6rem" }}>
+                                    {studioData?.logo_url ? (
+                                        <img src={studioData.logo_url.startsWith("http") ? studioData.logo_url : `${API}${studioData.logo_url}`} alt="logo"
+                                            style={{ width: 80, height: 80, borderRadius: 14, objectFit: "cover", border: "2px solid #e2e8f0" }} />
+                                    ) : (
+                                        <div style={{ width: 80, height: 80, borderRadius: 14, background: "#f1f5f9", border: "2px dashed #e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "2rem" }}>🏷️</div>
+                                    )}
+                                    <button type="button" onClick={() => logoRef.current?.click()} disabled={logoUploading}
+                                        style={{ background: "linear-gradient(135deg,#7c3aed,#4f46e5)", color: "#fff", border: "none", borderRadius: 10, padding: "0.45rem 0.85rem", fontWeight: 700, fontSize: "0.75rem", cursor: "pointer", opacity: logoUploading ? 0.7 : 1 }}>
+                                        {logoUploading ? "⏳" : "⬆️ שנה לוגו"}
+                                    </button>
                                 </div>
-                                <button type="button" onClick={() => coverRef.current?.click()} disabled={coverUploading}
-                                    style={{ background: "linear-gradient(135deg,#7c3aed,#4f46e5)", color: "#fff", border: "none", borderRadius: 12, padding: "0.5rem 1rem", fontWeight: 700, fontSize: "0.8rem", cursor: "pointer", opacity: coverUploading ? 0.7 : 1 }}>
-                                    {coverUploading ? "⏳ מעלה..." : "⬆️ העלה כיסוי"}
-                                </button>
                             </div>
-                            {studioData?.cover_url && (
-                                <img src={studioData.cover_url.startsWith("http") ? studioData.cover_url : `${API}${studioData.cover_url}`} alt="cover"
-                                    style={{ width: "100%", height: 140, objectFit: "cover", borderRadius: 12, border: "1px solid #e2e8f0" }} />
-                            )}
+
+                            {/* Cover */}
+                            <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 18, padding: "1.1rem" }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
+                                    <div>
+                                        <div style={{ fontWeight: 800, fontSize: "0.88rem" }}>📸 תמונת כיסוי</div>
+                                        <div style={{ fontSize: "0.72rem", color: "#94a3b8", marginTop: "0.1rem" }}>רקע הפרופיל הציבורי</div>
+                                    </div>
+                                    <button type="button" onClick={() => coverRef.current?.click()} disabled={coverUploading}
+                                        style={{ background: "linear-gradient(135deg,#7c3aed,#4f46e5)", color: "#fff", border: "none", borderRadius: 10, padding: "0.45rem 0.85rem", fontWeight: 700, fontSize: "0.75rem", cursor: "pointer", opacity: coverUploading ? 0.7 : 1 }}>
+                                        {coverUploading ? "⏳" : "⬆️ שנה"}
+                                    </button>
+                                </div>
+                                {studioData?.cover_url ? (
+                                    <img src={studioData.cover_url.startsWith("http") ? studioData.cover_url : `${API}${studioData.cover_url}`} alt="cover"
+                                        style={{ width: "100%", height: 110, objectFit: "cover", borderRadius: 12, border: "1px solid #e2e8f0" }} />
+                                ) : (
+                                    <div style={{ width: "100%", height: 110, background: "#f1f5f9", borderRadius: 12, border: "2px dashed #e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", color: "#94a3b8", fontSize: "0.8rem" }}>
+                                        לחץ "שנה" להעלאת תמונת כיסוי
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
                         {/* Import from URL */}
