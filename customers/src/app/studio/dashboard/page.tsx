@@ -6,7 +6,21 @@ import { API } from "@/lib/api";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
-interface StudioInfo { name: string; slug: string; subscription_plan: string; }
+interface StudioProfile {
+    studio_id: string; slug: string; name: string; business_type: string;
+    logo_url?: string; primary_color: string; subscription_plan: string;
+    cover_url?: string; gallery_count: number;
+    marketplace_visible: boolean;
+    description?: string; city?: string; phone?: string; address?: string;
+    map_link?: string; instagram?: string; whatsapp?: string;
+    facebook?: string; tiktok?: string; website?: string; youtube?: string;
+    hours?: string;
+    services: Service[];
+}
+interface Service {
+    id: string; name: string; duration_minutes: number;
+    price_ils: number; color: string; description?: string; is_bookable_online: boolean;
+}
 interface BookingReq {
     id: string; client_name: string; client_phone: string;
     service_note: string | null; requested_at: string; status: string;
@@ -44,52 +58,59 @@ async function studioFetch<T>(path: string, opts?: RequestInit): Promise<T> {
     return res.json();
 }
 
-// ── Status styles ────────────────────────────────────────────────────────────
+// ── Completeness score ────────────────────────────────────────────────────────
 
-const STATUS_STYLE: Record<string, { label: string; bg: string; color: string }> = {
-    pending:  { label: "ממתין",   bg: "#fef9c3", color: "#92400e" },
-    approved: { label: "אושר ✅", bg: "#dcfce7", color: "#166534" },
-    rejected: { label: "נדחה",   bg: "#fee2e2", color: "#991b1b" },
+function calcScore(p: typeof initialProfile, galleryCount: number, coverUrl?: string): number {
+    let s = 0;
+    if (p.city) s += 12;
+    if (p.phone) s += 10;
+    if (p.address) s += 10;
+    if (p.description && p.description.length > 30) s += 15;
+    if (coverUrl || galleryCount > 0) s += 12;
+    if (galleryCount >= 3) s += 8;
+    if (p.instagram || p.facebook) s += 10;
+    if (p.whatsapp) s += 8;
+    if (p.website || p.map_link) s += 8;
+    if (p.marketplace_visible) s += 7;
+    return Math.min(s, 100);
+}
+
+const initialProfile = {
+    description: "", city: "", phone: "", address: "", map_link: "",
+    instagram: "", whatsapp: "", facebook: "", tiktok: "", website: "", youtube: "",
+    marketplace_visible: false,
+    hours: DEFAULT_HOURS as Hours,
 };
 
-// ── Input helpers ─────────────────────────────────────────────────────────────
+// ── Social icons ─────────────────────────────────────────────────────────────
 
-function inputStyle(focus?: boolean) {
-    return {
-        width: "100%", border: `1.5px solid ${focus ? "#7c3aed" : "#e2e8f0"}`,
-        borderRadius: 12, padding: "0.65rem 0.9rem", fontSize: "0.88rem",
-        outline: "none", boxSizing: "border-box" as const, background: "#fafafa",
-        transition: "border-color .2s",
-    };
-}
-function labelStyle() {
-    return { display: "block" as const, fontSize: "0.78rem", fontWeight: 700 as const, color: "#374151", marginBottom: "0.3rem" };
-}
+const SOCIAL_FIELDS = [
+    { key: "instagram", label: "Instagram", placeholder: "https://instagram.com/username", icon: "📸", color: "#e1306c" },
+    { key: "facebook",  label: "Facebook",  placeholder: "https://facebook.com/pagename",  icon: "👥", color: "#1877f2" },
+    { key: "tiktok",    label: "TikTok",    placeholder: "https://tiktok.com/@username",    icon: "🎵", color: "#010101" },
+    { key: "youtube",   label: "YouTube",   placeholder: "https://youtube.com/@channel",    icon: "▶️", color: "#ff0000" },
+    { key: "website",   label: "אתר הבית",  placeholder: "https://www.mysite.co.il",        icon: "🌐", color: "#0ea5e9" },
+    { key: "whatsapp",  label: "WhatsApp",  placeholder: "972501234567",                    icon: "💬", color: "#25d366" },
+    { key: "map_link",  label: "Google Maps", placeholder: "https://maps.google.com/...",  icon: "📍", color: "#ea4335" },
+];
 
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function StudioDashboard() {
     const router = useRouter();
     const [me, setMe] = useState<Me | null>(null);
-    const [studio, setStudio] = useState<StudioInfo | null>(null);
+    const [studioData, setStudioData] = useState<StudioProfile | null>(null);
     const [bookings, setBookings] = useState<BookingReq[]>([]);
     const [gallery, setGallery] = useState<GalleryPhoto[]>([]);
     const [loading, setLoading] = useState(true);
-    const [tab, setTab] = useState<"bookings" | "profile" | "gallery">("bookings");
+    const [tab, setTab] = useState<"bookings" | "profile" | "gallery" | "services">("profile");
     const [actionLoading, setActionLoading] = useState<string | null>(null);
-
-    // Profile form
-    const [profile, setProfile] = useState({
-        description: "", city: "", phone: "", address: "", map_link: "",
-        instagram: "", whatsapp: "", marketplace_visible: false,
-        hours: DEFAULT_HOURS as Hours,
-    });
+    const [profile, setProfile] = useState(initialProfile);
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
-
-    // Gallery
     const [uploading, setUploading] = useState(false);
     const [coverUploading, setCoverUploading] = useState(false);
+    const [openSection, setOpenSection] = useState<string[]>(["visibility", "basic", "social", "hours"]);
     const fileRef = useRef<HTMLInputElement>(null);
     const coverRef = useRef<HTMLInputElement>(null);
 
@@ -98,28 +119,35 @@ export default function StudioDashboard() {
         if (!getToken()) { router.replace("/studio/login"); return; }
         Promise.all([
             studioFetch<Me>("/api/auth/me"),
-            studioFetch<BookingReq[]>("/api/booking-requests?status=pending&limit=50"),
-            studioFetch<GalleryPhoto[]>("/api/studio/upload/gallery"),
-        ]).then(([m, reqs, gal]) => {
-            setMe(m); setBookings(reqs); setGallery(gal);
-            studioFetch<any>("/api/studio/automation").then(s => {
-                setStudio({ name: s.studio_name || "", slug: s.studio_slug || "", subscription_plan: s.subscription_plan || "free" });
+            studioFetch<BookingReq[]>("/api/booking-requests?status=pending&limit=50").catch(() => []),
+            studioFetch<GalleryPhoto[]>("/api/studio/upload/gallery").catch(() => []),
+            studioFetch<StudioProfile>("/api/marketplace/studio/me").catch(() => null),
+        ]).then(([m, reqs, gal, sd]) => {
+            setMe(m);
+            setBookings(reqs as BookingReq[]);
+            setGallery(gal as GalleryPhoto[]);
+            if (sd) {
+                setStudioData(sd);
                 let parsedHours = DEFAULT_HOURS;
-                if (s.marketplace_hours) {
-                    try { parsedHours = { ...DEFAULT_HOURS, ...JSON.parse(s.marketplace_hours) }; } catch {}
+                if (sd.hours) {
+                    try { parsedHours = { ...DEFAULT_HOURS, ...JSON.parse(sd.hours) }; } catch {}
                 }
                 setProfile({
-                    description: s.marketplace_description || "",
-                    city: s.marketplace_city || "",
-                    phone: s.marketplace_phone || "",
-                    address: s.studio_address || "",
-                    map_link: s.studio_map_link || "",
-                    instagram: s.marketplace_instagram || "",
-                    whatsapp: s.marketplace_whatsapp || "",
-                    marketplace_visible: s.marketplace_visible ?? false,
+                    description: sd.description || "",
+                    city: sd.city || "",
+                    phone: sd.phone || "",
+                    address: sd.address || "",
+                    map_link: sd.map_link || "",
+                    instagram: sd.instagram || "",
+                    whatsapp: sd.whatsapp || "",
+                    facebook: sd.facebook || "",
+                    tiktok: sd.tiktok || "",
+                    website: sd.website || "",
+                    youtube: sd.youtube || "",
+                    marketplace_visible: sd.marketplace_visible ?? false,
                     hours: parsedHours,
                 });
-            }).catch(() => {});
+            }
         }).catch(e => {
             if (e.message === "401") router.replace("/studio/login");
         }).finally(() => setLoading(false));
@@ -146,7 +174,7 @@ export default function StudioDashboard() {
         } catch { } finally { setActionLoading(null); }
     };
 
-    // ── Profile save ──────────────────────────────────────────────────────────
+    // ── Save profile ──────────────────────────────────────────────────────────
     const saveProfile = async () => {
         setSaving(true);
         try {
@@ -161,17 +189,25 @@ export default function StudioDashboard() {
                     studio_map_link: profile.map_link,
                     marketplace_instagram: profile.instagram,
                     marketplace_whatsapp: profile.whatsapp,
+                    marketplace_facebook: profile.facebook,
+                    marketplace_tiktok: profile.tiktok,
+                    marketplace_website: profile.website,
+                    marketplace_youtube: profile.youtube,
                     marketplace_visible: profile.marketplace_visible,
                     marketplace_hours: JSON.stringify(profile.hours),
                 }),
             });
-            setSaved(true); setTimeout(() => setSaved(false), 3000);
+            setSaved(true);
+            setTimeout(() => setSaved(false), 3000);
+            // refresh studio data
+            studioFetch<StudioProfile>("/api/marketplace/studio/me").then(sd => {
+                if (sd) setStudioData(sd);
+            }).catch(() => {});
         } catch { } finally { setSaving(false); }
     };
 
-    // ── Gallery upload ────────────────────────────────────────────────────────
+    // ── Gallery ───────────────────────────────────────────────────────────────
     const uploadPhoto = async (file: File) => {
-        if (!file) return;
         setUploading(true);
         const fd = new FormData(); fd.append("file", file);
         try {
@@ -180,33 +216,35 @@ export default function StudioDashboard() {
             });
             const photo = await res.json();
             setGallery(g => [...g, photo]);
+            setStudioData(sd => sd ? { ...sd, gallery_count: sd.gallery_count + 1 } : sd);
         } catch { } finally { setUploading(false); }
     };
-
     const deletePhoto = async (id: string) => {
         try {
             await fetch(`${API}/api/studio/upload/gallery/${id}`, {
                 method: "DELETE", headers: { Authorization: `Bearer ${getToken()}` },
             });
             setGallery(g => g.filter(p => p.id !== id));
+            setStudioData(sd => sd ? { ...sd, gallery_count: Math.max(0, sd.gallery_count - 1) } : sd);
         } catch { }
     };
-
     const uploadCover = async (file: File) => {
         setCoverUploading(true);
         const fd = new FormData(); fd.append("file", file);
         try {
-            await fetch(`${API}/api/studio/upload/cover`, {
+            const res = await fetch(`${API}/api/studio/upload/cover`, {
                 method: "POST", headers: { Authorization: `Bearer ${getToken()}` }, body: fd,
             });
+            const data = await res.json();
+            setStudioData(sd => sd ? { ...sd, cover_url: data.cover_url || sd.cover_url } : sd);
         } catch { } finally { setCoverUploading(false); }
     };
-
-    // ── Hours helpers ─────────────────────────────────────────────────────────
     const setHour = (day: Day, field: "open" | "close" | "closed", value: string | boolean) => {
         setProfile(p => ({ ...p, hours: { ...p.hours, [day]: { ...p.hours[day], [field]: value } } }));
     };
-
+    const toggleSection = (s: string) => setOpenSection(prev =>
+        prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]
+    );
     const logout = () => { localStorage.removeItem("biz_studio_token"); router.replace("/studio/login"); };
 
     if (loading) return (
@@ -215,28 +253,32 @@ export default function StudioDashboard() {
         </div>
     );
 
-    const isPro = studio?.subscription_plan && !["free"].includes(studio.subscription_plan);
+    const isPro = studioData?.subscription_plan && !["free"].includes(studioData.subscription_plan);
     const fmtDate = (s: string) => new Date(s).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
     const pendingCount = bookings.filter(b => b.status === "pending").length;
+    const score = calcScore(profile, studioData?.gallery_count ?? gallery.length, studioData?.cover_url);
+    const scoreColor = score >= 80 ? "#16a34a" : score >= 50 ? "#d97706" : "#dc2626";
 
     return (
-        <div dir="rtl" style={{ minHeight: "100vh", background: "#f8faff", fontFamily: "system-ui,sans-serif", color: "#1e293b" }}>
-            {/* Hidden file inputs */}
+        <div dir="rtl" style={{ minHeight: "100vh", background: "#f1f5f9", fontFamily: "system-ui,sans-serif", color: "#1e293b" }}>
             <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={e => e.target.files?.[0] && uploadPhoto(e.target.files[0])} />
             <input ref={coverRef} type="file" accept="image/*" style={{ display: "none" }} onChange={e => e.target.files?.[0] && uploadCover(e.target.files[0])} />
 
             {/* Header */}
-            <header style={{ background: "#fff", borderBottom: "1px solid #e2e8f0", padding: "0 1.5rem", height: 60, display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 40 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-                    <div style={{ width: 34, height: 34, borderRadius: 9, background: "linear-gradient(135deg,#7c3aed,#4f46e5)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 900, fontSize: "0.85rem" }}>B</div>
+            <header style={{ background: "#fff", borderBottom: "1px solid #e2e8f0", padding: "0 1.25rem", height: 58, display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 40, boxShadow: "0 1px 6px rgba(0,0,0,.06)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.7rem" }}>
+                    {studioData?.logo_url
+                        ? <img src={studioData.logo_url.startsWith("http") ? studioData.logo_url : `${API}${studioData.logo_url}`} alt="logo" style={{ width: 36, height: 36, borderRadius: 9, objectFit: "cover", border: "1.5px solid #e2e8f0" }} />
+                        : <div style={{ width: 36, height: 36, borderRadius: 9, background: `linear-gradient(135deg,${studioData?.primary_color || "#7c3aed"},#4f46e5)`, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 900, fontSize: "0.85rem" }}>B</div>
+                    }
                     <div>
-                        <div style={{ fontWeight: 800, fontSize: "0.95rem", lineHeight: 1.2 }}>{studio?.name || me?.display_name}</div>
-                        <div style={{ fontSize: "0.7rem", color: "#94a3b8" }}>{me?.role} · {isPro ? "Pro ✨" : "Free"}</div>
+                        <div style={{ fontWeight: 800, fontSize: "0.95rem", lineHeight: 1.2 }}>{studioData?.name || me?.display_name}</div>
+                        <div style={{ fontSize: "0.68rem", color: "#94a3b8" }}>{me?.role} · {isPro ? "Pro ✨" : "Free"}</div>
                     </div>
                 </div>
                 <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-                    {studio?.slug && (
-                        <Link href={`/b/${studio.slug}`} target="_blank"
+                    {studioData?.slug && (
+                        <Link href={`/b/${studioData.slug}`} target="_blank"
                             style={{ fontSize: "0.78rem", color: "#7c3aed", textDecoration: "none", background: "#f5f3ff", padding: "0.3rem 0.65rem", borderRadius: 8, fontWeight: 600, border: "1px solid #ede9fe" }}>
                             👁️ הפרופיל שלי ↗
                         </Link>
@@ -247,143 +289,225 @@ export default function StudioDashboard() {
 
             {/* Upgrade banner */}
             {!isPro && (
-                <div style={{ background: "linear-gradient(135deg,#7c3aed,#4f46e5)", padding: "0.65rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "0.5rem" }}>
-                    <div style={{ color: "#fff", fontSize: "0.85rem" }}>
-                        <strong>🚀 שדרגו ל-BizControl Pro</strong> — יומן, תשלומים, WhatsApp, AI ועוד
-                    </div>
+                <div style={{ background: "linear-gradient(135deg,#7c3aed,#4f46e5)", padding: "0.6rem 1.25rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "0.5rem" }}>
+                    <span style={{ color: "#fff", fontSize: "0.82rem" }}>🚀 <strong>שדרגו ל-BizControl Pro</strong> — יומן, תשלומים, WhatsApp, AI ועוד</span>
                     <a href="https://www.biz-control.com" target="_blank" rel="noopener"
-                        style={{ background: "#fff", color: "#7c3aed", padding: "0.35rem 0.9rem", borderRadius: 8, fontWeight: 800, fontSize: "0.8rem", textDecoration: "none" }}>
-                        נסו בחינם ←
-                    </a>
+                        style={{ background: "#fff", color: "#7c3aed", padding: "0.3rem 0.8rem", borderRadius: 8, fontWeight: 800, fontSize: "0.78rem", textDecoration: "none" }}>נסו בחינם ←</a>
                 </div>
             )}
 
-            <div style={{ maxWidth: 900, margin: "0 auto", padding: "1.5rem 1.25rem" }}>
+            <div style={{ maxWidth: 860, margin: "0 auto", padding: "1.25rem 1rem" }}>
 
-                {/* KPI row */}
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(150px,1fr))", gap: "0.85rem", marginBottom: "1.5rem" }}>
-                    {[
-                        { icon: "📥", label: "בקשות ממתינות", value: pendingCount, color: "#7c3aed", bg: "#f5f3ff" },
-                        { icon: "🖼️", label: "תמונות בגלריה", value: gallery.length + "/20", color: "#0ea5e9", bg: "#f0f9ff" },
-                        { icon: "👁️", label: "פרופיל גלוי", value: profile.marketplace_visible ? "כן ✅" : "לא", color: profile.marketplace_visible ? "#16a34a" : "#94a3b8", bg: profile.marketplace_visible ? "#f0fdf4" : "#f8fafc" },
-                    ].map(k => (
-                        <div key={k.label} style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 16, padding: "1rem" }}>
-                            <div style={{ fontSize: "1.4rem", marginBottom: "0.3rem" }}>{k.icon}</div>
-                            <div style={{ fontSize: "1.5rem", fontWeight: 900, color: k.color }}>{k.value}</div>
-                            <div style={{ fontSize: "0.72rem", color: "#94a3b8", marginTop: "0.1rem" }}>{k.label}</div>
+                {/* Completeness card */}
+                <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 18, padding: "1.1rem 1.25rem", marginBottom: "1rem", display: "flex", alignItems: "center", gap: "1.25rem", flexWrap: "wrap" }}>
+                    <div style={{ flex: 1, minWidth: 200 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.4rem" }}>
+                            <span style={{ fontWeight: 700, fontSize: "0.88rem" }}>עדכניות הפרופיל</span>
+                            <span style={{ fontWeight: 900, fontSize: "1rem", color: scoreColor }}>{score}%</span>
                         </div>
-                    ))}
+                        <div style={{ height: 8, background: "#f1f5f9", borderRadius: 4, overflow: "hidden" }}>
+                            <div style={{ height: "100%", width: `${score}%`, background: scoreColor, borderRadius: 4, transition: "width .5s" }} />
+                        </div>
+                        <div style={{ fontSize: "0.72rem", color: "#94a3b8", marginTop: "0.3rem" }}>
+                            {score < 50 ? "הוסיפו פרטים בסיסיים כדי שלקוחות יוכלו למצוא אתכם" :
+                             score < 80 ? "טוב! הוסיפו עוד פרטים לחשיפה מרבית" :
+                             "מצוין! הפרופיל שלכם מלא ומקצועי 🎉"}
+                        </div>
+                    </div>
+                    <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+                        {[
+                            { label: "בקשות", value: pendingCount, icon: "📥", color: "#7c3aed", bg: "#f5f3ff", action: () => setTab("bookings") },
+                            { label: "גלריה", value: `${studioData?.gallery_count ?? gallery.length}/20`, icon: "🖼️", color: "#0ea5e9", bg: "#f0f9ff", action: () => setTab("gallery") },
+                            { label: "שירותים", value: studioData?.services?.length ?? 0, icon: "🛍️", color: "#10b981", bg: "#f0fdf4", action: () => setTab("services") },
+                        ].map(k => (
+                            <button key={k.label} onClick={k.action} style={{ background: k.bg, border: `1px solid ${k.bg}`, borderRadius: 12, padding: "0.55rem 0.85rem", cursor: "pointer", textAlign: "center", minWidth: 80 }}>
+                                <div style={{ fontSize: "1.1rem" }}>{k.icon}</div>
+                                <div style={{ fontSize: "1.1rem", fontWeight: 900, color: k.color, lineHeight: 1.2 }}>{k.value}</div>
+                                <div style={{ fontSize: "0.65rem", color: "#94a3b8" }}>{k.label}</div>
+                            </button>
+                        ))}
+                    </div>
                 </div>
 
                 {/* Tabs */}
-                <div style={{ display: "flex", gap: "0.35rem", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, padding: "0.3rem", width: "fit-content", marginBottom: "1.25rem" }}>
+                <div style={{ display: "flex", gap: "0.3rem", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 14, padding: "0.3rem", marginBottom: "1rem", overflowX: "auto" }}>
                     {([
-                        ["bookings", `📥 בקשות${pendingCount > 0 ? ` (${pendingCount})` : ""}`],
-                        ["gallery",  "🖼️ גלריה"],
-                        ["profile",  "⚙️ פרופיל"],
+                        ["profile",   "⚙️ פרופיל"],
+                        ["gallery",   "🖼️ גלריה"],
+                        ["bookings",  `📥 בקשות${pendingCount > 0 ? ` (${pendingCount})` : ""}`],
+                        ["services",  "🛍️ שירותים"],
                     ] as const).map(([id, label]) => (
                         <button key={id} onClick={() => setTab(id)} type="button"
-                            style={{ padding: "0.5rem 1.1rem", borderRadius: 10, border: "none", cursor: "pointer", fontWeight: 700, fontSize: "0.84rem", transition: "all .15s", background: tab === id ? "linear-gradient(135deg,#7c3aed,#4f46e5)" : "transparent", color: tab === id ? "#fff" : "#64748b", whiteSpace: "nowrap" }}>
+                            style={{ padding: "0.5rem 1rem", borderRadius: 10, border: "none", cursor: "pointer", fontWeight: 700, fontSize: "0.82rem", transition: "all .15s", background: tab === id ? "linear-gradient(135deg,#7c3aed,#4f46e5)" : "transparent", color: tab === id ? "#fff" : "#64748b", whiteSpace: "nowrap", flexShrink: 0 }}>
                             {label}
                         </button>
                     ))}
                 </div>
 
-                {/* ── TAB: Bookings ── */}
-                {tab === "bookings" && (
-                    <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 20, overflow: "hidden" }}>
-                        <div style={{ padding: "1rem 1.25rem", borderBottom: "1px solid #f1f5f9" }}>
-                            <h2 style={{ fontWeight: 800, fontSize: "1rem", margin: 0 }}>בקשות תורים ממתינות</h2>
-                        </div>
-                        {bookings.length === 0 ? (
-                            <div style={{ padding: "3rem", textAlign: "center", color: "#94a3b8" }}>
-                                <div style={{ fontSize: "2.5rem", marginBottom: "0.75rem" }}>✅</div>
-                                <div>אין בקשות ממתינות כרגע</div>
-                            </div>
-                        ) : bookings.map((b, i) => {
-                            const st = STATUS_STYLE[b.status] || STATUS_STYLE.pending;
-                            return (
-                                <div key={b.id} style={{ padding: "1rem 1.25rem", borderBottom: i < bookings.length - 1 ? "1px solid #f1f5f9" : "none", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "1rem", flexWrap: "wrap" }}>
-                                    <div style={{ flex: 1, minWidth: 200 }}>
-                                        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.25rem" }}>
-                                            <span style={{ fontWeight: 700, fontSize: "0.95rem" }}>{b.client_name}</span>
-                                            <span style={{ background: st.bg, color: st.color, fontSize: "0.68rem", fontWeight: 700, padding: "0.12rem 0.45rem", borderRadius: 6 }}>{st.label}</span>
-                                        </div>
-                                        <div style={{ fontSize: "0.78rem", color: "#64748b" }}>📅 {fmtDate(b.requested_at)}</div>
-                                        {b.service_note && <div style={{ fontSize: "0.78rem", color: "#7c3aed", marginTop: "0.15rem" }}>🛎️ {b.service_note}</div>}
-                                        <a href={`tel:${b.client_phone}`} style={{ fontSize: "0.78rem", color: "#0ea5e9", textDecoration: "none", display: "block", marginTop: "0.15rem" }}>📞 {b.client_phone}</a>
+                {/* ── PROFILE TAB ── */}
+                {tab === "profile" && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
+
+                        {/* Visibility */}
+                        <Section title="👁️ ניראות בBizFind" open={openSection.includes("visibility")} onToggle={() => toggleSection("visibility")}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.2rem 0" }}>
+                                <div>
+                                    <div style={{ fontWeight: 600, fontSize: "0.9rem" }}>
+                                        {profile.marketplace_visible ? "✅ הפרופיל גלוי ללקוחות" : "🔒 הפרופיל מוסתר"}
                                     </div>
-                                    {b.status === "pending" && (
-                                        <div style={{ display: "flex", gap: "0.4rem", flexShrink: 0 }}>
-                                            <button onClick={() => handleApprove(b.id)} disabled={!!actionLoading} type="button"
-                                                style={{ background: "#dcfce7", color: "#166534", border: "1px solid #bbf7d0", borderRadius: 10, padding: "0.4rem 0.85rem", fontWeight: 700, fontSize: "0.8rem", cursor: "pointer" }}>
-                                                {actionLoading === b.id ? "⏳" : "✅ אשר"}
-                                            </button>
-                                            <button onClick={() => handleReject(b.id)} disabled={!!actionLoading} type="button"
-                                                style={{ background: "#fee2e2", color: "#991b1b", border: "1px solid #fecaca", borderRadius: 10, padding: "0.4rem 0.85rem", fontWeight: 700, fontSize: "0.8rem", cursor: "pointer" }}>
-                                                {actionLoading === b.id + "_r" ? "⏳" : "❌ דחה"}
-                                            </button>
-                                        </div>
-                                    )}
+                                    <div style={{ fontSize: "0.75rem", color: "#94a3b8", marginTop: "0.15rem" }}>
+                                        {profile.marketplace_visible ? "לקוחות יכולים למצוא אתכם בחיפוש" : "הפעילו כדי שלקוחות יוכלו למצוא אתכם"}
+                                    </div>
                                 </div>
-                            );
-                        })}
+                                <Toggle checked={profile.marketplace_visible} onChange={v => setProfile(p => ({ ...p, marketplace_visible: v }))} />
+                            </div>
+                        </Section>
+
+                        {/* Basic info */}
+                        <Section title="📋 פרטי העסק" open={openSection.includes("basic")} onToggle={() => toggleSection("basic")}>
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.8rem" }}>
+                                <Inp label="שם העסק" value={studioData?.name || ""} readOnly hint="לשינוי שם — עדכן ב-BizControl" />
+                                <Inp label="עיר" value={profile.city} onChange={v => setProfile(p => ({ ...p, city: v }))} placeholder="תל אביב" />
+                                <Inp label="טלפון לתצוגה" value={profile.phone} onChange={v => setProfile(p => ({ ...p, phone: v }))} placeholder="050-0000000" />
+                                <Inp label="כתובת" value={profile.address} onChange={v => setProfile(p => ({ ...p, address: v }))} placeholder="רחוב ראשי 1" />
+                            </div>
+                            <div style={{ marginTop: "0.8rem" }}>
+                                <label style={LABEL_S}>תיאור העסק</label>
+                                <textarea value={profile.description} rows={4}
+                                    onChange={e => setProfile(p => ({ ...p, description: e.target.value }))}
+                                    placeholder="ספרו על העסק — סגנון, ניסיון, מה מייחד אתכם..."
+                                    style={{ width: "100%", border: "1.5px solid #e2e8f0", borderRadius: 12, padding: "0.65rem 0.9rem", fontSize: "0.88rem", outline: "none", boxSizing: "border-box", background: "#fafafa", resize: "vertical", lineHeight: 1.6, transition: "border-color .2s" }}
+                                    onFocus={e => e.target.style.borderColor = "#7c3aed"}
+                                    onBlur={e => e.target.style.borderColor = "#e2e8f0"}
+                                />
+                                <div style={{ fontSize: "0.7rem", color: "#94a3b8", textAlign: "left" }}>{profile.description.length}/600</div>
+                            </div>
+                        </Section>
+
+                        {/* Social & Web */}
+                        <Section title="🔗 נוכחות ברשת" open={openSection.includes("social")} onToggle={() => toggleSection("social")}>
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.8rem" }}>
+                                {SOCIAL_FIELDS.map(f => (
+                                    <div key={f.key}>
+                                        <label style={LABEL_S}>
+                                            <span style={{ marginLeft: "0.3rem" }}>{f.icon}</span>
+                                            {f.label}
+                                        </label>
+                                        <div style={{ position: "relative" }}>
+                                            <input
+                                                type={f.key === "whatsapp" ? "tel" : "url"}
+                                                value={(profile as any)[f.key]}
+                                                placeholder={f.placeholder}
+                                                onChange={e => setProfile(p => ({ ...p, [f.key]: e.target.value }))}
+                                                dir="ltr"
+                                                style={{ width: "100%", border: "1.5px solid #e2e8f0", borderRadius: 12, padding: "0.6rem 0.85rem", fontSize: "0.83rem", outline: "none", boxSizing: "border-box", background: "#fafafa", transition: "border-color .2s" }}
+                                                onFocus={e => e.target.style.borderColor = f.color}
+                                                onBlur={e => e.target.style.borderColor = "#e2e8f0"}
+                                            />
+                                            {(profile as any)[f.key] && (
+                                                <a href={(profile as any)[f.key]} target="_blank" rel="noopener"
+                                                    style={{ position: "absolute", top: "50%", left: 10, transform: "translateY(-50%)", fontSize: "0.7rem", color: f.color, textDecoration: "none" }}>↗</a>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                            <div style={{ marginTop: "0.75rem", background: "#f8fafc", borderRadius: 10, padding: "0.65rem 0.9rem", fontSize: "0.78rem", color: "#64748b", border: "1px solid #f1f5f9" }}>
+                                💡 הוסיפו את קישור האינסטגרם שלכם ולקוחות יוכלו לראות את העבודות שלכם ישירות מהפרופיל
+                            </div>
+                        </Section>
+
+                        {/* Hours */}
+                        <Section title="🕐 שעות פעילות" open={openSection.includes("hours")} onToggle={() => toggleSection("hours")}>
+                            <div style={{ display: "flex", flexDirection: "column", gap: "0.45rem" }}>
+                                {DAYS.map(day => (
+                                    <div key={day} style={{ display: "flex", alignItems: "center", gap: "0.7rem", padding: "0.5rem 0.75rem", borderRadius: 11, background: profile.hours[day].closed ? "#f8fafc" : "#faf5ff", border: "1px solid #f1f5f9" }}>
+                                        <div style={{ width: 52, fontWeight: 700, fontSize: "0.81rem", color: profile.hours[day].closed ? "#94a3b8" : "#374151", flexShrink: 0 }}>{DAY_LABELS[day]}</div>
+                                        {profile.hours[day].closed ? (
+                                            <div style={{ color: "#94a3b8", fontSize: "0.8rem", flex: 1 }}>סגור</div>
+                                        ) : (
+                                            <div style={{ display: "flex", gap: "0.4rem", alignItems: "center", flex: 1 }}>
+                                                <input type="time" value={profile.hours[day].open} onChange={e => setHour(day, "open", e.target.value)}
+                                                    style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "0.3rem 0.45rem", fontSize: "0.81rem", outline: "none" }} />
+                                                <span style={{ color: "#94a3b8", fontSize: "0.8rem" }}>—</span>
+                                                <input type="time" value={profile.hours[day].close} onChange={e => setHour(day, "close", e.target.value)}
+                                                    style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "0.3rem 0.45rem", fontSize: "0.81rem", outline: "none" }} />
+                                            </div>
+                                        )}
+                                        <button type="button" onClick={() => setHour(day, "closed", !profile.hours[day].closed)}
+                                            style={{ fontSize: "0.7rem", padding: "0.22rem 0.55rem", borderRadius: 8, border: "1px solid #e2e8f0", background: profile.hours[day].closed ? "#e2e8f0" : "#faf5ff", color: profile.hours[day].closed ? "#64748b" : "#7c3aed", cursor: "pointer", fontWeight: 600, flexShrink: 0 }}>
+                                            {profile.hours[day].closed ? "פתח" : "סגור"}
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        </Section>
+
+                        {saved && (
+                            <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 12, padding: "0.65rem 1rem", color: "#166534", fontSize: "0.85rem" }}>
+                                ✅ הפרופיל עודכן בהצלחה!
+                            </div>
+                        )}
+                        <button type="button" onClick={saveProfile} disabled={saving}
+                            style={{ background: saving ? "#c4b5fd" : "linear-gradient(135deg,#7c3aed,#4f46e5)", color: "#fff", border: "none", borderRadius: 14, padding: "0.85rem", fontWeight: 800, fontSize: "0.92rem", cursor: "pointer", width: "100%", boxShadow: saving ? "none" : "0 4px 16px rgba(124,58,237,.3)" }}>
+                            {saving ? "שומר..." : "💾 שמור שינויים"}
+                        </button>
                     </div>
                 )}
 
-                {/* ── TAB: Gallery ── */}
+                {/* ── GALLERY TAB ── */}
                 {tab === "gallery" && (
-                    <div>
-                        {/* Cover photo */}
-                        <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 20, padding: "1.25rem", marginBottom: "1rem" }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
+                        <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 18, padding: "1.1rem 1.25rem" }}>
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
                                 <div>
                                     <div style={{ fontWeight: 800, fontSize: "0.95rem" }}>📸 תמונת כיסוי</div>
-                                    <div style={{ fontSize: "0.75rem", color: "#94a3b8", marginTop: "0.15rem" }}>תמונת הרקע שתוצג בפרופיל הציבורי</div>
+                                    <div style={{ fontSize: "0.74rem", color: "#94a3b8", marginTop: "0.15rem" }}>תמונת הרקע שתוצג בפרופיל הציבורי</div>
                                 </div>
                                 <button type="button" onClick={() => coverRef.current?.click()} disabled={coverUploading}
-                                    style={{ background: "linear-gradient(135deg,#7c3aed,#4f46e5)", color: "#fff", border: "none", borderRadius: 12, padding: "0.55rem 1.1rem", fontWeight: 700, fontSize: "0.82rem", cursor: "pointer", opacity: coverUploading ? 0.7 : 1 }}>
+                                    style={{ background: "linear-gradient(135deg,#7c3aed,#4f46e5)", color: "#fff", border: "none", borderRadius: 12, padding: "0.5rem 1rem", fontWeight: 700, fontSize: "0.8rem", cursor: "pointer", opacity: coverUploading ? 0.7 : 1 }}>
                                     {coverUploading ? "⏳ מעלה..." : "⬆️ העלה כיסוי"}
                                 </button>
                             </div>
+                            {studioData?.cover_url && (
+                                <img src={studioData.cover_url.startsWith("http") ? studioData.cover_url : `${API}${studioData.cover_url}`} alt="cover"
+                                    style={{ width: "100%", height: 140, objectFit: "cover", borderRadius: 12, border: "1px solid #e2e8f0" }} />
+                            )}
                         </div>
 
-                        {/* Gallery grid */}
-                        <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 20, padding: "1.25rem" }}>
+                        <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 18, padding: "1.1rem 1.25rem" }}>
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
                                 <div>
                                     <div style={{ fontWeight: 800, fontSize: "0.95rem" }}>🖼️ גלריה ({gallery.length}/20)</div>
-                                    <div style={{ fontSize: "0.75rem", color: "#94a3b8", marginTop: "0.15rem" }}>תמונות עבודות שיוצגו בפרופיל הציבורי</div>
+                                    <div style={{ fontSize: "0.74rem", color: "#94a3b8", marginTop: "0.15rem" }}>תמונות עבודות שיוצגו ללקוחות</div>
                                 </div>
                                 <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading || gallery.length >= 20}
-                                    style={{ background: gallery.length >= 20 ? "#e2e8f0" : "linear-gradient(135deg,#7c3aed,#4f46e5)", color: gallery.length >= 20 ? "#94a3b8" : "#fff", border: "none", borderRadius: 12, padding: "0.55rem 1.1rem", fontWeight: 700, fontSize: "0.82rem", cursor: gallery.length >= 20 ? "not-allowed" : "pointer", opacity: uploading ? 0.7 : 1 }}>
+                                    style={{ background: gallery.length >= 20 ? "#e2e8f0" : "linear-gradient(135deg,#7c3aed,#4f46e5)", color: gallery.length >= 20 ? "#94a3b8" : "#fff", border: "none", borderRadius: 12, padding: "0.5rem 1rem", fontWeight: 700, fontSize: "0.8rem", cursor: gallery.length >= 20 ? "not-allowed" : "pointer" }}>
                                     {uploading ? "⏳ מעלה..." : "+ הוסף תמונה"}
                                 </button>
                             </div>
-
                             {gallery.length === 0 ? (
-                                <div style={{ textAlign: "center", padding: "3rem", color: "#94a3b8", border: "2px dashed #e2e8f0", borderRadius: 16 }}>
-                                    <div style={{ fontSize: "3rem", marginBottom: "0.75rem" }}>🖼️</div>
-                                    <div style={{ fontWeight: 600, marginBottom: "0.4rem" }}>אין תמונות עדיין</div>
-                                    <div style={{ fontSize: "0.8rem" }}>לחץ "הוסף תמונה" להעלאת התמונה הראשונה</div>
+                                <div style={{ textAlign: "center", padding: "2.5rem", color: "#94a3b8", border: "2px dashed #e2e8f0", borderRadius: 14 }}>
+                                    <div style={{ fontSize: "2.5rem", marginBottom: "0.5rem" }}>🖼️</div>
+                                    <div style={{ fontWeight: 600 }}>אין תמונות עדיין</div>
+                                    <div style={{ fontSize: "0.78rem", marginTop: "0.3rem" }}>לחץ "הוסף תמונה" להעלאת הראשונה</div>
                                 </div>
                             ) : (
-                                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(140px,1fr))", gap: "0.75rem" }}>
+                                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(130px,1fr))", gap: "0.65rem" }}>
                                     {gallery.map(p => (
-                                        <div key={p.id} style={{ position: "relative", borderRadius: 14, overflow: "hidden", aspectRatio: "1", background: "#f1f5f9", group: true } as any}>
-                                            <img src={`${API}${p.url}`} alt={p.caption || ""} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                                        <div key={p.id} style={{ position: "relative", borderRadius: 12, overflow: "hidden", aspectRatio: "1", background: "#f1f5f9" }}>
+                                            <img src={`${API}${p.url}`} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
                                             <button type="button" onClick={() => deletePhoto(p.id)}
-                                                style={{ position: "absolute", top: 6, left: 6, background: "rgba(239,68,68,.85)", border: "none", borderRadius: "50%", width: 26, height: 26, cursor: "pointer", color: "#fff", fontSize: "0.75rem", display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>
+                                                style={{ position: "absolute", top: 5, left: 5, background: "rgba(239,68,68,.85)", border: "none", borderRadius: "50%", width: 24, height: 24, cursor: "pointer", color: "#fff", fontSize: "0.7rem", display: "flex", alignItems: "center", justifyContent: "center" }}>
                                                 ✕
                                             </button>
                                         </div>
                                     ))}
-                                    {/* Upload placeholder */}
                                     {gallery.length < 20 && (
                                         <button type="button" onClick={() => fileRef.current?.click()}
-                                            style={{ aspectRatio: "1", border: "2px dashed #c4b5fd", borderRadius: 14, background: "#faf5ff", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "0.35rem", color: "#7c3aed" }}>
-                                            <span style={{ fontSize: "1.5rem" }}>+</span>
-                                            <span style={{ fontSize: "0.7rem", fontWeight: 600 }}>הוסף</span>
+                                            style={{ aspectRatio: "1", border: "2px dashed #c4b5fd", borderRadius: 12, background: "#faf5ff", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "0.3rem", color: "#7c3aed" }}>
+                                            <span style={{ fontSize: "1.4rem" }}>+</span>
+                                            <span style={{ fontSize: "0.68rem", fontWeight: 600 }}>הוסף</span>
                                         </button>
                                     )}
                                 </div>
@@ -392,132 +516,130 @@ export default function StudioDashboard() {
                     </div>
                 )}
 
-                {/* ── TAB: Profile ── */}
-                {tab === "profile" && (
-                    <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-
-                        {/* Visibility toggle */}
-                        <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 20, padding: "1.1rem 1.25rem" }}>
-                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                <div>
-                                    <div style={{ fontWeight: 700, fontSize: "0.9rem" }}>הפרופיל מוצג לציבור</div>
-                                    <div style={{ fontSize: "0.75rem", color: "#94a3b8", marginTop: "0.15rem" }}>לקוחות יוכלו למצוא אתכם בחיפוש</div>
+                {/* ── BOOKINGS TAB ── */}
+                {tab === "bookings" && (
+                    <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 18, overflow: "hidden" }}>
+                        <div style={{ padding: "1rem 1.25rem", borderBottom: "1px solid #f1f5f9" }}>
+                            <div style={{ fontWeight: 800, fontSize: "1rem" }}>📥 בקשות תורים ממתינות</div>
+                        </div>
+                        {bookings.length === 0 ? (
+                            <div style={{ padding: "3rem", textAlign: "center", color: "#94a3b8" }}>
+                                <div style={{ fontSize: "2.5rem", marginBottom: "0.5rem" }}>✅</div>
+                                <div>אין בקשות ממתינות כרגע</div>
+                            </div>
+                        ) : bookings.map((b, i) => (
+                            <div key={b.id} style={{ padding: "1rem 1.25rem", borderBottom: i < bookings.length - 1 ? "1px solid #f1f5f9" : "none", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "0.75rem", flexWrap: "wrap" }}>
+                                <div style={{ flex: 1, minWidth: 180 }}>
+                                    <div style={{ fontWeight: 700, fontSize: "0.92rem", marginBottom: "0.2rem" }}>{b.client_name}</div>
+                                    <div style={{ fontSize: "0.76rem", color: "#64748b" }}>📅 {fmtDate(b.requested_at)}</div>
+                                    {b.service_note && <div style={{ fontSize: "0.76rem", color: "#7c3aed", marginTop: "0.15rem" }}>🛎️ {b.service_note}</div>}
+                                    <a href={`tel:${b.client_phone}`} style={{ fontSize: "0.76rem", color: "#0ea5e9", textDecoration: "none", display: "block", marginTop: "0.15rem" }}>📞 {b.client_phone}</a>
                                 </div>
-                                <button type="button" onClick={() => setProfile(p => ({ ...p, marketplace_visible: !p.marketplace_visible }))}
-                                    style={{ width: 50, height: 28, borderRadius: 14, border: "none", cursor: "pointer", position: "relative", background: profile.marketplace_visible ? "#7c3aed" : "#e2e8f0", transition: "background .2s", flexShrink: 0 }}>
-                                    <span style={{ position: "absolute", top: 3, right: profile.marketplace_visible ? 3 : "calc(100% - 25px)", width: 22, height: 22, borderRadius: "50%", background: "#fff", transition: "right .2s", boxShadow: "0 1px 4px rgba(0,0,0,.15)", display: "block" }} />
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* Basic info */}
-                        <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 20, padding: "1.25rem" }}>
-                            <div style={{ fontWeight: 800, fontSize: "0.95rem", marginBottom: "1rem", color: "#1e293b" }}>📋 פרטים בסיסיים</div>
-                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.85rem" }}>
-                                {[
-                                    { label: "עיר", key: "city", placeholder: "תל אביב" },
-                                    { label: "טלפון לתצוגה", key: "phone", placeholder: "050-0000000" },
-                                    { label: "כתובת", key: "address", placeholder: "רחוב ראשי 1, עיר" },
-                                    { label: "קישור למפה (Google Maps)", key: "map_link", placeholder: "https://maps.google.com/..." },
-                                ].map(f => (
-                                    <Field key={f.key} label={f.label}>
-                                        <input type="text" value={(profile as any)[f.key]} placeholder={f.placeholder}
-                                            onChange={e => setProfile(p => ({ ...p, [f.key]: e.target.value }))}
-                                            style={inputStyle()}
-                                            onFocus={e => e.target.style.borderColor = "#7c3aed"}
-                                            onBlur={e => e.target.style.borderColor = "#e2e8f0"}
-                                        />
-                                    </Field>
-                                ))}
-                            </div>
-                            <div style={{ marginTop: "0.85rem" }}>
-                                <label style={labelStyle()}>תיאור הסטודיו</label>
-                                <textarea value={profile.description} rows={4}
-                                    onChange={e => setProfile(p => ({ ...p, description: e.target.value }))}
-                                    placeholder="ספרו על העסק — סגנון, ניסיון, מה מייחד אתכם..."
-                                    style={{ ...inputStyle(), resize: "vertical", lineHeight: 1.6 }}
-                                    onFocus={e => e.target.style.borderColor = "#7c3aed"}
-                                    onBlur={e => e.target.style.borderColor = "#e2e8f0"}
-                                />
-                            </div>
-                        </div>
-
-                        {/* Social */}
-                        <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 20, padding: "1.25rem" }}>
-                            <div style={{ fontWeight: 800, fontSize: "0.95rem", marginBottom: "1rem", color: "#1e293b" }}>🔗 רשתות חברתיות</div>
-                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.85rem" }}>
-                                <Field label="📸 Instagram (קישור)">
-                                    <input type="url" value={profile.instagram} placeholder="https://instagram.com/..."
-                                        onChange={e => setProfile(p => ({ ...p, instagram: e.target.value }))}
-                                        style={inputStyle()}
-                                        onFocus={e => e.target.style.borderColor = "#7c3aed"}
-                                        onBlur={e => e.target.style.borderColor = "#e2e8f0"}
-                                    />
-                                </Field>
-                                <Field label="💬 WhatsApp (מספר)">
-                                    <input type="tel" value={profile.whatsapp} placeholder="972501234567"
-                                        onChange={e => setProfile(p => ({ ...p, whatsapp: e.target.value }))}
-                                        style={inputStyle()}
-                                        onFocus={e => e.target.style.borderColor = "#7c3aed"}
-                                        onBlur={e => e.target.style.borderColor = "#e2e8f0"}
-                                    />
-                                </Field>
-                            </div>
-                        </div>
-
-                        {/* Hours */}
-                        <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 20, padding: "1.25rem" }}>
-                            <div style={{ fontWeight: 800, fontSize: "0.95rem", marginBottom: "1rem", color: "#1e293b" }}>🕐 שעות פתיחה</div>
-                            <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                                {DAYS.map(day => (
-                                    <div key={day} style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.55rem 0.75rem", borderRadius: 12, background: profile.hours[day].closed ? "#f8fafc" : "#faf5ff", border: "1px solid #f1f5f9" }}>
-                                        <div style={{ width: 52, fontWeight: 700, fontSize: "0.82rem", color: "#374151", flexShrink: 0 }}>{DAY_LABELS[day]}</div>
-                                        {profile.hours[day].closed ? (
-                                            <div style={{ color: "#94a3b8", fontSize: "0.8rem", flex: 1 }}>סגור</div>
-                                        ) : (
-                                            <div style={{ display: "flex", gap: "0.4rem", alignItems: "center", flex: 1 }}>
-                                                <input type="time" value={profile.hours[day].open}
-                                                    onChange={e => setHour(day, "open", e.target.value)}
-                                                    style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "0.3rem 0.5rem", fontSize: "0.82rem", outline: "none", background: "#fff" }}
-                                                />
-                                                <span style={{ color: "#94a3b8", fontSize: "0.8rem" }}>—</span>
-                                                <input type="time" value={profile.hours[day].close}
-                                                    onChange={e => setHour(day, "close", e.target.value)}
-                                                    style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "0.3rem 0.5rem", fontSize: "0.82rem", outline: "none", background: "#fff" }}
-                                                />
-                                            </div>
-                                        )}
-                                        <button type="button" onClick={() => setHour(day, "closed", !profile.hours[day].closed)}
-                                            style={{ fontSize: "0.72rem", padding: "0.25rem 0.6rem", borderRadius: 8, border: "1px solid #e2e8f0", background: profile.hours[day].closed ? "#e2e8f0" : "#faf5ff", color: profile.hours[day].closed ? "#64748b" : "#7c3aed", cursor: "pointer", fontWeight: 600, flexShrink: 0 }}>
-                                            {profile.hours[day].closed ? "פתח" : "סגור"}
+                                {b.status === "pending" && (
+                                    <div style={{ display: "flex", gap: "0.4rem" }}>
+                                        <button onClick={() => handleApprove(b.id)} disabled={!!actionLoading} type="button"
+                                            style={{ background: "#dcfce7", color: "#166534", border: "1px solid #bbf7d0", borderRadius: 10, padding: "0.38rem 0.8rem", fontWeight: 700, fontSize: "0.78rem", cursor: "pointer" }}>
+                                            {actionLoading === b.id ? "⏳" : "✅ אשר"}
+                                        </button>
+                                        <button onClick={() => handleReject(b.id)} disabled={!!actionLoading} type="button"
+                                            style={{ background: "#fee2e2", color: "#991b1b", border: "1px solid #fecaca", borderRadius: 10, padding: "0.38rem 0.8rem", fontWeight: 700, fontSize: "0.78rem", cursor: "pointer" }}>
+                                            {actionLoading === b.id + "_r" ? "⏳" : "❌ דחה"}
                                         </button>
                                     </div>
-                                ))}
+                                )}
                             </div>
-                        </div>
-
-                        {/* Save */}
-                        {saved && (
-                            <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 12, padding: "0.65rem 1rem", color: "#166534", fontSize: "0.85rem" }}>
-                                ✅ הפרופיל עודכן בהצלחה!
-                            </div>
-                        )}
-                        <button type="button" onClick={saveProfile} disabled={saving}
-                            style={{ background: saving ? "#c4b5fd" : "linear-gradient(135deg,#7c3aed,#4f46e5)", color: "#fff", border: "none", borderRadius: 14, padding: "0.85rem", fontWeight: 800, fontSize: "0.92rem", cursor: "pointer", width: "100%" }}>
-                            {saving ? "שומר..." : "💾 שמור שינויים"}
-                        </button>
+                        ))}
                     </div>
                 )}
+
+                {/* ── SERVICES TAB ── */}
+                {tab === "services" && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
+                        <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 18, overflow: "hidden" }}>
+                            <div style={{ padding: "1rem 1.25rem", borderBottom: "1px solid #f1f5f9", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                <div>
+                                    <div style={{ fontWeight: 800, fontSize: "1rem" }}>🛍️ שירותים</div>
+                                    <div style={{ fontSize: "0.74rem", color: "#94a3b8", marginTop: "0.15rem" }}>שירותים מ-BizControl שיוצגו בפרופיל הציבורי</div>
+                                </div>
+                                <a href="https://www.biz-control.com/services" target="_blank" rel="noopener"
+                                    style={{ fontSize: "0.78rem", color: "#7c3aed", textDecoration: "none", background: "#f5f3ff", padding: "0.3rem 0.65rem", borderRadius: 8, fontWeight: 600, border: "1px solid #ede9fe" }}>
+                                    ✏️ עריכה ב-BizControl ↗
+                                </a>
+                            </div>
+                            {!studioData?.services?.length ? (
+                                <div style={{ padding: "2.5rem", textAlign: "center", color: "#94a3b8" }}>
+                                    <div style={{ fontSize: "2.5rem", marginBottom: "0.5rem" }}>🛍️</div>
+                                    <div style={{ fontWeight: 600 }}>אין שירותים מוגדרים</div>
+                                    <div style={{ fontSize: "0.78rem", marginTop: "0.3rem" }}>הוסיפו שירותים ב-BizControl והם יופיעו כאן אוטומטית</div>
+                                    <a href="https://www.biz-control.com/services" target="_blank" rel="noopener"
+                                        style={{ display: "inline-block", marginTop: "0.75rem", background: "linear-gradient(135deg,#7c3aed,#4f46e5)", color: "#fff", padding: "0.5rem 1rem", borderRadius: 10, fontWeight: 700, fontSize: "0.8rem", textDecoration: "none" }}>
+                                        הוסף שירותים ←
+                                    </a>
+                                </div>
+                            ) : studioData.services.map((s, i) => (
+                                <div key={s.id} style={{ padding: "0.85rem 1.25rem", borderBottom: i < studioData.services.length - 1 ? "1px solid #f1f5f9" : "none", display: "flex", alignItems: "center", gap: "1rem" }}>
+                                    <div style={{ width: 10, height: 10, borderRadius: "50%", background: s.color, flexShrink: 0 }} />
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{ fontWeight: 700, fontSize: "0.88rem" }}>{s.name}</div>
+                                        {s.description && <div style={{ fontSize: "0.74rem", color: "#64748b", marginTop: "0.1rem" }}>{s.description}</div>}
+                                    </div>
+                                    <div style={{ textAlign: "left", flexShrink: 0 }}>
+                                        <div style={{ fontWeight: 700, fontSize: "0.85rem", color: "#1e293b" }}>₪{s.price_ils}</div>
+                                        <div style={{ fontSize: "0.7rem", color: "#94a3b8" }}>{s.duration_minutes} דק׳</div>
+                                    </div>
+                                    {s.is_bookable_online && (
+                                        <span style={{ background: "#f0fdf4", color: "#16a34a", fontSize: "0.65rem", fontWeight: 700, padding: "0.2rem 0.5rem", borderRadius: 6, border: "1px solid #bbf7d0" }}>ניתן לקביעה</span>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
             </div>
+            <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
         </div>
     );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+// ── Small components ──────────────────────────────────────────────────────────
+
+const LABEL_S: React.CSSProperties = { display: "block", fontSize: "0.76rem", fontWeight: 700, color: "#374151", marginBottom: "0.28rem" };
+
+function Section({ title, open, onToggle, children }: { title: string; open: boolean; onToggle: () => void; children: React.ReactNode }) {
+    return (
+        <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 18, overflow: "hidden" }}>
+            <button type="button" onClick={onToggle}
+                style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.9rem 1.25rem", background: "none", border: "none", cursor: "pointer", fontWeight: 800, fontSize: "0.92rem", color: "#1e293b" }}>
+                <span>{title}</span>
+                <span style={{ color: "#94a3b8", fontSize: "0.8rem", transition: "transform .2s", transform: open ? "rotate(180deg)" : "none" }}>▼</span>
+            </button>
+            {open && <div style={{ padding: "0 1.25rem 1.1rem" }}>{children}</div>}
+        </div>
+    );
+}
+
+function Inp({ label, value, onChange, placeholder, readOnly, hint }: { label: string; value: string; onChange?: (v: string) => void; placeholder?: string; readOnly?: boolean; hint?: string }) {
     return (
         <div>
-            <label style={{ display: "block", fontSize: "0.78rem", fontWeight: 700, color: "#374151", marginBottom: "0.3rem" }}>{label}</label>
-            {children}
+            <label style={LABEL_S}>{label}</label>
+            <input type="text" value={value} readOnly={readOnly}
+                onChange={e => onChange?.(e.target.value)}
+                placeholder={placeholder}
+                style={{ width: "100%", border: "1.5px solid #e2e8f0", borderRadius: 12, padding: "0.6rem 0.85rem", fontSize: "0.85rem", outline: "none", boxSizing: "border-box", background: readOnly ? "#f8fafc" : "#fafafa", color: readOnly ? "#94a3b8" : "#1e293b", cursor: readOnly ? "not-allowed" : "text", transition: "border-color .2s" }}
+                onFocus={e => { if (!readOnly) e.target.style.borderColor = "#7c3aed"; }}
+                onBlur={e => { e.target.style.borderColor = "#e2e8f0"; }}
+            />
+            {hint && <div style={{ fontSize: "0.68rem", color: "#94a3b8", marginTop: "0.2rem" }}>💡 {hint}</div>}
         </div>
+    );
+}
+
+function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+    return (
+        <button type="button" onClick={() => onChange(!checked)}
+            style={{ width: 52, height: 30, borderRadius: 15, border: "none", cursor: "pointer", position: "relative", background: checked ? "#7c3aed" : "#e2e8f0", transition: "background .2s", flexShrink: 0 }}>
+            <span style={{ position: "absolute", top: 4, right: checked ? 4 : "calc(100% - 26px)", width: 22, height: 22, borderRadius: "50%", background: "#fff", transition: "right .2s", boxShadow: "0 1px 4px rgba(0,0,0,.2)", display: "block" }} />
+        </button>
     );
 }

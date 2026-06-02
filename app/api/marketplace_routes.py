@@ -58,6 +58,77 @@ def marketplace_login(payload: MarketplaceLoginIn, db: Session = Depends(get_db)
     return {"access_token": access, "refresh_token": refresh, "token_type": "bearer"}
 
 
+# ── Smart studio profile for dashboard (authenticated) ────────────────────────
+
+@router.get("/studio/me")
+def get_my_studio_profile(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+    """Returns full studio profile for BizFind dashboard — merges marketplace + BizControl data."""
+    from app.models.studio import Studio
+    from app.models.studio_settings import StudioSettings
+    from app.models.service import Service
+    from sqlalchemy import text as _text
+
+    studio = db.get(Studio, ctx.studio_id)
+    settings = db.get(StudioSettings, ctx.studio_id)
+    if not studio or not settings:
+        raise HTTPException(404, "Studio not found")
+
+    gallery_count = db.scalar(
+        _text("SELECT COUNT(*) FROM studio_gallery WHERE studio_id=:sid"),
+        {"sid": str(ctx.studio_id)}
+    ) or 0
+
+    services = db.scalars(
+        select(Service).where(Service.studio_id == ctx.studio_id, Service.is_active == True)  # noqa
+        .order_by(Service.sort_order)
+    ).all()
+
+    # Smart defaults: fall back to BizControl fields when marketplace fields are empty
+    description = (
+        settings.marketplace_description
+        or settings.landing_page_description
+        or settings.aftercare_message
+        or None
+    )
+    phone = settings.marketplace_phone or settings.whatsapp_phone_id or None
+    instagram = settings.marketplace_instagram or settings.review_link_instagram or None
+    facebook = settings.marketplace_facebook or settings.review_link_facebook or None
+
+    return {
+        "studio_id": str(studio.id),
+        "slug": studio.slug,
+        "name": studio.name,
+        "business_type": studio.business_type or "other",
+        "logo_url": studio.logo_url,
+        "primary_color": studio.primary_color or "#7c3aed",
+        "subscription_plan": getattr(studio, "subscription_plan", "free"),
+        "cover_url": settings.marketplace_cover_url,
+        "gallery_count": gallery_count,
+        # Marketplace fields with smart defaults
+        "marketplace_visible": settings.marketplace_visible,
+        "description": description,
+        "city": settings.marketplace_city,
+        "phone": phone,
+        "address": settings.studio_address,
+        "map_link": settings.studio_map_link,
+        "instagram": instagram,
+        "whatsapp": settings.marketplace_whatsapp,
+        "facebook": facebook,
+        "tiktok": settings.marketplace_tiktok,
+        "website": settings.marketplace_website or settings.studio_portfolio_link,
+        "youtube": settings.marketplace_youtube,
+        "hours": settings.marketplace_hours,
+        "services": [
+            {
+                "id": str(s.id), "name": s.name, "duration_minutes": s.duration_minutes,
+                "price_ils": s.price_cents / 100, "color": s.color,
+                "description": s.description, "is_bookable_online": s.is_bookable_online,
+            }
+            for s in services
+        ],
+    }
+
+
 def _get_gallery(db: Session, studio_id) -> list[str]:
     rows = db.execute(
         text("SELECT url FROM studio_gallery WHERE studio_id=:sid ORDER BY sort_order, created_at LIMIT 20"),
@@ -242,6 +313,10 @@ def get_studio_profile(slug: str, db: Session = Depends(get_db)):
         "phone": settings.marketplace_phone,
         "whatsapp": settings.marketplace_whatsapp,
         "instagram": settings.marketplace_instagram,
+        "facebook": settings.marketplace_facebook,
+        "tiktok": settings.marketplace_tiktok,
+        "website": settings.marketplace_website,
+        "youtube": settings.marketplace_youtube,
         "hours": settings.marketplace_hours,
         "portfolio_link": settings.studio_portfolio_link,
         "review_link_google": settings.review_link_google,

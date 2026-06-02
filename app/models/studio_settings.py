@@ -158,6 +158,13 @@ class StudioSettings(Base):
     marketplace_cover_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     marketplace_phone: Mapped[str | None] = mapped_column(String(32), nullable=True)
     notification_phone: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    marketplace_instagram: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    marketplace_whatsapp: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    marketplace_hours: Mapped[str | None] = mapped_column(Text, nullable=True)
+    marketplace_facebook: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    marketplace_tiktok: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    marketplace_website: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    marketplace_youtube: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 

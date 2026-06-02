@@ -139,6 +139,13 @@ class AutomationSettingsOut(BaseModel):
     marketplace_description: str | None = None
     marketplace_cover_url: str | None = None
     marketplace_phone: str | None = None
+    marketplace_instagram: str | None = None
+    marketplace_whatsapp: str | None = None
+    marketplace_hours: str | None = None
+    marketplace_facebook: str | None = None
+    marketplace_tiktok: str | None = None
+    marketplace_website: str | None = None
+    marketplace_youtube: str | None = None
 
     # Online Self-Booking
     self_booking_enabled: bool = False
@@ -291,6 +298,13 @@ class AutomationSettingsUpdate(BaseModel):
     marketplace_description: str | None = None
     marketplace_cover_url: str | None = None
     marketplace_phone: str | None = None
+    marketplace_instagram: str | None = None
+    marketplace_whatsapp: str | None = None
+    marketplace_hours: str | None = None
+    marketplace_facebook: str | None = None
+    marketplace_tiktok: str | None = None
+    marketplace_website: str | None = None
+    marketplace_youtube: str | None = None
 
     # Online Self-Booking
     self_booking_enabled: bool | None = None

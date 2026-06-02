@@ -155,6 +155,13 @@ def ensure_schema():
             "ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS marketplace_cover_url TEXT",
             "ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS marketplace_phone VARCHAR(32)",
             "ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS notification_phone VARCHAR(32)",
+            "ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS marketplace_instagram VARCHAR(255)",
+            "ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS marketplace_whatsapp VARCHAR(32)",
+            "ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS marketplace_hours TEXT",
+            "ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS marketplace_facebook VARCHAR(255)",
+            "ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS marketplace_tiktok VARCHAR(255)",
+            "ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS marketplace_website VARCHAR(255)",
+            "ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS marketplace_youtube VARCHAR(255)",
         ]:
             cur.execute(stmt)
         cur.execute("""
