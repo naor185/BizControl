@@ -58,9 +58,10 @@ export default function BookPage() {
         if (!name || !phone || !artist || !date || !time) return;
         setSubmitting(true);
         try {
+            const serviceLabel = service ? `[שירות: ${service.name}] ` : "";
             const res = await fetch(`${API}/api/public/book/${slug}`, {
                 method: "POST", headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ artist_id: artist.id, date, time, name, phone, notes }),
+                body: JSON.stringify({ artist_id: artist.id, date, time, name, phone, notes: `${serviceLabel}${notes}`.trim() }),
             });
             if (!res.ok) { const e = await res.json(); throw new Error(e.detail || "שגיאה"); }
             setDone(true);

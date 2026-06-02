@@ -535,3 +535,44 @@ def _notify_booking_request(db, req: BookingRequest, studio, settings, artist) -
             to_phone=owner.phone, body=msg,
             scheduled_at=now, status="pending",
         ))
+
+
+# ── Customer cross-studio bookings lookup ────────────────────────────────────
+
+@router.get("/my-bookings")
+def get_my_bookings(phone: str = Query(...), db: Session = Depends(get_db)):
+    """Return all booking requests + appointments for a given phone across all studios."""
+    clean = phone.strip().replace("-", "").replace(" ", "")
+
+    requests = db.scalars(
+        select(BookingRequest)
+        .where(BookingRequest.client_phone == clean)
+        .order_by(BookingRequest.requested_at.desc())
+        .limit(50)
+    ).all()
+
+    result = []
+    for r in requests:
+        studio = db.get(Studio, r.studio_id)
+        studio_settings = db.get(StudioSettings, r.studio_id) if studio else None
+        artist = db.get(User, r.artist_id) if r.artist_id else None
+        appt = db.get(Appointment, r.appointment_id) if r.appointment_id else None
+
+        from zoneinfo import ZoneInfo
+        tz = ZoneInfo((studio_settings.timezone if studio_settings else None) or "Asia/Jerusalem")
+        local_time = r.requested_at.astimezone(tz)
+
+        result.append({
+            "id": str(r.id),
+            "studio_name": studio.name if studio else "—",
+            "studio_slug": studio.slug if studio else "",
+            "studio_logo": (studio_settings.logo_url if studio_settings and hasattr(studio_settings, "logo_url") else None),
+            "artist_name": artist.display_name or artist.email if artist else "—",
+            "service": r.service_note or "—",
+            "date": local_time.strftime("%d/%m/%Y"),
+            "time": local_time.strftime("%H:%M"),
+            "status": appt.status if appt else r.status,
+            "created_at": r.created_at.isoformat(),
+        })
+
+    return result
