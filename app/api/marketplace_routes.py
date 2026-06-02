@@ -4,9 +4,10 @@ All endpoints are public (no auth required).
 """
 from __future__ import annotations
 from typing import Optional
+import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 
@@ -14,6 +15,47 @@ from sqlalchemy import text
 from app.core.database import get_db
 
 router = APIRouter(prefix="/marketplace", tags=["Marketplace"])
+
+
+# ── Studio owner login (no slug required) ─────────────────────────────────────
+
+class MarketplaceLoginIn(BaseModel):
+    email: EmailStr
+    password: str
+
+
+@router.post("/auth/login")
+def marketplace_login(payload: MarketplaceLoginIn, db: Session = Depends(get_db)):
+    """Login for studio owners/admins via BizFind portal (email + password only)."""
+    from app.models.user import User
+    from app.models.refresh_token import RefreshToken
+    from app.core.security import create_access_token, create_refresh_token
+    from argon2 import PasswordHasher
+    from argon2.exceptions import VerifyMismatchError
+
+    ph = PasswordHasher()
+    email = payload.email.lower().strip()
+
+    user = db.scalar(
+        select(User).where(
+            User.email == email,
+            User.is_active == True,  # noqa
+            User.role.in_(["owner", "admin", "superadmin"]),
+        ).order_by(User.created_at)
+    )
+    if not user:
+        raise HTTPException(status_code=401, detail="מייל או סיסמה שגויים")
+
+    try:
+        ph.verify(user.password_hash, payload.password)
+    except VerifyMismatchError:
+        raise HTTPException(status_code=401, detail="מייל או סיסמה שגויים")
+
+    access = create_access_token({"user_id": str(user.id), "studio_id": str(user.studio_id), "role": user.role})
+    refresh = create_refresh_token({"user_id": str(user.id), "studio_id": str(user.studio_id)})
+    db.add(RefreshToken(id=uuid.uuid4(), studio_id=user.studio_id, user_id=user.id, token=refresh, is_revoked=False))
+    db.commit()
+    return {"access_token": access, "refresh_token": refresh, "token_type": "bearer"}
 
 
 def _get_gallery(db: Session, studio_id) -> list[str]:
@@ -198,6 +240,9 @@ def get_studio_profile(slug: str, db: Session = Depends(get_db)):
         "address": settings.studio_address,
         "map_link": settings.studio_map_link,
         "phone": settings.marketplace_phone,
+        "whatsapp": settings.marketplace_whatsapp,
+        "instagram": settings.marketplace_instagram,
+        "hours": settings.marketplace_hours,
         "portfolio_link": settings.studio_portfolio_link,
         "review_link_google": settings.review_link_google,
         "self_booking_enabled": settings.self_booking_enabled,

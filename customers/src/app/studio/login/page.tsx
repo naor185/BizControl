@@ -16,12 +16,13 @@ export default function StudioLoginPage() {
         if (!email || !password) return;
         setLoading(true); setErr(null);
         try {
-            const fd = new FormData();
-            fd.append("username", email.trim());
-            fd.append("password", password);
-            const res = await fetch(`${API}/api/auth/token`, { method: "POST", body: fd });
-            if (!res.ok) throw new Error("מייל או סיסמה שגויים");
+            const res = await fetch(`${API}/api/marketplace/auth/login`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email: email.trim(), password }),
+            });
             const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || "מייל או סיסמה שגויים");
             setToken(data.access_token);
             localStorage.setItem("biz_studio_token", data.access_token);
             router.push("/studio/dashboard");
