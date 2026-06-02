@@ -248,6 +248,18 @@ def ensure_schema():
         """)
         cur.execute("ALTER TABLE appointments ADD COLUMN IF NOT EXISTS service_id UUID REFERENCES services(id) ON DELETE SET NULL")
 
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS studio_gallery (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                url TEXT NOT NULL,
+                caption VARCHAR(255),
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_studio_gallery_studio ON studio_gallery (studio_id, sort_order)")
+
         # ── Phase 0: Module System ────────────────────────────────────────────
         cur.execute("""
             CREATE TABLE IF NOT EXISTS modules (

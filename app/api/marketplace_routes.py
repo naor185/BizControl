@@ -10,9 +10,18 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 
+from sqlalchemy import text
 from app.core.database import get_db
 
 router = APIRouter(prefix="/marketplace", tags=["Marketplace"])
+
+
+def _get_gallery(db: Session, studio_id) -> list[str]:
+    rows = db.execute(
+        text("SELECT url FROM studio_gallery WHERE studio_id=:sid ORDER BY sort_order, created_at LIMIT 20"),
+        {"sid": str(studio_id)}
+    ).fetchall()
+    return [r[0] for r in rows]
 
 BUSINESS_TYPE_LABELS = {
     "tattoo":          "סטודיו קעקועים",
@@ -211,13 +220,7 @@ def get_studio_profile(slug: str, db: Session = Depends(get_db)):
         ],
         "avg_rating": round(float(avg_rating), 1) if avg_rating else None,
         "review_count": len(reviews),
-        "gallery": [
-            u for u in [
-                settings.landing_page_image_1,
-                settings.landing_page_image_2,
-                settings.landing_page_image_3,
-            ] if u
-        ],
+        "gallery": _get_gallery(db, studio.id),
     }
 
 
