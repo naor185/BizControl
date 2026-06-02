@@ -4,7 +4,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { API, imgUrl } from "@/lib/api";
 
-const CAROUSEL_SLIDES = [
+const DEFAULT_SLIDES = [
     { url: "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=1400&q=85", label: "מסעדות ואוכל" },
     { url: "https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=1400&q=85", label: "ספא וטיפולים" },
     { url: "https://images.unsplash.com/photo-1518611012118-696072aa579a?w=1400&q=85", label: "פילאטיס וכושר" },
@@ -16,9 +16,19 @@ const CAROUSEL_SLIDES = [
 ];
 
 function HeroCarousel() {
+    const [slides, setSlides] = useState(DEFAULT_SLIDES);
     const [current, setCurrent] = useState(0);
     const [paused, setPaused] = useState(false);
-    const n = CAROUSEL_SLIDES.length;
+    const n = slides.length;
+
+    useEffect(() => {
+        fetch(`${API}/api/marketplace/hero-slides`)
+            .then(r => r.json())
+            .then((data: { url: string; label: string }[]) => {
+                if (Array.isArray(data) && data.length > 0) setSlides(data);
+            })
+            .catch(() => {});
+    }, []);
 
     useEffect(() => {
         if (paused) return;
@@ -32,7 +42,7 @@ function HeroCarousel() {
             onMouseEnter={() => setPaused(true)}
             onMouseLeave={() => setPaused(false)}
         >
-            {CAROUSEL_SLIDES.map((slide, i) => (
+            {slides.map((slide, i) => (
                 <div key={i} style={{
                     position: "absolute", inset: 0,
                     opacity: i === current ? 1 : 0,
@@ -42,9 +52,7 @@ function HeroCarousel() {
                     <img src={slide.url} alt={slide.label}
                         style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                     />
-                    {/* Dark gradient overlay */}
                     <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,.55) 0%, rgba(0,0,0,.1) 50%, transparent 100%)" }} />
-                    {/* Label */}
                     <div style={{ position: "absolute", bottom: "1.5rem", right: "1.5rem", color: "#fff", fontWeight: 800, fontSize: "clamp(1rem,3vw,1.5rem)", textShadow: "0 2px 8px rgba(0,0,0,.5)", letterSpacing: "0.02em" }}>
                         {slide.label}
                     </div>
@@ -63,7 +71,7 @@ function HeroCarousel() {
 
             {/* Dots */}
             <div style={{ position: "absolute", bottom: "0.65rem", left: "50%", transform: "translateX(-50%)", display: "flex", gap: "0.4rem", zIndex: 10 }}>
-                {CAROUSEL_SLIDES.map((_, i) => (
+                {slides.map((_, i) => (
                     <button key={i} type="button" aria-label={`שקופית ${i + 1}`} onClick={() => { setCurrent(i); setPaused(true); }}
                         style={{ width: i === current ? 20 : 7, height: 7, borderRadius: 4, border: "none", cursor: "pointer", background: i === current ? "#fff" : "rgba(255,255,255,.5)", transition: "all .3s", padding: 0 }} />
                 ))}

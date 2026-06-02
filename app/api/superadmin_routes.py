@@ -12,7 +12,7 @@ from app.utils.logger import get_logger
 
 log = get_logger(__name__)
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from sqlalchemy import select, func, extract, text
 from pydantic import BaseModel
@@ -1803,3 +1803,116 @@ def platform_analytics(admin: User = Depends(require_superadmin), db: Session = 
             {"plan": plan, "count": count} for plan, count in plan_dist
         ],
     }
+
+
+# ── Hero Slides (BizFind carousel) ───────────────────────────────────────────
+
+ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"}
+
+
+def _cloudinary_upload_hero(file_bytes: bytes, public_id: str) -> str | None:
+    cloud_name = os.getenv("CLOUDINARY_CLOUD_NAME")
+    if not cloud_name:
+        return None
+    try:
+        import cloudinary, cloudinary.uploader, io
+        cloudinary.config(
+            cloud_name=cloud_name,
+            api_key=os.getenv("CLOUDINARY_API_KEY", ""),
+            api_secret=os.getenv("CLOUDINARY_API_SECRET", ""),
+        )
+        result = cloudinary.uploader.upload(
+            io.BytesIO(file_bytes),
+            folder="bizfind/hero",
+            public_id=public_id,
+            overwrite=True,
+            resource_type="image",
+        )
+        return result["secure_url"]
+    except Exception as e:
+        log.error("Cloudinary hero upload failed: %s", e)
+        return None
+
+
+@router.get("/hero-slides")
+def list_hero_slides(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if current_user.role != "superadmin":
+        raise HTTPException(403, "Forbidden")
+    rows = db.execute(
+        text("SELECT id, url, label, sort_order, is_active, created_at FROM hero_slides ORDER BY sort_order, created_at")
+    ).fetchall()
+    return [{"id": str(r[0]), "url": r[1], "label": r[2], "sort_order": r[3], "is_active": r[4], "created_at": str(r[5])} for r in rows]
+
+
+@router.post("/hero-slides", status_code=201)
+def upload_hero_slide(
+    file: UploadFile = File(...),
+    label: str = Form(""),
+    sort_order: int = Form(0),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if current_user.role != "superadmin":
+        raise HTTPException(403, "Forbidden")
+    if file.content_type not in ALLOWED_IMAGE_TYPES:
+        raise HTTPException(400, "Only image files are allowed")
+    file_bytes = file.file.read()
+    slide_id = str(uuid.uuid4()).replace("-", "")[:16]
+    cloud_url = _cloudinary_upload_hero(file_bytes, slide_id)
+    if not cloud_url:
+        import shutil
+        os.makedirs("uploads/hero", exist_ok=True)
+        ext = (file.filename or "img.jpg").rsplit(".", 1)[-1].lower()
+        fname = f"hero_{slide_id}.{ext}"
+        with open(f"uploads/hero/{fname}", "wb") as f:
+            f.write(file_bytes)
+        cloud_url = f"/uploads/hero/{fname}"
+    db.execute(
+        text("INSERT INTO hero_slides (url, label, sort_order) VALUES (:url, :label, :sort)"),
+        {"url": cloud_url, "label": label, "sort": sort_order}
+    )
+    db.commit()
+    row = db.execute(
+        text("SELECT id, url, label, sort_order FROM hero_slides WHERE url=:url ORDER BY created_at DESC LIMIT 1"),
+        {"url": cloud_url}
+    ).fetchone()
+    return {"id": str(row[0]), "url": row[1], "label": row[2], "sort_order": row[3]}
+
+
+@router.patch("/hero-slides/{slide_id}")
+def update_hero_slide(
+    slide_id: str,
+    payload: dict,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if current_user.role != "superadmin":
+        raise HTTPException(403, "Forbidden")
+    updates = []
+    params: dict = {"id": slide_id}
+    if "label" in payload:
+        updates.append("label = :label")
+        params["label"] = payload["label"]
+    if "sort_order" in payload:
+        updates.append("sort_order = :sort_order")
+        params["sort_order"] = payload["sort_order"]
+    if "is_active" in payload:
+        updates.append("is_active = :is_active")
+        params["is_active"] = payload["is_active"]
+    if not updates:
+        raise HTTPException(400, "Nothing to update")
+    db.execute(text(f"UPDATE hero_slides SET {', '.join(updates)} WHERE id=:id::uuid"), params)
+    db.commit()
+    return {"ok": True}
+
+
+@router.delete("/hero-slides/{slide_id}", status_code=204)
+def delete_hero_slide(
+    slide_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if current_user.role != "superadmin":
+        raise HTTPException(403, "Forbidden")
+    db.execute(text("DELETE FROM hero_slides WHERE id=:id::uuid"), {"id": slide_id})
+    db.commit()

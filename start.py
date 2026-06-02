@@ -267,6 +267,18 @@ def ensure_schema():
         """)
         cur.execute("CREATE INDEX IF NOT EXISTS ix_studio_gallery_studio ON studio_gallery (studio_id, sort_order)")
 
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS hero_slides (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                url TEXT NOT NULL,
+                label VARCHAR(120) NOT NULL DEFAULT '',
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                is_active BOOLEAN NOT NULL DEFAULT true,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_hero_slides_sort ON hero_slides (sort_order) WHERE is_active")
+
         # ── Phase 0: Module System ────────────────────────────────────────────
         cur.execute("""
             CREATE TABLE IF NOT EXISTS modules (

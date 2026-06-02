@@ -227,6 +227,15 @@ def search_marketplace(
     return {"studios": result, "total": len(result), "offset": offset}
 
 
+@router.get("/hero-slides")
+def get_hero_slides(db: Session = Depends(get_db)):
+    """Return active hero carousel slides ordered by sort_order."""
+    rows = db.execute(
+        text("SELECT id, url, label, sort_order FROM hero_slides WHERE is_active=true ORDER BY sort_order, created_at")
+    ).fetchall()
+    return [{"id": str(r[0]), "url": r[1], "label": r[2], "sort_order": r[3]} for r in rows]
+
+
 @router.get("/categories")
 def get_categories(db: Session = Depends(get_db)):
     """Return business type categories with counts."""

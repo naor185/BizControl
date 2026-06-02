@@ -685,6 +685,12 @@ export default function AdminPage() {
                     >
                         📊 Analytics
                     </a>
+                    <a
+                        href="/admin/hero-slides"
+                        className="px-4 py-2 rounded-xl text-sm font-semibold transition-colors text-slate-400 hover:text-white"
+                    >
+                        🖼️ תמונות HERO
+                    </a>
                 </div>
 
                 {err && (
