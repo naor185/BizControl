@@ -1,7 +1,17 @@
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { API, imgUrl } from "@/lib/api";
+
+const MapView = dynamic(() => import("@/components/MapView"), {
+    ssr: false,
+    loading: () => (
+        <div style={{ height: 340, background: "#f1f5f9", borderRadius: 20, border: "1px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", color: "#94a3b8" }}>
+            🗺️ טוען מפה...
+        </div>
+    ),
+});
 
 interface StudioCard {
     id: string; slug: string; name: string;
@@ -21,6 +31,17 @@ const CAT_GRADIENTS: Record<string, string> = {
     laser:   "linear-gradient(135deg,#6366f1,#4338ca)",
     medical: "linear-gradient(135deg,#14b8a6,#0f766e)",
     other:   "linear-gradient(135deg,#64748b,#334155)",
+};
+
+const CAT_LIGHT: Record<string, { bg: string; color: string }> = {
+    barber:  { bg: "#e0f2fe", color: "#0284c7" },
+    tattoo:  { bg: "#ede9fe", color: "#7c3aed" },
+    nails:   { bg: "#fce7f3", color: "#db2777" },
+    spa:     { bg: "#d1fae5", color: "#059669" },
+    pilates: { bg: "#fef3c7", color: "#d97706" },
+    laser:   { bg: "#e0e7ff", color: "#4338ca" },
+    medical: { bg: "#ccfbf1", color: "#0d9488" },
+    other:   { bg: "#f1f5f9", color: "#475569" },
 };
 
 export default function HomePage() {
@@ -78,39 +99,49 @@ export default function HomePage() {
     const showResults = isSearching || initialLoaded;
 
     return (
-        <div style={{ minHeight: "100vh", background: "#0f172a" }}>
+        <div dir="rtl" style={{ minHeight: "100vh", background: "#ffffff", fontFamily: "system-ui,sans-serif", color: "#1e293b" }}>
 
-            {/* Hero */}
-            <div style={{ background: "linear-gradient(160deg,#1e1b4b 0%,#312e81 40%,#0f172a 100%)", padding: "3.5rem 1.25rem 2.5rem", position: "relative", overflow: "hidden" }}>
-                {/* Decorative blobs */}
-                <div style={{ position: "absolute", top: -60, right: -60, width: 300, height: 300, borderRadius: "50%", background: "rgba(124,58,237,.15)", filter: "blur(60px)", pointerEvents: "none" }} />
-                <div style={{ position: "absolute", bottom: -40, left: -40, width: 200, height: 200, borderRadius: "50%", background: "rgba(79,70,229,.12)", filter: "blur(40px)", pointerEvents: "none" }} />
+            {/* ── Header ── */}
+            <header style={{ background: "#fff", borderBottom: "1px solid #f1f5f9", padding: "0 1.25rem", height: 56, display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 40, boxShadow: "0 1px 8px rgba(0,0,0,.06)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                    <div style={{ width: 30, height: 30, borderRadius: 8, background: "linear-gradient(135deg,#2563eb,#1d4ed8)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 900, fontSize: "0.8rem" }}>B</div>
+                    <span style={{ fontWeight: 900, fontSize: "1.05rem", color: "#1e293b" }}>BizFind</span>
+                </div>
+                <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                    <Link href="/explore" style={{ fontSize: "0.82rem", color: "#2563eb", textDecoration: "none", fontWeight: 600 }}>חיפוש מתקדם</Link>
+                    <Link href="/studio/login" style={{ fontSize: "0.82rem", background: "#2563eb", color: "#fff", textDecoration: "none", fontWeight: 700, padding: "0.35rem 0.85rem", borderRadius: 8 }}>כניסה לעסקים</Link>
+                </div>
+            </header>
 
-                <div style={{ maxWidth: 700, margin: "0 auto", position: "relative" }}>
-                    <div style={{ textAlign: "center", marginBottom: "2rem" }}>
-                        <div style={{ display: "inline-block", background: "rgba(167,139,250,.15)", border: "1px solid rgba(167,139,250,.25)", color: "#a78bfa", fontSize: "0.78rem", fontWeight: 700, padding: "0.3rem 0.85rem", borderRadius: 20, marginBottom: "1rem" }}>
-                            🗺️ גלה עסקים סביבך
-                        </div>
-                        <h1 style={{ fontSize: "clamp(1.9rem,5vw,3rem)", fontWeight: 900, color: "#f1f5f9", lineHeight: 1.2, marginBottom: "0.65rem" }}>
-                            כל מה שאתה מחפש,<br />
-                            <span style={{ background: "linear-gradient(135deg,#a78bfa,#60a5fa)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>קרוב אליך.</span>
-                        </h1>
-                        <p style={{ color: "#94a3b8", fontSize: "0.95rem", lineHeight: 1.65 }}>
-                            ספרים, סטודיואים, ציפורניים, ספא ועוד — מצא וקבע תור בשניות
-                        </p>
+            {/* ── Hero ── */}
+            <div style={{ background: "linear-gradient(160deg,#eff6ff 0%,#dbeafe 50%,#eff6ff 100%)", padding: "3rem 1.25rem 2.5rem", position: "relative", overflow: "hidden" }}>
+                {/* Blobs */}
+                <div style={{ position: "absolute", top: -80, right: -80, width: 320, height: 320, borderRadius: "50%", background: "rgba(37,99,235,.08)", filter: "blur(60px)", pointerEvents: "none" }} />
+                <div style={{ position: "absolute", bottom: -60, left: -60, width: 240, height: 240, borderRadius: "50%", background: "rgba(99,102,241,.07)", filter: "blur(50px)", pointerEvents: "none" }} />
+
+                <div style={{ maxWidth: 700, margin: "0 auto", position: "relative", textAlign: "center" }}>
+                    <div style={{ display: "inline-block", background: "#dbeafe", border: "1px solid #bfdbfe", color: "#1d4ed8", fontSize: "0.78rem", fontWeight: 700, padding: "0.3rem 0.85rem", borderRadius: 20, marginBottom: "1rem" }}>
+                        🗺️ גלה עסקים סביבך
                     </div>
+                    <h1 style={{ fontSize: "clamp(1.9rem,5vw,3rem)", fontWeight: 900, color: "#0f172a", lineHeight: 1.2, marginBottom: "0.65rem" }}>
+                        כל מה שאתה מחפש,<br />
+                        <span style={{ background: "linear-gradient(135deg,#2563eb,#7c3aed)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>קרוב אליך.</span>
+                    </h1>
+                    <p style={{ color: "#475569", fontSize: "0.95rem", lineHeight: 1.65, marginBottom: "2rem" }}>
+                        ספרים, סטודיואים, ציפורניים, ספא ועוד — מצא וקבע תור בשניות
+                    </p>
 
                     {/* Search box */}
-                    <div style={{ background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.12)", borderRadius: 20, padding: "0.75rem", backdropFilter: "blur(12px)", display: "flex", gap: "0.6rem", flexWrap: "wrap" }}>
+                    <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 20, padding: "0.65rem", boxShadow: "0 4px 24px rgba(37,99,235,.1)", display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
                         <div style={{ flex: "2 1 200px", position: "relative" }}>
                             <span style={{ position: "absolute", right: "0.9rem", top: "50%", transform: "translateY(-50%)", fontSize: "1rem", pointerEvents: "none" }}>🔍</span>
                             <input
                                 ref={searchRef}
                                 value={q} onChange={e => setQ(e.target.value)}
                                 placeholder="חפש שירות או עסק..."
-                                style={{ width: "100%", background: "rgba(255,255,255,.08)", border: "1px solid rgba(255,255,255,.12)", borderRadius: 12, padding: "0.75rem 2.5rem 0.75rem 0.9rem", color: "#f1f5f9", fontSize: "0.95rem", outline: "none", boxSizing: "border-box" }}
-                                onFocus={e => (e.target.style.borderColor = "rgba(167,139,250,.6)")}
-                                onBlur={e => (e.target.style.borderColor = "rgba(255,255,255,.12)")}
+                                style={{ width: "100%", background: "#f8faff", border: "1.5px solid #e2e8f0", borderRadius: 12, padding: "0.75rem 2.5rem 0.75rem 0.9rem", color: "#1e293b", fontSize: "0.95rem", outline: "none", boxSizing: "border-box", transition: "border-color .2s" }}
+                                onFocus={e => (e.target.style.borderColor = "#2563eb")}
+                                onBlur={e => (e.target.style.borderColor = "#e2e8f0")}
                             />
                         </div>
                         <div style={{ flex: "1 1 130px", position: "relative" }}>
@@ -118,22 +149,20 @@ export default function HomePage() {
                             <input
                                 value={city} onChange={e => setCity(e.target.value)}
                                 placeholder="עיר"
-                                style={{ width: "100%", background: "rgba(255,255,255,.08)", border: "1px solid rgba(255,255,255,.12)", borderRadius: 12, padding: "0.75rem 2.5rem 0.75rem 0.9rem", color: "#f1f5f9", fontSize: "0.95rem", outline: "none", boxSizing: "border-box" }}
-                                onFocus={e => (e.target.style.borderColor = "rgba(167,139,250,.6)")}
-                                onBlur={e => (e.target.style.borderColor = "rgba(255,255,255,.12)")}
+                                style={{ width: "100%", background: "#f8faff", border: "1.5px solid #e2e8f0", borderRadius: 12, padding: "0.75rem 2.5rem 0.75rem 0.9rem", color: "#1e293b", fontSize: "0.95rem", outline: "none", boxSizing: "border-box", transition: "border-color .2s" }}
+                                onFocus={e => (e.target.style.borderColor = "#2563eb")}
+                                onBlur={e => (e.target.style.borderColor = "#e2e8f0")}
                             />
                         </div>
-                        <button
-                            type="button" onClick={locateMe} disabled={locating}
-                            title="קרוב אליי"
-                            style={{ padding: "0.75rem 1rem", background: "rgba(124,58,237,.3)", border: "1px solid rgba(124,58,237,.4)", borderRadius: 12, cursor: "pointer", fontSize: "1.1rem", flexShrink: 0, color: "#a78bfa" }}>
+                        <button type="button" onClick={locateMe} disabled={locating} title="קרוב אליי"
+                            style={{ padding: "0.75rem 1rem", background: "#dbeafe", border: "1.5px solid #bfdbfe", borderRadius: 12, cursor: "pointer", fontSize: "1.1rem", flexShrink: 0, color: "#2563eb", transition: "all .2s" }}>
                             {locating ? "⏳" : "🎯"}
                         </button>
                     </div>
 
                     {/* Active filters */}
                     {(q || city) && (
-                        <div style={{ marginTop: "0.75rem", display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
+                        <div style={{ marginTop: "0.75rem", display: "flex", gap: "0.4rem", flexWrap: "wrap", justifyContent: "center" }}>
                             {q && <Chip label={`"${q}"`} onRemove={() => setQ("")} />}
                             {city && <Chip label={`📍 ${city}`} onRemove={() => setCity("")} />}
                         </div>
@@ -141,80 +170,102 @@ export default function HomePage() {
                 </div>
             </div>
 
-            {/* Category cards */}
-            <div style={{ padding: "1.5rem 1.25rem 0.5rem", overflowX: "auto" }}>
-                <div style={{ display: "flex", gap: "0.65rem", minWidth: "max-content" }}>
+            {/* ── Category pills ── */}
+            <div style={{ background: "#fff", borderBottom: "1px solid #f1f5f9", padding: "0.85rem 1.25rem", overflowX: "auto" }}>
+                <div style={{ display: "flex", gap: "0.5rem", minWidth: "max-content" }}>
                     <button type="button" onClick={() => setSelectedType("")}
-                        style={{ padding: "0.5rem 1.1rem", borderRadius: 20, border: "none", cursor: "pointer", fontWeight: 700, fontSize: "0.82rem", background: !selectedType ? "#7c3aed" : "rgba(255,255,255,.08)", color: !selectedType ? "#fff" : "#94a3b8", transition: "all .2s" }}>
+                        style={{ padding: "0.45rem 1rem", borderRadius: 20, border: `1.5px solid ${!selectedType ? "#2563eb" : "#e2e8f0"}`, cursor: "pointer", fontWeight: 700, fontSize: "0.82rem", background: !selectedType ? "#2563eb" : "#fff", color: !selectedType ? "#fff" : "#64748b", transition: "all .2s" }}>
                         🌐 הכל
                     </button>
-                    {categories.map(cat => (
-                        <button key={cat.id} type="button" onClick={() => selectType(cat.id)}
-                            style={{ padding: "0.5rem 1.1rem", borderRadius: 20, border: "none", cursor: "pointer", fontWeight: 700, fontSize: "0.82rem", background: selectedType === cat.id ? "#7c3aed" : "rgba(255,255,255,.08)", color: selectedType === cat.id ? "#fff" : "#94a3b8", transition: "all .2s", whiteSpace: "nowrap" }}>
-                            {cat.icon} {cat.label}
-                            <span style={{ opacity: 0.6, marginRight: "0.3rem", fontSize: "0.72rem" }}>({cat.count})</span>
-                        </button>
-                    ))}
+                    {categories.map(cat => {
+                        const light = CAT_LIGHT[cat.id] || CAT_LIGHT.other;
+                        const active = selectedType === cat.id;
+                        return (
+                            <button key={cat.id} type="button" onClick={() => selectType(cat.id)}
+                                style={{ padding: "0.45rem 1rem", borderRadius: 20, border: `1.5px solid ${active ? light.color : "#e2e8f0"}`, cursor: "pointer", fontWeight: 700, fontSize: "0.82rem", background: active ? light.bg : "#fff", color: active ? light.color : "#64748b", transition: "all .2s", whiteSpace: "nowrap" }}>
+                                {cat.icon} {cat.label}
+                                <span style={{ opacity: 0.6, marginRight: "0.3rem", fontSize: "0.72rem" }}>({cat.count})</span>
+                            </button>
+                        );
+                    })}
                 </div>
             </div>
 
-            {/* Visual category grid (show only when not searching) */}
-            {!isSearching && categories.length > 0 && (
-                <section style={{ padding: "1.5rem 1.25rem" }}>
-                    <h2 style={{ fontWeight: 800, fontSize: "1rem", color: "#e2e8f0", marginBottom: "1rem" }}>
-                        גלה לפי קטגוריה
-                    </h2>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(130px,1fr))", gap: "0.75rem" }}>
-                        {categories.slice(0, 8).map(cat => (
-                            <button key={cat.id} type="button" onClick={() => selectType(cat.id)}
-                                style={{ background: CAT_GRADIENTS[cat.id] || CAT_GRADIENTS.other, border: "none", borderRadius: 18, padding: "1.25rem 0.75rem", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: "0.5rem", transition: "transform .2s, box-shadow .2s", boxShadow: "0 2px 12px rgba(0,0,0,.2)" }}
-                                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-3px)"; (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 8px 24px rgba(0,0,0,.3)"; }}
-                                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform = ""; (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 2px 12px rgba(0,0,0,.2)"; }}>
-                                <span style={{ fontSize: "1.8rem" }}>{cat.icon}</span>
-                                <span style={{ color: "#fff", fontWeight: 700, fontSize: "0.82rem" }}>{cat.label}</span>
-                                <span style={{ color: "rgba(255,255,255,.7)", fontSize: "0.7rem" }}>{cat.count} עסקים</span>
-                            </button>
-                        ))}
+            <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 1.25rem" }}>
+
+                {/* ── Category grid (no search) ── */}
+                {!isSearching && categories.length > 0 && (
+                    <section style={{ padding: "1.75rem 0 0.5rem" }}>
+                        <h2 style={{ fontWeight: 800, fontSize: "1rem", color: "#1e293b", marginBottom: "1rem" }}>גלה לפי קטגוריה</h2>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(120px,1fr))", gap: "0.65rem" }}>
+                            {categories.slice(0, 8).map(cat => {
+                                const light = CAT_LIGHT[cat.id] || CAT_LIGHT.other;
+                                return (
+                                    <button key={cat.id} type="button" onClick={() => selectType(cat.id)}
+                                        style={{ background: light.bg, border: `1.5px solid ${light.color}22`, borderRadius: 18, padding: "1.1rem 0.75rem", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: "0.4rem", transition: "transform .2s, box-shadow .2s", boxShadow: "0 1px 4px rgba(0,0,0,.06)" }}
+                                        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-3px)"; (e.currentTarget as HTMLButtonElement).style.boxShadow = `0 8px 20px ${light.color}33`; }}
+                                        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform = ""; (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 1px 4px rgba(0,0,0,.06)"; }}>
+                                        <span style={{ fontSize: "1.75rem" }}>{cat.icon}</span>
+                                        <span style={{ color: light.color, fontWeight: 700, fontSize: "0.8rem" }}>{cat.label}</span>
+                                        <span style={{ color: `${light.color}99`, fontSize: "0.68rem" }}>{cat.count} עסקים</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </section>
+                )}
+
+                {/* ── Map ── */}
+                {!isSearching && studios.length > 0 && (
+                    <section style={{ padding: "1.5rem 0" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.85rem" }}>
+                            <h2 style={{ fontWeight: 800, fontSize: "1rem", color: "#1e293b", margin: 0 }}>🗺️ עסקים על המפה</h2>
+                            <Link href="/explore" style={{ fontSize: "0.78rem", color: "#2563eb", textDecoration: "none", fontWeight: 600 }}>
+                                explore מלא ←
+                            </Link>
+                        </div>
+                        <MapView studios={studios} />
+                    </section>
+                )}
+
+                {/* ── Results ── */}
+                <section style={{ padding: "1.5rem 0 3rem" }}>
+                    {showResults && (
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+                            <h2 style={{ fontWeight: 800, fontSize: "1rem", color: "#1e293b" }}>
+                                {isSearching ? `${studios.length} תוצאות` : "🌟 עסקים מובילים"}
+                            </h2>
+                            {loading && <div style={{ width: 18, height: 18, border: "2.5px solid #bfdbfe", borderTopColor: "#2563eb", borderRadius: "50%", animation: "spin .7s linear infinite" }} />}
+                        </div>
+                    )}
+
+                    {!loading && studios.length === 0 && initialLoaded && (
+                        <div style={{ textAlign: "center", padding: "3rem", color: "#94a3b8" }}>
+                            <div style={{ fontSize: "2.5rem", marginBottom: "0.75rem" }}>🔍</div>
+                            <div>לא נמצאו עסקים. נסה חיפוש אחר.</div>
+                            {isSearching && (
+                                <button type="button" onClick={() => { setQ(""); setCity(""); setSelectedType(""); }}
+                                    style={{ marginTop: "1rem", background: "#dbeafe", border: "1px solid #bfdbfe", color: "#2563eb", padding: "0.5rem 1.1rem", borderRadius: 10, cursor: "pointer", fontWeight: 600 }}>
+                                    נקה חיפוש
+                                </button>
+                            )}
+                        </div>
+                    )}
+
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(280px,1fr))", gap: "1rem" }}>
+                        {studios.map(s => <StudioCard key={s.id} s={s} />)}
                     </div>
                 </section>
-            )}
-
-            {/* Results */}
-            <section style={{ padding: "0 1.25rem 2rem" }}>
-                {showResults && (
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-                        <h2 style={{ fontWeight: 800, fontSize: "1rem", color: "#e2e8f0" }}>
-                            {isSearching ? `${studios.length} תוצאות` : "🌟 עסקים מובילים"}
-                        </h2>
-                        {loading && <div style={{ width: 18, height: 18, border: "2px solid rgba(167,139,250,.3)", borderTopColor: "#a78bfa", borderRadius: "50%", animation: "spin .7s linear infinite" }} />}
-                    </div>
-                )}
-
-                {!loading && studios.length === 0 && initialLoaded && (
-                    <div style={{ textAlign: "center", padding: "3rem", color: "#64748b" }}>
-                        <div style={{ fontSize: "2.5rem", marginBottom: "0.75rem" }}>🔍</div>
-                        <div>לא נמצאו עסקים. נסה חיפוש אחר.</div>
-                        {isSearching && (
-                            <button type="button" onClick={() => { setQ(""); setCity(""); setSelectedType(""); }} style={{ marginTop: "1rem", background: "rgba(124,58,237,.2)", border: "1px solid rgba(124,58,237,.3)", color: "#a78bfa", padding: "0.5rem 1.1rem", borderRadius: 10, cursor: "pointer", fontWeight: 600 }}>
-                                נקה חיפוש
-                            </button>
-                        )}
-                    </div>
-                )}
-
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(280px,1fr))", gap: "1rem" }}>
-                    {studios.map(s => <StudioCard key={s.id} s={s} />)}
-                </div>
-            </section>
+            </div>
         </div>
     );
 }
 
 function Chip({ label, onRemove }: { label: string; onRemove: () => void }) {
     return (
-        <span style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem", background: "rgba(124,58,237,.2)", border: "1px solid rgba(124,58,237,.35)", color: "#c4b5fd", padding: "0.25rem 0.6rem", borderRadius: 20, fontSize: "0.78rem", fontWeight: 600 }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem", background: "#dbeafe", border: "1px solid #bfdbfe", color: "#1d4ed8", padding: "0.25rem 0.6rem", borderRadius: 20, fontSize: "0.78rem", fontWeight: 600 }}>
             {label}
-            <button type="button" onClick={onRemove} style={{ background: "none", border: "none", color: "#a78bfa", cursor: "pointer", padding: 0, lineHeight: 1, fontSize: "0.85rem" }}>×</button>
+            <button type="button" onClick={onRemove} style={{ background: "none", border: "none", color: "#2563eb", cursor: "pointer", padding: 0, lineHeight: 1, fontSize: "0.85rem" }}>×</button>
         </span>
     );
 }
@@ -222,6 +273,7 @@ function Chip({ label, onRemove }: { label: string; onRemove: () => void }) {
 function StudioCard({ s }: { s: StudioCard }) {
     const [hovered, setHovered] = useState(false);
     const gradient = CAT_GRADIENTS[s.business_type] || CAT_GRADIENTS.other;
+    const light = CAT_LIGHT[s.business_type] || CAT_LIGHT.other;
 
     return (
         <Link href={`/b/${s.slug}`} style={{ textDecoration: "none", display: "block" }}>
@@ -229,12 +281,12 @@ function StudioCard({ s }: { s: StudioCard }) {
                 onMouseEnter={() => setHovered(true)}
                 onMouseLeave={() => setHovered(false)}
                 style={{
-                    background: "rgba(255,255,255,.04)",
-                    border: `1px solid ${hovered ? "rgba(167,139,250,.4)" : "rgba(255,255,255,.08)"}`,
+                    background: "#fff",
+                    border: `1.5px solid ${hovered ? "#bfdbfe" : "#e2e8f0"}`,
                     borderRadius: 20, overflow: "hidden",
                     transform: hovered ? "translateY(-4px)" : "none",
                     transition: "all .25s",
-                    boxShadow: hovered ? "0 12px 32px rgba(0,0,0,.3)" : "none",
+                    boxShadow: hovered ? "0 12px 32px rgba(37,99,235,.12)" : "0 2px 8px rgba(0,0,0,.04)",
                 }}
             >
                 {/* Cover */}
@@ -245,42 +297,39 @@ function StudioCard({ s }: { s: StudioCard }) {
                     {!s.cover_url && (
                         <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
                             {s.logo_url
-                                ? <img src={imgUrl(s.logo_url)} alt="" style={{ width: 72, height: 72, borderRadius: 16, objectFit: "cover", boxShadow: "0 4px 16px rgba(0,0,0,.3)" }} />
+                                ? <img src={imgUrl(s.logo_url)} alt="" style={{ width: 72, height: 72, borderRadius: 16, objectFit: "cover", boxShadow: "0 4px 16px rgba(0,0,0,.2)" }} />
                                 : <span style={{ fontSize: "3.5rem" }}>{s.business_type_icon}</span>
                             }
                         </div>
                     )}
-                    {/* Gradient overlay */}
-                    {s.cover_url && <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom,transparent 40%,rgba(0,0,0,.6))" }} />}
-
-                    {/* Badge */}
+                    {s.cover_url && <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom,transparent 40%,rgba(0,0,0,.5))" }} />}
                     {s.self_booking_enabled && (
-                        <div style={{ position: "absolute", top: 10, left: 10, background: "rgba(74,222,128,.92)", color: "#052e16", fontSize: "0.68rem", fontWeight: 800, padding: "0.22rem 0.6rem", borderRadius: 8, backdropFilter: "blur(4px)" }}>
+                        <div style={{ position: "absolute", top: 10, left: 10, background: "rgba(34,197,94,.95)", color: "#fff", fontSize: "0.68rem", fontWeight: 800, padding: "0.22rem 0.6rem", borderRadius: 8 }}>
                             📅 הזמנה אונליין
                         </div>
                     )}
                     {s.cover_url && s.logo_url && (
-                        <img src={imgUrl(s.logo_url)} alt="" style={{ position: "absolute", bottom: 10, right: 10, width: 36, height: 36, borderRadius: 10, objectFit: "cover", border: "2px solid rgba(255,255,255,.4)" }} />
+                        <img src={imgUrl(s.logo_url)} alt="" style={{ position: "absolute", bottom: 10, right: 10, width: 36, height: 36, borderRadius: 10, objectFit: "cover", border: "2px solid rgba(255,255,255,.6)" }} />
                     )}
                 </div>
 
                 {/* Info */}
                 <div style={{ padding: "1rem" }}>
-                    <div style={{ fontWeight: 800, fontSize: "0.95rem", color: "#f1f5f9", marginBottom: "0.2rem" }}>{s.name}</div>
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.78rem", color: "#64748b", marginBottom: "0.4rem" }}>
-                        <span>{s.business_type_icon} {s.business_type_label}</span>
-                        {s.city && <><span>·</span><span>📍 {s.city}</span></>}
+                    <div style={{ fontWeight: 800, fontSize: "0.95rem", color: "#0f172a", marginBottom: "0.2rem" }}>{s.name}</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: "0.78rem", marginBottom: "0.4rem" }}>
+                        <span style={{ background: light.bg, color: light.color, padding: "0.15rem 0.5rem", borderRadius: 6, fontWeight: 600, fontSize: "0.72rem" }}>{s.business_type_icon} {s.business_type_label}</span>
+                        {s.city && <span style={{ color: "#94a3b8" }}>📍 {s.city}</span>}
                     </div>
                     {s.description && (
-                        <div style={{ color: "#94a3b8", fontSize: "0.78rem", lineHeight: 1.55, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", marginBottom: "0.5rem" }}>
+                        <div style={{ color: "#64748b", fontSize: "0.78rem", lineHeight: 1.55, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", marginBottom: "0.5rem" }}>
                             {s.description}
                         </div>
                     )}
                     {s.avg_rating != null && s.review_count > 0 && (
                         <div style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
-                            <span style={{ color: "#fbbf24", fontSize: "0.78rem" }}>{"★".repeat(Math.round(s.avg_rating))}</span>
-                            <span style={{ color: "#fbbf24", fontWeight: 700, fontSize: "0.78rem" }}>{s.avg_rating.toFixed(1)}</span>
-                            <span style={{ color: "#475569", fontSize: "0.72rem" }}>({s.review_count})</span>
+                            <span style={{ color: "#f59e0b", fontSize: "0.78rem" }}>{"★".repeat(Math.round(s.avg_rating))}</span>
+                            <span style={{ color: "#f59e0b", fontWeight: 700, fontSize: "0.78rem" }}>{s.avg_rating.toFixed(1)}</span>
+                            <span style={{ color: "#94a3b8", fontSize: "0.72rem" }}>({s.review_count})</span>
                         </div>
                     )}
                 </div>
