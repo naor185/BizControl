@@ -203,7 +203,7 @@ export default function StudioDashboard() {
                                 <div>אין בקשות ממתינות כרגע</div>
                             </div>
                         ) : (
-                            <div style={{ divide: "y" }}>
+                            <div>
                                 {bookings.map((b, i) => {
                                     const st = STATUS_STYLE[b.status] || STATUS_STYLE.pending;
                                     return (
