@@ -766,14 +766,16 @@ export default function CalendarPage() {
                                     onClick={async () => {
                                         const toMins = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + (m || 0); };
                                         const startMins = toMins(draftStartHour);
-                                        // 00:00 means midnight (end of day = 24:00)
-                                        const endMins = draftEndHour === "00:00" ? 24 * 60 : toMins(draftEndHour);
-                                        if (endMins <= startMins) return; // end must be after start
-                                        const fcEnd = draftEndHour === "00:00" ? "24:00:00" : `${draftEndHour}:00`;
+                                        const endMins = toMins(draftEndHour);
+                                        // Any end time <= start time means "past midnight" → treat as midnight (24:00)
+                                        const isMidnight = endMins <= startMins;
+                                        const fcEnd = isMidnight ? "24:00:00" : `${draftEndHour}:00`;
+                                        const saveEnd = isMidnight ? "00:00" : draftEndHour;
                                         setCalendarStartHour(`${draftStartHour}:00`);
                                         setCalendarEndHour(fcEnd);
+                                        if (isMidnight) setDraftEndHour("00:00");
                                         try {
-                                            await apiFetch("/api/studio/automation", { method: "PATCH", body: JSON.stringify({ calendar_start_hour: draftStartHour, calendar_end_hour: draftEndHour }) });
+                                            await apiFetch("/api/studio/automation", { method: "PATCH", body: JSON.stringify({ calendar_start_hour: draftStartHour, calendar_end_hour: saveEnd }) });
                                         } catch { /* silent */ }
                                     }}
                                     className="w-full py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-colors">
