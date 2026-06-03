@@ -420,6 +420,9 @@ def ensure_schema():
             WHERE is_club_member = false AND loyalty_points > 0
         """)
 
+        cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS calendar_start_hour VARCHAR(16) NOT NULL DEFAULT '08:00'")
+        cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS calendar_end_hour VARCHAR(16) NOT NULL DEFAULT '23:00'")
+
         conn.commit()
         cur.close()
         conn.close()

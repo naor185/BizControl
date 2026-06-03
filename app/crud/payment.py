@@ -136,6 +136,11 @@ def create_payment(db: Session, studio_id: UUID, data) -> Payment:
         except Exception:
             import logging as _l; _l.getLogger(__name__).exception("Automation engine error for payment_received")
 
+    # Auto-mark appointment as done when final payment received
+    if obj.status == "paid" and obj.type == "payment" and appt.status == "scheduled":
+        appt.status = "done"
+        db.commit()
+
     # Send thank-you message after final payment (always — not just when content configured)
     if obj.status == "paid" and obj.type == "payment" and client.phone:
         try:

@@ -730,49 +730,37 @@ export default function CalendarPage() {
                                     </span>
                                 </button>
 
-                                {/* Start hour */}
-                                <div className="mb-2">
-                                    <div className="text-xs font-bold text-slate-500 mb-1.5">🕐 התחלת יומן</div>
-                                    <div className="flex flex-wrap gap-1">
-                                        {["06:00:00","07:00:00","08:00:00","09:00:00","10:00:00","11:00:00"].map(h => {
-                                            const label = h.slice(0,5);
-                                            const active = calendarStartHour === h;
-                                            return (
-                                                <button key={h} type="button"
-                                                    onClick={async () => {
-                                                        setCalendarStartHour(h);
-                                                        try { await apiFetch("/api/studio/automation", { method: "PATCH", body: JSON.stringify({ calendar_start_hour: parseInt(h) }) }); }
-                                                        catch { /* silent */ }
-                                                    }}
-                                                    className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-all ${active ? "bg-blue-600 text-white border-blue-600" : "bg-white border-slate-200 text-slate-600 hover:border-blue-300"}`}>
-                                                    {label}
-                                                </button>
-                                            );
-                                        })}
+                                {/* Start / End hour inputs */}
+                                <div className="flex gap-2 mb-2">
+                                    <div className="flex-1">
+                                        <div className="text-xs font-bold text-slate-500 mb-1">🕐 התחלה</div>
+                                        <input
+                                            type="time"
+                                            value={calendarStartHour.slice(0,5)}
+                                            onChange={e => setCalendarStartHour(e.target.value)}
+                                            className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm text-slate-700 focus:outline-none focus:border-blue-400"
+                                        />
+                                    </div>
+                                    <div className="flex-1">
+                                        <div className="text-xs font-bold text-slate-500 mb-1">🕙 סיום</div>
+                                        <input
+                                            type="time"
+                                            value={calendarEndHour.slice(0,5)}
+                                            onChange={e => setCalendarEndHour(e.target.value)}
+                                            className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm text-slate-700 focus:outline-none focus:border-blue-400"
+                                        />
                                     </div>
                                 </div>
-
-                                {/* End hour */}
-                                <div>
-                                    <div className="text-xs font-bold text-slate-500 mb-1.5">🕙 סיום יומן</div>
-                                    <div className="flex flex-wrap gap-1">
-                                        {["18:00:00","20:00:00","21:00:00","22:00:00","23:00:00","00:00:00"].map(h => {
-                                            const label = h === "00:00:00" ? "חצות" : h.slice(0,5);
-                                            const active = calendarEndHour === h;
-                                            return (
-                                                <button key={h} type="button"
-                                                    onClick={async () => {
-                                                        setCalendarEndHour(h);
-                                                        try { await apiFetch("/api/studio/automation", { method: "PATCH", body: JSON.stringify({ calendar_end_hour: parseInt(h) || 24 }) }); }
-                                                        catch { /* silent */ }
-                                                    }}
-                                                    className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-all ${active ? "bg-blue-600 text-white border-blue-600" : "bg-white border-slate-200 text-slate-600 hover:border-blue-300"}`}>
-                                                    {label}
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
+                                <button
+                                    type="button"
+                                    onClick={async () => {
+                                        try {
+                                            await apiFetch("/api/studio/automation", { method: "PATCH", body: JSON.stringify({ calendar_start_hour: calendarStartHour.slice(0,5), calendar_end_hour: calendarEndHour.slice(0,5) }) });
+                                        } catch { /* silent */ }
+                                    }}
+                                    className="w-full py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-colors">
+                                    שמור שעות
+                                </button>
                             </div>
                         )}
                     </div>

@@ -45,7 +45,11 @@ def get_settings(ctx: AuthContext = Depends(require_studio_ctx), db: Session = D
     from app.models.studio import Studio
     settings = db.get(StudioSettings, ctx.studio_id)
     if not settings:
-        raise HTTPException(status_code=404, detail="Settings not found")
+        # Auto-create missing settings row (happens for superadmin / platform studio)
+        settings = StudioSettings(studio_id=ctx.studio_id)
+        db.add(settings)
+        db.commit()
+        db.refresh(settings)
     studio = db.get(Studio, ctx.studio_id)
     return _settings_to_out(settings, studio)
 

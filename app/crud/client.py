@@ -18,8 +18,9 @@ def _handle_new_club_member(db: Session, studio_id: UUID, client: Client):
 
     settings = db.get(StudioSettings, studio_id)
     if not settings:
+        log.warning("_handle_new_club_member: no settings for studio %s", studio_id)
         return
-        
+
     points = settings.points_on_signup or 0
     if points > 0:
         client.loyalty_points = int(client.loyalty_points or 0) + points
@@ -30,12 +31,25 @@ def _handle_new_club_member(db: Session, studio_id: UUID, client: Client):
             delta_points=points,
             reason="Club signup bonus"
         ))
-        
-    # Build context for placeholders
+
+    total_points = int(client.loyalty_points or 0)
+
+    # Build points block — shown in WhatsApp and email
+    if points > 0:
+        points_block = (
+            f"\n\n🎁 קיבלת {points} נקודות מתנה עם ההצטרפות!\n"
+            f"⭐ יתרת הנקודות שלך: {total_points} נקודות."
+        )
+    elif total_points > 0:
+        points_block = f"\n\n⭐ יתרת הנקודות שלך: {total_points} נקודות."
+    else:
+        points_block = ""
+
     context = {
-        "client_name": client.full_name,
-        "points_added": points,
-        "points_total": client.loyalty_points,
+        "client_name": client.full_name or "",
+        "points_added": str(points),
+        "points_total": str(total_points),
+        "points_block": points_block,
     }
 
     # WhatsApp Welcome
@@ -44,9 +58,8 @@ def _handle_new_club_member(db: Session, studio_id: UUID, client: Client):
         wa_template = (
             "🎉 ברוכים הבאים למועדון!\n\n"
             "שלום {client_name} 👋\n\n"
-            "שמחים מאוד שהצטרפת אלינו!\n\n"
-            "🎁 קיבלת {points_added} נקודות מתנה עם ההצטרפות\n"
-            "⭐ יתרת הנקודות שלך: {points_total}\n\n"
+            "שמחים מאוד שהצטרפת אלינו!"
+            "{points_block}\n\n"
             "עם כל ביקור תצבור נקודות נוספות שניתן לממש להנחות ומבצעים מיוחדים.\n\n"
             "מחכים לראותך בקרוב! 💫"
         )
@@ -63,13 +76,13 @@ def _handle_new_club_member(db: Session, studio_id: UUID, client: Client):
             status="pending",
         ))
 
-    # In-app notification to studio owner
+    # In-app notification to studio owner — always show total points balance
     from app.models.notification import Notification
-    points_text = f" • {points} נקודות" if points > 0 else ""
+    points_text = f" • {total_points} נקודות" if total_points > 0 else ""
     db.add(Notification(
         studio_id=studio_id,
         type="new_member",
-        title=f"חבר/ה חדש/ה הצטרפ/ה למועדון",
+        title="חבר/ה חדש/ה הצטרפ/ה למועדון",
         body=f"{client.full_name} | {client.phone or client.email or ''}{points_text}",
         action_url="/clients",
     ))
@@ -78,19 +91,23 @@ def _handle_new_club_member(db: Session, studio_id: UUID, client: Client):
     if client.email and settings.resend_api_key:
         email_template = settings.welcome_email_template
         if not email_template:
-            # Fallback to old hardcoded HTML if template is empty
+            bonus_html = (
+                f'<p>פינקנו אותך ב-<strong style="color: #10b981;">{points} נקודות</strong> במתנה!</p>'
+                if points > 0 else ""
+            )
             email_template = f"""
             <div dir="rtl" style="font-family: Arial, sans-serif; padding: 20px;">
                 <h2 style="color: #333;">ברוכים הבאים למועדון! 👑</h2>
-                <p>שלום {client.full_name},</p>
-                <p>שמחים שהצטרפת למועדון הלקוחות שלנו. פינקנו אותך ב-<strong style="color: #10b981;">{points} נקודות</strong> במתנה!</p>
-                <p><strong>סה״כ היתרה שלך עומדת כעת על: {client.loyalty_points} נקודות.</strong></p>
+                <p>שלום {{client_name}},</p>
+                <p>שמחים שהצטרפת למועדון הלקוחות שלנו.</p>
+                {bonus_html}
+                <p><strong>סה״כ היתרה שלך: {total_points} נקודות.</strong></p>
                 <p>נשמח לראותך בקרוב!</p>
                 <hr style="border: none; border-top: 1px solid #eaeaea; margin: 20px 0;" />
                 <p style="font-size: 12px; color: #888;">הודעה זו נשלחה אוטומטית ממערכת BizControl.</p>
             </div>
             """
-        
+
         email_body = format_template(email_template, context)
 
         db.add(MessageJob(
@@ -245,6 +262,14 @@ def update_client(db: Session, studio_id: UUID, client_id: UUID, data: ClientUpd
 
     if obj.is_club_member and not was_club_member:
         _trigger_club_welcome(db, studio_id, obj)
+        try:
+            from app.services.automation_engine import fire_event as _fire
+            _fire(db, studio_id, "client_joined_club", {
+                "client_name": obj.full_name or "",
+                "client_phone": obj.phone or "",
+            }, client_id=obj.id)
+        except Exception as e:
+            log.warning("fire_event client_joined_club failed for client %s: %s", obj.id, e)
 
     db.commit()
     db.refresh(obj)

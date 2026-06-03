@@ -266,45 +266,63 @@ def patch(appointment_id: UUID, payload: AppointmentUpdate, ctx: AuthContext = D
         # Send non-member club invitation if client is not a club member
         try:
             from app.models.client import Client
-            from app.models.studio import Studio
             from app.models.message_job import MessageJob
             from app.crud.automation import format_template
+            from app.api.invite_routes import create_invite_token
+            from sqlalchemy import select as _sel
             from datetime import datetime, timezone, timedelta
 
             client = db.get(Client, existing_appt.client_id)
             settings = db.query(StudioSettings).filter(StudioSettings.studio_id == ctx.studio_id).first()
-            studio = db.get(Studio, ctx.studio_id)
 
             if client and settings and not client.is_club_member and client.phone and not getattr(client, "whatsapp_opted_out", False):
-                slug = studio.slug if studio else None
-                join_link = f"https://www.biz-control.com/s/{slug}" if slug else ""
-                points_on_signup = getattr(settings, "points_on_signup", 50) or 50
-
-                template = getattr(settings, "non_member_wa_template", None) or (
-                    "היי {client_name}! 👋\n\n"
-                    "שמחים שביקרת אצלנו!\n"
-                    "הצטרף/י למועדון הלקוחות שלנו וקבל/י {points_on_signup} נקודות מתנה לביקור הבא 🎉\n\n"
-                    "הרשמה: {join_link}"
+                # Dedup: skip if an invite was already sent to this client (any appointment)
+                already_invited = db.scalar(
+                    _sel(MessageJob).where(
+                        MessageJob.studio_id == ctx.studio_id,
+                        MessageJob.client_id == client.id,
+                        MessageJob.reminder_type == "club_invite",
+                    )
                 )
+                if not already_invited:
+                    import os as _os
+                    from app.models.studio import Studio
+                    frontend_url = _os.getenv("FRONTEND_URL", "http://localhost:3000").rstrip("/")
+                    studio = db.get(Studio, ctx.studio_id)
+                    slug = studio.slug if studio else None
+                    join_link = f"{frontend_url}/s/{slug}" if slug else ""
+                    optout_token = create_invite_token(str(ctx.studio_id), str(client.id))
+                    optout_link = f"{frontend_url}/optout/{optout_token}"
+                    points_on_signup = getattr(settings, "points_on_signup", 50) or 50
 
-                body = format_template(template, {
-                    "client_name": client.full_name or "",
-                    "points_on_signup": points_on_signup,
-                    "join_link": join_link,
-                })
+                    template = getattr(settings, "non_member_wa_template", None) or (
+                        "היי {client_name}! 👋\n\n"
+                        "שמחים שביקרת אצלנו!\n"
+                        "הצטרף/י למועדון הלקוחות שלנו וקבל/י {points_on_signup} נקודות מתנה לביקור הבא 🎉\n\n"
+                        "הרשמה: {join_link}\n\n"
+                        "להסרה מרשימת ההודעות: {optout_link}"
+                    )
 
-                scheduled_at = datetime.now(timezone.utc) + timedelta(minutes=30)
-                db.add(MessageJob(
-                    studio_id=ctx.studio_id,
-                    client_id=client.id,
-                    channel="whatsapp",
-                    to_phone=client.phone,
-                    body=body,
-                    scheduled_at=scheduled_at,
-                    status="pending",
-                ))
-                db.commit()
-                log.info("Queued non-member club invitation for client %s", client.id)
+                    body = format_template(template, {
+                        "client_name": client.full_name or "",
+                        "points_on_signup": points_on_signup,
+                        "join_link": join_link,
+                        "optout_link": optout_link,
+                    })
+
+                    scheduled_at = datetime.now(timezone.utc) + timedelta(minutes=30)
+                    db.add(MessageJob(
+                        studio_id=ctx.studio_id,
+                        client_id=client.id,
+                        channel="whatsapp",
+                        to_phone=client.phone,
+                        body=body,
+                        scheduled_at=scheduled_at,
+                        status="pending",
+                        reminder_type="club_invite",
+                    ))
+                    db.commit()
+                    log.info("Queued non-member club invitation for client %s", client.id)
         except Exception as e:
             log.warning("Non-member invitation error: %s", e)
 

@@ -192,11 +192,20 @@ def enqueue_reschedule_message(db: Session, appt: Appointment) -> None:
     if not settings or not client:
         return
 
+    tz = pytz.timezone(settings.timezone or "Asia/Jerusalem")
+    local_dt = appt.starts_at.astimezone(tz)
+    _DAY_NAMES = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"]
+    day_name = _DAY_NAMES[local_dt.weekday() % 7] if local_dt.weekday() != 6 else "שבת"
+    # Python weekday: 0=Mon..6=Sun, Israeli week starts Sunday
+    _HE_DAYS = {0: "שני", 1: "שלישי", 2: "רביעי", 3: "חמישי", 4: "שישי", 5: "שבת", 6: "ראשון"}
+    day_name = _HE_DAYS.get(local_dt.weekday(), "")
+
     context = {
         "client_name": client.full_name,
         "appointment_title": appt.title,
-        "appointment_date": appt.starts_at.astimezone(pytz.timezone(settings.timezone or "Asia/Jerusalem")).strftime("%d/%m/%Y"),
-        "appointment_time": appt.starts_at.astimezone(pytz.timezone(settings.timezone or "Asia/Jerusalem")).strftime("%H:%M"),
+        "appointment_date": local_dt.strftime("%d/%m/%Y"),
+        "appointment_time": local_dt.strftime("%H:%M"),
+        "appointment_day": day_name,
     }
 
     now = datetime.now(timezone.utc)
@@ -206,10 +215,11 @@ def enqueue_reschedule_message(db: Session, appt: Appointment) -> None:
     if not wa_template:
         wa_template = (
             "🔄 עדכון תור\n\n"
-            "היי {client_name} 👋\n\n"
-            "התור שלך ל{appointment_title} עודכן למועד חדש:\n"
-            "📅 {appointment_date} בשעה {appointment_time}\n\n"
-            "אם יש שאלות אנחנו כאן 😊\n"
+            "היי {client_name}! 👋\n\n"
+            "התור שלך ל *{appointment_title}* עודכן למועד חדש:\n"
+            "📅 יום {appointment_day}, {appointment_date}\n"
+            "🕐 שעה {appointment_time}\n\n"
+            "אם יש שאלות — אנחנו כאן 😊\n"
             "מחכים לראותך! 🙏"
         )
 
@@ -372,10 +382,18 @@ def enqueue_post_payment_message(db: Session, appt: Appointment, amount_cents: i
             "{review_block}"
         )
     if client.phone:
+        wa_body = smart_format(wa_template, context)
+        # Plain-text templates don't carry {aftercare_block}/{review_block} explicitly —
+        # append them automatically so aftercare and review are never silently dropped.
+        if "{" not in wa_template:
+            if aftercare_block:
+                wa_body += aftercare_block
+            if review_block:
+                wa_body += review_block
         db.add(MessageJob(
             studio_id=appt.studio_id, client_id=client.id, appointment_id=appt.id,
             channel="whatsapp", to_phone=client.phone,
-            body=smart_format(wa_template, context),
+            body=wa_body,
             scheduled_at=now, status="pending",
             reminder_type="post_payment",
         ))
@@ -384,11 +402,14 @@ def enqueue_post_payment_message(db: Session, appt: Appointment, amount_cents: i
     email_template = settings.post_payment_email_template
     if not email_template:
         review_html = ""
-        if review_lines:
-            links_html = "".join(f'<li><a href="{l.split(": ", 1)[-1]}" style="color:#111;">{l.split(": ", 1)[0]}</a></li>' for l in review_lines)
-            review_html = f'<h3 style="color:#333;">🙏 נשמח לביקורת!</h3><ul style="line-height:2;">{links_html}</ul>'
+        if settings.review_link_google:
+            review_html = (
+                f'<h3 style="color:#333;">⭐ נשמח לביקורת שלך בגוגל!</h3>'
+                f'<p><a href="{settings.review_link_google.strip()}" style="color:#111;">'
+                f'{settings.review_link_google.strip()}</a></p>'
+            )
         aftercare_html = f'<h3 style="color:#333;">💊 הוראות טיפול</h3><p style="color:#555;">{settings.aftercare_message}</p>' if settings.aftercare_message else ""
-        points_html = f'<div style="background:#f0fdf4;border-radius:8px;padding:12px 16px;margin:16px 0;"><strong style="color:#166534;">🎁 צברת {points_earned} נקודות!</strong><br><span style="color:#555;">סה"כ: {points_total} נקודות.</span></div>' if points_earned > 0 else f'<p style="color:#555;">סה"כ נקודות: {points_total}</p>'
+        points_html = f'<div style="background:#f0fdf4;border-radius:8px;padding:12px 16px;margin:16px 0;"><strong style="color:#166534;">🎁 צברת {points_earned} נקודות!</strong><br><span style="color:#555;">סה"כ: {points_total} נקודות.</span></div>' if points_earned > 0 else ""
         email_template = f"""<div dir="rtl" style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#111;">
   <div style="background:#111;padding:24px 30px;border-radius:12px 12px 0 0;">
     <span style="color:#fff;font-size:20px;font-weight:bold;">תודה על התשלום! 🙏</span>
@@ -403,10 +424,17 @@ def enqueue_post_payment_message(db: Session, appt: Appointment, amount_cents: i
   <div style="padding:12px 30px;background:#f3f4f6;text-align:center;font-size:11px;color:#9ca3af;border-radius:0 0 12px 12px;">BizControl</div>
 </div>"""
     if client.email and settings.resend_api_key:
+        email_body = smart_format(email_template, context)
+        # Plain-text custom email templates also need aftercare and review appended
+        if "{" not in email_template:
+            if aftercare_block:
+                email_body += aftercare_block
+            if review_block:
+                email_body += review_block
         db.add(MessageJob(
             studio_id=appt.studio_id, client_id=client.id, appointment_id=appt.id,
             channel="email", to_phone=client.email,
-            body=smart_format(email_template, context),
+            body=email_body,
             scheduled_at=now, status="pending",
             reminder_type="aftercare",
         ))
