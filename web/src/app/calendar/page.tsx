@@ -124,6 +124,8 @@ export default function CalendarPage() {
     const [services, setServices] = useState<{ id: string; name: string; duration_minutes: number; price_cents: number; color: string; requires_consultation: boolean }[]>([]);
     const [selectedServiceId, setSelectedServiceId] = useState<string>("");
 
+    const [showCalSettings, setShowCalSettings] = useState(false);
+
     // Type chooser (appointment vs task)
     const [showTypeChooser, setShowTypeChooser] = useState(false);
     const [pendingSelectInfo, setPendingSelectInfo] = useState<any>(null);
@@ -694,13 +696,40 @@ export default function CalendarPage() {
             <AppShell
                 title="יומן תורים"
                 titleAction={
-                    <button
-                        onClick={() => router.push("/clients?create=1")}
-                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-sky-600 text-white hover:bg-sky-700 transition-colors shadow-sm shadow-sky-200"
-                    >
-                        <span className="text-sm leading-none">+</span>
-                        לקוח חדש
-                    </button>
+                    <div className="flex items-center gap-2 relative">
+                        <button
+                            type="button"
+                            onClick={() => router.push("/clients?create=1")}
+                            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-sky-600 text-white hover:bg-sky-700 transition-colors shadow-sm shadow-sky-200"
+                        >
+                            <span className="text-sm leading-none">+</span>
+                            לקוח חדש
+                        </button>
+                        {/* Calendar settings button */}
+                        <button
+                            type="button"
+                            onClick={() => setShowCalSettings(s => !s)}
+                            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors border border-slate-200"
+                            title="הגדרות יומן"
+                        >
+                            ⚙️
+                        </button>
+                        {showCalSettings && (
+                            <div className="absolute top-8 left-0 z-50 bg-white rounded-xl shadow-xl border border-slate-100 p-3 w-52 text-sm">
+                                <div className="font-bold text-slate-700 mb-2 text-xs uppercase tracking-wide">הגדרות יומן</div>
+                                <button
+                                    type="button"
+                                    onClick={() => { toggleHolidays(); }}
+                                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg border transition-all ${showHolidays ? "bg-sky-50 border-sky-200 text-sky-800" : "bg-slate-50 border-slate-200 text-slate-500"}`}
+                                >
+                                    <span>🗓️ הצגת חגים</span>
+                                    <span className={`w-8 h-4 rounded-full transition-colors relative inline-block ${showHolidays ? "bg-sky-500" : "bg-slate-300"}`}>
+                                        <span className={`absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-all ${showHolidays ? "left-4" : "left-0.5"}`} />
+                                    </span>
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 }
             >
                 {/* Toast Notification */}
@@ -767,17 +796,11 @@ export default function CalendarPage() {
                             } : {
                                 left: "prev,next today",
                                 center: "title",
-                                right: "timeGridDay,timeGridWeek,dayGridMonth,holidays"
+                                right: "timeGridDay,timeGridWeek,dayGridMonth"
                             }}
                             footerToolbar={isMobile ? {
                                 center: "timeGridDay,timeGridWeek,dayGridMonth"
                             } : false}
-                            customButtons={{
-                                holidays: {
-                                    text: showHolidays ? "🗓️ חגים ✓" : "🗓️ חגים",
-                                    click: toggleHolidays,
-                                },
-                            }}
                             locales={[heLocale]}
                             locale="he"
                             direction="rtl"
