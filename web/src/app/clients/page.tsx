@@ -77,6 +77,31 @@ function PageInner() {
     const [clubSearch, setClubSearch] = useState("");
     const [sourceFilter, setSourceFilter] = useState<"all" | "landing" | "manual">("all");
 
+    // ── Birthday coupon status ──
+    type BirthdayClient = {
+        client_id: string; full_name: string; phone: string | null;
+        birth_date: string | null; birth_day: number | null;
+        is_club_member: boolean; whatsapp_opted_out: boolean;
+        coupon_code: string | null; coupon_status: string; coupon_discount: number | null;
+        coupon_expires_at: string | null; redeemed_at: string | null;
+        message_sent: boolean; message_status: string | null;
+    };
+    const now = new Date();
+    const [bdMonth, setBdMonth] = useState(now.getMonth() + 1);
+    const [bdYear, setBdYear] = useState(now.getFullYear());
+    const [bdData, setBdData] = useState<BirthdayClient[] | null>(null);
+    const [bdLoading, setBdLoading] = useState(false);
+
+    const loadBdStatus = async (m = bdMonth, y = bdYear) => {
+        setBdLoading(true);
+        try {
+            const res = await apiFetch<{ clients: BirthdayClient[] }>(`/api/customer-club/birthday-status?month=${m}&year=${y}`);
+            setBdData(res.clients);
+        } catch { setBdData([]); } finally { setBdLoading(false); }
+    };
+
+    useEffect(() => { if (tab === "club") loadBdStatus(); }, [tab]); // eslint-disable-line
+
     const loadClients = async () => {
         try {
             setErr(null);
@@ -438,6 +463,115 @@ function PageInner() {
                                                 })}
                                             </tbody>
                                         </table>
+                                    )}
+                                </div>
+
+                                {/* ── Birthday Coupon Status ── */}
+                                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                                    <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                        <div>
+                                            <h3 className="font-bold text-slate-800">🎂 קופוני יום הולדת — מי קיבל ומי לא</h3>
+                                            <p className="text-xs text-slate-400 mt-0.5">כל הלקוחות עם יום הולדת בחודש הנבחר, סטטוס שליחה ומימוש</p>
+                                        </div>
+                                        <div className="flex items-center gap-2 shrink-0">
+                                            <select title="בחר חודש" value={bdMonth} onChange={e => { const m = Number(e.target.value); setBdMonth(m); loadBdStatus(m, bdYear); }}
+                                                className="text-sm border border-slate-200 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-pink-300">
+                                                {MONTHS.map((name, i) => <option key={i} value={i + 1}>{name}</option>)}
+                                            </select>
+                                            <select title="בחר שנה" value={bdYear} onChange={e => { const y = Number(e.target.value); setBdYear(y); loadBdStatus(bdMonth, y); }}
+                                                className="text-sm border border-slate-200 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-pink-300">
+                                                {[now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1].map(y => <option key={y} value={y}>{y}</option>)}
+                                            </select>
+                                            <button type="button" onClick={() => loadBdStatus(bdMonth, bdYear)}
+                                                className="px-3 py-1.5 bg-pink-500 text-white text-sm font-semibold rounded-lg hover:bg-pink-600 transition">
+                                                🔄
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {bdLoading ? (
+                                        <div className="flex justify-center py-10">
+                                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-pink-500" />
+                                        </div>
+                                    ) : !bdData || bdData.length === 0 ? (
+                                        <div className="py-10 text-center text-slate-400 text-sm">
+                                            <div className="text-3xl mb-2">🎂</div>
+                                            אין לקוחות עם יום הולדת ב{MONTHS[bdMonth - 1]}
+                                        </div>
+                                    ) : (
+                                        <table className="w-full text-sm">
+                                            <thead>
+                                                <tr className="bg-slate-50 border-b border-slate-100 text-xs text-slate-500 font-semibold">
+                                                    <th className="text-right px-4 py-3">שם</th>
+                                                    <th className="text-right px-4 py-3 hidden sm:table-cell">תאריך</th>
+                                                    <th className="text-right px-4 py-3">מועדון</th>
+                                                    <th className="text-right px-4 py-3">קוד קופון</th>
+                                                    <th className="text-right px-4 py-3">נשלח</th>
+                                                    <th className="text-right px-4 py-3">סטטוס</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {bdData.map(c => {
+                                                    const statusConfig: Record<string, { label: string; cls: string }> = {
+                                                        active:   { label: "פעיל",    cls: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+                                                        redeemed: { label: "✅ מומש",  cls: "bg-blue-50 text-blue-700 border-blue-200" },
+                                                        expired:  { label: "פג תוקף", cls: "bg-slate-50 text-slate-500 border-slate-200" },
+                                                        not_sent: { label: "לא נשלח", cls: "bg-slate-50 text-slate-400 border-slate-200" },
+                                                        pending:  { label: "יישלח ב-25", cls: "bg-amber-50 text-amber-700 border-amber-200" },
+                                                    };
+                                                    const st = statusConfig[c.coupon_status] ?? { label: c.coupon_status, cls: "bg-slate-50 text-slate-400 border-slate-200" };
+                                                    return (
+                                                        <tr key={c.client_id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
+                                                            <td className="px-4 py-3 font-medium text-slate-800">
+                                                                {c.full_name}
+                                                                {!c.is_club_member && <span className="mr-1 text-xs text-slate-400">(לא חבר)</span>}
+                                                                {c.whatsapp_opted_out && <span className="mr-1 text-xs text-red-400">🚫</span>}
+                                                                {c.redeemed_at && (
+                                                                    <div className="text-xs text-blue-500 mt-0.5">
+                                                                        מומש: {new Date(c.redeemed_at).toLocaleDateString("he-IL")}
+                                                                    </div>
+                                                                )}
+                                                            </td>
+                                                            <td className="px-4 py-3 text-slate-500 hidden sm:table-cell">
+                                                                {c.birth_date ? new Date(c.birth_date).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit" }) : "—"}
+                                                            </td>
+                                                            <td className="px-4 py-3">
+                                                                {c.is_club_member
+                                                                    ? <span className="text-xs font-bold text-amber-600">👑 כן</span>
+                                                                    : <span className="text-xs text-slate-400">לא</span>}
+                                                            </td>
+                                                            <td className="px-4 py-3">
+                                                                {c.coupon_code
+                                                                    ? <span className="font-mono font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded text-xs">{c.coupon_code}</span>
+                                                                    : <span className="text-slate-300 text-xs">—</span>}
+                                                                {c.coupon_discount && <span className="text-xs text-slate-400 mr-1">({c.coupon_discount}%)</span>}
+                                                            </td>
+                                                            <td className="px-4 py-3">
+                                                                {c.message_sent
+                                                                    ? <span className="text-xs text-emerald-600 font-semibold">✅ נשלח</span>
+                                                                    : <span className="text-xs text-slate-400">לא</span>}
+                                                            </td>
+                                                            <td className="px-4 py-3">
+                                                                <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border ${st.cls}`}>
+                                                                    {st.label}
+                                                                </span>
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    )}
+
+                                    {/* Summary row */}
+                                    {bdData && bdData.length > 0 && (
+                                        <div className="px-4 py-3 bg-slate-50 border-t border-slate-100 flex gap-4 text-xs text-slate-500 flex-wrap">
+                                            <span>סה״כ: <strong className="text-slate-700">{bdData.length}</strong></span>
+                                            <span>חברי מועדון: <strong className="text-amber-600">{bdData.filter(c => c.is_club_member).length}</strong></span>
+                                            <span>נשלח: <strong className="text-emerald-600">{bdData.filter(c => c.message_sent).length}</strong></span>
+                                            <span>מומש: <strong className="text-blue-600">{bdData.filter(c => c.coupon_status === "redeemed").length}</strong></span>
+                                            <span>לא קיבל (לא חבר/opted out): <strong className="text-red-500">{bdData.filter(c => !c.is_club_member || c.whatsapp_opted_out).length}</strong></span>
+                                        </div>
                                     )}
                                 </div>
                             </div>

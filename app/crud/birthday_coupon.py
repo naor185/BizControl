@@ -18,8 +18,14 @@ HEBREW_TO_LATIN: dict[str, str] = {
     'ש': 'S', 'ת': 'T',
 }
 
+MONTH_ABBREV: dict[int, str] = {
+    1: "JAN", 2: "FEB", 3: "MAR", 4: "APR",
+    5: "MAY", 6: "JUN", 7: "JUL", 8: "AUG",
+    9: "SEP", 10: "OCT", 11: "NOV", 12: "DEC",
+}
 
-def _name_prefix(name: str, length: int = 4) -> str:
+
+def _name_prefix(name: str, length: int = 3) -> str:
     """Convert first word of name to Latin letters for coupon code."""
     first_word = name.strip().split()[0] if name.strip() else name
     result = ""
@@ -30,13 +36,14 @@ def _name_prefix(name: str, length: int = 4) -> str:
             result += ch.upper()
         if len(result) >= length:
             break
-    return result or "BDAY"
+    return result or "VIP"
 
 
-def _generate_code(db: Session, client_name: str, discount: int) -> str:
-    """Generate unique coupon code like NOA10, NOA10B if collision."""
-    prefix = _name_prefix(client_name, 4)
-    base = f"{prefix}{discount}"
+def _generate_code(db: Session, client_name: str, discount: int, month: int = 0) -> str:
+    """Generate coupon code: JUN10NOA (month + discount + name prefix). Unique per client."""
+    month_part = MONTH_ABBREV.get(month, "BDAY") if month else "BDAY"
+    name_part = _name_prefix(client_name, 3)
+    base = f"{month_part}{discount}{name_part}"
     code = base
     i = 0
     while db.scalar(select(BirthdayCoupon).where(BirthdayCoupon.code == code)) is not None:
@@ -73,7 +80,7 @@ def get_or_create_birthday_coupon(
     coupon = BirthdayCoupon(
         studio_id=studio_id,
         client_id=client_id,
-        code=_generate_code(db, client_name or str(client_id)[:4], discount_percent),
+        code=_generate_code(db, client_name or str(client_id)[:4], discount_percent, month),
         discount_percent=discount_percent,
         birthday_month=month,
         birthday_year=year,
