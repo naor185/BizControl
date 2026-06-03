@@ -862,6 +862,7 @@ export default function AutomationSettingsPage() {
 
                         {/* 1. BRANDING TAB */}
                         {activeTab === "branding" && (
+                            <div className="space-y-8">
                             <div className="bg-white rounded-2xl border border-slate-100 shadow-xl shadow-slate-200/40 p-6 md:p-10 overflow-hidden relative">
                                 <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/10 rounded-bl-full -z-10"></div>
                                 <h3 className="text-2xl font-bold text-slate-800 mb-6">עיצוב ומיתוג</h3>
@@ -927,6 +928,92 @@ export default function AutomationSettingsPage() {
                                         </div>
                                     </div>
                                 </div>
+                            </div>
+
+                            {/* Studio Info — moved from policy tab */}
+                            <div className="bg-white rounded-2xl border border-slate-100 shadow-xl shadow-slate-200/40 p-6 md:p-10 relative overflow-hidden">
+                                <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/10 rounded-bl-full -z-10"></div>
+                                <h3 className="text-2xl font-bold text-slate-800 mb-2">פרטי הסטודיו</h3>
+                                <p className="text-slate-500 text-sm mb-8">פרטים אלו ישולבו אוטומטית בהודעות ללקוחות (כתובת, מפה, תיק עבודות).</p>
+                                <div className="space-y-5">
+                                    <div>
+                                        <label className="block text-sm font-semibold text-slate-700 mb-1">כתובת הסטודיו</label>
+                                        <input type="text" value={settings.studio_address || ""} onChange={e => handleChange("studio_address", e.target.value)}
+                                            placeholder="לדוג׳: רחוב הרצל 12, תל אביב"
+                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-orange-500 text-sm" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-semibold text-slate-700 mb-1">קישור למפה (Waze / Google Maps)</label>
+                                        <input type="url" dir="ltr" value={settings.studio_map_link || ""} onChange={e => handleChange("studio_map_link", e.target.value)}
+                                            placeholder="https://waze.com/ul?..."
+                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-orange-500 text-sm" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-semibold text-slate-700 mb-1">קישור לתיק עבודות (Instagram / אתר)</label>
+                                        <input type="url" dir="ltr" value={settings.studio_portfolio_link || ""} onChange={e => handleChange("studio_portfolio_link", e.target.value)}
+                                            placeholder="https://instagram.com/..."
+                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-orange-500 text-sm" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Calendar Hours — moved from automation tab */}
+                            <div className="bg-white rounded-2xl border border-slate-100 shadow-xl shadow-slate-200/40 p-6 md:p-10 relative overflow-hidden">
+                                <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-bl-full -z-10"></div>
+                                <h3 className="text-2xl font-bold text-slate-800 mb-2">שעות פעילות הסטודיו ביומן</h3>
+                                <p className="text-slate-500 text-sm mb-6">טווח השעות שיוצג ביומן התורים כדי לשמור על תצוגה נקייה.</p>
+                                <div className="flex items-center gap-6">
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-sm font-semibold text-slate-700">שעת פתיחה:</span>
+                                        <input type="time" value={settings.calendar_start_hour || "08:00"}
+                                            onChange={e => handleChange("calendar_start_hour", e.target.value)}
+                                            className="w-32 text-center bg-white border border-slate-200 rounded-xl px-4 py-2 font-semibold text-lg outline-none focus:ring-2 focus:ring-blue-500" dir="ltr" />
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-sm font-semibold text-slate-700">שעת סגירה:</span>
+                                        <input type="time" value={settings.calendar_end_hour || "23:00"}
+                                            onChange={e => handleChange("calendar_end_hour", e.target.value)}
+                                            className="w-32 text-center bg-white border border-slate-200 rounded-xl px-4 py-2 font-semibold text-lg outline-none focus:ring-2 focus:ring-blue-500" dir="ltr" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Cancellation Policy — moved from policy tab */}
+                            <div className="bg-white rounded-2xl border border-slate-100 shadow-xl shadow-slate-200/40 p-6 md:p-10 relative overflow-hidden">
+                                <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/10 rounded-bl-full -z-10"></div>
+                                <h3 className="text-2xl font-bold text-slate-800 mb-2">מדיניות ביטולים ומקדמה</h3>
+                                <p className="text-slate-500 text-sm mb-8">הגדרות אלו ישולבו אוטומטית בהודעת אישור המקדמה.</p>
+                                <div className="grid md:grid-cols-2 gap-8">
+                                    <div className="bg-emerald-50 p-6 rounded-2xl border border-emerald-100">
+                                        <label className="block text-base font-bold text-slate-800 mb-2">ביטול חינם עד כמה ימים לפני? ✅</label>
+                                        <p className="text-sm text-slate-500 mb-4">לקוח יקבל החזר מקדמה מלא אם יבטל לפחות X ימים לפני התור.</p>
+                                        <div className="flex items-center gap-3">
+                                            <input type="number" min="0" max="60"
+                                                value={settings.cancellation_free_days ?? ""}
+                                                placeholder="7"
+                                                onChange={e => handleChange("cancellation_free_days", e.target.value === "" ? 0 : parseInt(e.target.value) || 0)}
+                                                className="w-24 text-center bg-white border border-emerald-200 rounded-xl px-4 py-3 font-bold text-xl outline-none focus:ring-2 focus:ring-emerald-500" />
+                                            <span className="text-slate-600 font-medium">ימים לפני</span>
+                                        </div>
+                                    </div>
+                                    <div className="bg-red-50 p-6 rounded-2xl border border-red-100">
+                                        <label className="block text-base font-bold text-slate-800 mb-2">נעילת שינוי תור עד כמה ימים לפני? 🔒</label>
+                                        <p className="text-sm text-slate-500 mb-4">לאחר תשלום מקדמה, הלקוח לא יוכל לשנות את התור X ימים לפניו.</p>
+                                        <div className="flex items-center gap-3">
+                                            <input type="number" min="0" max="60"
+                                                value={settings.deposit_lock_days ?? ""}
+                                                placeholder="7"
+                                                onChange={e => handleChange("deposit_lock_days", e.target.value === "" ? 0 : parseInt(e.target.value) || 0)}
+                                                className="w-24 text-center bg-white border border-red-200 rounded-xl px-4 py-3 font-bold text-xl outline-none focus:ring-2 focus:ring-red-500" />
+                                            <span className="text-slate-600 font-medium">ימים לפני</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="mt-6 bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
+                                    <span className="font-bold">תצוגה מקדימה של מדיניות הביטולים: </span>
+                                    ביטול עד {settings.cancellation_free_days ?? 7} ימים לפני — החזר מלא של המקדמה. פחות מ-{settings.cancellation_free_days ?? 7} ימים — ללא החזר. שינוי תור אפשרי עד {settings.deposit_lock_days ?? 7} ימים לפני בלבד.
+                                </div>
+                            </div>
                             </div>
                         )}
 
@@ -1525,33 +1612,6 @@ export default function AutomationSettingsPage() {
                         {/* 3.5 POLICY TAB */}
                         {activeTab === "policy" && (
                             <div className="space-y-8">
-                                {/* Studio Info */}
-                                <div className="bg-white rounded-2xl border border-slate-100 shadow-xl shadow-slate-200/40 p-6 md:p-10 relative overflow-hidden">
-                                    <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/10 rounded-bl-full -z-10"></div>
-                                    <h3 className="text-2xl font-bold text-slate-800 mb-2">פרטי הסטודיו</h3>
-                                    <p className="text-slate-500 text-sm mb-8">פרטים אלו ישולבו אוטומטית בהודעות ללקוחות (כתובת, מפה, תיק עבודות).</p>
-                                    <div className="space-y-5">
-                                        <div>
-                                            <label className="block text-sm font-semibold text-slate-700 mb-1">כתובת הסטודיו</label>
-                                            <input type="text" value={settings.studio_address || ""} onChange={e => handleChange("studio_address", e.target.value)}
-                                                placeholder="לדוג׳: רחוב הרצל 12, תל אביב"
-                                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-orange-500 text-sm" />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-semibold text-slate-700 mb-1">קישור למפה (Waze / Google Maps)</label>
-                                            <input type="url" dir="ltr" value={settings.studio_map_link || ""} onChange={e => handleChange("studio_map_link", e.target.value)}
-                                                placeholder="https://waze.com/ul?..."
-                                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-orange-500 text-sm" />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-semibold text-slate-700 mb-1">קישור לתיק עבודות (Instagram / אתר)</label>
-                                            <input type="url" dir="ltr" value={settings.studio_portfolio_link || ""} onChange={e => handleChange("studio_portfolio_link", e.target.value)}
-                                                placeholder="https://instagram.com/..."
-                                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-orange-500 text-sm" />
-                                        </div>
-                                    </div>
-                                </div>
-
                                 {/* Bank Details */}
                                 <div className="bg-white rounded-2xl border border-slate-100 shadow-xl shadow-slate-200/40 p-6 md:p-10 relative overflow-hidden">
                                     <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-bl-full -z-10"></div>
@@ -1583,43 +1643,6 @@ export default function AutomationSettingsPage() {
                                             {settings.bank_name} | סניף {settings.bank_branch} | חשבון {settings.bank_account}
                                         </div>
                                     )}
-                                </div>
-
-                                {/* Cancellation Policy */}
-                                <div className="bg-white rounded-2xl border border-slate-100 shadow-xl shadow-slate-200/40 p-6 md:p-10 relative overflow-hidden">
-                                    <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/10 rounded-bl-full -z-10"></div>
-                                    <h3 className="text-2xl font-bold text-slate-800 mb-2">מדיניות ביטולים ומקדמה</h3>
-                                    <p className="text-slate-500 text-sm mb-8">הגדרות אלו ישולבו אוטומטית בהודעת אישור המקדמה.</p>
-                                    <div className="grid md:grid-cols-2 gap-8">
-                                        <div className="bg-emerald-50 p-6 rounded-2xl border border-emerald-100">
-                                            <label className="block text-base font-bold text-slate-800 mb-2">ביטול חינם עד כמה ימים לפני? ✅</label>
-                                            <p className="text-sm text-slate-500 mb-4">לקוח יקבל החזר מקדמה מלא אם יבטל לפחות X ימים לפני התור.</p>
-                                            <div className="flex items-center gap-3">
-                                                <input type="number" min="0" max="60"
-                                                    value={settings.cancellation_free_days ?? ""}
-                                                    placeholder="7"
-                                                    onChange={e => handleChange("cancellation_free_days", e.target.value === "" ? 0 : parseInt(e.target.value) || 0)}
-                                                    className="w-24 text-center bg-white border border-emerald-200 rounded-xl px-4 py-3 font-bold text-xl outline-none focus:ring-2 focus:ring-emerald-500" />
-                                                <span className="text-slate-600 font-medium">ימים לפני</span>
-                                            </div>
-                                        </div>
-                                        <div className="bg-red-50 p-6 rounded-2xl border border-red-100">
-                                            <label className="block text-base font-bold text-slate-800 mb-2">נעילת שינוי תור עד כמה ימים לפני? 🔒</label>
-                                            <p className="text-sm text-slate-500 mb-4">לאחר תשלום מקדמה, הלקוח לא יוכל לשנות את התור X ימים לפניו.</p>
-                                            <div className="flex items-center gap-3">
-                                                <input type="number" min="0" max="60"
-                                                    value={settings.deposit_lock_days ?? ""}
-                                                    placeholder="7"
-                                                    onChange={e => handleChange("deposit_lock_days", e.target.value === "" ? 0 : parseInt(e.target.value) || 0)}
-                                                    className="w-24 text-center bg-white border border-red-200 rounded-xl px-4 py-3 font-bold text-xl outline-none focus:ring-2 focus:ring-red-500" />
-                                                <span className="text-slate-600 font-medium">ימים לפני</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="mt-6 bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
-                                        <span className="font-bold">תצוגה מקדימה של מדיניות הביטולים: </span>
-                                        ביטול עד {settings.cancellation_free_days ?? 7} ימים לפני — החזר מלא של המקדמה. פחות מ-{settings.cancellation_free_days ?? 7} ימים — ללא החזר. שינוי תור אפשרי עד {settings.deposit_lock_days ?? 7} ימים לפני בלבד.
-                                    </div>
                                 </div>
 
                                 {/* Deposit Auto-Fill */}
@@ -1842,30 +1865,6 @@ export default function AutomationSettingsPage() {
                                             </div>
                                         </div>
 
-                                        <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 md:col-span-2">
-                                            <label className="block text-base font-bold text-slate-800 mb-2">שעות פעילות הסטודיו ביומן</label>
-                                            <p className="text-sm text-slate-500 mb-4">טווח השעות שיוצג ביומן התורים כדי לשמור על תצוגה נקייה.</p>
-                                            <div className="flex items-center gap-6">
-                                                <div className="flex items-center gap-3">
-                                                    <span className="text-sm font-semibold text-slate-700">שעת פתיחה:</span>
-                                                    <input
-                                                        type="time"
-                                                        value={settings.calendar_start_hour || "08:00"}
-                                                        onChange={e => handleChange("calendar_start_hour", e.target.value)}
-                                                        className="w-32 text-center bg-white border border-slate-200 rounded-xl px-4 py-2 font-semibold text-lg outline-none focus:ring-2 focus:ring-blue-500" dir="ltr"
-                                                    />
-                                                </div>
-                                                <div className="flex items-center gap-3">
-                                                    <span className="text-sm font-semibold text-slate-700">שעת סגירה:</span>
-                                                    <input
-                                                        type="time"
-                                                        value={settings.calendar_end_hour || "23:00"}
-                                                        onChange={e => handleChange("calendar_end_hour", e.target.value)}
-                                                        className="w-32 text-center bg-white border border-slate-200 rounded-xl px-4 py-2 font-semibold text-lg outline-none focus:ring-2 focus:ring-blue-500" dir="ltr"
-                                                    />
-                                                </div>
-                                            </div>
-                                        </div>
                                     </div>
                                 </div>
 
