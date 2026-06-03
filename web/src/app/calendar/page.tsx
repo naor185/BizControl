@@ -990,42 +990,6 @@ export default function CalendarPage() {
                                     })()}
                                 </div>
 
-                                {/* Service picker from catalog */}
-                                {services.length > 0 && (
-                                    <div>
-                                        <label className="block text-sm font-semibold text-slate-700 mb-1">🛎️ בחר שירות</label>
-                                        <div className="flex flex-wrap gap-2">
-                                            {services.map(svc => (
-                                                <button
-                                                    key={svc.id}
-                                                    type="button"
-                                                    onClick={() => {
-                                                        setSelectedServiceId(svc.id === selectedServiceId ? "" : svc.id);
-                                                        if (svc.id !== selectedServiceId) {
-                                                            setTitle(svc.name);
-                                                            if (startAt) {
-                                                                const start = new Date(startAt);
-                                                                const end = new Date(start.getTime() + svc.duration_minutes * 60000);
-                                                                const pad = (n: number) => String(n).padStart(2, "0");
-                                                                setEndAt(`${end.getFullYear()}-${pad(end.getMonth()+1)}-${pad(end.getDate())}T${pad(end.getHours())}:${pad(end.getMinutes())}`);
-                                                            }
-                                                        } else {
-                                                            setTitle("");
-                                                        }
-                                                    }}
-                                                    style={{ borderLeft: `4px solid ${svc.color}` }}
-                                                    className={`px-3 py-1.5 rounded-xl text-sm font-medium border transition-all text-right ${svc.id === selectedServiceId ? "bg-violet-100 border-violet-400 text-violet-800" : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-violet-50"}`}
-                                                >
-                                                    <span>{svc.name}</span>
-                                                    <span className="text-xs text-slate-400 mr-1">
-                                                        {svc.duration_minutes < 60 ? `${svc.duration_minutes}ד` : `${svc.duration_minutes/60}ש`}
-                                                        {svc.price_cents > 0 ? ` · ₪${svc.price_cents/100}` : ""}
-                                                    </span>
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
                                 <div>
                                     <label className="block text-sm font-semibold text-slate-700 mb-1">כותרת הטיפול</label>
                                     {treatmentTypes.length > 0 && (
