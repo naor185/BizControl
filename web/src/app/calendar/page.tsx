@@ -120,6 +120,8 @@ export default function CalendarPage() {
     const [err, setErr] = useState<string | null>(null);
     const [calendarStartHour, setCalendarStartHour] = useState("08:00:00");
     const [calendarEndHour, setCalendarEndHour] = useState("23:00:00");
+    const [draftStartHour, setDraftStartHour] = useState("08:00");
+    const [draftEndHour, setDraftEndHour] = useState("23:00");
     const [treatmentTypes, setTreatmentTypes] = useState<{ name: string; requires_deposit: boolean; deposit_amount_ils: number | null }[]>([]);
     const [services, setServices] = useState<{ id: string; name: string; duration_minutes: number; price_cents: number; color: string; requires_consultation: boolean }[]>([]);
     const [selectedServiceId, setSelectedServiceId] = useState<string>("");
@@ -253,8 +255,16 @@ export default function CalendarPage() {
             setArtists(arts);
             setTasks(t);
             if (settings) {
-                if (settings.calendar_start_hour) setCalendarStartHour(`${settings.calendar_start_hour}:00`);
-                if (settings.calendar_end_hour) setCalendarEndHour(`${settings.calendar_end_hour}:00`);
+                if (settings.calendar_start_hour) {
+                    const sh = settings.calendar_start_hour.slice(0, 5);
+                    setCalendarStartHour(`${sh}:00`);
+                    setDraftStartHour(sh);
+                }
+                if (settings.calendar_end_hour) {
+                    const eh = settings.calendar_end_hour.slice(0, 5);
+                    setCalendarEndHour(eh === "00:00" ? "24:00:00" : `${eh}:00`);
+                    setDraftEndHour(eh);
+                }
                 if (settings.deposit_fixed_amount_ils) setDefaultDepositAmount(settings.deposit_fixed_amount_ils);
                 if (settings.deposit_min_duration_minutes) setDepositMinDuration(settings.deposit_min_duration_minutes);
                 if (settings.treatment_types?.length) {
@@ -736,8 +746,8 @@ export default function CalendarPage() {
                                         <div className="text-xs font-bold text-slate-500 mb-1">🕐 התחלה</div>
                                         <input
                                             type="time"
-                                            value={calendarStartHour.slice(0,5)}
-                                            onChange={e => setCalendarStartHour(e.target.value)}
+                                            value={draftStartHour}
+                                            onChange={e => setDraftStartHour(e.target.value)}
                                             className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm text-slate-700 focus:outline-none focus:border-blue-400"
                                         />
                                     </div>
@@ -745,8 +755,8 @@ export default function CalendarPage() {
                                         <div className="text-xs font-bold text-slate-500 mb-1">🕙 סיום</div>
                                         <input
                                             type="time"
-                                            value={calendarEndHour.slice(0,5)}
-                                            onChange={e => setCalendarEndHour(e.target.value)}
+                                            value={draftEndHour}
+                                            onChange={e => setDraftEndHour(e.target.value)}
                                             className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm text-slate-700 focus:outline-none focus:border-blue-400"
                                         />
                                     </div>
@@ -754,8 +764,10 @@ export default function CalendarPage() {
                                 <button
                                     type="button"
                                     onClick={async () => {
+                                        setCalendarStartHour(`${draftStartHour}:00`);
+                                        setCalendarEndHour(draftEndHour === "00:00" ? "24:00:00" : `${draftEndHour}:00`);
                                         try {
-                                            await apiFetch("/api/studio/automation", { method: "PATCH", body: JSON.stringify({ calendar_start_hour: calendarStartHour.slice(0,5), calendar_end_hour: calendarEndHour.slice(0,5) }) });
+                                            await apiFetch("/api/studio/automation", { method: "PATCH", body: JSON.stringify({ calendar_start_hour: draftStartHour, calendar_end_hour: draftEndHour }) });
                                         } catch { /* silent */ }
                                     }}
                                     className="w-full py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-colors">
