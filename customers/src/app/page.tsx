@@ -15,7 +15,14 @@ const DEFAULT_SLIDES = [
     { url: "https://images.unsplash.com/photo-1553530666-ba11a7da3888?w=1400&q=85", label: "בריאות ואנרגיה" },
 ];
 
-function HeroCarousel() {
+interface HeroProps {
+    q: string; city: string;
+    setQ: (v: string) => void; setCity: (v: string) => void;
+    locating: boolean; onLocate: () => void;
+    searchRef: React.RefObject<HTMLInputElement>;
+}
+
+function HeroSection({ q, city, setQ, setCity, locating, onLocate, searchRef }: HeroProps) {
     const [slides, setSlides] = useState(DEFAULT_SLIDES);
     const [current, setCurrent] = useState(0);
     const [paused, setPaused] = useState(false);
@@ -39,42 +46,93 @@ function HeroCarousel() {
 
     return (
         <div
-            style={{ position: "relative", width: "100%", height: "clamp(220px,40vw,480px)", overflow: "hidden" }}
+            style={{ position: "relative", width: "100%", height: "clamp(480px,70vh,720px)", overflow: "hidden" }}
             onMouseEnter={() => setPaused(true)}
             onMouseLeave={() => setPaused(false)}
         >
+            {/* ── Background images ── */}
             {slides.map((slide, i) => (
                 <div key={i} style={{
                     position: "absolute", inset: 0,
                     opacity: i === current ? 1 : 0,
-                    transition: "opacity 1.2s ease",
-                    zIndex: i === current ? 1 : 0,
+                    transition: "opacity 1.4s ease",
+                    zIndex: 0,
                 }}>
-                    <img src={slide.url} alt={slide.label}
-                        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                    <img
+                        src={slide.url} alt={slide.label}
+                        style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 30%", display: "block" }}
                     />
-                    <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,.55) 0%, rgba(0,0,0,.1) 50%, transparent 100%)" }} />
-                    <div style={{ position: "absolute", bottom: "1.5rem", right: "1.5rem", color: "#fff", fontWeight: 800, fontSize: "clamp(1rem,3vw,1.5rem)", textShadow: "0 2px 8px rgba(0,0,0,.5)", letterSpacing: "0.02em" }}>
-                        {slide.label}
-                    </div>
                 </div>
             ))}
 
-            {/* Navigation arrows */}
+            {/* ── Gradient overlay ── */}
+            <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(0,0,0,.45) 0%, rgba(0,0,0,.55) 55%, rgba(0,0,0,.75) 100%)", zIndex: 1 }} />
+
+            {/* ── Text + Search overlay ── */}
+            <div style={{ position: "absolute", inset: 0, zIndex: 2, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "2rem 1.25rem", textAlign: "center" }}>
+                <div style={{ display: "inline-block", background: "rgba(255,255,255,.15)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,.3)", color: "#fff", fontSize: "0.78rem", fontWeight: 700, padding: "0.3rem 0.85rem", borderRadius: 20, marginBottom: "1.1rem" }}>
+                    🗺️ גלה עסקים סביבך
+                </div>
+                <h1 style={{ fontSize: "clamp(2rem,5.5vw,3.4rem)", fontWeight: 900, color: "#fff", lineHeight: 1.15, marginBottom: "0.6rem", textShadow: "0 2px 20px rgba(0,0,0,.4)" }}>
+                    כל מה שאתה מחפש,<br />
+                    <span style={{ color: "#93c5fd" }}>קרוב אליך.</span>
+                </h1>
+                <p style={{ color: "rgba(255,255,255,.85)", fontSize: "clamp(0.88rem,2vw,1.05rem)", lineHeight: 1.6, marginBottom: "2rem", maxWidth: 520, textShadow: "0 1px 8px rgba(0,0,0,.4)" }}>
+                    ספרים, סטודיואים, ציפורניים, ספא ועוד — מצא וקבע תור בשניות
+                </p>
+
+                {/* Search box */}
+                <div style={{ width: "100%", maxWidth: 680, background: "rgba(255,255,255,.97)", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,.6)", borderRadius: 20, padding: "0.6rem", boxShadow: "0 8px 40px rgba(0,0,0,.3)", display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                    <div style={{ flex: "2 1 200px", position: "relative" }}>
+                        <span style={{ position: "absolute", right: "0.9rem", top: "50%", transform: "translateY(-50%)", fontSize: "1rem", pointerEvents: "none" }}>🔍</span>
+                        <input
+                            ref={searchRef}
+                            value={q} onChange={e => setQ(e.target.value)}
+                            placeholder="חפש שירות או עסק..."
+                            style={{ width: "100%", background: "#f8faff", border: "1.5px solid #e2e8f0", borderRadius: 12, padding: "0.75rem 2.5rem 0.75rem 0.9rem", color: "#1e293b", fontSize: "0.95rem", outline: "none", boxSizing: "border-box" }}
+                            onFocus={e => (e.target.style.borderColor = "#2563eb")}
+                            onBlur={e => (e.target.style.borderColor = "#e2e8f0")}
+                        />
+                    </div>
+                    <div style={{ flex: "1 1 120px", position: "relative" }}>
+                        <span style={{ position: "absolute", right: "0.9rem", top: "50%", transform: "translateY(-50%)", fontSize: "0.9rem", pointerEvents: "none" }}>📍</span>
+                        <input
+                            value={city} onChange={e => setCity(e.target.value)}
+                            placeholder="עיר"
+                            style={{ width: "100%", background: "#f8faff", border: "1.5px solid #e2e8f0", borderRadius: 12, padding: "0.75rem 2.5rem 0.75rem 0.9rem", color: "#1e293b", fontSize: "0.95rem", outline: "none", boxSizing: "border-box" }}
+                            onFocus={e => (e.target.style.borderColor = "#2563eb")}
+                            onBlur={e => (e.target.style.borderColor = "#e2e8f0")}
+                        />
+                    </div>
+                    <button type="button" onClick={onLocate} disabled={locating} title="קרוב אליי"
+                        style={{ padding: "0.75rem 1rem", background: "#dbeafe", border: "1.5px solid #bfdbfe", borderRadius: 12, cursor: "pointer", fontSize: "1.1rem", flexShrink: 0, color: "#2563eb" }}>
+                        {locating ? "⏳" : "🎯"}
+                    </button>
+                </div>
+
+                {/* Current slide label */}
+                {slides[current]?.label && (
+                    <div style={{ marginTop: "1.25rem", color: "rgba(255,255,255,.7)", fontSize: "0.82rem", fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase" }}>
+                        {slides[current].label}
+                    </div>
+                )}
+            </div>
+
+            {/* ── Arrows ── */}
             <button onClick={() => { setCurrent(c => (c - 1 + n) % n); setPaused(true); }}
-                style={{ position: "absolute", right: "1rem", top: "50%", transform: "translateY(-50%)", zIndex: 10, background: "rgba(255,255,255,.25)", backdropFilter: "blur(6px)", border: "1px solid rgba(255,255,255,.4)", color: "#fff", width: 36, height: 36, borderRadius: "50%", cursor: "pointer", fontSize: "1rem", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                style={{ position: "absolute", right: "1rem", top: "50%", transform: "translateY(-50%)", zIndex: 10, background: "rgba(255,255,255,.2)", backdropFilter: "blur(6px)", border: "1px solid rgba(255,255,255,.35)", color: "#fff", width: 40, height: 40, borderRadius: "50%", cursor: "pointer", fontSize: "1.2rem", display: "flex", alignItems: "center", justifyContent: "center" }}>
                 ‹
             </button>
             <button onClick={() => { setCurrent(c => (c + 1) % n); setPaused(true); }}
-                style={{ position: "absolute", left: "1rem", top: "50%", transform: "translateY(-50%)", zIndex: 10, background: "rgba(255,255,255,.25)", backdropFilter: "blur(6px)", border: "1px solid rgba(255,255,255,.4)", color: "#fff", width: 36, height: 36, borderRadius: "50%", cursor: "pointer", fontSize: "1rem", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                style={{ position: "absolute", left: "1rem", top: "50%", transform: "translateY(-50%)", zIndex: 10, background: "rgba(255,255,255,.2)", backdropFilter: "blur(6px)", border: "1px solid rgba(255,255,255,.35)", color: "#fff", width: 40, height: 40, borderRadius: "50%", cursor: "pointer", fontSize: "1.2rem", display: "flex", alignItems: "center", justifyContent: "center" }}>
                 ›
             </button>
 
-            {/* Dots */}
-            <div style={{ position: "absolute", bottom: "0.65rem", left: "50%", transform: "translateX(-50%)", display: "flex", gap: "0.4rem", zIndex: 10 }}>
+            {/* ── Dots ── */}
+            <div style={{ position: "absolute", bottom: "1.1rem", left: "50%", transform: "translateX(-50%)", display: "flex", gap: "0.4rem", zIndex: 10 }}>
                 {slides.map((_, i) => (
                     <button key={i} type="button" aria-label={`שקופית ${i + 1}`} onClick={() => { setCurrent(i); setPaused(true); }}
-                        style={{ width: i === current ? 20 : 7, height: 7, borderRadius: 4, border: "none", cursor: "pointer", background: i === current ? "#fff" : "rgba(255,255,255,.5)", transition: "all .3s", padding: 0 }} />
+                        style={{ width: i === current ? 24 : 7, height: 7, borderRadius: 4, border: "none", cursor: "pointer", background: i === current ? "#fff" : "rgba(255,255,255,.45)", transition: "all .3s", padding: 0 }} />
                 ))}
             </div>
         </div>
@@ -190,65 +248,21 @@ export default function HomePage() {
                 </div>
             </header>
 
-            {/* ── Carousel ── */}
-            <HeroCarousel />
+            {/* ── Hero + Carousel merged ── */}
+            <HeroSection
+                q={q} city={city}
+                setQ={setQ} setCity={setCity}
+                locating={locating} onLocate={locateMe}
+                searchRef={searchRef}
+            />
 
-            {/* ── Hero ── */}
-            <div style={{ background: "linear-gradient(160deg,#eff6ff 0%,#dbeafe 50%,#eff6ff 100%)", padding: "3rem 1.25rem 2.5rem", position: "relative", overflow: "hidden" }}>
-                {/* Blobs */}
-                <div style={{ position: "absolute", top: -80, right: -80, width: 320, height: 320, borderRadius: "50%", background: "rgba(37,99,235,.08)", filter: "blur(60px)", pointerEvents: "none" }} />
-                <div style={{ position: "absolute", bottom: -60, left: -60, width: 240, height: 240, borderRadius: "50%", background: "rgba(99,102,241,.07)", filter: "blur(50px)", pointerEvents: "none" }} />
-
-                <div style={{ maxWidth: 700, margin: "0 auto", position: "relative", textAlign: "center" }}>
-                    <div style={{ display: "inline-block", background: "#dbeafe", border: "1px solid #bfdbfe", color: "#1d4ed8", fontSize: "0.78rem", fontWeight: 700, padding: "0.3rem 0.85rem", borderRadius: 20, marginBottom: "1rem" }}>
-                        🗺️ גלה עסקים סביבך
-                    </div>
-                    <h1 style={{ fontSize: "clamp(1.9rem,5vw,3rem)", fontWeight: 900, color: "#0f172a", lineHeight: 1.2, marginBottom: "0.65rem" }}>
-                        כל מה שאתה מחפש,<br />
-                        <span style={{ background: "linear-gradient(135deg,#2563eb,#7c3aed)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>קרוב אליך.</span>
-                    </h1>
-                    <p style={{ color: "#475569", fontSize: "0.95rem", lineHeight: 1.65, marginBottom: "2rem" }}>
-                        ספרים, סטודיואים, ציפורניים, ספא ועוד — מצא וקבע תור בשניות
-                    </p>
-
-                    {/* Search box */}
-                    <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 20, padding: "0.65rem", boxShadow: "0 4px 24px rgba(37,99,235,.1)", display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-                        <div style={{ flex: "2 1 200px", position: "relative" }}>
-                            <span style={{ position: "absolute", right: "0.9rem", top: "50%", transform: "translateY(-50%)", fontSize: "1rem", pointerEvents: "none" }}>🔍</span>
-                            <input
-                                ref={searchRef}
-                                value={q} onChange={e => setQ(e.target.value)}
-                                placeholder="חפש שירות או עסק..."
-                                style={{ width: "100%", background: "#f8faff", border: "1.5px solid #e2e8f0", borderRadius: 12, padding: "0.75rem 2.5rem 0.75rem 0.9rem", color: "#1e293b", fontSize: "0.95rem", outline: "none", boxSizing: "border-box", transition: "border-color .2s" }}
-                                onFocus={e => (e.target.style.borderColor = "#2563eb")}
-                                onBlur={e => (e.target.style.borderColor = "#e2e8f0")}
-                            />
-                        </div>
-                        <div style={{ flex: "1 1 130px", position: "relative" }}>
-                            <span style={{ position: "absolute", right: "0.9rem", top: "50%", transform: "translateY(-50%)", fontSize: "0.9rem", pointerEvents: "none" }}>📍</span>
-                            <input
-                                value={city} onChange={e => setCity(e.target.value)}
-                                placeholder="עיר"
-                                style={{ width: "100%", background: "#f8faff", border: "1.5px solid #e2e8f0", borderRadius: 12, padding: "0.75rem 2.5rem 0.75rem 0.9rem", color: "#1e293b", fontSize: "0.95rem", outline: "none", boxSizing: "border-box", transition: "border-color .2s" }}
-                                onFocus={e => (e.target.style.borderColor = "#2563eb")}
-                                onBlur={e => (e.target.style.borderColor = "#e2e8f0")}
-                            />
-                        </div>
-                        <button type="button" onClick={locateMe} disabled={locating} title="קרוב אליי"
-                            style={{ padding: "0.75rem 1rem", background: "#dbeafe", border: "1.5px solid #bfdbfe", borderRadius: 12, cursor: "pointer", fontSize: "1.1rem", flexShrink: 0, color: "#2563eb", transition: "all .2s" }}>
-                            {locating ? "⏳" : "🎯"}
-                        </button>
-                    </div>
-
-                    {/* Active filters */}
-                    {(q || city) && (
-                        <div style={{ marginTop: "0.75rem", display: "flex", gap: "0.4rem", flexWrap: "wrap", justifyContent: "center" }}>
-                            {q && <Chip label={`"${q}"`} onRemove={() => setQ("")} />}
-                            {city && <Chip label={`📍 ${city}`} onRemove={() => setCity("")} />}
-                        </div>
-                    )}
+            {/* Active filters */}
+            {(q || city) && (
+                <div style={{ padding: "0.6rem 1.25rem", display: "flex", gap: "0.4rem", flexWrap: "wrap", background: "#f8faff", borderBottom: "1px solid #e2e8f0" }}>
+                    {q && <Chip label={`"${q}"`} onRemove={() => setQ("")} />}
+                    {city && <Chip label={`📍 ${city}`} onRemove={() => setCity("")} />}
                 </div>
-            </div>
+            )}
 
             {/* ── Category pills ── */}
             <div style={{ background: "#fff", borderBottom: "1px solid #f1f5f9", padding: "0.85rem 1.25rem", overflowX: "auto" }}>
