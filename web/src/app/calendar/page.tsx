@@ -713,8 +713,8 @@ export default function CalendarPage() {
                 )}
                 <style dangerouslySetInnerHTML={{
                     __html: `
-                    .fc .fc-toolbar.fc-header-toolbar { margin-bottom: 0.5rem !important; }
-                    .fc .fc-button { padding: 0.3rem 0.7rem !important; font-size: 0.85rem !important; border-radius: 8px !important; }
+                    .fc .fc-toolbar.fc-header-toolbar { margin-bottom: 0.25rem !important; }
+                    .fc .fc-button { padding: 0.35rem 0.9rem !important; font-size: 0.85rem !important; border-radius: 8px !important; }
                     .fc .fc-button:active { transform: scale(0.95) !important; }
                     .fc .fc-today-button { min-width: 3.5rem !important; }
                     .fc .fc-toolbar-title { font-size: 1.1rem !important; font-weight: bold !important; }
@@ -722,9 +722,12 @@ export default function CalendarPage() {
                     .fc .fc-toolbar.fc-footer-toolbar { margin-top: 0.4rem !important; justify-content: center !important; }
                     .fc .fc-toolbar.fc-footer-toolbar .fc-button { min-width: 3.5rem !important; }
                     .holiday-event { font-size: 0.7rem !important; opacity: 0.9; }
+                    .fc .fc-button-group { gap: 0.35rem !important; display: inline-flex !important; }
+                    .fc .fc-button-group .fc-button { border-radius: 8px !important; }
+                    .fc .fc-toolbar-chunk { display: flex !important; align-items: center !important; gap: 0.4rem !important; }
                     @media (max-width: 640px) {
                         .fc .fc-toolbar-title { font-size: 0.8rem !important; }
-                        .fc .fc-button { padding: 0.2rem 0.45rem !important; font-size: 0.72rem !important; min-width: 1.8rem !important; }
+                        .fc .fc-button { padding: 0.25rem 0.55rem !important; font-size: 0.72rem !important; min-width: 1.8rem !important; }
                         .fc .fc-today-button { min-width: 2.8rem !important; }
                         .fc-timegrid-slot-label { font-size: 0.6rem !important; }
                         .fc-timegrid-axis { width: 2.2rem !important; }
@@ -734,34 +737,18 @@ export default function CalendarPage() {
                         .fc-col-header-cell { font-size: 0.68rem !important; }
                         .fc-col-header-cell-cushion { padding: 2px 1px !important; }
                         .fc .fc-toolbar.fc-footer-toolbar .fc-button { padding: 0.3rem 0.8rem !important; font-size: 0.78rem !important; min-width: 3rem !important; }
+                        .fc .fc-button-group { gap: 0.25rem !important; }
                     }
                 `}} />
                 <div className="p-2 md:p-4 max-w-[1600px] w-full mx-auto flex flex-col h-[calc(100vh-5rem-4rem)] md:h-[calc(100vh-5rem)]">
 
-                    <div className="flex items-center justify-between gap-2 mb-2">
-                        <div className="flex items-center gap-2">
-                            {currentDateRange && (
-                                <span className="text-sm font-semibold text-slate-700">{currentDateRange}</span>
-                            )}
+                    {/* Minimal top bar — only error/loading, no date range or holidays toggle */}
+                    {(loading || err) && (
+                        <div className="flex items-center gap-2 mb-1">
                             {loading && <div className="animate-spin h-4 w-4 border-2 border-slate-800 border-t-transparent rounded-full flex-shrink-0"></div>}
                             {err && <div className="text-xs font-medium text-red-600 bg-red-50 px-2 py-1 rounded">{err}</div>}
                         </div>
-                        <div className="flex items-center gap-1.5">
-                            <button
-                                onClick={toggleHolidays}
-                                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
-                                    showHolidays
-                                        ? "bg-sky-50 border-sky-300 text-sky-800"
-                                        : "bg-slate-50 border-slate-200 text-slate-400"
-                                }`}
-                            >
-                                🗓️ {showHolidays ? "חגים" : "חגים"}
-                                <span className={`w-6 h-3.5 rounded-full transition-colors flex-shrink-0 relative ${showHolidays ? "bg-sky-500" : "bg-slate-300"}`}>
-                                    <span className={`absolute top-0.5 w-2.5 h-2.5 rounded-full bg-white shadow transition-all ${showHolidays ? "left-3" : "left-0.5"}`} />
-                                </span>
-                            </button>
-                        </div>
-                    </div>
+                    )}
 
                     {/* Calendar Container */}
                     <div
@@ -780,11 +767,17 @@ export default function CalendarPage() {
                             } : {
                                 left: "prev,next today",
                                 center: "title",
-                                right: "timeGridDay,timeGridWeek,dayGridMonth"
+                                right: "timeGridDay,timeGridWeek,dayGridMonth,holidays"
                             }}
                             footerToolbar={isMobile ? {
                                 center: "timeGridDay,timeGridWeek,dayGridMonth"
                             } : false}
+                            customButtons={{
+                                holidays: {
+                                    text: showHolidays ? "🗓️ חגים ✓" : "🗓️ חגים",
+                                    click: toggleHolidays,
+                                },
+                            }}
                             locales={[heLocale]}
                             locale="he"
                             direction="rtl"
