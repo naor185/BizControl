@@ -108,6 +108,7 @@ export default function StudioDashboard() {
     const [profile, setProfile] = useState(initialProfile);
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
+    const [toast, setToast] = useState("");
     const [uploading, setUploading] = useState(false);
     const [coverUploading, setCoverUploading] = useState(false);
     const [logoUploading, setLogoUploading] = useState(false);
@@ -233,6 +234,8 @@ export default function StudioDashboard() {
             setStudioData(sd => sd ? { ...sd, gallery_count: Math.max(0, sd.gallery_count - 1) } : sd);
         } catch { }
     };
+    const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
+
     const uploadCover = async (file: File) => {
         setCoverUploading(true);
         const fd = new FormData(); fd.append("file", file);
@@ -240,9 +243,22 @@ export default function StudioDashboard() {
             const res = await fetch(`${API}/api/studio/upload/cover`, {
                 method: "POST", headers: { Authorization: `Bearer ${getToken()}` }, body: fd,
             });
+            if (!res.ok) throw new Error();
             const data = await res.json();
-            setStudioData(sd => sd ? { ...sd, cover_url: data.cover_url || sd.cover_url } : sd);
-        } catch { } finally { setCoverUploading(false); }
+            const url = data.url || data.cover_url;
+            setStudioData(sd => sd ? { ...sd, cover_url: url } : sd);
+            showToast("✅ תמונת כיסוי עודכנה!");
+        } catch { showToast("❌ שגיאה בהעלאת תמונת כיסוי"); } finally { setCoverUploading(false); }
+    };
+    const removeCover = async () => {
+        try {
+            const res = await fetch(`${API}/api/studio/upload/cover`, {
+                method: "DELETE", headers: { Authorization: `Bearer ${getToken()}` },
+            });
+            if (!res.ok) throw new Error();
+            setStudioData(sd => sd ? { ...sd, cover_url: undefined } : sd);
+            showToast("✅ תמונת כיסוי הוסרה");
+        } catch { showToast("❌ שגיאה בהסרה"); }
     };
     const uploadLogo = async (file: File) => {
         setLogoUploading(true);
@@ -251,9 +267,22 @@ export default function StudioDashboard() {
             const res = await fetch(`${API}/api/studio/upload/logo`, {
                 method: "POST", headers: { Authorization: `Bearer ${getToken()}` }, body: fd,
             });
+            if (!res.ok) throw new Error();
             const data = await res.json();
-            setStudioData(sd => sd ? { ...sd, logo_url: `/uploads/${data.filename}` } : sd);
-        } catch { } finally { setLogoUploading(false); }
+            const url = data.url || (data.filename?.startsWith("http") ? data.filename : `${API}/uploads/${data.filename}`);
+            setStudioData(sd => sd ? { ...sd, logo_url: url } : sd);
+            showToast("✅ לוגו עודכן בהצלחה!");
+        } catch { showToast("❌ שגיאה בהעלאת לוגו"); } finally { setLogoUploading(false); }
+    };
+    const removeLogo = async () => {
+        try {
+            const res = await fetch(`${API}/api/studio/upload/logo`, {
+                method: "DELETE", headers: { Authorization: `Bearer ${getToken()}` },
+            });
+            if (!res.ok) throw new Error();
+            setStudioData(sd => sd ? { ...sd, logo_url: undefined } : sd);
+            showToast("✅ לוגו הוסר");
+        } catch { showToast("❌ שגיאה בהסרה"); }
     };
 
     const importFromUrl = async () => {
@@ -322,6 +351,13 @@ export default function StudioDashboard() {
                     <button onClick={logout} style={{ fontSize: "0.78rem", color: "#94a3b8", background: "none", border: "none", cursor: "pointer" }}>יציאה</button>
                 </div>
             </header>
+
+            {/* Toast */}
+            {toast && (
+                <div style={{ position: "fixed", bottom: "1.5rem", left: "50%", transform: "translateX(-50%)", background: toast.startsWith("✅") ? "#f0fdf4" : "#fef2f2", border: `1px solid ${toast.startsWith("✅") ? "#bbf7d0" : "#fecaca"}`, color: toast.startsWith("✅") ? "#166534" : "#dc2626", padding: "0.75rem 1.5rem", borderRadius: 14, fontWeight: 700, fontSize: "0.88rem", zIndex: 999, boxShadow: "0 4px 20px rgba(0,0,0,.15)", whiteSpace: "nowrap" }}>
+                    {toast}
+                </div>
+            )}
 
             {/* Upgrade banner */}
             {!isPro && (
@@ -507,10 +543,18 @@ export default function StudioDashboard() {
                                     ) : (
                                         <div style={{ width: 80, height: 80, borderRadius: 14, background: "#f1f5f9", border: "2px dashed #e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "2rem" }}>🏷️</div>
                                     )}
-                                    <button type="button" onClick={() => logoRef.current?.click()} disabled={logoUploading}
-                                        style={{ background: "linear-gradient(135deg,#7c3aed,#4f46e5)", color: "#fff", border: "none", borderRadius: 10, padding: "0.45rem 0.85rem", fontWeight: 700, fontSize: "0.75rem", cursor: "pointer", opacity: logoUploading ? 0.7 : 1 }}>
-                                        {logoUploading ? "⏳" : "⬆️ שנה לוגו"}
-                                    </button>
+                                    <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", justifyContent: "center" }}>
+                                        <button type="button" onClick={() => logoRef.current?.click()} disabled={logoUploading}
+                                            style={{ background: "linear-gradient(135deg,#7c3aed,#4f46e5)", color: "#fff", border: "none", borderRadius: 10, padding: "0.45rem 0.75rem", fontWeight: 700, fontSize: "0.72rem", cursor: "pointer", opacity: logoUploading ? 0.7 : 1 }}>
+                                            {logoUploading ? "⏳" : "⬆️ שנה"}
+                                        </button>
+                                        {studioData?.logo_url && (
+                                            <button type="button" onClick={removeLogo}
+                                                style={{ background: "#fee2e2", color: "#dc2626", border: "1px solid #fecaca", borderRadius: 10, padding: "0.45rem 0.75rem", fontWeight: 700, fontSize: "0.72rem", cursor: "pointer" }}>
+                                                🗑️ הסר
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
 
@@ -521,10 +565,18 @@ export default function StudioDashboard() {
                                         <div style={{ fontWeight: 800, fontSize: "0.88rem" }}>📸 תמונת כיסוי</div>
                                         <div style={{ fontSize: "0.72rem", color: "#94a3b8", marginTop: "0.1rem" }}>רקע הפרופיל הציבורי</div>
                                     </div>
-                                    <button type="button" onClick={() => coverRef.current?.click()} disabled={coverUploading}
-                                        style={{ background: "linear-gradient(135deg,#7c3aed,#4f46e5)", color: "#fff", border: "none", borderRadius: 10, padding: "0.45rem 0.85rem", fontWeight: 700, fontSize: "0.75rem", cursor: "pointer", opacity: coverUploading ? 0.7 : 1 }}>
-                                        {coverUploading ? "⏳" : "⬆️ שנה"}
-                                    </button>
+                                    <div style={{ display: "flex", gap: "0.4rem" }}>
+                                        <button type="button" onClick={() => coverRef.current?.click()} disabled={coverUploading}
+                                            style={{ background: "linear-gradient(135deg,#7c3aed,#4f46e5)", color: "#fff", border: "none", borderRadius: 10, padding: "0.45rem 0.85rem", fontWeight: 700, fontSize: "0.75rem", cursor: "pointer", opacity: coverUploading ? 0.7 : 1 }}>
+                                            {coverUploading ? "⏳" : "⬆️ שנה"}
+                                        </button>
+                                        {studioData?.cover_url && (
+                                            <button type="button" onClick={removeCover}
+                                                style={{ background: "#fee2e2", color: "#dc2626", border: "1px solid #fecaca", borderRadius: 10, padding: "0.45rem 0.75rem", fontWeight: 700, fontSize: "0.75rem", cursor: "pointer" }}>
+                                                🗑️ הסר
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
                                 {studioData?.cover_url ? (
                                     <img src={studioData.cover_url.startsWith("http") ? studioData.cover_url : `${API}${studioData.cover_url}`} alt="cover"

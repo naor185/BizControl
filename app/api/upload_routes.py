@@ -99,6 +99,28 @@ def upload_logo(
     return {"filename": filename}
 
 
+@router.delete("/logo")
+def remove_logo(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+    if ctx.role not in ("owner", "admin", "manager"):
+        raise HTTPException(status_code=403, detail="Forbidden")
+    studio = db.get(Studio, ctx.studio_id)
+    if studio:
+        studio.logo_url = None
+    db.commit()
+    return {"ok": True}
+
+
+@router.delete("/cover")
+def remove_cover(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+    if ctx.role not in ("owner", "admin", "manager"):
+        raise HTTPException(status_code=403, detail="Forbidden")
+    settings = db.get(StudioSettings, ctx.studio_id)
+    if settings:
+        settings.marketplace_cover_url = None
+    db.commit()
+    return {"ok": True}
+
+
 @router.post("/image")
 def upload_generic_image(
     file: UploadFile = File(...),
