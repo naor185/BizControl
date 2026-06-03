@@ -786,6 +786,8 @@ def impersonate(studio_id: uuid.UUID, admin: User = Depends(require_superadmin),
 
     owner = db.scalar(select(User).where(User.studio_id == studio_id, User.role == "owner", User.is_active == True))  # noqa: E712
     if not owner:
+        owner = db.scalar(select(User).where(User.studio_id == studio_id, User.role.in_(["admin", "superadmin"]), User.is_active == True))  # noqa: E712
+    if not owner:
         raise HTTPException(status_code=404, detail="Studio owner not found")
 
     token = create_access_token({
