@@ -264,35 +264,37 @@ export default function PosPage() {
     // ── Right Panel (Cart + Checkout) ─────────────────────────────────────────
     const RightPanel = (
         <div className="flex flex-col h-full overflow-hidden bg-slate-50">
-            {/* Client — compact */}
-            <div className="bg-white border-b border-slate-100 px-3 py-2 shrink-0">
-                <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-bold text-slate-500">👤 לקוח</span>
-                    <button type="button" onClick={() => setShowAddClient(true)} className="text-xs text-emerald-600 font-semibold">+ חדש</button>
+            {/* Client — prominent */}
+            <div className="bg-white border-b border-slate-200 px-4 py-3 shrink-0">
+                <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-bold text-slate-700">👤 לקוח</span>
+                    <button type="button" onClick={() => setShowAddClient(true)} className="text-sm text-emerald-600 font-bold hover:text-emerald-700">+ לקוח חדש</button>
                 </div>
                 {client ? (
-                    <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-1">
+                    <div className="flex items-center gap-2 bg-emerald-50 border-2 border-emerald-300 rounded-xl px-4 py-2.5">
                         <div className="flex-1 min-w-0">
-                            <div className="text-xs font-bold text-emerald-800 truncate flex items-center gap-1">
+                            <div className="text-base font-bold text-emerald-800 truncate flex items-center gap-1.5">
                                 {client.name}
-                                {client.is_club_member && <span className="text-[9px] bg-amber-100 text-amber-700 px-1 rounded-full">👑</span>}
+                                {client.is_club_member && <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-bold">👑 VIP</span>}
                             </div>
                         </div>
-                        <button type="button" onClick={() => { setClient(null); setClientSearch(""); }} className="text-emerald-300 hover:text-rose-500 text-base leading-none">×</button>
+                        <button type="button" onClick={() => { setClient(null); setClientSearch(""); }} className="text-emerald-300 hover:text-rose-500 text-xl leading-none">×</button>
                     </div>
                 ) : (
                     <div className="relative">
-                        <input value={clientSearch} onChange={e => setClientSearch(e.target.value)} placeholder="חפש לקוח..."
-                            className="w-full border border-slate-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400" />
-                        {searchLoading && <div className="absolute left-2 top-1/2 -translate-y-1/2 w-2.5 h-2.5 border-2 border-slate-300 border-t-emerald-500 rounded-full animate-spin" />}
+                        <input value={clientSearch} onChange={e => setClientSearch(e.target.value)} placeholder="חפש שם או טלפון..."
+                            className="w-full border-2 border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400" />
+                        {searchLoading && <div className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-slate-300 border-t-emerald-500 rounded-full animate-spin" />}
                         {clientResults.length > 0 && (
                             <div className="absolute top-full mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden z-30">
                                 {clientResults.map(c => (
                                     <button key={c.id} type="button" onClick={() => { setClient(c); setClientSearch(""); setClientResults([]); }}
-                                        className="w-full text-right px-2 py-1.5 hover:bg-emerald-50 transition-colors border-b border-slate-100 last:border-0 text-xs">
-                                        <span className="font-semibold">{c.name}</span>
-                                        {c.is_club_member && <span className="mr-1 text-amber-600 text-[9px]">👑</span>}
-                                        {c.phone && <span className="text-slate-400 mr-1">{c.phone}</span>}
+                                        className="w-full text-right px-4 py-2.5 hover:bg-emerald-50 transition-colors border-b border-slate-100 last:border-0">
+                                        <div className="text-sm font-semibold text-slate-800 flex items-center gap-1.5">
+                                            {c.name}
+                                            {c.is_club_member && <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 rounded-full">👑</span>}
+                                        </div>
+                                        {c.phone && <div className="text-xs text-slate-400">{c.phone}</div>}
                                     </button>
                                 ))}
                             </div>
@@ -301,8 +303,8 @@ export default function PosPage() {
                 )}
             </div>
 
-            {/* Cart items — scrollable */}
-            <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1.5 min-h-0">
+            {/* Cart items — limited height */}
+            <div className="overflow-y-auto px-3 py-2 space-y-1.5 max-h-[28vh]">
                 {cart.length === 0 ? (
                     <div className="text-center text-slate-300 mt-8">
                         <div className="text-3xl mb-2">🛒</div>
@@ -388,13 +390,13 @@ export default function PosPage() {
                     </div>
                 </div>
 
-                {/* Payment methods — compact single row */}
-                <div className="grid grid-cols-5 gap-1">
+                {/* Payment methods — big buttons */}
+                <div className="grid grid-cols-5 gap-1.5">
                     {PAYMENT_METHODS.map(pm => (
                         <button key={pm.key} type="button" onClick={() => setMethod(pm.key)}
-                            className={`rounded-xl py-1.5 text-center transition-all border ${method === pm.key ? "bg-emerald-600 text-white border-emerald-600" : "bg-white text-slate-500 border-slate-200 hover:border-emerald-300"}`}>
-                            <div className="text-sm leading-none">{pm.icon}</div>
-                            <div className="text-[8px] font-semibold mt-0.5 leading-tight">{pm.label}</div>
+                            className={`rounded-2xl py-3 text-center transition-all border-2 active:scale-95 ${method === pm.key ? "bg-emerald-600 text-white border-emerald-600 shadow-md" : "bg-white text-slate-600 border-slate-200 hover:border-emerald-400 hover:bg-emerald-50"}`}>
+                            <div className="text-xl leading-none">{pm.icon}</div>
+                            <div className="text-[10px] font-bold mt-1 leading-tight">{pm.label}</div>
                         </button>
                     ))}
                 </div>
