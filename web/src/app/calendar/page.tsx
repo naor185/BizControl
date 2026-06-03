@@ -713,7 +713,7 @@ export default function CalendarPage() {
                 )}
                 <style dangerouslySetInnerHTML={{
                     __html: `
-                    .fc .fc-toolbar.fc-header-toolbar { margin-bottom: 0.25rem !important; }
+                    .fc .fc-toolbar.fc-header-toolbar { margin-bottom: 0.1rem !important; margin-top: 0 !important; }
                     .fc .fc-button { padding: 0.35rem 0.9rem !important; font-size: 0.85rem !important; border-radius: 8px !important; }
                     .fc .fc-button:active { transform: scale(0.95) !important; }
                     .fc .fc-today-button { min-width: 3.5rem !important; }
@@ -740,7 +740,7 @@ export default function CalendarPage() {
                         .fc .fc-button-group { gap: 0.25rem !important; }
                     }
                 `}} />
-                <div className="p-2 md:p-4 max-w-[1600px] w-full mx-auto flex flex-col h-[calc(100vh-5rem-4rem)] md:h-[calc(100vh-5rem)]">
+                <div className="p-1 md:p-2 max-w-[1600px] w-full mx-auto flex flex-col h-[calc(100vh-5rem-4rem)] md:h-[calc(100vh-5rem)]">
 
                     {/* Minimal top bar — only error/loading, no date range or holidays toggle */}
                     {(loading || err) && (
@@ -752,7 +752,7 @@ export default function CalendarPage() {
 
                     {/* Calendar Container */}
                     <div
-                        className="flex-1 bg-white rounded-xl shadow-lg p-2 sm:p-3 border border-slate-100 overflow-hidden relative"
+                        className="flex-1 bg-white rounded-xl shadow-lg p-1 sm:p-2 border border-slate-100 overflow-hidden relative"
                         onTouchStart={handleTouchStart}
                         onTouchEnd={handleTouchEnd}
                     >
