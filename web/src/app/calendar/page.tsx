@@ -715,18 +715,64 @@ export default function CalendarPage() {
                             ⚙️
                         </button>
                         {showCalSettings && (
-                            <div className="absolute top-8 left-0 z-50 bg-white rounded-xl shadow-xl border border-slate-100 p-3 w-52 text-sm">
-                                <div className="font-bold text-slate-700 mb-2 text-xs uppercase tracking-wide">הגדרות יומן</div>
+                            <div className="absolute top-8 left-0 z-50 bg-white rounded-xl shadow-xl border border-slate-100 p-3 w-64 text-sm" dir="rtl">
+                                <div className="font-bold text-slate-700 mb-3 text-xs uppercase tracking-wide border-b pb-2">הגדרות יומן</div>
+
+                                {/* Holidays toggle */}
                                 <button
                                     type="button"
                                     onClick={() => { toggleHolidays(); }}
-                                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg border transition-all ${showHolidays ? "bg-sky-50 border-sky-200 text-sky-800" : "bg-slate-50 border-slate-200 text-slate-500"}`}
+                                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg border transition-all mb-3 ${showHolidays ? "bg-sky-50 border-sky-200 text-sky-800" : "bg-slate-50 border-slate-200 text-slate-500"}`}
                                 >
                                     <span>🗓️ הצגת חגים</span>
                                     <span className={`w-8 h-4 rounded-full transition-colors relative inline-block ${showHolidays ? "bg-sky-500" : "bg-slate-300"}`}>
                                         <span className={`absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-all ${showHolidays ? "left-4" : "left-0.5"}`} />
                                     </span>
                                 </button>
+
+                                {/* Start hour */}
+                                <div className="mb-2">
+                                    <div className="text-xs font-bold text-slate-500 mb-1.5">🕐 התחלת יומן</div>
+                                    <div className="flex flex-wrap gap-1">
+                                        {["06:00:00","07:00:00","08:00:00","09:00:00","10:00:00","11:00:00"].map(h => {
+                                            const label = h.slice(0,5);
+                                            const active = calendarStartHour === h;
+                                            return (
+                                                <button key={h} type="button"
+                                                    onClick={async () => {
+                                                        setCalendarStartHour(h);
+                                                        try { await apiFetch("/api/studio/automation", { method: "PATCH", body: JSON.stringify({ calendar_start_hour: parseInt(h) }) }); }
+                                                        catch { /* silent */ }
+                                                    }}
+                                                    className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-all ${active ? "bg-blue-600 text-white border-blue-600" : "bg-white border-slate-200 text-slate-600 hover:border-blue-300"}`}>
+                                                    {label}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                {/* End hour */}
+                                <div>
+                                    <div className="text-xs font-bold text-slate-500 mb-1.5">🕙 סיום יומן</div>
+                                    <div className="flex flex-wrap gap-1">
+                                        {["18:00:00","20:00:00","21:00:00","22:00:00","23:00:00","00:00:00"].map(h => {
+                                            const label = h === "00:00:00" ? "חצות" : h.slice(0,5);
+                                            const active = calendarEndHour === h;
+                                            return (
+                                                <button key={h} type="button"
+                                                    onClick={async () => {
+                                                        setCalendarEndHour(h);
+                                                        try { await apiFetch("/api/studio/automation", { method: "PATCH", body: JSON.stringify({ calendar_end_hour: parseInt(h) || 24 }) }); }
+                                                        catch { /* silent */ }
+                                                    }}
+                                                    className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-all ${active ? "bg-blue-600 text-white border-blue-600" : "bg-white border-slate-200 text-slate-600 hover:border-blue-300"}`}>
+                                                    {label}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
                             </div>
                         )}
                     </div>
