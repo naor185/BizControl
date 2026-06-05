@@ -65,6 +65,18 @@ def list_(
 ):
     return list_clients(db, ctx.studio_id, q=q, skip=skip, limit=limit, active_only=active_only)
 
+@router.get("/counts")
+def get_counts(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+    """True counts — not limited by pagination."""
+    from sqlalchemy import func
+    total = db.scalar(
+        select(func.count(Client.id)).where(Client.studio_id == ctx.studio_id, Client.is_active.is_(True))
+    ) or 0
+    club = db.scalar(
+        select(func.count(Client.id)).where(Client.studio_id == ctx.studio_id, Client.is_active.is_(True), Client.is_club_member.is_(True))
+    ) or 0
+    return {"total": total, "club_members": club}
+
 @router.get("/club/stats")
 def club_stats(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
     from sqlalchemy import func

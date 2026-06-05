@@ -54,6 +54,7 @@ function PageInner() {
 
     // ── All clients state ──
     const [items, setItems] = useState<Client[]>([]);
+    const [trueCounts, setTrueCounts] = useState<{ total: number; club_members: number } | null>(null);
     const [err, setErr] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState<"all" | "regular" | "club">("all");
@@ -106,8 +107,12 @@ function PageInner() {
         try {
             setErr(null);
             setLoading(true);
-            const data = await apiFetch<Client[]>("/api/clients", { method: "GET" });
+            const [data, counts] = await Promise.all([
+                apiFetch<Client[]>("/api/clients", { method: "GET" }),
+                apiFetch<{ total: number; club_members: number }>("/api/clients/counts"),
+            ]);
             setItems(data);
+            setTrueCounts(counts);
         } catch (e: unknown) {
             setErr((e as Error)?.message || "שגיאה בטעינת לקוחות");
         } finally {
@@ -196,7 +201,7 @@ function PageInner() {
                             <h2 className="text-xl font-bold text-slate-800">רשימת לקוחות</h2>
                             {!loading && (
                                 <p className="text-sm text-slate-400 mt-0.5">
-                                    {items.length} לקוחות סה״כ · {clubCount} חברי מועדון
+                                    {trueCounts?.total ?? items.length} לקוחות סה״כ · {trueCounts?.club_members ?? clubCount} חברי מועדון
                                 </p>
                             )}
                         </div>
@@ -215,7 +220,7 @@ function PageInner() {
                         </button>
                         <button onClick={() => setTab("club")}
                             className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${tab === "club" ? "bg-white shadow text-slate-900" : "text-slate-500 hover:text-slate-700"}`}>
-                            👑 מועדון VIP {clubCount > 0 && <span className="mr-1 text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">{clubCount}</span>}
+                            👑 מועדון VIP {(trueCounts?.club_members ?? clubCount) > 0 && <span className="mr-1 text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">{trueCounts?.club_members ?? clubCount}</span>}
                         </button>
                     </div>
 
@@ -237,9 +242,9 @@ function PageInner() {
                                     </div>
                                     <div className="flex flex-wrap gap-2">
                                         {([
-                                            { key: "all", label: "כולם", count: items.length },
-                                            { key: "club", label: "מועדון 👑", count: clubCount },
-                                            { key: "regular", label: "רגילים", count: items.length - clubCount },
+                                            { key: "all", label: "כולם", count: trueCounts?.total ?? items.length },
+                                            { key: "club", label: "מועדון 👑", count: trueCounts?.club_members ?? clubCount },
+                                            { key: "regular", label: "רגילים", count: (trueCounts?.total ?? items.length) - (trueCounts?.club_members ?? clubCount) },
                                         ] as const).map(f => (
                                             <button key={f.key} onClick={() => setFilter(f.key)}
                                                 className={`px-3.5 py-1.5 rounded-full text-sm font-semibold transition-all border ${filter === f.key ? "bg-black text-white border-black shadow-sm" : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"}`}>
