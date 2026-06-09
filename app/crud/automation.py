@@ -322,11 +322,15 @@ def enqueue_post_payment_message(db: Session, appt: Appointment, amount_cents: i
     if not settings or not client:
         return
 
+    # לקוח שביקש הסרה לא מקבל הודעה
+    if getattr(client, "whatsapp_opted_out", False):
+        return
+
     # ── Dedup: skip if post-payment thank-you already sent for this appointment ──
     already = db.scalar(
         _select(MessageJob).where(
             MessageJob.appointment_id == appt.id,
-            MessageJob.reminder_type == "post_payment",
+            MessageJob.reminder_type.in_(["post_payment", "aftercare"]),
         )
     )
     if already:
@@ -475,8 +479,24 @@ def enqueue_aftercare_if_needed(db: Session, appt: Appointment) -> None:
     if not settings or not client:
         return
 
+    # לקוח שביקש הסרה
+    if getattr(client, "whatsapp_opted_out", False):
+        return
+
     # אם לא רוצים לשלוח בלי הסכמה
     if client.marketing_consent is False:
+        return
+
+    # Dedup: אם כבר נשלחה הודעת post_payment לאותו תור — לא לשלוח aftercare נוסף
+    from sqlalchemy import select as _sel_ac
+    already_post_payment = db.scalar(
+        _sel_ac(MessageJob).where(
+            MessageJob.appointment_id == appt.id,
+            MessageJob.reminder_type == "post_payment",
+        )
+    ) if appt.id else None
+    if already_post_payment:
+        appt.automation_enqueued_at = datetime.now(timezone.utc)
         return
 
     # בדוק אם סוג הטיפול של התור מצריך שליחת הוראות טיפול
