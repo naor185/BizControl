@@ -98,6 +98,10 @@ export default function ClientProfilePage() {
     const [editEmail, setEditEmail] = useState("");
     const [editNotes, setEditNotes] = useState("");
     const [isSavingInfo, setIsSavingInfo] = useState(false);
+    const [joiningClub, setJoiningClub] = useState(false);
+    const [showJoinForm, setShowJoinForm] = useState(false);
+    const [joinName, setJoinName] = useState("");
+    const [joinPhone, setJoinPhone] = useState("");
 
     const loadData = async () => {
         if (!id) return;
@@ -265,6 +269,54 @@ export default function ClientProfilePage() {
         }
     };
 
+    const triggerJoinClub = async () => {
+        setJoiningClub(true);
+        try {
+            await apiFetch("/api/automations/trigger-welcome", {
+                method: "POST",
+                body: JSON.stringify({ client_id: id }),
+            });
+            toast.success("הלקוח הצטרף למועדון בהצלחה! 🎉");
+            setShowJoinForm(false);
+            loadData();
+        } catch (e: any) {
+            toast.error(e?.message || "שגיאה בהצטרפות למועדון");
+        } finally {
+            setJoiningClub(false);
+        }
+    };
+
+    const handleJoinClub = () => {
+        if (!profile) return;
+        const hasName = profile.client.full_name?.trim();
+        const hasPhone = profile.client.phone?.trim();
+        if (hasName && hasPhone) {
+            triggerJoinClub();
+        } else {
+            setJoinName(profile.client.full_name || "");
+            setJoinPhone(profile.client.phone || "");
+            setShowJoinForm(true);
+        }
+    };
+
+    const handleJoinSubmit = async () => {
+        if (!joinName.trim() || !joinPhone.trim()) {
+            toast.error("שם וטלפון הם שדות חובה");
+            return;
+        }
+        setJoiningClub(true);
+        try {
+            await apiFetch(`/api/clients/${id}`, {
+                method: "PATCH",
+                body: JSON.stringify({ full_name: joinName.trim(), phone: joinPhone.trim() }),
+            });
+            await triggerJoinClub();
+        } catch (e: any) {
+            toast.error(e?.message || "שגיאה בשמירת פרטים");
+            setJoiningClub(false);
+        }
+    };
+
     return (
         <RequireAuth>
             <AppShell title="פרופיל CRM לקוח">
@@ -399,6 +451,63 @@ export default function ClientProfilePage() {
                                 <span>💳</span>
                                 הקלטת תשלום חדש
                             </button>
+
+                            {/* Join Club */}
+                            {!profile.client.is_club_member && !showJoinForm && (
+                                <button
+                                    onClick={handleJoinClub}
+                                    disabled={joiningClub}
+                                    className="w-full py-4 bg-violet-600 hover:bg-violet-700 text-white font-bold rounded-2xl shadow-lg shadow-violet-200 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                                >
+                                    <span>🎉</span>
+                                    {joiningClub ? "מצרף..." : "הצטרף למועדון"}
+                                </button>
+                            )}
+
+                            {/* Join form — when name/phone missing */}
+                            {showJoinForm && (
+                                <div className="bg-violet-50 border-2 border-violet-200 rounded-2xl p-4 space-y-3">
+                                    <div className="font-bold text-violet-900 text-sm">השלמת פרטים להצטרפות למועדון</div>
+                                    <div className="space-y-2">
+                                        <input
+                                            type="text"
+                                            placeholder="שם מלא *"
+                                            value={joinName}
+                                            onChange={e => setJoinName(e.target.value)}
+                                            className="w-full border border-violet-200 bg-white rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-violet-400"
+                                        />
+                                        <input
+                                            type="tel"
+                                            placeholder="טלפון *"
+                                            value={joinPhone}
+                                            onChange={e => setJoinPhone(e.target.value)}
+                                            className="w-full border border-violet-200 bg-white rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-violet-400"
+                                            dir="ltr"
+                                        />
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={handleJoinSubmit}
+                                            disabled={joiningClub}
+                                            className="flex-1 py-2.5 bg-violet-600 text-white text-sm font-bold rounded-xl hover:bg-violet-700 disabled:opacity-50 transition"
+                                        >
+                                            {joiningClub ? "מצרף..." : "אשר הצטרפות 🎉"}
+                                        </button>
+                                        <button
+                                            onClick={() => setShowJoinForm(false)}
+                                            className="px-4 py-2.5 text-sm text-slate-500 border border-slate-200 rounded-xl hover:bg-slate-50 transition"
+                                        >
+                                            ביטול
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {profile.client.is_club_member && (
+                                <div className="text-center text-sm text-violet-700 font-semibold bg-violet-50 border border-violet-100 rounded-2xl py-3">
+                                    ✅ חבר/ת מועדון פעיל/ה
+                                </div>
+                            )}
                         </div>
 
                         {/* Left Column: History (Appts, Messages, Points) */}
