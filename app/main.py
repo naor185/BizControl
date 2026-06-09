@@ -152,6 +152,59 @@ def start_scheduler():
 
     scheduler.add_job(tick_waitlist_expiry, "interval", hours=1, id="waitlist_expiry_tick", replace_existing=True)
     scheduler.add_job(tick_expire_coupons, "cron", hour=1, minute=0, id="expire_coupons_tick", replace_existing=True)
+
+    def tick_broadcasts():
+        """Process scheduled broadcasts — create MessageJob per recipient."""
+        from sqlalchemy import select as _sel, update as _upd
+        from app.models.broadcast import Broadcast
+        from app.models.client import Client
+        from app.models.message_job import MessageJob
+        from app.models.studio_settings import StudioSettings
+        _log = logging.getLogger("bizcontrol.broadcasts")
+        db = SessionLocal()
+        try:
+            now = datetime.now(timezone.utc)
+            due = db.scalars(
+                _sel(Broadcast).where(
+                    Broadcast.status == "scheduled",
+                    Broadcast.scheduled_at <= now,
+                )
+            ).all()
+            for b in due:
+                b.status = "processing"
+                db.commit()
+                q = _sel(Client).where(
+                    Client.studio_id == b.studio_id,
+                    Client.is_active == True,
+                    Client.phone != None,
+                    Client.whatsapp_opted_out == False,
+                )
+                if b.audience == "club":
+                    q = q.where(Client.is_club_member == True)
+                elif b.audience == "non_club":
+                    q = q.where(Client.is_club_member == False)
+                clients = db.scalars(q).all()
+                for client in clients:
+                    db.add(MessageJob(
+                        studio_id=b.studio_id,
+                        client_id=client.id,
+                        channel="whatsapp",
+                        to_phone=client.phone,
+                        body=b.body,
+                        scheduled_at=now,
+                        status="pending",
+                        reminder_type="broadcast",
+                    ))
+                b.status = "sent"
+                b.sent_count = len(clients)
+                db.commit()
+                _log.info("Broadcast %s sent to %d recipients", b.id, len(clients))
+        except Exception:
+            _log.exception("broadcasts sweep failed")
+        finally:
+            db.close()
+
+    scheduler.add_job(tick_broadcasts, "interval", minutes=1, id="broadcasts_tick", replace_existing=True)
     scheduler.start()
 
 def stop_scheduler():

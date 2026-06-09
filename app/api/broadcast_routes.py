@@ -1,0 +1,109 @@
+from __future__ import annotations
+from datetime import datetime, timezone
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.core.database import get_db
+from app.core.deps import AuthContext, require_studio_ctx
+from app.models.broadcast import Broadcast
+
+router = APIRouter(prefix="/broadcasts", tags=["broadcasts"])
+
+
+class BroadcastCreate(BaseModel):
+    title: str
+    body: str
+    audience: str = "all"   # all | club | non_club
+    scheduled_at: datetime
+
+
+@router.get("")
+def list_broadcasts(
+    ctx: AuthContext = Depends(require_studio_ctx),
+    db: Session = Depends(get_db),
+):
+    rows = db.scalars(
+        select(Broadcast)
+        .where(Broadcast.studio_id == ctx.studio_id)
+        .order_by(Broadcast.scheduled_at.desc())
+        .limit(100)
+    ).all()
+    return [_out(b) for b in rows]
+
+
+@router.post("", status_code=201)
+def create_broadcast(
+    payload: BroadcastCreate,
+    ctx: AuthContext = Depends(require_studio_ctx),
+    db: Session = Depends(get_db),
+):
+    if payload.audience not in ("all", "club", "non_club"):
+        raise HTTPException(400, "audience חייב להיות all / club / non_club")
+
+    from app.models.client import Client
+    q = select(Client).where(
+        Client.studio_id == ctx.studio_id,
+        Client.is_active == True,
+        Client.phone != None,
+        Client.whatsapp_opted_out == False,
+    )
+    if payload.audience == "club":
+        q = q.where(Client.is_club_member == True)
+    elif payload.audience == "non_club":
+        q = q.where(Client.is_club_member == False)
+
+    count = len(db.scalars(q).all())
+
+    b = Broadcast(
+        studio_id=ctx.studio_id,
+        created_by=ctx.user_id,
+        title=payload.title.strip(),
+        body=payload.body.strip(),
+        audience=payload.audience,
+        scheduled_at=payload.scheduled_at,
+        status="scheduled",
+        recipient_count=count,
+    )
+    db.add(b)
+    db.commit()
+    db.refresh(b)
+    return _out(b)
+
+
+@router.delete("/{broadcast_id}", status_code=204)
+def cancel_broadcast(
+    broadcast_id: UUID,
+    ctx: AuthContext = Depends(require_studio_ctx),
+    db: Session = Depends(get_db),
+):
+    b = db.scalar(
+        select(Broadcast).where(
+            Broadcast.id == broadcast_id,
+            Broadcast.studio_id == ctx.studio_id,
+        )
+    )
+    if not b:
+        raise HTTPException(404, "תפוצה לא נמצאה")
+    if b.status != "scheduled":
+        raise HTTPException(400, "ניתן לבטל רק תפוצות שעדיין לא נשלחו")
+    b.status = "canceled"
+    db.commit()
+    return None
+
+
+def _out(b: Broadcast) -> dict:
+    return {
+        "id": str(b.id),
+        "title": b.title,
+        "body": b.body,
+        "audience": b.audience,
+        "scheduled_at": b.scheduled_at.isoformat() if b.scheduled_at else None,
+        "status": b.status,
+        "recipient_count": b.recipient_count or 0,
+        "sent_count": b.sent_count or 0,
+        "created_at": b.created_at.isoformat() if b.created_at else None,
+    }

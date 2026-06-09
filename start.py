@@ -21,6 +21,24 @@ def ensure_schema():
 
         # ── Tables ──────────────────────────────────────────────────────────
         cur.execute("""
+            CREATE TABLE IF NOT EXISTS broadcasts (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                studio_id UUID NOT NULL,
+                created_by UUID,
+                title VARCHAR(255) NOT NULL,
+                body TEXT NOT NULL,
+                audience VARCHAR(50) NOT NULL DEFAULT 'all',
+                scheduled_at TIMESTAMPTZ NOT NULL,
+                status VARCHAR(30) NOT NULL DEFAULT 'scheduled',
+                recipient_count INTEGER DEFAULT 0,
+                sent_count INTEGER DEFAULT 0,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_broadcasts_studio_id ON broadcasts (studio_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_broadcasts_status ON broadcasts (status)")
+
+        cur.execute("""
             CREATE TABLE IF NOT EXISTS studio_notes (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                 studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
