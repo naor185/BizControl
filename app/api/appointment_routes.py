@@ -245,18 +245,25 @@ def patch(appointment_id: UUID, payload: AppointmentUpdate, ctx: AuthContext = D
 
     # If starts_at changed, cancel pending reminder jobs so rescheduled clients
     # don't receive stale reminders from the old date
-    if payload.starts_at and existing_appt and payload.starts_at != prev_starts_at:
-        from sqlalchemy import update as sa_update
-        db.execute(
-            sa_update(MessageJob)
-            .where(
-                MessageJob.appointment_id == appointment_id,
-                MessageJob.status == "pending",
-            )
-            .values(status="canceled")
-        )
-        db.commit()
-        log.info("Canceled pending message jobs for rescheduled appointment %s", appointment_id)
+    try:
+        if payload.starts_at and existing_appt and prev_starts_at:
+            # Safe comparison — strip tz from both sides to avoid aware vs naive TypeError
+            def _to_naive(dt):
+                return dt.replace(tzinfo=None) if getattr(dt, "tzinfo", None) else dt
+            if _to_naive(payload.starts_at) != _to_naive(prev_starts_at):
+                from sqlalchemy import update as sa_update
+                db.execute(
+                    sa_update(MessageJob)
+                    .where(
+                        MessageJob.appointment_id == appointment_id,
+                        MessageJob.status == "pending",
+                    )
+                    .values(status="canceled")
+                )
+                db.commit()
+                log.info("Canceled pending message jobs for rescheduled appointment %s", appointment_id)
+    except Exception as e:
+        log.warning("Failed to cancel pending message jobs for %s: %s", appointment_id, e)
 
     # Add stamp when appointment transitions to "done"
     new_status = payload.model_dump(exclude_unset=True).get("status")
