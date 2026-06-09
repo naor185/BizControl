@@ -457,6 +457,40 @@ export default function CalendarPage() {
         setIsModalOpen(true);
     };
 
+    // Resize (change duration) — show confirmation, capture times BEFORE revert
+    const handleEventResize = async (resizeInfo: any) => {
+        const app = resizeInfo.event.extendedProps;
+        if (app.isExternalGoogle || app.isTask) { resizeInfo.revert(); return; }
+
+        // Capture new times BEFORE revert — revert mutates event object back to original
+        const newStartStr = resizeInfo.event.startStr;
+        const newEndStr = resizeInfo.event.endStr;
+        const eventId = resizeInfo.event.id;
+        const clientName = resizeInfo.event.extendedProps?.client_name || resizeInfo.event.title || "התור";
+        const newEnd = new Date(newEndStr);
+        const endLabel = newEnd.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
+
+        resizeInfo.revert();
+
+        setDragConfirm({
+            label: `לשנות את משך "${clientName}" לסיום בשעה ${endLabel}?`,
+            onConfirm: async () => {
+                setDragConfirm(null);
+                try {
+                    await apiFetch(`/api/appointments/${eventId}`, {
+                        method: "PATCH",
+                        body: JSON.stringify({ starts_at: newStartStr, ends_at: newEndStr }),
+                    });
+                    setAppointments(prev => prev.map(a => a.id === eventId ? { ...a, starts_at: newStartStr, ends_at: newEndStr } : a));
+                    showToast("משך התור עודכן ✅");
+                } catch (e: any) {
+                    setToast({ message: "שגיאה בעדכון משך התור: " + (e?.message || ""), type: "error" });
+                }
+            },
+            onCancel: () => setDragConfirm(null),
+        });
+    };
+
     const handleEventDrop = async (dropInfo: any) => {
         const app = dropInfo.event.extendedProps;
         if (app.isExternalGoogle) {
@@ -490,45 +524,28 @@ export default function CalendarPage() {
             return;
         }
 
-        const doMove = async () => {
-            const eventId = dropInfo.event.id;
-            try {
-                await apiFetch(`/api/appointments/${eventId}`, {
-                    method: "PATCH",
-                    body: JSON.stringify({
-                        starts_at: dropInfo.event.startStr,
-                        ends_at: dropInfo.event.endStr,
-                    })
-                });
-                setAppointments(prev => prev.map(a => a.id === eventId ? { ...a, starts_at: dropInfo.event.startStr, ends_at: dropInfo.event.endStr } : a));
-            } catch (e: any) {
-                setToast({message: "שגיאה בהזזת התור: " + (e?.message || ""), type: "error"});
-                dropInfo.revert();
-            }
-        };
+        // Capture new times BEFORE revert — revert mutates the event object
+        const newStartStr = dropInfo.event.startStr;
+        const newEndStr = dropInfo.event.endStr;
+        const eventId = dropInfo.event.id;
+        const clientName = dropInfo.event.extendedProps?.client_name || dropInfo.event.title || "התור";
 
-        // Always confirm before moving any appointment
         dropInfo.revert();
-        const newStart = new Date(dropInfo.event.startStr);
+        const newStart = new Date(newStartStr);
         const isPast = newStart < new Date();
         const dateLabel = newStart.toLocaleDateString("he-IL", { weekday: "long", day: "2-digit", month: "2-digit" });
         const timeLabel = newStart.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
-        const clientName = dropInfo.event.extendedProps?.client_name || dropInfo.event.title || "התור";
 
         setDragConfirm({
             label: `להזיז את "${clientName}" ל-${dateLabel} בשעה ${timeLabel}?${isPast ? "\n⚠️ שים לב — תאריך זה כבר עבר." : ""}`,
             onConfirm: async () => {
                 setDragConfirm(null);
-                const eventId = dropInfo.event.id;
                 try {
                     await apiFetch(`/api/appointments/${eventId}`, {
                         method: "PATCH",
-                        body: JSON.stringify({
-                            starts_at: dropInfo.event.startStr,
-                            ends_at: dropInfo.event.endStr,
-                        })
+                        body: JSON.stringify({ starts_at: newStartStr, ends_at: newEndStr }),
                     });
-                    setAppointments(prev => prev.map(a => a.id === eventId ? { ...a, starts_at: dropInfo.event.startStr, ends_at: dropInfo.event.endStr } : a));
+                    setAppointments(prev => prev.map(a => a.id === eventId ? { ...a, starts_at: newStartStr, ends_at: newEndStr } : a));
                     showToast("התור הוזז בהצלחה ✅");
                 } catch (e: any) {
                     setToast({ message: "שגיאה בהזזת התור: " + (e?.message || ""), type: "error" });
@@ -878,7 +895,7 @@ export default function CalendarPage() {
                             select={handleDateSelect}
                             eventClick={handleEventClick}
                             eventDrop={handleEventDrop}
-                            eventResize={handleEventDrop}
+                            eventResize={handleEventResize}
                             datesSet={handleDatesSet}
                             height="100%"
                         />

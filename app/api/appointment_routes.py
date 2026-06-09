@@ -358,8 +358,12 @@ def patch(appointment_id: UUID, payload: AppointmentUpdate, ctx: AuthContext = D
                 )
             except Exception as e:
                 log.warning("Failed to update Google event: %s", e)
-    
-    return get_appointment_out(db, ctx.studio_id, appointment_id)
+
+    try:
+        return get_appointment_out(db, ctx.studio_id, appointment_id)
+    except Exception as e:
+        log.exception("Failed to build response for appointment %s", appointment_id)
+        raise HTTPException(status_code=500, detail="התור עודכן אבל אירעה שגיאה בטעינת הנתונים")
 
 @router.delete("/{appointment_id}", status_code=status.HTTP_204_NO_CONTENT)
 def cancel(appointment_id: UUID, reason: str | None = Query(default=None), hard_delete: bool = Query(default=False), ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
