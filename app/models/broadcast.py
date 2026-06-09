@@ -2,7 +2,7 @@ from __future__ import annotations
 from uuid import uuid4
 from sqlalchemy import Column, String, Text, Integer, DateTime, func
 from sqlalchemy.dialects.postgresql import UUID
-from app.db.base import Base
+from app.models.base import Base
 
 
 class Broadcast(Base):
