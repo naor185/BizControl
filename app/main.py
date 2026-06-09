@@ -155,6 +155,7 @@ def start_scheduler():
 
     def tick_broadcasts():
         """Process scheduled broadcasts — create MessageJob per recipient."""
+        from datetime import datetime as _dt, timezone as _tz
         from sqlalchemy import select as _sel, update as _upd
         from app.models.broadcast import Broadcast
         from app.models.client import Client
@@ -163,7 +164,7 @@ def start_scheduler():
         _log = logging.getLogger("bizcontrol.broadcasts")
         db = SessionLocal()
         try:
-            now = datetime.now(timezone.utc)
+            now = _dt.now(_tz.utc)
             due = db.scalars(
                 _sel(Broadcast).where(
                     Broadcast.status == "scheduled",
