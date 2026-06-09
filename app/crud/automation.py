@@ -344,10 +344,11 @@ def enqueue_post_payment_message(db: Session, appt: Appointment, amount_cents: i
             f"{settings.review_link_google.strip()}"
         )
 
-    # ── Aftercare block ──────────────────────────────────────
+    # ── Aftercare block — substitute {client_name} first ─────
     aftercare_block = ""
     if settings.aftercare_message:
-        aftercare_block = f"\n\n💊 הוראות טיפול:\n{settings.aftercare_message.strip()}"
+        aftercare_text = format_template(settings.aftercare_message.strip(), {"client_name": client.full_name or ""})
+        aftercare_block = f"\n\n{aftercare_text}"
 
     # ── Points block — only for club members ─────────────────
     points_total = client.loyalty_points or 0
@@ -387,13 +388,11 @@ def enqueue_post_payment_message(db: Session, appt: Appointment, amount_cents: i
         )
     if client.phone:
         wa_body = smart_format(wa_template, context)
-        # Plain-text templates don't carry {aftercare_block}/{review_block} explicitly —
-        # append them automatically so aftercare and review are never silently dropped.
-        if "{" not in wa_template:
-            if aftercare_block:
-                wa_body += aftercare_block
-            if review_block:
-                wa_body += review_block
+        # Always append aftercare/review if not already embedded in the template
+        if aftercare_block and "{aftercare_block}" not in wa_template:
+            wa_body += aftercare_block
+        if review_block and "{review_block}" not in wa_template:
+            wa_body += review_block
         db.add(MessageJob(
             studio_id=appt.studio_id, client_id=client.id, appointment_id=appt.id,
             channel="whatsapp", to_phone=client.phone,
