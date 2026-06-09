@@ -38,13 +38,11 @@ type DailyPayment = {
     payment_verified_at: string | null;
 };
 
-type PendingVisit = {
-    appointment_id: string;
-    client_id: string;
-    client_name: string;
-    client_phone: string;
-    title: string;
-    starts_at: string;
+type ConsultationConversion = {
+    total_consultations: number;
+    converted: number;
+    not_converted: number;
+    conversion_rate: number;
 };
 
 type Analytics = {
@@ -72,25 +70,22 @@ export default function Page() {
     const [selectedAppt, setSelectedAppt] = useState<DailyPayment | null>(null);
     const [pendingDeposits, setPendingDeposits] = useState<any[]>([]);
     const [confirmingDeposit, setConfirmingDeposit] = useState<string | null>(null);
-    const [pendingVisits, setPendingVisits] = useState<PendingVisit[]>([]);
-    const [confirmingVisit, setConfirmingVisit] = useState<string | null>(null);
     const [waivingDeposit, setWaivingDeposit] = useState<string | null>(null);
+    const [consultationConv, setConsultationConv] = useState<ConsultationConversion | null>(null);
 
     const fetchData = async () => {
         try {
             setLoading(true);
-            const [statsData, paymentsData, pendingData, depositsData, visitsData] = await Promise.all([
+            const [statsData, paymentsData, pendingData, depositsData] = await Promise.all([
                 apiFetch<DashboardStats>("/api/dashboard/stats"),
                 apiFetch<DailyPayment[]>("/api/dashboard/daily-payments"),
                 apiFetch<PendingPayment[]>("/api/dashboard/pending-payments"),
                 apiFetch<any[]>("/api/appointments/pending-deposits").catch(() => []),
-                apiFetch<PendingVisit[]>("/api/dashboard/pending-visits").catch(() => []),
             ]);
             setStats(statsData);
             setDailyPayments(paymentsData);
             setPendingPayments(pendingData);
             setPendingDeposits(depositsData);
-            setPendingVisits(visitsData);
         } catch {
             setError("שגיאה בטעינת נתונים");
         } finally {
@@ -122,22 +117,14 @@ export default function Page() {
         }
     };
 
-    const confirmVisit = async (id: string) => {
-        setConfirmingVisit(id);
-        try {
-            await apiFetch(`/api/appointments/${id}/mark-done`, { method: "POST" });
-            setPendingVisits(prev => prev.filter(v => v.appointment_id !== id));
-        } catch (e: any) {
-            alert(e?.message || "שגיאה באישור");
-        } finally {
-            setConfirmingVisit(null);
-        }
-    };
-
     const fetchAnalytics = async () => {
         try {
-            const data = await apiFetch<Analytics>("/api/dashboard/analytics");
+            const [data, convData] = await Promise.all([
+                apiFetch<Analytics>("/api/dashboard/analytics"),
+                apiFetch<ConsultationConversion>("/api/dashboard/consultation-conversion").catch(() => null),
+            ]);
             setAnalytics(data);
+            setConsultationConv(convData);
         } catch { /* silent */ }
     };
 
@@ -270,44 +257,6 @@ export default function Page() {
                                                 className="px-3 py-1.5 text-xs font-bold text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition disabled:opacity-50"
                                             >
                                                 {confirmingDeposit === d.appointment_id ? "..." : "קיבלתי ✅"}
-                                            </button>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* ── PENDING VISITS ── */}
-                    {pendingVisits.length > 0 && (
-                        <div className="bg-white rounded-2xl border-2 border-violet-300 shadow-sm overflow-hidden">
-                            <div className="px-5 py-4 bg-violet-50 border-b border-violet-200 flex items-center gap-3">
-                                <span className="text-xl">📋</span>
-                                <div className="flex-1">
-                                    <div className="font-bold text-violet-900">ממתינים לאישור ביקורת</div>
-                                    <div className="text-xs text-violet-700">{pendingVisits.length} תורים שעברו — אשר הגעה כדי לסגור את התור</div>
-                                </div>
-                            </div>
-                            <div className="divide-y divide-slate-100">
-                                {pendingVisits.map(v => (
-                                    <div key={v.appointment_id} className="px-5 py-4 flex items-center gap-3 flex-wrap">
-                                        <div className="flex-1 min-w-0">
-                                            <div className="font-semibold text-slate-800">{v.client_name}</div>
-                                            <div className="text-xs text-slate-500">
-                                                {v.title} · {new Date(v.starts_at).toLocaleDateString("he-IL")} {new Date(v.starts_at).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })}
-                                            </div>
-                                        </div>
-                                        <div className="flex gap-2 shrink-0">
-                                            <a href={`/clients/${v.client_id}`}
-                                                className="px-3 py-1.5 text-xs font-semibold text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 transition">
-                                                כרטיס לקוח
-                                            </a>
-                                            <button
-                                                onClick={() => confirmVisit(v.appointment_id)}
-                                                disabled={confirmingVisit === v.appointment_id}
-                                                className="px-3 py-1.5 text-xs font-bold text-white bg-violet-600 rounded-lg hover:bg-violet-700 transition disabled:opacity-50"
-                                            >
-                                                {confirmingVisit === v.appointment_id ? "..." : "אישור הגעה ✅"}
                                             </button>
                                         </div>
                                     </div>
@@ -470,6 +419,43 @@ export default function Page() {
                                         </div>
                                     </div>
                                 </div>
+
+                                {/* Consultation conversion */}
+                                {consultationConv && consultationConv.total_consultations > 0 && (
+                                    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+                                        <h3 className="font-bold text-slate-800 mb-4">אחוזי המרה — יעוצים לתורים</h3>
+                                        <div className="flex items-center gap-6 mb-4">
+                                            <div className="text-center">
+                                                <div className="text-4xl font-bold text-slate-900">{consultationConv.conversion_rate}%</div>
+                                                <div className="text-xs text-slate-400 mt-1">אחוז המרה</div>
+                                            </div>
+                                            <div className="flex-1 space-y-3">
+                                                {[
+                                                    { label: "קבעו תור אחרי יעוץ", value: consultationConv.converted, color: "bg-slate-900" },
+                                                    { label: "לא קבעו עדיין", value: consultationConv.not_converted, color: "bg-slate-200" },
+                                                ].map(item => {
+                                                    const pct = consultationConv.total_consultations > 0
+                                                        ? Math.round((item.value / consultationConv.total_consultations) * 100)
+                                                        : 0;
+                                                    return (
+                                                        <div key={item.label}>
+                                                            <div className="flex justify-between text-sm mb-1">
+                                                                <span className="text-slate-600">{item.label}</span>
+                                                                <span className="font-bold text-slate-800">{item.value} <span className="text-slate-400 font-normal">({pct}%)</span></span>
+                                                            </div>
+                                                            <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                                                                <div className={`h-full ${item.color} rounded-full transition-all duration-700`} style={{ width: `${pct}%` }} />
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                        <div className="text-xs text-slate-400 border-t border-slate-100 pt-3">
+                                            סה״כ {consultationConv.total_consultations} פגישות יעוץ נרשמו במערכת
+                                        </div>
+                                    </div>
+                                )}
 
                                 {/* Artist performance */}
                                 {analytics.artists.length > 0 && (

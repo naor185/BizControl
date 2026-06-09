@@ -11,6 +11,7 @@ import ToastContainer from "./ToastContainer";
 import GlobalToast from "./GlobalToast";
 import AIAssistant from "./AIAssistant";
 import PinModal from "./PinModal";
+import QuickWhatsAppModal from "./QuickWhatsAppModal";
 import { useLang } from "./LanguageProvider";
 import { LOCALES } from "@/lib/i18n";
 import { isBusinessSessionValid } from "@/lib/businessSession";
@@ -73,6 +74,7 @@ export default function AppShell({
     const [pendingDepositsCount, setPendingDepositsCount] = useState(0);
     const [inboxUnreadCount, setInboxUnreadCount] = useState(0);
     const [enabledModules, setEnabledModules] = useState<Record<string, boolean> | null>(null);
+    const [showWaModal, setShowWaModal] = useState(false);
 
     useEffect(() => {
         if (typeof window !== "undefined") {
@@ -220,6 +222,16 @@ export default function AppShell({
                                 </Link>
                             );
                         })}
+
+                        {/* Quick WhatsApp send */}
+                        <button
+                            type="button"
+                            onClick={() => setShowWaModal(true)}
+                            className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium transition-all text-emerald-700 hover:bg-emerald-50 hover:text-emerald-900 border border-emerald-100 mt-1"
+                        >
+                            <span className="text-base leading-none">📱</span>
+                            <span className="flex-1">שלח וואטסאפ</span>
+                        </button>
 
                         <div className="pt-2 pb-1 px-3">
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">ניהול</span>
@@ -412,6 +424,10 @@ export default function AppShell({
                     onSuccess={handlePinSuccess}
                     onClose={() => setShowPin(false)}
                 />
+            )}
+
+            {showWaModal && (
+                <QuickWhatsAppModal onClose={() => setShowWaModal(false)} />
             )}
         </div>
     );

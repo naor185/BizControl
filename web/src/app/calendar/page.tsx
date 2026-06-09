@@ -933,7 +933,40 @@ export default function CalendarPage() {
                                 {/* Client section */}
                                 <div>
                                     <label className="block text-sm font-semibold text-slate-700 mb-1.5">לקוח</label>
-                                    {/* Row 1: action buttons */}
+
+                                    {/* Row 1: search */}
+                                    <div className="relative mb-2">
+                                        <input
+                                            type="text"
+                                            placeholder="חפש לפי שם או טלפון..."
+                                            value={clientSearch}
+                                            onChange={e => { setClientSearch(e.target.value); setClientId(""); setIsWalkIn(false); setIsClientDropdownOpen(true); }}
+                                            onFocus={() => setIsClientDropdownOpen(true)}
+                                            onBlur={() => setTimeout(() => setIsClientDropdownOpen(false), 200)}
+                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+                                        />
+                                        {clientSearch && clientId && (
+                                            <button type="button" onClick={() => { setClientSearch(""); setClientId(""); setIsWalkIn(false); }}
+                                                className="absolute left-3 top-1.5 text-slate-400 hover:text-red-500 font-bold text-2xl leading-none">&times;</button>
+                                        )}
+                                    </div>
+                                    {isClientDropdownOpen && (
+                                        <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto">
+                                            {filteredClients.filter(c => !c.is_walk_in).length > 0 ? (
+                                                filteredClients.filter(c => !c.is_walk_in).map(c => (
+                                                    <div key={c.id} className="px-4 py-2 hover:bg-slate-50 cursor-pointer border-b border-slate-50 last:border-0 text-right"
+                                                        onMouseDown={() => { setClientId(c.id); setClientSearch(c.full_name || c.phone || ""); setIsWalkIn(false); setIsClientDropdownOpen(false); }}>
+                                                        <div className="font-semibold text-slate-800 text-sm">{c.full_name}</div>
+                                                        {c.phone && <div className="text-xs text-slate-500" dir="ltr">{c.phone}</div>}
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <div className="px-4 py-3 text-sm text-slate-500 text-center">לא נמצאו לקוחות</div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* Row 2: action buttons */}
                                     <div className="flex gap-2 mb-2">
                                         <button
                                             type="button"
@@ -994,37 +1027,6 @@ export default function CalendarPage() {
                                         </div>
                                     )}
 
-                                    {/* Row 2: search */}
-                                    <div className="relative">
-                                        <input
-                                            type="text"
-                                            placeholder="חפש לפי שם או טלפון..."
-                                            value={clientSearch}
-                                            onChange={e => { setClientSearch(e.target.value); setClientId(""); setIsWalkIn(false); setIsClientDropdownOpen(true); }}
-                                            onFocus={() => setIsClientDropdownOpen(true)}
-                                            onBlur={() => setTimeout(() => setIsClientDropdownOpen(false), 200)}
-                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500"
-                                        />
-                                        {clientSearch && clientId && (
-                                            <button type="button" onClick={() => { setClientSearch(""); setClientId(""); setIsWalkIn(false); }}
-                                                className="absolute left-3 top-1.5 text-slate-400 hover:text-red-500 font-bold text-2xl leading-none">&times;</button>
-                                        )}
-                                    </div>
-                                    {isClientDropdownOpen && (
-                                        <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto">
-                                            {filteredClients.filter(c => !c.is_walk_in).length > 0 ? (
-                                                filteredClients.filter(c => !c.is_walk_in).map(c => (
-                                                    <div key={c.id} className="px-4 py-2 hover:bg-slate-50 cursor-pointer border-b border-slate-50 last:border-0 text-right"
-                                                        onMouseDown={() => { setClientId(c.id); setClientSearch(c.full_name || c.phone || ""); setIsWalkIn(false); setIsClientDropdownOpen(false); }}>
-                                                        <div className="font-semibold text-slate-800 text-sm">{c.full_name}</div>
-                                                        {c.phone && <div className="text-xs text-slate-500" dir="ltr">{c.phone}</div>}
-                                                    </div>
-                                                ))
-                                            ) : (
-                                                <div className="px-4 py-3 text-sm text-slate-500 text-center">לא נמצאו לקוחות</div>
-                                            )}
-                                        </div>
-                                    )}
                                     {clientId && !isWalkIn && (() => {
                                         const sc = clients.find(c => c.id === clientId);
                                         if (sc && ((sc.cancellation_count || 0) > 0 || (sc.no_show_count || 0) > 0)) {

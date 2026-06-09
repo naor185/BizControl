@@ -85,6 +85,9 @@ def create(payload: AppointmentCreate, ctx: AuthContext = Depends(require_studio
         return get_appointment_out(db, ctx.studio_id, created["id"])
     except ValueError as e:
         raise HTTPException(status_code=409, detail=str(e))
+    except Exception as e:
+        log.exception("Unexpected error creating appointment")
+        raise HTTPException(status_code=500, detail="שגיאה בקביעת התור")
 
 from app.utils.google_calendar import get_google_calendar_service, create_google_event, update_google_event, delete_google_event, list_google_events
 import pytz
@@ -234,6 +237,9 @@ def patch(appointment_id: UUID, payload: AppointmentUpdate, ctx: AuthContext = D
         obj = update_appointment(db, ctx.studio_id, appointment_id, payload)
     except ValueError as e:
         raise HTTPException(status_code=409, detail=str(e))
+    except Exception as e:
+        log.exception("Unexpected error updating appointment %s", appointment_id)
+        raise HTTPException(status_code=500, detail="שגיאה בעדכון התור")
     if not obj:
         raise HTTPException(status_code=404, detail="Appointment not found")
 

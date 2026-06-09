@@ -47,7 +47,7 @@ def _appt_to_out_dict(db: Session, appt: Appointment, client: Client, artist: Us
     ) or 0
 
     net_paid = paid_cents - refund_cents
-    remaining = max(0, appt.total_price_cents - net_paid)
+    remaining = max(0, (appt.total_price_cents or 0) - net_paid)
 
     service_name = None
     if appt.service_id:

@@ -183,7 +183,7 @@ def get_daily_payments(ctx: AuthContext = Depends(require_studio_ctx), db: Sessi
         ) or 0
         
         net_paid = paid_cents - refund_cents
-        remaining = max(0, appt.total_price_cents - net_paid)
+        remaining = max(0, (appt.total_price_cents or 0) - net_paid)
         
         data.append({
             "appointment_id": appt.id,
@@ -237,7 +237,7 @@ def get_pending_payments(ctx: AuthContext = Depends(require_studio_ctx), db: Ses
             "starts_at": appt.starts_at.isoformat(),
             "total_price_cents": appt.total_price_cents,
             "paid_cents": paid_cents,
-            "remaining_cents": max(0, appt.total_price_cents - paid_cents),
+            "remaining_cents": max(0, (appt.total_price_cents or 0) - paid_cents),
             "payment_sent_at": appt.payment_sent_at.isoformat() if appt.payment_sent_at else None,
         })
     return data
@@ -448,4 +448,59 @@ def get_loyalty_stats(
         "total_outstanding_points": int(total_outstanding),
         "total_outstanding_ils": int(total_outstanding),
         "clients_with_points": int(clients_with_points),
+    }
+
+
+@router.get("/consultation-conversion")
+def consultation_conversion(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+    """אחוזי המרה: לקוחות שביצעו פגישת יעוץ ולאחר מכן קבעו תור אמיתי."""
+    from app.models.service import Service
+
+    # כל תורי היעוץ — לפי כותרת המכילה 'יעוץ' או שם שירות המכיל 'יעוץ'
+    consult_service_ids = db.scalars(
+        select(Service.id).where(
+            Service.studio_id == ctx.studio_id,
+            Service.name.ilike("%יעוץ%"),
+        )
+    ).all()
+
+    consult_filter = or_(
+        Appointment.title.ilike("%יעוץ%"),
+        Appointment.service_id.in_(consult_service_ids) if consult_service_ids else False,
+    )
+
+    # קבוצת לקוחות ייחודיים + תאריך יעוץ ראשון לכל אחד
+    consult_rows = db.execute(
+        select(Appointment.client_id, func.min(Appointment.starts_at).label("first_consult"))
+        .where(
+            Appointment.studio_id == ctx.studio_id,
+            consult_filter,
+            Appointment.status != "canceled",
+        )
+        .group_by(Appointment.client_id)
+    ).all()
+
+    total = len(consult_rows)
+    converted = 0
+
+    for row in consult_rows:
+        follow_up = db.scalar(
+            select(func.count(Appointment.id)).where(
+                Appointment.studio_id == ctx.studio_id,
+                Appointment.client_id == row.client_id,
+                ~consult_filter,
+                Appointment.starts_at > row.first_consult,
+                Appointment.status != "canceled",
+            )
+        ) or 0
+        if follow_up > 0:
+            converted += 1
+
+    rate = round(converted / total * 100) if total > 0 else 0
+
+    return {
+        "total_consultations": total,
+        "converted": converted,
+        "not_converted": total - converted,
+        "conversion_rate": rate,
     }
