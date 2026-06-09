@@ -51,6 +51,9 @@ export default function BroadcastsPage() {
     const [body, setBody] = useState("");
     const [audience, setAudience] = useState("all");
     const [scheduledAt, setScheduledAt] = useState("");
+    const [testPhone, setTestPhone] = useState("");
+    const [sendingTest, setSendingTest] = useState(false);
+    const [testResult, setTestResult] = useState<string | null>(null);
 
     const load = async () => {
         try {
@@ -98,6 +101,24 @@ export default function BroadcastsPage() {
             setError(e?.message || "שגיאה ביצירת תפוצה");
         } finally {
             setSaving(false);
+        }
+    };
+
+    const handleSendTest = async () => {
+        if (!body.trim()) { setTestResult("יש לכתוב תוכן הודעה קודם"); return; }
+        if (!testPhone.trim()) { setTestResult("יש להזין מספר טלפון לבדיקה"); return; }
+        setSendingTest(true);
+        setTestResult(null);
+        try {
+            await apiFetch("/api/broadcasts/test", {
+                method: "POST",
+                body: JSON.stringify({ body: body.trim(), phone: testPhone.trim() }),
+            });
+            setTestResult(`✅ הודעת בדיקה נשלחה ל-${testPhone.trim()}`);
+        } catch (e: any) {
+            setTestResult(`❌ שגיאה: ${e?.message || "שגיאה בשליחה"}`);
+        } finally {
+            setSendingTest(false);
         }
     };
 
@@ -168,6 +189,35 @@ export default function BroadcastsPage() {
                                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-slate-400 resize-none"
                                 />
                                 <div className="text-xs text-slate-400 text-left mt-0.5">{body.length} תווים</div>
+                            </div>
+
+                            {/* Test message */}
+                            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2">
+                                <div className="text-sm font-semibold text-slate-700">📱 שלח הודעת בדיקה</div>
+                                <div className="text-xs text-slate-400">שלח לעצמך כדי לראות איך ההודעה תיראה לפני השליחה הרשמית</div>
+                                <div className="flex gap-2">
+                                    <input
+                                        type="tel"
+                                        placeholder="מספר טלפון לבדיקה..."
+                                        value={testPhone}
+                                        onChange={e => { setTestPhone(e.target.value); setTestResult(null); }}
+                                        className="flex-1 bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-400"
+                                        dir="ltr"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={handleSendTest}
+                                        disabled={sendingTest}
+                                        className="px-4 py-2 bg-slate-700 text-white text-sm font-bold rounded-xl hover:bg-slate-900 disabled:opacity-40 transition shrink-0"
+                                    >
+                                        {sendingTest ? "שולח..." : "שלח בדיקה"}
+                                    </button>
+                                </div>
+                                {testResult && (
+                                    <div className={`text-xs font-medium px-3 py-1.5 rounded-lg ${testResult.startsWith("✅") ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"}`}>
+                                        {testResult}
+                                    </div>
+                                )}
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">

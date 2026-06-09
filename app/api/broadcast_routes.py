@@ -95,6 +95,37 @@ def cancel_broadcast(
     return None
 
 
+class BroadcastTestIn(BaseModel):
+    body: str
+    phone: str
+
+
+@router.post("/test")
+def send_test(
+    payload: BroadcastTestIn,
+    ctx: AuthContext = Depends(require_studio_ctx),
+    db: Session = Depends(get_db),
+):
+    """שלח הודעת טסט למספר טלפון ספציפי לפני שמפעילים תפוצה."""
+    from app.models.studio_settings import StudioSettings
+    from app.services.message_worker import send_whatsapp_message
+
+    if not payload.phone.strip():
+        raise HTTPException(400, "יש להזין מספר טלפון")
+    if not payload.body.strip():
+        raise HTTPException(400, "יש להזין תוכן הודעה")
+
+    settings = db.get(StudioSettings, ctx.studio_id)
+    try:
+        send_whatsapp_message(payload.phone.strip(), payload.body.strip(), settings, db)
+    except ValueError as e:
+        raise HTTPException(503, str(e))
+    except Exception as e:
+        raise HTTPException(502, f"שגיאה בשליחה: {e}")
+
+    return {"ok": True, "sent_to": payload.phone.strip()}
+
+
 def _out(b: Broadcast) -> dict:
     return {
         "id": str(b.id),

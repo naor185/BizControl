@@ -146,6 +146,7 @@ export default function CalendarPage() {
     const [taskRecurrenceMonth, setTaskRecurrenceMonth] = useState<number|"">("");
     const [taskRecurrenceEndDate, setTaskRecurrenceEndDate] = useState("");
     const [toast, setToast] = useState<{message: string; type: "success"|"error"} | null>(null);
+    const [todayBroadcasts, setTodayBroadcasts] = useState<{id: string; title: string; scheduled_at: string}[]>([]);
     const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" ? window.innerWidth < 768 : false);
     const [showHolidays, setShowHolidays] = useState(() => {
         if (typeof window === "undefined") return true;
@@ -292,6 +293,18 @@ export default function CalendarPage() {
         loadData();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [from, to]);
+
+    // Load today's scheduled broadcasts once on mount
+    useEffect(() => {
+        apiFetch<{id: string; title: string; scheduled_at: string; status: string}[]>("/api/broadcasts")
+            .then(list => {
+                const todayStr = new Date().toDateString();
+                setTodayBroadcasts(
+                    list.filter(b => b.status === "scheduled" && new Date(b.scheduled_at).toDateString() === todayStr)
+                );
+            })
+            .catch(() => {});
+    }, []);
 
     const holidayEvents = useMemo(() => {
         if (!showHolidays) return [];
@@ -803,6 +816,27 @@ export default function CalendarPage() {
                     </div>
                 }
             >
+                {/* Today's broadcast banner */}
+                {todayBroadcasts.length > 0 && (
+                    <div className="mb-3 flex items-center gap-3 bg-violet-50 border border-violet-200 rounded-xl px-4 py-2.5 text-sm">
+                        <span className="text-lg">📢</span>
+                        <div className="flex-1 min-w-0">
+                            <span className="font-bold text-violet-900">תפוצה מתוזמנת היום: </span>
+                            {todayBroadcasts.map((b, i) => (
+                                <span key={b.id} className="text-violet-700">
+                                    {b.title}
+                                    {` · ${new Date(b.scheduled_at).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })}`}
+                                    {i < todayBroadcasts.length - 1 ? " | " : ""}
+                                </span>
+                            ))}
+                        </div>
+                        <a href="/broadcasts" className="text-xs font-bold text-violet-700 hover:text-violet-900 shrink-0 border border-violet-300 rounded-lg px-2 py-1 hover:bg-violet-100 transition">
+                            לניהול ←
+                        </a>
+                        <button type="button" onClick={() => setTodayBroadcasts([])} className="text-violet-400 hover:text-violet-700 text-lg leading-none shrink-0">×</button>
+                    </div>
+                )}
+
                 {/* Toast Notification */}
                 {toast && (
                     <div
