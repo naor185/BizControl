@@ -38,6 +38,10 @@ export default function PaymentModal({ isOpen, onClose, onSuccess, appointment }
     const [couponError, setCouponError] = useState("");
     const [couponValid, setCouponValid] = useState(false);
 
+    const [splitEnabled, setSplitEnabled] = useState(false);
+    const [splitAmt1, setSplitAmt1] = useState<string>("");
+    const [splitMethod2, setSplitMethod2] = useState<string>("bit");
+
     useEffect(() => {
         if (appointment && isOpen) {
             setAmount((appointment.remaining_cents / 100).toFixed(0));
@@ -51,6 +55,9 @@ export default function PaymentModal({ isOpen, onClose, onSuccess, appointment }
             setCouponDiscount(0);
             setCouponError("");
             setCouponValid(false);
+            setSplitEnabled(false);
+            setSplitAmt1("");
+            setSplitMethod2("bit");
             getProducts().then(setAllProducts).catch(console.error);
         }
     }, [appointment, isOpen]);
@@ -66,6 +73,10 @@ export default function PaymentModal({ isOpen, onClose, onSuccess, appointment }
         : 0;
     const cashAmount = Math.max(0, parseFloat(amount || "0") - discountAmount - couponDiscountAmount);
     const totalDisplay = parseFloat(amount || "0");
+
+    // Split payment
+    const splitAmt1Num = Math.max(0, Math.min(parseFloat(splitAmt1 || "0"), cashAmount));
+    const splitAmt2Num = Math.max(0, cashAmount - splitAmt1Num);
 
     const handlePointsChange = (val: number) => {
         const clamped = Math.max(0, Math.min(val, maxRedeem));
@@ -92,28 +103,64 @@ export default function PaymentModal({ isOpen, onClose, onSuccess, appointment }
 
     const handleSave = async () => {
         if (!amount && !usePoints) return;
+        if (splitEnabled && splitAmt1Num <= 0) {
+            toast.error("יש להזין סכום חלקי גדול מ-0");
+            return;
+        }
         try {
             setIsSaving(true);
-            await apiFetch("/api/payments", {
-                method: "POST",
-                body: JSON.stringify({
-                    appointment_id: appointment.appointment_id,
-                    client_id: appointment.client_id,
-                    amount_cents: Math.round(parseFloat(amount || "0") * 100),
-                    points_redeemed: usePoints ? pointsRedeemed : 0,
-                    currency: "ILS",
-                    type,
-                    method,
-                    status: "paid",
-                    notes,
-                    coupon_code: couponValid && couponCode.trim() ? couponCode.trim().toUpperCase() : null,
-                    product_items: selectedProducts.map(p => ({
-                        product_id: p.product_id,
-                        quantity: p.quantity,
-                        price_cents: Math.round(Math.max(0, p.price - (p.discount || 0)) * 100),
-                    })),
-                }),
-            });
+            const base = {
+                appointment_id: appointment.appointment_id,
+                client_id: appointment.client_id,
+                currency: "ILS",
+                type,
+                status: "paid",
+                product_items: selectedProducts.map(p => ({
+                    product_id: p.product_id,
+                    quantity: p.quantity,
+                    price_cents: Math.round(Math.max(0, p.price - (p.discount || 0)) * 100),
+                })),
+            };
+
+            if (splitEnabled) {
+                // First payment (includes points/coupon deduction)
+                await apiFetch("/api/payments", {
+                    method: "POST",
+                    body: JSON.stringify({
+                        ...base,
+                        amount_cents: Math.round(splitAmt1Num * 100),
+                        points_redeemed: usePoints ? pointsRedeemed : 0,
+                        method,
+                        notes: notes ? `${notes} [חלק 1 מפיצול]` : "[חלק 1 מפיצול]",
+                        coupon_code: couponValid && couponCode.trim() ? couponCode.trim().toUpperCase() : null,
+                    }),
+                });
+                // Second payment — no discounts (already applied to first)
+                await apiFetch("/api/payments", {
+                    method: "POST",
+                    body: JSON.stringify({
+                        ...base,
+                        amount_cents: Math.round(splitAmt2Num * 100),
+                        points_redeemed: 0,
+                        method: splitMethod2,
+                        notes: notes ? `${notes} [חלק 2 מפיצול]` : "[חלק 2 מפיצול]",
+                        coupon_code: null,
+                        product_items: [],
+                    }),
+                });
+            } else {
+                await apiFetch("/api/payments", {
+                    method: "POST",
+                    body: JSON.stringify({
+                        ...base,
+                        amount_cents: Math.round(parseFloat(amount || "0") * 100),
+                        points_redeemed: usePoints ? pointsRedeemed : 0,
+                        method,
+                        notes,
+                        coupon_code: couponValid && couponCode.trim() ? couponCode.trim().toUpperCase() : null,
+                    }),
+                });
+            }
             onSuccess();
         } catch (e: unknown) {
             toast.error((e as { message?: string })?.message || "שגיאה בשמירת תשלום");
@@ -138,7 +185,7 @@ export default function PaymentModal({ isOpen, onClose, onSuccess, appointment }
                     <div className="grid grid-cols-2 gap-3">
                         <div>
                             <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">אמצעי תשלום</label>
-                            <select value={method} onChange={e => setMethod(e.target.value)}
+                            <select title="אמצעי תשלום" value={method} onChange={e => setMethod(e.target.value)}
                                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2 py-2 text-xs font-bold text-slate-800 outline-none">
                                 <option value="cash">מזומן 💵</option>
                                 <option value="credit_card">אשראי 💳</option>
@@ -149,7 +196,7 @@ export default function PaymentModal({ isOpen, onClose, onSuccess, appointment }
                         </div>
                         <div>
                             <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">סוג פעולה</label>
-                            <select value={type} onChange={e => setType(e.target.value)}
+                            <select title="סוג פעולה" value={type} onChange={e => setType(e.target.value)}
                                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2 py-2 text-xs font-bold text-slate-800 outline-none">
                                 <option value="payment">תשלום יתרה</option>
                                 <option value="deposit">מקדמה</option>
@@ -157,7 +204,75 @@ export default function PaymentModal({ isOpen, onClose, onSuccess, appointment }
                         </div>
                     </div>
 
-                    {/* Amount */}
+                    {/* Split payment toggle */}
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setSplitEnabled(v => !v);
+                            if (!splitEnabled) setSplitAmt1((cashAmount / 2).toFixed(0));
+                        }}
+                        className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl border-2 transition-all text-sm font-bold ${splitEnabled ? "border-sky-400 bg-sky-50 text-sky-800" : "border-slate-200 bg-slate-50 text-slate-500 hover:border-slate-300"}`}
+                    >
+                        <div className={`w-9 h-5 rounded-full transition-colors relative ${splitEnabled ? "bg-sky-500" : "bg-slate-300"}`}>
+                            <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${splitEnabled ? "left-4" : "left-0.5"}`} />
+                        </div>
+                        <span>פיצול תשלום — שתי שיטות</span>
+                    </button>
+
+                    {/* Split rows */}
+                    {splitEnabled ? (
+                        <div className="space-y-2">
+                            <div className="flex gap-2 items-center">
+                                <div className="flex-1">
+                                    <label className="block text-[10px] font-bold text-slate-500 mb-1">חלק 1 (₪)</label>
+                                    <input
+                                        type="number" min={0} max={cashAmount} step={1}
+                                        placeholder="0"
+                                        title="סכום חלק ראשון"
+                                        value={splitAmt1}
+                                        onChange={e => setSplitAmt1(e.target.value)}
+                                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-lg font-black text-slate-900 outline-none focus:ring-2 focus:ring-sky-400 text-left"
+                                        dir="ltr"
+                                    />
+                                </div>
+                                <div className="flex-1">
+                                    <label className="block text-[10px] font-bold text-slate-500 mb-1">אמצעי תשלום</label>
+                                    <select title="אמצעי תשלום חלק 1" value={method} onChange={e => setMethod(e.target.value)}
+                                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2 py-2.5 text-xs font-bold text-slate-800 outline-none">
+                                        <option value="cash">מזומן 💵</option>
+                                        <option value="credit_card">אשראי 💳</option>
+                                        <option value="bit">ביט 📱</option>
+                                        <option value="paybox">פייבוקס</option>
+                                        <option value="bank_transfer">העברה</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div className="flex gap-2 items-center">
+                                <div className="flex-1">
+                                    <label className="block text-[10px] font-bold text-slate-500 mb-1">חלק 2 — יתרה (₪)</label>
+                                    <div className="w-full bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2.5 text-lg font-black text-emerald-700 text-left" dir="ltr">
+                                        {splitAmt2Num.toFixed(0)}
+                                    </div>
+                                </div>
+                                <div className="flex-1">
+                                    <label className="block text-[10px] font-bold text-slate-500 mb-1">אמצעי תשלום</label>
+                                    <select title="אמצעי תשלום חלק 2" value={splitMethod2} onChange={e => setSplitMethod2(e.target.value)}
+                                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2 py-2.5 text-xs font-bold text-slate-800 outline-none">
+                                        <option value="cash">מזומן 💵</option>
+                                        <option value="credit_card">אשראי 💳</option>
+                                        <option value="bit">ביט 📱</option>
+                                        <option value="paybox">פייבוקס</option>
+                                        <option value="bank_transfer">העברה</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div className="bg-sky-50 border border-sky-100 rounded-xl px-3 py-2 flex justify-between text-xs font-bold text-sky-800">
+                                <span dir="ltr">{cashAmount.toFixed(0)} ₪</span>
+                                <span>סה״כ ({splitAmt1Num.toFixed(0)} + {splitAmt2Num.toFixed(0)})</span>
+                            </div>
+                        </div>
+                    ) : (
+                    /* Amount */
                     <div>
                         <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">סכום לחיוב (₪)</label>
                         <div className="relative">
@@ -173,6 +288,7 @@ export default function PaymentModal({ isOpen, onClose, onSuccess, appointment }
                             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">₪</span>
                         </div>
                     </div>
+                    )}
 
                     {/* Points Redemption */}
                     {availablePoints > 0 ? (
