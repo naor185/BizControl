@@ -272,7 +272,7 @@ export default function ClientProfilePage() {
     const triggerJoinClub = async () => {
         setJoiningClub(true);
         try {
-            await apiFetch("/api/automations/trigger-welcome", {
+            await apiFetch("/api/studio/automation/trigger-welcome", {
                 method: "POST",
                 body: JSON.stringify({ client_id: id }),
             });
