@@ -141,6 +141,15 @@ def create_payment(db: Session, studio_id: UUID, data) -> Payment:
         appt.status = "done"
         db.commit()
 
+    # Club invitation for non-members — fires after payment (main trigger)
+    if obj.status == "paid" and obj.type == "payment":
+        try:
+            from app.crud.automation import maybe_enqueue_club_invite
+            maybe_enqueue_club_invite(db, studio_id, client, appointment_id=appt.id)
+        except Exception:
+            import logging as _l
+            _l.getLogger(__name__).exception("club invite error after payment %s", obj.id)
+
     # Send thank-you message after final payment (always — not just when content configured)
     if obj.status == "paid" and obj.type == "payment" and client.phone:
         try:

@@ -444,6 +444,85 @@ def enqueue_post_payment_message(db: Session, appt: Appointment, amount_cents: i
 
     db.commit()
 
+def maybe_enqueue_club_invite(db: Session, studio_id, client, appointment_id=None) -> bool:
+    """
+    שולח הזמנה למועדון ללקוח שאינו חבר — אם הפיצ'ר מופעל בהגדרות.
+    מחזיר True אם נוסף ל-queue, False אחרת.
+    """
+    import os as _os
+    from app.models.studio_settings import StudioSettings
+    from app.models.studio import Studio
+
+    if not client or not client.phone:
+        return False
+    if getattr(client, "whatsapp_opted_out", False):
+        return False
+    if client.is_club_member:
+        return False
+
+    settings = db.get(StudioSettings, studio_id)
+    if not settings:
+        return False
+
+    # בדיקת toggle
+    if not getattr(settings, "club_invite_enabled", True):
+        return False
+
+    # dedup — שלחנו פעם אחת בלבד לכל לקוח
+    from sqlalchemy import select as _sel
+    already = db.scalar(
+        _sel(MessageJob).where(
+            MessageJob.studio_id == studio_id,
+            MessageJob.client_id == client.id,
+            MessageJob.reminder_type == "club_invite",
+        )
+    )
+    if already:
+        return False
+
+    from app.models.studio import Studio
+    from app.api.invite_routes import create_invite_token
+    frontend_url = _os.getenv("FRONTEND_URL", "http://localhost:3000").rstrip("/")
+    studio = db.get(Studio, studio_id)
+    slug = studio.slug if studio else None
+    join_link = f"{frontend_url}/s/{slug}" if slug else ""
+    optout_token = create_invite_token(str(studio_id), str(client.id))
+    optout_link = f"{frontend_url}/optout/{optout_token}"
+    points_on_signup = int(getattr(settings, "points_on_signup", 50) or 50)
+
+    template = getattr(settings, "non_member_wa_template", None) or (
+        "היי {client_name}! 👋\n\n"
+        "שמחים שביקרת אצלנו!\n"
+        "הצטרף/י למועדון הלקוחות שלנו וקבל/י {points_on_signup} נקודות מתנה לביקור הבא 🎉\n\n"
+        "הרשמה: {join_link}\n\n"
+        "להסרה מרשימת ההודעות: {optout_link}"
+    )
+
+    body = format_template(template, {
+        "client_name": client.full_name or "",
+        "points_on_signup": points_on_signup,
+        "join_link": join_link,
+        "optout_link": optout_link,
+    })
+
+    delay = int(getattr(settings, "club_invite_delay_minutes", 30) or 30)
+    scheduled_at = datetime.now(timezone.utc) + timedelta(minutes=delay)
+
+    db.add(MessageJob(
+        studio_id=studio_id,
+        client_id=client.id,
+        appointment_id=appointment_id,
+        channel="whatsapp",
+        to_phone=client.phone,
+        body=body,
+        scheduled_at=scheduled_at,
+        status="pending",
+        reminder_type="club_invite",
+    ))
+    db.commit()
+    return True
+
+
 def build_aftercare_message(settings: StudioSettings, client: Client, points_added: int, points_total: int) -> str:
     parts: list[str] = []
     if settings.aftercare_message:

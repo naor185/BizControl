@@ -44,6 +44,8 @@ type Settings = {
     deposit_approved_wa_template?: string | null;
     points_redeem_wa_template?: string | null;
     non_member_wa_template?: string | null;
+    club_invite_enabled?: boolean;
+    club_invite_delay_minutes?: number;
 
     birthday_wa_template?: string | null;
     birthday_email_template?: string | null;
@@ -1533,17 +1535,49 @@ export default function AutomationSettingsPage() {
                                                 className="w-full bg-slate-50 border border-emerald-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-mono" />
                                         </div>
 
-                                        {/* Non-Member */}
+                                        {/* Non-Member Club Invite */}
                                         <div className="space-y-4">
-                                            <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
-                                                <span className="text-xl">👤</span>
-                                                <div>
-                                                    <h4 className="font-bold text-slate-800">הזמנה למועדון — לקוח שאינו חבר</h4>
-                                                    <p className="text-xs text-slate-500">נשלח ללקוח חדש שביקר אך עוד לא נרשם למועדון</p>
+                                            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-xl">👤</span>
+                                                    <div>
+                                                        <h4 className="font-bold text-slate-800">הזמנה למועדון — לקוח שאינו חבר</h4>
+                                                        <p className="text-xs text-slate-500">נשלח אחרי תשלום ללקוח שעדיין לא נרשם למועדון</p>
+                                                    </div>
                                                 </div>
+                                                {/* Toggle */}
+                                                <button
+                                                    type="button"
+                                                    title={(settings.club_invite_enabled ?? true) ? "כבה הזמנת מועדון" : "הפעל הזמנת מועדון"}
+                                                    onClick={() => handleChange("club_invite_enabled", !(settings.club_invite_enabled ?? true))}
+                                                    className={`relative w-12 h-6 rounded-full transition-colors ${(settings.club_invite_enabled ?? true) ? "bg-purple-500" : "bg-slate-300"}`}
+                                                >
+                                                    <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${(settings.club_invite_enabled ?? true) ? "right-1" : "left-1"}`} />
+                                                </button>
                                             </div>
-                                            <textarea rows={5} value={settings.non_member_wa_template || ""} onChange={e => handleChange("non_member_wa_template", e.target.value)}
-                                                className="w-full bg-slate-50 border border-purple-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-purple-500 text-sm font-mono" />
+                                            {(settings.club_invite_enabled ?? true) && (
+                                                <div className="space-y-3">
+                                                    <div className="flex items-center gap-3">
+                                                        <label className="text-xs font-semibold text-slate-600 shrink-0">שלח אחרי</label>
+                                                        <input
+                                                            type="number"
+                                                            min={0}
+                                                            max={1440}
+                                                            value={settings.club_invite_delay_minutes ?? 30}
+                                                            onChange={e => handleChange("club_invite_delay_minutes", parseInt(e.target.value) || 0)}
+                                                            title="זמן המתנה בדקות"
+                                                            placeholder="30"
+                                                            className="w-20 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-purple-400 text-center"
+                                                        />
+                                                        <span className="text-xs text-slate-500">דקות מסיום הביקור</span>
+                                                    </div>
+                                                    <p className="text-xs text-slate-400">משתני תבנית: <code className="bg-slate-100 px-1 rounded">{"{client_name}"}</code> <code className="bg-slate-100 px-1 rounded">{"{points_on_signup}"}</code> <code className="bg-slate-100 px-1 rounded">{"{join_link}"}</code> <code className="bg-slate-100 px-1 rounded">{"{optout_link}"}</code></p>
+                                                    <textarea rows={5} value={settings.non_member_wa_template || ""} onChange={e => handleChange("non_member_wa_template", e.target.value)}
+                                                        title="תוכן הודעת הזמנה למועדון"
+                                                        placeholder={"היי {client_name}! 👋\n\nשמחים שביקרת אצלנו!\nהצטרף/י למועדון וקבל/י {points_on_signup} נקודות 🎉\n\nהרשמה: {join_link}"}
+                                                        className="w-full bg-slate-50 border border-purple-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-purple-500 text-sm font-mono" />
+                                                </div>
+                                            )}
                                         </div>
 
                                         {/* Points Redeem */}
