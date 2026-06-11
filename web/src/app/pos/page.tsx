@@ -393,7 +393,7 @@ export default function PosPage() {
                         <div className="flex items-center justify-between">
                             <button type="button"
                                 title={usePoints ? "בטל ניצול נקודות" : "נצל נקודות"}
-                                onClick={() => { setUsePoints(v => !v); if (!usePoints) setPointsRedeemed(maxRedeem); else setPointsRedeemed(0); }}
+                                onClick={() => { setUsePoints(v => !v); if (!usePoints) setPointsRedeemed(availablePoints); else setPointsRedeemed(0); }}
                                 className={`w-9 h-5 rounded-full transition-colors relative shrink-0 ${usePoints ? "bg-amber-400" : "bg-slate-300"}`}>
                                 <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${usePoints ? "left-4" : "left-0.5"}`} />
                             </button>
@@ -404,11 +404,13 @@ export default function PosPage() {
                         </div>
                         {usePoints && (
                             <div className="flex items-center gap-2 mt-2">
-                                <input type="range" min={0} max={maxRedeem} value={pointsRedeemed}
+                                <input type="range" min={0} max={availablePoints} value={pointsRedeemed}
                                     title="כמות נקודות לניצול"
                                     onChange={e => setPointsRedeemed(parseInt(e.target.value))}
                                     className="flex-1 accent-amber-400" />
-                                <span className="text-xs font-bold text-amber-600 shrink-0 min-w-14 text-left" dir="ltr">{pointsRedeemed} ⭐ = ₪{pointsRedeemed}</span>
+                                <span className="text-xs font-bold text-amber-600 shrink-0 min-w-14 text-left" dir="ltr">
+                                    {pointsRedeemed} ⭐ = ₪{pointsDiscount}
+                                </span>
                             </div>
                         )}
                     </div>
