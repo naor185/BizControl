@@ -192,7 +192,7 @@ export default function PosPage() {
             setCart([]); setCalcDisplay("0"); setItemDesc(""); setClient(null); setClientSearch("");
             setDiscountPct(0); setCouponCode(""); setCouponDiscount(0); setCouponError("");
             setUsePoints(false); setPointsRedeemed(0); setMobileTab("pad");
-        } catch { toast.error("שגיאה בתשלום"); }
+        } catch (err) { toast.error(err instanceof Error ? err.message : "שגיאה בתשלום"); }
         finally { setLoading(false); }
     };
 

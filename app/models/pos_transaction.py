@@ -14,7 +14,7 @@ class PosTransaction(Base):
     __tablename__ = "pos_transactions"
     __table_args__ = (
         CheckConstraint(
-            "method IN ('cash','bit','credit','credit_card','bank_transfer','apple_pay','google_pay','other')",
+            "method IN ('cash','bit','credit','credit_card','paybox','bank_transfer','apple_pay','google_pay','other')",
             name="ck_pos_method",
         ),
         CheckConstraint("status IN ('paid','void')", name="ck_pos_status"),

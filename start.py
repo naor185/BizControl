@@ -441,6 +441,50 @@ def ensure_schema():
         cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS calendar_start_hour VARCHAR(16) NOT NULL DEFAULT '08:00'")
         cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS calendar_end_hour VARCHAR(16) NOT NULL DEFAULT '23:00'")
 
+        # ── POS / Cash Register ───────────────────────────────────────────────
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS pos_transactions (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                client_id UUID REFERENCES clients(id) ON DELETE SET NULL,
+                cashier_id UUID REFERENCES users(id) ON DELETE SET NULL,
+                total_cents INTEGER NOT NULL,
+                discount_cents INTEGER NOT NULL DEFAULT 0,
+                method VARCHAR(20) NOT NULL DEFAULT 'cash',
+                status VARCHAR(10) NOT NULL DEFAULT 'paid',
+                notes TEXT,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_pos_transactions_studio ON pos_transactions (studio_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_pos_transactions_client ON pos_transactions (client_id)")
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS pos_transaction_items (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                transaction_id UUID NOT NULL REFERENCES pos_transactions(id) ON DELETE CASCADE,
+                product_id UUID REFERENCES products(id) ON DELETE SET NULL,
+                description VARCHAR(300) NOT NULL,
+                quantity INTEGER NOT NULL DEFAULT 1,
+                unit_price_cents INTEGER NOT NULL,
+                total_price_cents INTEGER NOT NULL
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_pos_transaction_items_txn ON pos_transaction_items (transaction_id)")
+        # Allow paybox in existing pos_transactions if constraint is present (idempotent via DROP/ADD)
+        cur.execute("""
+            DO $$
+            BEGIN
+                IF EXISTS (
+                    SELECT 1 FROM information_schema.table_constraints
+                    WHERE table_name='pos_transactions' AND constraint_name='ck_pos_method'
+                ) THEN
+                    ALTER TABLE pos_transactions DROP CONSTRAINT ck_pos_method;
+                END IF;
+                ALTER TABLE pos_transactions ADD CONSTRAINT ck_pos_method
+                    CHECK (method IN ('cash','bit','credit','credit_card','paybox','bank_transfer','apple_pay','google_pay','other'));
+            END $$;
+        """)
+
         conn.commit()
         cur.close()
         conn.close()
