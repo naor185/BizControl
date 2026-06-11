@@ -41,6 +41,7 @@ class CheckoutIn(BaseModel):
     method: str = "cash"
     client_id: Optional[str] = None
     discount_cents: int = 0
+    points_redeemed: int = 0
     coupon_code: Optional[str] = None
     notes: Optional[str] = None
 
@@ -142,6 +143,19 @@ def pos_checkout(
         di.transaction_id = txn.id
         db.add(di)
 
+    # Deduct redeemed points from client balance
+    points_redeemed = max(0, int(body.points_redeemed or 0))
+    if client and points_redeemed > 0:
+        actual_redeem = min(points_redeemed, int(client.loyalty_points or 0))
+        if actual_redeem > 0:
+            client.loyalty_points = max(0, int(client.loyalty_points or 0) - actual_redeem)
+            db.add(ClientPointsLedger(
+                studio_id=ctx.studio_id,
+                client_id=client.id,
+                delta_points=-actual_redeem,
+                reason=f"מימוש נקודות בקופה",
+            ))
+
     # Award loyalty points from cashback
     points_earned = 0
     if client:
@@ -150,6 +164,7 @@ def pos_checkout(
         if cashback_pct and cashback_pct > 0:
             points_earned = int(total * cashback_pct / 10000)  # cents * pct% → points
             if points_earned > 0:
+                client.loyalty_points = int(client.loyalty_points or 0) + points_earned
                 db.add(ClientPointsLedger(
                     studio_id=ctx.studio_id,
                     client_id=client.id,
@@ -174,6 +189,51 @@ def pos_checkout(
 
     db.commit()
     db.refresh(txn)
+
+    # WhatsApp thank-you message to client
+    if client and client.phone and not getattr(client, "whatsapp_opted_out", False):
+        try:
+            from app.models.studio_settings import StudioSettings as _SS
+            from app.services.message_worker import send_whatsapp_message
+            from app.models.message_job import MessageJob
+            _settings = db.get(_SS, ctx.studio_id)
+            _pts_total = int(client.loyalty_points or 0)
+            _pts_block = ""
+            if client.is_club_member:
+                if points_earned > 0:
+                    _pts_block = f"\n\n🎁 צברת {points_earned} נקודות! יתרה: {_pts_total} נקודות."
+                else:
+                    _pts_block = f"\n\n⭐ יתרת נקודות: {_pts_total} נקודות."
+            _review = ""
+            if _settings and _settings.review_link_google:
+                _review = f"\n\n⭐ נשמח לביקורת שלך בגוגל!\n{_settings.review_link_google.strip()}"
+            _body = (
+                f"היי {client.full_name}! 😊\nתודה על הרכישה ❤️"
+                f"{_pts_block}{_review}"
+            )
+            now_utc = datetime.now(timezone.utc)
+            db.add(MessageJob(
+                studio_id=ctx.studio_id,
+                client_id=client.id,
+                channel="whatsapp",
+                to_phone=client.phone,
+                body=_body,
+                scheduled_at=now_utc,
+                status="pending",
+                reminder_type="pos_receipt",
+            ))
+            db.commit()
+        except Exception:
+            import logging as _l
+            _l.getLogger(__name__).exception("Failed to queue POS receipt message")
+
+    # Club invite for non-members
+    if client and not client.is_club_member:
+        try:
+            from app.crud.automation import maybe_enqueue_club_invite
+            maybe_enqueue_club_invite(db, ctx.studio_id, client)
+        except Exception:
+            pass
 
     # Build response
     from app.models.user import User

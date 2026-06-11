@@ -166,9 +166,11 @@ export default function PosPage() {
     const subtotal = cart.reduce((s, i) => s + i.unit_price_cents * i.quantity, 0);
     const discountCents = Math.round(subtotal * (discountPct + couponDiscount) / 100);
     const availablePoints = client?.loyalty_points ?? 0;
-    const maxRedeem = Math.min(availablePoints, Math.max(0, subtotal - discountCents));
-    const pointsDiscount = usePoints ? Math.min(pointsRedeemed, maxRedeem) : 0;
-    const total = Math.max(0, subtotal - discountCents - pointsDiscount);
+    // maxRedeem: compare points (ILS) with order total (ILS), both must be in same unit
+    const maxRedeemPoints = Math.min(availablePoints, Math.floor(Math.max(0, (subtotal - discountCents) / 100)));
+    const pointsDiscount = usePoints ? Math.min(pointsRedeemed, maxRedeemPoints) : 0;  // in ILS/points
+    const pointsDiscountCents = pointsDiscount * 100;  // convert to cents for arithmetic
+    const total = Math.max(0, subtotal - discountCents - pointsDiscountCents);
     const cartCount = cart.reduce((s, i) => s + i.quantity, 0);
 
     const handleCheckout = async () => {
@@ -181,7 +183,7 @@ export default function PosPage() {
                     items: cart.map(i => ({ product_id: i.product_id, description: i.description, quantity: i.quantity, unit_price_cents: i.unit_price_cents })),
                     method,
                     client_id: client?.id || null,
-                    discount_cents: discountCents,
+                    discount_cents: discountCents + pointsDiscountCents,
                     points_redeemed: pointsDiscount,
                     coupon_code: couponDiscount > 0 ? couponCode.trim().toUpperCase() : null,
                 }),
@@ -393,7 +395,7 @@ export default function PosPage() {
                         <div className="flex items-center justify-between">
                             <button type="button"
                                 title={usePoints ? "בטל ניצול נקודות" : "נצל נקודות"}
-                                onClick={() => { setUsePoints(v => !v); if (!usePoints) setPointsRedeemed(availablePoints); else setPointsRedeemed(0); }}
+                                onClick={() => { setUsePoints(v => !v); if (!usePoints) setPointsRedeemed(maxRedeemPoints || availablePoints); else setPointsRedeemed(0); }}
                                 className={`w-9 h-5 rounded-full transition-colors relative shrink-0 ${usePoints ? "bg-amber-400" : "bg-slate-300"}`}>
                                 <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${usePoints ? "left-4" : "left-0.5"}`} />
                             </button>
@@ -432,6 +434,7 @@ export default function PosPage() {
                             <span>ניצול {pointsDiscount} נקודות ⭐</span>
                         </div>
                     )}
+                    {/* maxRedeem fix: also pass pointsDiscountCents to checkout */}
                     <div className="flex justify-between font-bold text-sm text-slate-900 border-t border-slate-200 pt-1.5 mt-1">
                         <span>סה״כ לתשלום</span>
                         <span className="text-emerald-700">₪{(total/100).toFixed(2)}</span>
