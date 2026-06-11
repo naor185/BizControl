@@ -8,7 +8,7 @@ import RequireAuth from "@/components/RequireAuth";
 
 type Product = { id: string; name: string; price: number; category: string | null; stock_quantity: number; image_url: string | null; };
 type CartItem = { key: string; product_id: string | null; description: string; quantity: number; unit_price_cents: number; };
-type ClientResult = { id: string; name: string; phone: string | null; is_club_member?: boolean; };
+type ClientResult = { id: string; full_name: string; name?: string; phone: string | null; is_club_member?: boolean; loyalty_points?: number; };
 type TransactionOut = {
     id: string; client_name: string | null; total_cents: number; discount_cents: number; method: string;
     items: { description: string; quantity: number; unit_price_cents: number; total_price_cents: number }[];
@@ -97,6 +97,8 @@ export default function PosPage() {
     const [newClientName, setNewClientName] = useState("");
     const [newClientPhone, setNewClientPhone] = useState("");
     const [addingClient, setAddingClient] = useState(false);
+    const [pointsRedeemed, setPointsRedeemed] = useState(0);
+    const [usePoints, setUsePoints] = useState(false);
     // Mobile: which panel is active
     const [mobileTab, setMobileTab] = useState<"pad" | "cart">("pad");
 
@@ -163,7 +165,10 @@ export default function PosPage() {
 
     const subtotal = cart.reduce((s, i) => s + i.unit_price_cents * i.quantity, 0);
     const discountCents = Math.round(subtotal * (discountPct + couponDiscount) / 100);
-    const total = Math.max(0, subtotal - discountCents);
+    const availablePoints = client?.loyalty_points ?? 0;
+    const maxRedeem = Math.min(availablePoints, Math.max(0, subtotal - discountCents));
+    const pointsDiscount = usePoints ? Math.min(pointsRedeemed, maxRedeem) : 0;
+    const total = Math.max(0, subtotal - discountCents - pointsDiscount);
     const cartCount = cart.reduce((s, i) => s + i.quantity, 0);
 
     const handleCheckout = async () => {
@@ -172,11 +177,19 @@ export default function PosPage() {
         try {
             const txn = await apiFetch<TransactionOut>("/api/pos/checkout", {
                 method: "POST",
-                body: JSON.stringify({ items: cart.map(i => ({ product_id: i.product_id, description: i.description, quantity: i.quantity, unit_price_cents: i.unit_price_cents })), method, client_id: client?.id || null, discount_cents: discountCents, coupon_code: couponDiscount > 0 ? couponCode.trim().toUpperCase() : null }),
+                body: JSON.stringify({
+                    items: cart.map(i => ({ product_id: i.product_id, description: i.description, quantity: i.quantity, unit_price_cents: i.unit_price_cents })),
+                    method,
+                    client_id: client?.id || null,
+                    discount_cents: discountCents,
+                    points_redeemed: pointsDiscount,
+                    coupon_code: couponDiscount > 0 ? couponCode.trim().toUpperCase() : null,
+                }),
             });
             setReceipt(txn);
             setCart([]); setCalcDisplay("0"); setItemDesc(""); setClient(null); setClientSearch("");
-            setDiscountPct(0); setCouponCode(""); setCouponDiscount(0); setCouponError(""); setMobileTab("pad");
+            setDiscountPct(0); setCouponCode(""); setCouponDiscount(0); setCouponError("");
+            setUsePoints(false); setPointsRedeemed(0); setMobileTab("pad");
         } catch { toast.error("שגיאה בתשלום"); }
         finally { setLoading(false); }
     };
@@ -288,7 +301,7 @@ export default function PosPage() {
                         {clientResults.length > 0 && (
                             <div className="absolute top-full mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden z-30">
                                 {clientResults.map(c => (
-                                    <button key={c.id} type="button" onClick={() => { setClient(c); setClientSearch(""); setClientResults([]); }}
+                                    <button key={c.id} type="button" onClick={() => { setClient({ ...c, name: c.full_name }); setClientSearch(""); setClientResults([]); }}
                                         className="w-full text-right px-4 py-2.5 hover:bg-emerald-50 transition-colors border-b border-slate-100 last:border-0">
                                         <div className="text-sm font-semibold text-slate-800 flex items-center gap-1.5">
                                             {c.name}
@@ -374,6 +387,33 @@ export default function PosPage() {
                     </div>
                 )}
 
+                {/* Points redemption — only when club member with points */}
+                {client && availablePoints > 0 && (
+                    <div className={`rounded-xl border-2 transition-all px-3 py-2 ${usePoints ? "border-amber-400 bg-amber-50" : "border-slate-100 bg-slate-50"}`}>
+                        <div className="flex items-center justify-between">
+                            <button type="button"
+                                title={usePoints ? "בטל ניצול נקודות" : "נצל נקודות"}
+                                onClick={() => { setUsePoints(v => !v); if (!usePoints) setPointsRedeemed(maxRedeem); else setPointsRedeemed(0); }}
+                                className={`w-9 h-5 rounded-full transition-colors relative shrink-0 ${usePoints ? "bg-amber-400" : "bg-slate-300"}`}>
+                                <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${usePoints ? "left-4" : "left-0.5"}`} />
+                            </button>
+                            <div className="text-right">
+                                <span className="text-xs font-bold text-slate-700">⭐ ניצול נקודות</span>
+                                <span className="text-[10px] text-slate-400 mr-1">({availablePoints} זמינות)</span>
+                            </div>
+                        </div>
+                        {usePoints && (
+                            <div className="flex items-center gap-2 mt-2">
+                                <input type="range" min={0} max={maxRedeem} value={pointsRedeemed}
+                                    title="כמות נקודות לניצול"
+                                    onChange={e => setPointsRedeemed(parseInt(e.target.value))}
+                                    className="flex-1 accent-amber-400" />
+                                <span className="text-xs font-bold text-amber-600 shrink-0 min-w-14 text-left" dir="ltr">{pointsRedeemed} ⭐ = ₪{pointsRedeemed}</span>
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 {/* Totals — compact */}
                 <div className="bg-slate-50 rounded-xl px-3 py-2 border border-slate-100">
                     <div className="flex justify-between text-xs text-slate-500">
@@ -382,6 +422,12 @@ export default function PosPage() {
                     {discountCents > 0 && (
                         <div className="flex justify-between text-xs text-rose-600">
                             <span>הנחה ({discountPct + couponDiscount}%)</span><span>-₪{(discountCents/100).toFixed(2)}</span>
+                        </div>
+                    )}
+                    {pointsDiscount > 0 && (
+                        <div className="flex justify-between text-xs text-amber-600 font-bold">
+                            <span>-₪{pointsDiscount.toFixed(2)}</span>
+                            <span>ניצול {pointsDiscount} נקודות ⭐</span>
                         </div>
                     )}
                     <div className="flex justify-between font-bold text-sm text-slate-900 border-t border-slate-200 pt-1.5 mt-1">
