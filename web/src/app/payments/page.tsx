@@ -26,6 +26,32 @@ type Payment = {
     } | null;
 };
 
+type PosTransaction = {
+    id: string;
+    client_name: string | null;
+    cashier_name: string | null;
+    total_cents: number;
+    discount_cents: number;
+    method: string;
+    items_count: number;
+    created_at: string;
+};
+
+// Unified entry for display
+type Entry = {
+    id: string;
+    amount_cents: number;
+    method: string;
+    type: string;  // "payment" | "deposit" | "refund" | "pos_sale"
+    created_at: string;
+    notes?: string | null;
+    clientId?: string | null;
+    clientName?: string | null;
+    isWalkIn?: boolean;
+    isPos?: boolean;
+    paymentId?: string; // only for regular payments (for receipt/invoice download)
+};
+
 const METHODS = [
     { key: "all", label: "הכל", icon: "🧾" },
     { key: "cash", label: "מזומן", icon: "💵" },
@@ -59,7 +85,7 @@ const currentMonthKey = (() => {
 })();
 
 export default function Page() {
-    const [payments, setPayments] = useState<Payment[]>([]);
+    const [entries, setEntries] = useState<Entry[]>([]);
     const [loading, setLoading] = useState(true);
     const [err, setErr] = useState<string | null>(null);
     const [selectedMethods, setSelectedMethods] = useState<Set<string>>(new Set());
@@ -92,8 +118,45 @@ export default function Page() {
     const loadPayments = async () => {
         try {
             setLoading(true);
-            const data = await apiFetch<Payment[]>("/api/payments");
-            setPayments(data);
+            const [payments, posTxns] = await Promise.all([
+                apiFetch<Payment[]>("/api/payments"),
+                apiFetch<PosTransaction[]>("/api/pos/history?days=365").catch(() => [] as PosTransaction[]),
+            ]);
+
+            const fromPayments: Entry[] = payments.map(p => ({
+                id: p.id,
+                amount_cents: p.amount_cents,
+                method: p.method,
+                type: p.type,
+                created_at: p.created_at,
+                notes: p.notes,
+                clientId: p.client?.id ?? p.client_id ?? null,
+                clientName: p.client?.full_name ?? null,
+                isWalkIn: p.client?.is_walk_in ?? false,
+                isPos: false,
+                paymentId: p.id,
+            }));
+
+            const fromPos: Entry[] = posTxns.map(t => ({
+                id: `pos-${t.id}`,
+                amount_cents: t.total_cents,
+                method: t.method,
+                type: "pos_sale",
+                created_at: t.created_at,
+                notes: t.discount_cents > 0
+                    ? `קופה — ${t.items_count} פריטים, הנחה ₪${(t.discount_cents / 100).toFixed(0)}`
+                    : `קופה — ${t.items_count} פריטים`,
+                clientId: null,
+                clientName: t.client_name,
+                isWalkIn: false,
+                isPos: true,
+                paymentId: undefined,
+            }));
+
+            const merged = [...fromPayments, ...fromPos].sort(
+                (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+            );
+            setEntries(merged);
         } catch (e: any) {
             setErr(e?.message || "שגיאה בטעינת תשלומים");
         } finally {
@@ -124,36 +187,35 @@ export default function Page() {
 
     // Filter by method (multi-select)
     const filtered = useMemo(() =>
-        selectedMethods.size === 0 ? payments : payments.filter(p => selectedMethods.has(p.method)),
-        [payments, selectedMethods]
+        selectedMethods.size === 0 ? entries : entries.filter(e => selectedMethods.has(e.method)),
+        [entries, selectedMethods]
     );
 
     // Group by month
     const byMonth = useMemo(() => {
-        const groups: Record<string, Payment[]> = {};
-        for (const p of filtered) {
-            const d = new Date(p.created_at);
+        const groups: Record<string, Entry[]> = {};
+        for (const e of filtered) {
+            const d = new Date(e.created_at);
             const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
             if (!groups[key]) groups[key] = [];
-            groups[key].push(p);
+            groups[key].push(e);
         }
-        // Sort months descending
         return Object.entries(groups).sort(([a], [b]) => b.localeCompare(a));
     }, [filtered]);
 
     // Current month totals by method
     const totals = useMemo(() => {
         const t: Record<string, number> = {};
-        for (const p of payments) {
-            const d = new Date(p.created_at);
+        for (const e of entries) {
+            const d = new Date(e.created_at);
             const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
             if (key !== currentMonthKey) continue;
-            if (p.type === "refund") continue;
-            if (p.notes?.startsWith("[מערכת]")) continue;
-            t[p.method] = (t[p.method] || 0) + p.amount_cents;
+            if (e.type === "refund") continue;
+            if (e.notes?.startsWith("[מערכת]")) continue;
+            t[e.method] = (t[e.method] || 0) + e.amount_cents;
         }
         return t;
-    }, [payments]);
+    }, [entries]);
 
     const monthLabel = (key: string) => {
         const [year, month] = key.split("-");
@@ -161,16 +223,16 @@ export default function Page() {
         return d.toLocaleDateString("he-IL", { month: "long", year: "numeric" });
     };
 
-    const monthTotal = (ps: Payment[]) =>
-        ps.filter(p => !p.notes?.startsWith("[מערכת]"))
-          .reduce((s, p) => s + (p.type === "refund" ? -p.amount_cents : p.amount_cents), 0);
+    const monthTotal = (es: Entry[]) =>
+        es.filter(e => !e.notes?.startsWith("[מערכת]"))
+          .reduce((s, e) => s + (e.type === "refund" ? -e.amount_cents : e.amount_cents), 0);
 
-    const monthByMethod = (ps: Payment[]) => {
+    const monthByMethod = (es: Entry[]) => {
         const t: Record<string, number> = {};
-        for (const p of ps) {
-            if (p.type === "refund") continue;
-            if (p.notes?.startsWith("[מערכת]")) continue;
-            t[p.method] = (t[p.method] || 0) + p.amount_cents;
+        for (const e of es) {
+            if (e.type === "refund") continue;
+            if (e.notes?.startsWith("[מערכת]")) continue;
+            t[e.method] = (t[e.method] || 0) + e.amount_cents;
         }
         return t;
     };
@@ -181,7 +243,7 @@ export default function Page() {
                 <div className="space-y-6">
 
                     {/* Current month totals */}
-                    {!loading && !err && payments.length > 0 && (
+                    {!loading && !err && entries.length > 0 && (
                         <div>
                             <div className="text-xs text-slate-400 font-semibold mb-2 px-1">
                                 📅 {new Date().toLocaleDateString("he-IL", { month: "long", year: "numeric" })} — סיכום חודש נוכחי
@@ -208,6 +270,7 @@ export default function Page() {
                             <div className="flex flex-wrap gap-2">
                                 {METHODS.map(m => (
                                     <button
+                                        type="button"
                                         key={m.key}
                                         onClick={() => toggleMethod(m.key)}
                                         className={[
@@ -235,15 +298,15 @@ export default function Page() {
                             <div className="p-12 text-center text-slate-400 italic">לא נמצאו עסקאות</div>
                         ) : (
                             <div className="divide-y divide-slate-100">
-                                {byMonth.map(([monthKey, ps]) => {
-                                    const mTotal = monthTotal(ps);
-                                    const mByMethod = monthByMethod(ps);
+                                {byMonth.map(([monthKey, es]) => {
+                                    const mTotal = monthTotal(es);
+                                    const mByMethod = monthByMethod(es);
                                     const isCurrentMonth = monthKey === currentMonthKey;
                                     const isExpanded = expandedMonths.has(monthKey);
                                     return (
                                         <div key={monthKey}>
-                                            {/* Month header — clickable to expand/collapse */}
                                             <button
+                                                type="button"
                                                 onClick={() => toggleMonth(monthKey)}
                                                 className={`w-full px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-right transition-colors ${isCurrentMonth ? "bg-sky-50 hover:bg-sky-100/70" : "bg-slate-50 hover:bg-slate-100/70"}`}
                                             >
@@ -271,70 +334,78 @@ export default function Page() {
                                                 </div>
                                             </button>
 
-                                            {/* Payments list — hidden when collapsed */}
                                             <div className={isExpanded ? "divide-y divide-slate-50" : "hidden"}>
-                                                {ps.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).map(p => (
-                                                    <div key={p.id} className="px-6 py-3 flex items-center justify-between hover:bg-slate-50/60 transition-colors group">
+                                                {[...es].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).map(e => (
+                                                    <div key={e.id} className="px-6 py-3 flex items-center justify-between hover:bg-slate-50/60 transition-colors group">
                                                         <div className="flex items-center gap-3 overflow-hidden">
                                                             <div className="text-xs text-slate-400 w-20 shrink-0">
-                                                                {new Date(p.created_at).toLocaleDateString("he-IL")}
+                                                                {new Date(e.created_at).toLocaleDateString("he-IL")}
                                                             </div>
-                                                            <div className="flex flex-col min-w-[120px]">
-                                                                {p.client ? (
-                                                                    <Link href={`/clients/${p.client.id}`} className="text-sm font-bold text-blue-600 hover:underline flex items-center gap-1 truncate">
-                                                                        {p.client.full_name || "ללא שם"}
-                                                                        {p.client.is_walk_in && (
-                                                                            <span className="bg-slate-100 text-slate-500 text-[10px] px-1.5 py-0.5 rounded font-normal">מזדמן</span>
-                                                                        )}
+                                                            <div className="flex flex-col min-w-30">
+                                                                {e.clientId ? (
+                                                                    <Link href={`/clients/${e.clientId}`} className="text-sm font-bold text-blue-600 hover:underline flex items-center gap-1 truncate">
+                                                                        {e.clientName || "ללא שם"}
+                                                                        {e.isWalkIn && <span className="bg-slate-100 text-slate-500 text-[10px] px-1.5 py-0.5 rounded font-normal">מזדמן</span>}
                                                                     </Link>
+                                                                ) : e.clientName ? (
+                                                                    <span className="text-sm font-bold text-slate-700">{e.clientName}</span>
                                                                 ) : (
-                                                                    <span className="text-sm font-bold text-slate-400 italic">לקוח לא נמצא</span>
+                                                                    <span className="text-sm font-bold text-slate-400 italic">אנונימי</span>
                                                                 )}
                                                             </div>
-                                                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${METHOD_COLORS[p.method] || "bg-slate-100 text-slate-600"} whitespace-nowrap`}>
-                                                                {METHOD_LABELS[p.method] || p.method}
+                                                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${METHOD_COLORS[e.method] || "bg-slate-100 text-slate-600"} whitespace-nowrap`}>
+                                                                {METHOD_LABELS[e.method] || e.method}
                                                             </span>
-                                                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold whitespace-nowrap ${p.type === "refund" ? "bg-rose-100 text-rose-700" :
-                                                                p.type === "deposit" ? "bg-amber-100 text-amber-700" :
-                                                                    "bg-emerald-100 text-emerald-700"
-                                                                }`}>
-                                                                {p.type === "refund" ? "זיכוי" : p.type === "deposit" ? "מקדמה" : "תשלום"}
+                                                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold whitespace-nowrap ${
+                                                                e.type === "refund" ? "bg-rose-100 text-rose-700" :
+                                                                e.type === "deposit" ? "bg-amber-100 text-amber-700" :
+                                                                e.type === "pos_sale" ? "bg-violet-100 text-violet-700" :
+                                                                "bg-emerald-100 text-emerald-700"
+                                                            }`}>
+                                                                {e.type === "refund" ? "זיכוי" : e.type === "deposit" ? "מקדמה" : e.type === "pos_sale" ? "🛒 קופה" : "תשלום"}
                                                             </span>
-                                                            {p.notes && (
-                                                                <span className="text-xs text-slate-400 italic truncate max-w-[180px] hidden sm:inline">{p.notes}</span>
+                                                            {e.notes && !e.notes.startsWith("[מערכת]") && (
+                                                                <span className="text-xs text-slate-400 italic truncate max-w-45 hidden sm:inline">{e.notes}</span>
                                                             )}
                                                         </div>
                                                         <div className="flex items-center gap-2">
-                                                            <div className={`font-black text-base ${p.type === "refund" ? "text-rose-600" : "text-slate-800"}`} dir="ltr">
-                                                                {p.type === "refund" ? "-" : ""}{fmt(p.amount_cents)}
+                                                            <div className={`font-black text-base ${e.type === "refund" ? "text-rose-600" : "text-slate-800"}`} dir="ltr">
+                                                                {e.type === "refund" ? "-" : ""}{fmt(e.amount_cents)}
                                                             </div>
-                                                            <button
-                                                                onClick={() => downloadReceipt(p.id)}
-                                                                className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-blue-500 transition-all p-1.5 rounded-lg hover:bg-blue-50"
-                                                                title="הורד קבלה PDF"
-                                                            >
-                                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                                                </svg>
-                                                            </button>
-                                                            <button
-                                                                onClick={() => downloadInvoice(p.id)}
-                                                                className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-purple-500 transition-all p-1.5 rounded-lg hover:bg-purple-50"
-                                                                title="הורד חשבונית מס PDF"
-                                                            >
-                                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                                                </svg>
-                                                            </button>
-                                                            <button
-                                                                onClick={() => setDeletingId(p.id)}
-                                                                className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 transition-all p-1.5 rounded-lg hover:bg-red-50"
-                                                                title="מחק תשלום"
-                                                            >
-                                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                                </svg>
-                                                            </button>
+                                                            {e.paymentId && (
+                                                                <>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => downloadReceipt(e.paymentId!)}
+                                                                        className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-blue-500 transition-all p-1.5 rounded-lg hover:bg-blue-50"
+                                                                        title="הורד קבלה PDF"
+                                                                    >
+                                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                                                        </svg>
+                                                                    </button>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => downloadInvoice(e.paymentId!)}
+                                                                        className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-purple-500 transition-all p-1.5 rounded-lg hover:bg-purple-50"
+                                                                        title="הורד חשבונית מס PDF"
+                                                                    >
+                                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                                                        </svg>
+                                                                    </button>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => setDeletingId(e.paymentId!)}
+                                                                        className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 transition-all p-1.5 rounded-lg hover:bg-red-50"
+                                                                        title="מחק תשלום"
+                                                                    >
+                                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                                        </svg>
+                                                                    </button>
+                                                                </>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 ))}
@@ -366,6 +437,7 @@ export default function Page() {
                             </p>
                             <div className="flex justify-center gap-3">
                                 <button
+                                    type="button"
                                     onClick={() => setDeletingId(null)}
                                     disabled={isDeleting}
                                     className="px-5 py-2.5 text-sm font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
@@ -373,6 +445,7 @@ export default function Page() {
                                     ביטול
                                 </button>
                                 <button
+                                    type="button"
                                     onClick={handleDelete}
                                     disabled={isDeleting}
                                     className="px-5 py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl shadow-lg ring-1 ring-red-700 transition-colors disabled:opacity-50"
