@@ -11,6 +11,7 @@ from app.models.appointment import Appointment
 from app.models.client import Client
 from app.models.client_points_ledger import ClientPointsLedger
 from app.models.payment import Payment
+from app.models.pos_transaction import PosTransaction
 from app.models.message_job import MessageJob
 from app.models.studio_settings import StudioSettings
 from app.models.user import User
@@ -57,26 +58,29 @@ def get_dashboard_stats(
         .where(Client.studio_id == ctx.studio_id, Client.is_club_member == True, Client.is_active == True)
     ) or 0
 
-    # 3. Revenue from paid payments (Filtered by month/year if provided, excludes system/points payments)
+    # 3. Revenue from paid payments + POS transactions (filtered by month/year if provided)
     revenue_query = select(func.sum(Payment.amount_cents)).where(
         Payment.studio_id == ctx.studio_id,
         Payment.status == "paid",
         or_(Payment.notes == None, ~Payment.notes.ilike("[מערכת]%")),
     )
-    
+    pos_revenue_query = select(func.sum(PosTransaction.total_cents)).where(
+        PosTransaction.studio_id == ctx.studio_id,
+        PosTransaction.status == "paid",
+    )
+
     if year and month:
         start_date = datetime(year, month, 1, tzinfo=tz)
-        if month == 12:
-            end_date = datetime(year + 1, 1, 1, tzinfo=tz)
-        else:
-            end_date = datetime(year, month + 1, 1, tzinfo=tz)
+        end_date = datetime(year + 1, 1, 1, tzinfo=tz) if month == 12 else datetime(year, month + 1, 1, tzinfo=tz)
         revenue_query = revenue_query.where(Payment.created_at >= start_date, Payment.created_at < end_date)
+        pos_revenue_query = pos_revenue_query.where(PosTransaction.created_at >= start_date, PosTransaction.created_at < end_date)
     elif year:
         start_date = datetime(year, 1, 1, tzinfo=tz)
         end_date = datetime(year + 1, 1, 1, tzinfo=tz)
         revenue_query = revenue_query.where(Payment.created_at >= start_date, Payment.created_at < end_date)
+        pos_revenue_query = pos_revenue_query.where(PosTransaction.created_at >= start_date, PosTransaction.created_at < end_date)
 
-    total_revenue_cents = db.scalar(revenue_query) or 0
+    total_revenue_cents = (db.scalar(revenue_query) or 0) + (db.scalar(pos_revenue_query) or 0)
 
     # 4. Pending Automations / Messages
     pending_messages = db.scalar(
@@ -310,7 +314,15 @@ def get_analytics(ctx: AuthContext = Depends(require_studio_ctx), db: Session = 
                 or_(Payment.notes == None, ~Payment.notes.ilike("[מערכת]%")),
             )
         ) or 0
-        revenue_by_month.append({"month": label, "revenue": round(rev / 100)})
+        pos_rev = db.scalar(
+            select(func.sum(PosTransaction.total_cents)).where(
+                PosTransaction.studio_id == ctx.studio_id,
+                PosTransaction.status == "paid",
+                PosTransaction.created_at >= month_start,
+                PosTransaction.created_at < month_end,
+            )
+        ) or 0
+        revenue_by_month.append({"month": label, "revenue": round((rev + pos_rev) / 100)})
 
         cnt = db.scalar(
             select(func.count(Appointment.id)).where(
