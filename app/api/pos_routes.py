@@ -81,7 +81,7 @@ def pos_checkout(
     if not body.items:
         raise HTTPException(status_code=400, detail="העגלה ריקה")
 
-    valid_methods = {"cash", "bit", "credit", "credit_card", "bank_transfer", "apple_pay", "google_pay", "other"}
+    valid_methods = {"cash", "bit", "credit", "credit_card", "paybox", "bank_transfer", "apple_pay", "google_pay", "other"}
     if body.method not in valid_methods:
         raise HTTPException(status_code=400, detail=f"אמצעי תשלום לא חוקי: {body.method}")
 
