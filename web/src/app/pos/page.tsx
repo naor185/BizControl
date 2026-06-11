@@ -287,7 +287,7 @@ export default function PosPage() {
                     <div className="flex items-center gap-2 bg-emerald-50 border-2 border-emerald-300 rounded-xl px-4 py-2.5">
                         <div className="flex-1 min-w-0">
                             <div className="text-base font-bold text-emerald-800 truncate flex items-center gap-1.5">
-                                {client.name}
+                                {client.full_name || client.name}
                                 {client.is_club_member && <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-bold">👑 VIP</span>}
                             </div>
                         </div>
@@ -304,7 +304,7 @@ export default function PosPage() {
                                     <button key={c.id} type="button" onClick={() => { setClient({ ...c, name: c.full_name }); setClientSearch(""); setClientResults([]); }}
                                         className="w-full text-right px-4 py-2.5 hover:bg-emerald-50 transition-colors border-b border-slate-100 last:border-0">
                                         <div className="text-sm font-semibold text-slate-800 flex items-center gap-1.5">
-                                            {c.name}
+                                            {c.full_name}
                                             {c.is_club_member && <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 rounded-full">👑</span>}
                                         </div>
                                         {c.phone && <div className="text-xs text-slate-400">{c.phone}</div>}
