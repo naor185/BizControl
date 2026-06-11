@@ -18,22 +18,32 @@ export function clearToken() {
     localStorage.removeItem(REFRESH_TOKEN_KEY);
 }
 
+// Single in-flight refresh promise — prevents race condition where multiple
+// simultaneous 401s each try to refresh and only the first succeeds.
+let _refreshPromise: Promise<boolean> | null = null;
+
 async function tryRefresh(): Promise<boolean> {
+    if (_refreshPromise) return _refreshPromise;
     const refresh = localStorage.getItem(REFRESH_TOKEN_KEY);
     if (!refresh) return false;
-    try {
-        const res = await fetch(`${API_BASE}/api/auth/refresh`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ refresh_token: refresh }),
-        });
-        if (!res.ok) return false;
-        const data = await res.json();
-        setToken(data.access_token, data.refresh_token);
-        return true;
-    } catch {
-        return false;
-    }
+    _refreshPromise = (async () => {
+        try {
+            const res = await fetch(`${API_BASE}/api/auth/refresh`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ refresh_token: refresh }),
+            });
+            if (!res.ok) return false;
+            const data = await res.json();
+            setToken(data.access_token, data.refresh_token);
+            return true;
+        } catch {
+            return false;
+        } finally {
+            _refreshPromise = null;
+        }
+    })();
+    return _refreshPromise;
 }
 
 export function getCurrentUserRole(): string | null {

@@ -7,8 +7,8 @@ from jose import jwt
 JWT_SECRET = os.getenv("JWT_SECRET", "dev-secret-change-me")
 JWT_ALG = os.getenv("JWT_ALG", "HS256")
 
-ACCESS_TOKEN_MINUTES = int(os.getenv("ACCESS_TOKEN_MINUTES", "30"))
-REFRESH_TOKEN_DAYS = int(os.getenv("REFRESH_TOKEN_DAYS", "30"))
+ACCESS_TOKEN_MINUTES = int(os.getenv("ACCESS_TOKEN_MINUTES", "480"))  # 8 hours — full work day
+REFRESH_TOKEN_DAYS = int(os.getenv("REFRESH_TOKEN_DAYS", "60"))  # 60 days — stay logged in
 
 def create_access_token(data: Dict[str, Any]) -> str:
     to_encode = data.copy()
