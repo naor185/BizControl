@@ -516,3 +516,248 @@ def consultation_conversion(ctx: AuthContext = Depends(require_studio_ctx), db: 
         "not_converted": total - converted,
         "conversion_rate": rate,
     }
+
+
+# ── Advanced Business Analytics ───────────────────────────────────────────────
+
+@router.get("/advanced")
+def advanced_analytics(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+    """
+    Comprehensive business analytics:
+    KPIs, retention trend, hourly heatmap, revenue by service, top clients, avg value trend.
+    """
+    from sqlalchemy import text as _t
+    sid = str(ctx.studio_id)
+
+    settings = db.get(StudioSettings, ctx.studio_id)
+    tz_name = settings.timezone if settings and settings.timezone else "Asia/Jerusalem"
+    tz = pytz.timezone(tz_name)
+    now = datetime.now(tz)
+
+    # ── KPIs ──────────────────────────────────────────────────────────────────
+
+    # This month boundaries
+    mo_start = tz.localize(datetime(now.year, now.month, 1))
+    if now.month == 12:
+        mo_end = tz.localize(datetime(now.year + 1, 1, 1))
+    else:
+        mo_end = tz.localize(datetime(now.year, now.month + 1, 1))
+
+    prev_mo_start = (mo_start - timedelta(days=1)).replace(day=1).replace(hour=0, minute=0, second=0, microsecond=0)
+    prev_mo_start = tz.localize(datetime(prev_mo_start.year, prev_mo_start.month, 1))
+
+    def _rev(start, end):
+        pay = db.scalar(
+            select(func.sum(Payment.amount_cents)).where(
+                Payment.studio_id == ctx.studio_id, Payment.status == "paid",
+                Payment.type != "refund", Payment.created_at >= start, Payment.created_at < end,
+                or_(Payment.notes == None, ~Payment.notes.ilike("[מערכת]%")),
+            )
+        ) or 0
+        pos = db.scalar(
+            select(func.sum(PosTransaction.total_cents)).where(
+                PosTransaction.studio_id == ctx.studio_id, PosTransaction.status == "paid",
+                PosTransaction.created_at >= start, PosTransaction.created_at < end,
+            )
+        ) or 0
+        return pay + pos
+
+    rev_this = _rev(mo_start, mo_end)
+    rev_prev = _rev(prev_mo_start, mo_start)
+    rev_growth = round((rev_this - rev_prev) / rev_prev * 100) if rev_prev > 0 else 0
+
+    appts_this = db.scalar(
+        select(func.count(Appointment.id)).where(
+            Appointment.studio_id == ctx.studio_id, Appointment.status != "canceled",
+            Appointment.starts_at >= mo_start, Appointment.starts_at < mo_end,
+        )
+    ) or 0
+    appts_prev = db.scalar(
+        select(func.count(Appointment.id)).where(
+            Appointment.studio_id == ctx.studio_id, Appointment.status != "canceled",
+            Appointment.starts_at >= prev_mo_start, Appointment.starts_at < mo_start,
+        )
+    ) or 0
+    appts_growth = round((appts_this - appts_prev) / appts_prev * 100) if appts_prev > 0 else 0
+
+    # LTV: avg total paid per active client
+    ltv_row = db.execute(_t("""
+        SELECT AVG(client_total) FROM (
+            SELECT client_id, SUM(amount_cents) AS client_total
+            FROM payments
+            WHERE studio_id = :sid AND status = 'paid' AND type != 'refund'
+            GROUP BY client_id
+        ) sub
+    """), {"sid": sid}).scalar() or 0
+
+    # Retention: % clients with ≥2 appointments in last 3 months
+    three_mo_ago = now - timedelta(days=90)
+    retention_row = db.execute(_t("""
+        SELECT
+            COUNT(*) FILTER (WHERE appt_count >= 2) AS retained,
+            COUNT(*) AS total_active
+        FROM (
+            SELECT client_id, COUNT(*) AS appt_count
+            FROM appointments
+            WHERE studio_id = :sid AND status != 'canceled'
+              AND starts_at >= :since
+            GROUP BY client_id
+        ) sub
+    """), {"sid": sid, "since": three_mo_ago}).fetchone()
+    retained = retention_row[0] or 0
+    total_active = retention_row[1] or 0
+    retention_rate = round(retained / total_active * 100) if total_active > 0 else 0
+
+    # Churn: clients with last appointment > 60 days ago
+    sixty_ago = now - timedelta(days=60)
+    churn_count = db.execute(_t("""
+        SELECT COUNT(*) FROM (
+            SELECT client_id, MAX(starts_at) AS last_appt
+            FROM appointments
+            WHERE studio_id = :sid AND status NOT IN ('canceled','no_show')
+            GROUP BY client_id
+            HAVING MAX(starts_at) < :cutoff
+        ) sub
+    """), {"sid": sid, "cutoff": sixty_ago}).scalar() or 0
+
+    # Avg appt value last 30 days
+    thirty_ago = now - timedelta(days=30)
+    avg_value_row = db.execute(_t("""
+        SELECT COALESCE(AVG(amount_cents), 0)
+        FROM payments
+        WHERE studio_id = :sid AND status = 'paid' AND type != 'refund'
+          AND created_at >= :since
+          AND (notes IS NULL OR notes NOT ILIKE '[מערכת]%%')
+    """), {"sid": sid, "since": thirty_ago}).scalar() or 0
+
+    # ── Retention trend (last 6 months) ───────────────────────────────────────
+    retention_trend = []
+    for i in range(5, -1, -1):
+        m = now.month - i
+        y = now.year
+        while m <= 0:
+            m += 12; y -= 1
+        ms = tz.localize(datetime(y, m, 1))
+        me = tz.localize(datetime(y, m + 1, 1)) if m < 12 else tz.localize(datetime(y + 1, 1, 1))
+        label = ms.strftime("%m/%y")
+
+        rows = db.execute(_t("""
+            SELECT
+                COUNT(DISTINCT client_id) FILTER (WHERE is_new) AS new_c,
+                COUNT(DISTINCT client_id) FILTER (WHERE NOT is_new) AS ret_c
+            FROM (
+                SELECT
+                    a.client_id,
+                    (SELECT MIN(starts_at) FROM appointments a2
+                     WHERE a2.client_id = a.client_id AND a2.studio_id = :sid
+                       AND a2.status != 'canceled') >= :ms AS is_new
+                FROM appointments a
+                WHERE a.studio_id = :sid AND a.status != 'canceled'
+                  AND a.starts_at >= :ms AND a.starts_at < :me
+            ) sub
+        """), {"sid": sid, "ms": ms, "me": me}).fetchone()
+
+        new_c = rows[0] or 0
+        ret_c = rows[1] or 0
+        total = new_c + ret_c
+        retention_trend.append({
+            "month": label,
+            "new": new_c,
+            "returning": ret_c,
+            "total": total,
+            "retention_pct": round(ret_c / total * 100) if total > 0 else 0,
+        })
+
+    # ── Hourly heatmap (last 90 days) ─────────────────────────────────────────
+    hour_rows = db.execute(_t("""
+        SELECT
+            EXTRACT(DOW FROM starts_at AT TIME ZONE 'Asia/Jerusalem')::int AS dow,
+            EXTRACT(HOUR FROM starts_at AT TIME ZONE 'Asia/Jerusalem')::int AS hour,
+            COUNT(*) AS cnt
+        FROM appointments
+        WHERE studio_id = :sid AND status != 'canceled'
+          AND starts_at >= :since
+        GROUP BY dow, hour
+        ORDER BY dow, hour
+    """), {"sid": sid, "since": three_mo_ago}).fetchall()
+
+    day_names = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"]
+    heatmap: dict = {}
+    for r in hour_rows:
+        key = f"{r[0]}-{r[1]}"
+        heatmap[key] = {"dow": r[0], "hour": r[1], "count": r[2],
+                        "day_label": day_names[r[0]]}
+
+    # Also aggregate by hour only (simpler chart)
+    hourly = {}
+    for r in hour_rows:
+        h = r[1]
+        hourly[h] = hourly.get(h, 0) + r[2]
+    hourly_list = [{"hour": h, "label": f"{h:02d}:00", "count": hourly.get(h, 0)} for h in range(8, 23)]
+
+    # ── Revenue by service (top 10, last 90 days) ─────────────────────────────
+    svc_rows = db.execute(_t("""
+        SELECT a.title,
+               COUNT(*) AS cnt,
+               COALESCE(SUM(p.amount_cents), 0) AS rev
+        FROM appointments a
+        LEFT JOIN payments p ON p.appointment_id = a.id AND p.status='paid' AND p.type!='refund'
+        WHERE a.studio_id = :sid AND a.status != 'canceled'
+          AND a.starts_at >= :since
+        GROUP BY a.title
+        ORDER BY rev DESC
+        LIMIT 10
+    """), {"sid": sid, "since": three_mo_ago}).fetchall()
+
+    # ── Top clients by revenue (all time) ─────────────────────────────────────
+    top_clients = db.execute(_t("""
+        SELECT c.full_name, COUNT(DISTINCT a.id) AS appts,
+               COALESCE(SUM(p.amount_cents), 0) AS rev
+        FROM clients c
+        LEFT JOIN appointments a ON a.client_id = c.id AND a.status != 'canceled'
+        LEFT JOIN payments p ON p.client_id = c.id AND p.status='paid' AND p.type!='refund'
+        WHERE c.studio_id = :sid AND c.is_active = true
+        GROUP BY c.id, c.full_name
+        ORDER BY rev DESC
+        LIMIT 10
+    """), {"sid": sid}).fetchall()
+
+    # ── Avg appointment value trend (6 months) ────────────────────────────────
+    avg_trend = []
+    for i in range(5, -1, -1):
+        m = now.month - i; y = now.year
+        while m <= 0: m += 12; y -= 1
+        ms = tz.localize(datetime(y, m, 1))
+        me = tz.localize(datetime(y, m + 1, 1)) if m < 12 else tz.localize(datetime(y + 1, 1, 1))
+        avg = db.execute(_t("""
+            SELECT COALESCE(AVG(amount_cents), 0) FROM payments
+            WHERE studio_id = :sid AND status='paid' AND type!='refund'
+              AND created_at >= :ms AND created_at < :me
+              AND (notes IS NULL OR notes NOT ILIKE '[מערכת]%%')
+        """), {"sid": sid, "ms": ms, "me": me}).scalar() or 0
+        avg_trend.append({"month": ms.strftime("%m/%y"), "avg_ils": round(avg / 100)})
+
+    return {
+        "kpis": {
+            "revenue_this_month_ils": round(rev_this / 100),
+            "revenue_growth_pct": rev_growth,
+            "appts_this_month": appts_this,
+            "appts_growth_pct": appts_growth,
+            "retention_rate_pct": retention_rate,
+            "ltv_ils": round(ltv_row / 100),
+            "avg_appt_value_ils": round(avg_value_row / 100),
+            "churn_count": int(churn_count),
+        },
+        "retention_trend": retention_trend,
+        "hourly_heatmap": hourly_list,
+        "heatmap_grid": list(heatmap.values()),
+        "revenue_by_service": [
+            {"service": r[0], "count": r[1], "revenue_ils": round(r[2] / 100)}
+            for r in svc_rows
+        ],
+        "top_clients": [
+            {"name": r[0], "appointments": r[1], "revenue_ils": round(r[2] / 100)}
+            for r in top_clients
+        ],
+        "avg_value_trend": avg_trend,
+    }

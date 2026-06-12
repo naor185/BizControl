@@ -33,7 +33,8 @@ const MAIN_NAV: { href: string; label: string; icon: string; module?: string }[]
     { href: "/dashboard",  label: "לוח בקרה",    icon: "📊" },
     { href: "/clients",    label: "לקוחות",       icon: "👥", module: "crm" },
     { href: "/broadcasts", label: "תפוצות",       icon: "📢", module: "broadcasts" },
-    { href: "/analytics",  label: "אנליטיקות",   icon: "📈", module: "analytics" },
+    { href: "/analytics",          label: "אנליטיקות",    icon: "📈", module: "analytics" },
+    { href: "/analytics/business", label: "אנליטיקה עסקית", icon: "📊", module: "analytics" },
 ];
 
 const MANAGE_NAV: { href: string; label: string; icon: string; module?: string }[] = [
