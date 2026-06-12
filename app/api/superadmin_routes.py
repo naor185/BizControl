@@ -1147,55 +1147,96 @@ def _cfg_set(db: Session, key: str, value: str | None):
         db.execute(text("DELETE FROM platform_config WHERE key = :k"), {"k": key})
 
 
+class BizFindStudioOption(BaseModel):
+    studio_id: str
+    name: str
+    phone_number: str | None  # from whatsapp_connections
+    instance_id: str
+
+
 class BizFindSettingsOut(BaseModel):
-    otp_wa_instance: str | None
-    otp_wa_token_set: bool
+    otp_studio_id: str | None
+    otp_studio_name: str | None
+    otp_phone_number: str | None
 
 
 class BizFindSettingsIn(BaseModel):
-    otp_wa_instance: str | None = None
-    otp_wa_token: str | None = None
+    otp_studio_id: str | None = None
 
 
 class TestOTPIn(BaseModel):
     phone: str
 
 
+@router.get("/bizfind-settings/studios", response_model=list[BizFindStudioOption])
+def get_bizfind_connectable_studios(admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    """Return all studios with an active Green API WhatsApp connection."""
+    rows = db.execute(text("""
+        SELECT s.id, s.name, ss.whatsapp_instance_id, wc.phone_number
+        FROM studios s
+        JOIN studio_settings ss ON ss.studio_id = s.id
+        LEFT JOIN whatsapp_connections wc ON wc.studio_id = s.id AND wc.status = 'authorized'
+        WHERE ss.whatsapp_provider = 'green_api'
+          AND ss.whatsapp_instance_id IS NOT NULL
+          AND ss.whatsapp_api_key IS NOT NULL
+          AND s.is_platform IS NOT TRUE
+        ORDER BY s.name
+    """)).fetchall()
+    return [
+        BizFindStudioOption(
+            studio_id=str(r[0]),
+            name=r[1],
+            phone_number=r[3],
+            instance_id=r[2],
+        )
+        for r in rows
+    ]
+
+
 @router.get("/bizfind-settings", response_model=BizFindSettingsOut)
 def get_bizfind_settings(admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    studio_id = _cfg_get(db, "bizfind_otp_studio_id")
+    if not studio_id:
+        return BizFindSettingsOut(otp_studio_id=None, otp_studio_name=None, otp_phone_number=None)
+    row = db.execute(text("""
+        SELECT s.name, wc.phone_number
+        FROM studios s
+        LEFT JOIN whatsapp_connections wc ON wc.studio_id = s.id AND wc.status = 'authorized'
+        WHERE s.id = :sid
+    """), {"sid": studio_id}).fetchone()
     return BizFindSettingsOut(
-        otp_wa_instance=_cfg_get(db, "bizfind_otp_wa_instance"),
-        otp_wa_token_set=bool(_cfg_get(db, "bizfind_otp_wa_token")),
+        otp_studio_id=studio_id,
+        otp_studio_name=row[0] if row else None,
+        otp_phone_number=row[1] if row else None,
     )
 
 
 @router.post("/bizfind-settings", response_model=BizFindSettingsOut)
 def save_bizfind_settings(payload: BizFindSettingsIn, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
-    if payload.otp_wa_instance is not None:
-        _cfg_set(db, "bizfind_otp_wa_instance", payload.otp_wa_instance.strip() or None)
-    if payload.otp_wa_token is not None:
-        _cfg_set(db, "bizfind_otp_wa_token", payload.otp_wa_token.strip() or None)
+    _cfg_set(db, "bizfind_otp_studio_id", payload.otp_studio_id)
     db.commit()
-    return BizFindSettingsOut(
-        otp_wa_instance=_cfg_get(db, "bizfind_otp_wa_instance"),
-        otp_wa_token_set=bool(_cfg_get(db, "bizfind_otp_wa_token")),
-    )
+    return get_bizfind_settings(admin=admin, db=db)
 
 
 @router.post("/bizfind-settings/test-otp")
 def test_bizfind_otp(payload: TestOTPIn, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
-    instance = _cfg_get(db, "bizfind_otp_wa_instance")
-    token = _cfg_get(db, "bizfind_otp_wa_token")
-    if not instance or not token:
-        raise HTTPException(status_code=400, detail="Instance ID או Token לא מוגדרים")
+    studio_id = _cfg_get(db, "bizfind_otp_studio_id")
+    if not studio_id:
+        raise HTTPException(status_code=400, detail="לא נבחר סטודיו לשליחת OTP")
+    row = db.execute(text("""
+        SELECT ss.whatsapp_instance_id, ss.whatsapp_api_key
+        FROM studio_settings ss WHERE ss.studio_id = :sid
+    """), {"sid": studio_id}).fetchone()
+    if not row or not row[0] or not row[1]:
+        raise HTTPException(status_code=400, detail="אין Instance ID או Token לסטודיו הנבחר")
+    instance, token = row[0], row[1]
     phone = payload.phone.strip().replace("-", "").replace(" ", "")
     if phone.startswith("0"):
         phone = "972" + phone[1:]
-    chat_id = phone + "@c.us"
     try:
         import requests as _req
         url = f"https://api.green-api.com/waInstance{instance}/sendMessage/{token}"
-        r = _req.post(url, json={"chatId": chat_id, "message": "✅ BizFind — הגדרות OTP נשמרו ועובדות!"}, timeout=10)
+        r = _req.post(url, json={"chatId": phone + "@c.us", "message": "✅ BizFind — הגדרות OTP עובדות!"}, timeout=10)
         if r.status_code != 200:
             raise HTTPException(status_code=502, detail=f"Green API שגיאה: {r.text[:200]}")
     except HTTPException:

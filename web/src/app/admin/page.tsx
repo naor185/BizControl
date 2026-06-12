@@ -176,8 +176,11 @@ export default function AdminPage() {
     const [testResult, setTestResult] = useState<{ ok: boolean; msg: string } | null>(null);
 
     // BizFind OTP WhatsApp settings
-    const [bizfindSettings, setBizfindSettings] = useState<{ otp_wa_instance: string | null; otp_wa_token_set: boolean } | null>(null);
-    const [bizfindForm, setBizfindForm] = useState({ otp_wa_instance: "", otp_wa_token: "" });
+    type BizFindSettings = { otp_studio_id: string | null; otp_studio_name: string | null; otp_phone_number: string | null };
+    type BizFindStudio = { studio_id: string; name: string; phone_number: string | null; instance_id: string };
+    const [bizfindSettings, setBizfindSettings] = useState<BizFindSettings | null>(null);
+    const [bizfindStudios, setBizfindStudios] = useState<BizFindStudio[]>([]);
+    const [bizfindSelected, setBizfindSelected] = useState("");
     const [bizfindSaving, setBizfindSaving] = useState(false);
     const [bizfindTestPhone, setBizfindTestPhone] = useState("");
     const [bizfindTestResult, setBizfindTestResult] = useState<{ ok: boolean; msg: string } | null>(null);
@@ -359,20 +362,22 @@ export default function AdminPage() {
         if (platformSettings) return;
         setPlatformLoading(true);
         try {
-            const [data, wh, bf] = await Promise.all([
+            const [data, wh, bf, studios] = await Promise.all([
                 apiFetch<{ whatsapp_provider: string | null; whatsapp_phone_id: string | null; whatsapp_api_key: string | null }>("/api/admin/platform-settings"),
                 apiFetch<{ webhook_url: string; verify_token: string }>("/api/admin/webhook-config"),
-                apiFetch<{ otp_wa_instance: string | null; otp_wa_token_set: boolean }>("/api/admin/bizfind-settings"),
+                apiFetch<BizFindSettings>("/api/admin/bizfind-settings"),
+                apiFetch<BizFindStudio[]>("/api/admin/bizfind-settings/studios"),
             ]);
             setPlatformSettings(data);
             setWebhookConfig(wh);
             setBizfindSettings(bf);
+            setBizfindStudios(studios);
+            setBizfindSelected(bf.otp_studio_id || "");
             setPlatformForm({
                 whatsapp_provider: data.whatsapp_provider || "meta",
                 whatsapp_phone_id: data.whatsapp_phone_id || "",
                 whatsapp_api_key: data.whatsapp_api_key || "",
             });
-            setBizfindForm({ otp_wa_instance: bf.otp_wa_instance || "", otp_wa_token: "" });
         } catch { setPlatformSettings(null); }
         finally { setPlatformLoading(false); }
     };
@@ -410,13 +415,10 @@ export default function AdminPage() {
     const handleSaveBizfind = async () => {
         setBizfindSaving(true);
         try {
-            const body: Record<string, string | null> = { otp_wa_instance: bizfindForm.otp_wa_instance || null };
-            if (bizfindForm.otp_wa_token) body.otp_wa_token = bizfindForm.otp_wa_token;
-            const data = await apiFetch<{ otp_wa_instance: string | null; otp_wa_token_set: boolean }>("/api/admin/bizfind-settings", {
-                method: "POST", body: JSON.stringify(body),
+            const data = await apiFetch<BizFindSettings>("/api/admin/bizfind-settings", {
+                method: "POST", body: JSON.stringify({ otp_studio_id: bizfindSelected || null }),
             });
             setBizfindSettings(data);
-            setBizfindForm(f => ({ ...f, otp_wa_token: "" }));
             toast.success("✅ הגדרות BizFind נשמרו!");
         } catch (e: any) { toast.error(e?.message); }
         finally { setBizfindSaving(false); }
@@ -1248,71 +1250,88 @@ export default function AdminPage() {
                                 <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center text-xl">💬</div>
                                 <div>
                                     <h2 className="text-lg font-bold">BizFind — WhatsApp לשליחת OTP</h2>
-                                    <p className="text-slate-400 text-sm mt-0.5">כאשר לקוח נרשם ל-BizFind, קוד האימות נשלח דרך מספר זה.</p>
+                                    <p className="text-slate-400 text-sm mt-0.5">בחר סטודיו מחובר — OTP יישלח ללקוחות מהמספר שלו.</p>
                                 </div>
                             </div>
 
+                            {/* Current status */}
                             {bizfindSettings && (
-                                <div className={`flex items-center gap-2 text-sm px-4 py-2.5 rounded-xl ${bizfindSettings.otp_wa_instance && bizfindSettings.otp_wa_token_set ? "bg-emerald-900/30 text-emerald-300 border border-emerald-500/30" : "bg-amber-900/20 text-amber-300 border border-amber-500/20"}`}>
-                                    {bizfindSettings.otp_wa_instance && bizfindSettings.otp_wa_token_set
-                                        ? `✅ מוגדר — Instance: ${bizfindSettings.otp_wa_instance}`
-                                        : "⚠️ לא מוגדר — OTP לא יישלח"}
+                                <div className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm border ${bizfindSettings.otp_studio_id ? "bg-emerald-900/30 border-emerald-500/30 text-emerald-300" : "bg-amber-900/20 border-amber-500/20 text-amber-300"}`}>
+                                    {bizfindSettings.otp_studio_id ? (
+                                        <>
+                                            <span>✅</span>
+                                            <span>שולח מ: <strong>{bizfindSettings.otp_studio_name}</strong>
+                                                {bizfindSettings.otp_phone_number && (
+                                                    <span className="text-emerald-400 mr-2 font-mono text-xs">
+                                                        {" "}— {bizfindSettings.otp_phone_number.replace(/^972/, "0")}
+                                                    </span>
+                                                )}
+                                            </span>
+                                        </>
+                                    ) : "⚠️ לא נבחר סטודיו — OTP לא יישלח"}
                                 </div>
                             )}
 
-                            <div className="space-y-3">
-                                <div>
-                                    <label className="block text-xs font-semibold text-slate-400 mb-1.5">Green API Instance ID</label>
-                                    <input
-                                        value={bizfindForm.otp_wa_instance}
-                                        onChange={e => setBizfindForm(f => ({ ...f, otp_wa_instance: e.target.value }))}
-                                        placeholder="1234567890"
-                                        dir="ltr"
-                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-white/30"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-semibold text-slate-400 mb-1.5">
-                                        API Token {bizfindSettings?.otp_wa_token_set && <span className="text-emerald-400 ml-2">✓ מוגדר</span>}
-                                    </label>
-                                    <input
-                                        value={bizfindForm.otp_wa_token}
-                                        onChange={e => setBizfindForm(f => ({ ...f, otp_wa_token: e.target.value }))}
-                                        type="password"
-                                        placeholder={bizfindSettings?.otp_wa_token_set ? "השאר ריק לשמור Token קיים" : "הכנס Token..."}
-                                        dir="ltr"
-                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-white/30"
-                                    />
-                                </div>
+                            {/* Studio dropdown */}
+                            <div>
+                                <label className="block text-xs font-semibold text-slate-400 mb-2">בחר סטודיו שולח</label>
+                                {bizfindStudios.length === 0 ? (
+                                    <div className="text-sm text-amber-400 bg-amber-900/20 border border-amber-500/20 rounded-xl px-4 py-3">
+                                        ⚠️ אין סטודיואים עם Green API מחובר. חבר WhatsApp לסטודיו קודם.
+                                    </div>
+                                ) : (
+                                    <select
+                                        value={bizfindSelected}
+                                        onChange={e => setBizfindSelected(e.target.value)}
+                                        aria-label="בחר סטודיו שולח OTP"
+                                        className="w-full bg-slate-800 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-white/30"
+                                    >
+                                        <option value="">— בחר סטודיו —</option>
+                                        {bizfindStudios.map(s => (
+                                            <option key={s.studio_id} value={s.studio_id}>
+                                                {s.name}{s.phone_number ? ` — ${s.phone_number.replace(/^972/, "0")}` : " (לא מחובר)"}
+                                            </option>
+                                        ))}
+                                    </select>
+                                )}
+                                {bizfindSelected && (() => {
+                                    const s = bizfindStudios.find(x => x.studio_id === bizfindSelected);
+                                    return s ? (
+                                        <div className="mt-2 text-xs text-slate-400 font-mono">
+                                            Instance: {s.instance_id}
+                                            {!s.phone_number && <span className="text-amber-400 mr-2"> · לא מחובר עדיין (צריך לסרוק QR)</span>}
+                                        </div>
+                                    ) : null;
+                                })()}
                             </div>
 
-                            <button type="button" onClick={handleSaveBizfind} disabled={bizfindSaving || !bizfindForm.otp_wa_instance}
+                            <button type="button" onClick={handleSaveBizfind} disabled={bizfindSaving}
                                 className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white font-bold py-2.5 rounded-xl transition-colors text-sm">
-                                {bizfindSaving ? "שומר..." : "💾 שמור הגדרות BizFind OTP"}
+                                {bizfindSaving ? "שומר..." : "💾 שמור"}
                             </button>
 
-                            {/* Test OTP send */}
-                            <div className="border-t border-white/10 pt-4 space-y-3">
-                                <p className="text-xs text-slate-400">בדוק שליחת OTP — תקבל הודעת WhatsApp עם הטקסט "BizFind — הגדרות OTP נשמרו ועובדות!"</p>
-                                <div className="flex gap-2">
-                                    <input
-                                        value={bizfindTestPhone}
-                                        onChange={e => { setBizfindTestPhone(e.target.value); setBizfindTestResult(null); }}
-                                        placeholder="050-0000000"
-                                        type="tel" dir="ltr"
-                                        className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-white/30"
-                                    />
-                                    <button onClick={handleTestBizfindOtp} disabled={!bizfindTestPhone.trim() || !bizfindSettings?.otp_wa_token_set}
-                                        className="px-5 py-2.5 bg-emerald-700 hover:bg-emerald-600 disabled:opacity-40 text-white text-sm font-bold rounded-xl transition-colors">
-                                        שלח טסט
-                                    </button>
-                                </div>
-                                {bizfindTestResult && (
-                                    <div className={`text-sm px-4 py-2.5 rounded-xl ${bizfindTestResult.ok ? "bg-emerald-900/40 text-emerald-300" : "bg-red-900/40 text-red-300"}`}>
-                                        {bizfindTestResult.msg}
+                            {/* Test */}
+                            {bizfindSettings?.otp_studio_id && (
+                                <div className="border-t border-white/10 pt-4 space-y-3">
+                                    <p className="text-xs text-slate-400">בדוק שליחה — תקבל הודעת WhatsApp מהמספר של הסטודיו</p>
+                                    <div className="flex gap-2">
+                                        <input value={bizfindTestPhone}
+                                            onChange={e => { setBizfindTestPhone(e.target.value); setBizfindTestResult(null); }}
+                                            placeholder="050-0000000" type="tel" dir="ltr"
+                                            className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-white/30"
+                                        />
+                                        <button type="button" onClick={handleTestBizfindOtp} disabled={!bizfindTestPhone.trim()}
+                                            className="px-5 py-2.5 bg-emerald-700 hover:bg-emerald-600 disabled:opacity-40 text-white text-sm font-bold rounded-xl transition-colors">
+                                            שלח טסט
+                                        </button>
                                     </div>
-                                )}
-                            </div>
+                                    {bizfindTestResult && (
+                                        <div className={`text-sm px-4 py-2.5 rounded-xl ${bizfindTestResult.ok ? "bg-emerald-900/40 text-emerald-300" : "bg-red-900/40 text-red-300"}`}>
+                                            {bizfindTestResult.msg}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
 
                         {/* Change Password Card */}

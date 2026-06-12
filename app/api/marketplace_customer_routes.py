@@ -75,19 +75,22 @@ def _send_sms(phone: str, code: str, db=None):
     chat_id = clean + "@c.us"
     msg = f"קוד האימות שלך ב-BizFind: *{code}*\n\nהקוד תקף ל-5 דקות."
 
-    # 1. Read credentials from DB (platform_config)
+    # 1. Read from platform_config: which studio sends OTPs
     wa_instance, wa_token = None, None
     if db is not None:
         try:
             from sqlalchemy import text as _text
-            row_i = db.execute(_text("SELECT value FROM platform_config WHERE key='bizfind_otp_wa_instance'")).fetchone()
-            row_t = db.execute(_text("SELECT value FROM platform_config WHERE key='bizfind_otp_wa_token'")).fetchone()
-            wa_instance = row_i[0] if row_i else None
-            wa_token    = row_t[0] if row_t else None
+            row_sid = db.execute(_text("SELECT value FROM platform_config WHERE key='bizfind_otp_studio_id'")).fetchone()
+            if row_sid and row_sid[0]:
+                row_creds = db.execute(_text(
+                    "SELECT whatsapp_instance_id, whatsapp_api_key FROM studio_settings WHERE studio_id = :sid"
+                ), {"sid": row_sid[0]}).fetchone()
+                if row_creds:
+                    wa_instance, wa_token = row_creds[0], row_creds[1]
         except Exception as e:
-            log.warning(f"DB config read failed: {e}")
+            log.warning(f"DB studio credentials read failed: {e}")
 
-    # 2. Fallback to env vars (for local dev / migration period)
+    # 2. Fallback to env vars
     if not wa_instance or not wa_token:
         wa_instance = os.getenv("BIZFIND_WA_INSTANCE")
         wa_token    = os.getenv("BIZFIND_WA_TOKEN")
