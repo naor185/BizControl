@@ -141,24 +141,29 @@ export default function ProductsPage() {
                     ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                             {filtered.map((p) => (
-                                <div key={p.id} className="group bg-white rounded-3xl border border-slate-100 p-6 shadow-sm hover:shadow-xl transition-all relative overflow-hidden flex flex-col">
-                                    <div className="flex justify-between items-start mb-4">
-                                        <span className="px-3 py-1 bg-slate-50 text-slate-500 text-[10px] font-black uppercase rounded-full tracking-widest">{p.category || "ללא קטגוריה"}</span>
-                                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button onClick={() => { setEditingProduct(p); setIsModalOpen(true); }} className="p-2 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-100">✏️</button>
-                                            <button onClick={() => handleDelete(p.id)} className="p-2 bg-rose-50 text-rose-600 rounded-xl hover:bg-rose-100">✕</button>
+                                <div key={p.id} className="group bg-white rounded-3xl border border-slate-100 shadow-sm hover:shadow-xl transition-all relative overflow-hidden flex flex-col">
+                                    {/* Image */}
+                                    <div className="relative w-full h-40 bg-slate-100 shrink-0">
+                                        {p.image_url ? (
+                                            <img src={p.image_url} alt={p.name} className="w-full h-full object-cover" />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center text-4xl text-slate-300">📦</div>
+                                        )}
+                                        <div className="absolute top-2 left-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <button type="button" onClick={() => { setEditingProduct(p); setIsModalOpen(true); }} className="p-1.5 bg-white/90 text-indigo-600 rounded-xl hover:bg-white shadow-sm text-sm">✏️</button>
+                                            <button type="button" onClick={() => handleDelete(p.id)} className="p-1.5 bg-white/90 text-rose-600 rounded-xl hover:bg-white shadow-sm text-sm">✕</button>
                                         </div>
-                                    </div>
-                                    
-                                    <div className="flex-1">
-                                        <h3 className="text-lg font-bold text-slate-800 mb-1">{p.name}</h3>
-                                        <p className="text-xs text-slate-400 line-clamp-2 mb-4">{p.description || "אין תיאור למוצר זה"}</p>
+                                        <span className="absolute top-2 right-2 px-2 py-0.5 bg-white/90 text-slate-500 text-[10px] font-black rounded-full">{p.category || "ללא קטגוריה"}</span>
                                     </div>
 
-                                    <div className="pt-4 border-t border-slate-50 flex items-center justify-between mt-auto">
-                                        <div className="text-2xl font-black text-slate-900" dir="ltr">₪{p.price.toLocaleString()}</div>
-                                        <div className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${p.stock_quantity > 0 ? 'text-emerald-600 bg-emerald-50' : 'text-rose-600 bg-rose-50'}`}>
-                                            {p.stock_quantity > 0 ? `במלאי: ${p.stock_quantity}` : 'אזל מהמלאי'}
+                                    <div className="p-4 flex flex-col flex-1">
+                                        <h3 className="text-base font-bold text-slate-800 mb-0.5">{p.name}</h3>
+                                        <p className="text-xs text-slate-400 line-clamp-2 mb-3 flex-1">{p.description || ""}</p>
+                                        <div className="pt-3 border-t border-slate-50 flex items-center justify-between">
+                                            <div className="text-xl font-black text-slate-900" dir="ltr">₪{p.price.toLocaleString()}</div>
+                                            <div className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${p.stock_quantity > 0 ? 'text-emerald-600 bg-emerald-50' : 'text-rose-600 bg-rose-50'}`}>
+                                                {p.stock_quantity > 0 ? `במלאי: ${p.stock_quantity}` : 'אזל מהמלאי'}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
