@@ -5,12 +5,24 @@ import { API, apiFetch } from "@/lib/api";
 import { getCustomer, saveCustomer, clearCustomer, type Customer } from "@/lib/auth";
 import AuthModal from "@/components/AuthModal";
 
+interface MyInvoice {
+    id: string;
+    doc_type: string;
+    doc_type_label: string;
+    doc_number: number;
+    status: string;
+    total_ils: number;
+    issued_at: string;
+    business_name: string;
+}
+
 export default function MePage() {
     const [customer, setCustomer] = useState<Customer | null>(null);
     const [showAuth, setShowAuth] = useState(false);
     const [favorites, setFavorites] = useState<FavStudio[]>([]);
     const [loadingFavs, setLoadingFavs] = useState(false);
     const [mounted, setMounted] = useState(false);
+    const [invoices, setInvoices] = useState<MyInvoice[]>([]);
 
     useEffect(() => {
         setMounted(true);
@@ -30,6 +42,10 @@ export default function MePage() {
             })
             .catch(() => {})
             .finally(() => setLoadingFavs(false));
+
+        apiFetch<MyInvoice[]>("/api/marketplace/auth/my-invoices")
+            .then(setInvoices)
+            .catch(() => {});
     }, [customer?.id]);
 
     const loadFavoriteStudios = async (slugs: string[]) => {
@@ -151,6 +167,32 @@ export default function MePage() {
                         </div>
                     )}
                 </section>
+
+                {/* Invoices / Receipts */}
+                {invoices.length > 0 && (
+                    <section style={{ marginBottom: "2rem" }}>
+                        <h2 style={{ fontWeight: 800, fontSize: "1rem", marginBottom: "0.75rem", color: "#e2e8f0" }}>
+                            🧾 הקבלות שלי ({invoices.length})
+                        </h2>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                            {invoices.slice(0, 5).map(inv => (
+                                <div key={inv.id} style={{ background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.08)", borderRadius: 14, padding: "0.85rem 1rem", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                                    <div>
+                                        <div style={{ fontSize: "0.82rem", fontWeight: 700 }}>
+                                            {inv.doc_type_label} #{inv.doc_number}
+                                        </div>
+                                        <div style={{ color: "#64748b", fontSize: "0.75rem" }}>
+                                            {inv.business_name} · {inv.issued_at ? new Date(inv.issued_at).toLocaleDateString("he-IL") : ""}
+                                        </div>
+                                    </div>
+                                    <span style={{ fontWeight: 800, color: "#4ade80", fontSize: "0.9rem" }}>
+                                        ₪{inv.total_ils.toFixed(2)}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+                )}
 
                 {/* My bookings link */}
                 <section style={{ marginBottom: "2rem" }}>

@@ -260,6 +260,46 @@ def toggle_favorite(
         return {"is_favorite": True}
 
 
+@router.get("/my-invoices")
+def my_invoices(
+    db: Session = Depends(get_db),
+    customer_id: str = Depends(_get_customer_id),
+):
+    customer_row = db.execute(
+        text("SELECT phone FROM marketplace_customers WHERE id = :id"),
+        {"id": customer_id}
+    ).fetchone()
+    if not customer_row:
+        return []
+
+    phone = customer_row[0]
+    rows = db.execute(
+        text("""
+            SELECT id, doc_type, doc_number, status, total_cents, issued_at, business_name
+            FROM invoices
+            WHERE client_phone = :phone AND doc_type != 'credit'
+            ORDER BY issued_at DESC LIMIT 50
+        """),
+        {"phone": phone}
+    ).fetchall()
+
+    DOC_LABELS = {
+        "receipt": "קבלה", "invoice_tax_receipt": "חשבונית מס/קבלה",
+        "invoice_tax": "חשבונית מס", "transaction": "חשבונית עסקה",
+    }
+    return [
+        {
+            "id": str(r[0]), "doc_type": r[1],
+            "doc_type_label": DOC_LABELS.get(r[1], r[1]),
+            "doc_number": r[2], "status": r[3],
+            "total_ils": round((r[4] or 0) / 100, 2),
+            "issued_at": r[5].isoformat() if r[5] else None,
+            "business_name": r[6],
+        }
+        for r in rows
+    ]
+
+
 @router.get("/linked/{slug}")
 def check_linked(
     slug: str,

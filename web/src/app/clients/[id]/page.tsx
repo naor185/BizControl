@@ -1,10 +1,20 @@
 "use client";
 import { toast } from "@/lib/toast";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import RequireAuth from "@/components/RequireAuth";
 import AppShell from "@/components/AppShell";
 import { apiFetch } from "@/lib/api";
+
+type Invoice = {
+    id: string;
+    doc_type: string;
+    doc_type_label: string;
+    doc_number: number;
+    status: string;
+    total_ils: number;
+    issued_at: string;
+};
 
 type Payment = {
     id: string;
@@ -102,6 +112,15 @@ export default function ClientProfilePage() {
     const [showJoinForm, setShowJoinForm] = useState(false);
     const [joinName, setJoinName] = useState("");
     const [joinPhone, setJoinPhone] = useState("");
+    const [invoices, setInvoices] = useState<Invoice[]>([]);
+
+    const loadInvoices = useCallback(async () => {
+        if (!id) return;
+        try {
+            const data = await apiFetch<{ items: Invoice[] }>(`/api/invoices?client_id=${id}&limit=20`);
+            setInvoices(data.items);
+        } catch { /* silent */ }
+    }, [id]);
 
     const loadData = async () => {
         if (!id) return;
@@ -122,6 +141,7 @@ export default function ClientProfilePage() {
 
     useEffect(() => {
         loadData();
+        loadInvoices();
     }, [id]);
 
     const handleSavePayment = async () => {
@@ -562,6 +582,56 @@ export default function ClientProfilePage() {
                                                         {p.appointment_id && (
                                                             <button onClick={() => handleDeletePayment(p.id, true)} className="px-2 py-1 text-xs bg-orange-50 text-orange-600 border border-orange-100 rounded-lg hover:bg-orange-100">+ מחק ביקור</button>
                                                         )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Invoices / Documents */}
+                            <div className="rounded-xl border bg-white p-5 shadow-sm">
+                                <div className="flex justify-between items-center mb-4 border-b pb-2">
+                                    <h3 className="text-lg font-semibold">🧾 מסמכים</h3>
+                                    <a href={`/invoices?client_id=${id}`}
+                                        className="text-sm text-violet-600 hover:text-violet-700 font-bold bg-violet-50 px-3 py-1.5 rounded-lg transition-colors">
+                                        + מסמך חדש
+                                    </a>
+                                </div>
+                                {invoices.length === 0 ? (
+                                    <div className="text-sm text-gray-500">אין מסמכים עדיין.</div>
+                                ) : (
+                                    <div className="space-y-2">
+                                        {invoices.map(inv => {
+                                            const typeColors: Record<string, string> = {
+                                                receipt: "bg-sky-50 text-sky-700 border-sky-200",
+                                                invoice_tax_receipt: "bg-emerald-50 text-emerald-700 border-emerald-200",
+                                                invoice_tax: "bg-violet-50 text-violet-700 border-violet-200",
+                                                credit: "bg-rose-50 text-rose-700 border-rose-200",
+                                                transaction: "bg-amber-50 text-amber-700 border-amber-200",
+                                            };
+                                            const cls = typeColors[inv.doc_type] || "bg-slate-50 text-slate-700 border-slate-200";
+                                            const isCredit = inv.doc_type === "credit";
+                                            return (
+                                                <div key={inv.id} className="flex items-center justify-between p-3 rounded-xl border border-slate-100 bg-slate-50 text-sm">
+                                                    <div>
+                                                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${cls} mr-2`}>{inv.doc_type_label}</span>
+                                                        <span className="font-bold">#{inv.doc_number}</span>
+                                                        <div className="text-[10px] text-slate-400 mt-0.5">{new Date(inv.issued_at).toLocaleDateString("he-IL")}</div>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className={`font-bold ${isCredit ? "text-rose-600" : "text-emerald-700"}`}>
+                                                            {isCredit ? "-" : ""}₪{Math.abs(inv.total_ils).toFixed(2)}
+                                                        </span>
+                                                        <button type="button"
+                                                            onClick={() => {
+                                                                const token = localStorage.getItem("bizcontrol_token") || "";
+                                                                window.open(`${process.env.NEXT_PUBLIC_API_URL}/api/invoices/${inv.id}/pdf?token=${token}`, "_blank");
+                                                            }}
+                                                            className="px-2 py-1 text-xs bg-violet-50 text-violet-600 border border-violet-100 rounded-lg hover:bg-violet-100">
+                                                            PDF
+                                                        </button>
                                                     </div>
                                                 </div>
                                             );

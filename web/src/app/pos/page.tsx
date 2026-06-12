@@ -25,7 +25,40 @@ const PAYMENT_METHODS = [
 const METHOD_LABELS: Record<string, string> = { cash:"מזומן", credit:"אשראי", bit:"Bit", paybox:"PayBox", bank_transfer:"העברה בנקאית", credit_card:"אשראי", other:"אחר" };
 
 // ── Receipt Modal ─────────────────────────────────────────────────────────────
-function ReceiptModal({ txn, onClose }: { txn: TransactionOut; onClose: () => void }) {
+function ReceiptModal({ txn, clientId, onClose }: { txn: TransactionOut; clientId: string | null; onClose: () => void }) {
+    const [invoiceId, setInvoiceId] = useState<string | null>(null);
+    const [creating, setCreating] = useState(false);
+
+    const createInvoice = async () => {
+        setCreating(true);
+        try {
+            const inv = await apiFetch<{ id: string }>("/api/invoices", {
+                method: "POST",
+                body: JSON.stringify({
+                    doc_type: "receipt",
+                    client_id: clientId || undefined,
+                    client_name: txn.client_name || undefined,
+                    payment_method: txn.method,
+                    source: "pos",
+                    source_id: txn.id,
+                    items: txn.items.map(i => ({
+                        description: i.description,
+                        quantity: i.quantity,
+                        unit_price_cents: i.unit_price_cents,
+                    })),
+                }),
+            });
+            setInvoiceId(inv.id);
+        } catch (e: unknown) {
+            toast.error((e as Error).message || "שגיאה בהפקת חשבונית");
+        } finally { setCreating(false); }
+    };
+
+    const downloadPdf = () => {
+        const token = localStorage.getItem("bizcontrol_token") || "";
+        window.open(`${process.env.NEXT_PUBLIC_API_URL}/api/invoices/${invoiceId}/pdf?token=${token}`, "_blank");
+    };
+
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xs overflow-hidden" onClick={e => e.stopPropagation()}>
@@ -63,7 +96,18 @@ function ReceiptModal({ txn, onClose }: { txn: TransactionOut; onClose: () => vo
                         </div>
                     )}
                 </div>
-                <div className="px-4 pb-4">
+                <div className="px-4 pb-4 space-y-2">
+                    {!invoiceId ? (
+                        <button type="button" onClick={createInvoice} disabled={creating}
+                            className="w-full bg-violet-600 hover:bg-violet-700 disabled:opacity-60 text-white font-bold py-2.5 rounded-xl text-sm transition-colors">
+                            {creating ? "מפיק..." : "🧾 הפק קבלה"}
+                        </button>
+                    ) : (
+                        <button type="button" onClick={downloadPdf}
+                            className="w-full bg-violet-600 hover:bg-violet-700 text-white font-bold py-2.5 rounded-xl text-sm transition-colors">
+                            📄 הורד PDF
+                        </button>
+                    )}
                     <button onClick={onClose} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl text-sm transition-colors">
                         מכירה חדשה
                     </button>
@@ -498,7 +542,7 @@ export default function PosPage() {
         </div>
 
         {/* Modals */}
-        {receipt && <ReceiptModal txn={receipt} onClose={() => setReceipt(null)} />}
+        {receipt && <ReceiptModal txn={receipt} clientId={client?.id ?? null} onClose={() => setReceipt(null)} />}
         {showAddClient && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowAddClient(false)}>
                 <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xs p-5" onClick={e => e.stopPropagation()} dir="rtl">
