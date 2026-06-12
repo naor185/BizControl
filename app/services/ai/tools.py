@@ -140,6 +140,29 @@ TOOLS_SCHEMA = [
             "parameters": {"type": "object", "properties": {}, "required": []},
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "schedule_appointment",
+            "description": (
+                "קובע תור חדש ביומן. השתמש בכלי הזה לאחר שהמשתמש בחר חריץ זמן מתוצאות find_available_slots "
+                "ואישר את פרטי הלקוח. אל תשתמש בכלי הזה ללא אישור המשתמש."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "client_name":  {"type": "string",  "description": "שם מלא של הלקוח"},
+                    "client_phone": {"type": "string",  "description": "מספר טלפון של הלקוח"},
+                    "service_name": {"type": "string",  "description": "שם השירות"},
+                    "starts_at":    {"type": "string",  "description": "תאריך ושעת התחלה בפורמט ISO 8601 (לדוגמה: 2026-06-15T10:00:00)"},
+                    "duration_minutes": {"type": "integer", "description": "משך התור בדקות (ברירת מחדל: 60)"},
+                    "artist_name":  {"type": "string",  "description": "שם האמן/עובד (אופציונלי)"},
+                    "notes":        {"type": "string",  "description": "הערות נוספות (אופציונלי)"},
+                },
+                "required": ["client_name", "client_phone", "starts_at"],
+            },
+        },
+    },
 ]
 
 # artist/staff get a subset
@@ -541,6 +564,135 @@ def get_wait_list(studio_id: UUID, db: Session, **_) -> dict:
     return {"answer": answer, "count": len(entries)}
 
 
+def schedule_appointment(
+    studio_id: UUID,
+    db: Session,
+    client_name: str,
+    client_phone: str,
+    starts_at: str,
+    service_name: str = "",
+    duration_minutes: int = 60,
+    artist_name: str = "",
+    notes: str = "",
+    **_,
+) -> dict:
+    """Create an appointment from a chosen slot."""
+    import pytz
+    from app.models.studio_settings import StudioSettings
+    from app.models.service import Service
+    from app.models.user import User
+
+    try:
+        # Parse datetime
+        try:
+            start_dt = datetime.fromisoformat(starts_at)
+        except ValueError:
+            return {"error": f"פורמט תאריך לא תקין: {starts_at}"}
+
+        # Localize if naive
+        if start_dt.tzinfo is None:
+            tz = pytz.timezone("Asia/Jerusalem")
+            start_dt = tz.localize(start_dt)
+
+        # Find service
+        service = None
+        svc_duration = duration_minutes
+        if service_name:
+            service = db.scalar(
+                select(Service).where(
+                    Service.studio_id == studio_id,
+                    Service.is_active == True,  # noqa
+                    Service.name.ilike(f"%{service_name}%"),
+                )
+            )
+            if service:
+                svc_duration = service.duration_minutes
+
+        end_dt = start_dt + timedelta(minutes=svc_duration)
+
+        # Find artist
+        artist = None
+        if artist_name:
+            artist = db.scalar(
+                select(User).where(
+                    User.studio_id == studio_id,
+                    User.is_active == True,  # noqa
+                    User.display_name.ilike(f"%{artist_name}%"),
+                )
+            )
+
+        # Find or create client
+        client = db.scalar(
+            select(Client).where(
+                Client.studio_id == studio_id,
+                Client.phone == client_phone.strip(),
+            )
+        )
+        if not client:
+            client = Client(
+                studio_id=studio_id,
+                full_name=client_name.strip(),
+                phone=client_phone.strip(),
+            )
+            db.add(client)
+            db.flush()
+
+        # Double-check for conflict
+        from app.models.appointment import Appointment as _Appt
+        conflict = db.scalar(
+            select(_Appt).where(
+                _Appt.studio_id == studio_id,
+                _Appt.status == "scheduled",
+                _Appt.starts_at < end_dt,
+                _Appt.ends_at > start_dt,
+            )
+        )
+        if conflict:
+            return {"error": "⚠️ החריץ הזה כבר תפוס. אנא בחר שעה אחרת."}
+
+        # Create appointment
+        appt = _Appt(
+            studio_id=studio_id,
+            client_id=client.id,
+            client_name=client_name.strip(),
+            client_phone=client_phone.strip(),
+            title=service.name if service else (service_name or "תור"),
+            service_id=service.id if service else None,
+            artist_id=artist.id if artist else None,
+            starts_at=start_dt.astimezone(timezone.utc).replace(tzinfo=None),
+            ends_at=end_dt.astimezone(timezone.utc).replace(tzinfo=None),
+            status="scheduled",
+            notes=notes or None,
+        )
+        db.add(appt)
+        db.commit()
+
+        il_tz = pytz.timezone("Asia/Jerusalem")
+        local_start = start_dt.astimezone(il_tz)
+        date_label = local_start.strftime("%d/%m/%Y")
+        time_label = local_start.strftime("%H:%M")
+
+        answer = (
+            f"✅ התור נקבע בהצלחה!\n"
+            f"👤 לקוח: {client_name}\n"
+            f"📅 תאריך: {date_label} בשעה {time_label}\n"
+            f"💼 שירות: {service.name if service else service_name or 'תור'}\n"
+            + (f"🎨 אמן: {artist.display_name}\n" if artist else "")
+            + f"\nהתור הוסף ליומן — ניתן לראות אותו בלוח השנה."
+        )
+        return {
+            "answer": answer,
+            "appointment_id": str(appt.id),
+            "date": date_label,
+            "time": time_label,
+            "client_name": client_name,
+        }
+
+    except Exception as e:
+        db.rollback()
+        return {"error": f"שגיאה בקביעת התור: {str(e)}"}
+
+
 TOOL_MAP: dict[str, Any] = {
     "get_today_appointments": get_today_appointments,
     "get_monthly_revenue": get_monthly_revenue,
@@ -552,6 +704,7 @@ TOOL_MAP: dict[str, Any] = {
     "get_system_help": get_system_help,
     "find_available_slots": find_available_slots,
     "get_wait_list": get_wait_list,
+    "schedule_appointment": schedule_appointment,
 }
 
 
