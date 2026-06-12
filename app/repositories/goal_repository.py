@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.models.monthly_goal import MonthlyGoal
 from app.models.payment import Payment
+from app.models.pos_transaction import PosTransaction
 
 class GoalRepository:
     def __init__(self, session: Session):
@@ -62,7 +63,20 @@ class GoalRepository:
                 or_(Payment.notes == None, ~Payment.notes.ilike("[מערכת]%")),
             )
         )
-        total_cents = self.session.execute(stmt).scalar() or 0
+        payment_cents = self.session.execute(stmt).scalar() or 0
+
+        # Include POS transactions
+        pos_stmt = select(func.sum(PosTransaction.total_cents)).where(
+            and_(
+                PosTransaction.studio_id == studio_id,
+                PosTransaction.status == "paid",
+                PosTransaction.created_at >= start_date,
+                PosTransaction.created_at <= end_date,
+            )
+        )
+        pos_cents = self.session.execute(pos_stmt).scalar() or 0
+
+        total_cents = payment_cents + pos_cents
         current_revenue = Decimal(total_cents) / Decimal(100)
 
         # Calculations
