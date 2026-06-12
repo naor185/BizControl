@@ -63,28 +63,44 @@ def _get_customer_id(authorization: str = Header(None)) -> str:
 
 
 def _send_sms(phone: str, code: str):
-    """Send OTP via WhatsApp message-job or fallback to logging."""
-    try:
-        # Try to send via whatever SMS/WhatsApp provider is available
-        # For now log it — integrate with real SMS provider here
-        import logging
-        logging.getLogger(__name__).info(f"[OTP] {phone} → {code}")
+    """Send OTP via WhatsApp (Green API) or Twilio if configured."""
+    import logging
+    log = logging.getLogger(__name__)
+    log.info(f"[OTP] {phone} → {code}")
 
-        # Try to send via Green API or Twilio if configured
-        twilio_sid = os.getenv("TWILIO_ACCOUNT_SID")
-        twilio_token = os.getenv("TWILIO_AUTH_TOKEN")
-        twilio_from = os.getenv("TWILIO_FROM_NUMBER")
-        if twilio_sid and twilio_token and twilio_from:
+    # Normalize phone to international format (972...)
+    clean = phone.lstrip("+").replace("-", "").replace(" ", "")
+    if clean.startswith("0"):
+        clean = "972" + clean[1:]
+    wa_phone = clean + "@c.us"
+
+    # 1. Try Green API (preferred — no extra cost if already configured)
+    wa_instance = os.getenv("BIZFIND_WA_INSTANCE") or os.getenv("BIZFIND_GREEN_INSTANCE")
+    wa_token    = os.getenv("BIZFIND_WA_TOKEN")    or os.getenv("BIZFIND_GREEN_TOKEN")
+    if wa_instance and wa_token:
+        try:
+            import requests as _req
+            url = f"https://api.green-api.com/waInstance{wa_instance}/sendMessage/{wa_token}"
+            _req.post(url, json={"chatId": wa_phone, "message": f"קוד האימות שלך ב-BizFind: *{code}*\n\nהקוד תקף ל-5 דקות."}, timeout=10)
+            return
+        except Exception as e:
+            log.warning(f"Green API OTP send failed: {e}")
+
+    # 2. Try Twilio SMS
+    twilio_sid   = os.getenv("TWILIO_ACCOUNT_SID")
+    twilio_token = os.getenv("TWILIO_AUTH_TOKEN")
+    twilio_from  = os.getenv("TWILIO_FROM_NUMBER")
+    if twilio_sid and twilio_token and twilio_from:
+        try:
             from twilio.rest import Client as TwilioClient
-            client = TwilioClient(twilio_sid, twilio_token)
-            client.messages.create(
+            TwilioClient(twilio_sid, twilio_token).messages.create(
                 body=f"קוד האימות שלך ב-BizFind: {code}",
                 from_=twilio_from,
-                to=phone,
+                to=f"+{clean}",
             )
-    except Exception as e:
-        import logging
-        logging.getLogger(__name__).warning(f"SMS send failed: {e}")
+            return
+        except Exception as e:
+            log.warning(f"Twilio OTP send failed: {e}")
 
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
