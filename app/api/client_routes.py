@@ -281,9 +281,10 @@ def profile(
 
     from app.models.payment import Payment
     from app.models.appointment import Appointment
+    from app.models.pos_transaction import PosTransaction
     from sqlalchemy import func, case, or_
 
-    # Financial totals (exclude system/points redemption payments)
+    # Financial totals from regular payments
     totals = db.execute(
         select(
             func.sum(case((Payment.type != 'refund', Payment.amount_cents), else_=0)).label("paid"),
@@ -296,8 +297,14 @@ def profile(
             or_(Payment.notes == None, ~Payment.notes.ilike("[מערכת]%")),
         )
     ).first()
-    
-    total_paid = int(totals.paid or 0)
+
+    # Add POS transactions
+    pos_total = db.scalar(
+        select(func.coalesce(func.sum(PosTransaction.total_cents), 0))
+        .where(PosTransaction.client_id == client_id, PosTransaction.studio_id == ctx.studio_id, PosTransaction.status == "paid")
+    ) or 0
+
+    total_paid = int(totals.paid or 0) + int(pos_total)
     total_refund = int(totals.refund or 0)
     net_paid = total_paid - total_refund
 
