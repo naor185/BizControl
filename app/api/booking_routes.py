@@ -313,6 +313,73 @@ def create_booking(slug: str, payload: BookingRequest, db: Session = Depends(get
     }
 
 
+# ── Public appointment request (no self_booking required) ────────────────────
+
+class AppointmentRequestIn(BaseModel):
+    client_name: str
+    client_phone: str
+    client_email: Optional[str] = None
+    service_name: Optional[str] = None
+    notes: Optional[str] = None
+
+
+@router.post("/{slug}/request", status_code=201)
+def public_request_appointment(
+    slug: str,
+    payload: AppointmentRequestIn,
+    db: Session = Depends(get_db),
+):
+    """Public endpoint — customer requests an appointment (no specific slot, studio reviews manually)."""
+    from app.models.studio import Studio
+    from app.models.studio_settings import StudioSettings
+    from sqlalchemy import text as _text
+    import uuid as _uuid
+
+    studio = db.scalar(select(Studio).where(Studio.slug == slug, Studio.is_active == True))  # noqa
+    if not studio:
+        raise HTTPException(404, "Studio not found")
+
+    req_id = str(_uuid.uuid4())
+    db.execute(
+        _text("""
+            INSERT INTO booking_requests
+                (id, studio_id, client_name, client_phone, client_email,
+                 service_note, requested_at, status, created_at)
+            VALUES
+                (:id, :sid, :name, :phone, :email,
+                 :service, NOW(), 'pending', NOW())
+        """),
+        {
+            "id": req_id, "sid": str(studio.id),
+            "name": payload.client_name.strip(),
+            "phone": payload.client_phone.strip(),
+            "email": payload.client_email,
+            "service": payload.service_name or payload.notes,
+        }
+    )
+
+    # WhatsApp notification to studio
+    settings = db.get(StudioSettings, studio.id)
+    notif_phone = getattr(settings, "notification_phone", None) or getattr(settings, "marketplace_phone", None)
+    if notif_phone:
+        from app.models.message_job import MessageJob
+        body = (
+            f"📋 בקשת תור חדשה מ-BizFind!\n"
+            f"👤 {payload.client_name}\n"
+            f"📞 {payload.client_phone}\n"
+            + (f"💼 {payload.service_name}\n" if payload.service_name else "")
+            + (f"📝 {payload.notes}\n" if payload.notes else "")
+        )
+        db.add(MessageJob(
+            studio_id=studio.id, channel="whatsapp", to_phone=notif_phone,
+            body=body, scheduled_at=datetime.now(timezone.utc),
+            status="pending", reminder_type="booking_request_new",
+        ))
+
+    db.commit()
+    return {"ok": True, "message": "הבקשה נשלחה! הסטודיו יצור איתך קשר בקרוב 📞"}
+
+
 # ── Public wait-list join ─────────────────────────────────────────────────────
 
 class WaitListJoinIn(BaseModel):

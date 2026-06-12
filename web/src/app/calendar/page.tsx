@@ -127,6 +127,8 @@ export default function CalendarPage() {
     const [selectedServiceId, setSelectedServiceId] = useState<string>("");
 
     const [showCalSettings, setShowCalSettings] = useState(false);
+    const [selfBookingEnabled, setSelfBookingEnabled] = useState<boolean | null>(null);
+    const [dismissedBookingBanner, setDismissedBookingBanner] = useState(false);
 
     // Type chooser (appointment vs task)
     const [showTypeChooser, setShowTypeChooser] = useState(false);
@@ -256,6 +258,7 @@ export default function CalendarPage() {
             setArtists(arts);
             setTasks(t);
             if (settings) {
+                setSelfBookingEnabled(settings.self_booking_enabled ?? false);
                 if (settings.calendar_start_hour) {
                     const sh = settings.calendar_start_hour.slice(0, 5);
                     setCalendarStartHour(`${sh}:00`);
@@ -816,6 +819,19 @@ export default function CalendarPage() {
                     </div>
                 }
             >
+                {/* Self-booking prompt banner */}
+                {selfBookingEnabled === false && !dismissedBookingBanner && (
+                    <div className="mb-3 flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2.5 text-sm">
+                        <span className="text-lg">📅</span>
+                        <div className="flex-1 min-w-0">
+                            <span className="font-bold text-emerald-900">רוצה שלקוחות יקבעו תורים עצמאית? </span>
+                            <a href="/business" className="text-emerald-700 underline font-semibold">הפעל קביעת תורים אונליין ←</a>
+                        </div>
+                        <button type="button" onClick={() => setDismissedBookingBanner(true)}
+                            className="text-emerald-400 hover:text-emerald-600 font-bold text-base leading-none shrink-0">✕</button>
+                    </div>
+                )}
+
                 {/* Today's broadcast banner */}
                 {todayBroadcasts.length > 0 && (
                     <div className="mb-3 flex items-center gap-3 bg-violet-50 border border-violet-200 rounded-xl px-4 py-2.5 text-sm">
