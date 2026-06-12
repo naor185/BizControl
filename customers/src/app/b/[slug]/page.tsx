@@ -66,6 +66,8 @@ export default function BusinessPage() {
         fetch(`${API}/api/marketplace/${slug}`)
             .then(r => r.ok ? r.json() : Promise.reject("לא נמצא"))
             .then(setP).catch(() => setErr("העסק לא נמצא"));
+        // Track page view (fire-and-forget)
+        fetch(`${API}/api/marketplace/${slug}/view`, { method: "POST" }).catch(() => {});
     }, [slug]);
 
     const submitReview = async () => {

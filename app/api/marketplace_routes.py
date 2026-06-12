@@ -430,3 +430,111 @@ def delete_review(review_id: str, ctx: AuthContext = Depends(require_studio_ctx)
         raise HTTPException(404, "Review not found")
     db.delete(review)
     db.commit()
+
+
+# ── Page view tracking (called by BizFind on every profile visit) ─────────────
+
+@router.post("/{slug}/view", status_code=204)
+def track_page_view(slug: str, db: Session = Depends(get_db)):
+    """Increment daily view counter for a studio (no auth required)."""
+    from app.models.studio import Studio
+    from sqlalchemy import text as _t
+    studio = db.scalar(select(Studio).where(Studio.slug == slug, Studio.is_active == True))  # noqa
+    if not studio:
+        return
+    db.execute(_t("""
+        INSERT INTO marketplace_page_views (id, studio_id, view_date, count)
+        VALUES (gen_random_uuid(), :sid, CURRENT_DATE, 1)
+        ON CONFLICT (studio_id, view_date)
+        DO UPDATE SET count = marketplace_page_views.count + 1
+    """), {"sid": str(studio.id)})
+    db.commit()
+
+
+# ── Marketplace analytics for studio owner ────────────────────────────────────
+
+@router.get("/my/analytics")
+def get_marketplace_analytics(
+    ctx: AuthContext = Depends(require_studio_ctx),
+    db: Session = Depends(get_db),
+):
+    from sqlalchemy import text as _t
+
+    sid = str(ctx.studio_id)
+
+    # Page views — 7d / 30d / total
+    views_7d = db.execute(_t("""
+        SELECT COALESCE(SUM(count), 0) FROM marketplace_page_views
+        WHERE studio_id = :sid AND view_date >= CURRENT_DATE - INTERVAL '7 days'
+    """), {"sid": sid}).scalar() or 0
+
+    views_30d = db.execute(_t("""
+        SELECT COALESCE(SUM(count), 0) FROM marketplace_page_views
+        WHERE studio_id = :sid AND view_date >= CURRENT_DATE - INTERVAL '30 days'
+    """), {"sid": sid}).scalar() or 0
+
+    views_total = db.execute(_t("""
+        SELECT COALESCE(SUM(count), 0) FROM marketplace_page_views
+        WHERE studio_id = :sid
+    """), {"sid": sid}).scalar() or 0
+
+    # Daily breakdown — last 30 days
+    daily = db.execute(_t("""
+        SELECT view_date::text, count FROM marketplace_page_views
+        WHERE studio_id = :sid AND view_date >= CURRENT_DATE - INTERVAL '30 days'
+        ORDER BY view_date
+    """), {"sid": sid}).fetchall()
+
+    # Favorites
+    favorites_count = db.execute(_t("""
+        SELECT COUNT(*) FROM marketplace_favorites mf
+        JOIN studios s ON s.slug = mf.studio_slug
+        WHERE s.id = :sid
+    """), {"sid": sid}).scalar() or 0
+
+    # Booking requests this month
+    requests_month = db.execute(_t("""
+        SELECT COUNT(*) FROM booking_requests
+        WHERE studio_id = :sid
+          AND created_at >= date_trunc('month', CURRENT_DATE)
+    """), {"sid": sid}).scalar() or 0
+
+    # Total booking requests
+    requests_total = db.execute(_t("""
+        SELECT COUNT(*) FROM booking_requests WHERE studio_id = :sid
+    """), {"sid": sid}).scalar() or 0
+
+    # New clients linked from marketplace (customers whose phone matches a client)
+    linked_clients = db.execute(_t("""
+        SELECT COUNT(DISTINCT c.id)
+        FROM clients c
+        JOIN marketplace_customers mc ON mc.phone = c.phone
+        WHERE c.studio_id = :sid AND c.is_active = true
+    """), {"sid": sid}).scalar() or 0
+
+    # Get studio slug for BizFind link
+    slug_row = db.execute(_t("SELECT slug FROM studios WHERE id = :sid"), {"sid": sid}).fetchone()
+    studio_slug = slug_row[0] if slug_row else ""
+
+    # Marketplace visible?
+    visible_row = db.execute(_t("""
+        SELECT marketplace_visible FROM studio_settings WHERE studio_id = :sid
+    """), {"sid": sid}).fetchone()
+    marketplace_visible = bool(visible_row[0]) if visible_row else False
+
+    return {
+        "marketplace_visible": marketplace_visible,
+        "studio_slug": studio_slug,
+        "views": {
+            "last_7_days": int(views_7d),
+            "last_30_days": int(views_30d),
+            "total": int(views_total),
+        },
+        "favorites_count": int(favorites_count),
+        "booking_requests": {
+            "this_month": int(requests_month),
+            "total": int(requests_total),
+        },
+        "linked_clients": int(linked_clients),
+        "daily_views": [{"date": r[0], "count": r[1]} for r in daily],
+    }

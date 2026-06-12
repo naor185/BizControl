@@ -72,20 +72,31 @@ export default function Page() {
     const [confirmingDeposit, setConfirmingDeposit] = useState<string | null>(null);
     const [waivingDeposit, setWaivingDeposit] = useState<string | null>(null);
     const [consultationConv, setConsultationConv] = useState<ConsultationConversion | null>(null);
+    const [bizfindStats, setBizfindStats] = useState<{
+        marketplace_visible: boolean;
+        studio_slug: string;
+        views: { last_7_days: number; last_30_days: number; total: number };
+        favorites_count: number;
+        booking_requests: { this_month: number; total: number };
+        linked_clients: number;
+        daily_views: { date: string; count: number }[];
+    } | null>(null);
 
     const fetchData = async () => {
         try {
             setLoading(true);
-            const [statsData, paymentsData, pendingData, depositsData] = await Promise.all([
+            const [statsData, paymentsData, pendingData, depositsData, bfData] = await Promise.all([
                 apiFetch<DashboardStats>("/api/dashboard/stats"),
                 apiFetch<DailyPayment[]>("/api/dashboard/daily-payments"),
                 apiFetch<PendingPayment[]>("/api/dashboard/pending-payments"),
                 apiFetch<any[]>("/api/appointments/pending-deposits").catch(() => []),
+                apiFetch<any>("/api/marketplace/my/analytics").catch(() => null),
             ]);
             setStats(statsData);
             setDailyPayments(paymentsData);
             setPendingPayments(pendingData);
             setPendingDeposits(depositsData);
+            setBizfindStats(bfData);
         } catch {
             setError("שגיאה בטעינת נתונים");
         } finally {
@@ -262,6 +273,68 @@ export default function Page() {
                                     </div>
                                 ))}
                             </div>
+                        </div>
+                    )}
+
+                    {/* ── BizFind Analytics Card ── */}
+                    {bizfindStats && (
+                        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                            <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-lg">🔍</span>
+                                    <div>
+                                        <h3 className="font-bold text-slate-800 text-sm">BizFind — חשיפה בשוק</h3>
+                                        <p className="text-xs text-slate-400 mt-0.5">ביצועי הפרופיל שלך באפליקציית החיפוש</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${bizfindStats.marketplace_visible ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
+                                        {bizfindStats.marketplace_visible ? "🟢 גלוי" : "⚪ מוסתר"}
+                                    </span>
+                                    {bizfindStats.studio_slug && (
+                                        <a href={`${process.env.NEXT_PUBLIC_BIZFIND_URL || "https://bizfind.co.il"}/b/${bizfindStats.studio_slug}`}
+                                            target="_blank" rel="noopener"
+                                            className="text-xs text-violet-600 font-semibold hover:underline">
+                                            צפה ←
+                                        </a>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-x-reverse divide-slate-100">
+                                {[
+                                    { label: "צפיות 7 ימים", value: bizfindStats.views.last_7_days, icon: "👁️" },
+                                    { label: "צפיות 30 ימים", value: bizfindStats.views.last_30_days, icon: "📈" },
+                                    { label: "מועדפים", value: bizfindStats.favorites_count, icon: "❤️" },
+                                    { label: "בקשות תור החודש", value: bizfindStats.booking_requests.this_month, icon: "📋" },
+                                ].map(({ label, value, icon }) => (
+                                    <div key={label} className="px-5 py-4 text-center">
+                                        <div className="text-xl mb-1">{icon}</div>
+                                        <div className="text-2xl font-black text-slate-800">{value.toLocaleString()}</div>
+                                        <div className="text-xs text-slate-400 mt-0.5">{label}</div>
+                                    </div>
+                                ))}
+                            </div>
+                            {bizfindStats.daily_views.length > 0 && (
+                                <div className="px-5 pb-4">
+                                    <div className="text-xs text-slate-400 mb-2 font-semibold">צפיות יומיות — 30 ימים אחרונים</div>
+                                    <ResponsiveContainer width="100%" height={60}>
+                                        <BarChart data={bizfindStats.daily_views} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+                                            <Bar dataKey="count" radius={[3, 3, 0, 0]} fill="#7c3aed" opacity={0.85} />
+                                            <Tooltip
+                                                formatter={(v) => [Number(v), "צפיות"]}
+                                                labelFormatter={(l) => new Date(l).toLocaleDateString("he-IL")}
+                                                contentStyle={{ fontSize: 11, borderRadius: 8 }}
+                                            />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            )}
+                            {!bizfindStats.marketplace_visible && (
+                                <div className="px-5 py-3 bg-violet-50 border-t border-violet-100 flex items-center justify-between">
+                                    <span className="text-xs text-violet-700">הפרופיל שלך לא גלוי ב-BizFind — הפעל כדי לקבל לקוחות חדשים</span>
+                                    <a href="/business" className="text-xs font-bold text-violet-700 underline">הגדר ←</a>
+                                </div>
+                            )}
                         </div>
                     )}
 
