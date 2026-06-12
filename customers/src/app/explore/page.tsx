@@ -198,10 +198,10 @@ function ExploreContent() {
                     </select>
                     {/* View toggle */}
                     <div style={{ display: "flex", background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.1)", borderRadius: 10, overflow: "hidden" }}>
-                        {(["grid", "list"] as ViewMode[]).map(v => (
+                        {([["grid", "⊞"], ["list", "☰"]] as [ViewMode, string][]).map(([v, icon]) => (
                             <button key={v} type="button" onClick={() => setView(v)}
                                 style={{ padding: "0.4rem 0.65rem", border: "none", cursor: "pointer", background: view === v ? "#7c3aed" : "transparent", color: view === v ? "#fff" : "#64748b", fontSize: "0.9rem", transition: "all .2s" }}>
-                                {v === "grid" ? "⊞" : "☰"}
+                                {icon}
                             </button>
                         ))}
                     </div>

@@ -1,7 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
-import dynamic from "next/dynamic";
 import { API, imgUrl } from "@/lib/api";
 
 const DEFAULT_SLIDES = [
@@ -139,14 +138,6 @@ function HeroSection({ q, city, setQ, setCity, locating, onLocate, searchRef }: 
     );
 }
 
-const MapView = dynamic(() => import("@/components/MapView"), {
-    ssr: false,
-    loading: () => (
-        <div style={{ height: 340, background: "#f1f5f9", borderRadius: 20, border: "1px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", color: "#94a3b8" }}>
-            🗺️ טוען מפה...
-        </div>
-    ),
-});
 
 interface StudioCard {
     id: string; slug: string; name: string;
@@ -188,6 +179,7 @@ export default function HomePage() {
     const [loading, setLoading] = useState(false);
     const [initialLoaded, setInitialLoaded] = useState(false);
     const [locating, setLocating] = useState(false);
+    const [showLocationModal, setShowLocationModal] = useState(false);
     const searchRef = useRef<HTMLInputElement>(null);
 
     const load = useCallback(async (sq = q, sc = city, st = selectedType) => {
@@ -206,7 +198,11 @@ export default function HomePage() {
 
     useEffect(() => {
         fetch(`${API}/api/marketplace/categories`).then(r => r.json()).then(setCategories).catch(() => {});
-        load("", "", "");
+        const savedCity = localStorage.getItem("bizfind_city") || "";
+        if (savedCity) setCity(savedCity);
+        load("", savedCity, "");
+        const asked = localStorage.getItem("bizfind_location_asked");
+        if (!asked) { setTimeout(() => setShowLocationModal(true), 900); }
     }, []); // eslint-disable-line
 
     useEffect(() => {
@@ -215,18 +211,41 @@ export default function HomePage() {
         return () => clearTimeout(t);
     }, [q, city, selectedType]); // eslint-disable-line
 
+    const resolveCity = async (lat: number, lon: number) => {
+        const r = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`);
+        const d = await r.json();
+        return d.address?.city || d.address?.town || d.address?.village || "";
+    };
+
     const locateMe = () => {
         if (!navigator.geolocation) return;
         setLocating(true);
         navigator.geolocation.getCurrentPosition(async pos => {
             try {
-                const r = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&format=json`);
-                const d = await r.json();
-                const cityName = d.address?.city || d.address?.town || d.address?.village || "";
-                if (cityName) setCity(cityName);
+                const cityName = await resolveCity(pos.coords.latitude, pos.coords.longitude);
+                if (cityName) { setCity(cityName); localStorage.setItem("bizfind_city", cityName); }
             } catch { }
             finally { setLocating(false); }
         }, () => setLocating(false));
+    };
+
+    const requestLocationFromModal = () => {
+        setShowLocationModal(false);
+        localStorage.setItem("bizfind_location_asked", "yes");
+        if (!navigator.geolocation) return;
+        setLocating(true);
+        navigator.geolocation.getCurrentPosition(async pos => {
+            try {
+                const cityName = await resolveCity(pos.coords.latitude, pos.coords.longitude);
+                if (cityName) { setCity(cityName); localStorage.setItem("bizfind_city", cityName); }
+            } catch { }
+            finally { setLocating(false); }
+        }, () => setLocating(false));
+    };
+
+    const dismissLocationModal = () => {
+        setShowLocationModal(false);
+        localStorage.setItem("bizfind_location_asked", "dismissed");
     };
 
     const selectType = (id: string) => setSelectedType(prev => prev === id ? "" : id);
@@ -235,6 +254,30 @@ export default function HomePage() {
 
     return (
         <div dir="rtl" style={{ minHeight: "100vh", background: "#ffffff", fontFamily: "system-ui,sans-serif", color: "#1e293b" }}>
+
+            {/* ── Location Permission Modal ── */}
+            {showLocationModal && (
+                <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", alignItems: "flex-end", justifyContent: "center", background: "rgba(0,0,0,.55)", backdropFilter: "blur(4px)", animation: "fadeIn .25s ease" }}
+                    onClick={e => { if (e.target === e.currentTarget) dismissLocationModal(); }}>
+                    <div style={{ background: "#fff", borderRadius: "28px 28px 0 0", padding: "2.25rem 2rem 2.5rem", width: "100%", maxWidth: 520, textAlign: "center", animation: "slideUp .3s ease" }}>
+                        <style>{`@keyframes slideUp { from { transform: translateY(100%); opacity: 0; } to { transform: none; opacity: 1; } }`}</style>
+                        <div style={{ width: 72, height: 72, borderRadius: "50%", background: "linear-gradient(135deg,#2563eb,#1d4ed8)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "2rem", margin: "0 auto 1.25rem" }}>📍</div>
+                        <div style={{ fontWeight: 900, fontSize: "1.25rem", color: "#0f172a", marginBottom: "0.6rem" }}>BizFind רוצה לגשת למיקום שלך</div>
+                        <div style={{ color: "#64748b", fontSize: "0.92rem", lineHeight: 1.65, marginBottom: "2rem" }}>
+                            כדי להציג עסקים, ספרים, סטודיואים וספא<br />
+                            <strong>קרובים אליך</strong> — בדיוק כמו Wolt.
+                        </div>
+                        <button type="button" onClick={requestLocationFromModal}
+                            style={{ width: "100%", background: "linear-gradient(135deg,#2563eb,#1d4ed8)", color: "#fff", border: "none", borderRadius: 16, padding: "1rem", fontSize: "1rem", fontWeight: 800, cursor: "pointer", marginBottom: "0.85rem", boxShadow: "0 4px 16px rgba(37,99,235,.35)" }}>
+                            📍 אפשר גישה למיקום
+                        </button>
+                        <button type="button" onClick={dismissLocationModal}
+                            style={{ background: "none", border: "none", color: "#94a3b8", fontSize: "0.88rem", cursor: "pointer", fontWeight: 600 }}>
+                            אחר כך
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {/* ── Header ── */}
             <header style={{ background: "#fff", borderBottom: "1px solid #f1f5f9", padding: "0 1.25rem", height: 56, display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 40, boxShadow: "0 1px 8px rgba(0,0,0,.06)" }}>
@@ -309,18 +352,6 @@ export default function HomePage() {
                     </section>
                 )}
 
-                {/* ── Map ── */}
-                {!isSearching && studios.length > 0 && (
-                    <section style={{ padding: "1.5rem 0" }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.85rem" }}>
-                            <h2 style={{ fontWeight: 800, fontSize: "1rem", color: "#1e293b", margin: 0 }}>🗺️ עסקים על המפה</h2>
-                            <Link href="/explore" style={{ fontSize: "0.78rem", color: "#2563eb", textDecoration: "none", fontWeight: 600 }}>
-                                explore מלא ←
-                            </Link>
-                        </div>
-                        <MapView studios={studios} />
-                    </section>
-                )}
 
                 {/* ── Results ── */}
                 <section style={{ padding: "1.5rem 0 3rem" }}>
