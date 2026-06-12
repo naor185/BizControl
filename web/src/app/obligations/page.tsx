@@ -30,30 +30,200 @@ const fmt = (cents: number) =>
     (cents / 100).toLocaleString("he-IL", { style: "currency", currency: "ILS", maximumFractionDigits: 0 });
 
 const DIRECTION_COLORS = {
-    incoming: { bg: "bg-emerald-50", border: "border-emerald-200", badge: "bg-emerald-100 text-emerald-700", label: "מגיע לי", icon: "⬅️" },
-    outgoing: { bg: "bg-orange-50", border: "border-orange-200", badge: "bg-orange-100 text-orange-700", label: "אני חייב", icon: "➡️" },
+    incoming: { bg: "bg-emerald-50", border: "border-emerald-300", badge: "bg-emerald-100 text-emerald-700", label: "מגיע לי", icon: "⬅️" },
+    outgoing: { bg: "bg-orange-50", border: "border-orange-300", badge: "bg-orange-100 text-orange-700", label: "אני חייב", icon: "➡️" },
 };
 
 const PRESET_COLORS = ["#f97316", "#10b981", "#3b82f6", "#8b5cf6", "#ec4899", "#ef4444", "#eab308", "#06b6d4"];
+
+// Reusable day picker — visual grid of days 1–28
+function DayPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+    return (
+        <div>
+            <label className="text-xs font-semibold text-slate-600 mb-1 block">
+                יום בחודש לתשלום <span className="text-rose-500">*</span>
+            </label>
+            <div className="grid grid-cols-7 gap-1">
+                {Array.from({ length: 28 }, (_, i) => String(i + 1)).map(d => (
+                    <button
+                        key={d}
+                        type="button"
+                        onClick={() => onChange(d)}
+                        className={`h-8 rounded-lg text-xs font-bold transition-all ${value === d
+                            ? "bg-slate-800 text-white"
+                            : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+                    >
+                        {d}
+                    </button>
+                ))}
+            </div>
+            {!value && <p className="text-xs text-rose-500 mt-1">יש לבחור יום</p>}
+        </div>
+    );
+}
+
+// Obligation form (shared between create and edit)
+function ObligationForm({
+    initial,
+    onSave,
+    onCancel,
+    isEdit,
+}: {
+    initial?: Partial<Obligation>;
+    onSave: (data: any) => Promise<void>;
+    onCancel: () => void;
+    isEdit?: boolean;
+}) {
+    const [title, setTitle] = useState(initial?.title ?? "");
+    const [counterparty, setCounterparty] = useState(initial?.counterparty ?? "");
+    const [direction, setDirection] = useState<"incoming" | "outgoing">(initial?.direction ?? "outgoing");
+    const [totalAmount, setTotalAmount] = useState(initial ? String((initial.total_amount_cents ?? 0) / 100) : "");
+    const [monthlyPayment, setMonthlyPayment] = useState(initial ? String((initial.monthly_payment_cents ?? 0) / 100) : "");
+    const [dayOfMonth, setDayOfMonth] = useState(initial?.day_of_month ? String(initial.day_of_month) : "");
+    const [startDate, setStartDate] = useState(initial?.start_date ?? new Date().toISOString().slice(0, 10));
+    const [color, setColor] = useState(initial?.color ?? "#f97316");
+    const [notes, setNotes] = useState(initial?.notes ?? "");
+    const [saving, setSaving] = useState(false);
+
+    const predictedMonths = (() => {
+        const t = parseFloat(totalAmount);
+        const m = parseFloat(monthlyPayment);
+        if (!t || !m || m <= 0) return null;
+        return Math.ceil(t / m);
+    })();
+
+    const handleSave = async () => {
+        if (!title.trim() || !totalAmount || !monthlyPayment) {
+            toast.error("יש למלא שם, סכום כולל ותשלום חודשי");
+            return;
+        }
+        if (!dayOfMonth) {
+            toast.error("יש לבחור יום בחודש לתשלום");
+            return;
+        }
+        const totalCents = Math.round(parseFloat(totalAmount) * 100);
+        const monthlyCents = Math.round(parseFloat(monthlyPayment) * 100);
+        if (totalCents <= 0 || monthlyCents <= 0) { toast.error("הסכומים חייבים להיות חיוביים"); return; }
+        if (monthlyCents > totalCents) { toast.error("התשלום החודשי לא יכול לעלות על הסכום הכולל"); return; }
+
+        setSaving(true);
+        try {
+            await onSave({
+                title: title.trim(),
+                counterparty: counterparty.trim() || null,
+                direction,
+                total_amount_cents: totalCents,
+                monthly_payment_cents: monthlyCents,
+                day_of_month: parseInt(dayOfMonth),
+                start_date: startDate,
+                color,
+                notes: notes.trim() || null,
+            });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <div className="bg-white border border-slate-200 rounded-2xl shadow-lg p-5 space-y-4">
+            <div className="text-base font-bold text-slate-800">
+                {isEdit ? "✏️ עריכת התחייבות" : "הוסף התחייבות חדשה"}
+            </div>
+
+            {/* Direction toggle — only for new */}
+            {!isEdit && (
+                <div className="flex gap-2">
+                    {(["outgoing", "incoming"] as const).map(d => (
+                        <button type="button" key={d} onClick={() => setDirection(d)}
+                            className={`flex-1 py-2 rounded-xl text-sm font-bold border-2 transition-all ${direction === d
+                                ? d === "outgoing" ? "bg-orange-500 text-white border-orange-500" : "bg-emerald-500 text-white border-emerald-500"
+                                : "bg-white text-slate-600 border-slate-200"}`}>
+                            {d === "outgoing" ? "➡️ אני חייב" : "⬅️ מגיע לי"}
+                        </button>
+                    ))}
+                </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2">
+                    <label className="text-xs font-semibold text-slate-600 mb-1 block">שם ההתחייבות *</label>
+                    <input value={title} onChange={e => setTitle(e.target.value)} placeholder='למשל: "הלוואה מהבנק"'
+                        className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400" />
+                </div>
+                <div className="col-span-2">
+                    <label className="text-xs font-semibold text-slate-600 mb-1 block">צד שני (אופציונלי)</label>
+                    <input value={counterparty} onChange={e => setCounterparty(e.target.value)} placeholder="שם אדם / חברה"
+                        className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400" />
+                </div>
+                <div>
+                    <label className="text-xs font-semibold text-slate-600 mb-1 block">סכום כולל (₪) *</label>
+                    <input type="number" value={totalAmount} onChange={e => setTotalAmount(e.target.value)} placeholder="100000"
+                        className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400" />
+                </div>
+                <div>
+                    <label className="text-xs font-semibold text-slate-600 mb-1 block">תשלום חודשי (₪) *</label>
+                    <input type="number" value={monthlyPayment} onChange={e => setMonthlyPayment(e.target.value)} placeholder="5000"
+                        className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400" />
+                </div>
+                {!isEdit && (
+                    <div className="col-span-2">
+                        <label className="text-xs font-semibold text-slate-600 mb-1 block">תאריך התחלה</label>
+                        <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
+                            className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400" />
+                    </div>
+                )}
+            </div>
+
+            {/* Day picker — prominent */}
+            <DayPicker value={dayOfMonth} onChange={setDayOfMonth} />
+
+            {/* Preview */}
+            {predictedMonths && dayOfMonth && (
+                <div className="bg-blue-50 rounded-xl px-4 py-3 text-sm text-blue-700 border border-blue-100">
+                    📅 <strong>{predictedMonths} חודשים</strong> של תשלומים, כל <strong>{dayOfMonth}</strong> לחודש
+                    • סה״כ: <strong>{fmt(Math.round(parseFloat(monthlyPayment) * predictedMonths * 100))}</strong>
+                </div>
+            )}
+
+            {/* Color */}
+            <div>
+                <label className="text-xs font-semibold text-slate-600 mb-2 block">צבע ביומן</label>
+                <div className="flex gap-2 flex-wrap">
+                    {PRESET_COLORS.map(c => (
+                        <button type="button" key={c} onClick={() => setColor(c)}
+                            style={{ backgroundColor: c }}
+                            className={`w-7 h-7 rounded-full transition-all ${color === c ? "ring-2 ring-offset-2 ring-slate-400 scale-110" : "hover:scale-105"}`} />
+                    ))}
+                </div>
+            </div>
+
+            <div>
+                <label className="text-xs font-semibold text-slate-600 mb-1 block">הערות</label>
+                <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2}
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 resize-none" />
+            </div>
+
+            <div className="flex gap-2 pt-1">
+                <button type="button" onClick={handleSave} disabled={saving}
+                    className="flex-1 bg-slate-900 text-white font-bold py-2.5 rounded-xl text-sm hover:bg-slate-700 disabled:opacity-50 transition-colors">
+                    {saving ? "שומר..." : isEdit ? "✓ שמור שינויים" : "✓ שמור + סמן ביומן"}
+                </button>
+                <button type="button" onClick={onCancel}
+                    className="px-5 border border-slate-200 rounded-xl text-sm text-slate-600 hover:bg-slate-50">
+                    ביטול
+                </button>
+            </div>
+        </div>
+    );
+}
 
 export default function ObligationsPage() {
     const [obligations, setObligations] = useState<Obligation[]>([]);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
-    const [saving, setSaving] = useState(false);
+    const [editingOb, setEditingOb] = useState<Obligation | null>(null);
     const [markingId, setMarkingId] = useState<string | null>(null);
     const [deletingId, setDeletingId] = useState<string | null>(null);
-
-    // Form state
-    const [title, setTitle] = useState("");
-    const [counterparty, setCounterparty] = useState("");
-    const [direction, setDirection] = useState<"incoming" | "outgoing">("outgoing");
-    const [totalAmount, setTotalAmount] = useState("");
-    const [monthlyPayment, setMonthlyPayment] = useState("");
-    const [dayOfMonth, setDayOfMonth] = useState("1");
-    const [startDate, setStartDate] = useState(() => new Date().toISOString().slice(0, 10));
-    const [color, setColor] = useState("#f97316");
-    const [notes, setNotes] = useState("");
 
     const load = useCallback(async () => {
         try {
@@ -66,45 +236,19 @@ export default function ObligationsPage() {
 
     useEffect(() => { load(); }, [load]);
 
-    const resetForm = () => {
-        setTitle(""); setCounterparty(""); setDirection("outgoing");
-        setTotalAmount(""); setMonthlyPayment(""); setDayOfMonth("1");
-        setStartDate(new Date().toISOString().slice(0, 10));
-        setColor("#f97316"); setNotes("");
+    const handleCreate = async (data: any) => {
+        await apiFetch<Obligation>("/api/obligations", { method: "POST", body: JSON.stringify(data) });
+        toast.success("התחייבות נוספה — תשלומים סומנו ביומן");
+        setShowForm(false);
+        load();
     };
 
-    const handleSave = async () => {
-        if (!title.trim() || !totalAmount || !monthlyPayment) {
-            toast.error("יש למלא שם, סכום כולל ותשלום חודשי");
-            return;
-        }
-        const totalCents = Math.round(parseFloat(totalAmount) * 100);
-        const monthlyCents = Math.round(parseFloat(monthlyPayment) * 100);
-        if (totalCents <= 0 || monthlyCents <= 0) { toast.error("הסכומים חייבים להיות חיוביים"); return; }
-        if (monthlyCents > totalCents) { toast.error("התשלום החודשי לא יכול לעלות על הסכום הכולל"); return; }
-
-        setSaving(true);
-        try {
-            await apiFetch<Obligation>("/api/obligations", {
-                method: "POST",
-                body: JSON.stringify({
-                    title: title.trim(),
-                    counterparty: counterparty.trim() || null,
-                    direction,
-                    total_amount_cents: totalCents,
-                    monthly_payment_cents: monthlyCents,
-                    day_of_month: parseInt(dayOfMonth),
-                    start_date: startDate,
-                    color,
-                    notes: notes.trim() || null,
-                }),
-            });
-            toast.success("התחייבות נוספה — תשלומים סומנו ביומן");
-            setShowForm(false);
-            resetForm();
-            load();
-        } catch (e: any) { toast.error(e?.message || "שגיאה"); }
-        finally { setSaving(false); }
+    const handleEdit = async (data: any) => {
+        if (!editingOb) return;
+        await apiFetch(`/api/obligations/${editingOb.id}`, { method: "PATCH", body: JSON.stringify(data) });
+        toast.success("עודכן — היומן עודכן אוטומטית");
+        setEditingOb(null);
+        load();
     };
 
     const handleMarkPaid = async (id: string) => {
@@ -135,14 +279,7 @@ export default function ObligationsPage() {
         } catch { toast.error("שגיאה במחיקה"); }
     };
 
-    const predictedMonths = (() => {
-        const t = parseFloat(totalAmount);
-        const m = parseFloat(monthlyPayment);
-        if (!t || !m || m <= 0) return null;
-        return Math.ceil(t / m);
-    })();
-
-    const active = obligations.filter(o => o.status === "active");
+    const active = obligations.filter(o => o.status !== "completed");
     const completed = obligations.filter(o => o.status === "completed");
 
     return (
@@ -156,13 +293,12 @@ export default function ObligationsPage() {
                             <h1 className="text-2xl font-black text-slate-800">💳 התחייבויות פיננסיות</h1>
                             <p className="text-sm text-slate-500 mt-0.5">מעקב הלוואות, חובות וגבייה — מסומן אוטומטית ביומן</p>
                         </div>
-                        <button
-                            type="button"
-                            onClick={() => { setShowForm(true); resetForm(); }}
-                            className="bg-slate-900 text-white font-bold px-4 py-2.5 rounded-xl text-sm hover:bg-slate-700 transition-colors shadow"
-                        >
-                            + הוסף התחייבות
-                        </button>
+                        {!showForm && !editingOb && (
+                            <button type="button" onClick={() => setShowForm(true)}
+                                className="bg-slate-900 text-white font-bold px-4 py-2.5 rounded-xl text-sm hover:bg-slate-700 transition-colors shadow">
+                                + הוסף התחייבות
+                            </button>
+                        )}
                     </div>
 
                     {/* Summary cards */}
@@ -183,105 +319,38 @@ export default function ObligationsPage() {
                         </div>
                     )}
 
-                    {/* Add form */}
+                    {/* Create form */}
                     {showForm && (
-                        <div className="bg-white border border-slate-200 rounded-2xl shadow-lg p-5 space-y-4">
-                            <div className="text-base font-bold text-slate-800">הוסף התחייבות חדשה</div>
-
-                            {/* Direction toggle */}
-                            <div className="flex gap-2">
-                                {(["outgoing", "incoming"] as const).map(d => (
-                                    <button type="button" key={d} onClick={() => setDirection(d)}
-                                        className={`flex-1 py-2 rounded-xl text-sm font-bold border-2 transition-all ${direction === d
-                                            ? d === "outgoing" ? "bg-orange-500 text-white border-orange-500" : "bg-emerald-500 text-white border-emerald-500"
-                                            : "bg-white text-slate-600 border-slate-200"}`}>
-                                        {d === "outgoing" ? "➡️ אני חייב" : "⬅️ מגיע לי"}
-                                    </button>
-                                ))}
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-3">
-                                <div className="col-span-2">
-                                    <label className="text-xs font-semibold text-slate-600 mb-1 block">שם ההתחייבות *</label>
-                                    <input value={title} onChange={e => setTitle(e.target.value)} placeholder='למשל: "הלוואה מהבנק"'
-                                        className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400" />
-                                </div>
-                                <div className="col-span-2">
-                                    <label className="text-xs font-semibold text-slate-600 mb-1 block">צד שני (אופציונלי)</label>
-                                    <input value={counterparty} onChange={e => setCounterparty(e.target.value)} placeholder="שם אדם / חברה"
-                                        className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400" />
-                                </div>
-                                <div>
-                                    <label className="text-xs font-semibold text-slate-600 mb-1 block">סכום כולל (₪) *</label>
-                                    <input type="number" value={totalAmount} onChange={e => setTotalAmount(e.target.value)} placeholder="100000"
-                                        className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400" />
-                                </div>
-                                <div>
-                                    <label className="text-xs font-semibold text-slate-600 mb-1 block">תשלום חודשי (₪) *</label>
-                                    <input type="number" value={monthlyPayment} onChange={e => setMonthlyPayment(e.target.value)} placeholder="5000"
-                                        className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400" />
-                                </div>
-                                <div>
-                                    <label className="text-xs font-semibold text-slate-600 mb-1 block">יום בחודש לתשלום</label>
-                                    <input type="number" min="1" max="28" value={dayOfMonth} onChange={e => setDayOfMonth(e.target.value)}
-                                        className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400" />
-                                </div>
-                                <div>
-                                    <label className="text-xs font-semibold text-slate-600 mb-1 block">תאריך התחלה</label>
-                                    <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
-                                        className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400" />
-                                </div>
-                            </div>
-
-                            {/* Preview */}
-                            {predictedMonths && (
-                                <div className="bg-slate-50 rounded-xl px-4 py-3 text-sm text-slate-600 border border-slate-100">
-                                    📅 <strong>{predictedMonths} חודשים</strong> של תשלומים •
-                                    סה״כ ישולם: <strong>{fmt(Math.round(parseFloat(monthlyPayment) * predictedMonths * 100))}</strong>
-                                </div>
-                            )}
-
-                            {/* Color */}
-                            <div>
-                                <label className="text-xs font-semibold text-slate-600 mb-2 block">צבע ביומן</label>
-                                <div className="flex gap-2 flex-wrap">
-                                    {PRESET_COLORS.map(c => (
-                                        <button type="button" key={c} onClick={() => setColor(c)}
-                                            style={{ backgroundColor: c }}
-                                            className={`w-7 h-7 rounded-full transition-all ${color === c ? "ring-2 ring-offset-2 ring-slate-400 scale-110" : "hover:scale-105"}`} />
-                                    ))}
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="text-xs font-semibold text-slate-600 mb-1 block">הערות</label>
-                                <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2}
-                                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 resize-none" />
-                            </div>
-
-                            <div className="flex gap-2 pt-1">
-                                <button type="button" onClick={handleSave} disabled={saving}
-                                    className="flex-1 bg-slate-900 text-white font-bold py-2.5 rounded-xl text-sm hover:bg-slate-700 disabled:opacity-50 transition-colors">
-                                    {saving ? "שומר..." : "✓ שמור + סמן ביומן"}
-                                </button>
-                                <button type="button" onClick={() => setShowForm(false)}
-                                    className="px-5 border border-slate-200 rounded-xl text-sm text-slate-600 hover:bg-slate-50">
-                                    ביטול
-                                </button>
-                            </div>
-                        </div>
+                        <ObligationForm
+                            onSave={handleCreate}
+                            onCancel={() => setShowForm(false)}
+                        />
                     )}
 
-                    {/* Loading */}
-                    {loading && (
-                        <div className="text-center py-16 text-slate-400">טוען...</div>
+                    {/* Edit form */}
+                    {editingOb && (
+                        <ObligationForm
+                            initial={editingOb}
+                            onSave={handleEdit}
+                            onCancel={() => setEditingOb(null)}
+                            isEdit
+                        />
                     )}
+
+                    {loading && <div className="text-center py-16 text-slate-400">טוען...</div>}
 
                     {/* Active obligations */}
                     {!loading && active.length > 0 && (
                         <div className="space-y-3">
                             <div className="text-xs font-bold text-slate-500 uppercase tracking-wider px-1">פעילות</div>
-                            {active.map(ob => <ObligationCard key={ob.id} ob={ob} onMarkPaid={handleMarkPaid} onUnmark={handleUnmarkPaid} onDelete={setDeletingId} markingId={markingId} />)}
+                            {active.map(ob => (
+                                <ObligationCard key={ob.id} ob={ob}
+                                    onMarkPaid={handleMarkPaid}
+                                    onUnmark={handleUnmarkPaid}
+                                    onEdit={() => setEditingOb(ob)}
+                                    onDelete={setDeletingId}
+                                    markingId={markingId} />
+                            ))}
                         </div>
                     )}
 
@@ -289,7 +358,14 @@ export default function ObligationsPage() {
                     {!loading && completed.length > 0 && (
                         <div className="space-y-3">
                             <div className="text-xs font-bold text-slate-400 uppercase tracking-wider px-1">הושלמו ✓</div>
-                            {completed.map(ob => <ObligationCard key={ob.id} ob={ob} onMarkPaid={handleMarkPaid} onUnmark={handleUnmarkPaid} onDelete={setDeletingId} markingId={markingId} />)}
+                            {completed.map(ob => (
+                                <ObligationCard key={ob.id} ob={ob}
+                                    onMarkPaid={handleMarkPaid}
+                                    onUnmark={handleUnmarkPaid}
+                                    onEdit={() => setEditingOb(ob)}
+                                    onDelete={setDeletingId}
+                                    markingId={markingId} />
+                            ))}
                         </div>
                     )}
 
@@ -305,7 +381,7 @@ export default function ObligationsPage() {
                     {/* Delete confirm */}
                     {deletingId && (
                         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setDeletingId(null)}>
-                            <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full text-center" onClick={e => e.stopPropagation()}>
+                            <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full text-center" onClick={e => e.stopPropagation()} dir="rtl">
                                 <div className="text-4xl mb-3">🗑️</div>
                                 <div className="font-bold text-slate-800 mb-2">מחיקת התחייבות</div>
                                 <p className="text-sm text-slate-500 mb-5">הרשומה והאירוע ביומן יימחקו. לא ניתן לשחזר.</p>
@@ -322,10 +398,11 @@ export default function ObligationsPage() {
     );
 }
 
-function ObligationCard({ ob, onMarkPaid, onUnmark, onDelete, markingId }: {
+function ObligationCard({ ob, onMarkPaid, onUnmark, onEdit, onDelete, markingId }: {
     ob: Obligation;
     onMarkPaid: (id: string) => void;
     onUnmark: (id: string) => void;
+    onEdit: () => void;
     onDelete: (id: string) => void;
     markingId: string | null;
 }) {
@@ -346,14 +423,17 @@ function ObligationCard({ ob, onMarkPaid, onUnmark, onDelete, markingId }: {
                     <div className="font-bold text-slate-800 text-base mt-1">{ob.title}</div>
                     {ob.counterparty && <div className="text-xs text-slate-500 mt-0.5">{ob.counterparty}</div>}
                 </div>
-                <button type="button" onClick={() => onDelete(ob.id)} className="text-slate-300 hover:text-red-400 transition-colors text-xl leading-none shrink-0">×</button>
+                <div className="flex gap-1 shrink-0">
+                    <button type="button" onClick={onEdit} className="text-slate-400 hover:text-blue-500 transition-colors text-sm px-1.5" title="ערוך">✏️</button>
+                    <button type="button" onClick={() => onDelete(ob.id)} className="text-slate-300 hover:text-red-400 transition-colors text-xl leading-none px-1" title="מחק">×</button>
+                </div>
             </div>
 
             {/* Progress bar */}
             <div className="mb-3">
                 <div className="flex justify-between text-xs text-slate-500 mb-1">
                     <span>{ob.months_paid} מתוך {ob.months_total} חודשים שולמו</span>
-                    <span>{pct}%</span>
+                    <span className="font-bold">{pct}%</span>
                 </div>
                 <div className="h-2.5 bg-white/60 rounded-full overflow-hidden border border-white">
                     <div className="h-full rounded-full transition-all duration-500"
@@ -380,14 +460,14 @@ function ObligationCard({ ob, onMarkPaid, onUnmark, onDelete, markingId }: {
             {/* Footer */}
             <div className="flex items-center justify-between gap-2">
                 <div className="text-xs text-slate-500">
-                    📅 כל {ob.day_of_month} לחודש • {fmt(ob.monthly_payment_cents)}/חודש
+                    📅 כל <strong>{ob.day_of_month}</strong> לחודש • {fmt(ob.monthly_payment_cents)}/חודש
                     {ob.months_remaining > 0 && <> • עוד <strong>{ob.months_remaining}</strong> חודשים</>}
                 </div>
                 {!isCompleted && (
                     <div className="flex gap-1.5 shrink-0">
                         {ob.months_paid > 0 && (
                             <button type="button" onClick={() => onUnmark(ob.id)} disabled={busy}
-                                className="text-xs px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-50 transition-colors">
+                                className="text-xs px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-50 transition-colors" title="בטל תשלום אחרון">
                                 ↩
                             </button>
                         )}

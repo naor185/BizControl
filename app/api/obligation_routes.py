@@ -41,6 +41,7 @@ class ObligationUpdate(BaseModel):
     title: Optional[str] = Field(default=None, min_length=1, max_length=200)
     counterparty: Optional[str] = None
     notes: Optional[str] = None
+    total_amount_cents: Optional[int] = Field(default=None, gt=0)
     monthly_payment_cents: Optional[int] = Field(default=None, gt=0)
     day_of_month: Optional[int] = Field(default=None, ge=1, le=28)
     color: Optional[str] = None
@@ -184,8 +185,8 @@ def update_obligation(
     for k, v in body.model_dump(exclude_unset=True).items():
         setattr(ob, k, v)
 
-    # Update linked task title/color/end-date if relevant fields changed
-    if ob.task_id and any(k in body.model_dump(exclude_unset=True) for k in ("title", "color", "monthly_payment_cents", "day_of_month", "notes")):
+    # Sync linked task whenever any relevant field changes
+    if ob.task_id and any(k in body.model_dump(exclude_unset=True) for k in ("title", "color", "monthly_payment_cents", "day_of_month", "total_amount_cents", "notes")):
         task = db.get(Task, ob.task_id)
         if task:
             updated = _make_task(ob, ctx.studio_id)
