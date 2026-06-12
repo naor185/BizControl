@@ -553,6 +553,107 @@ def ensure_schema():
         """)
         cur.execute("CREATE INDEX IF NOT EXISTS ix_financial_obligations_studio ON financial_obligations (studio_id)")
 
+        # ── Invoice / Document System ─────────────────────────────────────────
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS invoice_settings (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                studio_id UUID NOT NULL UNIQUE REFERENCES studios(id) ON DELETE CASCADE,
+                business_type VARCHAR(20) NOT NULL DEFAULT 'osek_patur',
+                business_name VARCHAR(200),
+                business_number VARCHAR(20),
+                vat_rate NUMERIC(5,2) NOT NULL DEFAULT 18.00,
+                business_address TEXT,
+                business_city VARCHAR(100),
+                business_phone VARCHAR(32),
+                business_email VARCHAR(255),
+                logo_url TEXT,
+                signature_url TEXT,
+                payment_terms TEXT,
+                default_notes TEXT,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS invoice_series (
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                doc_type VARCHAR(30) NOT NULL,
+                next_number INTEGER NOT NULL DEFAULT 1000,
+                PRIMARY KEY (studio_id, doc_type)
+            )
+        """)
+
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS invoices (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE RESTRICT,
+                doc_type VARCHAR(30) NOT NULL,
+                doc_number INTEGER NOT NULL,
+                status VARCHAR(10) NOT NULL DEFAULT 'issued',
+
+                client_id UUID REFERENCES clients(id) ON DELETE SET NULL,
+                client_name VARCHAR(200),
+                client_phone VARCHAR(32),
+                client_email VARCHAR(255),
+                client_address TEXT,
+                client_business_number VARCHAR(20),
+
+                business_name VARCHAR(200) NOT NULL,
+                business_type VARCHAR(20) NOT NULL,
+                business_number VARCHAR(20),
+                business_address TEXT,
+                business_phone VARCHAR(32),
+                business_email VARCHAR(255),
+                business_logo_url TEXT,
+
+                subtotal_cents INTEGER NOT NULL DEFAULT 0,
+                vat_rate NUMERIC(5,2) NOT NULL DEFAULT 18.00,
+                vat_amount_cents INTEGER NOT NULL DEFAULT 0,
+                total_cents INTEGER NOT NULL DEFAULT 0,
+                tip_cents INTEGER NOT NULL DEFAULT 0,
+
+                payment_method VARCHAR(30),
+                payment_reference VARCHAR(200),
+                payment_date DATE,
+
+                credited_by_id UUID,
+                credits_invoice_id UUID,
+
+                notes TEXT,
+                payment_terms TEXT,
+                signature_url TEXT,
+
+                source VARCHAR(20) DEFAULT 'manual',
+                source_id UUID,
+                issued_by_id UUID REFERENCES users(id) ON DELETE SET NULL,
+                pdf_url TEXT,
+
+                issued_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+                UNIQUE (studio_id, doc_type, doc_number)
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_invoices_studio ON invoices (studio_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_invoices_client ON invoices (studio_id, client_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_invoices_issued_at ON invoices (studio_id, issued_at)")
+
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS invoice_items (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                invoice_id UUID NOT NULL REFERENCES invoices(id) ON DELETE CASCADE,
+                description VARCHAR(300) NOT NULL,
+                quantity NUMERIC(10,3) NOT NULL DEFAULT 1,
+                unit_price_cents INTEGER NOT NULL,
+                total_price_cents INTEGER NOT NULL,
+                product_id UUID REFERENCES products(id) ON DELETE SET NULL,
+                service_id UUID REFERENCES services(id) ON DELETE SET NULL,
+                sort_order INTEGER NOT NULL DEFAULT 0
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_invoice_items_invoice ON invoice_items (invoice_id)")
+
         conn.commit()
         cur.close()
         conn.close()
