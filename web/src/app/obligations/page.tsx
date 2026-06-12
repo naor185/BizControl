@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import AppShell from "@/components/AppShell";
 import RequireAuth from "@/components/RequireAuth";
 import { apiFetch } from "@/lib/api";
@@ -292,6 +292,49 @@ export default function ObligationsPage() {
     const active = obligations.filter(o => o.status !== "completed");
     const completed = obligations.filter(o => o.status === "completed");
 
+    // ── Monthly cashflow from all active obligations ──────────────────────────
+    const monthlyCashflow = useMemo(() => {
+        const map: Record<string, {
+            out: number; in: number;
+            items: { title: string; amount: number; direction: string }[];
+        }> = {};
+
+        for (const ob of obligations) {
+            if (ob.status === "completed") continue;
+            const { total_amount_cents: total, monthly_payment_cents: monthly, months_total, start_date, direction, title } = ob;
+            const remainder = total % monthly;
+            const [sy, sm] = start_date.split("-").map(Number);
+
+            for (let i = 0; i < months_total; i++) {
+                const rawMonth = sm + i;
+                const year = sy + Math.floor((rawMonth - 1) / 12);
+                const month = ((rawMonth - 1) % 12) + 1;
+                const key = `${year}-${String(month).padStart(2, "0")}`;
+                const isLast = i === months_total - 1;
+                const amount = isLast && remainder > 0 ? remainder : monthly;
+
+                if (!map[key]) map[key] = { out: 0, in: 0, items: [] };
+                if (direction === "outgoing") map[key].out += amount;
+                else map[key].in += amount;
+                map[key].items.push({ title, amount, direction });
+            }
+        }
+
+        return Object.entries(map)
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([key, data]) => {
+                const [y, m] = key.split("-").map(Number);
+                return {
+                    key,
+                    label: new Date(y, m - 1, 1).toLocaleDateString("he-IL", { month: "long", year: "numeric" }),
+                    out: data.out,
+                    inflow: data.in,
+                    net: data.in - data.out,
+                    items: data.items,
+                };
+            });
+    }, [obligations]);
+
     return (
         <RequireAuth>
             <AppShell title="התחייבויות">
@@ -327,6 +370,11 @@ export default function ObligationsPage() {
                                 </div>
                             </div>
                         </div>
+                    )}
+
+                    {/* Monthly cashflow table */}
+                    {!loading && monthlyCashflow.length > 0 && (
+                        <MonthlyCashflow rows={monthlyCashflow} />
                     )}
 
                     {/* Create form */}
@@ -405,6 +453,99 @@ export default function ObligationsPage() {
                 </div>
             </AppShell>
         </RequireAuth>
+    );
+}
+
+type CashflowRow = {
+    key: string;
+    label: string;
+    out: number;
+    inflow: number;
+    net: number;
+    items: { title: string; amount: number; direction: string }[];
+};
+
+function MonthlyCashflow({ rows }: { rows: CashflowRow[] }) {
+    const [expanded, setExpanded] = useState<string | null>(null);
+    const nowKey = (() => {
+        const d = new Date();
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    })();
+
+    return (
+        <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+            <div className="px-4 py-3 bg-slate-50 border-b border-slate-100">
+                <div className="text-sm font-bold text-slate-700">📊 תזרים חודשי — יציאות ולכניסות</div>
+                <div className="text-xs text-slate-400 mt-0.5">לפי כל ההתחייבויות הפעילות</div>
+            </div>
+
+            {/* Column headers */}
+            <div className="grid grid-cols-4 gap-2 px-4 py-2 text-[10px] font-bold text-slate-400 uppercase border-b border-slate-100">
+                <div>חודש</div>
+                <div className="text-center text-orange-500">יוצא ➡️</div>
+                <div className="text-center text-emerald-500">⬅️ נכנס</div>
+                <div className="text-center">מאזן</div>
+            </div>
+
+            <div className="divide-y divide-slate-50">
+                {rows.map(row => {
+                    const isCurrent = row.key === nowKey;
+                    const isPast = row.key < nowKey;
+                    const isOpen = expanded === row.key;
+                    return (
+                        <div key={row.key}>
+                            <button
+                                type="button"
+                                onClick={() => setExpanded(isOpen ? null : row.key)}
+                                className={`w-full grid grid-cols-4 gap-2 px-4 py-2.5 text-right transition-colors hover:bg-slate-50 ${isCurrent ? "bg-blue-50" : ""}`}
+                            >
+                                <div className={`text-xs font-semibold ${isPast ? "text-slate-400" : isCurrent ? "text-blue-700 font-bold" : "text-slate-700"}`}>
+                                    {isCurrent && <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-500 ml-1 mb-0.5" />}
+                                    {row.label}
+                                </div>
+                                <div className="text-center text-xs font-bold text-orange-600" dir="ltr">
+                                    {row.out > 0 ? `−${fmt(row.out)}` : "—"}
+                                </div>
+                                <div className="text-center text-xs font-bold text-emerald-600" dir="ltr">
+                                    {row.inflow > 0 ? `+${fmt(row.inflow)}` : "—"}
+                                </div>
+                                <div className={`text-center text-xs font-black ${row.net >= 0 ? "text-emerald-700" : "text-rose-600"}`} dir="ltr">
+                                    {row.net >= 0 ? "+" : ""}{fmt(row.net)}
+                                </div>
+                            </button>
+
+                            {/* Breakdown per obligation */}
+                            {isOpen && (
+                                <div className="bg-slate-50 px-4 py-2 space-y-1 border-t border-slate-100">
+                                    {row.items.map((item, i) => (
+                                        <div key={i} className="flex justify-between text-xs text-slate-600">
+                                            <span className={item.direction === "outgoing" ? "text-orange-600" : "text-emerald-600"}>
+                                                {item.direction === "outgoing" ? "➡️" : "⬅️"} {item.title}
+                                            </span>
+                                            <span className="font-bold" dir="ltr">{fmt(item.amount)}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    );
+                })}
+            </div>
+
+            {/* Footer total */}
+            <div className="grid grid-cols-4 gap-2 px-4 py-3 bg-slate-50 border-t border-slate-200">
+                <div className="text-xs font-bold text-slate-600">סה״כ כולל</div>
+                <div className="text-center text-xs font-black text-orange-700" dir="ltr">
+                    −{fmt(rows.reduce((s, r) => s + r.out, 0))}
+                </div>
+                <div className="text-center text-xs font-black text-emerald-700" dir="ltr">
+                    +{fmt(rows.reduce((s, r) => s + r.inflow, 0))}
+                </div>
+                <div className={`text-center text-xs font-black ${rows.reduce((s, r) => s + r.net, 0) >= 0 ? "text-emerald-700" : "text-rose-600"}`} dir="ltr">
+                    {fmt(rows.reduce((s, r) => s + r.net, 0))}
+                </div>
+            </div>
+        </div>
     );
 }
 
