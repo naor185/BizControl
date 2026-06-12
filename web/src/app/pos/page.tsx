@@ -143,6 +143,11 @@ export default function PosPage() {
     const [addingClient, setAddingClient] = useState(false);
     const [pointsRedeemed, setPointsRedeemed] = useState(0);
     const [usePoints, setUsePoints] = useState(false);
+    const [giftCardCode, setGiftCardCode] = useState("");
+    const [giftCardInfo, setGiftCardInfo] = useState<{ balance_ils: number; recipient_name: string } | null>(null);
+    const [giftCardDiscount, setGiftCardDiscount] = useState(0);
+    const [giftCardLoading, setGiftCardLoading] = useState(false);
+    const [giftCardError, setGiftCardError] = useState("");
     // Mobile: which panel is active
     const [mobileTab, setMobileTab] = useState<"pad" | "cart">("pad");
 
@@ -196,6 +201,21 @@ export default function PosPage() {
         setCart(prev => prev.map(i => i.key === key ? { ...i, quantity: Math.max(0, i.quantity + delta) } : i).filter(i => i.quantity > 0));
     const removeItem = (key: string) => setCart(prev => prev.filter(i => i.key !== key));
 
+    const validateGiftCard = async () => {
+        const code = giftCardCode.trim().toUpperCase();
+        if (!code) return;
+        setGiftCardLoading(true); setGiftCardError(""); setGiftCardInfo(null);
+        try {
+            const r = await apiFetch<{ balance_ils: number; recipient_name: string; status: string }>(
+                `/api/public/gift-cards/${encodeURIComponent(code)}`
+            );
+            if (r.status !== "active") { setGiftCardError("כרטיס לא פעיל"); return; }
+            setGiftCardInfo(r);
+            setGiftCardDiscount(Math.floor(r.balance_ils));
+        } catch { setGiftCardError("קוד לא תקין"); }
+        finally { setGiftCardLoading(false); }
+    };
+
     const validateCoupon = async () => {
         if (!couponCode.trim()) return;
         setCouponLoading(true); setCouponError("");
@@ -210,11 +230,11 @@ export default function PosPage() {
     const subtotal = cart.reduce((s, i) => s + i.unit_price_cents * i.quantity, 0);
     const discountCents = Math.round(subtotal * (discountPct + couponDiscount) / 100);
     const availablePoints = client?.loyalty_points ?? 0;
-    // maxRedeem: compare points (ILS) with order total (ILS), both must be in same unit
     const maxRedeemPoints = Math.min(availablePoints, Math.floor(Math.max(0, (subtotal - discountCents) / 100)));
-    const pointsDiscount = usePoints ? Math.min(pointsRedeemed, maxRedeemPoints) : 0;  // in ILS/points
-    const pointsDiscountCents = pointsDiscount * 100;  // convert to cents for arithmetic
-    const total = Math.max(0, subtotal - discountCents - pointsDiscountCents);
+    const pointsDiscount = usePoints ? Math.min(pointsRedeemed, maxRedeemPoints) : 0;
+    const pointsDiscountCents = pointsDiscount * 100;
+    const giftCardDiscountCents = giftCardInfo ? Math.min(giftCardDiscount * 100, Math.max(0, subtotal - discountCents - pointsDiscountCents)) : 0;
+    const total = Math.max(0, subtotal - discountCents - pointsDiscountCents - giftCardDiscountCents);
     const cartCount = cart.reduce((s, i) => s + i.quantity, 0);
 
     const handleCheckout = async () => {
@@ -227,15 +247,30 @@ export default function PosPage() {
                     items: cart.map(i => ({ product_id: i.product_id, description: i.description, quantity: i.quantity, unit_price_cents: i.unit_price_cents })),
                     method,
                     client_id: client?.id || null,
-                    discount_cents: discountCents + pointsDiscountCents,
+                    discount_cents: discountCents + pointsDiscountCents + giftCardDiscountCents,
                     points_redeemed: pointsDiscount,
                     coupon_code: couponDiscount > 0 ? couponCode.trim().toUpperCase() : null,
                 }),
             });
             setReceipt(txn);
+            // Redeem gift card if used
+            if (giftCardInfo && giftCardDiscountCents > 0) {
+                try {
+                    await apiFetch("/api/gift-cards/redeem", {
+                        method: "POST",
+                        body: JSON.stringify({
+                            code: giftCardCode.trim().toUpperCase(),
+                            amount_cents: giftCardDiscountCents,
+                            client_id: client?.id || null,
+                        }),
+                    });
+                } catch { /* silent — sale already processed */ }
+            }
             setCart([]); setCalcDisplay("0"); setItemDesc(""); setClient(null); setClientSearch("");
             setDiscountPct(0); setCouponCode(""); setCouponDiscount(0); setCouponError("");
-            setUsePoints(false); setPointsRedeemed(0); setMobileTab("pad");
+            setUsePoints(false); setPointsRedeemed(0);
+            setGiftCardCode(""); setGiftCardInfo(null); setGiftCardDiscount(0); setGiftCardError("");
+            setMobileTab("pad");
         } catch (err) { toast.error(err instanceof Error ? err.message : "שגיאה בתשלום"); }
         finally { setLoading(false); }
     };
@@ -433,6 +468,26 @@ export default function PosPage() {
                     </div>
                 )}
 
+                {/* Gift card redemption */}
+                <div className="flex-1 flex gap-1 items-center">
+                    <input value={giftCardCode}
+                        onChange={e => { setGiftCardCode(e.target.value.toUpperCase()); setGiftCardInfo(null); setGiftCardDiscount(0); setGiftCardError(""); }}
+                        placeholder="קוד כרטיס מתנה... 🎁"
+                        className={`flex-1 border rounded-lg px-2 py-1.5 text-xs font-mono focus:outline-none focus:ring-1 ${giftCardInfo ? "border-violet-400 bg-violet-50" : giftCardError ? "border-rose-400" : "border-slate-200"}`}
+                        onKeyDown={e => e.key === "Enter" && validateGiftCard()} />
+                    <button type="button" onClick={validateGiftCard} disabled={!giftCardCode.trim() || giftCardLoading}
+                        className="shrink-0 bg-violet-700 text-white px-2 py-1.5 rounded-lg text-xs font-bold disabled:opacity-40">
+                        {giftCardLoading ? "..." : "אמת"}
+                    </button>
+                </div>
+                {(giftCardError || giftCardInfo) && (
+                    <div className={`text-[10px] -mt-1 ${giftCardInfo ? "text-violet-600" : "text-rose-500"}`}>
+                        {giftCardInfo
+                            ? `✓ כרטיס של ${giftCardInfo.recipient_name} · יתרה ₪${giftCardInfo.balance_ils} · ינוכה ₪${(giftCardDiscountCents / 100).toFixed(0)}`
+                            : giftCardError}
+                    </div>
+                )}
+
                 {/* Points redemption — only when club member with points */}
                 {client && availablePoints > 0 && (
                     <div className={`rounded-xl border-2 transition-all px-3 py-2 ${usePoints ? "border-amber-400 bg-amber-50" : "border-slate-100 bg-slate-50"}`}>
@@ -478,7 +533,12 @@ export default function PosPage() {
                             <span>ניצול {pointsDiscount} נקודות ⭐</span>
                         </div>
                     )}
-                    {/* maxRedeem fix: also pass pointsDiscountCents to checkout */}
+                    {giftCardDiscountCents > 0 && (
+                        <div className="flex justify-between text-xs text-violet-600 font-bold">
+                            <span>-₪{(giftCardDiscountCents / 100).toFixed(2)}</span>
+                            <span>כרטיס מתנה 🎁</span>
+                        </div>
+                    )}
                     <div className="flex justify-between font-bold text-sm text-slate-900 border-t border-slate-200 pt-1.5 mt-1">
                         <span>סה״כ לתשלום</span>
                         <span className="text-emerald-700">₪{(total/100).toFixed(2)}</span>

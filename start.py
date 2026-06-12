@@ -654,6 +654,45 @@ def ensure_schema():
         """)
         cur.execute("CREATE INDEX IF NOT EXISTS ix_invoice_items_invoice ON invoice_items (invoice_id)")
 
+        # ── Gift Cards ───────────────────────────────────────────────────────
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS gift_cards (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                code VARCHAR(16) NOT NULL UNIQUE,
+                amount_cents INTEGER NOT NULL,
+                balance_cents INTEGER NOT NULL,
+                recipient_name VARCHAR(120),
+                recipient_email VARCHAR(255),
+                recipient_phone VARCHAR(32),
+                sender_name VARCHAR(120),
+                personal_message TEXT,
+                status VARCHAR(12) NOT NULL DEFAULT 'active',
+                expires_at DATE,
+                created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                last_used_at TIMESTAMPTZ
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_gift_cards_studio ON gift_cards (studio_id)")
+        cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS ix_gift_cards_code ON gift_cards (code)")
+
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS gift_card_transactions (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                gift_card_id UUID NOT NULL REFERENCES gift_cards(id) ON DELETE CASCADE,
+                studio_id UUID NOT NULL,
+                amount_cents INTEGER NOT NULL,
+                balance_before_cents INTEGER NOT NULL,
+                balance_after_cents INTEGER NOT NULL,
+                redeemed_by_client_id UUID REFERENCES clients(id) ON DELETE SET NULL,
+                pos_transaction_id UUID,
+                notes TEXT,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_gct_card ON gift_card_transactions (gift_card_id)")
+
         # ── Marketplace Analytics ─────────────────────────────────────────────
         cur.execute("""
             CREATE TABLE IF NOT EXISTS marketplace_page_views (
