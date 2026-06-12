@@ -41,8 +41,7 @@ const MANAGE_NAV: { href: string; label: string; icon: string; module?: string }
     { href: "/products",     label: "מוצרים",         icon: "📦",  module: "products" },
     { href: "/obligations",  label: "התחייבויות",      icon: "💳",  module: "obligations" },
     { href: "/team",         label: "צוות",            icon: "🎨",  module: "employee_mgmt" },
-    { href: "/stamps",       label: "כרטיסי חותמות",  icon: "🎁",  module: "customer_club" },
-    { href: "/tiers",        label: "רמות VIP",        icon: "👑",  module: "customer_club" },
+    { href: "/stamps",       label: "מועדון לקוחות",  icon: "🎖️",  module: "customer_club" },
 ];
 
 export default function AppShell({
