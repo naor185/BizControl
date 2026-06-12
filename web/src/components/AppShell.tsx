@@ -39,7 +39,6 @@ const MANAGE_NAV: { href: string; label: string; icon: string; module?: string }
     { href: "/services",     label: "שירותים",        icon: "🛎️", module: "services" },
     { href: "/wait-list",    label: "רשימת המתנה",   icon: "⏳",  module: "wait_list" },
     { href: "/products",     label: "מוצרים",         icon: "📦",  module: "products" },
-    { href: "/expenses",     label: "הוצאות",          icon: "💼",  module: "expenses" },
     { href: "/obligations",  label: "התחייבויות",      icon: "💳",  module: "obligations" },
     { href: "/team",         label: "צוות",            icon: "🎨",  module: "employee_mgmt" },
     { href: "/stamps",       label: "כרטיסי חותמות",  icon: "🎁",  module: "customer_club" },
