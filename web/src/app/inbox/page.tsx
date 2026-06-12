@@ -242,8 +242,16 @@ export default function InboxPage() {
                                 </div>
                             ) : filtered.length === 0 ? (
                                 <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center px-6 py-10">
-                                    <span className="text-4xl">💬</span>
-                                    <p className="text-sm text-gray-400">אין שיחות עדיין</p>
+                                    <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <rect width="64" height="64" rx="16" fill="#F3F4F6"/>
+                                        <path d="M20 22C20 19.8 21.8 18 24 18H40C42.2 18 44 19.8 44 22V36C44 38.2 42.2 40 40 40H34L28 46V40H24C21.8 40 20 38.2 20 36V22Z" fill="#D1D5DB"/>
+                                        <circle cx="27" cy="29" r="2" fill="#9CA3AF"/>
+                                        <circle cx="32" cy="29" r="2" fill="#9CA3AF"/>
+                                        <circle cx="37" cy="29" r="2" fill="#9CA3AF"/>
+                                    </svg>
+                                    <p className="text-sm font-semibold text-gray-600">אין שיחות עדיין</p>
+                                    <p className="text-xs text-gray-400 max-w-[180px]">הודעות נכנסות מ-WhatsApp, Instagram ו-Facebook יופיעו כאן</p>
+                                    <p className="text-[10px] text-gray-300 mt-1">חיבור מתבצע דרך הגדרות הסטודיו</p>
                                 </div>
                             ) : (
                                 <div className="flex-1 overflow-y-auto divide-y divide-gray-50">
@@ -293,10 +301,51 @@ export default function InboxPage() {
                         <div className={`${mobileView === "list" ? "hidden" : "flex"} md:flex flex-1 flex-col bg-gray-50 min-w-0`}>
 
                             {!selected ? (
-                                <div className="flex-1 flex flex-col items-center justify-center gap-4">
-                                    <div className="w-20 h-20 rounded-full bg-white shadow-lg flex items-center justify-center text-4xl">💬</div>
-                                    <h3 className="font-bold text-gray-700 text-lg">בחר שיחה</h3>
-                                    <p className="text-gray-400 text-sm">הודעות מ-WhatsApp, Instagram ו-Facebook</p>
+                                <div className="flex-1 flex flex-col items-center justify-center gap-5 text-center px-8">
+                                    {/* Illustration */}
+                                    <div className="relative">
+                                        <div className="w-24 h-24 rounded-3xl bg-white shadow-lg flex items-center justify-center">
+                                            <svg width="52" height="52" viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                {/* WhatsApp bubble */}
+                                                <rect x="2" y="14" width="28" height="20" rx="6" fill="#25D366"/>
+                                                <path d="M14 34v6l6-6h-6z" fill="#25D366"/>
+                                                <circle cx="9" cy="24" r="2" fill="white"/>
+                                                <circle cx="16" cy="24" r="2" fill="white"/>
+                                                <circle cx="23" cy="24" r="2" fill="white"/>
+                                                {/* Instagram bubble */}
+                                                <rect x="22" y="2" width="22" height="16" rx="5" fill="url(#ig)"/>
+                                                <path d="M39 18v5l-5-5h5z" fill="#C13584"/>
+                                                <circle cx="31" cy="10" r="2" fill="white" opacity="0.9"/>
+                                                <circle cx="37" cy="10" r="2" fill="white" opacity="0.9"/>
+                                                <defs>
+                                                    <linearGradient id="ig" x1="22" y1="2" x2="44" y2="18" gradientUnits="userSpaceOnUse">
+                                                        <stop stopColor="#833AB4"/>
+                                                        <stop offset="0.5" stopColor="#E1306C"/>
+                                                        <stop offset="1" stopColor="#F77737"/>
+                                                    </linearGradient>
+                                                </defs>
+                                            </svg>
+                                        </div>
+                                        {/* Facebook dot */}
+                                        <div className="absolute -bottom-1 -left-1 w-8 h-8 rounded-xl bg-[#0084FF] shadow flex items-center justify-center text-white text-sm font-bold">f</div>
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <h3 className="font-bold text-gray-800 text-lg">תיבת הודעות מאוחדת</h3>
+                                        <p className="text-gray-400 text-sm leading-relaxed">
+                                            כל ההודעות הנכנסות מ-WhatsApp,<br/>Instagram ו-Facebook במקום אחד
+                                        </p>
+                                    </div>
+
+                                    <div className="flex items-center gap-3 text-xs text-gray-400">
+                                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-400 inline-block"/> WhatsApp</span>
+                                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-pink-400 inline-block"/> Instagram</span>
+                                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-400 inline-block"/> Facebook</span>
+                                    </div>
+
+                                    <p className="text-[11px] text-gray-300 border border-gray-100 rounded-xl px-3 py-2">
+                                        חיבור הערוצים נעשה דרך הגדרות הסטודיו
+                                    </p>
                                 </div>
                             ) : (
                                 <>
