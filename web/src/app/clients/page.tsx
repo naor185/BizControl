@@ -35,6 +35,13 @@ type ClubStats = {
     members: ClubMember[];
 };
 
+type LeaderboardEntry = {
+    id: string; full_name: string; phone: string | null;
+    is_club_member: boolean; loyalty_points: number;
+    visit_count?: number; total_paid_cents?: number;
+};
+type Leaderboard = { top_visitors: LeaderboardEntry[]; top_payers: LeaderboardEntry[] };
+
 type LoyaltyStats = {
     total_points_awarded: number;
     total_points_redeemed: number;
@@ -74,6 +81,8 @@ function PageInner() {
     // ── Club state ──
     const [clubStats, setClubStats] = useState<ClubStats | null>(null);
     const [loyaltyStats, setLoyaltyStats] = useState<LoyaltyStats | null>(null);
+    const [leaderboard, setLeaderboard] = useState<Leaderboard | null>(null);
+    const [leaderTab, setLeaderTab] = useState<"payers" | "visitors">("payers");
     const [clubLoading, setClubLoading] = useState(false);
     const [clubSearch, setClubSearch] = useState("");
     const [sourceFilter, setSourceFilter] = useState<"all" | "landing" | "manual">("all");
@@ -124,12 +133,14 @@ function PageInner() {
         if (clubStats) return;
         setClubLoading(true);
         try {
-            const [cs, ls] = await Promise.all([
+            const [cs, ls, lb] = await Promise.all([
                 apiFetch<ClubStats>("/api/clients/club/stats"),
                 apiFetch<LoyaltyStats>("/api/dashboard/loyalty-stats"),
+                apiFetch<Leaderboard>("/api/clients/club/leaderboard"),
             ]);
             setClubStats(cs);
             setLoyaltyStats(ls);
+            setLeaderboard(lb);
         } catch { /* silent */ } finally {
             setClubLoading(false);
         }
@@ -385,6 +396,45 @@ function PageInner() {
                                                 <div className="text-2xl font-black text-amber-700">{loyaltyStats.total_outstanding_points.toLocaleString()}</div>
                                                 <div className="text-xs text-amber-500 mt-0.5">= ₪{loyaltyStats.total_outstanding_ils.toLocaleString()} פוטנציאל</div>
                                             </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Leaderboard */}
+                                {leaderboard && (
+                                    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                                        <div className="px-5 py-4 border-b border-slate-50 flex items-center justify-between">
+                                            <h3 className="font-bold text-slate-800">🏆 לוח אלופים</h3>
+                                            <div className="flex gap-2">
+                                                {([["payers","💰 שילמו הכי הרבה"],["visitors","📅 ביקרו הכי הרבה"]] as const).map(([key,label]) => (
+                                                    <button key={key} type="button" onClick={() => setLeaderTab(key)}
+                                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${leaderTab===key ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
+                                                        {label}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                        <div className="divide-y divide-slate-50">
+                                            {(leaderTab==="payers" ? leaderboard.top_payers : leaderboard.top_visitors).map((e, i) => (
+                                                <Link key={e.id} href={`/clients/${e.id}`} className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50 transition-colors">
+                                                    <div className="text-xl w-7 text-center shrink-0">
+                                                        {i===0?"🥇":i===1?"🥈":i===2?"🥉":<span className="text-xs text-slate-400 font-bold">#{i+1}</span>}
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center gap-1.5">
+                                                            <span className="font-bold text-slate-800 text-sm truncate">{e.full_name}</span>
+                                                            {e.is_club_member && <span className="text-[9px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-bold shrink-0">👑 VIP</span>}
+                                                        </div>
+                                                        {e.phone && <div className="text-xs text-slate-400" dir="ltr">{e.phone}</div>}
+                                                    </div>
+                                                    <div className="text-right shrink-0">
+                                                        {leaderTab==="payers"
+                                                            ? <div className="text-sm font-black text-emerald-700" dir="ltr">₪{((e.total_paid_cents??0)/100).toLocaleString()}</div>
+                                                            : <div className="text-sm font-black text-blue-700">{e.visit_count} ביקורים</div>}
+                                                        <div className="text-[10px] text-amber-500">⭐ {e.loyalty_points}</div>
+                                                    </div>
+                                                </Link>
+                                            ))}
                                         </div>
                                     </div>
                                 )}

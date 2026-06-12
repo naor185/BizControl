@@ -40,7 +40,6 @@ const MANAGE_NAV: { href: string; label: string; icon: string; module?: string }
     { href: "/wait-list",    label: "רשימת המתנה",   icon: "⏳",  module: "wait_list" },
     { href: "/products",     label: "מוצרים",         icon: "📦",  module: "products" },
     { href: "/obligations",  label: "התחייבויות",      icon: "💳",  module: "obligations" },
-    { href: "/stamps",       label: "מועדון לקוחות",  icon: "🎖️",  module: "customer_club" },
 ];
 
 export default function AppShell({
