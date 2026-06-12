@@ -31,7 +31,6 @@ const MAIN_NAV: { href: string; label: string; icon: string; module?: string }[]
     { href: "/pos",       label: "קופה",         icon: "🛒" },
     { href: "/dashboard", label: "לוח בקרה",   icon: "📊" },
     { href: "/clients",   label: "לקוחות",       icon: "👥" },
-    { href: "/inbox",     label: "הודעות",       icon: "💬" },
     { href: "/broadcasts", label: "תפוצות",      icon: "📢" },
     { href: "/leads",     label: "לידים CRM",   icon: "🎯" },
     { href: "/analytics", label: "אנליטיקות",   icon: "📈", module: "analytics" },
@@ -74,7 +73,6 @@ export default function AppShell({
     const [showPin, setShowPin] = useState(false);
     const [pinMode, setPinMode] = useState<"verify" | "set">("verify");
     const [pendingDepositsCount, setPendingDepositsCount] = useState(0);
-    const [inboxUnreadCount, setInboxUnreadCount] = useState(0);
     const [enabledModules, setEnabledModules] = useState<Record<string, boolean> | null>(null);
     const [showWaModal, setShowWaModal] = useState(false);
 
@@ -101,39 +99,22 @@ export default function AppShell({
             try {
                 const token = getToken();
                 if (!token) return;
-                const [data, pin, deposits, inbox, locs, mods] = await Promise.all([
+                const [data, pin, deposits, locs, mods] = await Promise.all([
                     apiFetch<Me>("/api/auth/me"),
                     apiFetch<PinStatus>("/api/security/pin/status"),
                     apiFetch<any[]>("/api/appointments/pending-deposits").catch(() => []),
-                    apiFetch<{ unread: number }>("/api/inbox/unread-count").catch(() => ({ unread: 0 })),
                     apiFetch<any[]>("/api/locations").catch(() => []),
                     apiFetch<Record<string, boolean>>("/api/modules/me").catch(() => null),
                 ]);
                 setMe(data);
                 setPinStatus(pin);
                 setPendingDepositsCount(deposits.length);
-                setInboxUnreadCount(inbox.unread);
                 if (locs.length > 1) setLocations(locs);
                 setEnabledModules(mods);
             } catch { /* silent */ }
         })();
     }, []);
 
-    // SSE — live unread count (replaces polling)
-    useEffect(() => {
-        const token = getToken();
-        if (!token || typeof EventSource === "undefined") return;
-        const apiBase = process.env.NEXT_PUBLIC_API_URL || "";
-        const url = `${apiBase}/api/inbox/stream?token=${encodeURIComponent(token)}`;
-        const es = new EventSource(url);
-        es.onmessage = (e) => {
-            try {
-                const data = JSON.parse(e.data);
-                if (typeof data.unread === "number") setInboxUnreadCount(data.unread);
-            } catch { /* ignore */ }
-        };
-        return () => es.close();
-    }, []);
 
     function logout() {
         clearToken();
@@ -200,8 +181,6 @@ export default function AppShell({
                             const active = pathname === item.href || pathname.startsWith(item.href + "/");
                             const badge = item.href === "/dashboard" && pendingDepositsCount > 0
                                 ? pendingDepositsCount
-                                : item.href === "/inbox" && inboxUnreadCount > 0
-                                ? inboxUnreadCount
                                 : 0;
                             return (
                                 <Link
