@@ -32,7 +32,6 @@ const MAIN_NAV: { href: string; label: string; icon: string; module?: string }[]
     { href: "/dashboard", label: "לוח בקרה",   icon: "📊" },
     { href: "/clients",   label: "לקוחות",       icon: "👥" },
     { href: "/broadcasts", label: "תפוצות",      icon: "📢" },
-    { href: "/leads",     label: "לידים CRM",   icon: "🎯" },
     { href: "/analytics", label: "אנליטיקות",   icon: "📈", module: "analytics" },
 ];
 
