@@ -117,6 +117,59 @@ def club_stats(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Dep
     }
 
 
+@router.get("/club/leaderboard")
+def club_leaderboard(
+    limit: int = 10,
+    ctx: AuthContext = Depends(require_studio_ctx),
+    db: Session = Depends(get_db),
+):
+    """Top clients by visit count and by total payments."""
+    from sqlalchemy import func
+    from app.models.appointment import Appointment
+    from app.models.payment import Payment
+
+    # Top visitors — completed/done appointments
+    visit_rows = db.execute(
+        select(Client.id, Client.full_name, Client.phone, Client.is_club_member, Client.loyalty_points,
+               func.count(Appointment.id).label("visit_count"))
+        .join(Appointment, (Appointment.client_id == Client.id) & (Appointment.studio_id == ctx.studio_id))
+        .where(Client.studio_id == ctx.studio_id, Client.is_active.is_(True),
+               Client.is_walk_in.is_(False),
+               Appointment.status.in_(["done", "scheduled"]))
+        .group_by(Client.id, Client.full_name, Client.phone, Client.is_club_member, Client.loyalty_points)
+        .order_by(func.count(Appointment.id).desc())
+        .limit(limit)
+    ).all()
+
+    # Top payers — sum of paid payments
+    pay_rows = db.execute(
+        select(Client.id, Client.full_name, Client.phone, Client.is_club_member, Client.loyalty_points,
+               func.coalesce(func.sum(Payment.amount_cents), 0).label("total_paid_cents"))
+        .join(Payment, (Payment.client_id == Client.id) & (Payment.studio_id == ctx.studio_id))
+        .where(Client.studio_id == ctx.studio_id, Client.is_active.is_(True),
+               Client.is_walk_in.is_(False),
+               Payment.status == "paid", Payment.type != "refund")
+        .group_by(Client.id, Client.full_name, Client.phone, Client.is_club_member, Client.loyalty_points)
+        .order_by(func.coalesce(func.sum(Payment.amount_cents), 0).desc())
+        .limit(limit)
+    ).all()
+
+    def _row(r, extra_key, extra_val):
+        return {
+            "id": str(r.id),
+            "full_name": r.full_name,
+            "phone": r.phone,
+            "is_club_member": r.is_club_member,
+            "loyalty_points": int(r.loyalty_points or 0),
+            extra_key: extra_val,
+        }
+
+    return {
+        "top_visitors": [_row(r, "visit_count", r.visit_count) for r in visit_rows],
+        "top_payers":   [_row(r, "total_paid_cents", int(r.total_paid_cents)) for r in pay_rows],
+    }
+
+
 @router.get("/{client_id}", response_model=ClientOut)
 def get_one(
     client_id: UUID,

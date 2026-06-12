@@ -50,16 +50,87 @@ function StampVisual({ total, collected }: { total: number; collected: number })
     );
 }
 
+type LeaderboardEntry = {
+    id: string;
+    full_name: string;
+    phone: string | null;
+    is_club_member: boolean;
+    loyalty_points: number;
+    visit_count?: number;
+    total_paid_cents?: number;
+};
+
+type Leaderboard = {
+    top_visitors: LeaderboardEntry[];
+    top_payers: LeaderboardEntry[];
+};
+
+const fmtILS = (cents: number) =>
+    (cents / 100).toLocaleString("he-IL", { style: "currency", currency: "ILS", maximumFractionDigits: 0 });
+
+const MEDALS = ["🥇", "🥈", "🥉"];
+
+function LeaderboardSection({ data }: { data: Leaderboard }) {
+    const [tab, setTab] = useState<"visitors" | "payers">("payers");
+    const list = tab === "payers" ? data.top_payers : data.top_visitors;
+
+    return (
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-50">
+                <h2 className="text-base font-black text-slate-800">🏆 לוח אלופים</h2>
+                <div className="flex gap-2 mt-3">
+                    {([["payers", "💰 שילמו הכי הרבה"], ["visitors", "📅 ביקרו הכי הרבה"]] as const).map(([key, label]) => (
+                        <button key={key} type="button" onClick={() => setTab(key)}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${tab === key ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
+                            {label}
+                        </button>
+                    ))}
+                </div>
+            </div>
+            <div className="divide-y divide-slate-50">
+                {list.length === 0 ? (
+                    <div className="text-center py-8 text-slate-300 text-sm">אין נתונים עדיין</div>
+                ) : list.map((entry, i) => (
+                    <div key={entry.id} className="flex items-center gap-3 px-5 py-3">
+                        <div className="text-xl w-7 text-center shrink-0">
+                            {i < 3 ? MEDALS[i] : <span className="text-xs text-slate-400 font-bold">#{i + 1}</span>}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5">
+                                <span className="font-bold text-slate-800 text-sm truncate">{entry.full_name}</span>
+                                {entry.is_club_member && <span className="text-[9px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-bold shrink-0">👑 VIP</span>}
+                            </div>
+                            {entry.phone && <div className="text-xs text-slate-400" dir="ltr">{entry.phone}</div>}
+                        </div>
+                        <div className="text-right shrink-0">
+                            {tab === "payers" ? (
+                                <div className="text-sm font-black text-emerald-700" dir="ltr">{fmtILS(entry.total_paid_cents ?? 0)}</div>
+                            ) : (
+                                <div className="text-sm font-black text-blue-700">{entry.visit_count} ביקורים</div>
+                            )}
+                            <div className="text-[10px] text-amber-500">⭐ {entry.loyalty_points} נקודות</div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
+
 export default function StampsPage() {
     const [cards, setCards] = useState<StampCard[]>([]);
     const [editing, setEditing] = useState<Partial<StampCard> | null>(null);
     const [isNew, setIsNew] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [leaderboard, setLeaderboard] = useState<Leaderboard | null>(null);
 
     const load = () =>
         apiFetch<StampCard[]>("/api/stamp-cards").then(setCards).catch(() => {});
 
-    useEffect(() => { load(); }, []);
+    useEffect(() => {
+        load();
+        apiFetch<Leaderboard>("/api/clients/club/leaderboard").then(setLeaderboard).catch(() => {});
+    }, []);
 
     const openNew = () => { setEditing({ ...EMPTY }); setIsNew(true); };
     const openEdit = (c: StampCard) => { setEditing({ ...c }); setIsNew(false); };
@@ -90,6 +161,9 @@ export default function StampsPage() {
         <RequireAuth>
             <AppShell title="כרטיס חותמות 🎫">
                 <div className="max-w-3xl mx-auto space-y-6">
+
+                    {/* Leaderboard */}
+                    {leaderboard && <LeaderboardSection data={leaderboard} />}
 
                     <div className="flex items-center justify-between">
                         <p className="text-sm text-slate-500">לקוח מקבל חותמת בכל ביקור. כשמגיע למספר הנדרש — מקבל פרס אוטומטי.</p>
