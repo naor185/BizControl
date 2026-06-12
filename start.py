@@ -493,6 +493,44 @@ def ensure_schema():
             END $$;
         """)
 
+        # ── BizFind Marketplace Customer Auth ────────────────────────────────
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS marketplace_customers (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                phone VARCHAR(20) NOT NULL UNIQUE,
+                first_name VARCHAR(80) NOT NULL DEFAULT '',
+                last_name VARCHAR(80) NOT NULL DEFAULT '',
+                email VARCHAR(255),
+                city VARCHAR(120),
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                last_login_at TIMESTAMPTZ
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_marketplace_customers_phone ON marketplace_customers (phone)")
+
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS marketplace_otps (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                phone VARCHAR(20) NOT NULL,
+                code VARCHAR(6) NOT NULL,
+                expires_at TIMESTAMPTZ NOT NULL,
+                used_at TIMESTAMPTZ,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_marketplace_otps_phone ON marketplace_otps (phone, expires_at)")
+
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS marketplace_favorites (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                customer_id UUID NOT NULL REFERENCES marketplace_customers(id) ON DELETE CASCADE,
+                studio_slug VARCHAR(120) NOT NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                UNIQUE (customer_id, studio_slug)
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_marketplace_favorites_customer ON marketplace_favorites (customer_id)")
+
         # ── Financial Obligations ─────────────────────────────────────────────
         cur.execute("""
             CREATE TABLE IF NOT EXISTS financial_obligations (

@@ -1,141 +1,187 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { API } from "@/lib/api";
-
-interface Booking {
-    id: string;
-    studio_name: string;
-    studio_slug: string;
-    studio_logo: string | null;
-    artist_name: string;
-    service: string;
-    date: string;
-    time: string;
-    status: string;
-    created_at: string;
-}
-
-const STATUS_LABEL: Record<string, { label: string; color: string; bg: string }> = {
-    pending:   { label: "ממתין לאישור", color: "#f59e0b", bg: "rgba(245,158,11,.12)" },
-    approved:  { label: "אושר ✅",       color: "#4ade80", bg: "rgba(74,222,128,.1)" },
-    scheduled: { label: "מאושר ✅",      color: "#4ade80", bg: "rgba(74,222,128,.1)" },
-    done:      { label: "בוצע",          color: "#94a3b8", bg: "rgba(148,163,184,.08)" },
-    canceled:  { label: "בוטל",          color: "#f87171", bg: "rgba(248,113,113,.1)" },
-    rejected:  { label: "נדחה",          color: "#f87171", bg: "rgba(248,113,113,.1)" },
-    no_show:   { label: "לא הגיע",       color: "#f87171", bg: "rgba(248,113,113,.1)" },
-};
+import { API, apiFetch } from "@/lib/api";
+import { getCustomer, saveCustomer, clearCustomer, type Customer } from "@/lib/auth";
+import AuthModal from "@/components/AuthModal";
 
 export default function MePage() {
-    const [phone, setPhone] = useState("");
-    const [bookings, setBookings] = useState<Booking[] | null>(null);
-    const [loading, setLoading] = useState(false);
-    const [err, setErr] = useState<string | null>(null);
+    const [customer, setCustomer] = useState<Customer | null>(null);
+    const [showAuth, setShowAuth] = useState(false);
+    const [favorites, setFavorites] = useState<FavStudio[]>([]);
+    const [loadingFavs, setLoadingFavs] = useState(false);
+    const [mounted, setMounted] = useState(false);
 
-    const search = async () => {
-        const clean = phone.trim().replace(/[-\s]/g, "");
-        if (clean.length < 9) { setErr("הכנס מספר טלפון תקין"); return; }
-        setLoading(true); setErr(null); setBookings(null);
+    useEffect(() => {
+        setMounted(true);
+        const c = getCustomer();
+        setCustomer(c);
+    }, []);
+
+    useEffect(() => {
+        if (!customer) return;
+        setLoadingFavs(true);
+        apiFetch<{ id: string; phone: string; favorites: string[] }>("/api/marketplace/auth/me")
+            .then(data => {
+                const updated = { ...customer, favorites: data.favorites };
+                saveCustomer(updated);
+                setCustomer(updated);
+                if (data.favorites.length > 0) loadFavoriteStudios(data.favorites);
+            })
+            .catch(() => {})
+            .finally(() => setLoadingFavs(false));
+    }, [customer?.id]);
+
+    const loadFavoriteStudios = async (slugs: string[]) => {
         try {
-            const res = await fetch(`${API}/api/public/my-bookings?phone=${encodeURIComponent(clean)}`);
-            if (!res.ok) throw new Error("שגיאה");
-            setBookings(await res.json());
-        } catch { setErr("שגיאה בחיפוש. נסה שוב."); }
-        finally { setLoading(false); }
+            const results = await Promise.all(
+                slugs.map(s => fetch(`${API}/api/marketplace/${s}`).then(r => r.ok ? r.json() : null))
+            );
+            setFavorites(results.filter(Boolean));
+        } catch {}
     };
 
-    const upcoming = bookings?.filter(b => !["done", "canceled", "rejected", "no_show"].includes(b.status)) ?? [];
-    const past = bookings?.filter(b => ["done", "canceled", "rejected", "no_show"].includes(b.status)) ?? [];
+    const logout = () => {
+        clearCustomer();
+        setCustomer(null);
+        setFavorites([]);
+    };
+
+    const removeFav = async (slug: string) => {
+        try {
+            await apiFetch(`/api/marketplace/auth/favorites`, {
+                method: "POST",
+                body: JSON.stringify({ studio_slug: slug }),
+            });
+            const updated = { ...customer!, favorites: customer!.favorites.filter(s => s !== slug) };
+            saveCustomer(updated);
+            setCustomer(updated);
+            setFavorites(f => f.filter(s => s.slug !== slug));
+        } catch {}
+    };
+
+    if (!mounted) return null;
+
+    if (!customer) {
+        return (
+            <div style={{ minHeight: "100vh" }}>
+                <div style={{ background: "linear-gradient(135deg,#1e1b4b,#312e81)", padding: "2rem 1.25rem 1.5rem" }}>
+                    <h1 style={{ fontSize: "1.6rem", fontWeight: 900 }}>👤 הפרופיל שלי</h1>
+                    <p style={{ color: "#94a3b8", fontSize: "0.88rem", marginTop: "0.3rem" }}>התחבר כדי לשמור מועדפים ולעקוב אחר התורים שלך</p>
+                </div>
+
+                <div style={{ maxWidth: 480, margin: "3rem auto", padding: "0 1.25rem", textAlign: "center" }}>
+                    <div style={{ fontSize: "4rem", marginBottom: "1rem" }}>🔒</div>
+                    <h2 style={{ fontWeight: 800, marginBottom: "0.5rem" }}>התחבר לחשבון שלך</h2>
+                    <p style={{ color: "#64748b", fontSize: "0.88rem", marginBottom: "2rem" }}>
+                        ניהול מועדפים, צפייה בהיסטוריית תורים ועוד
+                    </p>
+                    <button
+                        type="button"
+                        onClick={() => setShowAuth(true)}
+                        style={{ background: "linear-gradient(135deg,#7c3aed,#4c1d95)", border: "none", borderRadius: 16, color: "#fff", padding: "0.9rem 2.5rem", fontWeight: 800, fontSize: "1rem", cursor: "pointer" }}
+                    >
+                        כניסה / הרשמה
+                    </button>
+                </div>
+
+                {showAuth && (
+                    <AuthModal
+                        onClose={() => setShowAuth(false)}
+                        onSuccess={c => { setCustomer(c); setShowAuth(false); }}
+                    />
+                )}
+            </div>
+        );
+    }
 
     return (
         <div style={{ minHeight: "100vh", paddingBottom: "3rem" }}>
             {/* Header */}
             <div style={{ background: "linear-gradient(135deg,#1e1b4b,#312e81)", padding: "2rem 1.25rem 1.5rem" }}>
-                <Link href="/" style={{ color: "#a78bfa", textDecoration: "none", fontSize: "0.85rem" }}>← חזרה</Link>
-                <h1 style={{ fontSize: "1.6rem", fontWeight: 900, marginTop: "0.5rem" }}>📋 ההזמנות שלי</h1>
-                <p style={{ color: "#94a3b8", fontSize: "0.88rem", marginTop: "0.3rem" }}>הכנס מספר טלפון כדי לראות את כל התורים שלך</p>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                    <div>
+                        <h1 style={{ fontSize: "1.5rem", fontWeight: 900 }}>{customer.full_name || customer.phone}</h1>
+                        <p style={{ color: "#a78bfa", fontSize: "0.85rem", marginTop: "0.25rem" }}>{customer.phone}</p>
+                        {customer.city && <p style={{ color: "#64748b", fontSize: "0.82rem", marginTop: "0.15rem" }}>📍 {customer.city}</p>}
+                    </div>
+                    <div style={{ width: 56, height: 56, borderRadius: "50%", background: "linear-gradient(135deg,#7c3aed,#4c1d95)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.6rem", fontWeight: 900, color: "#fff" }}>
+                        {(customer.first_name?.[0] || customer.phone[0] || "?").toUpperCase()}
+                    </div>
+                </div>
             </div>
 
-            <div style={{ maxWidth: 600, margin: "2rem auto 0", padding: "0 1.25rem" }}>
+            <div style={{ maxWidth: 600, margin: "0 auto", padding: "1.5rem 1.25rem" }}>
 
-                {/* Phone search */}
-                <div style={{ background: "rgba(255,255,255,.05)", border: "1px solid rgba(255,255,255,.1)", borderRadius: 20, padding: "1.5rem" }}>
-                    <div style={{ marginBottom: "0.75rem" }}>
-                        <label style={{ color: "#94a3b8", fontSize: "0.82rem", display: "block", marginBottom: "0.4rem" }}>מספר טלפון</label>
-                        <input
-                            type="tel"
-                            value={phone}
-                            onChange={e => setPhone(e.target.value)}
-                            onKeyDown={e => e.key === "Enter" && search()}
-                            placeholder="050-0000000"
-                            dir="ltr"
-                            style={{ width: "100%", background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.15)", borderRadius: 12, padding: "0.75rem 1rem", color: "#fff", fontSize: "1rem", outline: "none" }}
-                        />
-                    </div>
-                    {err && <p style={{ color: "#f87171", fontSize: "0.82rem", marginBottom: "0.75rem" }}>{err}</p>}
-                    <button
-                        type="button" onClick={search} disabled={loading}
-                        style={{ width: "100%", background: "linear-gradient(135deg,#7c3aed,#4c1d95)", border: "none", borderRadius: 12, color: "#fff", padding: "0.8rem", fontWeight: 800, fontSize: "0.95rem", cursor: "pointer", opacity: loading ? 0.7 : 1 }}
+                {/* Favorites */}
+                <section style={{ marginBottom: "2rem" }}>
+                    <h2 style={{ fontWeight: 800, fontSize: "1rem", marginBottom: "0.75rem", color: "#e2e8f0" }}>
+                        ❤️ מועדפים {customer.favorites.length > 0 && `(${customer.favorites.length})`}
+                    </h2>
+
+                    {loadingFavs ? (
+                        <div style={{ color: "#64748b", fontSize: "0.85rem", padding: "1rem 0" }}>טוען...</div>
+                    ) : favorites.length === 0 ? (
+                        <div style={{ background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.08)", borderRadius: 16, padding: "2rem", textAlign: "center", color: "#64748b" }}>
+                            <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>🤍</div>
+                            <div style={{ fontSize: "0.85rem" }}>עוד לא שמרת מועדפים</div>
+                            <Link href="/explore" style={{ color: "#a78bfa", fontSize: "0.82rem", textDecoration: "none", display: "block", marginTop: "0.5rem" }}>גלה עסקים →</Link>
+                        </div>
+                    ) : (
+                        <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+                            {favorites.map(s => (
+                                <div key={s.slug} style={{ background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.08)", borderRadius: 16, padding: "0.9rem 1rem", display: "flex", alignItems: "center", gap: "0.8rem" }}>
+                                    <div style={{ width: 44, height: 44, borderRadius: 12, background: s.primary_color || "#7c3aed", overflow: "hidden", flexShrink: 0 }}>
+                                        {s.logo_url && <img src={s.logo_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />}
+                                    </div>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{ fontWeight: 700, fontSize: "0.9rem" }}>{s.name}</div>
+                                        <div style={{ color: "#64748b", fontSize: "0.78rem" }}>{s.city}</div>
+                                    </div>
+                                    <div style={{ display: "flex", gap: "0.4rem" }}>
+                                        <Link href={`/b/${s.slug}`} style={{ background: "rgba(124,58,237,.2)", border: "1px solid rgba(124,58,237,.3)", borderRadius: 10, padding: "0.4rem 0.75rem", color: "#a78bfa", fontSize: "0.78rem", fontWeight: 700, textDecoration: "none" }}>
+                                            פתח
+                                        </Link>
+                                        <button type="button" onClick={() => removeFav(s.slug)} style={{ background: "rgba(248,113,113,.1)", border: "1px solid rgba(248,113,113,.2)", borderRadius: 10, padding: "0.4rem 0.6rem", color: "#f87171", fontSize: "0.78rem", cursor: "pointer" }}>
+                                            ✕
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </section>
+
+                {/* My bookings link */}
+                <section style={{ marginBottom: "2rem" }}>
+                    <a
+                        href={`/me/bookings?phone=${encodeURIComponent(customer.phone)}`}
+                        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.08)", borderRadius: 16, padding: "1rem 1.1rem", textDecoration: "none" }}
                     >
-                        {loading ? "מחפש..." : "🔍 חפש הזמנות"}
-                    </button>
-                </div>
-
-                {/* Results */}
-                {bookings !== null && (
-                    <div style={{ marginTop: "2rem" }}>
-                        {bookings.length === 0 ? (
-                            <div style={{ textAlign: "center", padding: "3rem", color: "#64748b" }}>
-                                <div style={{ fontSize: "3rem", marginBottom: "0.75rem" }}>📭</div>
-                                <div>לא נמצאו הזמנות למספר זה</div>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.7rem" }}>
+                            <span style={{ fontSize: "1.3rem" }}>📋</span>
+                            <div>
+                                <div style={{ fontWeight: 700, fontSize: "0.9rem" }}>ההזמנות שלי</div>
+                                <div style={{ color: "#64748b", fontSize: "0.78rem" }}>צפה בכל התורים</div>
                             </div>
-                        ) : (
-                            <>
-                                {upcoming.length > 0 && (
-                                    <div style={{ marginBottom: "2rem" }}>
-                                        <h2 style={{ fontWeight: 800, fontSize: "1rem", color: "#e2e8f0", marginBottom: "0.75rem" }}>⏰ הזמנות קרובות ({upcoming.length})</h2>
-                                        <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
-                                            {upcoming.map(b => <BookingCard key={b.id} b={b} />)}
-                                        </div>
-                                    </div>
-                                )}
-                                {past.length > 0 && (
-                                    <div>
-                                        <h2 style={{ fontWeight: 800, fontSize: "1rem", color: "#64748b", marginBottom: "0.75rem" }}>📁 היסטוריה ({past.length})</h2>
-                                        <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
-                                            {past.map(b => <BookingCard key={b.id} b={b} />)}
-                                        </div>
-                                    </div>
-                                )}
-                            </>
-                        )}
-                    </div>
-                )}
+                        </div>
+                        <span style={{ color: "#64748b" }}>←</span>
+                    </a>
+                </section>
+
+                {/* Logout */}
+                <button
+                    type="button"
+                    onClick={logout}
+                    style={{ width: "100%", background: "rgba(248,113,113,.08)", border: "1px solid rgba(248,113,113,.2)", borderRadius: 16, color: "#f87171", padding: "0.85rem", fontWeight: 700, fontSize: "0.9rem", cursor: "pointer" }}
+                >
+                    התנתק
+                </button>
             </div>
         </div>
     );
 }
 
-function BookingCard({ b }: { b: Booking }) {
-    const st = STATUS_LABEL[b.status] || { label: b.status, color: "#94a3b8", bg: "rgba(148,163,184,.08)" };
-    return (
-        <div style={{ background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.08)", borderRadius: 16, padding: "1rem 1.1rem", display: "flex", gap: "0.9rem", alignItems: "flex-start" }}>
-            {/* Studio logo / icon */}
-            <div style={{ width: 44, height: 44, borderRadius: 12, background: "rgba(167,139,250,.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.3rem", flexShrink: 0 }}>
-                {b.studio_logo ? <img src={b.studio_logo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 12 }} /> : "🏪"}
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "0.5rem", marginBottom: "0.3rem" }}>
-                    <Link href={`/b/${b.studio_slug}`} style={{ fontWeight: 700, fontSize: "0.92rem", color: "#e2e8f0", textDecoration: "none" }}>{b.studio_name}</Link>
-                    <span style={{ background: st.bg, color: st.color, fontSize: "0.72rem", fontWeight: 700, padding: "0.2rem 0.6rem", borderRadius: 8, whiteSpace: "nowrap", flexShrink: 0 }}>{st.label}</span>
-                </div>
-                <div style={{ color: "#94a3b8", fontSize: "0.82rem" }}>{b.service}</div>
-                <div style={{ color: "#64748b", fontSize: "0.78rem", marginTop: "0.25rem", display: "flex", gap: "0.75rem" }}>
-                    <span>📅 {b.date}</span>
-                    <span>⏰ {b.time}</span>
-                    {b.artist_name !== "—" && <span>👤 {b.artist_name}</span>}
-                </div>
-            </div>
-        </div>
-    );
+interface FavStudio {
+    slug: string; name: string; city?: string; logo_url?: string; primary_color: string;
 }
