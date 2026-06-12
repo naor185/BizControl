@@ -149,6 +149,8 @@ export default function StudioDetailPage() {
     const [features, setFeatures] = useState<FeatureFlag[]>([]);
     const [togglingFeature, setTogglingFeature] = useState<string | null>(null);
     const [enablingAll, setEnablingAll] = useState(false);
+    const [navModules, setNavModules] = useState<Record<string, boolean>>({});
+    const [togglingNav, setTogglingNav] = useState<string | null>(null);
 
     const load = useCallback(async () => {
         setErr(null);
@@ -170,6 +172,9 @@ export default function StudioDetailPage() {
             setIntegrations(ints);
             setAnalytics(anal);
             setFeatures(feats);
+            // Load nav modules
+            const navMods = await apiFetch<Record<string, boolean>>(`/api/admin/studios/${studioId}/modules`).catch(() => ({}));
+            setNavModules(navMods);
             // Pre-fill credential fields from existing integration data
             const creds: Record<string, Record<string, string>> = {};
             for (const i of ints) {
@@ -798,6 +803,62 @@ export default function StudioDetailPage() {
                                             <p className="text-xs text-gray-400">Lead Ads עובד אוטומטית דרך ה-Webhook של Facebook/Instagram — אין צורך ב-token נפרד.</p>
                                         )}
                                     </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                {/* Nav Management */}
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div className="px-4 py-3 border-b border-gray-50 flex items-center gap-2">
+                        <span className="text-base">🧭</span>
+                        <h2 className="text-sm font-semibold text-gray-700">ניהול תפריט — כפתורי ניווט</h2>
+                        <span className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full font-medium mr-auto">סופר-אדמין</span>
+                    </div>
+                    <div className="divide-y divide-gray-50">
+                        {([
+                            { id: "calendar",     label: "יומן תורים",      icon: "📅", section: "ראשי" },
+                            { id: "pos",          label: "קופה",             icon: "🛒", section: "ראשי" },
+                            { id: "crm",          label: "לקוחות",           icon: "👥", section: "ראשי" },
+                            { id: "broadcasts",   label: "תפוצות",           icon: "📢", section: "ראשי" },
+                            { id: "analytics",    label: "אנליטיקות",       icon: "📈", section: "ראשי" },
+                            { id: "services",     label: "שירותים",          icon: "🛎️", section: "ניהול" },
+                            { id: "wait_list",    label: "רשימת המתנה",     icon: "⏳", section: "ניהול" },
+                            { id: "products",     label: "מוצרים",           icon: "📦", section: "ניהול" },
+                            { id: "expenses",     label: "הוצאות",           icon: "💼", section: "ניהול" },
+                            { id: "obligations",  label: "התחייבויות",      icon: "💳", section: "ניהול" },
+                            { id: "employee_mgmt",label: "צוות",             icon: "🎨", section: "ניהול" },
+                            { id: "customer_club",label: "חותמות + VIP",    icon: "🎁", section: "ניהול" },
+                        ] as const).map(item => {
+                            const enabled = navModules[item.id] !== false;
+                            const saving = togglingNav === item.id;
+                            return (
+                                <div key={item.id} className="px-4 py-2.5 flex items-center gap-3">
+                                    <span className="text-base w-6 text-center">{item.icon}</span>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-medium text-gray-900">{item.label}</p>
+                                        <p className="text-[10px] text-gray-400">{item.section}</p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        title={enabled ? "הסתר מהתפריט" : "הצג בתפריט"}
+                                        onClick={async () => {
+                                            setTogglingNav(item.id);
+                                            try {
+                                                await apiFetch(`/api/admin/studios/${studioId}/modules/${item.id}`, {
+                                                    method: "PUT",
+                                                    body: JSON.stringify({ is_enabled: !enabled }),
+                                                });
+                                                setNavModules(prev => ({ ...prev, [item.id]: !enabled }));
+                                            } catch { toast.error("שגיאה"); }
+                                            finally { setTogglingNav(null); }
+                                        }}
+                                        disabled={saving}
+                                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none disabled:opacity-50 ${enabled ? "bg-emerald-500" : "bg-gray-200"}`}
+                                    >
+                                        <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${enabled ? "translate-x-5" : "translate-x-0"}`} />
+                                    </button>
                                 </div>
                             );
                         })}

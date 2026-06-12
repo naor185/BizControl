@@ -27,23 +27,23 @@ type Me = {
 type PinStatus = { has_pin: boolean; is_locked: boolean };
 
 const MAIN_NAV: { href: string; label: string; icon: string; module?: string }[] = [
-    { href: "/calendar",  label: "יומן תורים",  icon: "📅" },
-    { href: "/pos",       label: "קופה",         icon: "🛒" },
-    { href: "/dashboard", label: "לוח בקרה",   icon: "📊" },
-    { href: "/clients",   label: "לקוחות",       icon: "👥" },
-    { href: "/broadcasts", label: "תפוצות",      icon: "📢" },
-    { href: "/analytics", label: "אנליטיקות",   icon: "📈", module: "analytics" },
+    { href: "/calendar",   label: "יומן תורים",  icon: "📅", module: "calendar" },
+    { href: "/pos",        label: "קופה",         icon: "🛒", module: "pos" },
+    { href: "/dashboard",  label: "לוח בקרה",    icon: "📊" },
+    { href: "/clients",    label: "לקוחות",       icon: "👥", module: "crm" },
+    { href: "/broadcasts", label: "תפוצות",       icon: "📢", module: "broadcasts" },
+    { href: "/analytics",  label: "אנליטיקות",   icon: "📈", module: "analytics" },
 ];
 
 const MANAGE_NAV: { href: string; label: string; icon: string; module?: string }[] = [
-    { href: "/services",     label: "שירותים",        icon: "🛎️" },
-    { href: "/wait-list",    label: "רשימת המתנה",   icon: "⏳", module: "wait_list" },
-    { href: "/products",     label: "מוצרים",         icon: "📦" },
-    { href: "/expenses",     label: "הוצאות",          icon: "💼" },
-    { href: "/obligations",  label: "התחייבויות",       icon: "💳" },
-    { href: "/team",         label: "צוות",            icon: "🎨" },
-    { href: "/stamps",       label: "כרטיסי חותמות",  icon: "🎁", module: "customer_club" },
-    { href: "/tiers",        label: "רמות VIP",        icon: "👑", module: "customer_club" },
+    { href: "/services",     label: "שירותים",        icon: "🛎️", module: "services" },
+    { href: "/wait-list",    label: "רשימת המתנה",   icon: "⏳",  module: "wait_list" },
+    { href: "/products",     label: "מוצרים",         icon: "📦",  module: "products" },
+    { href: "/expenses",     label: "הוצאות",          icon: "💼",  module: "expenses" },
+    { href: "/obligations",  label: "התחייבויות",      icon: "💳",  module: "obligations" },
+    { href: "/team",         label: "צוות",            icon: "🎨",  module: "employee_mgmt" },
+    { href: "/stamps",       label: "כרטיסי חותמות",  icon: "🎁",  module: "customer_club" },
+    { href: "/tiers",        label: "רמות VIP",        icon: "👑",  module: "customer_club" },
 ];
 
 export default function AppShell({

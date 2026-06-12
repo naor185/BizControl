@@ -357,6 +357,13 @@ def ensure_schema():
             ("multi_location",     "advanced",      "ריבוי סניפים",              15),
             ("employee_mgmt",      "core",          "ניהול צוות & שכר",          16),
             ("automation_builder", "advanced",      "בונה אוטומציות (WHEN/THEN)",17),
+            # Nav-level modules (control sidebar visibility)
+            ("pos",          "core",    "קופה",           18),
+            ("products",     "core",    "מוצרים",          19),
+            ("expenses",     "core",    "הוצאות",          20),
+            ("obligations",  "core",    "התחייבויות",      21),
+            ("services",     "core",    "שירותים",         22),
+            ("broadcasts",   "core",    "תפוצות",          23),
         ]
         for mid, cat, name, sort in MODULES:
             cur.execute("""
@@ -366,19 +373,20 @@ def ensure_schema():
             """, (mid, name, cat, sort))
 
         # ── Seed plan → module defaults (idempotent) ──────────────────────────
+        _NAV_MODULES = ["pos", "products", "expenses", "obligations", "services", "broadcasts"]
         PLAN_MODULES = {
-            "free":       ["crm", "calendar"],
-            "starter":    ["crm", "calendar", "payments", "whatsapp", "email"],
+            "free":       ["crm", "calendar"] + _NAV_MODULES,
+            "starter":    ["crm", "calendar", "payments", "whatsapp", "email"] + _NAV_MODULES,
             "pro":        ["crm", "calendar", "payments", "whatsapp", "email",
-                           "customer_club", "ocr", "ai_assistant", "employee_mgmt"],
+                           "customer_club", "ocr", "ai_assistant", "employee_mgmt"] + _NAV_MODULES,
             "enterprise": ["crm", "calendar", "payments", "whatsapp", "email", "sms",
                            "customer_club", "wallet", "ocr", "ai_assistant",
                            "online_booking", "marketplace", "wait_list", "gift_cards",
-                           "analytics", "multi_location", "employee_mgmt", "automation_builder"],
+                           "analytics", "multi_location", "employee_mgmt", "automation_builder"] + _NAV_MODULES,
             "platform":   ["crm", "calendar", "payments", "whatsapp", "email", "sms",
                            "customer_club", "wallet", "ocr", "ai_assistant",
                            "online_booking", "marketplace", "wait_list", "gift_cards",
-                           "analytics", "multi_location", "employee_mgmt", "automation_builder"],
+                           "analytics", "multi_location", "employee_mgmt", "automation_builder"] + _NAV_MODULES,
         }
         for plan, mods in PLAN_MODULES.items():
             for mod in mods:
