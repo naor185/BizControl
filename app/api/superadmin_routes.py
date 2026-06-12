@@ -1130,6 +1130,81 @@ def update_platform_settings(
     )
 
 
+# ── BizFind System Settings (platform_config) ─────────────────────────────────
+
+def _cfg_get(db: Session, key: str) -> str | None:
+    row = db.execute(text("SELECT value FROM platform_config WHERE key = :k"), {"k": key}).fetchone()
+    return row[0] if row else None
+
+def _cfg_set(db: Session, key: str, value: str | None):
+    if value:
+        db.execute(text("""
+            INSERT INTO platform_config (key, value, updated_at)
+            VALUES (:k, :v, NOW())
+            ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
+        """), {"k": key, "v": value})
+    else:
+        db.execute(text("DELETE FROM platform_config WHERE key = :k"), {"k": key})
+
+
+class BizFindSettingsOut(BaseModel):
+    otp_wa_instance: str | None
+    otp_wa_token_set: bool
+
+
+class BizFindSettingsIn(BaseModel):
+    otp_wa_instance: str | None = None
+    otp_wa_token: str | None = None
+
+
+class TestOTPIn(BaseModel):
+    phone: str
+
+
+@router.get("/bizfind-settings", response_model=BizFindSettingsOut)
+def get_bizfind_settings(admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    return BizFindSettingsOut(
+        otp_wa_instance=_cfg_get(db, "bizfind_otp_wa_instance"),
+        otp_wa_token_set=bool(_cfg_get(db, "bizfind_otp_wa_token")),
+    )
+
+
+@router.post("/bizfind-settings", response_model=BizFindSettingsOut)
+def save_bizfind_settings(payload: BizFindSettingsIn, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    if payload.otp_wa_instance is not None:
+        _cfg_set(db, "bizfind_otp_wa_instance", payload.otp_wa_instance.strip() or None)
+    if payload.otp_wa_token is not None:
+        _cfg_set(db, "bizfind_otp_wa_token", payload.otp_wa_token.strip() or None)
+    db.commit()
+    return BizFindSettingsOut(
+        otp_wa_instance=_cfg_get(db, "bizfind_otp_wa_instance"),
+        otp_wa_token_set=bool(_cfg_get(db, "bizfind_otp_wa_token")),
+    )
+
+
+@router.post("/bizfind-settings/test-otp")
+def test_bizfind_otp(payload: TestOTPIn, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    instance = _cfg_get(db, "bizfind_otp_wa_instance")
+    token = _cfg_get(db, "bizfind_otp_wa_token")
+    if not instance or not token:
+        raise HTTPException(status_code=400, detail="Instance ID או Token לא מוגדרים")
+    phone = payload.phone.strip().replace("-", "").replace(" ", "")
+    if phone.startswith("0"):
+        phone = "972" + phone[1:]
+    chat_id = phone + "@c.us"
+    try:
+        import requests as _req
+        url = f"https://api.green-api.com/waInstance{instance}/sendMessage/{token}"
+        r = _req.post(url, json={"chatId": chat_id, "message": "✅ BizFind — הגדרות OTP נשמרו ועובדות!"}, timeout=10)
+        if r.status_code != 200:
+            raise HTTPException(status_code=502, detail=f"Green API שגיאה: {r.text[:200]}")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=str(e))
+    return {"status": "sent"}
+
+
 @router.get("/studios/{studio_id}/lead-analytics", response_model=LeadAnalyticsOut)
 def lead_analytics(studio_id: uuid.UUID, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
     studio = db.get(Studio, studio_id)

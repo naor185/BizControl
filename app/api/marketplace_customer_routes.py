@@ -62,31 +62,46 @@ def _get_customer_id(authorization: str = Header(None)) -> str:
     return _verify_token(authorization[7:])
 
 
-def _send_sms(phone: str, code: str):
-    """Send OTP via WhatsApp (Green API) or Twilio if configured."""
+def _send_sms(phone: str, code: str, db=None):
+    """Send OTP via WhatsApp (Green API). Credentials stored in platform_config."""
     import logging
     log = logging.getLogger(__name__)
     log.info(f"[OTP] {phone} → {code}")
 
-    # Normalize phone to international format (972...)
+    # Normalize to international format
     clean = phone.lstrip("+").replace("-", "").replace(" ", "")
     if clean.startswith("0"):
         clean = "972" + clean[1:]
-    wa_phone = clean + "@c.us"
+    chat_id = clean + "@c.us"
+    msg = f"קוד האימות שלך ב-BizFind: *{code}*\n\nהקוד תקף ל-5 דקות."
 
-    # 1. Try Green API (preferred — no extra cost if already configured)
-    wa_instance = os.getenv("BIZFIND_WA_INSTANCE") or os.getenv("BIZFIND_GREEN_INSTANCE")
-    wa_token    = os.getenv("BIZFIND_WA_TOKEN")    or os.getenv("BIZFIND_GREEN_TOKEN")
+    # 1. Read credentials from DB (platform_config)
+    wa_instance, wa_token = None, None
+    if db is not None:
+        try:
+            from sqlalchemy import text as _text
+            row_i = db.execute(_text("SELECT value FROM platform_config WHERE key='bizfind_otp_wa_instance'")).fetchone()
+            row_t = db.execute(_text("SELECT value FROM platform_config WHERE key='bizfind_otp_wa_token'")).fetchone()
+            wa_instance = row_i[0] if row_i else None
+            wa_token    = row_t[0] if row_t else None
+        except Exception as e:
+            log.warning(f"DB config read failed: {e}")
+
+    # 2. Fallback to env vars (for local dev / migration period)
+    if not wa_instance or not wa_token:
+        wa_instance = os.getenv("BIZFIND_WA_INSTANCE")
+        wa_token    = os.getenv("BIZFIND_WA_TOKEN")
+
     if wa_instance and wa_token:
         try:
             import requests as _req
             url = f"https://api.green-api.com/waInstance{wa_instance}/sendMessage/{wa_token}"
-            _req.post(url, json={"chatId": wa_phone, "message": f"קוד האימות שלך ב-BizFind: *{code}*\n\nהקוד תקף ל-5 דקות."}, timeout=10)
+            _req.post(url, json={"chatId": chat_id, "message": msg}, timeout=10)
             return
         except Exception as e:
             log.warning(f"Green API OTP send failed: {e}")
 
-    # 2. Try Twilio SMS
+    # 3. Fallback: Twilio SMS
     twilio_sid   = os.getenv("TWILIO_ACCOUNT_SID")
     twilio_token = os.getenv("TWILIO_AUTH_TOKEN")
     twilio_from  = os.getenv("TWILIO_FROM_NUMBER")
@@ -141,7 +156,7 @@ def request_otp(body: RequestOTPIn, db: Session = Depends(get_db)):
     )
     db.commit()
 
-    _send_sms(phone, code)
+    _send_sms(phone, code, db=db)
 
     return {"ok": True, "expires_in_seconds": OTP_TTL_MINUTES * 60}
 

@@ -531,6 +531,15 @@ def ensure_schema():
         """)
         cur.execute("CREATE INDEX IF NOT EXISTS ix_marketplace_favorites_customer ON marketplace_favorites (customer_id)")
 
+        # ── Platform Config (key-value system settings) ───────────────────────
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS platform_config (
+                key VARCHAR(100) PRIMARY KEY,
+                value TEXT,
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+
         # ── Financial Obligations ─────────────────────────────────────────────
         cur.execute("""
             CREATE TABLE IF NOT EXISTS financial_obligations (
