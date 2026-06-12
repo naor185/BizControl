@@ -33,13 +33,6 @@ const SECTION_GROUPS: SectionGroup[] = [
         ],
     },
     {
-        groupLabel: "צוות",
-        items: [
-            { href: "/team", label: "ניהול צוות", description: "עובדים, הרשאות וגדרות אישיות", icon: "👥", color: "from-blue-500 to-blue-600" },
-            { href: "/team/payroll", label: "דוחות שכר", description: "שכר שעתי, עמלות ותשלומים", icon: "💰", color: "from-emerald-500 to-emerald-600" },
-        ],
-    },
-    {
         groupLabel: "תקשורת ולידים",
         items: [
             { href: "/inbox", label: "תיבת הודעות", description: "הודעות נכנסות מלקוחות", icon: "📬", color: "from-teal-500 to-teal-600" },
