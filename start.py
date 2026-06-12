@@ -654,6 +654,42 @@ def ensure_schema():
         """)
         cur.execute("CREATE INDEX IF NOT EXISTS ix_invoice_items_invoice ON invoice_items (invoice_id)")
 
+        # ── WhatsApp Multi-Tenant Connections ────────────────────────────────
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS whatsapp_connections (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                studio_id UUID NOT NULL UNIQUE REFERENCES studios(id) ON DELETE CASCADE,
+                provider VARCHAR(50) NOT NULL DEFAULT 'green_api',
+                instance_id VARCHAR(255),
+                api_token TEXT,
+                phone_number VARCHAR(50),
+                status VARCHAR(50) NOT NULL DEFAULT 'disconnected',
+                managed BOOLEAN NOT NULL DEFAULT false,
+                last_connected_at TIMESTAMPTZ,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+        cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS ix_whatsapp_conn_studio ON whatsapp_connections (studio_id)")
+
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS whatsapp_logs (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                client_id UUID REFERENCES clients(id) ON DELETE SET NULL,
+                phone VARCHAR(50),
+                direction VARCHAR(10) NOT NULL DEFAULT 'outbound',
+                message TEXT,
+                status VARCHAR(50) NOT NULL DEFAULT 'sent',
+                provider VARCHAR(30),
+                instance_id VARCHAR(255),
+                error_message TEXT,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_whatsapp_logs_studio ON whatsapp_logs (studio_id, created_at)")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_whatsapp_logs_client ON whatsapp_logs (client_id)")
+
         # ── Gift Cards ───────────────────────────────────────────────────────
         cur.execute("""
             CREATE TABLE IF NOT EXISTS gift_cards (

@@ -73,8 +73,32 @@ def _get_platform_settings(db: Session):
         return None
 
 
+def _log_whatsapp(db: Session, studio_id, phone: str, body: str, status: str,
+                   provider: str = "", instance_id: str = "", error: str = "") -> None:
+    """Write to whatsapp_logs (best-effort, never raises)."""
+    if not db or not studio_id:
+        return
+    try:
+        from sqlalchemy import text as _t
+        db.execute(_t("""
+            INSERT INTO whatsapp_logs
+                (id, studio_id, phone, message, status, provider, instance_id, error_message)
+            VALUES
+                (gen_random_uuid(), :sid, :ph, :msg, :st, :prov, :iid, :err)
+        """), {
+            "sid": str(studio_id), "ph": phone,
+            "msg": body[:2000] if body else "",
+            "st": status, "prov": provider, "iid": instance_id, "err": error,
+        })
+        db.commit()
+    except Exception:
+        try: db.rollback()
+        except Exception: pass
+
+
 def send_whatsapp_message(to_phone: str, body: str, settings=None, db: Session | None = None) -> None:
     provider = getattr(settings, "whatsapp_provider", None) if settings else None
+    studio_id = getattr(settings, "studio_id", None) if settings else None
 
     # Fall back to platform WhatsApp if studio has none configured
     if not provider and db is not None:
@@ -86,22 +110,31 @@ def send_whatsapp_message(to_phone: str, body: str, settings=None, db: Session |
     if not provider:
         raise ValueError("WhatsApp provider not configured for this studio")
 
-    if provider == "green_api":
-        instance_id = getattr(settings, "whatsapp_instance_id", None)
-        api_key = getattr(settings, "whatsapp_api_key", None)
-        if not instance_id or not api_key:
-            raise ValueError("Green API credentials missing (instance_id or api_key)")
-        _send_via_green(instance_id, api_key, to_phone, body)
+    instance_id_used = ""
+    try:
+        if provider == "green_api":
+            instance_id = getattr(settings, "whatsapp_instance_id", None)
+            api_key = getattr(settings, "whatsapp_api_key", None)
+            if not instance_id or not api_key:
+                raise ValueError("Green API credentials missing (instance_id or api_key)")
+            instance_id_used = instance_id
+            _send_via_green(instance_id, api_key, to_phone, body)
 
-    elif provider == "meta":
-        phone_id = getattr(settings, "whatsapp_phone_id", None)
-        api_key = getattr(settings, "whatsapp_api_key", None)
-        if not phone_id or not api_key:
-            raise ValueError("Meta API credentials missing (phone_id or api_key)")
-        _send_via_meta(phone_id, api_key, to_phone, body)
+        elif provider == "meta":
+            phone_id = getattr(settings, "whatsapp_phone_id", None)
+            api_key = getattr(settings, "whatsapp_api_key", None)
+            if not phone_id or not api_key:
+                raise ValueError("Meta API credentials missing (phone_id or api_key)")
+            _send_via_meta(phone_id, api_key, to_phone, body)
 
-    else:
-        raise ValueError(f"Unknown WhatsApp provider: '{provider}'")
+        else:
+            raise ValueError(f"Unknown WhatsApp provider: '{provider}'")
+
+        _log_whatsapp(db, studio_id, to_phone, body, "sent", provider, instance_id_used)
+
+    except Exception as exc:
+        _log_whatsapp(db, studio_id, to_phone, body, "failed", provider, instance_id_used, str(exc))
+        raise
 
 
 def process_due_jobs(db: Session, limit: int = 20) -> int:

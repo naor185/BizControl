@@ -52,6 +52,7 @@ from app.api.obligation_routes import router as obligation_router
 from app.api.marketplace_customer_routes import router as marketplace_customer_router
 from app.api.invoice_routes import router as invoice_router
 from app.api.gift_card_routes import router as gift_card_router, public_router as gift_card_public_router
+from app.api.whatsapp_mgmt_routes import router as whatsapp_mgmt_router
 
 api_router = APIRouter()
 api_router.include_router(studio_router)
@@ -109,3 +110,4 @@ api_router.include_router(marketplace_customer_router)
 api_router.include_router(invoice_router)
 api_router.include_router(gift_card_router)
 api_router.include_router(gift_card_public_router)
+api_router.include_router(whatsapp_mgmt_router)

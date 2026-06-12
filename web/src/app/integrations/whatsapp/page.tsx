@@ -1,364 +1,219 @@
 "use client";
-
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState, useCallback, useRef } from "react";
 import RequireAuth from "@/components/RequireAuth";
 import AppShell from "@/components/AppShell";
 import { apiFetch } from "@/lib/api";
 
-type Step = 1 | 2 | 3;
+// ── Types ─────────────────────────────────────────────────────────────────────
 
-const STEPS: { id: Step; label: string }[] = [
-    { id: 1, label: "ספק ופרטים" },
-    { id: 2, label: "Webhook" },
-    { id: 3, label: "סיום" },
-];
-
-function Stepper({ current }: { current: Step }) {
-    return (
-        <div className="flex items-center mb-8" dir="rtl">
-            {STEPS.map((s, i) => (
-                <div key={s.id} className="flex items-center flex-1 last:flex-none">
-                    <div className="flex flex-col items-center">
-                        <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold transition-all ${current > s.id ? "bg-emerald-500 text-white" : current === s.id ? "bg-sky-600 text-white" : "bg-slate-200 text-slate-400"}`}>
-                            {current > s.id ? "✓" : s.id}
-                        </div>
-                        <span className={`text-xs mt-1.5 whitespace-nowrap ${current === s.id ? "text-slate-800 font-semibold" : "text-slate-400"}`}>{s.label}</span>
-                    </div>
-                    {i < STEPS.length - 1 && (
-                        <div className={`h-0.5 flex-1 mx-3 mb-5 ${current > s.id ? "bg-emerald-400" : "bg-slate-200"}`} />
-                    )}
-                </div>
-            ))}
-        </div>
-    );
+interface WaStatus {
+    connected: boolean;
+    status: string;
+    instance_id: string | null;
+    phone_number: string | null;
+    managed: boolean;
+    last_connected_at: string | null;
+    messages_this_month: number;
 }
 
-function WebhookBox({ provider, instanceId }: { provider: string; instanceId: string }) {
-    const [copied, setCopied] = useState<string | null>(null);
-    const domain = process.env.NEXT_PUBLIC_API_BASE || "";
-
-    const copy = (text: string, key: string) => {
-        navigator.clipboard.writeText(text).then(() => {
-            setCopied(key);
-            setTimeout(() => setCopied(null), 2000);
-        });
-    };
-
-    if (provider === "green_api") {
-        const url = `${domain}/api/webhook/green/${instanceId || "{instance_id}"}`;
-        return (
-            <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-5 space-y-3">
-                <h4 className="font-bold text-emerald-900">כתובת Webhook להגדרה ב-Green API</h4>
-                <p className="text-sm text-emerald-700">ב-Instance שלך → Settings → Webhooks, הכנס את הכתובת הבאה:</p>
-                <div className="flex items-center gap-2 bg-white rounded-xl border border-emerald-200 px-3 py-2">
-                    <code className="flex-1 text-xs font-mono text-slate-700 break-all" dir="ltr">{url}</code>
-                    <button type="button" onClick={() => copy(url, "url")} className="shrink-0 px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors">
-                        {copied === "url" ? "✓ הועתק" : "העתק"}
-                    </button>
-                </div>
-            </div>
-        );
-    }
-
-    const webhookUrl = `${domain}/api/webhook/meta`;
-    const verifyToken = "bizcontrol_verify";
-    return (
-        <div className="bg-blue-50 border border-blue-200 rounded-2xl p-5 space-y-3">
-            <h4 className="font-bold text-blue-900">הגדרת Webhook ב-Meta Developer Portal</h4>
-            <p className="text-sm text-blue-700">Meta for Developers → WhatsApp → Configuration → Webhook:</p>
-            <div className="space-y-2">
-                <div>
-                    <p className="text-xs font-bold text-slate-500 mb-1">Callback URL</p>
-                    <div className="flex items-center gap-2 bg-white rounded-xl border border-blue-200 px-3 py-2">
-                        <code className="flex-1 text-xs font-mono text-slate-700 break-all" dir="ltr">{webhookUrl}</code>
-                        <button type="button" onClick={() => copy(webhookUrl, "url")} className="shrink-0 px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors">
-                            {copied === "url" ? "✓ הועתק" : "העתק"}
-                        </button>
-                    </div>
-                </div>
-                <div>
-                    <p className="text-xs font-bold text-slate-500 mb-1">Verify Token</p>
-                    <div className="flex items-center gap-2 bg-white rounded-xl border border-blue-200 px-3 py-2">
-                        <code className="flex-1 text-xs font-mono text-slate-700" dir="ltr">{verifyToken}</code>
-                        <button type="button" onClick={() => copy(verifyToken, "token")} className="shrink-0 px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors">
-                            {copied === "token" ? "✓ הועתק" : "העתק"}
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
+interface QrData {
+    type: "qr" | "already_connected" | string;
+    qr_base64?: string;
+    phone_number?: string;
+    message?: string;
 }
 
-export default function WhatsAppWizardPage() {
-    const router = useRouter();
-    const [step, setStep] = useState<Step>(1);
-    const [provider, setProvider] = useState<"green_api" | "meta">("green_api");
-    const [apiKey, setApiKey] = useState("");
-    const [phoneId, setPhoneId] = useState("");
-    const [instanceId, setInstanceId] = useState("");
-    const [showApiKey, setShowApiKey] = useState(false);
+type SetupTab = "qr" | "manual";
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+const STATUS_LABEL: Record<string, string> = {
+    authorized: "מחובר",
+    notAuthorized: "לא מחובר",
+    blocked: "חסום",
+    sleepMode: "מצב שינה",
+    starting: "מתחיל...",
+    not_configured: "לא מוגדר",
+    disconnected: "מנותק",
+    unknown: "לא ידוע",
+};
+
+function PhoneDisplay({ phone }: { phone: string | null }) {
+    if (!phone) return null;
+    const clean = phone.replace(/^972/, "0");
+    return <span dir="ltr">{clean}</span>;
+}
+
+// ── Main Component ─────────────────────────────────────────────────────────────
+
+export default function WhatsAppPage() {
+    const [status, setStatus] = useState<WaStatus | null>(null);
     const [loading, setLoading] = useState(true);
-    const [saving, setSaving] = useState(false);
-    const [err, setErr] = useState<string | null>(null);
+    const [setupTab, setSetupTab] = useState<SetupTab>("qr");
+    const [qrData, setQrData] = useState<QrData | null>(null);
+    const [qrLoading, setQrLoading] = useState(false);
+    const [qrError, setQrError] = useState<string | null>(null);
+    const [disconnecting, setDisconnecting] = useState(false);
+    const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+    // Manual creds
+    const [instanceId, setInstanceId] = useState("");
+    const [apiToken, setApiToken] = useState("");
+    const [savingCreds, setSavingCreds] = useState(false);
+    const [credsErr, setCredsErr] = useState<string | null>(null);
+
+    // Test send
     const [testPhone, setTestPhone] = useState("");
     const [testing, setTesting] = useState(false);
     const [testResult, setTestResult] = useState<{ ok: boolean; msg: string } | null>(null);
 
-    useEffect(() => {
-        apiFetch<Record<string, string>>("/api/studio/automation")
-            .then(data => {
-                setProvider((data.whatsapp_provider || "green_api") as "green_api" | "meta");
-                setApiKey(data.whatsapp_api_key || "");
-                setPhoneId(data.whatsapp_phone_id || "");
-                setInstanceId(data.whatsapp_instance_id || "");
-            })
-            .catch(() => {})
-            .finally(() => setLoading(false));
+    const loadStatus = useCallback(async () => {
+        try {
+            const s = await apiFetch<WaStatus>("/api/whatsapp/status");
+            setStatus(s);
+            return s;
+        } catch { return null; }
+        finally { setLoading(false); }
     }, []);
 
-    const handleTestSend = async () => {
+    useEffect(() => { loadStatus(); }, [loadStatus]);
+
+    // Poll for connection when QR is shown
+    const startPolling = useCallback(() => {
+        if (pollRef.current) clearInterval(pollRef.current);
+        pollRef.current = setInterval(async () => {
+            const s = await loadStatus();
+            if (s?.connected) {
+                if (pollRef.current) clearInterval(pollRef.current);
+                setQrData(null);
+            }
+        }, 4000);
+    }, [loadStatus]);
+
+    useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
+
+    const fetchQr = async () => {
+        setQrLoading(true); setQrError(null); setQrData(null);
+        try {
+            const data = await apiFetch<QrData>("/api/whatsapp/qr");
+            setQrData(data);
+            if (data.type === "qr") startPolling();
+            else loadStatus();
+        } catch (e: unknown) {
+            setQrError((e as Error).message);
+        } finally { setQrLoading(false); }
+    };
+
+    const disconnect = async () => {
+        if (!confirm("לנתק את WhatsApp מהעסק?")) return;
+        setDisconnecting(true);
+        try {
+            await apiFetch("/api/whatsapp/disconnect", { method: "POST" });
+            setStatus(null);
+            setQrData(null);
+            if (pollRef.current) clearInterval(pollRef.current);
+            loadStatus();
+        } catch (e: unknown) { alert((e as Error).message); }
+        finally { setDisconnecting(false); }
+    };
+
+    const saveCreds = async () => {
+        if (!instanceId.trim() || !apiToken.trim()) { setCredsErr("Instance ID ו-Token נדרשים"); return; }
+        setSavingCreds(true); setCredsErr(null);
+        try {
+            const r = await apiFetch<{ ok: boolean; status: string; connected: boolean }>("/api/whatsapp/save-credentials", {
+                method: "POST",
+                body: JSON.stringify({ instance_id: instanceId.trim(), api_token: apiToken.trim() }),
+            });
+            if (r.connected) {
+                loadStatus();
+            } else {
+                loadStatus();
+                setSetupTab("qr");
+                fetchQr();
+            }
+        } catch (e: unknown) { setCredsErr((e as Error).message); }
+        finally { setSavingCreds(false); }
+    };
+
+    const handleTest = async () => {
         if (!testPhone.trim()) return;
-        setTesting(true);
-        setTestResult(null);
+        setTesting(true); setTestResult(null);
         try {
             await apiFetch("/api/studio/automation/test-whatsapp", {
                 method: "POST",
                 body: JSON.stringify({ phone: testPhone.trim() }),
             });
-            setTestResult({ ok: true, msg: "ההודעה נשלחה! בדוק את הוואטסאפ שלך." });
+            setTestResult({ ok: true, msg: "✅ ההודעה נשלחה בהצלחה!" });
         } catch (e: unknown) {
-            setTestResult({ ok: false, msg: (e as { message?: string })?.message || "שגיאה בשליחה" });
-        } finally {
-            setTesting(false);
-        }
+            setTestResult({ ok: false, msg: (e as Error).message || "שגיאה בשליחה" });
+        } finally { setTesting(false); }
     };
 
-    const handleSave = async () => {
-        if (!apiKey) { setErr("יש להזין API Token"); return; }
-        if (provider === "meta" && !phoneId) { setErr("יש להזין Phone Number ID"); return; }
-        if (provider === "green_api" && !instanceId) { setErr("יש להזין Instance ID"); return; }
-
-        setSaving(true);
-        setErr(null);
-        try {
-            await apiFetch("/api/studio/automation", {
-                method: "PATCH",
-                body: JSON.stringify({
-                    whatsapp_provider: provider,
-                    whatsapp_api_key: apiKey,
-                    whatsapp_phone_id: phoneId,
-                    whatsapp_instance_id: instanceId,
-                }),
-            });
-            setStep(2);
-        } catch (e: unknown) {
-            setErr((e as { message?: string })?.message || "שגיאה בשמירה");
-        } finally {
-            setSaving(false);
-        }
-    };
+    const isConnected = status?.connected ?? false;
 
     return (
         <RequireAuth>
-            <AppShell title="חיבור WhatsApp">
-                <div className="max-w-2xl mx-auto pb-16" dir="rtl">
-
-                    <button onClick={() => router.push("/automation")} className="flex items-center gap-2 text-slate-500 hover:text-slate-800 mb-6 transition-colors text-sm font-medium">
-                        <span>→</span> חזרה להגדרות
-                    </button>
-
-                    <div className="mb-8">
-                        <div className="w-14 h-14 rounded-2xl bg-emerald-100 flex items-center justify-center text-3xl mb-4">💬</div>
-                        <h1 className="text-2xl font-bold text-slate-800">אשף חיבור WhatsApp</h1>
-                        <p className="text-slate-500 mt-1">שלח הודעות אוטומטיות ותזכורות ללקוחות שלך דרך WhatsApp</p>
-                    </div>
-
-                    <Stepper current={step} />
+            <AppShell title="💬 WhatsApp">
+                <div className="max-w-2xl mx-auto pb-16 space-y-6" dir="rtl">
 
                     {loading ? (
                         <div className="flex justify-center py-20">
-                            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-slate-900" />
+                            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-emerald-500" />
                         </div>
+                    ) : isConnected ? (
+                        /* ── CONNECTED STATE ── */
+                        <ConnectedPanel
+                            status={status!}
+                            onDisconnect={disconnect}
+                            disconnecting={disconnecting}
+                            testPhone={testPhone}
+                            setTestPhone={setTestPhone}
+                            onTest={handleTest}
+                            testing={testing}
+                            testResult={testResult}
+                        />
                     ) : (
-                        <div className="bg-white rounded-2xl border border-slate-100 shadow-xl shadow-slate-200/40 p-8">
-
-                            {step === 1 && (
-                                <div className="space-y-6">
-                                    <div>
-                                        <h2 className="text-xl font-bold text-slate-800 mb-1">בחר ספק והזן פרטי חיבור</h2>
-                                        <p className="text-sm text-slate-500">בחר את הספק המתאים לך ומלא את הפרטים</p>
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-4">
-                                        {[
-                                            { value: "green_api", label: "Green API", desc: "השתמש במספר WhatsApp הקיים שלך (סריקת QR)", badge: "מומלץ" },
-                                            { value: "meta", label: "Meta Cloud API", desc: "מספר נפרד — 1,000 הודעות חינם לחודש", badge: "חינמי" },
-                                        ].map(p => (
-                                            <label key={p.value} className={`cursor-pointer flex flex-col p-4 rounded-2xl border-2 transition-all ${provider === p.value ? (p.value === "green_api" ? "border-emerald-500 bg-emerald-50" : "border-blue-500 bg-blue-50") : "border-slate-200 hover:border-slate-300"}`}>
-                                                <input type="radio" name="provider" value={p.value} checked={provider === p.value} onChange={() => setProvider(p.value as "green_api" | "meta")} className="sr-only" />
-                                                <div className="flex items-center justify-between mb-1">
-                                                    <span className="font-bold text-slate-800 text-sm">{p.label}</span>
-                                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${p.value === "green_api" ? "bg-emerald-100 text-emerald-700" : "bg-blue-100 text-blue-700"}`}>{p.badge}</span>
-                                                </div>
-                                                <span className="text-xs text-slate-500">{p.desc}</span>
-                                            </label>
-                                        ))}
-                                    </div>
-
-                                    {provider === "green_api" && (
-                                        <div className="space-y-4">
-                                            <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-5">
-                                                <h4 className="font-bold text-emerald-900 mb-3">איך מתחילים:</h4>
-                                                <ol className="space-y-1.5 text-sm text-emerald-800 list-decimal list-inside">
-                                                    <li>היכנס ל-<strong>green-api.com</strong> → הרשם חינם</li>
-                                                    <li>לחץ על <strong>Create Instance</strong></li>
-                                                    <li>סרוק QR עם הוואטסאפ שלך</li>
-                                                    <li>העתק את ה-<strong>Instance ID</strong> וה-<strong>API Token</strong></li>
-                                                </ol>
-                                            </div>
-                                            <div className="grid grid-cols-2 gap-4">
-                                                <div className="space-y-1.5">
-                                                    <label className="block text-sm font-semibold text-slate-700">Instance ID</label>
-                                                    <input type="text" dir="ltr" value={instanceId} onChange={e => setInstanceId(e.target.value)} placeholder="1234567890" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-mono outline-none focus:ring-2 focus:ring-emerald-500" />
-                                                </div>
-                                                <div className="space-y-1.5">
-                                                    <label className="block text-sm font-semibold text-slate-700">API Token</label>
-                                                    <div className="relative">
-                                                        <input type={showApiKey ? "text" : "password"} dir="ltr" value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder="••••••••" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 pr-10 text-sm font-mono outline-none focus:ring-2 focus:ring-emerald-500" />
-                                                        <button type="button" onClick={() => setShowApiKey(v => !v)} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 transition-colors" tabIndex={-1}>
-                                                            {showApiKey ? <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" /></svg> : <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>}
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {provider === "meta" && (
-                                        <div className="space-y-4">
-                                            <div className="bg-blue-50 border border-blue-100 rounded-2xl p-5">
-                                                <h4 className="font-bold text-blue-900 mb-3">איך מתחילים:</h4>
-                                                <ol className="space-y-1.5 text-sm text-blue-800 list-decimal list-inside">
-                                                    <li>היכנס ל-<strong>developers.facebook.com</strong></li>
-                                                    <li>צור App חדש מסוג <strong>Business</strong></li>
-                                                    <li>הוסף את מוצר <strong>WhatsApp</strong> לאפליקציה</li>
-                                                    <li>העתק את ה-<strong>Phone Number ID</strong> וה-<strong>Permanent Access Token</strong></li>
-                                                </ol>
-                                                <p className="text-xs text-blue-600 mt-3">שים לב: נדרש מספר טלפון שאינו מחובר לאפליקציית WhatsApp</p>
-                                            </div>
-                                            <div className="grid grid-cols-2 gap-4">
-                                                <div className="space-y-1.5">
-                                                    <label className="block text-sm font-semibold text-slate-700">Phone Number ID</label>
-                                                    <input type="text" dir="ltr" value={phoneId} onChange={e => setPhoneId(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-mono outline-none focus:ring-2 focus:ring-blue-500" />
-                                                </div>
-                                                <div className="space-y-1.5">
-                                                    <label className="block text-sm font-semibold text-slate-700">Access Token (Permanent)</label>
-                                                    <div className="relative">
-                                                        <input type={showApiKey ? "text" : "password"} dir="ltr" value={apiKey} onChange={e => setApiKey(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 pr-10 text-sm font-mono outline-none focus:ring-2 focus:ring-blue-500" />
-                                                        <button type="button" onClick={() => setShowApiKey(v => !v)} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 transition-colors" tabIndex={-1}>
-                                                            {showApiKey ? <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" /></svg> : <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>}
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {err && <p className="text-red-500 text-sm bg-red-50 border border-red-100 rounded-xl px-4 py-2">{err}</p>}
-
-                                    <div className="flex justify-end pt-2">
-                                        <button onClick={handleSave} disabled={saving} className="bg-slate-900 hover:bg-slate-700 text-white px-8 py-3 rounded-xl font-bold transition-all disabled:opacity-50 flex items-center gap-2">
-                                            {saving ? (
-                                                <>
-                                                    <div className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                                                    שומר...
-                                                </>
-                                            ) : (
-                                                <>שמור ועבור לשלב הבא <span>←</span></>
-                                            )}
-                                        </button>
+                        /* ── SETUP STATE ── */
+                        <div className="space-y-5">
+                            {/* Header */}
+                            <div className="bg-rose-50 border border-rose-200 rounded-2xl p-5 flex items-center gap-4">
+                                <div className="text-3xl">🔴</div>
+                                <div>
+                                    <div className="font-bold text-rose-800">WhatsApp לא מחובר</div>
+                                    <div className="text-sm text-rose-600 mt-0.5">
+                                        {status?.status ? STATUS_LABEL[status.status] || status.status : ""}
+                                        — חבר כדי לשלוח הודעות אוטומטיות ותזכורות
                                     </div>
                                 </div>
+                            </div>
+
+                            {/* Setup tabs */}
+                            <div className="flex bg-slate-100 rounded-xl p-1 gap-1 w-fit">
+                                {(["qr", "manual"] as SetupTab[]).map(t => (
+                                    <button key={t} type="button" onClick={() => setSetupTab(t)}
+                                        className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${setupTab === t ? "bg-white shadow text-slate-900" : "text-slate-500 hover:text-slate-700"}`}>
+                                        {t === "qr" ? "📱 חיבור QR" : "⚙️ הגדרות ידניות"}
+                                    </button>
+                                ))}
+                            </div>
+
+                            {setupTab === "qr" && (
+                                <QrPanel
+                                    qrData={qrData} qrLoading={qrLoading} qrError={qrError}
+                                    onFetchQr={fetchQr}
+                                    instanceId={instanceId} setInstanceId={setInstanceId}
+                                    apiToken={apiToken} setApiToken={setApiToken}
+                                    onSaveCreds={saveCreds} savingCreds={savingCreds} credsErr={credsErr}
+                                />
                             )}
 
-                            {step === 2 && (
-                                <div className="space-y-6">
-                                    <div>
-                                        <h2 className="text-xl font-bold text-slate-800 mb-1">הגדרת Webhook לקבלת הודעות</h2>
-                                        <p className="text-sm text-slate-500">כדי לקבל הודעות נכנסות מלקוחות, יש להגדיר Webhook בלוח הבקרה של הספק</p>
-                                    </div>
-
-                                    <WebhookBox provider={provider} instanceId={instanceId} />
-
-                                    <div className="bg-slate-50 rounded-2xl border border-slate-100 p-5">
-                                        <h4 className="font-semibold text-slate-700 mb-2">אחרי ההגדרה תוכל:</h4>
-                                        <ul className="space-y-1.5 text-sm text-slate-600">
-                                            <li className="flex items-center gap-2"><span className="text-emerald-500">✓</span> לראות הודעות נכנסות ב-Inbox של BizControl</li>
-                                            <li className="flex items-center gap-2"><span className="text-emerald-500">✓</span> לענות ללקוחות ישירות מהממשק</li>
-                                            <li className="flex items-center gap-2"><span className="text-emerald-500">✓</span> לשלוח תזכורות ואישורי תור אוטומטיים</li>
-                                        </ul>
-                                    </div>
-
-                                    <div className="flex justify-between pt-2">
-                                        <button onClick={() => setStep(1)} className="text-slate-500 hover:text-slate-800 px-6 py-3 rounded-xl font-medium transition-colors flex items-center gap-2">
-                                            <span>→</span> חזרה
-                                        </button>
-                                        <button onClick={() => setStep(3)} className="bg-slate-900 hover:bg-slate-700 text-white px-8 py-3 rounded-xl font-bold transition-all flex items-center gap-2">
-                                            הגדרתי את ה-Webhook <span>←</span>
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
-
-                            {step === 3 && (
-                                <div className="py-6 space-y-6">
-                                    <div className="text-center space-y-3">
-                                        <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center text-4xl mx-auto">✅</div>
-                                        <h2 className="text-2xl font-bold text-slate-800">WhatsApp מחובר!</h2>
-                                        <p className="text-slate-500">שלח הודעת בדיקה כדי לוודא שהכל עובד</p>
-                                    </div>
-
-                                    <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-3" dir="rtl">
-                                        <h4 className="font-bold text-slate-700">שלח הודעת בדיקה</h4>
-                                        <div className="flex gap-2">
-                                            <input
-                                                type="tel"
-                                                dir="ltr"
-                                                placeholder="0501234567"
-                                                value={testPhone}
-                                                onChange={e => setTestPhone(e.target.value)}
-                                                className="flex-1 bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-mono outline-none focus:ring-2 focus:ring-emerald-500"
-                                            />
-                                            <button
-                                                onClick={handleTestSend}
-                                                disabled={testing || !testPhone.trim()}
-                                                className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white px-5 py-2.5 rounded-xl font-bold text-sm transition-all"
-                                            >
-                                                {testing ? "שולח..." : "שלח"}
-                                            </button>
-                                        </div>
-                                        {testResult && (
-                                            <div className={`text-sm font-medium px-4 py-2 rounded-xl ${testResult.ok ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>
-                                                {testResult.ok ? "✅ " : "❌ "}{testResult.msg}
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <div className="bg-slate-50 rounded-2xl border border-slate-100 p-5 text-right">
-                                        <h4 className="font-semibold text-slate-700 mb-3">המשך מכאן:</h4>
-                                        <ul className="space-y-2 text-sm text-slate-600">
-                                            <li className="flex items-center gap-2"><span className="text-emerald-500">✓</span> התאם תבניות הודעות בלשונית <strong>הודעות אוטומטיות</strong></li>
-                                            <li className="flex items-center gap-2"><span className="text-emerald-500">✓</span> בדוק הודעות נכנסות ב-<strong>Inbox</strong></li>
-                                        </ul>
-                                    </div>
-                                    <div className="text-center">
-                                        <button onClick={() => router.push("/automation")} className="bg-slate-900 hover:bg-slate-700 text-white px-10 py-3 rounded-xl font-bold transition-all">
-                                            חזור להגדרות
-                                        </button>
-                                    </div>
-                                </div>
+                            {setupTab === "manual" && (
+                                <ManualPanel
+                                    instanceId={instanceId} setInstanceId={setInstanceId}
+                                    apiToken={apiToken} setApiToken={setApiToken}
+                                    onSave={saveCreds} saving={savingCreds} err={credsErr}
+                                />
                             )}
                         </div>
                     )}
@@ -367,3 +222,262 @@ export default function WhatsAppWizardPage() {
         </RequireAuth>
     );
 }
+
+// ── Connected Panel ───────────────────────────────────────────────────────────
+
+function ConnectedPanel({ status, onDisconnect, disconnecting, testPhone, setTestPhone, onTest, testing, testResult }: {
+    status: WaStatus; onDisconnect: () => void; disconnecting: boolean;
+    testPhone: string; setTestPhone: (v: string) => void;
+    onTest: () => void; testing: boolean; testResult: { ok: boolean; msg: string } | null;
+}) {
+    return (
+        <div className="space-y-5">
+            {/* Status card */}
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+                <div className="flex items-center justify-between mb-5">
+                    <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 bg-emerald-100 rounded-2xl flex items-center justify-center text-2xl">💬</div>
+                        <div>
+                            <div className="font-bold text-slate-800 text-lg">WhatsApp מחובר</div>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                                <span className="text-sm text-emerald-600 font-semibold">פעיל</span>
+                            </div>
+                        </div>
+                    </div>
+                    <button type="button" onClick={onDisconnect} disabled={disconnecting}
+                        className="px-4 py-2 text-sm font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl transition-colors disabled:opacity-50">
+                        {disconnecting ? "מנתק..." : "🔌 נתק"}
+                    </button>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                    <InfoBox label="מספר מחובר" value={status.phone_number
+                        ? status.phone_number.replace(/^972/, "0")
+                        : "—"} />
+                    <InfoBox label="הודעות החודש" value={status.messages_this_month.toLocaleString()} />
+                    <InfoBox label="חיבור אחרון"
+                        value={status.last_connected_at
+                            ? new Date(status.last_connected_at).toLocaleDateString("he-IL")
+                            : "—"} />
+                </div>
+
+                {status.managed && (
+                    <div className="mt-3 text-xs text-slate-400 bg-slate-50 rounded-xl px-3 py-1.5">
+                        ✨ Instance מנוהל על ידי BizControl
+                    </div>
+                )}
+            </div>
+
+            {/* Test message */}
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+                <h3 className="font-bold text-slate-800 mb-3">🧪 בדיקת שליחה</h3>
+                <div className="flex gap-2">
+                    <input value={testPhone} onChange={e => setTestPhone(e.target.value)} type="tel"
+                        placeholder="050-0000000" dir="ltr"
+                        className="flex-1 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-400" />
+                    <button type="button" onClick={onTest} disabled={testing || !testPhone.trim()}
+                        className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold px-4 py-2 rounded-xl text-sm transition-colors">
+                        {testing ? "שולח..." : "שלח בדיקה"}
+                    </button>
+                </div>
+                {testResult && (
+                    <p className={`text-sm mt-2 font-medium ${testResult.ok ? "text-emerald-600" : "text-rose-600"}`}>
+                        {testResult.msg}
+                    </p>
+                )}
+            </div>
+
+            {/* Webhook info */}
+            <WebhookBox instanceId={status.instance_id || ""} />
+        </div>
+    );
+}
+
+// ── QR Panel ──────────────────────────────────────────────────────────────────
+
+function QrPanel({ qrData, qrLoading, qrError, onFetchQr, instanceId, setInstanceId, apiToken, setApiToken, onSaveCreds, savingCreds, credsErr }: {
+    qrData: QrData | null; qrLoading: boolean; qrError: string | null; onFetchQr: () => void;
+    instanceId: string; setInstanceId: (v: string) => void;
+    apiToken: string; setApiToken: (v: string) => void;
+    onSaveCreds: () => void; savingCreds: boolean; credsErr: string | null;
+}) {
+    const hasPartner = false; // Would be set via env check from backend
+
+    return (
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-5">
+            <div>
+                <h2 className="text-lg font-black text-slate-800">חיבור דרך QR Code</h2>
+                <p className="text-sm text-slate-500 mt-1">סרוק את הקוד מהאפליקציה של WhatsApp במכשיר שלך</p>
+            </div>
+
+            {/* QR Display */}
+            {!qrData && (
+                <div className="text-center py-6">
+                    <div className="text-5xl mb-4">📱</div>
+                    <p className="text-sm text-slate-500 mb-5">
+                        לפני שתלחץ "הצג QR", יש להזין Instance ID ו-API Token מחשבון Green API שלך:
+                    </p>
+                    <div className="space-y-3 text-right mb-5">
+                        <div>
+                            <label className={lbl}>Instance ID</label>
+                            <input value={instanceId} onChange={e => setInstanceId(e.target.value)}
+                                placeholder="1234567890" dir="ltr" className={inp} />
+                        </div>
+                        <div>
+                            <label className={lbl}>API Token</label>
+                            <input value={apiToken} onChange={e => setApiToken(e.target.value)}
+                                placeholder="xxxxxxxx..." dir="ltr" type="password" className={inp} />
+                        </div>
+                        {credsErr && <p className="text-rose-600 text-sm">{credsErr}</p>}
+                    </div>
+                    <button type="button" onClick={() => { onSaveCreds(); }}
+                        disabled={savingCreds || !instanceId || !apiToken}
+                        className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold px-6 py-3 rounded-2xl text-sm transition-colors">
+                        {savingCreds ? "שומר..." : "📲 שמור והצג QR"}
+                    </button>
+                </div>
+            )}
+
+            {qrLoading && (
+                <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-emerald-500 mx-auto" />
+                    <p className="text-sm text-slate-400 mt-3">מייצר QR Code...</p>
+                </div>
+            )}
+
+            {qrError && (
+                <div className="bg-rose-50 border border-rose-200 rounded-xl p-4 text-sm text-rose-700">
+                    {qrError}
+                    <button type="button" onClick={onFetchQr} className="block mt-2 text-rose-600 underline font-semibold">נסה שוב</button>
+                </div>
+            )}
+
+            {qrData?.type === "qr" && qrData.qr_base64 && (
+                <div className="text-center">
+                    <div className="inline-block bg-white border-4 border-slate-200 rounded-2xl p-3 shadow-lg">
+                        <img
+                            src={`data:image/png;base64,${qrData.qr_base64}`}
+                            alt="QR Code"
+                            className="w-56 h-56"
+                        />
+                    </div>
+                    <p className="text-sm text-slate-500 mt-3">סרוק דרך WhatsApp → הגדרות → מכשירים מקושרים</p>
+                    <p className="text-xs text-slate-400 mt-1 flex items-center justify-center gap-1">
+                        <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse inline-block" />
+                        ממתין לסריקה...
+                    </p>
+                </div>
+            )}
+
+            {qrData?.type === "already_connected" && (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center">
+                    <div className="text-3xl mb-2">✅</div>
+                    <div className="font-bold text-emerald-800">WhatsApp כבר מחובר!</div>
+                    {qrData.phone_number && (
+                        <div className="text-sm text-emerald-600 mt-1" dir="ltr">
+                            {qrData.phone_number.replace(/^972/, "0")}
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {!qrData && instanceId && apiToken && (
+                <button type="button" onClick={onFetchQr} disabled={qrLoading}
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-2xl text-sm transition-colors">
+                    📲 הצג QR Code
+                </button>
+            )}
+        </div>
+    );
+}
+
+// ── Manual Panel ──────────────────────────────────────────────────────────────
+
+function ManualPanel({ instanceId, setInstanceId, apiToken, setApiToken, onSave, saving, err }: {
+    instanceId: string; setInstanceId: (v: string) => void;
+    apiToken: string; setApiToken: (v: string) => void;
+    onSave: () => void; saving: boolean; err: string | null;
+}) {
+    return (
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-4">
+            <div>
+                <h2 className="text-lg font-black text-slate-800">הגדרות ידניות — Green API</h2>
+                <p className="text-sm text-slate-500 mt-1">
+                    צור Instance ב-<a href="https://green-api.com" target="_blank" rel="noopener" className="text-emerald-600 underline">green-api.com</a> והזן את הפרטים:
+                </p>
+            </div>
+
+            <div>
+                <label className={lbl}>Instance ID</label>
+                <input value={instanceId} onChange={e => setInstanceId(e.target.value)}
+                    placeholder="1234567890" dir="ltr" className={inp} />
+            </div>
+            <div>
+                <label className={lbl}>API Token Instance</label>
+                <input value={apiToken} onChange={e => setApiToken(e.target.value)}
+                    placeholder="xxxxxxxx..." dir="ltr" type="password" className={inp} />
+            </div>
+
+            {err && <p className="text-rose-600 text-sm">{err}</p>}
+
+            <button type="button" onClick={onSave} disabled={saving || !instanceId || !apiToken}
+                className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold py-3 rounded-2xl text-sm transition-colors">
+                {saving ? "שומר..." : "💾 שמור פרטי חיבור"}
+            </button>
+
+            <div className="bg-slate-50 rounded-xl p-4 text-sm text-slate-600">
+                <strong className="text-slate-800">איך יוצרים Instance ב-Green API:</strong>
+                <ol className="list-decimal list-inside mt-2 space-y-1 text-slate-500">
+                    <li>היכנס ל-green-api.com</li>
+                    <li>לחץ "Create Instance" → בחר Free/Paid plan</li>
+                    <li>העתק את Instance ID ו-API Token</li>
+                    <li>הדבק כאן ולחץ "שמור"</li>
+                    <li>לאחר השמירה — לחץ "חיבור QR" כדי לקשר את הטלפון שלך</li>
+                </ol>
+            </div>
+        </div>
+    );
+}
+
+// ── Webhook Info ──────────────────────────────────────────────────────────────
+
+function WebhookBox({ instanceId }: { instanceId: string }) {
+    const [copied, setCopied] = useState(false);
+    const domain = process.env.NEXT_PUBLIC_API_BASE || "";
+    const url = `${domain}/api/webhook/green/${instanceId || "{instance_id}"}`;
+
+    const copy = () => {
+        navigator.clipboard.writeText(url).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
+    };
+
+    return (
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+            <h3 className="font-bold text-slate-800 mb-3">🔗 Webhook URL</h3>
+            <p className="text-xs text-slate-500 mb-3">
+                הגדר כתובת זו ב-Green API → Instance Settings → Webhooks לקבלת הודעות נכנסות:
+            </p>
+            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
+                <code className="flex-1 text-xs font-mono text-slate-600 break-all" dir="ltr">{url}</code>
+                <button type="button" onClick={copy}
+                    className="shrink-0 px-3 py-1.5 text-xs font-medium rounded-lg bg-white border border-slate-200 hover:bg-slate-100 transition-colors">
+                    {copied ? "✓ הועתק" : "העתק"}
+                </button>
+            </div>
+        </div>
+    );
+}
+
+// ── Shared ────────────────────────────────────────────────────────────────────
+
+function InfoBox({ label, value }: { label: string; value: string }) {
+    return (
+        <div className="bg-slate-50 rounded-xl p-3">
+            <div className="text-xs text-slate-400 mb-1">{label}</div>
+            <div className="font-bold text-slate-800 text-sm" dir="ltr">{value}</div>
+        </div>
+    );
+}
+
+const lbl = "block text-xs font-semibold text-slate-500 mb-1";
+const inp = "w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-emerald-400";
