@@ -110,6 +110,7 @@ export default function BusinessPage() {
     const hasGallery = p!.gallery.length > 0;
 
     return (
+        <>
         <div dir="rtl" style={{ minHeight: "100vh", background: "#0f172a", color: "#f1f5f9", fontFamily: "system-ui,sans-serif" }}>
 
             {/* ── Lightbox ── */}
@@ -527,6 +528,7 @@ export default function BusinessPage() {
                 onClose={() => setShowRequestModal(false)}
             />
         )}
+        </>
     );
 }
 
