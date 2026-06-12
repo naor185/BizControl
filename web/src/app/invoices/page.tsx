@@ -706,7 +706,7 @@ function ReportsTab() {
             {/* KPIs */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", marginBottom: "1.5rem" }}>
                 <KpiCard title="הכנסות" value={`₪${data.total_ils.toFixed(2)}`} color="#7c3aed" />
-                <KpiCard title="מע\"מ שנגבה" value={`₪${data.vat_ils.toFixed(2)}`} color="#0ea5e9" />
+                <KpiCard title={'מע"מ שנגבה'} value={`₪${data.vat_ils.toFixed(2)}`} color="#0ea5e9" />
                 <KpiCard title="מסמכים" value={String(data.count)} color="#059669" />
                 <KpiCard title="ממוצע עסקה" value={`₪${data.avg_ils.toFixed(2)}`} color="#f59e0b" />
             </div>
