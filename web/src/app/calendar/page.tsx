@@ -129,6 +129,8 @@ export default function CalendarPage() {
     const [showCalSettings, setShowCalSettings] = useState(false);
     const [selfBookingEnabled, setSelfBookingEnabled] = useState<boolean | null>(null);
     const [dismissedBookingBanner, setDismissedBookingBanner] = useState(false);
+    const [creatingApptInvoice, setCreatingApptInvoice] = useState(false);
+    const [apptInvoiceId, setApptInvoiceId] = useState<string | null>(null);
 
     // Type chooser (appointment vs task)
     const [showTypeChooser, setShowTypeChooser] = useState(false);
@@ -470,6 +472,7 @@ export default function CalendarPage() {
         setStatus(app.status);
         setNotes(app.notes || "");
         setDepositAmount(app.deposit_amount_cents ? Math.round(app.deposit_amount_cents / 100) : "");
+        setApptInvoiceId(null);
         setIsModalOpen(true);
     };
 
@@ -1194,6 +1197,45 @@ export default function CalendarPage() {
                                             לחייב לתשלום
                                         </button>
                                     )}
+                                    {selectedEventId && (() => {
+                                        const appt = appointments.find(a => a.id === selectedEventId);
+                                        const paidCents = appt?.paid_cents || 0;
+                                        if (paidCents <= 0) return null;
+                                        return apptInvoiceId ? (
+                                            <button type="button"
+                                                onClick={() => { const t = localStorage.getItem("bizcontrol_token") || ""; window.open(`${process.env.NEXT_PUBLIC_API_URL}/api/invoices/${apptInvoiceId}/pdf?token=${t}`, "_blank"); }}
+                                                className="px-4 py-2 text-sm font-bold text-violet-600 hover:bg-violet-50 rounded-xl transition-colors flex items-center gap-1">
+                                                <span>📄</span> הורד קבלה PDF
+                                            </button>
+                                        ) : (
+                                            <button type="button" disabled={creatingApptInvoice}
+                                                onClick={async () => {
+                                                    const appt = appointments.find(a => a.id === selectedEventId);
+                                                    if (!appt) return;
+                                                    setCreatingApptInvoice(true);
+                                                    try {
+                                                        const inv = await apiFetch<{ id: string }>("/api/invoices", {
+                                                            method: "POST",
+                                                            body: JSON.stringify({
+                                                                doc_type: "receipt",
+                                                                client_id: appt.client_id || undefined,
+                                                                client_name: appt.client_name || undefined,
+                                                                source: "appointment",
+                                                                source_id: appt.id,
+                                                                items: [{ description: appt.title, quantity: 1, unit_price_cents: paidCents }],
+                                                            }),
+                                                        });
+                                                        setApptInvoiceId(inv.id);
+                                                    } catch (e: any) {
+                                                        showToast(e?.message || "שגיאה בהפקת קבלה", "error");
+                                                    } finally { setCreatingApptInvoice(false); }
+                                                }}
+                                                className="px-4 py-2 text-sm font-bold text-violet-600 hover:bg-violet-50 rounded-xl transition-colors flex items-center gap-1 disabled:opacity-50">
+                                                <span>🧾</span>
+                                                {creatingApptInvoice ? "מפיק..." : "הפק קבלה"}
+                                            </button>
+                                        );
+                                    })()}
                                 </div>
                                 <div className="flex gap-3">
                                     <button onClick={() => setIsModalOpen(false)} className="px-5 py-2 text-sm font-bold text-slate-600 hover:bg-slate-200 rounded-xl transition-colors">סגור</button>
