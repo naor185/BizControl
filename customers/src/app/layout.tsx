@@ -3,6 +3,10 @@ import type { ReactNode } from "react";
 export const metadata = {
     title: "BizFind — מצא עסקים וקבע תור",
     description: "גלה ספרים, סטודיואים לקעקועים, ציפורניים, ספא ועוד — וקבע תור אונליין",
+    icons: {
+        icon: "/icon.png",
+        apple: "/icon.png",
+    },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

@@ -238,8 +238,8 @@ export default function HomePage() {
 
             {/* ── Header ── */}
             <header style={{ background: "#fff", borderBottom: "1px solid #f1f5f9", padding: "0 1.25rem", height: 56, display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 40, boxShadow: "0 1px 8px rgba(0,0,0,.06)" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                    <div style={{ width: 30, height: 30, borderRadius: 8, background: "linear-gradient(135deg,#2563eb,#1d4ed8)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 900, fontSize: "0.8rem" }}>B</div>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                    <img src="/logo.png" alt="BizControl" style={{ width: 32, height: 32, objectFit: "contain" }} />
                     <span style={{ fontWeight: 900, fontSize: "1.05rem", color: "#1e293b" }}>BizFind</span>
                 </div>
                 <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
