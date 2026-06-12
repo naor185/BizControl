@@ -48,6 +48,7 @@ from app.api.location_routes import router as location_router
 from app.api.module_me_routes import router as module_me_router
 from app.api.invite_routes import router as invite_router
 from app.api.broadcast_routes import router as broadcast_router
+from app.api.obligation_routes import router as obligation_router
 
 api_router = APIRouter()
 api_router.include_router(studio_router)
@@ -100,3 +101,4 @@ api_router.include_router(location_router)
 api_router.include_router(module_me_router)
 api_router.include_router(invite_router)
 api_router.include_router(broadcast_router)
+api_router.include_router(obligation_router)

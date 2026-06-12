@@ -26,6 +26,7 @@ from app.models.attendance_log import AttendanceLog
 from app.models.pos_transaction import PosTransaction, PosTransactionItem
 from app.models.user_pin_settings import UserPinSettings
 from app.models.pin_attempt_log import PinAttemptLog
+from app.models.financial_obligation import FinancialObligation
 
 __all__ = [
     "Base", "Studio", "User", "StudioSettings", "RefreshToken",
@@ -34,4 +35,5 @@ __all__ = [
     "EmployeeNfcTag", "AttendanceLog",
     "PosTransaction", "PosTransactionItem",
     "UserPinSettings", "PinAttemptLog",
+    "FinancialObligation",
 ]

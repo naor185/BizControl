@@ -485,6 +485,28 @@ def ensure_schema():
             END $$;
         """)
 
+        # ── Financial Obligations ─────────────────────────────────────────────
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS financial_obligations (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                title VARCHAR(200) NOT NULL,
+                counterparty VARCHAR(200),
+                direction VARCHAR(10) NOT NULL CHECK (direction IN ('incoming','outgoing')),
+                notes TEXT,
+                total_amount_cents INTEGER NOT NULL,
+                monthly_payment_cents INTEGER NOT NULL,
+                day_of_month INTEGER NOT NULL CHECK (day_of_month BETWEEN 1 AND 28),
+                start_date DATE NOT NULL,
+                months_paid INTEGER NOT NULL DEFAULT 0,
+                task_id UUID REFERENCES tasks(id) ON DELETE SET NULL,
+                status VARCHAR(12) NOT NULL DEFAULT 'active' CHECK (status IN ('active','paused','completed')),
+                color VARCHAR(7) NOT NULL DEFAULT '#f97316',
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_financial_obligations_studio ON financial_obligations (studio_id)")
+
         conn.commit()
         cur.close()
         conn.close()

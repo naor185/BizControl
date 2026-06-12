@@ -43,6 +43,7 @@ const MANAGE_NAV: { href: string; label: string; icon: string; module?: string }
     { href: "/wait-list",    label: "רשימת המתנה",   icon: "⏳", module: "wait_list" },
     { href: "/products",     label: "מוצרים",         icon: "📦" },
     { href: "/expenses",     label: "הוצאות",          icon: "💼" },
+    { href: "/obligations",  label: "התחייבויות",       icon: "💳" },
     { href: "/team",         label: "צוות",            icon: "🎨" },
     { href: "/stamps",       label: "כרטיסי חותמות",  icon: "🎁", module: "customer_club" },
     { href: "/tiers",        label: "רמות VIP",        icon: "👑", module: "customer_club" },
