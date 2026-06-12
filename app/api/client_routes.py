@@ -123,12 +123,13 @@ def club_leaderboard(
     ctx: AuthContext = Depends(require_studio_ctx),
     db: Session = Depends(get_db),
 ):
-    """Top clients by visit count and by total payments."""
+    """Top clients by visit count and by total payments (including POS)."""
     from sqlalchemy import func
     from app.models.appointment import Appointment
     from app.models.payment import Payment
+    from app.models.pos_transaction import PosTransaction
 
-    # Top visitors — completed/done appointments
+    # Top visitors
     visit_rows = db.execute(
         select(Client.id, Client.full_name, Client.phone, Client.is_club_member, Client.loyalty_points,
                func.count(Appointment.id).label("visit_count"))
@@ -141,8 +142,9 @@ def club_leaderboard(
         .limit(limit)
     ).all()
 
-    # Top payers — sum of paid payments
-    pay_rows = db.execute(
+    # Top payers — regular payments per client
+    pay_map: dict = {}
+    for r in db.execute(
         select(Client.id, Client.full_name, Client.phone, Client.is_club_member, Client.loyalty_points,
                func.coalesce(func.sum(Payment.amount_cents), 0).label("total_paid_cents"))
         .join(Payment, (Payment.client_id == Client.id) & (Payment.studio_id == ctx.studio_id))
@@ -150,23 +152,43 @@ def club_leaderboard(
                Client.is_walk_in.is_(False),
                Payment.status == "paid", Payment.type != "refund")
         .group_by(Client.id, Client.full_name, Client.phone, Client.is_club_member, Client.loyalty_points)
-        .order_by(func.coalesce(func.sum(Payment.amount_cents), 0).desc())
-        .limit(limit)
-    ).all()
-
-    def _row(r, extra_key, extra_val):
-        return {
-            "id": str(r.id),
-            "full_name": r.full_name,
-            "phone": r.phone,
-            "is_club_member": r.is_club_member,
-            "loyalty_points": int(r.loyalty_points or 0),
-            extra_key: extra_val,
+    ).all():
+        pay_map[str(r.id)] = {
+            "id": str(r.id), "full_name": r.full_name, "phone": r.phone,
+            "is_club_member": r.is_club_member, "loyalty_points": int(r.loyalty_points or 0),
+            "total_paid_cents": int(r.total_paid_cents),
         }
 
+    # Add POS transactions per client
+    for r in db.execute(
+        select(Client.id, Client.full_name, Client.phone, Client.is_club_member, Client.loyalty_points,
+               func.coalesce(func.sum(PosTransaction.total_cents), 0).label("pos_cents"))
+        .join(PosTransaction, (PosTransaction.client_id == Client.id) & (PosTransaction.studio_id == ctx.studio_id))
+        .where(Client.studio_id == ctx.studio_id, Client.is_active.is_(True),
+               Client.is_walk_in.is_(False),
+               PosTransaction.status == "paid")
+        .group_by(Client.id, Client.full_name, Client.phone, Client.is_club_member, Client.loyalty_points)
+    ).all():
+        cid = str(r.id)
+        if cid in pay_map:
+            pay_map[cid]["total_paid_cents"] += int(r.pos_cents)
+        else:
+            pay_map[cid] = {
+                "id": cid, "full_name": r.full_name, "phone": r.phone,
+                "is_club_member": r.is_club_member, "loyalty_points": int(r.loyalty_points or 0),
+                "total_paid_cents": int(r.pos_cents),
+            }
+
+    top_payers = sorted(pay_map.values(), key=lambda x: x["total_paid_cents"], reverse=True)[:limit]
+
+    def _visit_row(r):
+        return {"id": str(r.id), "full_name": r.full_name, "phone": r.phone,
+                "is_club_member": r.is_club_member, "loyalty_points": int(r.loyalty_points or 0),
+                "visit_count": r.visit_count}
+
     return {
-        "top_visitors": [_row(r, "visit_count", r.visit_count) for r in visit_rows],
-        "top_payers":   [_row(r, "total_paid_cents", int(r.total_paid_cents)) for r in pay_rows],
+        "top_visitors": [_visit_row(r) for r in visit_rows],
+        "top_payers": top_payers,
     }
 
 
