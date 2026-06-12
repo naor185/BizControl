@@ -178,10 +178,20 @@ function ObligationForm({
             <DayPicker value={dayOfMonth} onChange={setDayOfMonth} />
 
             {/* Preview */}
-            {predictedMonths && dayOfMonth && (
-                <div className="bg-blue-50 rounded-xl px-4 py-3 text-sm text-blue-700 border border-blue-100">
-                    📅 <strong>{predictedMonths} חודשים</strong> של תשלומים, כל <strong>{dayOfMonth}</strong> לחודש
-                    • סה״כ: <strong>{fmt(Math.round(parseFloat(monthlyPayment) * predictedMonths * 100))}</strong>
+            {predictedMonths && dayOfMonth && totalAmount && (
+                <div className="bg-blue-50 rounded-xl px-4 py-3 text-sm text-blue-700 border border-blue-100 space-y-1">
+                    <div>📅 <strong>{predictedMonths} חודשים</strong> של תשלומים, כל <strong>{dayOfMonth}</strong> לחודש</div>
+                    <div>💰 סכום כולל לתשלום: <strong>₪{parseFloat(totalAmount).toLocaleString("he-IL")}</strong></div>
+                    {(() => {
+                        const totalCents = Math.round(parseFloat(totalAmount) * 100);
+                        const monthlyCents = Math.round(parseFloat(monthlyPayment) * 100);
+                        const remainder = totalCents % monthlyCents;
+                        return remainder > 0 ? (
+                            <div className="text-xs text-blue-500">
+                                התשלום האחרון: <strong>₪{(remainder / 100).toLocaleString("he-IL")}</strong> (שארית)
+                            </div>
+                        ) : null;
+                    })()}
                 </div>
             )}
 

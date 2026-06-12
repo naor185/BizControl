@@ -75,7 +75,8 @@ def _to_out(ob: FinancialObligation) -> ObligationOut:
     months_total = math.ceil(ob.total_amount_cents / ob.monthly_payment_cents)
     months_paid = ob.months_paid
     months_remaining = max(0, months_total - months_paid)
-    amount_paid = months_paid * ob.monthly_payment_cents
+    # Cap paid at total — last payment may be a partial amount
+    amount_paid = min(months_paid * ob.monthly_payment_cents, ob.total_amount_cents)
     amount_remaining = max(0, ob.total_amount_cents - amount_paid)
     return ObligationOut(
         id=str(ob.id),
