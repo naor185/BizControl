@@ -71,7 +71,7 @@ export default function GoalWidget({ month, year }: { month?: number; year?: num
         return { day, value: Math.max(0, Math.round(dailyAvg + jitter)) };
     });
 
-    const color = isTargetMet ? "#10b981" : pct >= 60 ? "#6366f1" : pct >= 30 ? "#f59e0b" : "#ef4444";
+    const color = isTargetMet ? "#10b981" : "#2563eb";
 
     return (
         <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #e5e7eb", padding: "1.25rem 1.5rem", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }} dir="rtl">

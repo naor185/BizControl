@@ -592,57 +592,22 @@ export default function ExpensesPage() {
                         </div>
 
                         {/* ── KPI Row ── */}
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "1.25rem", marginBottom: "1.5rem" }}>
-
-                            {/* Gross Income */}
-                            <div style={{ background: "#ffffff", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", border: "1px solid #e5e7eb", borderRight: "3px solid #10b981", padding: "1.4rem 1.5rem" }}>
-                                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.6rem" }}>
-                                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#10b981", flexShrink: 0 }} />
-                                    <span style={{ color: "#6b7280", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>הכנסות ברוטו</span>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "0.75rem", marginBottom: "1rem" }}>
+                            {[
+                                { label: "הכנסות ברוטו", sub: "עסקאות שנסגרו", color: "#10b981", value: stats ? (stats.financials.gross_income_cents / 100).toLocaleString() : "—" },
+                                { label: "רווח נקי", sub: "אחרי כל הניכויים", color: "#2563eb", value: stats ? (stats.financials.net_income_cents / 100).toLocaleString() : "—" },
+                                { label: "מיסים", sub: 'מע"מ + מס הכנסה + ביטוח', color: "#f59e0b", value: stats ? ((stats.financials.vat_amount_cents + stats.financials.income_tax_cents + stats.financials.social_security_cents) / 100).toLocaleString() : "—" },
+                                { label: "סך הוצאות", sub: summary ? `${summary.invoice_count} חשבוניות` : "החודש", color: "#ef4444", value: summary ? fmt(summary.total_expenses) : "—" },
+                            ].map(c => (
+                                <div key={c.label} style={{ background: "#fff", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.07)", border: "1px solid #e5e7eb", borderRight: `3px solid ${c.color}`, padding: "0.85rem 1rem" }}>
+                                    <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", marginBottom: "0.4rem" }}>
+                                        <div style={{ width: 7, height: 7, borderRadius: "50%", background: c.color, flexShrink: 0 }} />
+                                        <span style={{ color: "#6b7280", fontSize: "0.7rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>{c.label}</span>
+                                    </div>
+                                    <div style={{ fontSize: "1.25rem", fontWeight: 700, color: "#1a1a2e", lineHeight: 1.2 }}>₪{c.value}</div>
+                                    <div style={{ color: "#9ca3af", fontSize: "0.7rem", marginTop: "0.25rem" }}>{c.sub}</div>
                                 </div>
-                                <div style={{ fontSize: "1.6rem", fontWeight: 700, color: "#1a1a2e", lineHeight: 1.2 }}>
-                                    ₪{stats ? (stats.financials.gross_income_cents / 100).toLocaleString() : "—"}
-                                </div>
-                                <div style={{ color: "#6b7280", fontSize: "0.75rem", marginTop: "0.35rem" }}>עסקאות שנסגרו</div>
-                            </div>
-
-                            {/* Net Income */}
-                            <div style={{ background: "#ffffff", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", border: "1px solid #e5e7eb", borderRight: "3px solid #00b4b4", padding: "1.4rem 1.5rem" }}>
-                                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.6rem" }}>
-                                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#00b4b4", flexShrink: 0 }} />
-                                    <span style={{ color: "#6b7280", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>רווח נקי</span>
-                                </div>
-                                <div style={{ fontSize: "1.6rem", fontWeight: 700, color: "#1a1a2e", lineHeight: 1.2 }}>
-                                    ₪{stats ? (stats.financials.net_income_cents / 100).toLocaleString() : "—"}
-                                </div>
-                                <div style={{ color: "#6b7280", fontSize: "0.75rem", marginTop: "0.35rem" }}>אחרי כל הניכויים</div>
-                            </div>
-
-                            {/* Taxes */}
-                            <div style={{ background: "#ffffff", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", border: "1px solid #e5e7eb", borderRight: "3px solid #f59e0b", padding: "1.4rem 1.5rem" }}>
-                                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.6rem" }}>
-                                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#f59e0b", flexShrink: 0 }} />
-                                    <span style={{ color: "#6b7280", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>מיסים</span>
-                                </div>
-                                <div style={{ fontSize: "1.6rem", fontWeight: 700, color: "#1a1a2e", lineHeight: 1.2 }}>
-                                    ₪{stats ? ((stats.financials.vat_amount_cents + stats.financials.income_tax_cents + stats.financials.social_security_cents) / 100).toLocaleString() : "—"}
-                                </div>
-                                <div style={{ color: "#6b7280", fontSize: "0.75rem", marginTop: "0.35rem" }}>מע&quot;מ + מס הכנסה + ביטוח לאומי</div>
-                            </div>
-
-                            {/* Total Expenses */}
-                            <div style={{ background: "#ffffff", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", border: "1px solid #e5e7eb", borderRight: "3px solid #ef4444", padding: "1.4rem 1.5rem" }}>
-                                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.6rem" }}>
-                                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#ef4444", flexShrink: 0 }} />
-                                    <span style={{ color: "#6b7280", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>סך הוצאות</span>
-                                </div>
-                                <div style={{ fontSize: "1.6rem", fontWeight: 700, color: "#1a1a2e", lineHeight: 1.2 }}>
-                                    ₪{summary ? fmt(summary.total_expenses) : "—"}
-                                </div>
-                                <div style={{ color: "#6b7280", fontSize: "0.75rem", marginTop: "0.35rem" }}>
-                                    {summary ? `${summary.invoice_count} חשבוניות` : "החודש"}
-                                </div>
-                            </div>
+                            ))}
                         </div>
 
                         {/* ── Charts Row ── */}
