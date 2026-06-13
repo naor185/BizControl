@@ -598,6 +598,8 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 _BUILTIN_ORIGINS = [
     "https://bizfind-nine.vercel.app",
+    "https://find.biz-control.com",
+    "https://biz-control.com",
     "https://www.biz-control.com",
     "https://bizcontrol-seven.vercel.app",
     "http://localhost:3000",
