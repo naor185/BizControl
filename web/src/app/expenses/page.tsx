@@ -25,6 +25,19 @@ import {
 import GoalWidget from "@/components/GoalWidget";
 import AppShell from "@/components/AppShell";
 import RequireAuth from "@/components/RequireAuth";
+import {
+    BarChart,
+    Bar,
+    XAxis,
+    YAxis,
+    CartesianGrid,
+    Tooltip,
+    ResponsiveContainer,
+    PieChart,
+    Pie,
+    Cell,
+    Legend,
+} from "recharts";
 
 const CATEGORIES = [
     "ציוד ומשרד",
@@ -393,6 +406,27 @@ function ExpenseViewerModal({ expense, onClose, onUpdated }: { expense: Expense;
     );
 }
 
+// ── Chart helpers ─────────────────────────────────────────────────────────────
+const RADIAN = Math.PI / 180;
+const PIE_COLORS = ["#7c3aed", "#3b82f6", "#10b981", "#f97316", "#f43f5e", "#f59e0b", "#14b8a6", "#64748b"];
+
+function renderCustomizedLabel({
+    cx, cy, midAngle, innerRadius, outerRadius, percent,
+}: {
+    cx: number; cy: number; midAngle: number;
+    innerRadius: number; outerRadius: number; percent: number;
+}) {
+    if (percent < 0.05) return null;
+    const radius = innerRadius + (outerRadius - innerRadius) * 0.55;
+    const x = cx + radius * Math.cos(-midAngle * RADIAN);
+    const y = cy + radius * Math.sin(-midAngle * RADIAN);
+    return (
+        <text x={x} y={y} fill="#fff" textAnchor="middle" dominantBaseline="central" fontSize={11} fontWeight={700}>
+            {`${(percent * 100).toFixed(0)}%`}
+        </text>
+    );
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function ExpensesPage() {
     const now = new Date();
@@ -431,239 +465,350 @@ export default function ExpensesPage() {
 
     const MONTHS = ["ינואר","פברואר","מרץ","אפריל","מאי","יוני","יולי","אוגוסט","ספטמבר","אוקטובר","נובמבר","דצמבר"];
 
+    // Derived chart data
+    const grossIncome = stats ? stats.financials.gross_income_cents / 100 : 0;
+    const totalExpenses = summary ? summary.total_expenses : 0;
+
+    const barData = [
+        { name: "הכנסות vs הוצאות", הכנסות: grossIncome, הוצאות: totalExpenses },
+    ];
+
+    // Group expenses by category for pie chart
+    const categoryMap: Record<string, number> = {};
+    expenses.forEach(e => {
+        const cat = e.category || "אחר";
+        categoryMap[cat] = (categoryMap[cat] || 0) + e.amount;
+    });
+    const pieData = Object.entries(categoryMap).map(([name, value]) => ({ name, value }));
+
     return (
         <RequireAuth>
             <AppShell title="ניהול עסק">
-                <div className="expenses-page" dir="rtl">
-            <style>{`
-                .expenses-page { 
-                    min-height: 100vh; 
-                    background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
-                    padding: 2rem;
-                    font-family: 'Segoe UI', 'Arial', sans-serif;
-                    color: #fff;
-                }
-                .page-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:2rem; flex-wrap:wrap; gap:1rem; }
-                .page-title { font-size:2rem; font-weight:800; background: linear-gradient(135deg, #a78bfa, #60a5fa); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
-                .page-subtitle { color:#94a3b8; font-size:0.9rem; margin-top:0.3rem; }
-                .header-actions { display:flex; gap:1rem; flex-wrap:wrap; }
-                .btn-primary { background: linear-gradient(135deg, #7c3aed, #4c1d95); color:#fff; border:none; padding:0.7rem 1.4rem; border-radius:12px; font-size:0.95rem; font-weight:600; cursor:pointer; transition:all .2s; }
-                .btn-primary:hover { transform:translateY(-2px); box-shadow:0 8px 20px rgba(124,58,237,.5); }
-                .btn-primary:disabled { opacity:.5; cursor:default; transform:none; }
-                .btn-secondary { background:rgba(255,255,255,.1); color:#fff; border:1px solid rgba(255,255,255,.2); padding:0.7rem 1.4rem; border-radius:12px; font-size:0.95rem; cursor:pointer; transition:all .2s; }
-                .btn-secondary:hover { background:rgba(255,255,255,.2); }
+                <div dir="rtl" style={{ minHeight: "100vh", background: "#f8fafc", fontFamily: "'Segoe UI', Arial, sans-serif" }}>
 
-                /* Date filter */
-                .date-filter { display:flex; gap:1rem; margin-bottom:2rem; align-items:center; flex-wrap:wrap; }
-                .date-filter select { background:rgba(255,255,255,.1); color:#fff; border:1px solid rgba(255,255,255,.2); padding:0.6rem 1rem; border-radius:10px; font-size:0.9rem; cursor:pointer; }
-                .date-filter select option { background:#302b63; color:#fff; }
+                    {/* Modal CSS (kept unchanged for modals) */}
+                    <style>{`
+                        .btn-primary { background: linear-gradient(135deg, #7c3aed, #4c1d95); color:#fff; border:none; padding:0.7rem 1.4rem; border-radius:12px; font-size:0.95rem; font-weight:600; cursor:pointer; transition:all .2s; }
+                        .btn-primary:hover { transform:translateY(-2px); box-shadow:0 8px 20px rgba(124,58,237,.5); }
+                        .btn-primary:disabled { opacity:.5; cursor:default; transform:none; }
+                        .btn-secondary { background:rgba(255,255,255,.1); color:#fff; border:1px solid rgba(255,255,255,.2); padding:0.7rem 1.4rem; border-radius:12px; font-size:0.95rem; cursor:pointer; transition:all .2s; }
+                        .btn-secondary:hover { background:rgba(255,255,255,.2); }
+                        .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.7); backdrop-filter:blur(6px); display:flex; align-items:center; justify-content:center; z-index:1000; padding:1rem; }
+                        .modal-panel { background:linear-gradient(145deg,#1e1b4b,#312e81); border:1px solid rgba(167,139,250,.3); border-radius:20px; width:100%; max-width:560px; padding:2rem; max-height:90vh; overflow-y:auto; }
+                        .modal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; }
+                        .modal-header h2 { font-size:1.3rem; font-weight:700; color:#a78bfa; }
+                        .close-btn { background:rgba(255,255,255,.1); border:none; color:#fff; width:32px; height:32px; border-radius:8px; cursor:pointer; font-size:1rem; }
+                        .upload-area .btn-primary { width:100%; }
+                        .scan-success { color:#4ade80; margin-bottom:1rem; font-size:.9rem; font-weight:600; }
+                        .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+                        .form-grid label { display:flex; flex-direction:column; gap:.4rem; font-size:.85rem; color:#94a3b8; font-weight:600; }
+                        .form-grid input, .form-grid select { background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.15); border-radius:10px; padding:.65rem .9rem; color:#fff; font-size:.9rem; }
+                        .form-grid input:focus, .form-grid select:focus { outline:none; border-color:#a78bfa; }
+                        .form-grid select option { background:#1e1b4b; }
+                        .modal-actions { display:flex; gap:1rem; justify-content:flex-end; margin-top:1.5rem; }
+                        .error-msg { color:#f87171; font-size:.85rem; margin-top:.8rem; background:rgba(239,68,68,.1); padding:.6rem 1rem; border-radius:8px; }
+                        @media(max-width:640px) { .form-grid { grid-template-columns:1fr; } }
+                    `}</style>
 
-                /* Summary cards */
-                .summary-cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:1.5rem; margin-bottom:2rem; }
-                .summary-card { background:rgba(255,255,255,.07); backdrop-filter:blur(10px); border:1px solid rgba(255,255,255,.1); border-radius:16px; padding:1.5rem; text-align:center; transition:all .3s; }
-                .summary-card:hover { transform:translateY(-3px); border-color:rgba(167,139,250,.4); box-shadow:0 10px 30px rgba(124,58,237,.2); }
-                .card-icon { font-size:2rem; margin-bottom:.6rem; }
-                .card-label { color:#94a3b8; font-size:0.85rem; margin-bottom:.4rem; }
-                .card-value { font-size:1.8rem; font-weight:800; background: linear-gradient(135deg, #a78bfa, #60a5fa); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
-                .card-sub { color:#64748b; font-size:0.75rem; margin-top:.3rem; }
-                .section-title { font-size: 1.2rem; font-weight: 700; color: #a78bfa; margin: 2rem 0 1rem; border-right: 3px solid #7c3aed; padding-right: 0.8rem; }
-                .highlight-card { background: linear-gradient(135deg, #7c3aed, #4f46e5); }
-                .highlight-card .card-label { color: rgba(255,255,255,0.8); }
-                .highlight-card .card-value { background: none; -webkit-text-fill-color: #fff; }
-                .mb-8 { margin-bottom: 2rem; }
+                    {/* ── Hero Header ── */}
+                    <div style={{
+                        background: "linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #1e1b4b 100%)",
+                        padding: "2rem 2rem 2.5rem",
+                        position: "relative",
+                        overflow: "hidden",
+                    }}>
+                        {/* decorative blobs */}
+                        <div style={{ position: "absolute", top: -60, left: -60, width: 220, height: 220, background: "radial-gradient(circle, rgba(124,58,237,0.25) 0%, transparent 70%)", borderRadius: "50%", pointerEvents: "none" }} />
+                        <div style={{ position: "absolute", bottom: -40, right: 80, width: 160, height: 160, background: "radial-gradient(circle, rgba(59,130,246,0.2) 0%, transparent 70%)", borderRadius: "50%", pointerEvents: "none" }} />
 
-                /* Expense table */
-                .expense-table-wrap { background:rgba(255,255,255,.05); border-radius:16px; border:1px solid rgba(255,255,255,.1); overflow:hidden; }
-                .table-title { padding:1.2rem 1.5rem; border-bottom:1px solid rgba(255,255,255,.08); font-weight:700; font-size:1.1rem; color:#a78bfa; }
-                table { width:100%; border-collapse:collapse; }
-                th { background:rgba(255,255,255,.05); padding:.9rem 1.2rem; text-align:right; font-size:.8rem; color:#94a3b8; font-weight:600; text-transform:uppercase; letter-spacing:.05em; }
-                td { padding:.9rem 1.2rem; border-bottom:1px solid rgba(255,255,255,.05); font-size:.9rem; }
-                tr:last-child td { border-bottom:none; }
-                tr:hover td { background:rgba(255,255,255,.03); }
-                .badge { display:inline-block; padding:.25rem .7rem; border-radius:20px; font-size:.75rem; font-weight:600; background:rgba(167,139,250,.15); color:#a78bfa; }
-                .ai-badge { background:rgba(96,165,250,.15); color:#60a5fa; }
-                .delete-btn { background:rgba(239,68,68,.15); color:#f87171; border:1px solid rgba(239,68,68,.3); padding:.35rem .8rem; border-radius:8px; font-size:.8rem; cursor:pointer; transition:all .2s; }
-                .delete-btn:hover { background:rgba(239,68,68,.3); }
-                .empty-state { text-align:center; padding:4rem 1rem; color:#64748b; }
-                .empty-icon { font-size:3rem; margin-bottom:1rem; }
-
-                /* Modal */
-                .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.7); backdrop-filter:blur(6px); display:flex; align-items:center; justify-content:center; z-index:1000; padding:1rem; }
-                .modal-panel { background:linear-gradient(145deg,#1e1b4b,#312e81); border:1px solid rgba(167,139,250,.3); border-radius:20px; width:100%; max-width:560px; padding:2rem; max-height:90vh; overflow-y:auto; }
-                .modal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; }
-                .modal-header h2 { font-size:1.3rem; font-weight:700; color:#a78bfa; }
-                .close-btn { background:rgba(255,255,255,.1); border:none; color:#fff; width:32px; height:32px; border-radius:8px; cursor:pointer; font-size:1rem; }
-                .drop-zone { border:2px dashed rgba(167,139,250,.4); border-radius:14px; padding:2.5rem; text-align:center; cursor:pointer; transition:all .2s; margin-bottom:1.5rem; }
-                .drop-zone:hover { border-color:#a78bfa; background:rgba(167,139,250,.05); }
-                .drop-icon { font-size:2.5rem; display:block; margin-bottom:.7rem; }
-                .upload-area .btn-primary { width:100%; }
-                .scan-success { color:#4ade80; margin-bottom:1rem; font-size:.9rem; font-weight:600; }
-                .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
-                .form-grid label { display:flex; flex-direction:column; gap:.4rem; font-size:.85rem; color:#94a3b8; font-weight:600; }
-                .form-grid input, .form-grid select { background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.15); border-radius:10px; padding:.65rem .9rem; color:#fff; font-size:.9rem; }
-                .form-grid input:focus, .form-grid select:focus { outline:none; border-color:#a78bfa; }
-                .form-grid select option { background:#1e1b4b; }
-                .modal-actions { display:flex; gap:1rem; justify-content:flex-end; margin-top:1.5rem; }
-                .error-msg { color:#f87171; font-size:.85rem; margin-top:.8rem; background:rgba(239,68,68,.1); padding:.6rem 1rem; border-radius:8px; }
-                @media(max-width:640px) { .form-grid { grid-template-columns:1fr; } }
-            `}</style>
-
-            {/* Header */}
-            <div className="page-header">
-                <div>
-                    <h1 className="page-title">💼 ניהול עסק</h1>
-                    <p className="page-subtitle">מעקב הוצאות, מע"מ וחשבוניות – בזמן אמת</p>
-                </div>
-                <div className="header-actions">
-                    <button
-                        className="btn-secondary"
-                        style={{ background: "rgba(52,211,153,.1)", borderColor: "rgba(52,211,153,.3)", color: "#34d399" }}
-                        onClick={() => downloadExpenseExcel(month, year)}
-                    >
-                        📊 Excel לרו"ח
-                    </button>
-                    <button
-                        className="btn-secondary"
-                        style={{ background: "rgba(251,191,36,.1)", borderColor: "rgba(251,191,36,.3)", color: "#fbbf24" }}
-                        onClick={async () => {
-                            if (!confirm(`לסמן את כל הוצאות ${month}/${year} כ"נשלחו לרו"ח"?`)) return;
-                            await markMonthSent(month, year);
-                            load();
-                            toast.success("כל ההוצאות סומנו כנשלחו!");
-                        }}
-                    >
-                        ✅ סמן חודש נשלח
-                    </button>
-                    <button className="btn-secondary" onClick={() => setModal("manual")}>✏️ הזנה ידנית</button>
-                    <button className="btn-primary" onClick={() => setModal("scan")}>🤖 העלאת חשבונית AI</button>
-                </div>
-            </div>
-
-            {/* Month/Year Filter */}
-            <div className="date-filter">
-                <span style={{ color: "#94a3b8", fontWeight: 600 }}>תקופה:</span>
-                <select value={month} onChange={e => setMonth(Number(e.target.value))}>
-                    {MONTHS.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
-                </select>
-                <select value={year} onChange={e => setYear(Number(e.target.value))}>
-                    {[2024, 2025, 2026, 2027].map(y => <option key={y} value={y}>{y}</option>)}
-                </select>
-            </div>
-
-            {/* Revenue Goal */}
-            <div className="mb-8">
-                <GoalWidget month={month} year={year} />
-            </div>
-
-            {/* Advanced Financial Summary (Income Side) */}
-            <h2 className="section-title">📊 סיכום הכנסות ומיסים</h2>
-            <div className="summary-cards mb-8">
-                 <div className="summary-card" style={{ borderLeft: '4px solid #10b981' }}>
-                    <div className="card-icon">💸</div>
-                    <div className="card-label">סה״כ הכנסות (ברוטו)</div>
-                    <div className="card-value">₪{stats ? (stats.financials.gross_income_cents / 100).toLocaleString() : "—"}</div>
-                    <div className="card-sub">עסקאות שנסגרו</div>
-                </div>
-                <div className="summary-card" style={{ borderLeft: '4px solid #f59e0b' }}>
-                    <div className="card-icon">📉</div>
-                    <div className="card-label">מע״מ והפרשות (לדיווח)</div>
-                    <div className="card-value">₪{stats ? ((stats.financials.vat_amount_cents + stats.financials.income_tax_cents + stats.financials.social_security_cents) / 100).toLocaleString() : "—"}</div>
-                    <div className="card-sub">כולל מס הכנסה וביטוח לאומי</div>
-                </div>
-                <div className="summary-card highlight-card">
-                    <div className="card-icon">✨</div>
-                    <div className="card-label">רווח נקי משוער (בכיס)</div>
-                    <div className="card-value" style={{ color: '#fff' }}>₪{stats ? (stats.financials.net_income_cents / 100).toLocaleString() : "—"}</div>
-                    <div className="card-sub" style={{ color: 'rgba(255,255,255,0.7)' }}>אחרי כל המיסים</div>
-                </div>
-            </div>
-
-            {/* Expenses Summary (Expense Side) */}
-            <h2 className="section-title">🧾 סיכום הוצאות</h2>
-            <div className="summary-cards mb-8">
-                <div className="summary-card">
-                    <div className="card-icon">🛍️</div>
-                    <div className="card-label">סך הוצאות</div>
-                    <div className="card-value">₪{summary ? fmt(summary.total_expenses) : "—"}</div>
-                    <div className="card-sub">החודש</div>
-                </div>
-                <div className="summary-card">
-                    <div className="card-icon">🛡️</div>
-                    <div className="card-label">מע"מ מוכר (החזר)</div>
-                    <div className="card-value">₪{summary ? fmt(summary.total_vat) : "—"}</div>
-                    <div className="card-sub">מתוך {summary ? summary.invoice_count : "0"} חשבוניות</div>
-                </div>
-                <div className="summary-card">
-                    <div className="card-icon">📊</div>
-                    <div className="card-label">מס הכנסה להפרשה</div>
-                    <div className="card-value">₪{stats ? (stats.financials.income_tax_cents / 100).toLocaleString() : "—"}</div>
-                    <div className="card-sub">לפי {stats?.financials.vat_rate?.toFixed(1) || "18"}% מע"מ</div>
-                </div>
-            </div>
-
-            {/* Expense Table */}
-            <div className="expense-table-wrap">
-                <div className="table-title">רשימת הוצאות</div>
-                {loading ? (
-                    <div className="empty-state"><div className="empty-icon">⏳</div><p>טוען נתונים...</p></div>
-                ) : expenses.length === 0 ? (
-                    <div className="empty-state">
-                        <div className="empty-icon">📭</div>
-                        <p>אין הוצאות לתקופה זו</p>
-                        <p style={{ fontSize: ".85rem", marginTop: ".5rem" }}>העלה חשבונית עם AI או הזן ידנית</p>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "1.5rem", position: "relative", zIndex: 1 }}>
+                            <div>
+                                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.4rem" }}>
+                                    <span style={{ fontSize: "1.8rem" }}>💼</span>
+                                    <h1 style={{ fontSize: "2rem", fontWeight: 900, color: "#fff", margin: 0, letterSpacing: "-0.02em" }}>ניהול עסק</h1>
+                                </div>
+                                <p style={{ color: "#94a3b8", margin: 0, fontSize: "0.95rem" }}>מעקב הוצאות, מע&quot;מ וחשבוניות – בזמן אמת</p>
+                            </div>
+                            <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+                                <button
+                                    onClick={() => downloadExpenseExcel(month, year)}
+                                    style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "rgba(16,185,129,0.15)", border: "1px solid rgba(16,185,129,0.4)", color: "#34d399", padding: "0.65rem 1.25rem", borderRadius: "12px", fontWeight: 600, fontSize: "0.9rem", cursor: "pointer", backdropFilter: "blur(6px)" }}
+                                >
+                                    📊 Excel לרו&quot;ח
+                                </button>
+                                <button
+                                    onClick={async () => {
+                                        if (!confirm(`לסמן את כל הוצאות ${month}/${year} כ"נשלחו לרו"ח"?`)) return;
+                                        await markMonthSent(month, year);
+                                        load();
+                                        toast.success("כל ההוצאות סומנו כנשלחו!");
+                                    }}
+                                    style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "rgba(251,191,36,0.15)", border: "1px solid rgba(251,191,36,0.4)", color: "#fbbf24", padding: "0.65rem 1.25rem", borderRadius: "12px", fontWeight: 600, fontSize: "0.9rem", cursor: "pointer", backdropFilter: "blur(6px)" }}
+                                >
+                                    ✅ סמן חודש נשלח
+                                </button>
+                                <button
+                                    onClick={() => setModal("manual")}
+                                    style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", color: "#e2e8f0", padding: "0.65rem 1.25rem", borderRadius: "12px", fontWeight: 600, fontSize: "0.9rem", cursor: "pointer", backdropFilter: "blur(6px)" }}
+                                >
+                                    ✏️ הזנה ידנית
+                                </button>
+                                <button
+                                    onClick={() => setModal("scan")}
+                                    style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "linear-gradient(135deg, #7c3aed, #4f46e5)", border: "none", color: "#fff", padding: "0.65rem 1.4rem", borderRadius: "12px", fontWeight: 700, fontSize: "0.9rem", cursor: "pointer", boxShadow: "0 4px 15px rgba(124,58,237,0.4)" }}
+                                >
+                                    🤖 העלאת חשבונית AI
+                                </button>
+                            </div>
+                        </div>
                     </div>
-                ) : (
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>ספק / שם</th>
-                                <th>קטגוריה</th>
-                                <th>מספר חשבונית</th>
-                                <th>תאריך</th>
-                                <th>סכום</th>
-                                <th>מע"מ</th>
-                                <th>מקור</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {expenses.map(e => (
-                                <tr key={e.id} style={{ cursor: "pointer" }} onClick={() => setViewExpense(e)}>
-                                    <td style={{ fontWeight: 600 }}>
-                                        {e.receipt_url && <span style={{ marginLeft: 4 }}>📎</span>}
-                                        {e.supplier_name || e.title}
-                                    </td>
-                                    <td>{e.category ? <span className="badge">{e.category}</span> : <span style={{ color: "#4b5563" }}>—</span>}</td>
-                                    <td style={{ color: "#94a3b8", fontSize: ".85rem" }}>{e.invoice_number || "—"}</td>
-                                    <td style={{ color: "#94a3b8" }}>{new Date(e.expense_date).toLocaleDateString("he-IL")}</td>
-                                    <td style={{ fontWeight: 700, color: "#a78bfa" }}>₪{fmt(e.amount)}</td>
-                                    <td style={{ color: "#60a5fa" }}>₪{fmt(e.vat_amount)}</td>
-                                    <td>
-                                        {e.sent_to_accountant
-                                            ? <span className="badge" style={{ background: "rgba(74,222,128,.15)", color: "#4ade80" }}>✅ נשלח</span>
-                                            : <span className="badge" style={{ background: "rgba(251,191,36,.1)", color: "#fbbf24" }}>⏳ ממתין</span>
-                                        }
-                                    </td>
-                                    <td onClick={ev => ev.stopPropagation()}>
-                                        <button className="delete-btn" onClick={() => handleDelete(e.id)}>🗑️</button>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                )}
-            </div>
 
-            {/* Modals */}
-            {modal === "scan" && <InvoiceUploadModal onClose={() => setModal(null)} onSaved={load} />}
-            {modal === "manual" && <ManualExpenseModal onClose={() => setModal(null)} onSaved={load} />}
-            {viewExpense && (
-                <ExpenseViewerModal
-                    expense={viewExpense}
-                    onClose={() => setViewExpense(null)}
-                    onUpdated={() => { setViewExpense(null); load(); }}
-                />
-            )}
+                    {/* ── Page Body ── */}
+                    <div style={{ padding: "2rem", maxWidth: 1280, margin: "0 auto" }}>
+
+                        {/* ── Period Selector ── */}
+                        <div style={{ background: "#fff", borderRadius: "16px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", border: "1px solid #e2e8f0", padding: "1.25rem 1.5rem", marginBottom: "1.5rem", display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
+                            <span style={{ color: "#475569", fontWeight: 700, fontSize: "0.9rem" }}>📅 תקופה:</span>
+                            <select
+                                value={month}
+                                onChange={e => setMonth(Number(e.target.value))}
+                                style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "10px", padding: "0.5rem 1rem", fontSize: "0.9rem", color: "#1e293b", cursor: "pointer", fontWeight: 600 }}
+                            >
+                                {MONTHS.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
+                            </select>
+                            <select
+                                value={year}
+                                onChange={e => setYear(Number(e.target.value))}
+                                style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "10px", padding: "0.5rem 1rem", fontSize: "0.9rem", color: "#1e293b", cursor: "pointer", fontWeight: 600 }}
+                            >
+                                {[2024, 2025, 2026, 2027].map(y => <option key={y} value={y}>{y}</option>)}
+                            </select>
+                            <span style={{ color: "#94a3b8", fontSize: "0.85rem", marginRight: "auto" }}>
+                                {MONTHS[month - 1]} {year}
+                            </span>
+                        </div>
+
+                        {/* ── Goal Widget ── */}
+                        <div style={{ background: "#fff", borderRadius: "16px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", border: "1px solid #e2e8f0", padding: "1.25rem 1.5rem", marginBottom: "1.5rem" }}>
+                            <GoalWidget month={month} year={year} />
+                        </div>
+
+                        {/* ── KPI Cards ── */}
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: "1.25rem", marginBottom: "1.5rem" }}>
+                            {/* Gross Income */}
+                            <div style={{ background: "#fff", borderRadius: "16px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", border: "1px solid #e2e8f0", borderLeft: "4px solid #10b981", padding: "1.4rem 1.5rem" }}>
+                                <div style={{ fontSize: "1.4rem", marginBottom: "0.5rem" }}>💰</div>
+                                <div style={{ color: "#64748b", fontSize: "0.8rem", fontWeight: 600, marginBottom: "0.4rem", textTransform: "uppercase", letterSpacing: "0.04em" }}>הכנסות ברוטו</div>
+                                <div style={{ fontSize: "1.8rem", fontWeight: 900, color: "#10b981" }}>
+                                    ₪{stats ? (stats.financials.gross_income_cents / 100).toLocaleString() : "—"}
+                                </div>
+                                <div style={{ color: "#94a3b8", fontSize: "0.75rem", marginTop: "0.3rem" }}>עסקאות שנסגרו</div>
+                            </div>
+
+                            {/* Net Income */}
+                            <div style={{ background: "#fff", borderRadius: "16px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", border: "1px solid #e2e8f0", borderLeft: "4px solid #7c3aed", padding: "1.4rem 1.5rem" }}>
+                                <div style={{ fontSize: "1.4rem", marginBottom: "0.5rem" }}>✨</div>
+                                <div style={{ color: "#64748b", fontSize: "0.8rem", fontWeight: 600, marginBottom: "0.4rem", textTransform: "uppercase", letterSpacing: "0.04em" }}>רווח נקי</div>
+                                <div style={{ fontSize: "1.8rem", fontWeight: 900, color: "#7c3aed" }}>
+                                    ₪{stats ? (stats.financials.net_income_cents / 100).toLocaleString() : "—"}
+                                </div>
+                                <div style={{ color: "#94a3b8", fontSize: "0.75rem", marginTop: "0.3rem" }}>אחרי כל המיסים</div>
+                            </div>
+
+                            {/* Taxes */}
+                            <div style={{ background: "#fff", borderRadius: "16px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", border: "1px solid #e2e8f0", borderLeft: "4px solid #f59e0b", padding: "1.4rem 1.5rem" }}>
+                                <div style={{ fontSize: "1.4rem", marginBottom: "0.5rem" }}>📉</div>
+                                <div style={{ color: "#64748b", fontSize: "0.8rem", fontWeight: 600, marginBottom: "0.4rem", textTransform: "uppercase", letterSpacing: "0.04em" }}>מיסים והפרשות</div>
+                                <div style={{ fontSize: "1.8rem", fontWeight: 900, color: "#f59e0b" }}>
+                                    ₪{stats ? ((stats.financials.vat_amount_cents + stats.financials.income_tax_cents + stats.financials.social_security_cents) / 100).toLocaleString() : "—"}
+                                </div>
+                                <div style={{ color: "#94a3b8", fontSize: "0.75rem", marginTop: "0.3rem" }}>מע&quot;מ + מס הכנסה + ביטוח לאומי</div>
+                            </div>
+
+                            {/* Total Expenses */}
+                            <div style={{ background: "#fff", borderRadius: "16px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", border: "1px solid #e2e8f0", borderLeft: "4px solid #f43f5e", padding: "1.4rem 1.5rem" }}>
+                                <div style={{ fontSize: "1.4rem", marginBottom: "0.5rem" }}>🛍️</div>
+                                <div style={{ color: "#64748b", fontSize: "0.8rem", fontWeight: 600, marginBottom: "0.4rem", textTransform: "uppercase", letterSpacing: "0.04em" }}>סך הוצאות</div>
+                                <div style={{ fontSize: "1.8rem", fontWeight: 900, color: "#f43f5e" }}>
+                                    ₪{summary ? fmt(summary.total_expenses) : "—"}
+                                </div>
+                                <div style={{ color: "#94a3b8", fontSize: "0.75rem", marginTop: "0.3rem" }}>
+                                    {summary ? `${summary.invoice_count} חשבוניות` : "החודש"}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* ── Charts Row ── */}
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.25rem", marginBottom: "1.5rem" }}>
+
+                            {/* Bar Chart */}
+                            <div style={{ background: "#fff", borderRadius: "16px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", border: "1px solid #e2e8f0", padding: "1.5rem" }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1.25rem" }}>
+                                    <div style={{ width: 4, height: 20, background: "#3b82f6", borderRadius: 4 }} />
+                                    <span style={{ fontSize: "0.95rem", fontWeight: 700, color: "#1e293b" }}>הכנסות מול הוצאות</span>
+                                </div>
+                                <ResponsiveContainer width="100%" height={220}>
+                                    <BarChart data={barData} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                                        <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#64748b" }} />
+                                        <YAxis tick={{ fontSize: 11, fill: "#64748b" }} tickFormatter={(v: number) => `₪${(v / 1000).toFixed(0)}k`} />
+                                        <Tooltip
+                                            formatter={(value: number) => [`₪${value.toLocaleString()}`, ""]}
+                                            contentStyle={{ borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 13 }}
+                                        />
+                                        <Bar dataKey="הכנסות" fill="#3b82f6" radius={[6, 6, 0, 0]} />
+                                        <Bar dataKey="הוצאות" fill="#f97316" radius={[6, 6, 0, 0]} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+
+                            {/* Pie Chart */}
+                            <div style={{ background: "#fff", borderRadius: "16px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", border: "1px solid #e2e8f0", padding: "1.5rem" }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1.25rem" }}>
+                                    <div style={{ width: 4, height: 20, background: "#7c3aed", borderRadius: 4 }} />
+                                    <span style={{ fontSize: "0.95rem", fontWeight: 700, color: "#1e293b" }}>הוצאות לפי קטגוריה</span>
+                                </div>
+                                {pieData.length === 0 ? (
+                                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 220, color: "#94a3b8", fontSize: "0.9rem" }}>
+                                        אין נתונים לתצוגה
+                                    </div>
+                                ) : (
+                                    <ResponsiveContainer width="100%" height={220}>
+                                        <PieChart>
+                                            <Pie
+                                                data={pieData}
+                                                cx="50%"
+                                                cy="50%"
+                                                innerRadius={55}
+                                                outerRadius={90}
+                                                dataKey="value"
+                                                labelLine={false}
+                                                label={renderCustomizedLabel}
+                                            >
+                                                {pieData.map((_, index) => (
+                                                    <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                                                ))}
+                                            </Pie>
+                                            <Tooltip
+                                                formatter={(value: number) => [`₪${value.toLocaleString()}`, ""]}
+                                                contentStyle={{ borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 13 }}
+                                            />
+                                            <Legend iconType="circle" iconSize={10} wrapperStyle={{ fontSize: 12 }} />
+                                        </PieChart>
+                                    </ResponsiveContainer>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* ── Expense Table ── */}
+                        <div style={{ background: "#fff", borderRadius: "16px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", border: "1px solid #e2e8f0", overflow: "hidden" }}>
+                            <div style={{ padding: "1.25rem 1.5rem", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                <div style={{ width: 4, height: 20, background: "#f43f5e", borderRadius: 4 }} />
+                                <span style={{ fontSize: "0.95rem", fontWeight: 700, color: "#1e293b" }}>רשימת הוצאות</span>
+                                {summary && (
+                                    <span style={{ marginRight: "auto", background: "#f8fafc", border: "1px solid #e2e8f0", color: "#64748b", borderRadius: "20px", padding: "0.2rem 0.75rem", fontSize: "0.78rem", fontWeight: 600 }}>
+                                        {summary.invoice_count} רשומות
+                                    </span>
+                                )}
+                            </div>
+
+                            {loading ? (
+                                <div style={{ textAlign: "center", padding: "4rem 1rem", color: "#94a3b8" }}>
+                                    <div style={{ fontSize: "2.5rem", marginBottom: "1rem" }}>⏳</div>
+                                    <p style={{ fontWeight: 600 }}>טוען נתונים...</p>
+                                </div>
+                            ) : expenses.length === 0 ? (
+                                <div style={{ textAlign: "center", padding: "4rem 1rem", color: "#94a3b8" }}>
+                                    <div style={{ fontSize: "2.5rem", marginBottom: "1rem" }}>📭</div>
+                                    <p style={{ fontWeight: 600, color: "#64748b" }}>אין הוצאות לתקופה זו</p>
+                                    <p style={{ fontSize: "0.85rem", marginTop: "0.5rem" }}>העלה חשבונית עם AI או הזן ידנית</p>
+                                </div>
+                            ) : (
+                                <div style={{ overflowX: "auto" }}>
+                                    <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                                        <thead>
+                                            <tr style={{ background: "#f8fafc" }}>
+                                                {["ספק / שם", "קטגוריה", "מספר חשבונית", "תאריך", "סכום", 'מע"מ', "סטטוס", ""].map(h => (
+                                                    <th key={h} style={{ padding: "0.85rem 1.2rem", textAlign: "right", fontSize: "0.75rem", color: "#64748b", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid #f1f5f9" }}>
+                                                        {h}
+                                                    </th>
+                                                ))}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {expenses.map((e, idx) => (
+                                                <tr
+                                                    key={e.id}
+                                                    onClick={() => setViewExpense(e)}
+                                                    style={{ cursor: "pointer", background: idx % 2 === 0 ? "#fff" : "#fafbfc", transition: "background 0.15s" }}
+                                                    onMouseEnter={ev => (ev.currentTarget.style.background = "#f0f7ff")}
+                                                    onMouseLeave={ev => (ev.currentTarget.style.background = idx % 2 === 0 ? "#fff" : "#fafbfc")}
+                                                >
+                                                    <td style={{ padding: "0.9rem 1.2rem", fontWeight: 600, color: "#1e293b", fontSize: "0.9rem", borderBottom: "1px solid #f1f5f9" }}>
+                                                        {e.receipt_url && <span style={{ marginLeft: 4, color: "#94a3b8" }}>📎</span>}
+                                                        {e.supplier_name || e.title}
+                                                    </td>
+                                                    <td style={{ padding: "0.9rem 1.2rem", borderBottom: "1px solid #f1f5f9" }}>
+                                                        {e.category ? (
+                                                            <span style={{ display: "inline-block", padding: "0.2rem 0.7rem", borderRadius: "20px", fontSize: "0.75rem", fontWeight: 600, background: "rgba(124,58,237,0.08)", color: "#7c3aed", border: "1px solid rgba(124,58,237,0.15)" }}>
+                                                                {e.category}
+                                                            </span>
+                                                        ) : (
+                                                            <span style={{ color: "#cbd5e1" }}>—</span>
+                                                        )}
+                                                    </td>
+                                                    <td style={{ padding: "0.9rem 1.2rem", color: "#94a3b8", fontSize: "0.85rem", borderBottom: "1px solid #f1f5f9" }}>
+                                                        {e.invoice_number || "—"}
+                                                    </td>
+                                                    <td style={{ padding: "0.9rem 1.2rem", color: "#64748b", fontSize: "0.85rem", borderBottom: "1px solid #f1f5f9" }}>
+                                                        {new Date(e.expense_date).toLocaleDateString("he-IL")}
+                                                    </td>
+                                                    <td style={{ padding: "0.9rem 1.2rem", fontWeight: 700, color: "#7c3aed", fontSize: "0.95rem", borderBottom: "1px solid #f1f5f9" }}>
+                                                        ₪{fmt(e.amount)}
+                                                    </td>
+                                                    <td style={{ padding: "0.9rem 1.2rem", color: "#3b82f6", fontSize: "0.9rem", borderBottom: "1px solid #f1f5f9" }}>
+                                                        ₪{fmt(e.vat_amount)}
+                                                    </td>
+                                                    <td style={{ padding: "0.9rem 1.2rem", borderBottom: "1px solid #f1f5f9" }}>
+                                                        {e.sent_to_accountant ? (
+                                                            <span style={{ display: "inline-block", padding: "0.2rem 0.7rem", borderRadius: "20px", fontSize: "0.75rem", fontWeight: 600, background: "rgba(16,185,129,0.08)", color: "#10b981", border: "1px solid rgba(16,185,129,0.2)" }}>
+                                                                ✅ נשלח
+                                                            </span>
+                                                        ) : (
+                                                            <span style={{ display: "inline-block", padding: "0.2rem 0.7rem", borderRadius: "20px", fontSize: "0.75rem", fontWeight: 600, background: "rgba(245,158,11,0.08)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.2)" }}>
+                                                                ⏳ ממתין
+                                                            </span>
+                                                        )}
+                                                    </td>
+                                                    <td style={{ padding: "0.9rem 1.2rem", borderBottom: "1px solid #f1f5f9" }} onClick={ev => ev.stopPropagation()}>
+                                                        <button
+                                                            onClick={() => handleDelete(e.id)}
+                                                            style={{ background: "rgba(239,68,68,0.08)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.2)", padding: "0.35rem 0.75rem", borderRadius: "8px", fontSize: "0.8rem", cursor: "pointer", transition: "all 0.2s" }}
+                                                            onMouseEnter={ev => { ev.currentTarget.style.background = "rgba(239,68,68,0.18)"; }}
+                                                            onMouseLeave={ev => { ev.currentTarget.style.background = "rgba(239,68,68,0.08)"; }}
+                                                        >
+                                                            🗑️
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Modals */}
+                    {modal === "scan" && <InvoiceUploadModal onClose={() => setModal(null)} onSaved={load} />}
+                    {modal === "manual" && <ManualExpenseModal onClose={() => setModal(null)} onSaved={load} />}
+                    {viewExpense && (
+                        <ExpenseViewerModal
+                            expense={viewExpense}
+                            onClose={() => setViewExpense(null)}
+                            onUpdated={() => { setViewExpense(null); load(); }}
+                        />
+                    )}
                 </div>
             </AppShell>
         </RequireAuth>
