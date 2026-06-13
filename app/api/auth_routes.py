@@ -248,6 +248,20 @@ def me(current_user: User = Depends(get_current_user)):
     }
 
 
+@router.get("/studio-info")
+def studio_info(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Lightweight endpoint — returns studio plan + expiry for trial banner."""
+    from app.models.studio import Studio
+    studio = db.get(Studio, current_user.studio_id)
+    if not studio:
+        raise HTTPException(status_code=404, detail="Studio not found")
+    return {
+        "subscription_plan": studio.subscription_plan,
+        "plan_expires_at": studio.plan_expires_at.isoformat() if studio.plan_expires_at else None,
+        "is_active": studio.is_active,
+    }
+
+
 # ── 2FA Setup / Enable / Disable ─────────────────────────────────────────────
 
 @router.get("/2fa/setup")

@@ -292,6 +292,68 @@ def get_plan_features(plan_code: str, db: Session = Depends(get_db)):
     }
 
 
+# ── Onboarding profile update (used by BizControl /onboarding wizard) ────────
+
+class OnboardingProfileIn(BaseModel):
+    business_name: Optional[str] = None
+    description: Optional[str] = None
+    city: Optional[str] = None
+    address: Optional[str] = None
+    phone: Optional[str] = None
+    whatsapp: Optional[str] = None
+    category: Optional[str] = None
+    completed_onboarding: Optional[bool] = None
+
+
+@router.patch("/studio/me")
+def patch_my_studio_profile(
+    payload: OnboardingProfileIn,
+    ctx: AuthContext = Depends(require_studio_ctx),
+    db: Session = Depends(get_db),
+):
+    """Update studio profile — used by BizControl onboarding wizard."""
+    from app.models.studio import Studio
+    from app.models.studio_settings import StudioSettings
+
+    studio = db.get(Studio, ctx.studio_id)
+    settings = db.get(StudioSettings, ctx.studio_id)
+    if not studio or not settings:
+        raise HTTPException(404, "Studio not found")
+
+    if payload.business_name is not None:
+        studio.name = payload.business_name.strip()
+    if payload.description is not None:
+        settings.marketplace_description = payload.description.strip() or None
+    if payload.city is not None:
+        settings.marketplace_city = payload.city.strip() or None
+    if payload.address is not None:
+        settings.studio_address = payload.address.strip() or None
+    if payload.phone is not None:
+        settings.marketplace_phone = payload.phone.strip() or None
+    if payload.whatsapp is not None:
+        settings.marketplace_whatsapp = payload.whatsapp.strip() or None
+
+    # Update marketplace_profiles too (created during registration)
+    update_fields: dict = {}
+    if payload.business_name: update_fields["business_name"] = payload.business_name.strip()
+    if payload.description:   update_fields["description"]   = payload.description.strip()
+    if payload.city:          update_fields["city"]          = payload.city.strip()
+    if payload.address:       update_fields["address"]       = payload.address.strip() if hasattr(payload, "address") else None
+    if payload.phone:         update_fields["phone"]         = payload.phone.strip()
+    if payload.category:      update_fields["category"]      = payload.category.strip()
+
+    if update_fields:
+        set_clause = ", ".join(f"{k} = :{k}" for k in update_fields)
+        update_fields["sid"] = str(ctx.studio_id)
+        db.execute(
+            text(f"UPDATE marketplace_profiles SET {set_clause}, updated_at=NOW() WHERE studio_id = :sid"),
+            update_fields,
+        )
+
+    db.commit()
+    return {"ok": True}
+
+
 # ── Smart studio profile for dashboard (authenticated) ────────────────────────
 
 @router.get("/studio/me")

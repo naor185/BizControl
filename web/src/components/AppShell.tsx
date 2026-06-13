@@ -62,6 +62,7 @@ export default function AppShell({
     const [langOpen, setLangOpen] = useState(false);
 
     const [me, setMe] = useState<Me | null>(null);
+    const [trialDaysLeft, setTrialDaysLeft] = useState<number | null>(null);
     const [locations, setLocations] = useState<{ id: string; name: string; location_name: string; logo_url?: string; primary_color: string }[]>([]);
     const [switchingLocation, setSwitchingLocation] = useState(false);
     const [isImpersonating, setIsImpersonating] = useState(false);
@@ -96,18 +97,23 @@ export default function AppShell({
             try {
                 const token = getToken();
                 if (!token) return;
-                const [data, pin, deposits, locs, mods] = await Promise.all([
+                const [data, pin, deposits, locs, mods, studioInfo] = await Promise.all([
                     apiFetch<Me>("/api/auth/me"),
                     apiFetch<PinStatus>("/api/security/pin/status"),
                     apiFetch<any[]>("/api/appointments/pending-deposits").catch(() => []),
                     apiFetch<any[]>("/api/locations").catch(() => []),
                     apiFetch<Record<string, boolean>>("/api/modules/me").catch(() => null),
+                    apiFetch<{ subscription_plan: string; plan_expires_at: string | null }>("/api/auth/studio-info").catch(() => null),
                 ]);
                 setMe(data);
                 setPinStatus(pin);
                 setPendingDepositsCount(deposits.length);
                 if (locs.length > 1) setLocations(locs);
                 setEnabledModules(mods);
+                if (studioInfo?.plan_expires_at && studioInfo.subscription_plan === "trial") {
+                    const days = Math.ceil((new Date(studioInfo.plan_expires_at).getTime() - Date.now()) / 86_400_000);
+                    if (days >= 0 && days <= 14) setTrialDaysLeft(days);
+                }
             } catch { /* silent */ }
         })();
     }, []);
@@ -147,6 +153,23 @@ export default function AppShell({
 
     return (
         <div className="min-h-screen bg-slate-50" dir={dir}>
+            {/* Trial banner */}
+            {trialDaysLeft !== null && (
+                <div className="bg-linear-to-r from-violet-600 to-indigo-600 text-white text-sm font-semibold px-4 py-2.5 flex items-center justify-between z-50 relative">
+                    <span className="flex items-center gap-2">
+                        <span>🔬</span>
+                        <span>
+                            {trialDaysLeft === 0
+                                ? "ניסיון חינמי מסתיים היום!"
+                                : `ניסיון חינמי — נותרו ${trialDaysLeft} ימים`}
+                        </span>
+                    </span>
+                    <Link href="/billing" className="bg-white text-violet-700 px-3 py-1 rounded-lg text-xs font-bold hover:bg-violet-50 transition-colors no-underline">
+                        שדרגו עכשיו ←
+                    </Link>
+                </div>
+            )}
+
             {/* Impersonation banner */}
             {isImpersonating && (
                 <div className="bg-amber-400 text-amber-950 text-sm font-bold px-4 py-2.5 flex items-center justify-between z-50 relative">

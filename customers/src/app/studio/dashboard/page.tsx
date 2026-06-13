@@ -318,6 +318,11 @@ export default function StudioDashboard() {
     );
 
     const isPro = studioData?.subscription_plan && !["free"].includes(studioData.subscription_plan);
+    const hasBizControl = studioData?.subscription_plan && !["free", "bizfind_basic", "bizfind_pro"].includes(studioData.subscription_plan);
+    const bizControlToken = typeof window !== "undefined" ? localStorage.getItem("biz_studio_token") : null;
+    const bizControlUrl = bizControlToken
+        ? `https://biz-control.com/auto-login?t=${encodeURIComponent(bizControlToken)}&next=/calendar`
+        : "https://biz-control.com";
     const fmtDate = (s: string) => new Date(s).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
     const pendingCount = bookings.filter(b => b.status === "pending").length;
     const score = calcScore(profile, studioData?.gallery_count ?? gallery.length, studioData?.cover_url);
@@ -359,12 +364,20 @@ export default function StudioDashboard() {
                 </div>
             )}
 
-            {/* Upgrade banner */}
-            {!isPro && (
+            {/* BizControl access banner */}
+            {hasBizControl ? (
+                // Has BizControl plan → show Open BizControl button
                 <div style={{ background: "linear-gradient(135deg,#7c3aed,#4f46e5)", padding: "0.6rem 1.25rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "0.5rem" }}>
-                    <span style={{ color: "#fff", fontSize: "0.82rem" }}>🚀 <strong>שדרגו ל-BizControl Pro</strong> — יומן, תשלומים, WhatsApp, AI ועוד</span>
-                    <a href="https://www.biz-control.com" target="_blank" rel="noopener"
-                        style={{ background: "#fff", color: "#7c3aed", padding: "0.3rem 0.8rem", borderRadius: 8, fontWeight: 800, fontSize: "0.78rem", textDecoration: "none" }}>נסו בחינם ←</a>
+                    <span style={{ color: "#fff", fontSize: "0.82rem" }}>⚡ <strong>BizControl</strong> — יומן, CRM, תשלומים ואוטומציות</span>
+                    <a href={bizControlUrl}
+                        style={{ background: "#fff", color: "#7c3aed", padding: "0.35rem 0.9rem", borderRadius: 8, fontWeight: 800, fontSize: "0.78rem", textDecoration: "none" }}>פתח BizControl ←</a>
+                </div>
+            ) : !isPro && (
+                // No BizControl plan → upgrade prompt
+                <div style={{ background: "linear-gradient(135deg,#7c3aed,#4f46e5)", padding: "0.6rem 1.25rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "0.5rem" }}>
+                    <span style={{ color: "#fff", fontSize: "0.82rem" }}>🚀 <strong>שדרגו ל-BizControl</strong> — יומן, תשלומים, WhatsApp, AI ועוד</span>
+                    <a href="/for-business/pricing"
+                        style={{ background: "#fff", color: "#7c3aed", padding: "0.3rem 0.8rem", borderRadius: 8, fontWeight: 800, fontSize: "0.78rem", textDecoration: "none" }}>ראו מסלולים ←</a>
                 </div>
             )}
 

@@ -60,6 +60,7 @@ function RegisterInner() {
     const [loading, setLoading] = useState(false);
     const [err, setErr] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
+    const [registeredData, setRegisteredData] = useState<{ scope_bizcontrol: boolean; token: string } | null>(null);
 
     const plan = PLAN_META[planKey] || PLAN_META["trial"];
     const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
@@ -93,8 +94,8 @@ function RegisterInner() {
             if (!res.ok) throw new Error(data.detail || "שגיאה ברישום");
             setToken(data.access_token);
             localStorage.setItem("biz_studio_token", data.access_token);
+            setRegisteredData({ scope_bizcontrol: data.scope_bizcontrol, token: data.access_token });
             setSuccess(true);
-            setTimeout(() => router.push("/studio/dashboard"), 2200);
         } catch (e: any) {
             setErr(e.message);
         } finally {
@@ -110,12 +111,52 @@ function RegisterInner() {
     };
     const labelStyle = { display: "block", fontSize: "0.85rem", fontWeight: 700, color: "#374151", marginBottom: "0.45rem" };
 
-    if (success) {
+    if (success && registeredData) {
+        const bizControlUrl = `https://biz-control.com/auto-login?t=${encodeURIComponent(registeredData.token)}&next=/onboarding`;
+
         return (
-            <div style={{ textAlign: "center", padding: "3rem 1rem" }}>
-                <div style={{ fontSize: "4rem", marginBottom: "1rem" }}>🎉</div>
-                <h2 style={{ fontWeight: 900, color: "#1e1b4b", marginBottom: "0.5rem" }}>ברוכים הבאים!</h2>
-                <p style={{ color: "#64748b" }}>העסק שלכם נרשם בהצלחה. מעביר אתכם ללוח הבקרה...</p>
+            <div style={{ textAlign: "center", padding: "2rem 0.5rem" }}>
+                <div style={{ fontSize: "3.5rem", marginBottom: "0.75rem" }}>🎉</div>
+                <h2 style={{ fontWeight: 900, color: "#1e1b4b", marginBottom: "0.4rem", fontSize: "1.4rem" }}>ברוכים הבאים!</h2>
+                <p style={{ color: "#64748b", fontSize: "0.9rem", marginBottom: "1.75rem" }}>
+                    העסק שלכם נרשם בהצלחה.
+                </p>
+
+                {registeredData.scope_bizcontrol ? (
+                    // BizControl plan — guide to BizControl onboarding
+                    <div>
+                        <div style={{ background: "#f5f3ff", border: "1.5px solid #ede9fe", borderRadius: 16, padding: "1.25rem", marginBottom: "1.25rem", textAlign: "right" }}>
+                            <div style={{ fontWeight: 800, color: "#7c3aed", marginBottom: "0.35rem" }}>⚡ הצעד הבא — הגדרת BizControl</div>
+                            <div style={{ fontSize: "0.85rem", color: "#64748b", lineHeight: 1.6 }}>
+                                כדי לפתוח את היומן, CRM, תשלומים ואוטומציות — כנסו ל-BizControl והשלימו את הגדרות העסק.
+                            </div>
+                        </div>
+                        <a href={bizControlUrl} style={{
+                            display: "block", background: "linear-gradient(135deg,#7c3aed,#4f46e5)",
+                            color: "#fff", textDecoration: "none", padding: "0.9rem",
+                            borderRadius: 14, fontWeight: 800, fontSize: "1rem",
+                            boxShadow: "0 4px 16px rgba(124,58,237,.35)", marginBottom: "0.75rem",
+                        }}>
+                            פתח BizControl ← הגדר את העסק שלי
+                        </a>
+                        <button type="button" onClick={() => router.push("/studio/dashboard")} style={{
+                            background: "transparent", border: "1.5px solid #e2e8f0", borderRadius: 14,
+                            padding: "0.75rem", width: "100%", color: "#64748b", fontWeight: 600,
+                            fontSize: "0.88rem", cursor: "pointer",
+                        }}>
+                            המשך ל-BizFind בינתיים
+                        </button>
+                    </div>
+                ) : (
+                    // BizFind-only plan
+                    <button onClick={() => router.push("/studio/dashboard")} style={{
+                        background: "linear-gradient(135deg,#7c3aed,#4f46e5)",
+                        color: "#fff", border: "none", borderRadius: 14, padding: "0.9rem",
+                        width: "100%", fontWeight: 800, fontSize: "1rem", cursor: "pointer",
+                    }}>
+                        כנסו לפרופיל שלכם ←
+                    </button>
+                )}
             </div>
         );
     }
