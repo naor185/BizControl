@@ -8,11 +8,10 @@ import { AreaChart, Area, ResponsiveContainer, Tooltip } from "recharts";
 const fmt = (n: number) => Math.round(n).toLocaleString("he-IL");
 
 // SVG ring progress
-function RingProgress({ pct, size = 110 }: { pct: number; size?: number }) {
+function RingProgress({ pct, size = 110, color }: { pct: number; size?: number; color: string }) {
     const r = (size - 16) / 2;
     const circ = 2 * Math.PI * r;
     const offset = circ * (1 - Math.min(pct, 100) / 100);
-    const color = pct >= 100 ? "#10b981" : pct >= 60 ? "#6366f1" : pct >= 30 ? "#f59e0b" : "#ef4444";
     return (
         <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
             <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#f1f5f9" strokeWidth={10} />
@@ -79,7 +78,7 @@ export default function GoalWidget({ month, year }: { month?: number; year?: num
 
                 {/* Ring + % */}
                 <div style={{ position: "relative", flexShrink: 0 }}>
-                    <RingProgress pct={pct} size={110} />
+                    <RingProgress pct={pct} size={110} color={color} />
                     <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
                         <span style={{ fontSize: "1.1rem", fontWeight: 800, color }}>{pct.toFixed(0)}%</span>
                         <span style={{ fontSize: "0.6rem", color: "#9ca3af", fontWeight: 600 }}>בוצע</span>
