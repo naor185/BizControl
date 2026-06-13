@@ -590,6 +590,7 @@ def ensure_schema():
             )
         """)
         cur.execute("ALTER TABLE invoice_settings ADD COLUMN IF NOT EXISTS settings_completed BOOLEAN NOT NULL DEFAULT FALSE")
+        cur.execute("ALTER TABLE invoices ADD COLUMN IF NOT EXISTS business_city VARCHAR(100)")
 
         cur.execute("""
             CREATE TABLE IF NOT EXISTS invoice_series (

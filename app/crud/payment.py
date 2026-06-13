@@ -276,7 +276,7 @@ def _auto_create_invoice(db: Session, studio_id: UUID, payment: Payment, appt, c
                 id, studio_id, doc_type, doc_number, status,
                 client_id, client_name, client_phone,
                 business_name, business_type, business_number,
-                business_address, business_phone, business_email, business_logo_url,
+                business_address, business_city, business_phone, business_email, business_logo_url,
                 subtotal_cents, vat_rate, vat_amount_cents, total_cents, tip_cents,
                 payment_method, source, source_id,
                 issued_by_id, issued_at
@@ -284,7 +284,7 @@ def _auto_create_invoice(db: Session, studio_id: UUID, payment: Payment, appt, c
                 :id, :sid, :dt, :dn, 'issued',
                 :cid, :cname, :cphone,
                 :bname, :btype, :bnum,
-                :baddr, :bphone, :bemail, :blogo,
+                :baddr, :bcity, :bphone, :bemail, :blogo,
                 :sub, :vr, :vat, :total, 0,
                 :method, 'payment', :src_id,
                 NULL, NOW()
@@ -297,6 +297,7 @@ def _auto_create_invoice(db: Session, studio_id: UUID, payment: Payment, appt, c
             "btype": biz_type,
             "bnum": settings.get("business_number"),
             "baddr": settings.get("business_address"),
+            "bcity": settings.get("business_city"),
             "bphone": settings.get("business_phone"),
             "bemail": settings.get("business_email"),
             "blogo": settings.get("logo_url") or studio_logo,
