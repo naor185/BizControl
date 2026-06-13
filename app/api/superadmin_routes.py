@@ -1172,14 +1172,19 @@ class TestOTPIn(BaseModel):
 def get_bizfind_connectable_studios(admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
     """Return all studios with an active Green API WhatsApp connection."""
     rows = db.execute(text("""
-        SELECT s.id, s.name, ss.whatsapp_instance_id, wc.phone_number
+        SELECT s.id, s.name,
+               COALESCE(ss.whatsapp_instance_id, wc.instance_id) AS instance_id,
+               wc.phone_number
         FROM studios s
-        JOIN studio_settings ss ON ss.studio_id = s.id
+        LEFT JOIN studio_settings ss ON ss.studio_id = s.id
         LEFT JOIN whatsapp_connections wc ON wc.studio_id = s.id AND wc.status = 'authorized'
-        WHERE ss.whatsapp_provider = 'green_api'
-          AND ss.whatsapp_instance_id IS NOT NULL
-          AND ss.whatsapp_api_key IS NOT NULL
-          AND s.is_platform IS NOT TRUE
+        WHERE s.is_platform IS NOT TRUE
+          AND s.is_active = TRUE
+          AND (
+              (ss.whatsapp_provider = 'green_api' AND ss.whatsapp_instance_id IS NOT NULL AND ss.whatsapp_api_key IS NOT NULL)
+              OR
+              (wc.id IS NOT NULL AND wc.status = 'authorized')
+          )
         ORDER BY s.name
     """)).fetchall()
     return [
