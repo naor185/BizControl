@@ -61,12 +61,27 @@ def _send_via_green(instance_id: str, api_key: str, to_phone: str, body: str) ->
 
 
 def _get_platform_settings(db: Session):
-    """Return system WhatsApp studio settings as fallback for studios without WhatsApp.
-    Priority: 1) platform_config.system_wa_studio_id  2) PLATFORM_STUDIO_ID env var"""
+    """Return platform WhatsApp credentials as fallback.
+    Priority: 1) platform_config platform_wa_instance/token  2) system_wa_studio_id  3) PLATFORM_STUDIO_ID env"""
     import os, uuid as _uuid
     from sqlalchemy import text as _t
 
-    # 1. Check platform_config table
+    # 1. Dedicated platform Green API instance
+    try:
+        row_i = db.execute(_t("SELECT value FROM platform_config WHERE key='platform_wa_instance'")).fetchone()
+        row_t = db.execute(_t("SELECT value FROM platform_config WHERE key='platform_wa_token'")).fetchone()
+        if row_i and row_i[0] and row_t and row_t[0]:
+            # Return a simple namespace object with needed fields
+            class _PlatformWA:
+                whatsapp_provider = "green_api"
+                whatsapp_instance_id = row_i[0]
+                whatsapp_api_key = row_t[0]
+                studio_id = None
+            return _PlatformWA()
+    except Exception:
+        pass
+
+    # 2. Designated system studio
     try:
         row = db.execute(_t("SELECT value FROM platform_config WHERE key='system_wa_studio_id'")).fetchone()
         if row and row[0]:
@@ -76,7 +91,7 @@ def _get_platform_settings(db: Session):
     except Exception:
         pass
 
-    # 2. Fall back to PLATFORM_STUDIO_ID env var
+    # 3. PLATFORM_STUDIO_ID env var
     platform_id = os.getenv("PLATFORM_STUDIO_ID", "")
     if not platform_id:
         return None

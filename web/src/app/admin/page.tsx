@@ -191,6 +191,14 @@ export default function AdminPage() {
     const [systemWASelected, setSystemWASelected] = useState("");
     const [systemWASaving, setSystemWASaving] = useState(false);
 
+    // Platform Green API (dedicated instance for superadmin)
+    const [platformWAInstance, setPlatformWAInstance] = useState("");
+    const [platformWAToken, setPlatformWAToken] = useState("");
+    const [platformWATokenSet, setPlatformWATokenSet] = useState(false);
+    const [platformWASaving, setPlatformWASaving] = useState(false);
+    const [platformWATestPhone, setPlatformWATestPhone] = useState("");
+    const [platformWATestResult, setPlatformWATestResult] = useState<{ok:boolean;msg:string}|null>(null);
+
     // Leads Inbox
     type GlobalLead = {
         id: string; studio_id: string; studio_name: string; studio_slug: string;
@@ -368,12 +376,13 @@ export default function AdminPage() {
         if (platformSettings) return;
         setPlatformLoading(true);
         try {
-            const [data, wh, bf, studios, sysWA] = await Promise.all([
+            const [data, wh, bf, studios, sysWA, platWA] = await Promise.all([
                 apiFetch<{ whatsapp_provider: string | null; whatsapp_phone_id: string | null; whatsapp_api_key: string | null }>("/api/admin/platform-settings"),
                 apiFetch<{ webhook_url: string; verify_token: string }>("/api/admin/webhook-config"),
                 apiFetch<BizFindSettings>("/api/admin/bizfind-settings"),
                 apiFetch<BizFindStudio[]>("/api/admin/bizfind-settings/studios"),
                 apiFetch<SystemWA>("/api/admin/system-whatsapp"),
+                apiFetch<{instance_id:string|null;token_set:boolean}>("/api/admin/platform-green-api"),
             ]);
             setPlatformSettings(data);
             setWebhookConfig(wh);
@@ -382,6 +391,8 @@ export default function AdminPage() {
             setBizfindSelected(bf.otp_studio_id || "");
             setSystemWA(sysWA);
             setSystemWASelected(sysWA.studio_id || "");
+            setPlatformWAInstance(platWA.instance_id || "");
+            setPlatformWATokenSet(platWA.token_set);
             setPlatformForm({
                 whatsapp_provider: data.whatsapp_provider || "meta",
                 whatsapp_phone_id: data.whatsapp_phone_id || "",
@@ -419,6 +430,33 @@ export default function AdminPage() {
             toast.error("✅ הגדרות נשמרו בהצלחה!");
         } catch (e: any) { toast.error(e?.message); }
         finally { setPlatformSaving(false); }
+    };
+
+    const handleSavePlatformGreenAPI = async () => {
+        if (!platformWAInstance.trim()) { toast.error("הכנס Instance ID"); return; }
+        setPlatformWASaving(true);
+        try {
+            const body: Record<string,string|null> = { instance_id: platformWAInstance.trim() };
+            if (platformWAToken.trim()) body.token = platformWAToken.trim();
+            const d = await apiFetch<{instance_id:string|null;token_set:boolean}>("/api/admin/platform-green-api", {
+                method: "POST", body: JSON.stringify(body),
+            });
+            setPlatformWAInstance(d.instance_id || "");
+            setPlatformWATokenSet(d.token_set);
+            setPlatformWAToken("");
+            toast.success("✅ Green API הפלטפורמה נשמר!");
+        } catch (e:any) { toast.error(e?.message); }
+        finally { setPlatformWASaving(false); }
+    };
+
+    const handleTestPlatformGreenAPI = async () => {
+        if (!platformWATestPhone.trim()) return;
+        try {
+            await apiFetch("/api/admin/platform-green-api/test", {
+                method: "POST", body: JSON.stringify({ phone: platformWATestPhone.trim() }),
+            });
+            setPlatformWATestResult({ ok: true, msg: "✅ הודעת בדיקה נשלחה!" });
+        } catch (e:any) { setPlatformWATestResult({ ok: false, msg: e?.message || "שגיאה" }); }
     };
 
     const handleSaveSystemWA = async () => {
@@ -1264,6 +1302,63 @@ export default function AdminPage() {
                             </div>
                             </>
                         )}
+
+                        {/* Platform Green API — dedicated instance for superadmin */}
+                        <div className="bg-white/5 border border-emerald-500/30 rounded-2xl p-6 space-y-4">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center text-xl">🟢</div>
+                                <div>
+                                    <h2 className="text-lg font-bold">Green API — פלטפורמה</h2>
+                                    <p className="text-slate-400 text-sm mt-0.5">Instance ייעודי לסופראדמין — שולח OTP ופולבק לסטודיואים ללא WhatsApp.</p>
+                                </div>
+                            </div>
+
+                            <div className={`text-sm px-4 py-2.5 rounded-xl border ${platformWATokenSet && platformWAInstance ? "bg-emerald-900/30 border-emerald-500/30 text-emerald-300" : "bg-amber-900/20 border-amber-500/20 text-amber-300"}`}>
+                                {platformWAInstance && platformWATokenSet ? `✅ מחובר — Instance: ${platformWAInstance}` : "⚠️ לא מוגדר"}
+                            </div>
+
+                            <div className="space-y-3">
+                                <div>
+                                    <label className="block text-xs font-semibold text-slate-400 mb-1.5">Instance ID</label>
+                                    <input value={platformWAInstance} onChange={e => setPlatformWAInstance(e.target.value)}
+                                        placeholder="7107619924" dir="ltr"
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-emerald-400" />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-semibold text-slate-400 mb-1.5">
+                                        API Token {platformWATokenSet && <span className="text-emerald-400 mr-2">✓ מוגדר</span>}
+                                    </label>
+                                    <input value={platformWAToken} onChange={e => setPlatformWAToken(e.target.value)}
+                                        type="password" dir="ltr"
+                                        placeholder={platformWATokenSet ? "השאר ריק כדי לא לשנות" : "הדבק Token מ-Green API..."}
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-emerald-400" />
+                                </div>
+                            </div>
+
+                            <button type="button" onClick={handleSavePlatformGreenAPI} disabled={platformWASaving || !platformWAInstance}
+                                className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white font-bold py-2.5 rounded-xl text-sm transition-colors">
+                                {platformWASaving ? "שומר..." : "💾 שמור Green API"}
+                            </button>
+
+                            {platformWATokenSet && (
+                                <div className="border-t border-white/10 pt-4 space-y-3">
+                                    <div className="flex gap-2">
+                                        <input value={platformWATestPhone} onChange={e => { setPlatformWATestPhone(e.target.value); setPlatformWATestResult(null); }}
+                                            placeholder="050-0000000" type="tel" dir="ltr"
+                                            className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-white/30" />
+                                        <button type="button" onClick={handleTestPlatformGreenAPI} disabled={!platformWATestPhone.trim()}
+                                            className="px-5 py-2.5 bg-emerald-700 hover:bg-emerald-600 disabled:opacity-40 text-white text-sm font-bold rounded-xl transition-colors">
+                                            שלח טסט
+                                        </button>
+                                    </div>
+                                    {platformWATestResult && (
+                                        <div className={`text-sm px-4 py-2.5 rounded-xl ${platformWATestResult.ok ? "bg-emerald-900/40 text-emerald-300" : "bg-red-900/40 text-red-300"}`}>
+                                            {platformWATestResult.msg}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
 
                         {/* System WhatsApp — Central fallback for all studios */}
                         <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-5">

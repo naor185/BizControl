@@ -1249,6 +1249,59 @@ def test_bizfind_otp(payload: TestOTPIn, admin: User = Depends(require_superadmi
     return {"status": "sent"}
 
 
+class PlatformGreenAPIOut(BaseModel):
+    instance_id: str | None
+    token_set: bool
+
+
+class PlatformGreenAPIIn(BaseModel):
+    instance_id: str | None = None
+    token: str | None = None
+
+
+@router.get("/platform-green-api", response_model=PlatformGreenAPIOut)
+def get_platform_green_api(admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    return PlatformGreenAPIOut(
+        instance_id=_cfg_get(db, "platform_wa_instance"),
+        token_set=bool(_cfg_get(db, "platform_wa_token")),
+    )
+
+
+@router.post("/platform-green-api", response_model=PlatformGreenAPIOut)
+def save_platform_green_api(payload: PlatformGreenAPIIn, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    if payload.instance_id is not None:
+        _cfg_set(db, "platform_wa_instance", payload.instance_id.strip() or None)
+    if payload.token is not None:
+        _cfg_set(db, "platform_wa_token", payload.token.strip() or None)
+    db.commit()
+    return PlatformGreenAPIOut(
+        instance_id=_cfg_get(db, "platform_wa_instance"),
+        token_set=bool(_cfg_get(db, "platform_wa_token")),
+    )
+
+
+@router.post("/platform-green-api/test")
+def test_platform_green_api(payload: TestOTPIn, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    instance = _cfg_get(db, "platform_wa_instance")
+    token = _cfg_get(db, "platform_wa_token")
+    if not instance or not token:
+        raise HTTPException(status_code=400, detail="Instance ID או Token לא מוגדרים")
+    phone = payload.phone.strip().replace("-", "").replace(" ", "")
+    if phone.startswith("0"):
+        phone = "972" + phone[1:]
+    try:
+        import requests as _req
+        r = _req.post(f"https://api.green-api.com/waInstance{instance}/sendMessage/{token}",
+                      json={"chatId": phone + "@c.us", "message": "✅ BizControl Platform — Green API עובד!"}, timeout=10)
+        if r.status_code != 200:
+            raise HTTPException(status_code=502, detail=f"Green API: {r.text[:200]}")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=str(e))
+    return {"status": "sent"}
+
+
 class SystemWAOut(BaseModel):
     studio_id: str | None
     studio_name: str | None
