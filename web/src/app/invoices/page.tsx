@@ -161,22 +161,32 @@ export default function InvoicesPage() {
     };
 
     const downloadPdf = async (id: string, label: string, num: number) => {
-        const url = getPdfUrl(id);
-        const res = await fetch(url);
-        if (!res.ok) { alert("שגיאה בהורדת PDF"); return; }
-        const blob = await res.blob();
-        const a = document.createElement("a");
-        a.href = URL.createObjectURL(blob);
-        a.download = `${label}_${num}.pdf`;
-        a.click();
-        URL.revokeObjectURL(a.href);
+        try {
+            const url = getPdfUrl(id);
+            const res = await fetch(url);
+            if (!res.ok) {
+                const errText = await res.text().catch(() => "");
+                alert(`שגיאה בהורדת PDF (${res.status})${errText ? ": " + errText : ""}`);
+                return;
+            }
+            const blob = await res.blob();
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = `${label}_${num}.pdf`;
+            a.click();
+            URL.revokeObjectURL(a.href);
+        } catch (e: unknown) {
+            alert(`שגיאה בהורדת PDF: ${(e as Error).message}`);
+        }
     };
 
-    const createCredit = async (id: string) => {
-        if (!confirm("ליצור זיכוי למסמך זה?")) return;
+    const createCredit = async (id: string, paymentMethod: string, notes: string) => {
         try {
-            await apiFetch(`/api/invoices/${id}/credit`, { method: "POST" });
-            loadInvoices();
+            await apiFetch(`/api/invoices/${id}/credit`, {
+                method: "POST",
+                body: JSON.stringify({ payment_method: paymentMethod || null, notes: notes || null }),
+            });
+            await loadInvoices();
             setViewInvoice(null);
         } catch (e: unknown) { alert((e as Error).message); }
     };
@@ -235,7 +245,7 @@ export default function InvoicesPage() {
                     onClose={() => setViewInvoice(null)}
                     onDownload={() => downloadPdf(viewInvoice.id, viewInvoice.doc_type_label, viewInvoice.doc_number)}
                     getPdfUrl={() => getPdfUrl(viewInvoice.id)}
-                    onCredit={() => createCredit(viewInvoice.id)}
+                    onCredit={(method, notes) => createCredit(viewInvoice.id, method, notes)}
                 />
             )}
         </AppShell>
@@ -327,12 +337,26 @@ function InvoiceDetailModal({ invoice, onClose, onDownload, getPdfUrl, onCredit 
     onClose: () => void;
     onDownload: () => void;
     getPdfUrl: () => string;
-    onCredit: () => void;
+    onCredit: (method: string, notes: string) => void;
 }) {
     const [showActions, setShowActions] = useState(false);
+    const [showCreditForm, setShowCreditForm] = useState(false);
+    const [creditMethod, setCreditMethod] = useState("cash");
+    const [creditNotes, setCreditNotes] = useState("");
+    const [creditLoading, setCreditLoading] = useState(false);
     const isCredit = invoice.doc_type === "credit";
     const canCredit = invoice.status === "issued" && !isCredit;
     const accentColor = isCredit ? "#dc2626" : "#1a1a2e";
+
+    const submitCredit = async () => {
+        setCreditLoading(true);
+        try {
+            await onCredit(creditMethod, creditNotes);
+        } finally {
+            setCreditLoading(false);
+            setShowCreditForm(false);
+        }
+    };
 
     const shareWhatsApp = () => {
         const url = getPdfUrl();
@@ -499,7 +523,7 @@ function InvoiceDetailModal({ invoice, onClose, onDownload, getPdfUrl, onCredit 
                     {/* ── Bottom action buttons ── */}
                     <div style={{ padding: "0.85rem 1.25rem 1.25rem", borderTop: "1px solid #f1f5f9", display: "flex", gap: "0.5rem", background: "#fff" }}>
                         {canCredit && (
-                            <button type="button" onClick={onCredit} style={{ background: "#fee2e2", color: "#dc2626", border: "1px solid #fecaca", borderRadius: 12, padding: "0.75rem 1rem", fontWeight: 700, cursor: "pointer", fontSize: "0.88rem" }}>
+                            <button type="button" onClick={() => setShowCreditForm(true)} style={{ background: "#fee2e2", color: "#dc2626", border: "1px solid #fecaca", borderRadius: 12, padding: "0.75rem 1rem", fontWeight: 700, cursor: "pointer", fontSize: "0.88rem" }}>
                                 זיכוי
                             </button>
                         )}
@@ -507,11 +531,68 @@ function InvoiceDetailModal({ invoice, onClose, onDownload, getPdfUrl, onCredit 
                             <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
                             </svg>
-                            פעולות
+                            : פעולות
                         </button>
                     </div>
                 </div>
             </div>
+
+            {/* ── Credit Note Form ── */}
+            {showCreditForm && (
+                <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.5)", zIndex: 9200, display: "flex", alignItems: "flex-end", justifyContent: "center" }}
+                    onClick={() => setShowCreditForm(false)}>
+                    <div style={{ background: "#fff", borderRadius: "20px 20px 0 0", width: "100%", maxWidth: 580, padding: "1.5rem" }}
+                        onClick={e => e.stopPropagation()}>
+                        <div style={{ width: 40, height: 4, background: "#e2e8f0", borderRadius: 2, margin: "0 auto 1.25rem" }} />
+                        <div style={{ fontWeight: 800, fontSize: "1.1rem", color: "#dc2626", marginBottom: "0.3rem" }}>יצירת זיכוי</div>
+                        <div style={{ fontSize: "0.82rem", color: "#64748b", marginBottom: "1.25rem" }}>
+                            זיכוי עבור {invoice.doc_type_label} #{invoice.doc_number} · ₪{Math.abs(invoice.total_ils).toFixed(2)}
+                        </div>
+
+                        <div style={{ marginBottom: "1rem" }}>
+                            <label style={labelStyle}>כיצד יוחזר הכסף ללקוח? *</label>
+                            <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
+                                {[
+                                    { value: "cash", label: "מזומן" },
+                                    { value: "bit", label: "Bit" },
+                                    { value: "paybox", label: "PayBox" },
+                                    { value: "bank_transfer", label: "העברה" },
+                                    { value: "credit_card", label: 'כרטיס' },
+                                    { value: "check", label: "צ'ק" },
+                                ].map(m => (
+                                    <button key={m.value} type="button" onClick={() => setCreditMethod(m.value)} style={{
+                                        padding: "0.45rem 0.9rem", borderRadius: 10,
+                                        border: `2px solid ${creditMethod === m.value ? "#dc2626" : "#e2e8f0"}`,
+                                        background: creditMethod === m.value ? "#fee2e2" : "#fff",
+                                        color: creditMethod === m.value ? "#dc2626" : "#334155",
+                                        fontWeight: 700, cursor: "pointer", fontSize: "0.82rem",
+                                    }}>{m.label}</button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div style={{ marginBottom: "1.25rem" }}>
+                            <label style={labelStyle}>הערה (אופציונלי)</label>
+                            <input value={creditNotes} onChange={e => setCreditNotes(e.target.value)}
+                                style={inputStyle} placeholder="סיבת הזיכוי..." />
+                        </div>
+
+                        <div style={{ display: "flex", gap: "0.6rem" }}>
+                            <button type="button" onClick={() => setShowCreditForm(false)} style={{
+                                flex: 1, background: "#f8fafc", color: "#64748b", border: "1px solid #e2e8f0",
+                                borderRadius: 12, padding: "0.85rem", fontWeight: 700, cursor: "pointer",
+                            }}>ביטול</button>
+                            <button type="button" onClick={submitCredit} disabled={creditLoading} style={{
+                                flex: 2, background: "#dc2626", color: "#fff", border: "none",
+                                borderRadius: 12, padding: "0.85rem", fontWeight: 800, cursor: "pointer",
+                                opacity: creditLoading ? 0.7 : 1,
+                            }}>
+                                {creditLoading ? "מייצר זיכוי..." : "✓ צור זיכוי"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* ── Action Sheet ── */}
             {showActions && (

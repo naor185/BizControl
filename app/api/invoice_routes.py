@@ -594,9 +594,15 @@ def get_invoice(
     return result
 
 
+class CreditNoteRequest(BaseModel):
+    payment_method: Optional[str] = None
+    notes: Optional[str] = None
+
+
 @router.post("/{invoice_id}/credit")
 def create_credit_note(
     invoice_id: str,
+    body: CreditNoteRequest = CreditNoteRequest(),
     ctx: AuthContext = Depends(require_studio_ctx),
     db: Session = Depends(get_db),
 ):
@@ -627,6 +633,7 @@ def create_credit_note(
                 business_name, business_type, business_number,
                 business_address, business_phone, business_email, business_logo_url,
                 subtotal_cents, vat_rate, vat_amount_cents, total_cents, tip_cents,
+                payment_method, notes,
                 credits_invoice_id, issued_by_id, issued_at
             ) VALUES (
                 :id, :sid, 'credit', :dn, 'issued',
@@ -634,6 +641,7 @@ def create_credit_note(
                 :bname, :btype, :bnum,
                 :baddr, :bphone, :bemail, :blogo,
                 :sub, :vr, :vat, :total, 0,
+                :method, :notes,
                 :orig_id, :uid, NOW()
             )
         """),
@@ -648,6 +656,8 @@ def create_credit_note(
             "sub": -(orig.subtotal_cents or 0),
             "vr": orig.vat_rate, "vat": -(orig.vat_amount_cents or 0),
             "total": -(orig.total_cents or 0),
+            "method": body.payment_method or orig.payment_method,
+            "notes": body.notes,
             "orig_id": invoice_id, "uid": ctx.user_id,
         }
     )
@@ -742,7 +752,13 @@ def download_pdf(
     inv = dict(row._mapping)
     item_list = [dict(r._mapping) for r in items]
 
-    pdf_bytes = _build_pdf(inv, item_list)
+    try:
+        pdf_bytes = _build_pdf(inv, item_list)
+    except Exception as e:
+        import traceback, logging
+        logging.error(f"PDF generation failed for invoice {invoice_id}: {e}\n{traceback.format_exc()}")
+        raise HTTPException(500, f"שגיאה ביצירת PDF: {str(e)}")
+
     doc_label = DOC_TYPES.get(inv["doc_type"], "מסמך")
     filename = f"{doc_label}_{inv['doc_number']}.pdf"
 
@@ -753,51 +769,66 @@ def download_pdf(
     )
 
 
+# ── PDF Font Cache (registered once per process) ──────────────────────────────
+
+_PDF_FONT_CACHE: dict = {}
+
+def _get_pdf_fonts():
+    global _PDF_FONT_CACHE
+    if _PDF_FONT_CACHE:
+        return _PDF_FONT_CACHE["reg"], _PDF_FONT_CACHE["bold"]
+
+    import os, platform as _plat
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+
+    def _find_font_path(bold=False):
+        if _plat.system() == "Windows":
+            base = "C:/Windows/Fonts/"
+            return base + ("arialbd.ttf" if bold else "arial.ttf")
+        stem = "DejaVuSans-Bold" if bold else "DejaVuSans"
+        for p in [
+            f"/usr/share/fonts/truetype/dejavu/{stem}.ttf",
+            f"/usr/share/fonts/dejavu/{stem}.ttf",
+            f"/usr/share/fonts/truetype/{stem}.ttf",
+        ]:
+            if os.path.exists(p):
+                return p
+        return None
+
+    F_REG, F_BOLD = "Helvetica", "Helvetica-Bold"
+    reg_path  = _find_font_path(False)
+    bold_path = _find_font_path(True)
+    try:
+        if reg_path:
+            pdfmetrics.registerFont(TTFont("InvReg", reg_path))
+            F_REG = "InvReg"
+        if bold_path:
+            pdfmetrics.registerFont(TTFont("InvBold", bold_path))
+            F_BOLD = "InvBold"
+    except Exception:
+        F_REG, F_BOLD = "Helvetica", "Helvetica-Bold"
+
+    _PDF_FONT_CACHE = {"reg": F_REG, "bold": F_BOLD}
+    return F_REG, F_BOLD
+
+
 # ── PDF Builder ───────────────────────────────────────────────────────────────
 
 def _build_pdf(inv: dict, items: list) -> bytes:
-    import os, platform
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.units import cm
-    from reportlab.pdfbase import pdfmetrics
-    from reportlab.pdfbase.ttfonts import TTFont
     from reportlab.pdfgen import canvas as rl_canvas
     from reportlab.platypus import Table, TableStyle
 
     try:
         from bidi.algorithm import get_display
         def h(t): return get_display(str(t)) if t else ""
-    except ImportError:
+    except Exception:
         def h(t): return str(t) if t else ""
 
-    # Font setup
-    def _find_font(bold=False):
-        if platform.system() == "Windows":
-            base = "C:/Windows/Fonts/"
-            return base + ("arialbd.ttf" if bold else "arial.ttf")
-        stem = "DejaVuSans-Bold" if bold else "DejaVuSans"
-        for p in [f"/usr/share/fonts/truetype/dejavu/{stem}.ttf",
-                  f"/usr/share/fonts/dejavu/{stem}.ttf"]:
-            if os.path.exists(p):
-                return p
-        return None
-
-    reg_path = _find_font(False)
-    bold_path = _find_font(True)
-    try:
-        if reg_path:
-            pdfmetrics.registerFont(TTFont("InvReg", reg_path))
-            F_REG = "InvReg"
-        else:
-            F_REG = "Helvetica"
-        if bold_path:
-            pdfmetrics.registerFont(TTFont("InvBold", bold_path))
-            F_BOLD = "InvBold"
-        else:
-            F_BOLD = "Helvetica-Bold"
-    except Exception:
-        F_REG, F_BOLD = "Helvetica", "Helvetica-Bold"
+    F_REG, F_BOLD = _get_pdf_fonts()
 
     buf = io.BytesIO()
     c = rl_canvas.Canvas(buf, pagesize=A4)
