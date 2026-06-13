@@ -13,7 +13,7 @@ from datetime import datetime, timezone, date
 from decimal import Decimal
 from typing import Optional, List
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import text
@@ -21,6 +21,8 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.deps import require_studio_ctx, AuthContext
+from app.core.security import decode_token
+from app.models.user import User
 
 router = APIRouter(prefix="/invoices", tags=["Invoices"])
 
@@ -161,6 +163,7 @@ def get_settings(ctx: AuthContext = Depends(require_studio_ctx), db: Session = D
     if not row:
         return {
             "business_type": "osek_patur", "vat_rate": 18.0,
+            "settings_completed": False,
             "allowed_doc_types": ALLOWED_DOCS["osek_patur"],
         }
     d = dict(row._mapping)
@@ -177,6 +180,14 @@ def upsert_settings(
 ):
     if body.business_type not in ALLOWED_DOCS:
         raise HTTPException(400, "סוג עסק לא תקין")
+
+    # Only allow editing if not yet completed (or superadmin)
+    existing = db.execute(
+        text("SELECT settings_completed FROM invoice_settings WHERE studio_id = :sid"),
+        {"sid": ctx.studio_id}
+    ).fetchone()
+    if existing and existing[0] and ctx.role != "superadmin":
+        raise HTTPException(403, "הגדרות החשבונית נעולות. פנה לתמיכה לפתיחתן.")
 
     db.execute(
         text("""
@@ -212,6 +223,90 @@ def upsert_settings(
             "sig": body.signature_url, "terms": body.payment_terms,
             "notes": body.default_notes,
         }
+    )
+    db.commit()
+    return {"ok": True}
+
+
+class CompleteSetupIn(BaseModel):
+    business_type: str
+    business_name: Optional[str] = None
+    business_number: Optional[str] = None
+    business_address: Optional[str] = None
+    business_city: Optional[str] = None
+    business_phone: Optional[str] = None
+    business_email: Optional[str] = None
+    series: dict = {}  # {doc_type: next_number}
+
+
+@router.post("/settings/complete")
+def complete_setup(
+    body: CompleteSetupIn,
+    ctx: AuthContext = Depends(require_studio_ctx),
+    db: Session = Depends(get_db),
+):
+    """First-time wizard completion — saves settings + series, then locks."""
+    if body.business_type not in ALLOWED_DOCS:
+        raise HTTPException(400, "סוג עסק לא תקין")
+
+    # Upsert settings
+    db.execute(
+        text("""
+            INSERT INTO invoice_settings
+                (id, studio_id, business_type, business_name, business_number, vat_rate,
+                 business_address, business_city, business_phone, business_email,
+                 settings_completed, updated_at)
+            VALUES
+                (:id, :sid, :bt, :bname, :bn, 18.00, :addr, :city, :phone, :email,
+                 TRUE, NOW())
+            ON CONFLICT (studio_id) DO UPDATE SET
+                business_type=EXCLUDED.business_type,
+                business_name=EXCLUDED.business_name,
+                business_number=EXCLUDED.business_number,
+                business_address=EXCLUDED.business_address,
+                business_city=EXCLUDED.business_city,
+                business_phone=EXCLUDED.business_phone,
+                business_email=EXCLUDED.business_email,
+                settings_completed=TRUE,
+                updated_at=NOW()
+        """),
+        {
+            "id": str(uuid.uuid4()), "sid": ctx.studio_id,
+            "bt": body.business_type, "bname": body.business_name,
+            "bn": body.business_number, "addr": body.business_address,
+            "city": body.business_city, "phone": body.business_phone,
+            "email": body.business_email,
+        }
+    )
+
+    # Save series starting numbers
+    for doc_type, next_number in body.series.items():
+        if doc_type in DOC_TYPES and isinstance(next_number, int) and next_number >= 1:
+            db.execute(
+                text("""
+                    INSERT INTO invoice_series (studio_id, doc_type, next_number)
+                    VALUES (:sid, :dt, :num)
+                    ON CONFLICT (studio_id, doc_type) DO UPDATE SET next_number = EXCLUDED.next_number
+                """),
+                {"sid": ctx.studio_id, "dt": doc_type, "num": next_number}
+            )
+
+    db.commit()
+    return {"ok": True}
+
+
+@router.post("/settings/unlock")
+def unlock_settings(
+    studio_id_target: str,
+    ctx: AuthContext = Depends(require_studio_ctx),
+    db: Session = Depends(get_db),
+):
+    """Superadmin only: unlock invoice settings for a studio."""
+    if ctx.role != "superadmin":
+        raise HTTPException(403, "אין הרשאה")
+    db.execute(
+        text("UPDATE invoice_settings SET settings_completed=FALSE, updated_at=NOW() WHERE studio_id=:sid"),
+        {"sid": studio_id_target}
     )
     db.commit()
     return {"ok": True}
@@ -597,12 +692,39 @@ def create_credit_note(
     return _invoice_to_dict(credit_row)
 
 
+# ── PDF auth — accepts Authorization header OR ?token= query param ────────────
+
+def _pdf_auth(
+    request: Request,
+    token: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+) -> AuthContext:
+    auth_header = request.headers.get("Authorization", "")
+    raw_token = auth_header[7:] if auth_header.startswith("Bearer ") else token
+    if not raw_token:
+        raise HTTPException(401, "Missing token")
+    try:
+        payload = decode_token(raw_token)
+    except Exception:
+        raise HTTPException(401, "Invalid token")
+    if payload.get("type") != "access":
+        raise HTTPException(401, "Invalid token type")
+    user_id = payload.get("user_id")
+    studio_id = payload.get("studio_id")
+    if not user_id or not studio_id:
+        raise HTTPException(401, "Invalid token payload")
+    user = db.query(User).filter(User.id == user_id, User.studio_id == studio_id, User.is_active == True).first()
+    if not user:
+        raise HTTPException(401, "User not found")
+    return AuthContext(studio_id=user.studio_id, user_id=user.id, role=str(user.role))
+
+
 # ── PDF Generation ────────────────────────────────────────────────────────────
 
 @router.get("/{invoice_id}/pdf")
 def download_pdf(
     invoice_id: str,
-    ctx: AuthContext = Depends(require_studio_ctx),
+    ctx: AuthContext = Depends(_pdf_auth),
     db: Session = Depends(get_db),
 ):
     row = db.execute(

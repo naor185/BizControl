@@ -584,10 +584,12 @@ def ensure_schema():
                 signature_url TEXT,
                 payment_terms TEXT,
                 default_notes TEXT,
+                settings_completed BOOLEAN NOT NULL DEFAULT FALSE,
                 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                 updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
             )
         """)
+        cur.execute("ALTER TABLE invoice_settings ADD COLUMN IF NOT EXISTS settings_completed BOOLEAN NOT NULL DEFAULT FALSE")
 
         cur.execute("""
             CREATE TABLE IF NOT EXISTS invoice_series (

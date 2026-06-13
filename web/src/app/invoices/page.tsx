@@ -18,6 +18,7 @@ interface InvoiceSettings {
     signature_url?: string;
     payment_terms?: string;
     default_notes?: string;
+    settings_completed: boolean;
     allowed_doc_types: string[];
 }
 
@@ -41,15 +42,31 @@ interface Invoice {
     doc_type_label: string;
     doc_number: number;
     status: string;
+    // Client
     client_name?: string;
     client_phone?: string;
+    client_email?: string;
+    client_address?: string;
+    // Business (snapshotted at creation)
+    business_name?: string;
+    business_number?: string;
+    business_address?: string;
+    business_city?: string;
+    business_phone?: string;
+    business_email?: string;
+    business_type?: string;
+    // Financial
     total_cents: number;
     total_ils: number;
     subtotal_ils: number;
     vat_amount_ils: number;
     tip_ils: number;
     vat_rate: number;
+    // Payment
     payment_method?: string;
+    payment_reference?: string;
+    payment_date?: string;
+    notes?: string;
     issued_at: string;
     credited_by_display?: string;
     credits_invoice_display?: string;
@@ -106,7 +123,6 @@ export default function InvoicesPage() {
     const [loading, setLoading] = useState(true);
     const [filterType, setFilterType] = useState("");
     const [filterDate, setFilterDate] = useState("");
-    const [showCreate, setShowCreate] = useState(false);
     const [viewInvoice, setViewInvoice] = useState<Invoice | null>(null);
 
     const loadSettings = useCallback(async () => {
@@ -139,9 +155,21 @@ export default function InvoicesPage() {
     useEffect(() => { loadSettings(); loadSeries(); }, []);
     useEffect(() => { if (tab === "documents") loadInvoices(); }, [tab, loadInvoices]);
 
-    const openPdf = (id: string) => {
+    const getPdfUrl = (id: string) => {
         const token = localStorage.getItem("bizcontrol_token") || "";
-        window.open(`${process.env.NEXT_PUBLIC_API_URL}/api/invoices/${id}/pdf?token=${token}`, "_blank");
+        return `${process.env.NEXT_PUBLIC_API_URL}/api/invoices/${id}/pdf?token=${encodeURIComponent(token)}`;
+    };
+
+    const downloadPdf = async (id: string, label: string, num: number) => {
+        const url = getPdfUrl(id);
+        const res = await fetch(url);
+        if (!res.ok) { alert("שגיאה בהורדת PDF"); return; }
+        const blob = await res.blob();
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = `${label}_${num}.pdf`;
+        a.click();
+        URL.revokeObjectURL(a.href);
     };
 
     const createCredit = async (id: string) => {
@@ -155,6 +183,14 @@ export default function InvoicesPage() {
 
     return (
         <AppShell title="חשבוניות ומסמכים">
+            {/* Setup wizard — shown on first use */}
+            {settings && !settings.settings_completed && (
+                <InvoiceSetupWizard
+                    series={series}
+                    onComplete={async () => { await loadSettings(); await loadSeries(); }}
+                />
+            )}
+
             {/* Tabs */}
             <div style={{ display: "flex", gap: "0.5rem", padding: "1rem 1rem 0", borderBottom: "1px solid #f0f0f0", marginBottom: "1rem" }}>
                 {(["documents", "settings", "series", "reports"] as Tab[]).map(t => (
@@ -172,41 +208,33 @@ export default function InvoicesPage() {
             {tab === "documents" && (
                 <DocumentsTab
                     invoices={invoices} total={total} loading={loading}
-                    settings={settings}
                     filterType={filterType} setFilterType={setFilterType}
                     filterDate={filterDate} setFilterDate={setFilterDate}
                     onFilter={loadInvoices}
-                    onNew={() => setShowCreate(true)}
+                    settings={settings}
                     onView={async (inv) => {
                         const full = await apiFetch<Invoice>(`/api/invoices/${inv.id}`);
                         setViewInvoice(full);
                     }}
-                    onPdf={openPdf}
+                    onPdf={(id) => downloadPdf(id, invoices.find(i => i.id === id)?.doc_type_label || "מסמך", invoices.find(i => i.id === id)?.doc_number || 0)}
                 />
             )}
             {tab === "settings" && settings && (
                 <SettingsTab settings={settings} onSaved={loadSettings} />
             )}
             {tab === "series" && (
-                <SeriesTab series={series} onSaved={loadSeries} />
+                <SeriesTab series={series} locked={settings?.settings_completed ?? false} onSaved={loadSeries} />
             )}
             {tab === "reports" && (
                 <ReportsTab />
-            )}
-
-            {showCreate && settings && (
-                <CreateModal
-                    settings={settings}
-                    onClose={() => setShowCreate(false)}
-                    onCreated={() => { setShowCreate(false); loadInvoices(); }}
-                />
             )}
 
             {viewInvoice && (
                 <InvoiceDetailModal
                     invoice={viewInvoice}
                     onClose={() => setViewInvoice(null)}
-                    onPdf={() => openPdf(viewInvoice.id)}
+                    onDownload={() => downloadPdf(viewInvoice.id, viewInvoice.doc_type_label, viewInvoice.doc_number)}
+                    getPdfUrl={() => getPdfUrl(viewInvoice.id)}
                     onCredit={() => createCredit(viewInvoice.id)}
                 />
             )}
@@ -216,22 +244,17 @@ export default function InvoicesPage() {
 
 // ── Documents Tab ─────────────────────────────────────────────────────────────
 
-function DocumentsTab({ invoices, total, loading, settings, filterType, setFilterType, filterDate, setFilterDate, onFilter, onNew, onView, onPdf }: {
+function DocumentsTab({ invoices, total, loading, settings, filterType, setFilterType, filterDate, setFilterDate, onFilter, onView, onPdf }: {
     invoices: Invoice[]; total: number; loading: boolean; settings: InvoiceSettings | null;
     filterType: string; setFilterType: (v: string) => void;
     filterDate: string; setFilterDate: (v: string) => void;
-    onFilter: () => void; onNew: () => void;
+    onFilter: () => void;
     onView: (inv: Invoice) => void; onPdf: (id: string) => void;
 }) {
     return (
         <div style={{ padding: "0 1rem" }}>
             {/* Toolbar */}
             <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem", flexWrap: "wrap", alignItems: "center" }}>
-                <button type="button" onClick={onNew} style={{
-                    background: "#7c3aed", color: "#fff", border: "none", borderRadius: 10,
-                    padding: "0.6rem 1.2rem", fontWeight: 700, cursor: "pointer", fontSize: "0.9rem",
-                }}>+ מסמך חדש</button>
-
                 <select value={filterType} onChange={e => { setFilterType(e.target.value); setTimeout(onFilter, 0); }}
                     style={{ padding: "0.5rem 0.75rem", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: "0.85rem" }}>
                     <option value="">כל הסוגים</option>
@@ -293,251 +316,423 @@ function InvoiceRow({ inv, onView, onPdf }: { inv: Invoice; onView: (i: Invoice)
 
 // ── Invoice Detail Modal ──────────────────────────────────────────────────────
 
-function InvoiceDetailModal({ invoice, onClose, onPdf, onCredit }: {
-    invoice: Invoice; onClose: () => void; onPdf: () => void; onCredit: () => void;
+const METHOD_LABELS_FE: Record<string, string> = {
+    cash: "מזומן", bit: "Bit", paybox: "PayBox",
+    credit_card: "כרטיס אשראי", bank_transfer: "העברה בנקאית",
+    check: "צ'ק", other: "אחר",
+};
+
+function InvoiceDetailModal({ invoice, onClose, onDownload, getPdfUrl, onCredit }: {
+    invoice: Invoice;
+    onClose: () => void;
+    onDownload: () => void;
+    getPdfUrl: () => string;
+    onCredit: () => void;
 }) {
+    const [showActions, setShowActions] = useState(false);
     const isCredit = invoice.doc_type === "credit";
     const canCredit = invoice.status === "issued" && !isCredit;
+    const accentColor = isCredit ? "#dc2626" : "#1a1a2e";
+
+    const shareWhatsApp = () => {
+        const url = getPdfUrl();
+        const text = encodeURIComponent(
+            `${invoice.doc_type_label} #${invoice.doc_number}${invoice.business_name ? " - " + invoice.business_name : ""}\nלצפייה ב-PDF: ${url}`
+        );
+        window.open(`https://wa.me/?text=${text}`, "_blank");
+    };
+
+    const shareSMS = () => {
+        const url = getPdfUrl();
+        const text = encodeURIComponent(`${invoice.doc_type_label} #${invoice.doc_number}\n${url}`);
+        window.location.href = `sms:?body=${text}`;
+    };
+
+    const printDoc = () => {
+        window.open(getPdfUrl(), "_blank");
+    };
 
     return (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.5)", zIndex: 9000, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
-            <div style={{ background: "#fff", borderRadius: "20px 20px 0 0", width: "100%", maxWidth: 560, maxHeight: "90vh", overflow: "auto" }}>
-                <div style={{ padding: "1.25rem", borderBottom: "1px solid #f1f5f9", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div>
-                        <div style={{ fontWeight: 800, fontSize: "1.1rem" }}>{invoice.doc_type_label} #{invoice.doc_number}</div>
-                        {invoice.credits_invoice_display && (
-                            <div style={{ fontSize: "0.78rem", color: "#dc2626", marginTop: "0.2rem" }}>זיכוי עבור: {invoice.credits_invoice_display}</div>
-                        )}
-                        {invoice.credited_by_display && (
-                            <div style={{ fontSize: "0.78rem", color: "#dc2626", marginTop: "0.2rem" }}>זוכה על ידי: {invoice.credited_by_display}</div>
-                        )}
+        <>
+            {/* Overlay */}
+            <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.55)", zIndex: 9000, display: "flex", alignItems: "flex-end", justifyContent: "center" }}
+                onClick={showActions ? () => setShowActions(false) : onClose}>
+
+                {/* Main sheet */}
+                <div style={{ background: "#fff", borderRadius: "20px 20px 0 0", width: "100%", maxWidth: 580, maxHeight: "92vh", overflow: "auto", display: "flex", flexDirection: "column" }}
+                    onClick={e => e.stopPropagation()}>
+
+                    {/* Close bar */}
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "1rem 1.25rem 0.75rem", borderBottom: "1px solid #f1f5f9" }}>
+                        <button type="button" onClick={onClose} style={{ background: "none", border: "none", fontSize: "1.4rem", cursor: "pointer", color: "#94a3b8", lineHeight: 1 }}>×</button>
+                        <span style={{ fontWeight: 700, fontSize: "0.9rem", color: "#64748b" }}>תצוגה מקדימה</span>
+                        <div style={{ width: 28 }} />
                     </div>
-                    <button type="button" onClick={onClose} style={{ background: "none", border: "none", fontSize: "1.4rem", cursor: "pointer", color: "#64748b" }}>×</button>
-                </div>
 
-                <div style={{ padding: "1.25rem" }}>
-                    {/* Client */}
-                    {(invoice.client_name || invoice.client_phone) && (
-                        <div style={{ marginBottom: "1rem", padding: "0.75rem", background: "#f8fafc", borderRadius: 10 }}>
-                            <div style={{ fontWeight: 700, fontSize: "0.85rem", marginBottom: "0.25rem" }}>לקוח</div>
-                            <div style={{ fontSize: "0.85rem", color: "#334155" }}>{invoice.client_name}</div>
-                            {invoice.client_phone && <div style={{ fontSize: "0.8rem", color: "#64748b" }}>{invoice.client_phone}</div>}
-                        </div>
-                    )}
-
-                    {/* Items */}
-                    {invoice.items && invoice.items.length > 0 && (
-                        <div style={{ marginBottom: "1rem" }}>
-                            <div style={{ fontWeight: 700, fontSize: "0.85rem", marginBottom: "0.5rem" }}>פריטים</div>
-                            {invoice.items.map((item, i) => (
-                                <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "0.5rem 0", borderBottom: "1px solid #f1f5f9", fontSize: "0.85rem" }}>
-                                    <span>{item.description} × {item.quantity}</span>
-                                    <span style={{ fontWeight: 700 }}>₪{((item.total_price_cents || 0) / 100).toFixed(2)}</span>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-
-                    {/* Totals */}
-                    <div style={{ background: "#f8fafc", borderRadius: 10, padding: "0.75rem", marginBottom: "1rem" }}>
-                        {invoice.vat_amount_ils > 0 && (
-                            <>
-                                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem", marginBottom: "0.35rem" }}>
-                                    <span style={{ color: "#64748b" }}>לפני מע"מ</span>
-                                    <span>₪{invoice.subtotal_ils.toFixed(2)}</span>
-                                </div>
-                                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem", marginBottom: "0.35rem" }}>
-                                    <span style={{ color: "#64748b" }}>מע"מ {invoice.vat_rate}%</span>
-                                    <span>₪{invoice.vat_amount_ils.toFixed(2)}</span>
-                                </div>
-                            </>
-                        )}
-                        {invoice.tip_ils > 0 && (
-                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem", marginBottom: "0.35rem" }}>
-                                <span style={{ color: "#64748b" }}>טיפ</span>
-                                <span>₪{invoice.tip_ils.toFixed(2)}</span>
+                    <div style={{ overflowY: "auto", flex: 1 }}>
+                        {/* ── Business header ── */}
+                        <div style={{ background: accentColor, padding: "1.25rem 1.25rem 1rem", textAlign: "center", color: "#fff" }}>
+                            <div style={{ fontWeight: 900, fontSize: "1.2rem", marginBottom: "0.2rem" }}>
+                                {invoice.business_name || "העסק שלי"}
                             </div>
-                        )}
-                        <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 800, fontSize: "1rem", paddingTop: "0.35rem", borderTop: "1px solid #e2e8f0" }}>
-                            <span>סה"כ</span>
-                            <span style={{ color: isCredit ? "#dc2626" : "#111" }}>
-                                {isCredit ? "-" : ""}₪{Math.abs(invoice.total_ils).toFixed(2)}
-                            </span>
+                            {invoice.business_number && (
+                                <div style={{ fontSize: "0.78rem", opacity: 0.8 }}>ח.פ / ע.מ: {invoice.business_number}</div>
+                            )}
+                            {(invoice.business_address || invoice.business_city) && (
+                                <div style={{ fontSize: "0.78rem", opacity: 0.75, marginTop: "0.15rem" }}>
+                                    {[invoice.business_address, invoice.business_city].filter(Boolean).join(", ")}
+                                </div>
+                            )}
+                            {invoice.business_phone && (
+                                <div style={{ fontSize: "0.78rem", opacity: 0.75 }}>טל: {invoice.business_phone}</div>
+                            )}
+                        </div>
+
+                        {/* ── Doc meta ── */}
+                        <div style={{ background: "#f8fafc", padding: "0.85rem 1.25rem", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                            <div>
+                                <div style={{ fontWeight: 800, fontSize: "1rem", color: accentColor }}>
+                                    {invoice.doc_type_label} #{invoice.doc_number}
+                                </div>
+                                {invoice.credits_invoice_display && (
+                                    <div style={{ fontSize: "0.75rem", color: "#dc2626", marginTop: "0.15rem" }}>זיכוי עבור: {invoice.credits_invoice_display}</div>
+                                )}
+                                {invoice.credited_by_display && (
+                                    <div style={{ fontSize: "0.75rem", color: "#dc2626", marginTop: "0.15rem" }}>זוכה על ידי: {invoice.credited_by_display}</div>
+                                )}
+                            </div>
+                            <div style={{ textAlign: "left", fontSize: "0.8rem", color: "#64748b" }}>
+                                {new Date(invoice.issued_at).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                                <br />
+                                {new Date(invoice.issued_at).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })}
+                            </div>
+                        </div>
+
+                        <div style={{ padding: "1rem 1.25rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
+                            {/* ── Client ── */}
+                            {(invoice.client_name || invoice.client_phone) && (
+                                <div>
+                                    <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.35rem" }}>לכבוד</div>
+                                    <div style={{ fontWeight: 700, fontSize: "0.95rem", color: "#1e293b" }}>{invoice.client_name}</div>
+                                    {invoice.client_phone && <div style={{ fontSize: "0.82rem", color: "#64748b" }}>{invoice.client_phone}</div>}
+                                    {invoice.client_email && <div style={{ fontSize: "0.82rem", color: "#64748b" }}>{invoice.client_email}</div>}
+                                    {invoice.client_address && <div style={{ fontSize: "0.82rem", color: "#64748b" }}>{invoice.client_address}</div>}
+                                </div>
+                            )}
+
+                            {/* ── Items table ── */}
+                            {invoice.items && invoice.items.length > 0 && (
+                                <div>
+                                    <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.35rem" }}>פירוט</div>
+                                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+                                        <thead>
+                                            <tr style={{ background: accentColor, color: "#fff" }}>
+                                                <th style={{ padding: "0.5rem 0.6rem", textAlign: "right", fontWeight: 700, borderRadius: "6px 0 0 0" }}>תיאור</th>
+                                                <th style={{ padding: "0.5rem 0.6rem", textAlign: "center", fontWeight: 700, width: 50 }}>כמות</th>
+                                                <th style={{ padding: "0.5rem 0.6rem", textAlign: "center", fontWeight: 700, width: 70 }}>מחיר</th>
+                                                <th style={{ padding: "0.5rem 0.6rem", textAlign: "left", fontWeight: 700, width: 80, borderRadius: "0 6px 0 0" }}>סה"כ</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {invoice.items.map((item, i) => (
+                                                <tr key={i} style={{ background: i % 2 === 0 ? "#fff" : "#f8fafc" }}>
+                                                    <td style={{ padding: "0.5rem 0.6rem", textAlign: "right" }}>{item.description}</td>
+                                                    <td style={{ padding: "0.5rem 0.6rem", textAlign: "center", color: "#64748b" }}>{item.quantity}</td>
+                                                    <td style={{ padding: "0.5rem 0.6rem", textAlign: "center", color: "#64748b" }}>₪{(item.unit_price_cents / 100).toFixed(2)}</td>
+                                                    <td style={{ padding: "0.5rem 0.6rem", textAlign: "left", fontWeight: 700 }}>₪{((item.total_price_cents || 0) / 100).toFixed(2)}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+
+                            {/* ── Totals ── */}
+                            <div style={{ background: "#f8fafc", borderRadius: 10, padding: "0.75rem 1rem" }}>
+                                {invoice.vat_amount_ils > 0 && (
+                                    <>
+                                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem", marginBottom: "0.3rem", color: "#64748b" }}>
+                                            <span>לפני מע"מ</span><span>₪{invoice.subtotal_ils.toFixed(2)}</span>
+                                        </div>
+                                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem", marginBottom: "0.3rem", color: "#64748b" }}>
+                                            <span>מע"מ {invoice.vat_rate}%</span><span>₪{invoice.vat_amount_ils.toFixed(2)}</span>
+                                        </div>
+                                    </>
+                                )}
+                                {invoice.tip_ils > 0 && (
+                                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem", marginBottom: "0.3rem", color: "#64748b" }}>
+                                        <span>טיפ</span><span>₪{invoice.tip_ils.toFixed(2)}</span>
+                                    </div>
+                                )}
+                                <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 900, fontSize: "1.05rem", paddingTop: "0.4rem", borderTop: "1px solid #e2e8f0", color: accentColor }}>
+                                    <span>סה"כ לתשלום</span>
+                                    <span>{isCredit ? "-" : ""}₪{Math.abs(invoice.total_ils).toFixed(2)}</span>
+                                </div>
+                                {invoice.business_type === "osek_patur" && (
+                                    <div style={{ fontSize: "0.72rem", color: "#94a3b8", marginTop: "0.3rem", textAlign: "right" }}>* עוסק פטור, אינו חייב במע"מ</div>
+                                )}
+                            </div>
+
+                            {/* ── Payment method ── */}
+                            {invoice.payment_method && (
+                                <div style={{ fontSize: "0.85rem", color: "#475569" }}>
+                                    <span style={{ fontWeight: 700 }}>אמצעי תשלום: </span>
+                                    {METHOD_LABELS_FE[invoice.payment_method] || invoice.payment_method}
+                                    {invoice.payment_reference && <span style={{ color: "#94a3b8" }}> · אסמכתה: {invoice.payment_reference}</span>}
+                                </div>
+                            )}
+
+                            {/* ── Notes ── */}
+                            {invoice.notes && (
+                                <div style={{ fontSize: "0.82rem", color: "#64748b", background: "#fffbeb", borderRadius: 8, padding: "0.6rem 0.8rem", borderRight: "3px solid #f59e0b" }}>
+                                    {invoice.notes}
+                                </div>
+                            )}
+
+                            {/* ── BizControl footer ── */}
+                            <div style={{ textAlign: "center", fontSize: "0.72rem", color: "#cbd5e1", paddingTop: "0.25rem" }}>
+                                הופק באמצעות מערכת BizControl | מסמך ממוחשב חתום דיגיטלית
+                            </div>
                         </div>
                     </div>
 
-                    {/* Actions */}
-                    <div style={{ display: "flex", gap: "0.5rem" }}>
-                        <button type="button" onClick={onPdf} style={{ flex: 1, background: "#7c3aed", color: "#fff", border: "none", borderRadius: 10, padding: "0.75rem", fontWeight: 700, cursor: "pointer" }}>
-                            הורד PDF
-                        </button>
+                    {/* ── Bottom action buttons ── */}
+                    <div style={{ padding: "0.85rem 1.25rem 1.25rem", borderTop: "1px solid #f1f5f9", display: "flex", gap: "0.5rem", background: "#fff" }}>
                         {canCredit && (
-                            <button type="button" onClick={onCredit} style={{ flex: 1, background: "#fee2e2", color: "#dc2626", border: "1px solid #fecaca", borderRadius: 10, padding: "0.75rem", fontWeight: 700, cursor: "pointer" }}>
-                                צור זיכוי
+                            <button type="button" onClick={onCredit} style={{ background: "#fee2e2", color: "#dc2626", border: "1px solid #fecaca", borderRadius: 12, padding: "0.75rem 1rem", fontWeight: 700, cursor: "pointer", fontSize: "0.88rem" }}>
+                                זיכוי
                             </button>
                         )}
+                        <button type="button" onClick={() => setShowActions(true)} style={{ flex: 1, background: accentColor, color: "#fff", border: "none", borderRadius: 12, padding: "0.75rem", fontWeight: 800, cursor: "pointer", fontSize: "0.95rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.4rem" }}>
+                            <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                            </svg>
+                            פעולות
+                        </button>
                     </div>
                 </div>
             </div>
-        </div>
+
+            {/* ── Action Sheet ── */}
+            {showActions && (
+                <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.4)", zIndex: 9100, display: "flex", alignItems: "flex-end", justifyContent: "center" }}
+                    onClick={() => setShowActions(false)}>
+                    <div style={{ background: "#fff", borderRadius: "20px 20px 0 0", width: "100%", maxWidth: 580, padding: "0.5rem 1rem 2rem" }}
+                        onClick={e => e.stopPropagation()}>
+                        <div style={{ width: 40, height: 4, background: "#e2e8f0", borderRadius: 2, margin: "0.75rem auto 1rem" }} />
+
+                        {[
+                            { label: "הדפסה", icon: "🖨️", action: () => { setShowActions(false); printDoc(); } },
+                            { label: "וואטסאפ", icon: "💬", action: () => { setShowActions(false); shareWhatsApp(); } },
+                            { label: "SMS", icon: "📱", action: () => { setShowActions(false); shareSMS(); } },
+                            { label: "קובץ PDF", icon: "📄", action: () => { setShowActions(false); onDownload(); } },
+                        ].map(({ label, icon, action }) => (
+                            <button key={label} type="button" onClick={action} style={{
+                                width: "100%", background: "none", border: "none", borderBottom: "1px solid #f1f5f9",
+                                padding: "0.95rem 0.5rem", display: "flex", alignItems: "center", gap: "0.9rem",
+                                fontSize: "1rem", fontWeight: 600, cursor: "pointer", color: "#1e293b", textAlign: "right",
+                            }}>
+                                <span style={{ fontSize: "1.3rem" }}>{icon}</span>
+                                {label}
+                            </button>
+                        ))}
+
+                        <button type="button" onClick={() => setShowActions(false)} style={{
+                            width: "100%", background: "none", border: "none",
+                            padding: "0.95rem 0.5rem", display: "flex", alignItems: "center", gap: "0.9rem",
+                            fontSize: "1rem", fontWeight: 600, cursor: "pointer", color: "#94a3b8", textAlign: "right",
+                        }}>
+                            <span style={{ fontSize: "1.3rem" }}>✕</span>
+                            סגירה
+                        </button>
+                    </div>
+                </div>
+            )}
+        </>
     );
 }
 
 // ── Create Modal ──────────────────────────────────────────────────────────────
 
-function CreateModal({ settings, onClose, onCreated }: {
-    settings: InvoiceSettings; onClose: () => void; onCreated: () => void;
-}) {
-    const [docType, setDocType] = useState(settings.allowed_doc_types[0] || "receipt");
-    const [clientName, setClientName] = useState("");
-    const [clientPhone, setClientPhone] = useState("");
-    const [clientEmail, setClientEmail] = useState("");
-    const [paymentMethod, setPaymentMethod] = useState("cash");
-    const [paymentRef, setPaymentRef] = useState("");
-    const [notes, setNotes] = useState(settings.default_notes || "");
-    const [tipCents, setTipCents] = useState(0);
-    const [items, setItems] = useState<InvoiceItem[]>([{ description: "", quantity: 1, unit_price_cents: 0 }]);
+// ── Invoice Setup Wizard (first-time) ────────────────────────────────────────
+
+const WIZARD_DOC_TYPES = ["invoice_tax_receipt", "invoice_tax", "receipt", "credit", "transaction"] as const;
+
+function InvoiceSetupWizard({ series, onComplete }: { series: SeriesMap; onComplete: () => void }) {
+    const [step, setStep] = useState(1);
     const [saving, setSaving] = useState(false);
     const [err, setErr] = useState<string | null>(null);
 
-    const addItem = () => setItems(p => [...p, { description: "", quantity: 1, unit_price_cents: 0 }]);
-    const removeItem = (i: number) => setItems(p => p.filter((_, idx) => idx !== i));
-    const updateItem = (i: number, field: keyof InvoiceItem, val: string | number) => {
-        setItems(p => p.map((it, idx) => idx === i ? { ...it, [field]: val } : it));
+    // Step 1 — business details
+    const [bizType, setBizType] = useState("osek_murshe");
+    const [bizName, setBizName] = useState("");
+    const [bizNum, setBizNum] = useState("");
+    const [addr, setAddr] = useState("");
+    const [city, setCity] = useState("");
+    const [phone, setPhone] = useState("");
+    const [email, setEmail] = useState("");
+
+    // Step 2 — series starting numbers
+    const [nums, setNums] = useState<Record<string, number>>(() => {
+        const init: Record<string, number> = {};
+        WIZARD_DOC_TYPES.forEach(dt => { init[dt] = series[dt]?.next_number ?? 1000; });
+        return init;
+    });
+
+    const goNext = () => {
+        if (!bizName.trim()) { setErr("יש להזין שם עסק"); return; }
+        if (!bizNum.trim()) { setErr("יש להזין מספר עוסק / ח.פ"); return; }
+        setErr(null);
+        setStep(2);
     };
 
-    const subtotal = items.reduce((s, it) => s + Math.round(it.quantity * it.unit_price_cents), 0);
-    const vat = settings.business_type !== "osek_patur" ? Math.round(subtotal * settings.vat_rate / 100) : 0;
-    const total = subtotal + vat + tipCents;
-
-    const submit = async () => {
-        if (items.some(it => !it.description || it.unit_price_cents <= 0)) {
-            setErr("נא למלא תיאור ומחיר לכל פריט"); return;
-        }
+    const finish = async () => {
         setSaving(true); setErr(null);
         try {
-            await apiFetch("/api/invoices", {
+            await apiFetch("/api/invoices/settings/complete", {
                 method: "POST",
                 body: JSON.stringify({
-                    doc_type: docType, client_name: clientName, client_phone: clientPhone,
-                    client_email: clientEmail, payment_method: paymentMethod,
-                    payment_reference: paymentRef, notes, tip_cents: tipCents,
-                    items: items.map(it => ({
-                        description: it.description,
-                        quantity: it.quantity,
-                        unit_price_cents: Math.round(it.unit_price_cents * 100),
-                    })),
+                    business_type: bizType,
+                    business_name: bizName.trim(),
+                    business_number: bizNum.trim(),
+                    business_address: addr.trim() || null,
+                    business_city: city.trim() || null,
+                    business_phone: phone.trim() || null,
+                    business_email: email.trim() || null,
+                    series: nums,
                 }),
             });
-            onCreated();
-        } catch (e: unknown) { setErr((e as Error).message); }
-        finally { setSaving(false); }
+            await onComplete();
+        } catch (e: unknown) {
+            setErr((e as Error).message);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const DOC_LABELS: Record<string, string> = {
+        invoice_tax_receipt: "חשבונית מס/קבלה",
+        invoice_tax: "חשבונית מס",
+        receipt: "קבלה",
+        credit: "זיכוי",
+        transaction: "חשבונית עסקה",
     };
 
     return (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.5)", zIndex: 9000, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
-            <div style={{ background: "#fff", borderRadius: "20px 20px 0 0", width: "100%", maxWidth: 560, maxHeight: "95vh", overflow: "auto" }}>
-                <div style={{ padding: "1.25rem", borderBottom: "1px solid #f1f5f9", display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ fontWeight: 800, fontSize: "1.1rem" }}>מסמך חדש</span>
-                    <button type="button" onClick={onClose} style={{ background: "none", border: "none", fontSize: "1.4rem", cursor: "pointer", color: "#64748b" }}>×</button>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.6)", zIndex: 9900, display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" }}>
+            <div style={{ background: "#fff", borderRadius: 20, width: "100%", maxWidth: 500, maxHeight: "92vh", overflow: "auto", boxShadow: "0 25px 60px rgba(0,0,0,.25)" }}>
+
+                {/* Title */}
+                <div style={{ padding: "1.5rem 1.5rem 0", textAlign: "center" }}>
+                    <div style={{ fontWeight: 900, fontSize: "1.3rem", color: "#1a1a2e" }}>הגדרת חשבוניות</div>
+                    <div style={{ fontSize: "0.82rem", color: "#94a3b8", marginTop: "0.25rem" }}>הגדרה חד-פעמית · לא ניתן לשינוי ללא תמיכה</div>
                 </div>
 
-                <div style={{ padding: "1.25rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
-                    {/* Doc type */}
-                    <div>
-                        <label style={labelStyle}>סוג מסמך</label>
-                        <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
-                            {settings.allowed_doc_types.map(t => (
-                                <button key={t} type="button" onClick={() => setDocType(t)} style={{
-                                    padding: "0.4rem 0.9rem", border: `1px solid ${docType === t ? TYPE_COLOR[t] : "#e2e8f0"}`,
-                                    borderRadius: 8, background: docType === t ? TYPE_COLOR[t] : "#fff",
-                                    color: docType === t ? "#fff" : "#334155", fontWeight: 600, cursor: "pointer", fontSize: "0.82rem",
-                                }}>{DOC_TYPES[t]}</button>
-                            ))}
+                {/* Step tabs */}
+                <div style={{ display: "flex", margin: "1.25rem 1.5rem 0", border: "1px solid #e2e8f0", borderRadius: 12, overflow: "hidden" }}>
+                    {[
+                        { num: 1, label: "פרטי העסק" },
+                        { num: 2, label: "מספר מסמכים" },
+                    ].map(s => (
+                        <div key={s.num} style={{
+                            flex: 1, padding: "0.7rem", textAlign: "center", fontSize: "0.85rem", fontWeight: 700,
+                            background: step === s.num ? "#1a1a2e" : "#f8fafc",
+                            color: step === s.num ? "#fff" : "#64748b",
+                            cursor: s.num < step ? "pointer" : "default",
+                        }} onClick={() => s.num < step && setStep(s.num)}>
+                            {s.num}. {s.label}
                         </div>
-                    </div>
+                    ))}
+                </div>
 
-                    {/* Client */}
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
-                        <div><label style={labelStyle}>שם לקוח</label>
-                            <input value={clientName} onChange={e => setClientName(e.target.value)} style={inputStyle} placeholder="שם מלא" /></div>
-                        <div><label style={labelStyle}>טלפון</label>
-                            <input value={clientPhone} onChange={e => setClientPhone(e.target.value)} style={inputStyle} placeholder="050..." type="tel" /></div>
-                    </div>
-                    <div><label style={labelStyle}>אימייל (אופציונלי)</label>
-                        <input value={clientEmail} onChange={e => setClientEmail(e.target.value)} style={inputStyle} placeholder="email@..." type="email" /></div>
-
-                    {/* Items */}
-                    <div>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
-                            <label style={labelStyle}>פריטים</label>
-                            <button type="button" onClick={addItem} style={{ background: "none", border: "1px solid #7c3aed", borderRadius: 6, padding: "0.2rem 0.6rem", color: "#7c3aed", cursor: "pointer", fontSize: "0.8rem" }}>+ הוסף</button>
-                        </div>
-                        {items.map((it, i) => (
-                            <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 60px 90px 28px", gap: "0.4rem", marginBottom: "0.4rem", alignItems: "center" }}>
-                                <input value={it.description} onChange={e => updateItem(i, "description", e.target.value)}
-                                    placeholder="תיאור" style={{ ...inputStyle, fontSize: "0.82rem" }} />
-                                <input value={it.quantity} type="number" min="0.01" step="0.01"
-                                    onChange={e => updateItem(i, "quantity", parseFloat(e.target.value) || 1)}
-                                    style={{ ...inputStyle, fontSize: "0.82rem" }} />
-                                <input value={it.unit_price_cents || ""} type="number" min="0"
-                                    placeholder="מחיר ₪"
-                                    onChange={e => updateItem(i, "unit_price_cents", parseFloat(e.target.value) || 0)}
-                                    style={{ ...inputStyle, fontSize: "0.82rem" }} />
-                                {items.length > 1 && (
-                                    <button type="button" onClick={() => removeItem(i)} style={{ background: "none", border: "none", color: "#dc2626", cursor: "pointer", fontSize: "1rem" }}>×</button>
-                                )}
+                <div style={{ padding: "1.25rem 1.5rem" }}>
+                    {step === 1 && (
+                        <div style={{ display: "flex", flexDirection: "column", gap: "0.9rem" }}>
+                            <div>
+                                <label style={labelStyle}>סוג עסק *</label>
+                                <div style={{ display: "flex", gap: "0.4rem" }}>
+                                    {BIZ_TYPES.map(b => (
+                                        <button key={b.value} type="button" onClick={() => setBizType(b.value)} style={{
+                                            flex: 1, padding: "0.5rem 0.4rem", border: `2px solid ${bizType === b.value ? "#1a1a2e" : "#e2e8f0"}`,
+                                            borderRadius: 10, background: bizType === b.value ? "#1a1a2e" : "#fff",
+                                            color: bizType === b.value ? "#fff" : "#334155",
+                                            fontWeight: 700, cursor: "pointer", fontSize: "0.78rem",
+                                        }}>{b.label}</button>
+                                    ))}
+                                </div>
                             </div>
-                        ))}
-                    </div>
-
-                    {/* Payment */}
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
-                        <div><label style={labelStyle}>אמצעי תשלום</label>
-                            <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)} style={inputStyle}>
-                                {METHODS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
-                            </select></div>
-                        <div><label style={labelStyle}>אסמכתה</label>
-                            <input value={paymentRef} onChange={e => setPaymentRef(e.target.value)} style={inputStyle} placeholder="מספר עסקה..." /></div>
-                    </div>
-
-                    {/* Tip */}
-                    <div><label style={labelStyle}>טיפ (₪)</label>
-                        <input value={tipCents / 100 || ""} type="number" min="0"
-                            onChange={e => setTipCents(Math.round((parseFloat(e.target.value) || 0) * 100))}
-                            style={inputStyle} placeholder="0" /></div>
-
-                    {/* Notes */}
-                    <div><label style={labelStyle}>הערות</label>
-                        <textarea value={notes} onChange={e => setNotes(e.target.value)} style={{ ...inputStyle, height: 60, resize: "vertical" }} /></div>
-
-                    {/* Summary */}
-                    <div style={{ background: "#f8fafc", borderRadius: 10, padding: "0.75rem", fontSize: "0.85rem" }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.25rem", color: "#64748b" }}>
-                            <span>לפני מע"מ</span><span>₪{(subtotal / 100).toFixed(2)}</span>
-                        </div>
-                        {vat > 0 && (
-                            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.25rem", color: "#64748b" }}>
-                                <span>מע"מ {settings.vat_rate}%</span><span>₪{(vat / 100).toFixed(2)}</span>
+                            <div>
+                                <label style={labelStyle}>שם העסק על המסמכים *</label>
+                                <input value={bizName} onChange={e => setBizName(e.target.value)} style={inputStyle} placeholder="שם עסק רשמי" />
                             </div>
-                        )}
-                        {tipCents > 0 && (
-                            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.25rem", color: "#64748b" }}>
-                                <span>טיפ</span><span>₪{(tipCents / 100).toFixed(2)}</span>
+                            <div>
+                                <label style={labelStyle}>ח.פ / ע.מ *</label>
+                                <input value={bizNum} onChange={e => setBizNum(e.target.value)} style={inputStyle} placeholder="313192700" dir="ltr" />
                             </div>
-                        )}
-                        <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 800, fontSize: "1rem", borderTop: "1px solid #e2e8f0", paddingTop: "0.35rem" }}>
-                            <span>סה"כ</span><span>₪{(total / 100).toFixed(2)}</span>
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
+                                <div><label style={labelStyle}>כתובת</label>
+                                    <input value={addr} onChange={e => setAddr(e.target.value)} style={inputStyle} placeholder="הרצל 100" /></div>
+                                <div><label style={labelStyle}>עיר</label>
+                                    <input value={city} onChange={e => setCity(e.target.value)} style={inputStyle} placeholder="ראשון לציון" /></div>
+                            </div>
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
+                                <div><label style={labelStyle}>טלפון</label>
+                                    <input value={phone} onChange={e => setPhone(e.target.value)} style={inputStyle} type="tel" placeholder="050..." /></div>
+                                <div><label style={labelStyle}>אימייל</label>
+                                    <input value={email} onChange={e => setEmail(e.target.value)} style={inputStyle} type="email" placeholder="email@..." /></div>
+                            </div>
                         </div>
-                    </div>
+                    )}
 
-                    {err && <p style={{ color: "#dc2626", fontSize: "0.82rem" }}>{err}</p>}
+                    {step === 2 && (
+                        <div>
+                            <div style={{ background: "#f8fafc", borderRadius: 10, padding: "0.85rem 1rem", marginBottom: "1rem", fontSize: "0.82rem", color: "#475569", lineHeight: 1.6 }}>
+                                המספר שתגדיר יהיה מספר המסמך הראשון שיצא.<br />
+                                <strong>לדוגמה:</strong> אם החשבונית האחרונה הייתה 6001, כתוב/י 6002.
+                            </div>
+                            <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+                                {WIZARD_DOC_TYPES.filter(dt => {
+                                    if (bizType === "osek_patur") return ["receipt", "transaction", "credit"].includes(dt);
+                                    return true;
+                                }).map(dt => (
+                                    <div key={dt} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.75rem 1rem", background: "#f8fafc", borderRadius: 10 }}>
+                                        <div style={{ fontWeight: 700, fontSize: "0.9rem" }}>{DOC_LABELS[dt]}</div>
+                                        <input
+                                            type="number" min="1" value={nums[dt] ?? 1000}
+                                            aria-label={`מספר התחלתי עבור ${DOC_LABELS[dt]}`}
+                                            title={`מספר התחלתי עבור ${DOC_LABELS[dt]}`}
+                                            onChange={e => setNums(p => ({ ...p, [dt]: parseInt(e.target.value) || 1 }))}
+                                            style={{ width: 90, padding: "0.4rem 0.6rem", border: "1px solid #e2e8f0", borderRadius: 8, textAlign: "center", fontWeight: 700, fontSize: "1rem" }}
+                                            dir="ltr"
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                            <div style={{ background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 10, padding: "0.75rem 1rem", marginTop: "1rem", fontSize: "0.8rem", color: "#92400e" }}>
+                                אם אין כוונה לנהל מלאי או לא ניהלת בעבר, תוכל/י להשאיר את השדות כמו שהם. ניתן לפנות לתמיכה במידה ויבצעו שינויים.
+                            </div>
+                        </div>
+                    )}
 
-                    <button type="button" onClick={submit} disabled={saving} style={{
-                        background: "#7c3aed", color: "#fff", border: "none", borderRadius: 12,
-                        padding: "0.85rem", fontWeight: 800, fontSize: "0.95rem", cursor: "pointer",
+                    {err && <div style={{ background: "#fee2e2", color: "#dc2626", borderRadius: 8, padding: "0.6rem 0.8rem", fontSize: "0.82rem", marginTop: "0.75rem" }}>{err}</div>}
+                </div>
+
+                {/* Buttons */}
+                <div style={{ padding: "0 1.5rem 1.5rem", display: "flex", gap: "0.75rem" }}>
+                    {step === 2 && (
+                        <button type="button" onClick={() => setStep(1)} style={{
+                            flex: 1, background: "#fff", color: "#334155", border: "1.5px solid #e2e8f0",
+                            borderRadius: 14, padding: "0.9rem", fontWeight: 700, cursor: "pointer", fontSize: "0.95rem",
+                        }}>
+                            הקודם
+                        </button>
+                    )}
+                    <button type="button" onClick={step === 1 ? goNext : finish} disabled={saving} style={{
+                        flex: 2, background: "#1a1a2e", color: "#fff", border: "none",
+                        borderRadius: 14, padding: "0.9rem", fontWeight: 800, cursor: "pointer", fontSize: "0.95rem",
+                        opacity: saving ? 0.7 : 1,
                     }}>
-                        {saving ? "מפיק..." : "הפק מסמך"}
+                        {saving ? "שומר..." : step === 1 ? "המשך" : "סיים והנעל הגדרות"}
                     </button>
                 </div>
             </div>
@@ -548,69 +743,53 @@ function CreateModal({ settings, onClose, onCreated }: {
 // ── Settings Tab ──────────────────────────────────────────────────────────────
 
 function SettingsTab({ settings, onSaved }: { settings: InvoiceSettings; onSaved: () => void }) {
-    const [form, setForm] = useState({ ...settings });
-    const [saving, setSaving] = useState(false);
-    const [saved, setSaved] = useState(false);
-
-    const save = async () => {
-        setSaving(true);
-        try {
-            await apiFetch("/api/invoices/settings", { method: "PUT", body: JSON.stringify(form) });
-            onSaved(); setSaved(true); setTimeout(() => setSaved(false), 2000);
-        } finally { setSaving(false); }
-    };
-
-    const f = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
-        setForm(p => ({ ...p, [k]: e.target.value }));
+    const locked = settings.settings_completed;
 
     return (
         <div style={{ padding: "0 1rem 2rem", maxWidth: 540 }}>
+            {locked && (
+                <div style={{ background: "#fef9c3", border: "1px solid #fde68a", borderRadius: 12, padding: "0.85rem 1rem", marginBottom: "1rem", display: "flex", alignItems: "center", gap: "0.6rem", fontSize: "0.85rem", color: "#92400e" }}>
+                    🔒 <span>הגדרות החשבונית נעולות. לשינוי פנה לתמיכה של BizControl.</span>
+                </div>
+            )}
             <div style={{ display: "flex", flexDirection: "column", gap: "0.9rem" }}>
                 <div>
                     <label style={labelStyle}>סוג עסק</label>
-                    <select value={form.business_type} onChange={f("business_type")} style={inputStyle}>
-                        {BIZ_TYPES.map(b => <option key={b.value} value={b.value}>{b.label}</option>)}
-                    </select>
+                    <div style={{ ...inputStyle, background: "#f8fafc", color: "#334155" }}>
+                        {BIZ_TYPES.find(b => b.value === settings.business_type)?.label || settings.business_type}
+                    </div>
                 </div>
                 <div>
                     <label style={labelStyle}>שם העסק על המסמכים</label>
-                    <input value={form.business_name || ""} onChange={f("business_name")} style={inputStyle} placeholder="שם עסק רשמי" />
+                    <div style={{ ...inputStyle, background: "#f8fafc", color: "#334155" }}>{settings.business_name || "—"}</div>
                 </div>
                 <div>
                     <label style={labelStyle}>ח.פ / ע.מ</label>
-                    <input value={form.business_number || ""} onChange={f("business_number")} style={inputStyle} placeholder="מספר עוסק" />
-                </div>
-                <div>
-                    <label style={labelStyle}>שיעור מע"מ (%)</label>
-                    <input value={form.vat_rate} onChange={f("vat_rate")} style={inputStyle} type="number" step="0.01" min="0" max="100" />
+                    <div style={{ ...inputStyle, background: "#f8fafc", color: "#334155" }}>{settings.business_number || "—"}</div>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
-                    <div><label style={labelStyle}>כתובת</label>
-                        <input value={form.business_address || ""} onChange={f("business_address")} style={inputStyle} placeholder="רחוב ומספר" /></div>
-                    <div><label style={labelStyle}>עיר</label>
-                        <input value={form.business_city || ""} onChange={f("business_city")} style={inputStyle} placeholder="עיר" /></div>
+                    <div>
+                        <label style={labelStyle}>כתובת</label>
+                        <div style={{ ...inputStyle, background: "#f8fafc", color: "#334155" }}>{settings.business_address || "—"}</div>
+                    </div>
+                    <div>
+                        <label style={labelStyle}>עיר</label>
+                        <div style={{ ...inputStyle, background: "#f8fafc", color: "#334155" }}>{settings.business_city || "—"}</div>
+                    </div>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
-                    <div><label style={labelStyle}>טלפון</label>
-                        <input value={form.business_phone || ""} onChange={f("business_phone")} style={inputStyle} type="tel" /></div>
-                    <div><label style={labelStyle}>אימייל</label>
-                        <input value={form.business_email || ""} onChange={f("business_email")} style={inputStyle} type="email" /></div>
+                    <div>
+                        <label style={labelStyle}>טלפון</label>
+                        <div style={{ ...inputStyle, background: "#f8fafc", color: "#334155" }}>{settings.business_phone || "—"}</div>
+                    </div>
+                    <div>
+                        <label style={labelStyle}>אימייל</label>
+                        <div style={{ ...inputStyle, background: "#f8fafc", color: "#334155" }}>{settings.business_email || "—"}</div>
+                    </div>
                 </div>
-                <div>
-                    <label style={labelStyle}>תנאי תשלום (ברירת מחדל)</label>
-                    <input value={form.payment_terms || ""} onChange={f("payment_terms")} style={inputStyle} placeholder="לדוגמה: שוטף + 30" />
-                </div>
-                <div>
-                    <label style={labelStyle}>הערות ברירת מחדל</label>
-                    <textarea value={form.default_notes || ""} onChange={f("default_notes")} style={{ ...inputStyle, height: 60, resize: "vertical" }} />
-                </div>
-
-                <button type="button" onClick={save} disabled={saving} style={{
-                    background: saving ? "#a78bfa" : "#7c3aed", color: "#fff", border: "none",
-                    borderRadius: 12, padding: "0.85rem", fontWeight: 800, cursor: "pointer",
-                }}>
-                    {saved ? "✓ נשמר" : saving ? "שומר..." : "שמור הגדרות"}
-                </button>
+                {!locked && (
+                    <p style={{ color: "#94a3b8", fontSize: "0.8rem" }}>השלם את אשף ההגדרה הראשוני כדי לנעול את הפרטים.</p>
+                )}
             </div>
         </div>
     );
@@ -618,52 +797,30 @@ function SettingsTab({ settings, onSaved }: { settings: InvoiceSettings; onSaved
 
 // ── Series Tab ────────────────────────────────────────────────────────────────
 
-function SeriesTab({ series, onSaved }: { series: SeriesMap; onSaved: () => void }) {
-    const [nums, setNums] = useState<Record<string, number>>({});
-    const [saving, setSaving] = useState(false);
-    const [saved, setSaved] = useState(false);
-
-    useEffect(() => {
-        const init: Record<string, number> = {};
-        Object.entries(series).forEach(([k, v]) => { init[k] = v.next_number; });
-        setNums(init);
-    }, [series]);
-
-    const save = async () => {
-        setSaving(true);
-        try {
-            const items = Object.entries(nums).map(([doc_type, next_number]) => ({ doc_type, next_number }));
-            await apiFetch("/api/invoices/series", { method: "PUT", body: JSON.stringify(items) });
-            onSaved(); setSaved(true); setTimeout(() => setSaved(false), 2000);
-        } finally { setSaving(false); }
-    };
-
+function SeriesTab({ series, locked, onSaved }: { series: SeriesMap; locked: boolean; onSaved: () => void }) {
     return (
         <div style={{ padding: "0 1rem 2rem", maxWidth: 400 }}>
+            {locked && (
+                <div style={{ background: "#fef9c3", border: "1px solid #fde68a", borderRadius: 12, padding: "0.85rem 1rem", marginBottom: "1rem", display: "flex", alignItems: "center", gap: "0.6rem", fontSize: "0.85rem", color: "#92400e" }}>
+                    🔒 <span>סדרות המסמכים נעולות. לשינוי פנה לתמיכה.</span>
+                </div>
+            )}
             <p style={{ color: "#64748b", fontSize: "0.85rem", marginBottom: "1rem" }}>
-                המספר הבא שיוקצה לכל סוג מסמך. לאחר הפקת מסמך, המספר עולה אוטומטית.
+                המספר הנוכחי בכל סדרת מסמכים. לאחר הפקת מסמך, המספר עולה אוטומטית.
             </p>
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginBottom: "1.25rem" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
                 {Object.entries(series).map(([key, val]) => (
-                    <div key={key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.75rem", background: "#f8fafc", borderRadius: 10 }}>
+                    <div key={key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.75rem 1rem", background: "#f8fafc", borderRadius: 10 }}>
                         <div>
                             <div style={{ fontWeight: 700, fontSize: "0.9rem" }}>{val.label}</div>
-                            <div style={{ fontSize: "0.75rem", color: "#64748b" }}>{key}</div>
+                            <div style={{ fontSize: "0.72rem", color: "#94a3b8" }}>{key}</div>
                         </div>
-                        <input
-                            type="number" min="1" value={nums[key] ?? val.next_number}
-                            onChange={e => setNums(p => ({ ...p, [key]: parseInt(e.target.value) || 1 }))}
-                            style={{ width: 90, padding: "0.4rem 0.6rem", border: "1px solid #e2e8f0", borderRadius: 8, textAlign: "center", fontWeight: 700 }}
-                        />
+                        <div style={{ fontWeight: 800, fontSize: "1.1rem", color: "#1a1a2e", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, padding: "0.4rem 0.9rem", minWidth: 70, textAlign: "center" }}>
+                            {val.next_number}
+                        </div>
                     </div>
                 ))}
             </div>
-            <button type="button" onClick={save} disabled={saving} style={{
-                background: "#7c3aed", color: "#fff", border: "none", borderRadius: 12,
-                padding: "0.85rem", fontWeight: 800, cursor: "pointer", width: "100%",
-            }}>
-                {saved ? "✓ נשמר" : saving ? "שומר..." : "שמור סדרות"}
-            </button>
         </div>
     );
 }

@@ -256,7 +256,7 @@ function LoginContent() {
 
                 <div className="mb-8 flex flex-col items-center">
                     <div className="mb-3">
-                        <img src="/logo.png" alt="BizControl" className="w-40 h-40 object-contain drop-shadow-2xl" style={{ mixBlendMode: "multiply" }} />
+                        <img src="/logo.png" alt="BizControl" className="w-40 h-40 object-contain drop-shadow-2xl" />
                     </div>
                     <div className="font-black text-3xl text-white tracking-tight drop-shadow-lg">BizControl</div>
                     <div className="text-sm text-blue-200/80 mt-1">ניהול העסק שלך, בפשטות</div>

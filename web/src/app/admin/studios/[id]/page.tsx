@@ -154,6 +154,7 @@ export default function StudioDetailPage() {
     const [enablingAll, setEnablingAll] = useState(false);
     const [navModules, setNavModules] = useState<Record<string, boolean>>({});
     const [togglingNav, setTogglingNav] = useState<string | null>(null);
+    const [unlockingInvoice, setUnlockingInvoice] = useState(false);
 
     const load = useCallback(async () => {
         setErr(null);
@@ -353,6 +354,19 @@ export default function StudioDetailPage() {
         }
     };
 
+    const handleUnlockInvoiceSettings = async () => {
+        if (!confirm("לפתוח את הגדרות החשבונית לעריכה עבור סטודיו זה?\nהסטודיו יראה את אשף ההגדרה מחדש בכניסה הבאה.")) return;
+        setUnlockingInvoice(true);
+        try {
+            await apiFetch(`/api/invoices/settings/unlock?studio_id_target=${studioId}`, { method: "POST" });
+            toast.error("הגדרות החשבונית נפתחו לעריכה");
+        } catch (e: any) {
+            toast.error(e?.message || "שגיאה");
+        } finally {
+            setUnlockingInvoice(false);
+        }
+    };
+
     const handleDeleteNote = async (noteId: string) => {
         if (!confirm("למחוק הערה זו?")) return;
         await apiFetch(`/api/admin/studios/${studioId}/notes/${noteId}`, { method: "DELETE" });
@@ -466,6 +480,13 @@ export default function StudioDetailPage() {
                             className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-xl hover:bg-red-700 transition-colors disabled:opacity-40"
                         >
                             🧹 {deletingClients ? "מוחק..." : `מחק כל הלקוחות (${detail.client_count})`}
+                        </button>
+                        <button
+                            onClick={handleUnlockInvoiceSettings}
+                            disabled={unlockingInvoice}
+                            className="flex items-center gap-2 px-4 py-2 bg-orange-50 text-orange-700 text-sm font-semibold rounded-xl hover:bg-orange-100 transition-colors disabled:opacity-50"
+                        >
+                            🔓 {unlockingInvoice ? "פותח..." : "פתח הגדרות חשבונית"}
                         </button>
                     </div>
                 </div>
