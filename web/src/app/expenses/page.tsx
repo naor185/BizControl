@@ -408,7 +408,7 @@ function ExpenseViewerModal({ expense, onClose, onUpdated }: { expense: Expense;
 
 // ── Chart helpers ─────────────────────────────────────────────────────────────
 const RADIAN = Math.PI / 180;
-const PIE_COLORS = ["#7c3aed", "#3b82f6", "#10b981", "#f97316", "#f43f5e", "#f59e0b", "#14b8a6", "#64748b"];
+const PIE_COLORS = ["#00b4b4", "#3b82f6", "#8b5cf6", "#f59e0b", "#ef4444", "#10b981", "#06b6d4", "#64748b"];
 
 function renderCustomizedLabel({
     cx, cy, midAngle, innerRadius, outerRadius, percent,
@@ -417,7 +417,7 @@ function renderCustomizedLabel({
     innerRadius: number; outerRadius: number; percent: number;
 }) {
     if (percent < 0.05) return null;
-    const radius = innerRadius + (outerRadius - innerRadius) * 0.55;
+    const radius = innerRadius + (outerRadius - innerRadius) * 0.6;
     const x = cx + radius * Math.cos(-midAngle * RADIAN);
     const y = cy + radius * Math.sin(-midAngle * RADIAN);
     return (
@@ -468,9 +468,12 @@ export default function ExpensesPage() {
     // Derived chart data
     const grossIncome = stats ? stats.financials.gross_income_cents / 100 : 0;
     const totalExpenses = summary ? summary.total_expenses : 0;
+    const netIncome = stats ? stats.financials.net_income_cents / 100 : 0;
 
     const barData = [
-        { name: "הכנסות vs הוצאות", הכנסות: grossIncome, הוצאות: totalExpenses },
+        { name: "הכנסות", value: grossIncome },
+        { name: "הוצאות", value: totalExpenses },
+        { name: "רווח נקי", value: netIncome },
     ];
 
     // Group expenses by category for pie chart
@@ -484,16 +487,16 @@ export default function ExpensesPage() {
     return (
         <RequireAuth>
             <AppShell title="ניהול עסק">
-                <div dir="rtl" style={{ minHeight: "100vh", background: "#f8fafc", fontFamily: "'Segoe UI', Arial, sans-serif" }}>
+                <div dir="rtl" style={{ minHeight: "100vh", background: "#f8f9fa", fontFamily: "'Segoe UI', Arial, sans-serif" }}>
 
-                    {/* Modal CSS (kept unchanged for modals) */}
+                    {/* Modal CSS */}
                     <style>{`
-                        .btn-primary { background: linear-gradient(135deg, #7c3aed, #4c1d95); color:#fff; border:none; padding:0.7rem 1.4rem; border-radius:12px; font-size:0.95rem; font-weight:600; cursor:pointer; transition:all .2s; }
-                        .btn-primary:hover { transform:translateY(-2px); box-shadow:0 8px 20px rgba(124,58,237,.5); }
-                        .btn-primary:disabled { opacity:.5; cursor:default; transform:none; }
-                        .btn-secondary { background:rgba(255,255,255,.1); color:#fff; border:1px solid rgba(255,255,255,.2); padding:0.7rem 1.4rem; border-radius:12px; font-size:0.95rem; cursor:pointer; transition:all .2s; }
-                        .btn-secondary:hover { background:rgba(255,255,255,.2); }
-                        .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.7); backdrop-filter:blur(6px); display:flex; align-items:center; justify-content:center; z-index:1000; padding:1rem; }
+                        .btn-primary { background: #00b4b4; color:#fff; border:none; padding:0.7rem 1.4rem; border-radius:10px; font-size:0.9rem; font-weight:600; cursor:pointer; transition:all .15s; }
+                        .btn-primary:hover { background:#009999; }
+                        .btn-primary:disabled { opacity:.5; cursor:default; }
+                        .btn-secondary { background:#fff; color:#1a1a2e; border:1px solid #e5e7eb; padding:0.7rem 1.4rem; border-radius:10px; font-size:0.9rem; cursor:pointer; transition:all .15s; }
+                        .btn-secondary:hover { background:#f8f9fa; }
+                        .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.55); backdrop-filter:blur(4px); display:flex; align-items:center; justify-content:center; z-index:1000; padding:1rem; }
                         .modal-panel { background:linear-gradient(145deg,#1e1b4b,#312e81); border:1px solid rgba(167,139,250,.3); border-radius:20px; width:100%; max-width:560px; padding:2rem; max-height:90vh; overflow-y:auto; }
                         .modal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; }
                         .modal-header h2 { font-size:1.3rem; font-weight:700; color:#a78bfa; }
@@ -510,129 +513,133 @@ export default function ExpensesPage() {
                         @media(max-width:640px) { .form-grid { grid-template-columns:1fr; } }
                     `}</style>
 
-                    {/* ── Hero Header ── */}
+                    {/* ── Top Bar ── */}
                     <div style={{
-                        background: "linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #1e1b4b 100%)",
-                        padding: "2rem 2rem 2.5rem",
-                        position: "relative",
-                        overflow: "hidden",
+                        background: "#ffffff",
+                        borderBottom: "1px solid #e5e7eb",
+                        padding: "1rem 2rem",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        flexWrap: "wrap",
+                        gap: "1rem",
+                        position: "sticky",
+                        top: 0,
+                        zIndex: 10,
                     }}>
-                        {/* decorative blobs */}
-                        <div style={{ position: "absolute", top: -60, left: -60, width: 220, height: 220, background: "radial-gradient(circle, rgba(124,58,237,0.25) 0%, transparent 70%)", borderRadius: "50%", pointerEvents: "none" }} />
-                        <div style={{ position: "absolute", bottom: -40, right: 80, width: 160, height: 160, background: "radial-gradient(circle, rgba(59,130,246,0.2) 0%, transparent 70%)", borderRadius: "50%", pointerEvents: "none" }} />
-
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "1.5rem", position: "relative", zIndex: 1 }}>
-                            <div>
-                                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.4rem" }}>
-                                    <span style={{ fontSize: "1.8rem" }}>💼</span>
-                                    <h1 style={{ fontSize: "2rem", fontWeight: 900, color: "#fff", margin: 0, letterSpacing: "-0.02em" }}>ניהול עסק</h1>
-                                </div>
-                                <p style={{ color: "#94a3b8", margin: 0, fontSize: "0.95rem" }}>מעקב הוצאות, מע&quot;מ וחשבוניות – בזמן אמת</p>
-                            </div>
-                            <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
-                                <button
-                                    onClick={() => downloadExpenseExcel(month, year)}
-                                    style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "rgba(16,185,129,0.15)", border: "1px solid rgba(16,185,129,0.4)", color: "#34d399", padding: "0.65rem 1.25rem", borderRadius: "12px", fontWeight: 600, fontSize: "0.9rem", cursor: "pointer", backdropFilter: "blur(6px)" }}
-                                >
-                                    📊 Excel לרו&quot;ח
-                                </button>
-                                <button
-                                    onClick={async () => {
-                                        if (!confirm(`לסמן את כל הוצאות ${month}/${year} כ"נשלחו לרו"ח"?`)) return;
-                                        await markMonthSent(month, year);
-                                        load();
-                                        toast.success("כל ההוצאות סומנו כנשלחו!");
-                                    }}
-                                    style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "rgba(251,191,36,0.15)", border: "1px solid rgba(251,191,36,0.4)", color: "#fbbf24", padding: "0.65rem 1.25rem", borderRadius: "12px", fontWeight: 600, fontSize: "0.9rem", cursor: "pointer", backdropFilter: "blur(6px)" }}
-                                >
-                                    ✅ סמן חודש נשלח
-                                </button>
-                                <button
-                                    onClick={() => setModal("manual")}
-                                    style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", color: "#e2e8f0", padding: "0.65rem 1.25rem", borderRadius: "12px", fontWeight: 600, fontSize: "0.9rem", cursor: "pointer", backdropFilter: "blur(6px)" }}
-                                >
-                                    ✏️ הזנה ידנית
-                                </button>
-                                <button
-                                    onClick={() => setModal("scan")}
-                                    style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "linear-gradient(135deg, #7c3aed, #4f46e5)", border: "none", color: "#fff", padding: "0.65rem 1.4rem", borderRadius: "12px", fontWeight: 700, fontSize: "0.9rem", cursor: "pointer", boxShadow: "0 4px 15px rgba(124,58,237,0.4)" }}
-                                >
-                                    🤖 העלאת חשבונית AI
-                                </button>
-                            </div>
+                        {/* Title block */}
+                        <div style={{ textAlign: "right" }}>
+                            <h1 style={{ margin: 0, fontSize: "1.3rem", fontWeight: 700, color: "#1a1a2e" }}>ניהול עסק</h1>
+                            <p style={{ margin: 0, fontSize: "0.8rem", color: "#6b7280" }}>מעקב הוצאות ומיסים</p>
                         </div>
-                    </div>
 
-                    {/* ── Page Body ── */}
-                    <div style={{ padding: "2rem", maxWidth: 1280, margin: "0 auto" }}>
-
-                        {/* ── Period Selector ── */}
-                        <div style={{ background: "#fff", borderRadius: "16px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", border: "1px solid #e2e8f0", padding: "1.25rem 1.5rem", marginBottom: "1.5rem", display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
-                            <span style={{ color: "#475569", fontWeight: 700, fontSize: "0.9rem" }}>📅 תקופה:</span>
+                        {/* Period selectors + actions */}
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
                             <select
                                 value={month}
                                 onChange={e => setMonth(Number(e.target.value))}
-                                style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "10px", padding: "0.5rem 1rem", fontSize: "0.9rem", color: "#1e293b", cursor: "pointer", fontWeight: 600 }}
+                                style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: "8px", padding: "0.45rem 0.9rem", fontSize: "0.875rem", color: "#1a1a2e", cursor: "pointer", fontWeight: 500 }}
                             >
                                 {MONTHS.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
                             </select>
                             <select
                                 value={year}
                                 onChange={e => setYear(Number(e.target.value))}
-                                style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "10px", padding: "0.5rem 1rem", fontSize: "0.9rem", color: "#1e293b", cursor: "pointer", fontWeight: 600 }}
+                                style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: "8px", padding: "0.45rem 0.9rem", fontSize: "0.875rem", color: "#1a1a2e", cursor: "pointer", fontWeight: 500 }}
                             >
                                 {[2024, 2025, 2026, 2027].map(y => <option key={y} value={y}>{y}</option>)}
                             </select>
-                            <span style={{ color: "#94a3b8", fontSize: "0.85rem", marginRight: "auto" }}>
-                                {MONTHS[month - 1]} {year}
-                            </span>
+
+                            {/* Action buttons */}
+                            <button
+                                onClick={() => downloadExpenseExcel(month, year)}
+                                style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "#fff", border: "1px solid #e5e7eb", color: "#1a1a2e", padding: "0.45rem 1rem", borderRadius: "8px", fontWeight: 500, fontSize: "0.875rem", cursor: "pointer" }}
+                            >
+                                Excel לרו&quot;ח
+                            </button>
+                            <button
+                                onClick={async () => {
+                                    if (!confirm(`לסמן את כל הוצאות ${month}/${year} כ"נשלחו לרו"ח"?`)) return;
+                                    await markMonthSent(month, year);
+                                    load();
+                                    toast.success("כל ההוצאות סומנו כנשלחו!");
+                                }}
+                                style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "#fff", border: "1px solid #e5e7eb", color: "#1a1a2e", padding: "0.45rem 1rem", borderRadius: "8px", fontWeight: 500, fontSize: "0.875rem", cursor: "pointer" }}
+                            >
+                                סמן חודש נשלח
+                            </button>
+                            <button
+                                onClick={() => setModal("manual")}
+                                style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "#fff", border: "1px solid #e5e7eb", color: "#1a1a2e", padding: "0.45rem 1rem", borderRadius: "8px", fontWeight: 500, fontSize: "0.875rem", cursor: "pointer" }}
+                            >
+                                הזנה ידנית
+                            </button>
+                            <button
+                                onClick={() => setModal("scan")}
+                                style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "#00b4b4", border: "none", color: "#fff", padding: "0.45rem 1.1rem", borderRadius: "8px", fontWeight: 600, fontSize: "0.875rem", cursor: "pointer" }}
+                            >
+                                סריקת חשבונית AI
+                            </button>
                         </div>
+                    </div>
+
+                    {/* ── Page Body ── */}
+                    <div style={{ padding: "1.75rem 2rem", maxWidth: 1320, margin: "0 auto" }}>
 
                         {/* ── Goal Widget ── */}
-                        <div style={{ background: "#fff", borderRadius: "16px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", border: "1px solid #e2e8f0", padding: "1.25rem 1.5rem", marginBottom: "1.5rem" }}>
+                        <div style={{ background: "#ffffff", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", border: "1px solid #e5e7eb", padding: "1.5rem", marginBottom: "1.5rem" }}>
                             <GoalWidget month={month} year={year} />
                         </div>
 
-                        {/* ── KPI Cards ── */}
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: "1.25rem", marginBottom: "1.5rem" }}>
+                        {/* ── KPI Row ── */}
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "1.25rem", marginBottom: "1.5rem" }}>
+
                             {/* Gross Income */}
-                            <div style={{ background: "#fff", borderRadius: "16px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", border: "1px solid #e2e8f0", borderLeft: "4px solid #10b981", padding: "1.4rem 1.5rem" }}>
-                                <div style={{ fontSize: "1.4rem", marginBottom: "0.5rem" }}>💰</div>
-                                <div style={{ color: "#64748b", fontSize: "0.8rem", fontWeight: 600, marginBottom: "0.4rem", textTransform: "uppercase", letterSpacing: "0.04em" }}>הכנסות ברוטו</div>
-                                <div style={{ fontSize: "1.8rem", fontWeight: 900, color: "#10b981" }}>
+                            <div style={{ background: "#ffffff", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", border: "1px solid #e5e7eb", borderRight: "3px solid #10b981", padding: "1.4rem 1.5rem" }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.6rem" }}>
+                                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#10b981", flexShrink: 0 }} />
+                                    <span style={{ color: "#6b7280", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>הכנסות ברוטו</span>
+                                </div>
+                                <div style={{ fontSize: "1.6rem", fontWeight: 700, color: "#1a1a2e", lineHeight: 1.2 }}>
                                     ₪{stats ? (stats.financials.gross_income_cents / 100).toLocaleString() : "—"}
                                 </div>
-                                <div style={{ color: "#94a3b8", fontSize: "0.75rem", marginTop: "0.3rem" }}>עסקאות שנסגרו</div>
+                                <div style={{ color: "#6b7280", fontSize: "0.75rem", marginTop: "0.35rem" }}>עסקאות שנסגרו</div>
                             </div>
 
                             {/* Net Income */}
-                            <div style={{ background: "#fff", borderRadius: "16px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", border: "1px solid #e2e8f0", borderLeft: "4px solid #7c3aed", padding: "1.4rem 1.5rem" }}>
-                                <div style={{ fontSize: "1.4rem", marginBottom: "0.5rem" }}>✨</div>
-                                <div style={{ color: "#64748b", fontSize: "0.8rem", fontWeight: 600, marginBottom: "0.4rem", textTransform: "uppercase", letterSpacing: "0.04em" }}>רווח נקי</div>
-                                <div style={{ fontSize: "1.8rem", fontWeight: 900, color: "#7c3aed" }}>
+                            <div style={{ background: "#ffffff", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", border: "1px solid #e5e7eb", borderRight: "3px solid #00b4b4", padding: "1.4rem 1.5rem" }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.6rem" }}>
+                                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#00b4b4", flexShrink: 0 }} />
+                                    <span style={{ color: "#6b7280", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>רווח נקי</span>
+                                </div>
+                                <div style={{ fontSize: "1.6rem", fontWeight: 700, color: "#1a1a2e", lineHeight: 1.2 }}>
                                     ₪{stats ? (stats.financials.net_income_cents / 100).toLocaleString() : "—"}
                                 </div>
-                                <div style={{ color: "#94a3b8", fontSize: "0.75rem", marginTop: "0.3rem" }}>אחרי כל המיסים</div>
+                                <div style={{ color: "#6b7280", fontSize: "0.75rem", marginTop: "0.35rem" }}>אחרי כל הניכויים</div>
                             </div>
 
                             {/* Taxes */}
-                            <div style={{ background: "#fff", borderRadius: "16px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", border: "1px solid #e2e8f0", borderLeft: "4px solid #f59e0b", padding: "1.4rem 1.5rem" }}>
-                                <div style={{ fontSize: "1.4rem", marginBottom: "0.5rem" }}>📉</div>
-                                <div style={{ color: "#64748b", fontSize: "0.8rem", fontWeight: 600, marginBottom: "0.4rem", textTransform: "uppercase", letterSpacing: "0.04em" }}>מיסים והפרשות</div>
-                                <div style={{ fontSize: "1.8rem", fontWeight: 900, color: "#f59e0b" }}>
+                            <div style={{ background: "#ffffff", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", border: "1px solid #e5e7eb", borderRight: "3px solid #f59e0b", padding: "1.4rem 1.5rem" }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.6rem" }}>
+                                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#f59e0b", flexShrink: 0 }} />
+                                    <span style={{ color: "#6b7280", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>מיסים</span>
+                                </div>
+                                <div style={{ fontSize: "1.6rem", fontWeight: 700, color: "#1a1a2e", lineHeight: 1.2 }}>
                                     ₪{stats ? ((stats.financials.vat_amount_cents + stats.financials.income_tax_cents + stats.financials.social_security_cents) / 100).toLocaleString() : "—"}
                                 </div>
-                                <div style={{ color: "#94a3b8", fontSize: "0.75rem", marginTop: "0.3rem" }}>מע&quot;מ + מס הכנסה + ביטוח לאומי</div>
+                                <div style={{ color: "#6b7280", fontSize: "0.75rem", marginTop: "0.35rem" }}>מע&quot;מ + מס הכנסה + ביטוח לאומי</div>
                             </div>
 
                             {/* Total Expenses */}
-                            <div style={{ background: "#fff", borderRadius: "16px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", border: "1px solid #e2e8f0", borderLeft: "4px solid #f43f5e", padding: "1.4rem 1.5rem" }}>
-                                <div style={{ fontSize: "1.4rem", marginBottom: "0.5rem" }}>🛍️</div>
-                                <div style={{ color: "#64748b", fontSize: "0.8rem", fontWeight: 600, marginBottom: "0.4rem", textTransform: "uppercase", letterSpacing: "0.04em" }}>סך הוצאות</div>
-                                <div style={{ fontSize: "1.8rem", fontWeight: 900, color: "#f43f5e" }}>
+                            <div style={{ background: "#ffffff", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", border: "1px solid #e5e7eb", borderRight: "3px solid #ef4444", padding: "1.4rem 1.5rem" }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.6rem" }}>
+                                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#ef4444", flexShrink: 0 }} />
+                                    <span style={{ color: "#6b7280", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>סך הוצאות</span>
+                                </div>
+                                <div style={{ fontSize: "1.6rem", fontWeight: 700, color: "#1a1a2e", lineHeight: 1.2 }}>
                                     ₪{summary ? fmt(summary.total_expenses) : "—"}
                                 </div>
-                                <div style={{ color: "#94a3b8", fontSize: "0.75rem", marginTop: "0.3rem" }}>
+                                <div style={{ color: "#6b7280", fontSize: "0.75rem", marginTop: "0.35rem" }}>
                                     {summary ? `${summary.invoice_count} חשבוניות` : "החודש"}
                                 </div>
                             </div>
@@ -641,45 +648,52 @@ export default function ExpensesPage() {
                         {/* ── Charts Row ── */}
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.25rem", marginBottom: "1.5rem" }}>
 
-                            {/* Bar Chart */}
-                            <div style={{ background: "#fff", borderRadius: "16px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", border: "1px solid #e2e8f0", padding: "1.5rem" }}>
-                                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1.25rem" }}>
-                                    <div style={{ width: 4, height: 20, background: "#3b82f6", borderRadius: 4 }} />
-                                    <span style={{ fontSize: "0.95rem", fontWeight: 700, color: "#1e293b" }}>הכנסות מול הוצאות</span>
+                            {/* Bar Chart — Income vs Expenses */}
+                            <div style={{ background: "#ffffff", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", border: "1px solid #e5e7eb", padding: "1.5rem" }}>
+                                <div style={{ marginBottom: "1.25rem" }}>
+                                    <div style={{ fontSize: "0.9rem", fontWeight: 700, color: "#1a1a2e" }}>הכנסות מול הוצאות</div>
+                                    <div style={{ fontSize: "0.75rem", color: "#6b7280", marginTop: "0.2rem" }}>{MONTHS[month - 1]} {year}</div>
                                 </div>
-                                <ResponsiveContainer width="100%" height={220}>
-                                    <BarChart data={barData} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
-                                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                                        <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#64748b" }} />
-                                        <YAxis tick={{ fontSize: 11, fill: "#64748b" }} tickFormatter={(v: number) => `₪${(v / 1000).toFixed(0)}k`} />
+                                <ResponsiveContainer width="100%" height={230}>
+                                    <BarChart data={barData} margin={{ top: 5, right: 10, left: 5, bottom: 5 }}>
+                                        <CartesianGrid strokeDasharray="0" stroke="#f3f4f6" vertical={false} />
+                                        <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#6b7280" }} axisLine={false} tickLine={false} />
+                                        <YAxis tick={{ fontSize: 11, fill: "#6b7280" }} tickFormatter={(v: number) => `₪${(v / 1000).toFixed(0)}k`} axisLine={false} tickLine={false} />
                                         <Tooltip
-                                            formatter={(value: number) => [`₪${value.toLocaleString()}`, ""]}
-                                            contentStyle={{ borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 13 }}
+                                            formatter={(value: number) => [`₪${Number(value).toLocaleString()}`, ""]}
+                                            contentStyle={{ borderRadius: 8, border: "1px solid #e5e7eb", fontSize: 13, boxShadow: "0 2px 8px rgba(0,0,0,0.08)" }}
+                                            cursor={{ fill: "#f9fafb" }}
                                         />
-                                        <Bar dataKey="הכנסות" fill="#3b82f6" radius={[6, 6, 0, 0]} />
-                                        <Bar dataKey="הוצאות" fill="#f97316" radius={[6, 6, 0, 0]} />
+                                        <Bar dataKey="value" radius={[6, 6, 0, 0]}>
+                                            {barData.map((entry, index) => (
+                                                <Cell
+                                                    key={`bar-${index}`}
+                                                    fill={index === 0 ? "#00b4b4" : index === 1 ? "#94a3b8" : "#10b981"}
+                                                />
+                                            ))}
+                                        </Bar>
                                     </BarChart>
                                 </ResponsiveContainer>
                             </div>
 
-                            {/* Pie Chart */}
-                            <div style={{ background: "#fff", borderRadius: "16px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", border: "1px solid #e2e8f0", padding: "1.5rem" }}>
-                                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1.25rem" }}>
-                                    <div style={{ width: 4, height: 20, background: "#7c3aed", borderRadius: 4 }} />
-                                    <span style={{ fontSize: "0.95rem", fontWeight: 700, color: "#1e293b" }}>הוצאות לפי קטגוריה</span>
+                            {/* Pie Chart — Expenses by category */}
+                            <div style={{ background: "#ffffff", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", border: "1px solid #e5e7eb", padding: "1.5rem" }}>
+                                <div style={{ marginBottom: "1.25rem" }}>
+                                    <div style={{ fontSize: "0.9rem", fontWeight: 700, color: "#1a1a2e" }}>הוצאות לפי קטגוריה</div>
+                                    <div style={{ fontSize: "0.75rem", color: "#6b7280", marginTop: "0.2rem" }}>פילוח חודשי</div>
                                 </div>
                                 {pieData.length === 0 ? (
-                                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 220, color: "#94a3b8", fontSize: "0.9rem" }}>
+                                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 230, color: "#6b7280", fontSize: "0.875rem" }}>
                                         אין נתונים לתצוגה
                                     </div>
                                 ) : (
-                                    <ResponsiveContainer width="100%" height={220}>
+                                    <ResponsiveContainer width="100%" height={230}>
                                         <PieChart>
                                             <Pie
                                                 data={pieData}
                                                 cx="50%"
-                                                cy="50%"
-                                                innerRadius={55}
+                                                cy="45%"
+                                                innerRadius={60}
                                                 outerRadius={90}
                                                 dataKey="value"
                                                 labelLine={false}
@@ -690,10 +704,10 @@ export default function ExpensesPage() {
                                                 ))}
                                             </Pie>
                                             <Tooltip
-                                                formatter={(value: number) => [`₪${value.toLocaleString()}`, ""]}
-                                                contentStyle={{ borderRadius: 10, border: "1px solid #e2e8f0", fontSize: 13 }}
+                                                formatter={(value: number) => [`₪${Number(value).toLocaleString()}`, ""]}
+                                                contentStyle={{ borderRadius: 8, border: "1px solid #e5e7eb", fontSize: 13, boxShadow: "0 2px 8px rgba(0,0,0,0.08)" }}
                                             />
-                                            <Legend iconType="circle" iconSize={10} wrapperStyle={{ fontSize: 12 }} />
+                                            <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, color: "#6b7280" }} />
                                         </PieChart>
                                     </ResponsiveContainer>
                                 )}
@@ -701,35 +715,34 @@ export default function ExpensesPage() {
                         </div>
 
                         {/* ── Expense Table ── */}
-                        <div style={{ background: "#fff", borderRadius: "16px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", border: "1px solid #e2e8f0", overflow: "hidden" }}>
-                            <div style={{ padding: "1.25rem 1.5rem", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                                <div style={{ width: 4, height: 20, background: "#f43f5e", borderRadius: 4 }} />
-                                <span style={{ fontSize: "0.95rem", fontWeight: 700, color: "#1e293b" }}>רשימת הוצאות</span>
+                        <div style={{ background: "#ffffff", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", border: "1px solid #e5e7eb", overflow: "hidden" }}>
+
+                            {/* Table header */}
+                            <div style={{ padding: "1.25rem 1.5rem", borderBottom: "1px solid #e5e7eb", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                                <span style={{ fontSize: "0.9rem", fontWeight: 700, color: "#1a1a2e" }}>רשימת הוצאות</span>
                                 {summary && (
-                                    <span style={{ marginRight: "auto", background: "#f8fafc", border: "1px solid #e2e8f0", color: "#64748b", borderRadius: "20px", padding: "0.2rem 0.75rem", fontSize: "0.78rem", fontWeight: 600 }}>
+                                    <span style={{ background: "#f8f9fa", border: "1px solid #e5e7eb", color: "#6b7280", borderRadius: "20px", padding: "0.2rem 0.8rem", fontSize: "0.75rem", fontWeight: 600 }}>
                                         {summary.invoice_count} רשומות
                                     </span>
                                 )}
                             </div>
 
                             {loading ? (
-                                <div style={{ textAlign: "center", padding: "4rem 1rem", color: "#94a3b8" }}>
-                                    <div style={{ fontSize: "2.5rem", marginBottom: "1rem" }}>⏳</div>
+                                <div style={{ textAlign: "center", padding: "4rem 1rem", color: "#6b7280" }}>
                                     <p style={{ fontWeight: 600 }}>טוען נתונים...</p>
                                 </div>
                             ) : expenses.length === 0 ? (
-                                <div style={{ textAlign: "center", padding: "4rem 1rem", color: "#94a3b8" }}>
-                                    <div style={{ fontSize: "2.5rem", marginBottom: "1rem" }}>📭</div>
-                                    <p style={{ fontWeight: 600, color: "#64748b" }}>אין הוצאות לתקופה זו</p>
-                                    <p style={{ fontSize: "0.85rem", marginTop: "0.5rem" }}>העלה חשבונית עם AI או הזן ידנית</p>
+                                <div style={{ textAlign: "center", padding: "4rem 1rem" }}>
+                                    <p style={{ fontWeight: 600, color: "#1a1a2e", margin: "0 0 0.4rem" }}>אין הוצאות לתקופה זו</p>
+                                    <p style={{ fontSize: "0.85rem", color: "#6b7280", margin: 0 }}>העלה חשבונית עם AI או הזן ידנית</p>
                                 </div>
                             ) : (
                                 <div style={{ overflowX: "auto" }}>
                                     <table style={{ width: "100%", borderCollapse: "collapse" }}>
                                         <thead>
-                                            <tr style={{ background: "#f8fafc" }}>
+                                            <tr style={{ background: "#f9fafb" }}>
                                                 {["ספק / שם", "קטגוריה", "מספר חשבונית", "תאריך", "סכום", 'מע"מ', "סטטוס", ""].map(h => (
-                                                    <th key={h} style={{ padding: "0.85rem 1.2rem", textAlign: "right", fontSize: "0.75rem", color: "#64748b", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid #f1f5f9" }}>
+                                                    <th key={h} style={{ padding: "0.75rem 1.25rem", textAlign: "right", fontSize: "0.72rem", color: "#6b7280", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: "1px solid #e5e7eb", whiteSpace: "nowrap" }}>
                                                         {h}
                                                     </th>
                                                 ))}
@@ -740,54 +753,54 @@ export default function ExpensesPage() {
                                                 <tr
                                                     key={e.id}
                                                     onClick={() => setViewExpense(e)}
-                                                    style={{ cursor: "pointer", background: idx % 2 === 0 ? "#fff" : "#fafbfc", transition: "background 0.15s" }}
-                                                    onMouseEnter={ev => (ev.currentTarget.style.background = "#f0f7ff")}
-                                                    onMouseLeave={ev => (ev.currentTarget.style.background = idx % 2 === 0 ? "#fff" : "#fafbfc")}
+                                                    style={{ cursor: "pointer", background: "#ffffff", borderBottom: "1px solid #f3f4f6", transition: "background 0.1s" }}
+                                                    onMouseEnter={ev => (ev.currentTarget.style.background = "#f9fafb")}
+                                                    onMouseLeave={ev => (ev.currentTarget.style.background = "#ffffff")}
                                                 >
-                                                    <td style={{ padding: "0.9rem 1.2rem", fontWeight: 600, color: "#1e293b", fontSize: "0.9rem", borderBottom: "1px solid #f1f5f9" }}>
-                                                        {e.receipt_url && <span style={{ marginLeft: 4, color: "#94a3b8" }}>📎</span>}
+                                                    <td style={{ padding: "0.9rem 1.25rem", fontWeight: 600, color: "#1a1a2e", fontSize: "0.875rem" }}>
+                                                        {e.receipt_url && <span style={{ marginLeft: 5, color: "#6b7280", fontSize: "0.8rem" }}>📎</span>}
                                                         {e.supplier_name || e.title}
                                                     </td>
-                                                    <td style={{ padding: "0.9rem 1.2rem", borderBottom: "1px solid #f1f5f9" }}>
+                                                    <td style={{ padding: "0.9rem 1.25rem" }}>
                                                         {e.category ? (
-                                                            <span style={{ display: "inline-block", padding: "0.2rem 0.7rem", borderRadius: "20px", fontSize: "0.75rem", fontWeight: 600, background: "rgba(124,58,237,0.08)", color: "#7c3aed", border: "1px solid rgba(124,58,237,0.15)" }}>
+                                                            <span style={{ display: "inline-block", padding: "0.2rem 0.65rem", borderRadius: "20px", fontSize: "0.72rem", fontWeight: 600, background: "rgba(0,180,180,0.08)", color: "#00b4b4", border: "1px solid rgba(0,180,180,0.2)" }}>
                                                                 {e.category}
                                                             </span>
                                                         ) : (
-                                                            <span style={{ color: "#cbd5e1" }}>—</span>
+                                                            <span style={{ color: "#d1d5db" }}>—</span>
                                                         )}
                                                     </td>
-                                                    <td style={{ padding: "0.9rem 1.2rem", color: "#94a3b8", fontSize: "0.85rem", borderBottom: "1px solid #f1f5f9" }}>
+                                                    <td style={{ padding: "0.9rem 1.25rem", color: "#6b7280", fontSize: "0.8rem" }}>
                                                         {e.invoice_number || "—"}
                                                     </td>
-                                                    <td style={{ padding: "0.9rem 1.2rem", color: "#64748b", fontSize: "0.85rem", borderBottom: "1px solid #f1f5f9" }}>
+                                                    <td style={{ padding: "0.9rem 1.25rem", color: "#6b7280", fontSize: "0.8rem", whiteSpace: "nowrap" }}>
                                                         {new Date(e.expense_date).toLocaleDateString("he-IL")}
                                                     </td>
-                                                    <td style={{ padding: "0.9rem 1.2rem", fontWeight: 700, color: "#7c3aed", fontSize: "0.95rem", borderBottom: "1px solid #f1f5f9" }}>
+                                                    <td style={{ padding: "0.9rem 1.25rem", fontWeight: 700, color: "#1a1a2e", fontSize: "0.9rem", whiteSpace: "nowrap" }}>
                                                         ₪{fmt(e.amount)}
                                                     </td>
-                                                    <td style={{ padding: "0.9rem 1.2rem", color: "#3b82f6", fontSize: "0.9rem", borderBottom: "1px solid #f1f5f9" }}>
+                                                    <td style={{ padding: "0.9rem 1.25rem", color: "#6b7280", fontSize: "0.85rem", whiteSpace: "nowrap" }}>
                                                         ₪{fmt(e.vat_amount)}
                                                     </td>
-                                                    <td style={{ padding: "0.9rem 1.2rem", borderBottom: "1px solid #f1f5f9" }}>
+                                                    <td style={{ padding: "0.9rem 1.25rem" }}>
                                                         {e.sent_to_accountant ? (
-                                                            <span style={{ display: "inline-block", padding: "0.2rem 0.7rem", borderRadius: "20px", fontSize: "0.75rem", fontWeight: 600, background: "rgba(16,185,129,0.08)", color: "#10b981", border: "1px solid rgba(16,185,129,0.2)" }}>
-                                                                ✅ נשלח
+                                                            <span style={{ display: "inline-block", padding: "0.2rem 0.65rem", borderRadius: "20px", fontSize: "0.72rem", fontWeight: 600, background: "rgba(16,185,129,0.08)", color: "#10b981", border: "1px solid rgba(16,185,129,0.2)" }}>
+                                                                נשלח
                                                             </span>
                                                         ) : (
-                                                            <span style={{ display: "inline-block", padding: "0.2rem 0.7rem", borderRadius: "20px", fontSize: "0.75rem", fontWeight: 600, background: "rgba(245,158,11,0.08)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.2)" }}>
-                                                                ⏳ ממתין
+                                                            <span style={{ display: "inline-block", padding: "0.2rem 0.65rem", borderRadius: "20px", fontSize: "0.72rem", fontWeight: 600, background: "rgba(245,158,11,0.08)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.2)" }}>
+                                                                ממתין
                                                             </span>
                                                         )}
                                                     </td>
-                                                    <td style={{ padding: "0.9rem 1.2rem", borderBottom: "1px solid #f1f5f9" }} onClick={ev => ev.stopPropagation()}>
+                                                    <td style={{ padding: "0.9rem 1.25rem" }} onClick={ev => ev.stopPropagation()}>
                                                         <button
                                                             onClick={() => handleDelete(e.id)}
-                                                            style={{ background: "rgba(239,68,68,0.08)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.2)", padding: "0.35rem 0.75rem", borderRadius: "8px", fontSize: "0.8rem", cursor: "pointer", transition: "all 0.2s" }}
-                                                            onMouseEnter={ev => { ev.currentTarget.style.background = "rgba(239,68,68,0.18)"; }}
-                                                            onMouseLeave={ev => { ev.currentTarget.style.background = "rgba(239,68,68,0.08)"; }}
+                                                            style={{ background: "none", color: "#ef4444", border: "none", padding: "0.3rem 0.6rem", borderRadius: "6px", fontSize: "0.8rem", cursor: "pointer", fontWeight: 600, transition: "background 0.15s" }}
+                                                            onMouseEnter={ev => { ev.currentTarget.style.background = "rgba(239,68,68,0.08)"; }}
+                                                            onMouseLeave={ev => { ev.currentTarget.style.background = "none"; }}
                                                         >
-                                                            🗑️
+                                                            מחק
                                                         </button>
                                                     </td>
                                                 </tr>
