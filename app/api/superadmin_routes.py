@@ -1853,7 +1853,7 @@ def platform_analytics(admin: User = Depends(require_superadmin), db: Session = 
     # MRR (all payments this month)
     mrr_cents = db.scalar(select(func.sum(Payment.amount_cents)).where(
         Payment.status == "paid", Payment.type == "payment",
-        Payment.paid_at >= month_start,
+        Payment.created_at >= month_start,
     )) or 0
 
     # Appointments today
