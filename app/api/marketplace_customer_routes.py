@@ -393,3 +393,39 @@ def check_linked(
         "appointment_count": appt_count,
         "total_paid_ils": round(total_paid / 100, 2),
     }
+
+
+@router.get("/auth/my-bookings")
+def my_bookings(db: Session = Depends(get_db), authorization: str = Header(None)):
+    """Return upcoming + past appointments for the logged-in customer across all studios."""
+    customer_id = _verify_token(authorization[7:] if authorization and authorization.startswith("Bearer ") else "")
+    row = db.execute(text("SELECT phone FROM marketplace_customers WHERE id = :id"), {"id": customer_id}).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="לקוח לא נמצא")
+    phone = row[0]
+    rows = db.execute(text("""
+        SELECT a.id, a.starts_at, a.status, a.notes,
+               s.name AS studio_name, s.slug AS studio_slug,
+               sv.name AS service_name,
+               u.display_name AS artist_name
+        FROM appointments a
+        JOIN clients c ON c.id = a.client_id AND c.phone = :phone
+        JOIN studios s ON s.id = a.studio_id
+        LEFT JOIN services sv ON sv.id = a.service_id
+        LEFT JOIN users u ON u.id = a.artist_id
+        ORDER BY a.starts_at DESC
+        LIMIT 50
+    """), {"phone": phone}).fetchall()
+    return [
+        {
+            "id": str(r[0]),
+            "starts_at": r[1].isoformat() if r[1] else None,
+            "status": r[2],
+            "notes": r[3],
+            "studio_name": r[4],
+            "studio_slug": r[5],
+            "service_name": r[6],
+            "artist_name": r[7],
+        }
+        for r in rows
+    ]
