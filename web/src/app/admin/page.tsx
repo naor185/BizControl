@@ -185,6 +185,12 @@ export default function AdminPage() {
     const [bizfindTestPhone, setBizfindTestPhone] = useState("");
     const [bizfindTestResult, setBizfindTestResult] = useState<{ ok: boolean; msg: string } | null>(null);
 
+    // System WhatsApp (central fallback for all studios)
+    type SystemWA = { studio_id: string | null; studio_name: string | null; phone_number: string | null };
+    const [systemWA, setSystemWA] = useState<SystemWA | null>(null);
+    const [systemWASelected, setSystemWASelected] = useState("");
+    const [systemWASaving, setSystemWASaving] = useState(false);
+
     // Leads Inbox
     type GlobalLead = {
         id: string; studio_id: string; studio_name: string; studio_slug: string;
@@ -362,17 +368,20 @@ export default function AdminPage() {
         if (platformSettings) return;
         setPlatformLoading(true);
         try {
-            const [data, wh, bf, studios] = await Promise.all([
+            const [data, wh, bf, studios, sysWA] = await Promise.all([
                 apiFetch<{ whatsapp_provider: string | null; whatsapp_phone_id: string | null; whatsapp_api_key: string | null }>("/api/admin/platform-settings"),
                 apiFetch<{ webhook_url: string; verify_token: string }>("/api/admin/webhook-config"),
                 apiFetch<BizFindSettings>("/api/admin/bizfind-settings"),
                 apiFetch<BizFindStudio[]>("/api/admin/bizfind-settings/studios"),
+                apiFetch<SystemWA>("/api/admin/system-whatsapp"),
             ]);
             setPlatformSettings(data);
             setWebhookConfig(wh);
             setBizfindSettings(bf);
             setBizfindStudios(studios);
             setBizfindSelected(bf.otp_studio_id || "");
+            setSystemWA(sysWA);
+            setSystemWASelected(sysWA.studio_id || "");
             setPlatformForm({
                 whatsapp_provider: data.whatsapp_provider || "meta",
                 whatsapp_phone_id: data.whatsapp_phone_id || "",
@@ -410,6 +419,18 @@ export default function AdminPage() {
             toast.error("✅ הגדרות נשמרו בהצלחה!");
         } catch (e: any) { toast.error(e?.message); }
         finally { setPlatformSaving(false); }
+    };
+
+    const handleSaveSystemWA = async () => {
+        setSystemWASaving(true);
+        try {
+            const data = await apiFetch<SystemWA>("/api/admin/system-whatsapp", {
+                method: "POST", body: JSON.stringify({ studio_id: systemWASelected || null }),
+            });
+            setSystemWA(data);
+            toast.success("✅ WhatsApp מרכזי עודכן!");
+        } catch (e: any) { toast.error(e?.message); }
+        finally { setSystemWASaving(false); }
     };
 
     const handleSaveBizfind = async () => {
@@ -1243,6 +1264,50 @@ export default function AdminPage() {
                             </div>
                             </>
                         )}
+
+                        {/* System WhatsApp — Central fallback for all studios */}
+                        <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-5">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center text-xl">📡</div>
+                                <div>
+                                    <h2 className="text-lg font-bold">WhatsApp מרכזי — לכל הסטודיואים</h2>
+                                    <p className="text-slate-400 text-sm mt-0.5">סטודיו שאין לו WhatsApp משלו — ישלח הודעות מהמספר הזה.</p>
+                                </div>
+                            </div>
+
+                            {systemWA && (
+                                <div className={`flex items-center gap-2 text-sm px-4 py-2.5 rounded-xl border ${systemWA.studio_id ? "bg-blue-900/30 border-blue-500/30 text-blue-300" : "bg-amber-900/20 border-amber-500/20 text-amber-300"}`}>
+                                    {systemWA.studio_id
+                                        ? `✅ ${systemWA.studio_name}${systemWA.phone_number ? ` — ${systemWA.phone_number.replace(/^972/, "0")}` : ""}`
+                                        : "⚠️ לא מוגדר — סטודיואים ללא WhatsApp לא יכולים לשלוח"}
+                                </div>
+                            )}
+
+                            <div>
+                                <label className="block text-xs font-semibold text-slate-400 mb-2">בחר מספר שולח מרכזי</label>
+                                {bizfindStudios.length === 0 ? (
+                                    <div className="text-sm text-amber-400 bg-amber-900/20 border border-amber-500/20 rounded-xl px-4 py-3">
+                                        ⚠️ אין סטודיואים עם Green API מחובר.
+                                    </div>
+                                ) : (
+                                    <select value={systemWASelected} onChange={e => setSystemWASelected(e.target.value)}
+                                        aria-label="בחר WhatsApp מרכזי"
+                                        className="w-full bg-slate-800 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-white/30">
+                                        <option value="">— ללא (כל סטודיו ישתמש במספר שלו בלבד) —</option>
+                                        {bizfindStudios.map(s => (
+                                            <option key={s.studio_id} value={s.studio_id}>
+                                                {s.name}{s.phone_number ? ` — ${s.phone_number.replace(/^972/, "0")}` : " (לא מחובר)"}
+                                            </option>
+                                        ))}
+                                    </select>
+                                )}
+                            </div>
+
+                            <button type="button" onClick={handleSaveSystemWA} disabled={systemWASaving}
+                                className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white font-bold py-2.5 rounded-xl transition-colors text-sm">
+                                {systemWASaving ? "שומר..." : "💾 שמור WhatsApp מרכזי"}
+                            </button>
+                        </div>
 
                         {/* BizFind OTP WhatsApp Card */}
                         <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-5">

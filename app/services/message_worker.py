@@ -61,13 +61,26 @@ def _send_via_green(instance_id: str, api_key: str, to_phone: str, body: str) ->
 
 
 def _get_platform_settings(db: Session):
-    """Return platform-level StudioSettings as WhatsApp fallback."""
-    import os
+    """Return system WhatsApp studio settings as fallback for studios without WhatsApp.
+    Priority: 1) platform_config.system_wa_studio_id  2) PLATFORM_STUDIO_ID env var"""
+    import os, uuid as _uuid
+    from sqlalchemy import text as _t
+
+    # 1. Check platform_config table
+    try:
+        row = db.execute(_t("SELECT value FROM platform_config WHERE key='system_wa_studio_id'")).fetchone()
+        if row and row[0]:
+            settings = db.get(StudioSettings, _uuid.UUID(row[0]))
+            if settings and settings.whatsapp_provider:
+                return settings
+    except Exception:
+        pass
+
+    # 2. Fall back to PLATFORM_STUDIO_ID env var
     platform_id = os.getenv("PLATFORM_STUDIO_ID", "")
     if not platform_id:
         return None
     try:
-        import uuid as _uuid
         return db.get(StudioSettings, _uuid.UUID(platform_id))
     except Exception:
         return None

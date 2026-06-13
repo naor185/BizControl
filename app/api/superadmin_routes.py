@@ -1246,6 +1246,36 @@ def test_bizfind_otp(payload: TestOTPIn, admin: User = Depends(require_superadmi
     return {"status": "sent"}
 
 
+class SystemWAOut(BaseModel):
+    studio_id: str | None
+    studio_name: str | None
+    phone_number: str | None
+
+
+class SystemWAIn(BaseModel):
+    studio_id: str | None = None
+
+
+@router.get("/system-whatsapp", response_model=SystemWAOut)
+def get_system_whatsapp(admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    sid = _cfg_get(db, "system_wa_studio_id")
+    if not sid:
+        return SystemWAOut(studio_id=None, studio_name=None, phone_number=None)
+    row = db.execute(text("""
+        SELECT s.name, wc.phone_number FROM studios s
+        LEFT JOIN whatsapp_connections wc ON wc.studio_id = s.id AND wc.status = 'authorized'
+        WHERE s.id = :sid
+    """), {"sid": sid}).fetchone()
+    return SystemWAOut(studio_id=sid, studio_name=row[0] if row else None, phone_number=row[1] if row else None)
+
+
+@router.post("/system-whatsapp", response_model=SystemWAOut)
+def save_system_whatsapp(payload: SystemWAIn, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    _cfg_set(db, "system_wa_studio_id", payload.studio_id)
+    db.commit()
+    return get_system_whatsapp(admin=admin, db=db)
+
+
 @router.get("/studios/{studio_id}/lead-analytics", response_model=LeadAnalyticsOut)
 def lead_analytics(studio_id: uuid.UUID, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
     studio = db.get(Studio, studio_id)
