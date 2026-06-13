@@ -1303,105 +1303,87 @@ export default function AdminPage() {
                             </>
                         )}
 
-                        {/* Platform Green API — dedicated instance for superadmin */}
-                        <div className="bg-white/5 border border-emerald-500/30 rounded-2xl p-6 space-y-4">
+                        {/* ══ UNIFIED WHATSAPP PLATFORM CARD ══ */}
+                        <div className="bg-gradient-to-br from-emerald-900/30 to-slate-900/50 border border-emerald-500/40 rounded-2xl p-6 space-y-5">
+                            {/* Header */}
                             <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center text-xl">🟢</div>
+                                <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-2xl">💬</div>
                                 <div>
-                                    <h2 className="text-lg font-bold">Green API — פלטפורמה</h2>
-                                    <p className="text-slate-400 text-sm mt-0.5">Instance ייעודי לסופראדמין — שולח OTP ופולבק לסטודיואים ללא WhatsApp.</p>
+                                    <h2 className="text-lg font-bold text-white">WhatsApp מרכזי — BizControl</h2>
+                                    <p className="text-slate-400 text-sm mt-0.5">מספר אחד לכל הפלטפורמה — OTP, הודעות, וסטודיואים ללא מספר משלהם</p>
                                 </div>
                             </div>
 
-                            <div className={`text-sm px-4 py-2.5 rounded-xl border ${platformWATokenSet && platformWAInstance ? "bg-emerald-900/30 border-emerald-500/30 text-emerald-300" : "bg-amber-900/20 border-amber-500/20 text-amber-300"}`}>
-                                {platformWAInstance && platformWATokenSet ? `✅ מחובר — Instance: ${platformWAInstance}` : "⚠️ לא מוגדר"}
+                            {/* Status */}
+                            <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-sm font-semibold ${platformWAInstance && platformWATokenSet ? "bg-emerald-900/40 border-emerald-500/40 text-emerald-300" : "bg-amber-900/20 border-amber-500/30 text-amber-300"}`}>
+                                <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${platformWAInstance && platformWATokenSet ? "bg-emerald-400 animate-pulse" : "bg-amber-400"}`} />
+                                {platformWAInstance && platformWATokenSet
+                                    ? `✅ מחובר — Instance: ${platformWAInstance}`
+                                    : "⚠️ לא מוגדר — הגדר Instance ID ו-Token"}
                             </div>
 
-                            <div className="space-y-3">
+                            {/* Credentials */}
+                            <div className="grid grid-cols-1 gap-3">
                                 <div>
-                                    <label className="block text-xs font-semibold text-slate-400 mb-1.5">Instance ID</label>
+                                    <label className="block text-xs font-bold text-slate-300 mb-1.5">🔑 Instance ID <span className="text-slate-500 font-normal">(מ-green-api.com)</span></label>
                                     <input value={platformWAInstance} onChange={e => setPlatformWAInstance(e.target.value)}
                                         placeholder="7107619924" dir="ltr"
-                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-emerald-400" />
+                                        className="w-full bg-black/30 border border-white/15 rounded-xl px-4 py-3 text-sm text-white font-mono placeholder:text-slate-600 focus:outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400" />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-semibold text-slate-400 mb-1.5">
-                                        API Token {platformWATokenSet && <span className="text-emerald-400 mr-2">✓ מוגדר</span>}
+                                    <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                                        🔐 API Token {platformWATokenSet && <span className="text-emerald-400 font-normal mr-1">✓ שמור</span>}
                                     </label>
                                     <input value={platformWAToken} onChange={e => setPlatformWAToken(e.target.value)}
                                         type="password" dir="ltr"
-                                        placeholder={platformWATokenSet ? "השאר ריק כדי לא לשנות" : "הדבק Token מ-Green API..."}
-                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-emerald-400" />
+                                        placeholder={platformWATokenSet ? "השאר ריק כדי לשמור על הToken הקיים" : "הדבק את ה-API Token מ-Green API..."}
+                                        className="w-full bg-black/30 border border-white/15 rounded-xl px-4 py-3 text-sm text-white font-mono placeholder:text-slate-600 focus:outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400" />
                                 </div>
                             </div>
 
+                            {/* What this number does */}
+                            <div className="bg-black/20 rounded-xl p-4 space-y-2">
+                                <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">המספר הזה ישמש ל:</div>
+                                {[
+                                    ["📲 OTP ב-BizFind", "קודי אימות ללקוחות שנרשמים לאתר"],
+                                    ["📩 סטודיואים ללא WhatsApp", "הודעות תזכורות ואוטומציה עבורם"],
+                                    ["🔔 הודעות מערכת", "שליחות פלטפורמה כלליות"],
+                                ].map(([title, desc]) => (
+                                    <div key={title} className="flex items-start gap-2">
+                                        <span className="text-emerald-400 text-xs mt-0.5">✓</span>
+                                        <div>
+                                            <span className="text-white text-xs font-semibold">{title}</span>
+                                            <span className="text-slate-500 text-xs mr-1">— {desc}</span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
                             <button type="button" onClick={handleSavePlatformGreenAPI} disabled={platformWASaving || !platformWAInstance}
-                                className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white font-bold py-2.5 rounded-xl text-sm transition-colors">
-                                {platformWASaving ? "שומר..." : "💾 שמור Green API"}
+                                className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white font-black py-3 rounded-xl text-sm transition-colors shadow-lg shadow-emerald-900/40">
+                                {platformWASaving ? "שומר..." : "💾 שמור והפעל"}
                             </button>
 
-                            {platformWATokenSet && (
-                                <div className="border-t border-white/10 pt-4 space-y-3">
+                            {/* Test */}
+                            {platformWAInstance && platformWATokenSet && (
+                                <div className="border-t border-white/10 pt-4">
+                                    <div className="text-xs text-slate-400 mb-2">בדוק שהמספר עובד — שלח הודעת טסט:</div>
                                     <div className="flex gap-2">
                                         <input value={platformWATestPhone} onChange={e => { setPlatformWATestPhone(e.target.value); setPlatformWATestResult(null); }}
                                             placeholder="050-0000000" type="tel" dir="ltr"
-                                            className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-white/30" />
+                                            className="flex-1 bg-black/30 border border-white/15 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-white/30" />
                                         <button type="button" onClick={handleTestPlatformGreenAPI} disabled={!platformWATestPhone.trim()}
                                             className="px-5 py-2.5 bg-emerald-700 hover:bg-emerald-600 disabled:opacity-40 text-white text-sm font-bold rounded-xl transition-colors">
                                             שלח טסט
                                         </button>
                                     </div>
                                     {platformWATestResult && (
-                                        <div className={`text-sm px-4 py-2.5 rounded-xl ${platformWATestResult.ok ? "bg-emerald-900/40 text-emerald-300" : "bg-red-900/40 text-red-300"}`}>
+                                        <div className={`text-sm px-4 py-2.5 rounded-xl mt-2 ${platformWATestResult.ok ? "bg-emerald-900/40 text-emerald-300" : "bg-red-900/40 text-red-300"}`}>
                                             {platformWATestResult.msg}
                                         </div>
                                     )}
                                 </div>
                             )}
-                        </div>
-
-                        {/* System WhatsApp — Central fallback for all studios */}
-                        <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-5">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center text-xl">📡</div>
-                                <div>
-                                    <h2 className="text-lg font-bold">WhatsApp מרכזי — לכל הסטודיואים</h2>
-                                    <p className="text-slate-400 text-sm mt-0.5">סטודיו שאין לו WhatsApp משלו — ישלח הודעות מהמספר הזה.</p>
-                                </div>
-                            </div>
-
-                            {systemWA && (
-                                <div className={`flex items-center gap-2 text-sm px-4 py-2.5 rounded-xl border ${systemWA.studio_id ? "bg-blue-900/30 border-blue-500/30 text-blue-300" : "bg-amber-900/20 border-amber-500/20 text-amber-300"}`}>
-                                    {systemWA.studio_id
-                                        ? `✅ ${systemWA.studio_name}${systemWA.phone_number ? ` — ${systemWA.phone_number.replace(/^972/, "0")}` : ""}`
-                                        : "⚠️ לא מוגדר — סטודיואים ללא WhatsApp לא יכולים לשלוח"}
-                                </div>
-                            )}
-
-                            <div>
-                                <label className="block text-xs font-semibold text-slate-400 mb-2">בחר מספר שולח מרכזי</label>
-                                {bizfindStudios.length === 0 ? (
-                                    <div className="text-sm text-amber-400 bg-amber-900/20 border border-amber-500/20 rounded-xl px-4 py-3">
-                                        ⚠️ אין סטודיואים עם Green API מחובר.
-                                    </div>
-                                ) : (
-                                    <select value={systemWASelected} onChange={e => setSystemWASelected(e.target.value)}
-                                        aria-label="בחר WhatsApp מרכזי"
-                                        className="w-full bg-slate-800 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-white/30">
-                                        <option value="">— ללא (כל סטודיו ישתמש במספר שלו בלבד) —</option>
-                                        {bizfindStudios.map(s => (
-                                            <option key={s.studio_id} value={s.studio_id}>
-                                                {s.name}{s.phone_number ? ` — ${s.phone_number.replace(/^972/, "0")}` : " (לא מחובר)"}
-                                            </option>
-                                        ))}
-                                    </select>
-                                )}
-                            </div>
-
-                            <button type="button" onClick={handleSaveSystemWA} disabled={systemWASaving}
-                                className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white font-bold py-2.5 rounded-xl transition-colors text-sm">
-                                {systemWASaving ? "שומר..." : "💾 שמור WhatsApp מרכזי"}
-                            </button>
                         </div>
 
                         {/* BizFind OTP WhatsApp Card */}
