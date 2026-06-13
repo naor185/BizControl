@@ -1881,7 +1881,7 @@ def platform_analytics(admin: User = Depends(require_superadmin), db: Session = 
     top_studios = db.execute(
         select(Studio.name, Studio.slug, func.sum(Payment.amount_cents).label("rev"))
         .join(Payment, Payment.studio_id == Studio.id)
-        .where(Payment.status == "paid", Payment.type == "payment", Payment.paid_at >= month_start)
+        .where(Payment.status == "paid", Payment.type == "payment", Payment.created_at >= month_start)
         .group_by(Studio.id, Studio.name, Studio.slug)
         .order_by(func.sum(Payment.amount_cents).desc())
         .limit(5)
