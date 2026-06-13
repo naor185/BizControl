@@ -1177,36 +1177,38 @@ class TestOTPIn(BaseModel):
 @router.get("/bizfind-settings/studios", response_model=list[BizFindStudioOption])
 def get_bizfind_connectable_studios(admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
     """Return all studios with a Green API WhatsApp connection (any mechanism)."""
-    rows = db.execute(text("""
-        SELECT
-            s.id,
-            s.name,
-            COALESCE(ss.whatsapp_instance_id, wc.instance_id, 'unknown') AS instance_id,
-            COALESCE(wc.phone_number, ss.marketplace_whatsapp) AS phone_number
-        FROM studios s
-        LEFT JOIN studio_settings ss ON ss.studio_id = s.id
-        LEFT JOIN whatsapp_connections wc ON wc.studio_id = s.id
-        WHERE s.is_platform IS NOT TRUE
-          AND s.is_active = true
-          AND (
-              -- Connected via save-credentials (whatsapp_connections)
-              wc.instance_id IS NOT NULL
-              -- Connected via direct studio_settings
-              OR ss.whatsapp_instance_id IS NOT NULL
-              -- Has green_api provider set with an api key (connected via any flow)
-              OR (ss.whatsapp_provider = 'green_api' AND ss.whatsapp_api_key IS NOT NULL)
-          )
-        ORDER BY s.name
-    """)).fetchall()
-    return [
-        BizFindStudioOption(
-            studio_id=str(r[0]),
-            name=r[1],
-            phone_number=r[3],
-            instance_id=r[2] or "unknown",
-        )
-        for r in rows
-    ]
+    try:
+        rows = db.execute(text("""
+            SELECT
+                s.id,
+                s.name,
+                COALESCE(wc.instance_id, ss.whatsapp_instance_id, '') AS instance_id,
+                wc.phone_number
+            FROM studios s
+            LEFT JOIN studio_settings ss ON ss.studio_id = s.id
+            LEFT JOIN whatsapp_connections wc ON wc.studio_id = s.id
+            WHERE s.is_platform IS NOT TRUE
+              AND s.is_active = true
+              AND (
+                  wc.instance_id IS NOT NULL
+                  OR ss.whatsapp_instance_id IS NOT NULL
+                  OR ss.whatsapp_api_key IS NOT NULL
+              )
+            ORDER BY s.name
+        """)).fetchall()
+        return [
+            BizFindStudioOption(
+                studio_id=str(r[0]),
+                name=r[1],
+                phone_number=r[3],
+                instance_id=r[2] or r[1],
+            )
+            for r in rows
+        ]
+    except Exception:
+        import logging
+        logging.getLogger(__name__).exception("get_bizfind_connectable_studios failed")
+        return []
 
 
 @router.get("/bizfind-settings", response_model=BizFindSettingsOut)

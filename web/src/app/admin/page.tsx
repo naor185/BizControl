@@ -375,31 +375,48 @@ export default function AdminPage() {
     const loadPlatformSettings = async () => {
         if (platformSettings) return;
         setPlatformLoading(true);
+
+        // Load Platform Green API first — isolated so a failure in other calls can't hide it
         try {
-            const [data, wh, bf, studios, sysWA, platWA] = await Promise.all([
-                apiFetch<{ whatsapp_provider: string | null; whatsapp_phone_id: string | null; whatsapp_api_key: string | null }>("/api/admin/platform-settings"),
-                apiFetch<{ webhook_url: string; verify_token: string }>("/api/admin/webhook-config"),
-                apiFetch<BizFindSettings>("/api/admin/bizfind-settings"),
-                apiFetch<BizFindStudio[]>("/api/admin/bizfind-settings/studios"),
-                apiFetch<SystemWA>("/api/admin/system-whatsapp"),
-                apiFetch<{instance_id:string|null;token_set:boolean}>("/api/admin/platform-green-api"),
-            ]);
-            setPlatformSettings(data);
-            setWebhookConfig(wh);
-            setBizfindSettings(bf);
-            setBizfindStudios(studios);
-            setBizfindSelected(bf.otp_studio_id || "");
-            setSystemWA(sysWA);
-            setSystemWASelected(sysWA.studio_id || "");
+            const platWA = await apiFetch<{instance_id:string|null;token_set:boolean}>("/api/admin/platform-green-api");
             setPlatformWAInstance(platWA.instance_id || "");
             setPlatformWATokenSet(platWA.token_set);
+        } catch { /* platform green api failed — leave defaults */ }
+
+        // Load remaining settings — each isolated so one failure doesn't block others
+        try {
+            const data = await apiFetch<{ whatsapp_provider: string | null; whatsapp_phone_id: string | null; whatsapp_api_key: string | null }>("/api/admin/platform-settings");
+            setPlatformSettings(data);
             setPlatformForm({
                 whatsapp_provider: data.whatsapp_provider || "meta",
                 whatsapp_phone_id: data.whatsapp_phone_id || "",
                 whatsapp_api_key: data.whatsapp_api_key || "",
             });
         } catch { setPlatformSettings(null); }
-        finally { setPlatformLoading(false); }
+
+        try {
+            const wh = await apiFetch<{ webhook_url: string; verify_token: string }>("/api/admin/webhook-config");
+            setWebhookConfig(wh);
+        } catch { /* ignore */ }
+
+        try {
+            const [bf, sysWA] = await Promise.all([
+                apiFetch<BizFindSettings>("/api/admin/bizfind-settings"),
+                apiFetch<SystemWA>("/api/admin/system-whatsapp"),
+            ]);
+            setBizfindSettings(bf);
+            setBizfindSelected(bf.otp_studio_id || "");
+            setSystemWA(sysWA);
+            setSystemWASelected(sysWA.studio_id || "");
+        } catch { /* ignore */ }
+
+        // Studios list is optional — failure must never affect other settings
+        try {
+            const studios = await apiFetch<BizFindStudio[]>("/api/admin/bizfind-settings/studios");
+            setBizfindStudios(studios);
+        } catch { setBizfindStudios([]); }
+
+        setPlatformLoading(false);
     };
 
     const handleTestWhatsapp = async () => {
