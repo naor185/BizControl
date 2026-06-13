@@ -167,9 +167,8 @@ export default function AppShell({
                 {/* Sidebar */}
                 <aside className="hidden md:flex md:w-60 md:flex-col md:fixed md:inset-y-0 bg-white border-l border-slate-100 shadow-sm z-20">
                     {/* Logo */}
-                    <div className="h-14 px-4 flex items-center justify-between border-b border-slate-100">
-                        <div className="font-black text-slate-900 tracking-tight text-lg" dir="ltr">BizControl</div>
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-500 font-semibold" dir="ltr">v2</span>
+                    <div className="h-14 px-4 flex items-center border-b border-slate-100">
+                        <img src="/logo.png" alt="BizControl" className="h-8 w-auto object-contain" />
                     </div>
 
                     {/* Nav */}
