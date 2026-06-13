@@ -162,7 +162,7 @@ export default function AdminPage() {
     const [extendDays, setExtendDays] = useState(14);
     const [extending, setExtending] = useState(false);
     const [tab, setTab] = useState<"studios" | "audit" | "platform" | "leads" | "contacts" | "health">("studios");
-    const [healthData, setHealthData] = useState<{ studio_id: string; studio_name: string; wa_status: string; failed_jobs_24h: number; stuck_pending_jobs: number; has_alert: boolean }[] | null>(null);
+    const [healthData, setHealthData] = useState<{ studio_id: string; studio_name: string; wa_status: string; wa_instance_id: string | null; wa_provider: string | null; wa_phone_id: string | null; failed_jobs_24h: number; stuck_pending_jobs: number; has_alert: boolean }[] | null>(null);
     const [healthLoading, setHealthLoading] = useState(false);
     const [auditLog, setAuditLog] = useState<AuditEntry[] | null>(null);
     const [auditLoading, setAuditLoading] = useState(false);
@@ -1259,8 +1259,18 @@ export default function AdminPage() {
                                 ))}
                             </div>
 
-                            <button type="button" onClick={handleSavePlatformGreenAPI} disabled={platformWASaving || !platformWAInstance}
-                                className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white font-black py-3 rounded-xl text-sm transition-colors shadow-lg shadow-emerald-900/40">
+                            {/* Hint when token not yet saved */}
+                            {!platformWATokenSet && !platformWAToken.trim() && platformWAInstance.trim() && (
+                                <div className="text-xs text-slate-400 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5">
+                                    💡 Instance ID ישמר. הוסף גם API Token כדי להפעיל שליחת הודעות.
+                                </div>
+                            )}
+                            <button
+                                type="button"
+                                onClick={handleSavePlatformGreenAPI}
+                                disabled={platformWASaving || !platformWAInstance.trim()}
+                                className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white font-black py-3 rounded-xl text-sm transition-colors shadow-lg shadow-emerald-900/40"
+                            >
                                 {platformWASaving ? "שומר..." : "💾 שמור והפעל"}
                             </button>
 
@@ -1292,60 +1302,61 @@ export default function AdminPage() {
                                 <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center text-xl">💬</div>
                                 <div>
                                     <h2 className="text-lg font-bold">BizFind — WhatsApp לשליחת OTP</h2>
-                                    <p className="text-slate-400 text-sm mt-0.5">בחר סטודיו מחובר — OTP יישלח ללקוחות מהמספר שלו.</p>
+                                    <p className="text-slate-400 text-sm mt-0.5">OTP נשלח ללקוחות BizFind בעת הרשמה. ניתן לשלוח מ-Platform Green API או מסטודיו ספציפי.</p>
                                 </div>
                             </div>
 
-                            {/* Current status */}
-                            {bizfindSettings && (
-                                <div className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm border ${bizfindSettings.otp_studio_id ? "bg-emerald-900/30 border-emerald-500/30 text-emerald-300" : "bg-amber-900/20 border-amber-500/20 text-amber-300"}`}>
-                                    {bizfindSettings.otp_studio_id ? (
-                                        <>
-                                            <span>✅</span>
-                                            <span>שולח מ: <strong>{bizfindSettings.otp_studio_name}</strong>
-                                                {bizfindSettings.otp_phone_number && (
-                                                    <span className="text-emerald-400 mr-2 font-mono text-xs">
-                                                        {" "}— {bizfindSettings.otp_phone_number.replace(/^972/, "0")}
-                                                    </span>
-                                                )}
-                                            </span>
-                                        </>
-                                    ) : "⚠️ לא נבחר סטודיו — OTP לא יישלח"}
-                                </div>
-                            )}
-
-                            {/* Studio dropdown */}
-                            <div>
-                                <label className="block text-xs font-semibold text-slate-400 mb-2">בחר סטודיו שולח</label>
-                                {bizfindStudios.length === 0 ? (
-                                    <div className="text-sm text-amber-400 bg-amber-900/20 border border-amber-500/20 rounded-xl px-4 py-3">
-                                        ⚠️ אין סטודיואים עם Green API מחובר. חבר WhatsApp לסטודיו קודם.
+                            {/* Primary: Platform Green API status */}
+                            <div className={`flex items-start gap-3 px-4 py-3 rounded-xl text-sm border ${platformWAInstance && platformWATokenSet ? "bg-emerald-900/30 border-emerald-500/30 text-emerald-300" : "bg-slate-800/50 border-white/10 text-slate-400"}`}>
+                                <span className="mt-0.5">{platformWAInstance && platformWATokenSet ? "✅" : "⚪"}</span>
+                                <div>
+                                    <div className="font-semibold">
+                                        {platformWAInstance && platformWATokenSet
+                                            ? `Platform Green API פעיל — Instance: ${platformWAInstance}`
+                                            : "Platform Green API לא מוגדר"}
                                     </div>
-                                ) : (
-                                    <select
-                                        value={bizfindSelected}
-                                        onChange={e => setBizfindSelected(e.target.value)}
-                                        aria-label="בחר סטודיו שולח OTP"
-                                        className="w-full bg-slate-800 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-white/30"
-                                    >
-                                        <option value="">— בחר סטודיו —</option>
-                                        {bizfindStudios.map(s => (
-                                            <option key={s.studio_id} value={s.studio_id}>
-                                                {s.name}{s.phone_number ? ` — ${s.phone_number.replace(/^972/, "0")}` : " (לא מחובר)"}
-                                            </option>
-                                        ))}
-                                    </select>
-                                )}
-                                {bizfindSelected && (() => {
-                                    const s = bizfindStudios.find(x => x.studio_id === bizfindSelected);
-                                    return s ? (
-                                        <div className="mt-2 text-xs text-slate-400 font-mono">
-                                            Instance: {s.instance_id}
-                                            {!s.phone_number && <span className="text-amber-400 mr-2"> · לא מחובר עדיין (צריך לסרוק QR)</span>}
-                                        </div>
-                                    ) : null;
-                                })()}
+                                    <div className="text-xs opacity-70 mt-0.5">
+                                        {platformWAInstance && platformWATokenSet
+                                            ? "זהו שולח ה-OTP הראשי — OTP יישלח ממספר זה אוטומטית"
+                                            : "הגדר Platform Green API למעלה כדי להפעיל שליחת OTP"}
+                                    </div>
+                                </div>
                             </div>
+
+                            {/* Secondary: Studio override */}
+                            <details className="group">
+                                <summary className="text-xs font-semibold text-slate-400 cursor-pointer hover:text-white transition-colors list-none flex items-center gap-1.5">
+                                    <span className="group-open:rotate-90 inline-block transition-transform">▶</span>
+                                    אפשרות מתקדמת — שלח OTP ממספר סטודיו ספציפי (במקום Platform)
+                                </summary>
+                                <div className="mt-3 space-y-3 pt-3 border-t border-white/10">
+                                    {bizfindSettings && bizfindSettings.otp_studio_id && (
+                                        <div className="flex items-center gap-2 px-3 py-2 bg-emerald-900/20 border border-emerald-500/20 rounded-xl text-xs text-emerald-300">
+                                            ✅ שולח מ: <strong>{bizfindSettings.otp_studio_name}</strong>
+                                            {bizfindSettings.otp_phone_number && ` — ${bizfindSettings.otp_phone_number.replace(/^972/, "0")}`}
+                                        </div>
+                                    )}
+                                    {bizfindStudios.length === 0 ? (
+                                        <div className="text-xs text-slate-500 bg-white/5 border border-white/10 rounded-xl px-3 py-2">
+                                            אין סטודיואים עם Green API מחובר — Platform Green API ישמש לשליחה.
+                                        </div>
+                                    ) : (
+                                        <select
+                                            value={bizfindSelected}
+                                            onChange={e => setBizfindSelected(e.target.value)}
+                                            aria-label="בחר סטודיו שולח OTP"
+                                            className="w-full bg-slate-800 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-white/30"
+                                        >
+                                            <option value="">— השתמש ב-Platform Green API —</option>
+                                            {bizfindStudios.map(s => (
+                                                <option key={s.studio_id} value={s.studio_id}>
+                                                    {s.name}{s.phone_number ? ` — ${s.phone_number.replace(/^972/, "0")}` : ""}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    )}
+                                </div>
+                            </details>
 
                             <button type="button" onClick={handleSaveBizfind} disabled={bizfindSaving}
                                 className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white font-bold py-2.5 rounded-xl transition-colors text-sm">
@@ -2087,8 +2098,17 @@ export default function AdminPage() {
                                     {healthData.map(s => (
                                         <div key={s.studio_id} className={`rounded-2xl border px-5 py-4 ${s.has_alert ? "bg-red-900/30 border-red-500/30" : "bg-white/5 border-white/10"}`}>
                                             <div className="flex items-center justify-between flex-wrap gap-2">
-                                                <span className="font-bold text-white text-sm">{s.studio_name}</span>
-                                                <div className="flex gap-2 flex-wrap">
+                                                <div>
+                                                    <span className="font-bold text-white text-sm">{s.studio_name}</span>
+                                                    {/* WhatsApp connection details */}
+                                                    {(s.wa_instance_id || s.wa_phone_id) && (
+                                                        <div className="text-[10px] text-slate-400 font-mono mt-0.5">
+                                                            {s.wa_provider === "green_api" && s.wa_instance_id && `🔗 Instance: ${s.wa_instance_id}`}
+                                                            {s.wa_provider === "meta" && s.wa_phone_id && `📞 Phone ID: ${s.wa_phone_id}`}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div className="flex gap-2 flex-wrap items-center">
                                                     <span className={`text-xs font-bold px-2 py-1 rounded-full ${s.wa_status === "connected" ? "bg-emerald-700/50 text-emerald-300" : s.wa_status === "not_configured" ? "bg-slate-700/50 text-slate-400" : "bg-red-700/50 text-red-300"}`}>
                                                         📱 {s.wa_status === "connected" ? "WhatsApp מחובר" : s.wa_status === "not_configured" ? "WhatsApp לא מוגדר" : `WhatsApp מנותק: ${s.wa_status.replace("disconnected:", "")}`}
                                                     </span>
@@ -2105,6 +2125,13 @@ export default function AdminPage() {
                                                     {!s.has_alert && (
                                                         <span className="text-xs font-bold px-2 py-1 rounded-full bg-emerald-700/50 text-emerald-300">✅ תקין</span>
                                                     )}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => router.push(`/admin/studios/${s.studio_id}`)}
+                                                        className="text-xs px-2 py-1 rounded-full bg-white/10 text-slate-300 hover:bg-white/20 transition-colors"
+                                                    >
+                                                        ⚙️ ערוך
+                                                    </button>
                                                 </div>
                                             </div>
                                         </div>

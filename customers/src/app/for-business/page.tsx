@@ -28,7 +28,7 @@ export default function ForBusinessPage() {
                 </Link>
                 <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
                     <Link href="/studio/login" style={{ color: "#7c3aed", fontWeight: 600, fontSize: "0.9rem", textDecoration: "none" }}>כניסה לעסקים</Link>
-                    <Link href="/studio/login" style={{ background: "linear-gradient(135deg,#7c3aed,#4f46e5)", color: "#fff", padding: "0.5rem 1.1rem", borderRadius: 10, fontWeight: 700, fontSize: "0.88rem", textDecoration: "none" }}>
+                    <Link href="/for-business/register?plan=trial" style={{ background: "linear-gradient(135deg,#7c3aed,#4f46e5)", color: "#fff", padding: "0.5rem 1.1rem", borderRadius: 10, fontWeight: 700, fontSize: "0.88rem", textDecoration: "none" }}>
                         הצטרפו בחינם
                     </Link>
                 </div>
@@ -49,7 +49,7 @@ export default function ForBusinessPage() {
                         ונהלו את הפרופיל שלכם בקלות — ללא עלות.
                     </p>
                     <div style={{ display: "flex", gap: "0.75rem", justifyContent: "center", flexWrap: "wrap" }}>
-                        <Link href="/studio/login" style={{ background: "linear-gradient(135deg,#7c3aed,#4f46e5)", color: "#fff", padding: "0.85rem 2rem", borderRadius: 14, fontWeight: 800, fontSize: "1rem", textDecoration: "none", boxShadow: "0 4px 20px rgba(124,58,237,.35)" }}>
+                        <Link href="/for-business/register?plan=trial" style={{ background: "linear-gradient(135deg,#7c3aed,#4f46e5)", color: "#fff", padding: "0.85rem 2rem", borderRadius: 14, fontWeight: 800, fontSize: "1rem", textDecoration: "none", boxShadow: "0 4px 20px rgba(124,58,237,.35)" }}>
                             הצטרפו בחינם ←
                         </Link>
                         <a href="#how" style={{ background: "#fff", color: "#7c3aed", padding: "0.85rem 2rem", borderRadius: 14, fontWeight: 700, fontSize: "1rem", textDecoration: "none", border: "2px solid #ede9fe" }}>
@@ -147,7 +147,7 @@ export default function ForBusinessPage() {
                         מוכנים להתחיל?
                     </h2>
                     <p style={{ color: "#64748b", marginBottom: "2rem" }}>הצטרפו לעסקים שכבר נמצאים על המפה</p>
-                    <Link href="/studio/login" style={{ display: "inline-block", background: "linear-gradient(135deg,#7c3aed,#4f46e5)", color: "#fff", padding: "0.95rem 2.5rem", borderRadius: 14, fontWeight: 800, fontSize: "1.05rem", textDecoration: "none", boxShadow: "0 6px 24px rgba(124,58,237,.35)" }}>
+                    <Link href="/for-business/register?plan=trial" style={{ display: "inline-block", background: "linear-gradient(135deg,#7c3aed,#4f46e5)", color: "#fff", padding: "0.95rem 2.5rem", borderRadius: 14, fontWeight: 800, fontSize: "1.05rem", textDecoration: "none", boxShadow: "0 6px 24px rgba(124,58,237,.35)" }}>
                         הצטרפו בחינם ←
                     </Link>
                 </div>

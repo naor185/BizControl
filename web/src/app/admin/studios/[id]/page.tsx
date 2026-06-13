@@ -41,6 +41,7 @@ type StudioSettings = {
     whatsapp_provider: string | null;
     whatsapp_phone_id: string | null;
     whatsapp_api_key: string | null;
+    whatsapp_instance_id: string | null;
 };
 
 type Integration = {
@@ -140,6 +141,8 @@ export default function StudioDetailPage() {
     const [newPlan, setNewPlan] = useState("");
     const [waPhoneId, setWaPhoneId] = useState("");
     const [waApiKey, setWaApiKey] = useState("");
+    const [waInstanceId, setWaInstanceId] = useState("");
+    const [waGreenToken, setWaGreenToken] = useState("");
     const [savingWa, setSavingWa] = useState(false);
     const [waCopied, setWaCopied] = useState<string | null>(null);
     const [integrations, setIntegrations] = useState<Integration[]>([]);
@@ -169,6 +172,7 @@ export default function StudioDetailPage() {
             setNewPlan(s.subscription_plan);
             setWaPhoneId(s.whatsapp_phone_id || "");
             setWaApiKey(s.whatsapp_api_key || "");
+            setWaInstanceId(s.whatsapp_instance_id || "");
             setIntegrations(ints);
             setAnalytics(anal);
             setFeatures(feats);
@@ -559,6 +563,79 @@ export default function StudioDetailPage() {
                                     </button>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Green API WhatsApp */}
+                {settings && (
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                        <div className="px-4 py-3 border-b border-gray-50 flex items-center gap-2">
+                            <span className="text-base">💬</span>
+                            <h2 className="text-sm font-semibold text-gray-700">WhatsApp — Green API</h2>
+                            {settings.whatsapp_provider === "green_api" && settings.whatsapp_instance_id && (
+                                <span className="text-xs text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full font-medium">מחובר</span>
+                            )}
+                            {settings.whatsapp_instance_id && (
+                                <span className="text-xs text-gray-400 font-mono">Instance: {settings.whatsapp_instance_id}</span>
+                            )}
+                        </div>
+                        <div className="p-4 space-y-3">
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-500 mb-1.5">🔑 Instance ID</label>
+                                <input
+                                    type="text"
+                                    value={waInstanceId}
+                                    onChange={e => setWaInstanceId(e.target.value)}
+                                    placeholder="7107619924"
+                                    dir="ltr"
+                                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-black/10"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-500 mb-1.5">🔐 API Token {settings.whatsapp_provider === "green_api" && settings.whatsapp_api_key && <span className="text-emerald-600 font-normal">(שמור)</span>}</label>
+                                <input
+                                    type="password"
+                                    value={waGreenToken}
+                                    onChange={e => setWaGreenToken(e.target.value)}
+                                    placeholder={settings.whatsapp_provider === "green_api" && settings.whatsapp_api_key ? "השאר ריק לשמור Token קיים" : "הדבק API Token מ-Green API"}
+                                    dir="ltr"
+                                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-black/10"
+                                />
+                            </div>
+                            <button
+                                onClick={async () => {
+                                    setSavingWa(true);
+                                    try {
+                                        const patch: Record<string, string | null> = {
+                                            whatsapp_provider: waInstanceId.trim() ? "green_api" : null,
+                                            whatsapp_instance_id: waInstanceId.trim() || null,
+                                        };
+                                        if (waGreenToken.trim()) patch.whatsapp_api_key = waGreenToken.trim();
+                                        await handleSaveSettings(patch);
+                                        setWaGreenToken("");
+                                    } finally {
+                                        setSavingWa(false);
+                                    }
+                                }}
+                                disabled={savingWa || !waInstanceId.trim()}
+                                className="w-full py-2.5 bg-emerald-600 text-white text-sm font-semibold rounded-xl hover:bg-emerald-700 transition-colors disabled:opacity-40"
+                            >
+                                {savingWa ? "שומר..." : "שמור Green API"}
+                            </button>
+                            {settings.whatsapp_provider === "green_api" && settings.whatsapp_instance_id && (
+                                <button
+                                    onClick={() => {
+                                        if (!confirm("לנתק את Green API WhatsApp מהסטודיו הזה?")) return;
+                                        handleSaveSettings({ whatsapp_provider: null, whatsapp_instance_id: null, whatsapp_api_key: null });
+                                        setWaInstanceId("");
+                                        setWaGreenToken("");
+                                    }}
+                                    className="w-full py-2 text-xs text-red-500 hover:text-red-700 transition-colors"
+                                >
+                                    נתק Green API
+                                </button>
+                            )}
                         </div>
                     </div>
                 )}

@@ -18,6 +18,53 @@ from app.db.deps import get_db as _get_db
 
 router = APIRouter(prefix="/marketplace", tags=["Marketplace"])
 
+# ── Plan definitions ──────────────────────────────────────────────────────────
+
+BIZFIND_PLANS = {
+    "trial": {
+        "label": "ניסיון חינמי",
+        "price_ils": 0,
+        "days": 14,
+        "subscription_plan": "trial",
+        "scope_bizcontrol": True,   # trial gets full access
+    },
+    "bizfind_basic": {
+        "label": "Basic — BizFind בלבד",
+        "price_ils": 99,
+        "days": 30,
+        "subscription_plan": "bizfind_basic",
+        "scope_bizcontrol": False,
+    },
+    "bizfind_pro": {
+        "label": "Pro — BizFind בלבד",
+        "price_ils": 179,
+        "days": 30,
+        "subscription_plan": "bizfind_pro",
+        "scope_bizcontrol": False,
+    },
+    "starter": {
+        "label": "Starter — BizFind + BizControl",
+        "price_ils": 199,
+        "days": 30,
+        "subscription_plan": "starter",
+        "scope_bizcontrol": True,
+    },
+    "pro": {
+        "label": "Pro — BizFind + BizControl",
+        "price_ils": 349,
+        "days": 30,
+        "subscription_plan": "pro",
+        "scope_bizcontrol": True,
+    },
+    "studio": {
+        "label": "Studio — BizFind + BizControl",
+        "price_ils": 499,
+        "days": 30,
+        "subscription_plan": "studio",
+        "scope_bizcontrol": True,
+    },
+}
+
 
 # ── Studio owner login (no slug required) ─────────────────────────────────────
 
@@ -58,6 +105,191 @@ def marketplace_login(payload: MarketplaceLoginIn, db: Session = Depends(get_db)
     db.add(RefreshToken(id=uuid.uuid4(), studio_id=user.studio_id, user_id=user.id, token=refresh, is_revoked=False))
     db.commit()
     return {"access_token": access, "refresh_token": refresh, "token_type": "bearer"}
+
+
+# ── Self-registration for business owners via BizFind ────────────────────────
+
+class BizFindRegisterIn(BaseModel):
+    business_name: str = Field(min_length=2, max_length=120)
+    category: str = Field(min_length=1, max_length=60)
+    city: str = Field(min_length=1, max_length=60)
+    owner_name: str = Field(min_length=2, max_length=80)
+    email: EmailStr
+    password: str = Field(min_length=6)
+    phone: Optional[str] = None
+    plan_key: str = "trial"   # trial | bizfind_basic | bizfind_pro | starter | pro | studio
+
+
+def _slugify(name: str) -> str:
+    import re
+    slug = name.lower().strip()
+    slug = re.sub(r"[^\w\s-]", "", slug, flags=re.UNICODE)
+    slug = re.sub(r"[\s_]+", "-", slug)
+    slug = re.sub(r"-+", "-", slug).strip("-")
+    return slug[:48] or "business"
+
+
+@router.post("/auth/register", status_code=201)
+def bizfind_register(payload: BizFindRegisterIn, db: Session = Depends(get_db)):
+    """Self-registration for business owners coming from BizFind."""
+    from datetime import datetime, timezone, timedelta
+    from app.models.studio import Studio
+    from app.models.studio_settings import StudioSettings
+    from app.models.user import User
+    from app.models.refresh_token import RefreshToken
+    from app.core.security import create_access_token, create_refresh_token
+    from argon2 import PasswordHasher
+
+    plan = BIZFIND_PLANS.get(payload.plan_key)
+    if not plan:
+        raise HTTPException(status_code=400, detail=f"תכנית לא חוקית: {payload.plan_key}")
+
+    ph = PasswordHasher()
+    email = payload.email.lower().strip()
+
+    # Prevent duplicate email
+    from app.models.user import User as _User
+    if db.scalar(select(_User).where(_User.email == email)):
+        raise HTTPException(status_code=409, detail="כתובת המייל כבר רשומה במערכת")
+
+    # Generate unique slug
+    base_slug = _slugify(payload.business_name)
+    slug = base_slug
+    counter = 1
+    while db.scalar(select(Studio).where(Studio.slug == slug)):
+        slug = f"{base_slug}-{counter}"
+        counter += 1
+
+    expires = datetime.now(timezone.utc) + timedelta(days=plan["days"])
+
+    studio = Studio(
+        id=uuid.uuid4(),
+        name=payload.business_name.strip(),
+        slug=slug,
+        subscription_plan=plan["subscription_plan"],
+        is_active=True,
+        plan_expires_at=expires,
+        is_platform=False,
+    )
+    db.add(studio)
+    db.flush()
+
+    # Studio settings — tag with category and city
+    settings = StudioSettings(
+        studio_id=studio.id,
+        studio_address=payload.city.strip(),
+    )
+    db.add(settings)
+
+    # Create marketplace profile with all business details
+    db.execute(
+        text("""
+            INSERT INTO marketplace_profiles
+                (id, studio_id, business_name, category, city, phone, whatsapp,
+                 plan_code, is_active, is_published, created_at, updated_at)
+            VALUES
+                (:id, :sid, :bname, :cat, :city, :phone, :phone,
+                 :plan, true, true, NOW(), NOW())
+            ON CONFLICT (studio_id) DO UPDATE SET
+                business_name = EXCLUDED.business_name,
+                category      = EXCLUDED.category,
+                city          = EXCLUDED.city,
+                plan_code     = EXCLUDED.plan_code,
+                updated_at    = NOW()
+        """),
+        {
+            "id": str(uuid.uuid4()), "sid": str(studio.id),
+            "bname": payload.business_name.strip(),
+            "cat": payload.category.strip(),
+            "city": payload.city.strip(),
+            "phone": payload.phone.strip() if payload.phone else None,
+            "plan": plan["subscription_plan"],
+        },
+    )
+
+    owner = User(
+        id=uuid.uuid4(),
+        studio_id=studio.id,
+        email=email,
+        password_hash=ph.hash(payload.password),
+        role="owner",
+        display_name=payload.owner_name.strip(),
+        phone=payload.phone.strip() if payload.phone else None,
+        is_active=True,
+    )
+    db.add(owner)
+    db.commit()
+
+    access = create_access_token({"user_id": str(owner.id), "studio_id": str(studio.id), "role": "owner"})
+    refresh = create_refresh_token({"user_id": str(owner.id), "studio_id": str(studio.id)})
+    db.add(RefreshToken(id=uuid.uuid4(), studio_id=studio.id, user_id=owner.id, token=refresh, is_revoked=False))
+    db.commit()
+
+    return {
+        "access_token": access,
+        "refresh_token": refresh,
+        "token_type": "bearer",
+        "studio_slug": slug,
+        "plan_key": payload.plan_key,
+        "plan_label": plan["label"],
+        "scope_bizcontrol": plan["scope_bizcontrol"],
+        "trial_days": plan["days"] if payload.plan_key == "trial" else None,
+        "plan_expires_at": expires.isoformat(),
+    }
+
+
+@router.get("/plans")
+def get_plans(db: Session = Depends(get_db)):
+    """Public endpoint — returns available BizFind plans with their feature flags."""
+    plans = []
+    for k, v in BIZFIND_PLANS.items():
+        features = db.execute(
+            text("""
+                SELECT feature_key, feature_label, is_enabled, limit_value
+                FROM bizfind_plan_features
+                WHERE plan_code = :plan
+                ORDER BY feature_key
+            """),
+            {"plan": k},
+        ).fetchall()
+        plans.append({
+            "key": k,
+            "label": v["label"],
+            "price_ils": v["price_ils"],
+            "days": v["days"],
+            "scope_bizcontrol": v["scope_bizcontrol"],
+            "is_trial": k == "trial",
+            "features": [
+                {
+                    "key": r[0],
+                    "label": r[1],
+                    "enabled": r[2],
+                    "limit": r[3],
+                }
+                for r in features
+            ],
+        })
+    return plans
+
+
+@router.get("/plans/{plan_code}/features")
+def get_plan_features(plan_code: str, db: Session = Depends(get_db)):
+    """Returns feature flags for a specific plan."""
+    if plan_code not in BIZFIND_PLANS:
+        raise HTTPException(status_code=404, detail=f"תכנית לא קיימת: {plan_code}")
+    rows = db.execute(
+        text("""
+            SELECT feature_key, feature_label, is_enabled, limit_value
+            FROM bizfind_plan_features
+            WHERE plan_code = :plan
+            ORDER BY feature_key
+        """),
+        {"plan": plan_code},
+    ).fetchall()
+    return {
+        "plan_code": plan_code,
+        "features": [{"key": r[0], "label": r[1], "enabled": r[2], "limit": r[3]} for r in rows],
+    }
 
 
 # ── Smart studio profile for dashboard (authenticated) ────────────────────────

@@ -146,6 +146,7 @@ class AdminSettingsIn(BaseModel):
     whatsapp_provider: Optional[str] = None
     whatsapp_phone_id: Optional[str] = None
     whatsapp_api_key: Optional[str] = None
+    whatsapp_instance_id: Optional[str] = None
 
 class AdminSettingsOut(BaseModel):
     subscription_plan: str
@@ -159,6 +160,7 @@ class AdminSettingsOut(BaseModel):
     whatsapp_provider: Optional[str]
     whatsapp_phone_id: Optional[str]
     whatsapp_api_key: Optional[str]
+    whatsapp_instance_id: Optional[str]
 
 class SetupIn(BaseModel):
     secret: str
@@ -638,6 +640,7 @@ def get_studio_settings(studio_id: uuid.UUID, admin: User = Depends(require_supe
         whatsapp_provider=settings.whatsapp_provider,
         whatsapp_phone_id=settings.whatsapp_phone_id,
         whatsapp_api_key=settings.whatsapp_api_key,
+        whatsapp_instance_id=settings.whatsapp_instance_id,
     )
 
 
@@ -672,6 +675,9 @@ def update_studio_settings(studio_id: uuid.UUID, payload: AdminSettingsIn, admin
     if payload.whatsapp_api_key is not None:
         changes["whatsapp_api_key"] = "***"  # redact from audit log
         settings.whatsapp_api_key = payload.whatsapp_api_key or None
+    if payload.whatsapp_instance_id is not None:
+        changes["whatsapp_instance_id"] = payload.whatsapp_instance_id
+        settings.whatsapp_instance_id = payload.whatsapp_instance_id or None
 
     _audit(db, admin, "update_settings", studio, changes)
     db.commit()
@@ -1170,18 +1176,25 @@ class TestOTPIn(BaseModel):
 
 @router.get("/bizfind-settings/studios", response_model=list[BizFindStudioOption])
 def get_bizfind_connectable_studios(admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
-    """Return all studios with an active Green API WhatsApp connection."""
+    """Return all studios with a Green API WhatsApp connection (any mechanism)."""
     rows = db.execute(text("""
-        SELECT s.id, s.name,
-               COALESCE(ss.whatsapp_instance_id, wc.instance_id) AS instance_id,
-               wc.phone_number
+        SELECT
+            s.id,
+            s.name,
+            COALESCE(ss.whatsapp_instance_id, wc.instance_id, 'unknown') AS instance_id,
+            COALESCE(wc.phone_number, ss.marketplace_whatsapp) AS phone_number
         FROM studios s
         LEFT JOIN studio_settings ss ON ss.studio_id = s.id
         LEFT JOIN whatsapp_connections wc ON wc.studio_id = s.id
         WHERE s.is_platform IS NOT TRUE
+          AND s.is_active = true
           AND (
-              ss.whatsapp_instance_id IS NOT NULL
-              OR wc.instance_id IS NOT NULL
+              -- Connected via save-credentials (whatsapp_connections)
+              wc.instance_id IS NOT NULL
+              -- Connected via direct studio_settings
+              OR ss.whatsapp_instance_id IS NOT NULL
+              -- Has green_api provider set with an api key (connected via any flow)
+              OR (ss.whatsapp_provider = 'green_api' AND ss.whatsapp_api_key IS NOT NULL)
           )
         ORDER BY s.name
     """)).fetchall()
@@ -1190,7 +1203,7 @@ def get_bizfind_connectable_studios(admin: User = Depends(require_superadmin), d
             studio_id=str(r[0]),
             name=r[1],
             phone_number=r[3],
-            instance_id=r[2],
+            instance_id=r[2] or "unknown",
         )
         for r in rows
     ]
@@ -1653,6 +1666,9 @@ def platform_health(db: Session = Depends(get_db), _admin: User = Depends(requir
             "studio_id": str(studio.id),
             "studio_name": studio.name,
             "wa_status": wa_status,
+            "wa_instance_id": settings.whatsapp_instance_id if settings else None,
+            "wa_provider": settings.whatsapp_provider if settings else None,
+            "wa_phone_id": settings.whatsapp_phone_id if settings else None,
             "failed_jobs_24h": failed_count,
             "stuck_pending_jobs": pending_count,
             "has_alert": has_alert,

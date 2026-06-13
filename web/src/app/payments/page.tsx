@@ -4,7 +4,7 @@ import { toast } from "@/lib/toast";
 import { useEffect, useMemo, useState } from "react";
 import RequireAuth from "@/components/RequireAuth";
 import AppShell from "@/components/AppShell";
-import { apiFetch, downloadReceipt, downloadInvoice } from "@/lib/api";
+import { apiFetch, downloadReceipt, downloadInvoice, getCurrentUserRole } from "@/lib/api";
 
 import Link from "next/link";
 
@@ -85,12 +85,18 @@ const currentMonthKey = (() => {
 })();
 
 export default function Page() {
+    const role = getCurrentUserRole();
+    const isSuperadmin = role === "superadmin";
+    const canCredit = role === "owner" || role === "admin" || role === "superadmin";
+
     const [entries, setEntries] = useState<Entry[]>([]);
     const [loading, setLoading] = useState(true);
     const [err, setErr] = useState<string | null>(null);
     const [selectedMethods, setSelectedMethods] = useState<Set<string>>(new Set());
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [creditingId, setCreditingId] = useState<string | null>(null);
+    const [isCrediting, setIsCrediting] = useState(false);
     const [expandedMonths, setExpandedMonths] = useState<Set<string>>(new Set([currentMonthKey]));
 
     const toggleMonth = (key: string) => {
@@ -179,6 +185,21 @@ export default function Page() {
             toast.error(e?.message || "שגיאה במחיקת תשלום");
         } finally {
             setIsDeleting(false);
+        }
+    };
+
+    const handleCredit = async () => {
+        if (!creditingId) return;
+        try {
+            setIsCrediting(true);
+            await apiFetch(`/api/payments/${creditingId}/credit`, { method: "POST" });
+            toast.success("זיכוי הופק בהצלחה");
+            setCreditingId(null);
+            loadPayments();
+        } catch (e: any) {
+            toast.error(e?.message || "שגיאה בהפקת זיכוי");
+        } finally {
+            setIsCrediting(false);
         }
     };
 
@@ -374,6 +395,7 @@ export default function Page() {
                                                             </div>
                                                             {e.paymentId && (
                                                                 <>
+                                                                    {/* Download receipt PDF */}
                                                                     <button
                                                                         type="button"
                                                                         onClick={() => downloadReceipt(e.paymentId!)}
@@ -384,6 +406,7 @@ export default function Page() {
                                                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                                                         </svg>
                                                                     </button>
+                                                                    {/* Download invoice PDF */}
                                                                     <button
                                                                         type="button"
                                                                         onClick={() => downloadInvoice(e.paymentId!)}
@@ -394,16 +417,32 @@ export default function Page() {
                                                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                                                         </svg>
                                                                     </button>
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => setDeletingId(e.paymentId!)}
-                                                                        className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 transition-all p-1.5 rounded-lg hover:bg-red-50"
-                                                                        title="מחק תשלום"
-                                                                    >
-                                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                                        </svg>
-                                                                    </button>
+                                                                    {/* Issue credit note — owner/admin/superadmin, only for non-refund entries */}
+                                                                    {canCredit && e.type !== "refund" && (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => setCreditingId(e.paymentId!)}
+                                                                            className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-amber-500 transition-all p-1.5 rounded-lg hover:bg-amber-50"
+                                                                            title="הוצא זיכוי"
+                                                                        >
+                                                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                                                                            </svg>
+                                                                        </button>
+                                                                    )}
+                                                                    {/* Hard delete — superadmin only */}
+                                                                    {isSuperadmin && (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => setDeletingId(e.paymentId!)}
+                                                                            className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 transition-all p-1.5 rounded-lg hover:bg-red-50"
+                                                                            title="מחק תשלום לצמיתות (סופר-אדמין)"
+                                                                        >
+                                                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                                            </svg>
+                                                                        </button>
+                                                                    )}
                                                                 </>
                                                             )}
                                                         </div>
@@ -418,7 +457,46 @@ export default function Page() {
                     </div>
                 </div>
 
-                {/* Deletion Confirmation Modal */}
+                {/* Credit Note Confirmation Modal */}
+                {creditingId && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                        <div className="bg-white rounded-3xl w-full max-w-sm shadow-xl overflow-hidden p-6 text-center animate-in zoom-in-95 duration-200">
+                            <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                                </svg>
+                            </div>
+                            <h3 className="text-xl font-bold text-slate-800 mb-2">הוצאת זיכוי</h3>
+                            <p className="text-sm text-slate-500 mb-6">
+                                יופק מסמך זיכוי מול הקבלה המקורית של תשלום זה.
+                                <br />
+                                <span className="text-amber-600 font-semibold mt-2 block">
+                                    הקבלה המקורית תסומן כ"זוכתה" ולא ניתן לבטל פעולה זו.
+                                </span>
+                            </p>
+                            <div className="flex justify-center gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => setCreditingId(null)}
+                                    disabled={isCrediting}
+                                    className="px-5 py-2.5 text-sm font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
+                                >
+                                    ביטול
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleCredit}
+                                    disabled={isCrediting}
+                                    className="px-5 py-2.5 text-sm font-semibold text-white bg-amber-500 hover:bg-amber-600 rounded-xl shadow-lg ring-1 ring-amber-600 transition-colors disabled:opacity-50"
+                                >
+                                    {isCrediting ? "מפיק זיכוי..." : "כן, הוצא זיכוי"}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Hard Delete Confirmation Modal — superadmin only */}
                 {deletingId && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
                         <div className="bg-white rounded-3xl w-full max-w-sm shadow-xl overflow-hidden p-6 text-center animate-in zoom-in-95 duration-200">
@@ -427,12 +505,12 @@ export default function Page() {
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                 </svg>
                             </div>
-                            <h3 className="text-xl font-bold text-slate-800 mb-2">מחיקת תשלום</h3>
+                            <h3 className="text-xl font-bold text-slate-800 mb-2">מחיקה מלאה — סופר-אדמין</h3>
                             <p className="text-sm text-slate-500 mb-6">
-                                האם אתה בטוח שברצונך למחוק תשלום זה?
+                                פעולה זו תמחק לצמיתות את התשלום, הקבלה/חשבונית, וכל זיכוי מקושר.
                                 <br />
                                 <span className="text-red-500 font-bold mt-2 block">
-                                    שים לב: נקודות הקאשבק (Cashback) שניתנו על תשלום זה יבוטלו אוטומטית.
+                                    לא ניתן לבטל פעולה זו. השתמש רק לצורכי בדיקות ופיתוח.
                                 </span>
                             </p>
                             <div className="flex justify-center gap-3">
@@ -450,7 +528,7 @@ export default function Page() {
                                     disabled={isDeleting}
                                     className="px-5 py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl shadow-lg ring-1 ring-red-700 transition-colors disabled:opacity-50"
                                 >
-                                    {isDeleting ? "מוחק..." : "כן, מחק תשלום"}
+                                    {isDeleting ? "מוחק..." : "מחק לצמיתות"}
                                 </button>
                             </div>
                         </div>

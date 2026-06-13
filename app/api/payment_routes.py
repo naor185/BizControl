@@ -59,11 +59,155 @@ def delete(
     ctx: AuthContext = Depends(require_studio_ctx),
     db: Session = Depends(get_db),
 ):
+    if ctx.role != "superadmin":
+        raise HTTPException(status_code=403, detail="מחיקת תשלום זמינה לסופר-אדמין בלבד")
     from app.crud.payment import delete_payment
     ok = delete_payment(db, ctx.studio_id, payment_id, with_appointment=with_appointment)
     if not ok:
         raise HTTPException(status_code=404, detail=f"Payment {payment_id} not found")
     return None
+
+
+@router.post("/{payment_id}/credit")
+def issue_credit_note(
+    payment_id: UUID,
+    ctx: AuthContext = Depends(require_studio_ctx),
+    db: Session = Depends(get_db),
+):
+    """Issue a credit note (זיכוי) for a payment. Creates the linked invoice first if it doesn't exist."""
+    import uuid as _uuid
+    from sqlalchemy import text
+
+    # Verify payment belongs to studio
+    payment = db.scalar(select(Payment).where(Payment.id == payment_id, Payment.studio_id == ctx.studio_id))
+    if not payment:
+        raise HTTPException(status_code=404, detail="תשלום לא נמצא")
+
+    # Find linked invoice (auto-created on payment or manually linked)
+    invoice_row = db.execute(
+        text("SELECT * FROM invoices WHERE source_id = :pid AND studio_id = :sid AND doc_type != 'credit' LIMIT 1"),
+        {"pid": str(payment_id), "sid": str(ctx.studio_id)},
+    ).fetchone()
+
+    # If no invoice exists yet, create one on the fly
+    if not invoice_row:
+        from app.models.appointment import Appointment
+        from app.models.client import Client
+        from app.crud.payment import _auto_create_invoice
+        appt = db.get(Appointment, payment.appointment_id) if payment.appointment_id else None
+        client = db.get(Client, payment.client_id) if payment.client_id else None
+        if not client:
+            raise HTTPException(status_code=400, detail="לא נמצא לקוח מקושר לתשלום")
+        _auto_create_invoice(db, ctx.studio_id, payment, appt, client)
+        invoice_row = db.execute(
+            text("SELECT * FROM invoices WHERE source_id = :pid AND studio_id = :sid AND doc_type != 'credit' LIMIT 1"),
+            {"pid": str(payment_id), "sid": str(ctx.studio_id)},
+        ).fetchone()
+        if not invoice_row:
+            raise HTTPException(status_code=500, detail="שגיאה ביצירת קבלה לזיכוי")
+
+    orig = dict(invoice_row._mapping)
+
+    if orig["status"] == "credited":
+        raise HTTPException(status_code=400, detail="קבלה זו כבר זוכתה")
+
+    # Get original items
+    orig_items = db.execute(
+        text("SELECT * FROM invoice_items WHERE invoice_id = :id ORDER BY sort_order"),
+        {"id": orig["id"]},
+    ).fetchall()
+
+    # Get next credit note number
+    credit_number_row = db.execute(
+        text("""
+            INSERT INTO invoice_series (studio_id, doc_type, next_number)
+            VALUES (:sid, 'credit', 1001)
+            ON CONFLICT (studio_id, doc_type)
+            DO UPDATE SET next_number = invoice_series.next_number + 1
+            RETURNING next_number - 1
+        """),
+        {"sid": str(ctx.studio_id)},
+    ).fetchone()
+    db.commit()
+    credit_number = credit_number_row[0]
+    credit_id = str(_uuid.uuid4())
+
+    db.execute(
+        text("""
+            INSERT INTO invoices (
+                id, studio_id, doc_type, doc_number, status,
+                client_id, client_name, client_phone, client_email,
+                business_name, business_type, business_number,
+                business_address, business_phone, business_email, business_logo_url,
+                subtotal_cents, vat_rate, vat_amount_cents, total_cents, tip_cents,
+                credits_invoice_id, issued_by_id, issued_at
+            ) VALUES (
+                :id, :sid, 'credit', :dn, 'issued',
+                :cid, :cname, :cphone, :cemail,
+                :bname, :btype, :bnum,
+                :baddr, :bphone, :bemail, :blogo,
+                :sub, :vr, :vat, :total, 0,
+                :orig_id, :uid, NOW()
+            )
+        """),
+        {
+            "id": credit_id, "sid": str(ctx.studio_id), "dn": credit_number,
+            "cid": orig.get("client_id"), "cname": orig.get("client_name"),
+            "cphone": orig.get("client_phone"), "cemail": orig.get("client_email"),
+            "bname": orig.get("business_name"), "btype": orig.get("business_type"),
+            "bnum": orig.get("business_number"), "baddr": orig.get("business_address"),
+            "bphone": orig.get("business_phone"), "bemail": orig.get("business_email"),
+            "blogo": orig.get("business_logo_url"),
+            "sub": -(orig.get("subtotal_cents") or 0),
+            "vr": orig.get("vat_rate"), "vat": -(orig.get("vat_amount_cents") or 0),
+            "total": -(orig.get("total_cents") or 0),
+            "orig_id": orig["id"], "uid": ctx.user_id,
+        },
+    )
+
+    for i, item in enumerate(orig_items):
+        it = dict(item._mapping)
+        db.execute(
+            text("""
+                INSERT INTO invoice_items
+                    (id, invoice_id, description, quantity, unit_price_cents,
+                     total_price_cents, sort_order)
+                VALUES (:id, :inv, :desc, :qty, :up, :tp, :sort)
+            """),
+            {
+                "id": str(_uuid.uuid4()), "inv": credit_id,
+                "desc": it["description"], "qty": float(it["quantity"]),
+                "up": -(it["unit_price_cents"]), "tp": -(it["total_price_cents"]),
+                "sort": i,
+            },
+        )
+
+    # Mark original as credited
+    db.execute(
+        text("UPDATE invoices SET status='credited', credited_by_id=:cid WHERE id=:id"),
+        {"cid": credit_id, "id": orig["id"]},
+    )
+
+    # Create a matching refund Payment so dashboard revenue = net 0
+    refund_payment = Payment(
+        studio_id=ctx.studio_id,
+        appointment_id=payment.appointment_id,
+        client_id=payment.client_id,
+        amount_cents=abs(orig.get("total_cents") or 0),
+        currency=payment.currency,
+        type="refund",
+        status="paid",
+        method=payment.method,
+        notes=f"[זיכוי אוטומטי] עבור תשלום {str(payment_id)[:8]}",
+    )
+    db.add(refund_payment)
+    db.commit()
+
+    credit_row = db.execute(text("SELECT * FROM invoices WHERE id = :id"), {"id": credit_id}).fetchone()
+    result = dict(credit_row._mapping)
+    result["doc_type_label"] = "זיכוי"
+    result["total_ils"] = round((result.get("total_cents") or 0) / 100, 2)
+    return result
 
 @router.get("/appointments/{appointment_id}/balance", response_model=AppointmentBalanceOut)
 def balance(appointment_id: UUID, ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):

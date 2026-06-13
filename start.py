@@ -125,6 +125,11 @@ def ensure_schema():
 
         # ── Columns ─────────────────────────────────────────────────────────
         for stmt in [
+            # WhatsApp integration columns — added idempotently
+            "ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS whatsapp_provider VARCHAR(64)",
+            "ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS whatsapp_phone_id VARCHAR(255)",
+            "ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS whatsapp_api_key TEXT",
+            "ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS whatsapp_instance_id VARCHAR(255)",
             "ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS facebook_page_id VARCHAR(64)",
             "ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS instagram_account_id VARCHAR(64)",
             "ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS meta_page_access_token TEXT",
@@ -749,6 +754,164 @@ def ensure_schema():
             )
         """)
         cur.execute("CREATE INDEX IF NOT EXISTS ix_mpv_studio_date ON marketplace_page_views (studio_id, view_date)")
+
+        # ── BizFind Business Profiles ─────────────────────────────────────────
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS marketplace_profiles (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+
+                business_name VARCHAR(200) NOT NULL,
+                category VARCHAR(80),
+                city VARCHAR(80),
+                description TEXT,
+                phone VARCHAR(32),
+                whatsapp VARCHAR(32),
+                logo_url TEXT,
+                cover_image TEXT,
+
+                plan_code VARCHAR(40) NOT NULL DEFAULT 'trial',
+                is_active BOOLEAN NOT NULL DEFAULT true,
+                is_published BOOLEAN NOT NULL DEFAULT true,
+
+                website_url TEXT,
+                instagram_url TEXT,
+                facebook_url TEXT,
+                tiktok_url TEXT,
+
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+                UNIQUE (studio_id)
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_mp_studio ON marketplace_profiles (studio_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_mp_category ON marketplace_profiles (category)")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_mp_city ON marketplace_profiles (city)")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_mp_plan ON marketplace_profiles (plan_code)")
+
+        # Backfill existing studios that have marketplace data in studio_settings
+        cur.execute("""
+            INSERT INTO marketplace_profiles (id, studio_id, business_name, category, city, description, phone, whatsapp, logo_url, cover_image, plan_code, is_active, is_published)
+            SELECT
+                gen_random_uuid(),
+                s.id,
+                s.name,
+                NULL,
+                ss.marketplace_city,
+                ss.marketplace_description,
+                ss.marketplace_phone,
+                ss.marketplace_whatsapp,
+                s.logo_url,
+                ss.marketplace_cover_url,
+                COALESCE(s.subscription_plan, 'trial'),
+                s.is_active,
+                COALESCE(ss.marketplace_visible, false)
+            FROM studios s
+            LEFT JOIN studio_settings ss ON ss.studio_id = s.id
+            WHERE s.is_platform = false
+            ON CONFLICT (studio_id) DO NOTHING
+        """)
+
+        # ── BizFind Plan Feature Flags ────────────────────────────────────────
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS bizfind_plan_features (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                plan_code VARCHAR(40) NOT NULL,
+                feature_key VARCHAR(80) NOT NULL,
+                feature_label VARCHAR(200),
+                is_enabled BOOLEAN NOT NULL DEFAULT true,
+                limit_value INTEGER,          -- NULL = unlimited
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                UNIQUE (plan_code, feature_key)
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_bpf_plan ON bizfind_plan_features (plan_code)")
+
+        # Seed default feature flags per plan (idempotent via ON CONFLICT DO NOTHING)
+        _plan_features = [
+            # (plan_code, feature_key, feature_label, is_enabled, limit_value)
+            # ── trial ──────────────────────────────────────────────────────────
+            ("trial", "bizfind_listing",         "פרופיל עסקי ב-BizFind",          True,  None),
+            ("trial", "online_booking",           "הזמנות תורים אונליין",            True,  None),
+            ("trial", "leads_inbox",              "קבלת לידים",                      True,  None),
+            ("trial", "bizcontrol_calendar",      "יומן BizControl",                 True,  None),
+            ("trial", "bizcontrol_crm",           "CRM לקוחות",                      True,  None),
+            ("trial", "bizcontrol_payments",      "תשלומים וקבלות",                  True,  None),
+            ("trial", "bizcontrol_pos",           "קופה",                            True,  None),
+            ("trial", "bizcontrol_automations",   "אוטומציות ו-WhatsApp",            True,  None),
+            ("trial", "trial_days",               "ימי ניסיון",                       True,  14),
+            # ── bizfind_basic ──────────────────────────────────────────────────
+            ("bizfind_basic", "bizfind_listing",  "פרופיל עסקי ב-BizFind",          True,  None),
+            ("bizfind_basic", "online_booking",   "הזמנות תורים אונליין",            True,  50),
+            ("bizfind_basic", "leads_inbox",      "קבלת לידים",                      True,  None),
+            ("bizfind_basic", "gallery",          "גלריית תמונות",                   True,  10),
+            ("bizfind_basic", "bizcontrol_calendar", "יומן BizControl",              False, None),
+            ("bizfind_basic", "bizcontrol_crm",   "CRM לקוחות",                      False, None),
+            ("bizfind_basic", "bizcontrol_payments", "תשלומים",                      False, None),
+            # ── bizfind_pro ────────────────────────────────────────────────────
+            ("bizfind_pro", "bizfind_listing",    "פרופיל עסקי ב-BizFind",          True,  None),
+            ("bizfind_pro", "online_booking",     "הזמנות תורים אונליין",            True,  None),
+            ("bizfind_pro", "leads_inbox",        "קבלת לידים",                      True,  None),
+            ("bizfind_pro", "gallery",            "גלריית תמונות",                   True,  None),
+            ("bizfind_pro", "reviews",            "ביקורות ודירוג",                  True,  None),
+            ("bizfind_pro", "analytics",          "סטטיסטיקות",                      True,  None),
+            ("bizfind_pro", "priority_listing",   "הופעה מועדפת בחיפוש",            True,  None),
+            ("bizfind_pro", "bizcontrol_calendar","יומן BizControl",                 False, None),
+            ("bizfind_pro", "bizcontrol_crm",     "CRM לקוחות",                      False, None),
+            # ── starter (BizFind + BizControl Starter) ────────────────────────
+            ("starter", "bizfind_listing",        "פרופיל עסקי ב-BizFind",          True,  None),
+            ("starter", "online_booking",         "הזמנות תורים אונליין",            True,  None),
+            ("starter", "leads_inbox",            "קבלת לידים",                      True,  None),
+            ("starter", "gallery",                "גלריית תמונות",                   True,  None),
+            ("starter", "reviews",                "ביקורות ודירוג",                  True,  None),
+            ("starter", "analytics",              "סטטיסטיקות",                      True,  None),
+            ("starter", "bizcontrol_calendar",    "יומן BizControl",                 True,  None),
+            ("starter", "bizcontrol_crm",         "CRM לקוחות",                      True,  None),
+            ("starter", "bizcontrol_payments",    "תשלומים וקבלות",                  True,  None),
+            ("starter", "max_artists",            "מספר מקסימלי של אמנים",           True,  2),
+            ("starter", "bizcontrol_automations", "אוטומציות",                       False, None),
+            ("starter", "bizcontrol_pos",         "קופה",                            False, None),
+            # ── pro (BizFind + BizControl Pro) ────────────────────────────────
+            ("pro", "bizfind_listing",            "פרופיל עסקי ב-BizFind",          True,  None),
+            ("pro", "online_booking",             "הזמנות תורים אונליין",            True,  None),
+            ("pro", "leads_inbox",                "קבלת לידים",                      True,  None),
+            ("pro", "gallery",                    "גלריית תמונות",                   True,  None),
+            ("pro", "reviews",                    "ביקורות ודירוג",                  True,  None),
+            ("pro", "analytics",                  "סטטיסטיקות",                      True,  None),
+            ("pro", "priority_listing",           "הופעה מועדפת בחיפוש",            True,  None),
+            ("pro", "bizcontrol_calendar",        "יומן BizControl",                 True,  None),
+            ("pro", "bizcontrol_crm",             "CRM לקוחות",                      True,  None),
+            ("pro", "bizcontrol_payments",        "תשלומים וקבלות",                  True,  None),
+            ("pro", "bizcontrol_automations",     "אוטומציות ו-WhatsApp",            True,  None),
+            ("pro", "bizcontrol_pos",             "קופה",                            True,  None),
+            ("pro", "max_artists",                "מספר מקסימלי של אמנים",           True,  5),
+            ("pro", "bizcontrol_ai",              "AI — ויקי",                        True,  None),
+            # ── studio (BizFind + BizControl Studio) ──────────────────────────
+            ("studio", "bizfind_listing",         "פרופיל עסקי ב-BizFind",          True,  None),
+            ("studio", "online_booking",          "הזמנות תורים אונליין",            True,  None),
+            ("studio", "leads_inbox",             "קבלת לידים",                      True,  None),
+            ("studio", "gallery",                 "גלריית תמונות",                   True,  None),
+            ("studio", "reviews",                 "ביקורות ודירוג",                  True,  None),
+            ("studio", "analytics",               "סטטיסטיקות",                      True,  None),
+            ("studio", "priority_listing",        "הופעה מועדפת בחיפוש",            True,  None),
+            ("studio", "bizcontrol_calendar",     "יומן BizControl",                 True,  None),
+            ("studio", "bizcontrol_crm",          "CRM לקוחות",                      True,  None),
+            ("studio", "bizcontrol_payments",     "תשלומים וקבלות",                  True,  None),
+            ("studio", "bizcontrol_automations",  "אוטומציות ו-WhatsApp",            True,  None),
+            ("studio", "bizcontrol_pos",          "קופה",                            True,  None),
+            ("studio", "bizcontrol_ai",           "AI — ויקי",                        True,  None),
+            ("studio", "self_booking_page",       "דף הזמנה עצמית",                  True,  None),
+            ("studio", "excel_export",            "ייצוא Excel",                      True,  None),
+            ("studio", "max_artists",             "מספר מקסימלי של אמנים",           True,  None),  # unlimited
+        ]
+        for row in _plan_features:
+            cur.execute("""
+                INSERT INTO bizfind_plan_features
+                    (id, plan_code, feature_key, feature_label, is_enabled, limit_value)
+                VALUES (gen_random_uuid(), %s, %s, %s, %s, %s)
+                ON CONFLICT (plan_code, feature_key) DO NOTHING
+            """, row)
 
         conn.commit()
         cur.close()

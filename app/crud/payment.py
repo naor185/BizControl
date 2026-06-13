@@ -208,7 +208,118 @@ def create_payment(db: Session, studio_id: UUID, data) -> Payment:
         
         db.commit()
 
+    # Auto-create invoice/receipt for paid transactions (best-effort, non-blocking)
+    if obj.status == "paid" and obj.type in ("payment", "deposit"):
+        try:
+            _auto_create_invoice(db, studio_id, obj, appt, client)
+        except Exception:
+            import logging as _log
+            _log.getLogger(__name__).exception("Auto-invoice failed for payment %s", obj.id)
+
     return obj
+
+def _auto_create_invoice(db: Session, studio_id: UUID, payment: Payment, appt, client) -> None:
+    """Create an invoice/receipt automatically when a payment is recorded."""
+    import uuid as _uuid
+    from sqlalchemy import text
+
+    # Get invoice settings
+    settings_row = db.execute(
+        text("SELECT * FROM invoice_settings WHERE studio_id = :sid"),
+        {"sid": str(studio_id)},
+    ).fetchone()
+    settings = dict(settings_row._mapping) if settings_row else {}
+    biz_type = settings.get("business_type", "osek_patur")
+
+    studio_row = db.execute(
+        text("SELECT name, logo_url FROM studios WHERE id = :sid"),
+        {"sid": str(studio_id)},
+    ).fetchone()
+    studio_name = studio_row[0] if studio_row else ""
+    studio_logo = studio_row[1] if studio_row else None
+
+    # osek_patur → receipt; murshe/chevra_baam → invoice_tax_receipt
+    doc_type = "receipt" if biz_type == "osek_patur" else "invoice_tax_receipt"
+
+    # Atomic serial number
+    result = db.execute(
+        text("""
+            INSERT INTO invoice_series (studio_id, doc_type, next_number)
+            VALUES (:sid, :dt, 1001)
+            ON CONFLICT (studio_id, doc_type)
+            DO UPDATE SET next_number = invoice_series.next_number + 1
+            RETURNING next_number - 1
+        """),
+        {"sid": str(studio_id), "dt": doc_type},
+    ).fetchone()
+    db.commit()
+    doc_number = result[0]
+
+    # VAT calculation: payment amount is treated as total (VAT-inclusive for murshe)
+    vat_rate = float(settings.get("vat_rate") or 18.0)
+    if biz_type == "osek_patur":
+        subtotal_cents = payment.amount_cents
+        vat_amount_cents = 0
+        total_cents = payment.amount_cents
+    else:
+        # Price is VAT-inclusive → extract net
+        subtotal_cents = int(round(payment.amount_cents / (1 + vat_rate / 100)))
+        vat_amount_cents = payment.amount_cents - subtotal_cents
+        total_cents = payment.amount_cents
+
+    invoice_id = str(_uuid.uuid4())
+    description = getattr(appt, "title", None) or "שירות"
+
+    db.execute(
+        text("""
+            INSERT INTO invoices (
+                id, studio_id, doc_type, doc_number, status,
+                client_id, client_name, client_phone,
+                business_name, business_type, business_number,
+                business_address, business_phone, business_email, business_logo_url,
+                subtotal_cents, vat_rate, vat_amount_cents, total_cents, tip_cents,
+                payment_method, source, source_id,
+                issued_by_id, issued_at
+            ) VALUES (
+                :id, :sid, :dt, :dn, 'issued',
+                :cid, :cname, :cphone,
+                :bname, :btype, :bnum,
+                :baddr, :bphone, :bemail, :blogo,
+                :sub, :vr, :vat, :total, 0,
+                :method, 'payment', :src_id,
+                NULL, NOW()
+            )
+        """),
+        {
+            "id": invoice_id, "sid": str(studio_id), "dt": doc_type, "dn": doc_number,
+            "cid": str(client.id), "cname": client.full_name, "cphone": client.phone,
+            "bname": settings.get("business_name") or studio_name,
+            "btype": biz_type,
+            "bnum": settings.get("business_number"),
+            "baddr": settings.get("business_address"),
+            "bphone": settings.get("business_phone"),
+            "bemail": settings.get("business_email"),
+            "blogo": settings.get("logo_url") or studio_logo,
+            "sub": subtotal_cents, "vr": vat_rate, "vat": vat_amount_cents, "total": total_cents,
+            "method": payment.method,
+            "src_id": str(payment.id),
+        },
+    )
+
+    db.execute(
+        text("""
+            INSERT INTO invoice_items
+                (id, invoice_id, description, quantity, unit_price_cents, total_price_cents, sort_order)
+            VALUES (:id, :inv, :desc, 1, :up, :tp, 0)
+        """),
+        {
+            "id": str(_uuid.uuid4()), "inv": invoice_id,
+            "desc": description,
+            "up": subtotal_cents, "tp": subtotal_cents,
+        },
+    )
+    db.commit()
+
 
 def list_payments(db: Session, studio_id: UUID, appointment_id: UUID | None = None, client_id: UUID | None = None) -> list[Payment]:
     stmt = select(Payment).where(Payment.studio_id == studio_id)
@@ -287,6 +398,34 @@ def delete_all_client_payments(db: Session, studio_id: UUID, client_id: UUID) ->
         db.delete(entry)
     db.commit()
     return count
+
+
+def _cascade_delete_linked_invoices(db: Session, payment_id: UUID) -> None:
+    """Delete all invoices (+ credit notes) linked to this payment. invoice_items cascade via FK."""
+    from sqlalchemy import text
+    pid = str(payment_id)
+
+    to_delete: set[str] = set()
+
+    direct = db.execute(
+        text("SELECT id, credited_by_id FROM invoices WHERE source_id = :pid"),
+        {"pid": pid},
+    ).fetchall()
+    for row in direct:
+        to_delete.add(str(row[0]))
+        if row[1]:
+            to_delete.add(str(row[1]))
+
+    for inv_id in list(to_delete):
+        credits = db.execute(
+            text("SELECT id FROM invoices WHERE credits_invoice_id = :iid"),
+            {"iid": inv_id},
+        ).fetchall()
+        for r in credits:
+            to_delete.add(str(r[0]))
+
+    for inv_id in to_delete:
+        db.execute(text("DELETE FROM invoices WHERE id = :id"), {"id": inv_id})
 
 
 def delete_payment(db: Session, studio_id: UUID, payment_id: UUID, with_appointment: bool = False) -> bool:
@@ -372,7 +511,10 @@ def delete_payment(db: Session, studio_id: UUID, payment_id: UUID, with_appointm
     from app.crud.birthday_coupon import restore_coupon
     restore_coupon(db, payment_id)
 
-    # 4. Delete the payment itself
+    # 4. Cascade-delete linked invoices/credit-notes (invoice_items cascade via FK)
+    _cascade_delete_linked_invoices(db, payment_id)
+
+    # 5. Delete the payment itself
     appt_id = obj.appointment_id
     db.delete(obj)
 
