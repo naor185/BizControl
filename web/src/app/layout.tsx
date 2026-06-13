@@ -9,9 +9,9 @@ export const metadata = {
   description: "Studio CRM",
   manifest: "/manifest.json",
   icons: {
-    icon: "/logo.png",
-    apple: "/logo.png",
-    shortcut: "/logo.png",
+    icon: "/icons/icon-192.png",
+    apple: "/icons/icon-192.png",
+    shortcut: "/icons/icon-192.png",
   },
 };
 
