@@ -1177,13 +1177,11 @@ def get_bizfind_connectable_studios(admin: User = Depends(require_superadmin), d
                wc.phone_number
         FROM studios s
         LEFT JOIN studio_settings ss ON ss.studio_id = s.id
-        LEFT JOIN whatsapp_connections wc ON wc.studio_id = s.id AND wc.status = 'authorized'
+        LEFT JOIN whatsapp_connections wc ON wc.studio_id = s.id
         WHERE s.is_platform IS NOT TRUE
-          AND s.is_active = TRUE
           AND (
-              (ss.whatsapp_provider = 'green_api' AND ss.whatsapp_instance_id IS NOT NULL AND ss.whatsapp_api_key IS NOT NULL)
-              OR
-              (wc.id IS NOT NULL AND wc.status = 'authorized')
+              ss.whatsapp_instance_id IS NOT NULL
+              OR wc.instance_id IS NOT NULL
           )
         ORDER BY s.name
     """)).fetchall()
