@@ -79,10 +79,14 @@ function LoginContent() {
         setErr(null);
         setFieldErr(null);
         const l: Lang = locale.startsWith("en") ? "en" : "he";
-        if (!slug.trim()) { setErr(l === "he" ? "יש להזין מזהה סטודיו" : "Studio ID is required"); setFieldErr("slug"); return; }
         if (!emailVal.trim()) { setErr(l === "he" ? "יש להזין אימייל" : "Email is required"); setFieldErr("email"); return; }
         if (pwd.length < 6) { setErr(l === "he" ? "הסיסמה חייבת להכיל לפחות 6 תווים" : "Password must be at least 6 characters"); setFieldErr("password"); return; }
         setLoading(true);
+        // If slug omitted → use email-only login (finds owner by email alone)
+        const endpoint = slug.trim() ? "/api/auth/login" : "/api/auth/login-by-email";
+        const body = slug.trim()
+            ? { studio_slug: slug.toLowerCase().trim(), email: emailVal.toLowerCase().trim(), password: pwd }
+            : { email: emailVal.toLowerCase().trim(), password: pwd };
         try {
             const res = await apiFetch<{
                 access_token?: string;
@@ -90,16 +94,8 @@ function LoginContent() {
                 requires_2fa?: boolean;
                 pending_token?: string;
             }>(
-                "/api/auth/login",
-                {
-                    method: "POST",
-                    auth: false,
-                    body: JSON.stringify({
-                        studio_slug: slug.toLowerCase().trim(),
-                        email: emailVal.toLowerCase().trim(),
-                        password: pwd,
-                    }),
-                },
+                endpoint,
+                { method: "POST", auth: false, body: JSON.stringify(body) },
             );
 
             if (res.requires_2fa && res.pending_token) {
@@ -279,7 +275,7 @@ function LoginContent() {
                                     onChange={e => setStudioSlug(e.target.value)}
                                     autoComplete="username"
                                     dir="ltr"
-                                    placeholder="my-studio"
+                                    placeholder="my-studio  (השאר ריק אם אתה בעל עסק)"
                                 />
                             </div>
 

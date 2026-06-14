@@ -2,26 +2,34 @@
 import { useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-// Receives ?t=JWT_TOKEN from BizFind, stores it as bizcontrol_token, redirects to onboarding
+const API = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
+
 function AutoLoginInner() {
     const router = useRouter();
     const params = useSearchParams();
 
     useEffect(() => {
-        const token = params.get("t");
-        const dest  = params.get("next") || "/onboarding";
+        const code = params.get("code");
+        const dest = params.get("next") || "/onboarding";
 
-        if (!token) {
+        if (!code) {
             router.replace("/login");
             return;
         }
 
-        // Store token in BizControl's expected key
-        localStorage.setItem("bizcontrol_token", token);
-        // Also clear any stale BizFind key to avoid confusion
-        localStorage.removeItem("biz_studio_token");
-
-        router.replace(dest);
+        // Exchange the one-time code for a real JWT — code never stays in history
+        fetch(`${API}/api/auth/use-handoff`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ code }),
+        })
+            .then(r => r.ok ? r.json() : Promise.reject())
+            .then(data => {
+                localStorage.setItem("bizcontrol_token", data.access_token);
+                localStorage.removeItem("biz_studio_token");
+                router.replace(dest);
+            })
+            .catch(() => router.replace("/login"));
     }, [params, router]);
 
     return (

@@ -25,6 +25,8 @@ export default function StudioLoginPage() {
             if (!res.ok) throw new Error(data.detail || "מייל או סיסמה שגויים");
             setToken(data.access_token);
             localStorage.setItem("biz_studio_token", data.access_token);
+            // Same JWT works for BizControl — store it so no re-login needed
+            localStorage.setItem("bizcontrol_token", data.access_token);
             router.push("/studio/dashboard");
         } catch (e: any) { setErr(e.message); }
         finally { setLoading(false); }

@@ -31,7 +31,7 @@ export const translations = {
         // Auth
         login_title:    "התחברות למערכת",
         login_subtitle: "הזן את פרטי הגישה שלך",
-        login_slug:     "מזהה סטודיו (Slug)",
+        login_slug:     "מזהה סטודיו (לא חובה לבעלי עסק)",
         login_email:    "אימייל",
         login_password: "סיסמה",
         login_remember: "זכור אותי",
@@ -111,7 +111,7 @@ export const translations = {
         // Auth
         login_title:    "Sign in",
         login_subtitle: "Enter your access credentials",
-        login_slug:     "Studio ID (Slug)",
+        login_slug:     "Studio ID (optional for owners)",
         login_email:    "Email",
         login_password: "Password",
         login_remember: "Remember me",

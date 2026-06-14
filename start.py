@@ -989,6 +989,16 @@ def ensure_schema():
         cur.execute("CREATE INDEX IF NOT EXISTS ix_email_logs_studio ON email_logs (studio_id)")
         cur.execute("CREATE INDEX IF NOT EXISTS ix_email_logs_sent_at ON email_logs (sent_at DESC)")
 
+        # ── Cross-app secure handoff (one-time codes, replaces JWT-in-URL) ────
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS auth_handoff_codes (
+                code UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                token TEXT NOT NULL,
+                expires_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '2 minutes'),
+                used_at TIMESTAMPTZ
+            )
+        """)
+
         conn.commit()
         cur.close()
         conn.close()

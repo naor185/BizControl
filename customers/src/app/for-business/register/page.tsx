@@ -60,7 +60,7 @@ function RegisterInner() {
     const [loading, setLoading] = useState(false);
     const [err, setErr] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
-    const [registeredData, setRegisteredData] = useState<{ scope_bizcontrol: boolean; token: string } | null>(null);
+    const [registeredData, setRegisteredData] = useState<{ scope_bizcontrol: boolean; handoffCode: string | null } | null>(null);
 
     const plan = PLAN_META[planKey] || PLAN_META["trial"];
     const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
@@ -94,7 +94,19 @@ function RegisterInner() {
             if (!res.ok) throw new Error(data.detail || "שגיאה ברישום");
             setToken(data.access_token);
             localStorage.setItem("biz_studio_token", data.access_token);
-            setRegisteredData({ scope_bizcontrol: data.scope_bizcontrol, token: data.access_token });
+            localStorage.setItem("bizcontrol_token", data.access_token);
+
+            // Create a one-time handoff code so we never expose the JWT in the URL
+            let handoffCode: string | null = null;
+            try {
+                const hRes = await fetch(`${API}/api/auth/create-handoff`, {
+                    method: "POST",
+                    headers: { Authorization: `Bearer ${data.access_token}` },
+                });
+                if (hRes.ok) handoffCode = (await hRes.json()).code;
+            } catch {}
+
+            setRegisteredData({ scope_bizcontrol: data.scope_bizcontrol, handoffCode });
             setSuccess(true);
         } catch (e: any) {
             setErr(e.message);
@@ -112,7 +124,9 @@ function RegisterInner() {
     const labelStyle = { display: "block", fontSize: "0.85rem", fontWeight: 700, color: "#374151", marginBottom: "0.45rem" };
 
     if (success && registeredData) {
-        const bizControlUrl = `https://biz-control.com/auto-login?t=${encodeURIComponent(registeredData.token)}&next=/onboarding`;
+        const bizControlUrl = registeredData.handoffCode
+            ? `https://biz-control.com/auto-login?code=${registeredData.handoffCode}&next=/onboarding`
+            : `https://biz-control.com/onboarding`;
 
         return (
             <div style={{ textAlign: "center", padding: "2rem 0.5rem" }}>

@@ -109,6 +109,94 @@ def verify_2fa(request: Request, payload: TwoFAVerifyIn, db: Session = Depends(g
     return _issue_full_tokens(user, db)
 
 
+# ── Login by email only (no slug — for owners with a single studio) ───────────
+
+class EmailLoginIn(BaseModel):
+    email: str
+    password: str
+
+
+@router.post("/login-by-email")
+@limiter.limit("10/minute")
+def login_by_email(request: Request, payload: EmailLoginIn, db: Session = Depends(get_db)):
+    """Login without studio slug — finds owner/admin by email alone."""
+    from argon2.exceptions import VerifyMismatchError as _VE
+    email = payload.email.lower().strip()
+    user = db.query(User).filter(
+        User.email == email,
+        User.is_active == True,  # noqa
+        User.role.in_(["owner", "admin", "superadmin"]),
+    ).order_by(User.created_at).first()
+    if not user:
+        raise HTTPException(status_code=401, detail="email_not_found")
+    try:
+        ph.verify(user.password_hash, payload.password)
+    except _VE:
+        raise HTTPException(status_code=401, detail="wrong_password")
+    if user.totp_secret:
+        return {
+            "requires_2fa": True,
+            "pending_token": _create_pending_token(str(user.id), str(user.studio_id)),
+        }
+    return _issue_full_tokens(user, db)
+
+
+# ── Cross-app handoff (secure one-time code instead of JWT in URL) ────────────
+
+from sqlalchemy import text as _text
+
+
+class UseHandoffIn(BaseModel):
+    code: str
+
+
+@router.post("/create-handoff")
+def create_handoff(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Authenticated: create a 2-minute one-time code wrapping the caller's token."""
+    access = create_access_token({
+        "user_id": str(current_user.id),
+        "studio_id": str(current_user.studio_id),
+        "role": current_user.role,
+    })
+    row = db.execute(
+        _text("INSERT INTO auth_handoff_codes (token) VALUES (:t) RETURNING code"),
+        {"t": access},
+    ).fetchone()
+    db.commit()
+    return {"code": str(row[0])}
+
+
+@router.post("/use-handoff")
+@limiter.limit("20/minute")
+def use_handoff(request: Request, payload: UseHandoffIn, db: Session = Depends(get_db)):
+    """Exchange a one-time code for a real JWT (code consumed on first use)."""
+    row = db.execute(
+        _text("""
+            SELECT token, expires_at, used_at
+            FROM auth_handoff_codes
+            WHERE code = :code
+        """),
+        {"code": payload.code},
+    ).fetchone()
+    if not row:
+        raise HTTPException(status_code=400, detail="קוד לא תקין")
+    token, expires_at, used_at = row
+    if used_at is not None:
+        raise HTTPException(status_code=400, detail="קוד כבר נוצל")
+    from datetime import datetime, timezone as _tz
+    if datetime.now(_tz.utc) > expires_at.replace(tzinfo=_tz.utc):
+        raise HTTPException(status_code=400, detail="קוד פג תוקף")
+    db.execute(
+        _text("UPDATE auth_handoff_codes SET used_at = NOW() WHERE code = :code"),
+        {"code": payload.code},
+    )
+    db.commit()
+    return {"access_token": token, "token_type": "bearer"}
+
+
 # ── Refresh ───────────────────────────────────────────────────────────────────
 
 @router.post("/refresh", response_model=TokenResponse)
