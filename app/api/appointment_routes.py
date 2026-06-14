@@ -243,27 +243,39 @@ def patch(appointment_id: UUID, payload: AppointmentUpdate, ctx: AuthContext = D
     if not obj:
         raise HTTPException(status_code=404, detail="Appointment not found")
 
-    # If starts_at changed, cancel pending reminder jobs so rescheduled clients
-    # don't receive stale reminders from the old date
+    # If starts_at changed: cancel stale REMINDER jobs (not reschedule notifications)
+    # then send a reschedule notification to the client
     try:
         if payload.starts_at and existing_appt and prev_starts_at:
-            # Safe comparison — strip tz from both sides to avoid aware vs naive TypeError
             def _to_naive(dt):
                 return dt.replace(tzinfo=None) if getattr(dt, "tzinfo", None) else dt
             if _to_naive(payload.starts_at) != _to_naive(prev_starts_at):
                 from sqlalchemy import update as sa_update
+                _REMINDER_TYPES = ["1day", "3day", "7day", "same_day", "same_day_email",
+                                   "1day_email", "3day_email", "7day_email"]
                 db.execute(
                     sa_update(MessageJob)
                     .where(
                         MessageJob.appointment_id == appointment_id,
                         MessageJob.status == "pending",
+                        MessageJob.reminder_type.in_(_REMINDER_TYPES),
                     )
                     .values(status="canceled")
                 )
                 db.commit()
-                log.info("Canceled pending message jobs for rescheduled appointment %s", appointment_id)
+                log.info("Canceled stale reminder jobs for rescheduled appointment %s", appointment_id)
+
+                # Send reschedule notification from the route (after stale reminders are cleared)
+                # Note: update_appointment also tries this, but from here we ensure it always fires
+                _appt_after = get_appointment(db, ctx.studio_id, appointment_id)
+                if _appt_after and _appt_after.status == "scheduled":
+                    from app.crud.automation import enqueue_reschedule_message
+                    try:
+                        enqueue_reschedule_message(db, _appt_after)
+                    except Exception as _re:
+                        log.warning("enqueue_reschedule_message failed: %s", _re)
     except Exception as e:
-        log.warning("Failed to cancel pending message jobs for %s: %s", appointment_id, e)
+        log.warning("Failed to handle reschedule jobs for %s: %s", appointment_id, e)
 
     # Add stamp when appointment transitions to "done"
     new_status = payload.model_dump(exclude_unset=True).get("status")

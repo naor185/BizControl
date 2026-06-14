@@ -24,8 +24,8 @@ _DEFAULTS = {
     "provider": "resend",
     "api_key": None,
     "domain": "biz-control.com",
-    "system_email": "noreply@biz-control.com",
-    "notification_email": "notifications@biz-control.com",
+    "system_email": "system@biz-control.com",           # כניסה, איפוס סיסמה, התראות מערכת
+    "notification_email": "appointments@biz-control.com",  # תורים, קבלות, מסרים ללקוחות
     "support_email": "support@biz-control.com",
     "reply_email_default": "support@biz-control.com",
     "email_sending_enabled": True,
@@ -59,6 +59,15 @@ def get_studio_email_settings(db: Session, studio_id: str) -> dict:
         return dict(row._mapping) if row else {}
     except Exception:
         return {}
+
+
+def studio_email_allowed(db: Session, studio_id, toggle_key: str) -> bool:
+    """Check if a specific email type is enabled for a studio. Defaults to True if not set."""
+    try:
+        s = get_studio_email_settings(db, str(studio_id))
+        return bool(s.get(toggle_key, True))
+    except Exception:
+        return True
 
 
 # ── Logging helper ────────────────────────────────────────────────────────────
@@ -184,9 +193,12 @@ def send_email(
              error="No API key configured")
         return False
 
-    # Build From address
-    notification_email = settings.get("notification_email", "notifications@biz-control.com")
-    from_addr = f"{from_name} via BizControl <{notification_email}>"
+    # Build From address — system emails use system_email, client-facing use notification_email
+    if email_type == "system":
+        from_email = settings.get("system_email", "system@biz-control.com")
+    else:
+        from_email = settings.get("notification_email", "appointments@biz-control.com")
+    from_addr = f"{from_name} <{from_email}>"
 
     # Resolve Reply-To
     if not reply_to and studio_id:

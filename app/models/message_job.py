@@ -17,6 +17,7 @@ class MessageJob(Base):
     channel: Mapped[str] = mapped_column(String(16), nullable=False)
     to_phone: Mapped[str] = mapped_column(String(40), nullable=False)
     body: Mapped[str] = mapped_column(Text, nullable=False)
+    subject: Mapped[str | None] = mapped_column(String(255), nullable=True)
     # reminder_type used for dedup (same_day | 1day | 3day | 7day | ...)
     reminder_type: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
 

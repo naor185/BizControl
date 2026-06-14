@@ -46,6 +46,15 @@ class SystemSettingsIn(BaseModel):
 class StudioEmailSettingsIn(BaseModel):
     reply_to_email: Optional[str] = None
     business_signature: Optional[str] = None
+    email_confirmation_enabled:     bool = True
+    email_reminder_enabled:         bool = True
+    email_deposit_approved_enabled: bool = True
+    email_reschedule_enabled:       bool = True
+    email_cancel_enabled:           bool = True
+    email_post_payment_enabled:     bool = True
+    email_birthday_enabled:         bool = True
+    email_club_invite_enabled:      bool = True
+    email_receipt_enabled:          bool = True
 
 
 class TestEmailIn(BaseModel):
@@ -281,14 +290,43 @@ def update_studio_settings(
 
     db.execute(
         text("""
-            INSERT INTO studio_email_settings (studio_id, reply_to_email, business_signature, updated_at)
-            VALUES (:sid, :rte, :sig, NOW())
+            INSERT INTO studio_email_settings
+                (studio_id, reply_to_email, business_signature,
+                 email_confirmation_enabled, email_reminder_enabled,
+                 email_deposit_approved_enabled, email_reschedule_enabled,
+                 email_cancel_enabled, email_post_payment_enabled,
+                 email_birthday_enabled, email_club_invite_enabled,
+                 email_receipt_enabled, updated_at)
+            VALUES
+                (:sid, :rte, :sig,
+                 :conf, :remind, :deposit, :resched,
+                 :cancel, :postpay, :bday, :club, :receipt, NOW())
             ON CONFLICT (studio_id) DO UPDATE SET
-                reply_to_email     = EXCLUDED.reply_to_email,
-                business_signature = EXCLUDED.business_signature,
-                updated_at         = NOW()
+                reply_to_email                 = EXCLUDED.reply_to_email,
+                business_signature             = EXCLUDED.business_signature,
+                email_confirmation_enabled     = EXCLUDED.email_confirmation_enabled,
+                email_reminder_enabled         = EXCLUDED.email_reminder_enabled,
+                email_deposit_approved_enabled = EXCLUDED.email_deposit_approved_enabled,
+                email_reschedule_enabled       = EXCLUDED.email_reschedule_enabled,
+                email_cancel_enabled           = EXCLUDED.email_cancel_enabled,
+                email_post_payment_enabled     = EXCLUDED.email_post_payment_enabled,
+                email_birthday_enabled         = EXCLUDED.email_birthday_enabled,
+                email_club_invite_enabled      = EXCLUDED.email_club_invite_enabled,
+                email_receipt_enabled          = EXCLUDED.email_receipt_enabled,
+                updated_at                     = NOW()
         """),
-        {"sid": ctx.studio_id, "rte": body.reply_to_email, "sig": body.business_signature}
+        {
+            "sid": ctx.studio_id, "rte": body.reply_to_email, "sig": body.business_signature,
+            "conf":    body.email_confirmation_enabled,
+            "remind":  body.email_reminder_enabled,
+            "deposit": body.email_deposit_approved_enabled,
+            "resched": body.email_reschedule_enabled,
+            "cancel":  body.email_cancel_enabled,
+            "postpay": body.email_post_payment_enabled,
+            "bday":    body.email_birthday_enabled,
+            "club":    body.email_club_invite_enabled,
+            "receipt": body.email_receipt_enabled,
+        }
     )
     db.commit()
     return {"ok": True}

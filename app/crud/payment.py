@@ -320,7 +320,83 @@ def _auto_create_invoice(db: Session, studio_id: UUID, payment: Payment, appt, c
         },
     )
     db.commit()
+
+    # Send receipt link to client via WhatsApp
+    _enqueue_receipt_link(db, studio_id, invoice_id, appt, client)
+
     return invoice_id
+
+
+def _enqueue_receipt_link(db, studio_id, invoice_id: str, appt, client) -> None:
+    """Enqueue a WhatsApp message with the public receipt link after invoice creation."""
+    import os as _os
+    from app.models.message_job import MessageJob
+    from sqlalchemy import select as _sel
+    from datetime import datetime, timezone
+
+    if not client or not getattr(client, "phone", None):
+        return
+    if getattr(client, "whatsapp_opted_out", False):
+        return
+
+    # Dedup — only one receipt link per invoice
+    already = db.scalar(
+        _sel(MessageJob).where(
+            MessageJob.reminder_type == "receipt_link",
+            MessageJob.body.like(f"%{invoice_id}%"),
+        )
+    )
+    if already:
+        return
+
+    frontend_url = _os.getenv("FRONTEND_URL", "http://localhost:3000").rstrip("/")
+    receipt_url = f"{frontend_url}/receipt/{invoice_id}"
+    title = getattr(appt, "title", None) or "שירות"
+
+    from app.models.message_job import MessageJob
+    now = datetime.now(timezone.utc)
+
+    if client.phone:
+        db.add(MessageJob(
+            studio_id=studio_id,
+            client_id=client.id,
+            appointment_id=getattr(appt, "id", None),
+            channel="whatsapp",
+            to_phone=client.phone,
+            body=f"🧾 הקבלה שלך עבור {title}:\n{receipt_url}",
+            scheduled_at=now,
+            status="pending",
+            reminder_type="receipt_link",
+        ))
+
+    if getattr(client, "email", None):
+        from app.services.email_center import studio_email_allowed as _email_ok
+        if not _email_ok(db, studio_id, "email_receipt_enabled"):
+            db.commit()
+            return
+        from app.utils.email_templates import _email_base
+        email_html = (
+            f"<p>שלום <strong>{client.full_name or ''}</strong>,</p>"
+            f"<p>תודה על התשלום! 🙏<br>הקבלה שלך עבור <strong>{title}</strong> מוכנה.</p>"
+            f"<p style='margin:24px 0;'>"
+            f"<a href='{receipt_url}' style='display:inline-block;background:#1a1a2e;color:white;padding:14px 28px;border-radius:10px;text-decoration:none;font-weight:bold;font-size:15px;'>🧾 צפה בקבלה</a>"
+            f"</p>"
+            f"<p style='color:#94a3b8;font-size:12px;'>הקישור פעיל תמיד — ניתן לשמור או להדפיס בכל עת.</p>"
+        )
+        db.add(MessageJob(
+            studio_id=studio_id,
+            client_id=client.id,
+            appointment_id=getattr(appt, "id", None),
+            channel="email",
+            to_phone=client.email,
+            subject=f"🧾 הקבלה שלך עבור {title}",
+            body=_email_base("הקבלה שלך מוכנה 🧾", email_html),
+            scheduled_at=now,
+            status="pending",
+            reminder_type="receipt_link_email",
+        ))
+
+    db.commit()
 
 
 def list_payments(db: Session, studio_id: UUID, appointment_id: UUID | None = None, client_id: UUID | None = None) -> list[Payment]:

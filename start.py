@@ -936,15 +936,37 @@ def ensure_schema():
             )
         """)
         cur.execute("INSERT INTO email_system_settings (id) VALUES (1) ON CONFLICT DO NOTHING")
+        cur.execute("ALTER TABLE message_jobs ADD COLUMN IF NOT EXISTS subject VARCHAR(255)")
 
         cur.execute("""
             CREATE TABLE IF NOT EXISTS studio_email_settings (
                 studio_id UUID PRIMARY KEY REFERENCES studios(id) ON DELETE CASCADE,
                 reply_to_email VARCHAR(255),
                 business_signature TEXT,
+                email_confirmation_enabled     BOOLEAN NOT NULL DEFAULT TRUE,
+                email_reminder_enabled         BOOLEAN NOT NULL DEFAULT TRUE,
+                email_deposit_approved_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+                email_reschedule_enabled       BOOLEAN NOT NULL DEFAULT TRUE,
+                email_cancel_enabled           BOOLEAN NOT NULL DEFAULT TRUE,
+                email_post_payment_enabled     BOOLEAN NOT NULL DEFAULT TRUE,
+                email_birthday_enabled         BOOLEAN NOT NULL DEFAULT TRUE,
+                email_club_invite_enabled      BOOLEAN NOT NULL DEFAULT TRUE,
+                email_receipt_enabled          BOOLEAN NOT NULL DEFAULT TRUE,
                 updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
             )
         """)
+        for col, default in [
+            ("email_confirmation_enabled",     "TRUE"),
+            ("email_reminder_enabled",         "TRUE"),
+            ("email_deposit_approved_enabled", "TRUE"),
+            ("email_reschedule_enabled",       "TRUE"),
+            ("email_cancel_enabled",           "TRUE"),
+            ("email_post_payment_enabled",     "TRUE"),
+            ("email_birthday_enabled",         "TRUE"),
+            ("email_club_invite_enabled",      "TRUE"),
+            ("email_receipt_enabled",          "TRUE"),
+        ]:
+            cur.execute(f"ALTER TABLE studio_email_settings ADD COLUMN IF NOT EXISTS {col} BOOLEAN NOT NULL DEFAULT {default}")
 
         cur.execute("""
             CREATE TABLE IF NOT EXISTS email_logs (

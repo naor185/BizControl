@@ -219,22 +219,33 @@ export default function EmailCenterPage() {
                         {/* Email Addresses */}
                         <Section title="כתובות מייל" icon="📧">
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                {[
-                                    { key: "system_email",         label: "System Email",        placeholder: "noreply@biz-control.com" },
-                                    { key: "notification_email",   label: "Notification Email",   placeholder: "notifications@biz-control.com" },
-                                    { key: "support_email",        label: "Support Email",        placeholder: "support@biz-control.com" },
-                                    { key: "reply_email_default",  label: "Reply-To Default",     placeholder: "support@biz-control.com" },
-                                ].map(f => (
-                                    <div key={f.key}>
-                                        <label className={lbl}>{f.label}</label>
-                                        <input value={(form as any)[f.key] || ""} onChange={e => set(f.key as any, e.target.value)}
-                                            className={inp} dir="ltr" placeholder={f.placeholder} type="email" />
-                                    </div>
-                                ))}
+                                <div>
+                                    <label className={lbl}>מייל מערכת (כניסה / איפוס סיסמה)</label>
+                                    <input value={form.system_email || ""} onChange={e => set("system_email", e.target.value)}
+                                        className={inp} dir="ltr" placeholder="system@biz-control.com" type="email" />
+                                    <p className="text-xs text-slate-400 mt-1">נשלח ממנו: OTP, איפוס סיסמה, התראות פנימיות</p>
+                                </div>
+                                <div>
+                                    <label className={lbl}>מייל ללקוחות (תורים / קבלות)</label>
+                                    <input value={form.notification_email || ""} onChange={e => set("notification_email", e.target.value)}
+                                        className={inp} dir="ltr" placeholder="appointments@biz-control.com" type="email" />
+                                    <p className="text-xs text-slate-400 mt-1">נשלח ממנו: אישור תור, קבלה, תזכורות ללקוח קצה</p>
+                                </div>
+                                <div>
+                                    <label className={lbl}>מייל תמיכה</label>
+                                    <input value={form.support_email || ""} onChange={e => set("support_email", e.target.value)}
+                                        className={inp} dir="ltr" placeholder="support@biz-control.com" type="email" />
+                                </div>
+                                <div>
+                                    <label className={lbl}>Reply-To ברירת מחדל</label>
+                                    <input value={form.reply_email_default || ""} onChange={e => set("reply_email_default", e.target.value)}
+                                        className={inp} dir="ltr" placeholder="support@biz-control.com" type="email" />
+                                </div>
                             </div>
-                            <div className="mt-3 p-3 bg-blue-50 rounded-xl text-xs text-blue-700 font-mono">
-                                From: סטודיו X via BizControl &lt;{form.notification_email || "notifications@biz-control.com"}&gt;<br />
-                                Reply-To: &lt;studio@example.com&gt;
+                            <div className="mt-3 p-3 bg-blue-50 rounded-xl text-xs text-blue-700 space-y-1">
+                                <div className="font-semibold mb-1">תצוגה מקדימה:</div>
+                                <div className="font-mono">🔑 מערכת → From: <strong>{form.system_email || "system@biz-control.com"}</strong></div>
+                                <div className="font-mono">📅 לקוחות → From: <strong>{form.notification_email || "appointments@biz-control.com"}</strong></div>
                             </div>
                         </Section>
 

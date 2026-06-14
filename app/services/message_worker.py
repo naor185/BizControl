@@ -191,17 +191,41 @@ def process_due_jobs(db: Session, limit: int = 20) -> int:
 
             if job.channel == "email":
                 settings = db.get(StudioSettings, job.studio_id)
-                if not settings or not settings.resend_api_key:
-                    raise ValueError("Resend API key not configured for this studio")
-                asyncio.run(
-                    send_email(
-                        api_key=settings.resend_api_key,
-                        from_email=settings.resend_from_email or "",
-                        to_email=job.to_phone,
-                        subject="הודעה מסטודיו BizControl",
-                        html_content=job.body,
+                subject = getattr(job, "subject", None) or "הודעה מהסטודיו"
+                if settings and settings.resend_api_key:
+                    # Use studio's own Resend key
+                    from app.models.studio import Studio as _Studio
+                    _studio = db.get(_Studio, job.studio_id)
+                    studio_name = _studio.name if _studio else "BizControl"
+                    from_email = settings.resend_from_email or f"appointments@biz-control.com"
+                    asyncio.run(
+                        send_email(
+                            api_key=settings.resend_api_key,
+                            from_email=f"{studio_name} <{from_email}>",
+                            to_email=job.to_phone,
+                            subject=subject,
+                            html_content=job.body,
+                        )
                     )
-                )
+                else:
+                    # Fallback: use central Email Center
+                    from app.services.email_center import send_email as _ec_send
+                    from app.models.studio import Studio as _Studio
+                    _studio = db.get(_Studio, job.studio_id)
+                    studio_name = _studio.name if _studio else "BizControl"
+                    ok = _ec_send(
+                        db,
+                        to_email=job.to_phone,
+                        subject=subject,
+                        html_content=job.body,
+                        from_name=studio_name,
+                        studio_id=str(job.studio_id),
+                        client_id=str(job.client_id) if job.client_id else None,
+                        template_key=getattr(job, "reminder_type", None) or "notification",
+                        email_type="appointment",
+                    )
+                    if not ok:
+                        raise ValueError("Email center send failed — check system API key")
             else:
                 settings = db.get(StudioSettings, job.studio_id)
                 send_whatsapp_message(job.to_phone, job.body, settings, db=db)
@@ -527,6 +551,39 @@ def sweep_same_day_reminders(db: Session) -> int:
             ))
             count += 1
 
+        # Email same-day reminder
+        from app.services.email_center import studio_email_allowed as _email_ok
+        if client.email and not _already_enqueued(db, appt.id, "same_day_email") \
+                and _email_ok(db, appt.studio_id, "email_reminder_enabled"):
+            from app.utils.email_templates import _email_base
+            map_row = f'<tr><td style="padding:6px 12px 6px 0;color:#64748b;">🗺️ ניווט:</td><td><a href="{ctx["map_link"]}" style="color:#3b82f6;">לחץ כאן לניווט</a></td></tr>' if ctx.get("map_link") else ""
+            deposit_row = f'<tr><td colspan="2" style="padding:8px;background:#fef9c3;border-radius:8px;color:#854d0e;">⚠️ טרם שולמה מקדמה בסך ₪{ctx["deposit_amount"]}. <a href="{ctx["payment_link"]}" style="color:#854d0e;">לתשלום לחץ כאן</a></td></tr>' if (has_deposit and not deposit_paid and deposit_warning_enabled and ctx.get("payment_link")) else ""
+            email_html = (
+                f"<p>בוקר טוב <strong>{ctx['client_name']}</strong> ☀️</p>"
+                f"<p>תזכורת — <strong>היום יש לך תור!</strong></p>"
+                f"<table style='border-collapse:collapse;margin:16px 0;font-size:14px;'>"
+                f"<tr><td style='padding:6px 12px 6px 0;color:#64748b;'>📋 שירות:</td><td style='font-weight:bold;'>{ctx['appointment_title']}</td></tr>"
+                f"<tr><td style='padding:6px 12px 6px 0;color:#64748b;'>🕐 שעה:</td><td style='font-weight:bold;'>{ctx['appointment_time']}</td></tr>"
+                f"{'<tr><td style=\"padding:6px 12px 6px 0;color:#64748b;\">📍 כתובת:</td><td style=\"font-weight:bold;\">' + ctx['studio_address'] + '</td></tr>' if ctx.get('studio_address') else ''}"
+                f"{map_row}"
+                f"{deposit_row}"
+                f"</table>"
+                f"<p>מחכים לך! 🙌</p>"
+            )
+            db.add(MessageJob(
+                studio_id=appt.studio_id,
+                client_id=client.id,
+                appointment_id=appt.id,
+                channel="email",
+                to_phone=client.email,
+                subject=f"☀️ תזכורת לתור היום בשעה {ctx['appointment_time']}",
+                body=_email_base("תזכורת לתור היום ☀️", email_html),
+                scheduled_at=now_utc,
+                status="pending",
+                reminder_type="same_day_email",
+            ))
+            count += 1
+
     if count:
         db.commit()
     log.info("sweep_same_day_reminders: enqueued %d messages for %s", count, today_il)
@@ -625,6 +682,42 @@ def sweep_birthday_messages(db: Session) -> int:
                 status="pending",
             ))
             count += 1
+
+        # Email birthday message
+        from app.services.email_center import studio_email_allowed as _email_ok
+        if client.email and _email_ok(db, client.studio_id, "email_birthday_enabled"):
+            already_email = db.scalar(
+                select(MessageJob).where(
+                    MessageJob.client_id == client.id,
+                    MessageJob.reminder_type == "birthday_email",
+                    MessageJob.body.contains(f"birthday-email-{target_year}-{target_month:02d}"),
+                )
+            )
+            if not already_email:
+                from app.utils.email_templates import _email_base
+                email_tag = f"birthday-email-{target_year}-{target_month:02d}"
+                email_html = (
+                    f"<!-- {email_tag} -->"
+                    f"<p>היי <strong>{context['client_name']}</strong>, מזל טוב! 🎉</p>"
+                    f"<p>יום ההולדת שלך מתקרב 🥳<br>הנה הטבה מיוחדת של <strong>{context['benefit_percent']}% הנחה</strong> לחודש ההולדת שלך — במיוחד בשבילך ❤️</p>"
+                    f"<div style='background:#fef9c3;border-radius:12px;padding:16px 20px;margin:20px 0;text-align:center;'>"
+                    f"<div style='font-size:13px;color:#92400e;margin-bottom:6px;'>קוד הקופון שלך:</div>"
+                    f"<div style='font-size:24px;font-weight:900;letter-spacing:4px;color:#1a1a2e;'>{context['coupon_code']}</div>"
+                    f"</div>"
+                    f"<p style='color:#64748b;font-size:13px;'>הקוד תקף לחודש {target_month}/{target_year}. הזן בקופה בעת התשלום.</p>"
+                )
+                db.add(MessageJob(
+                    studio_id=client.studio_id,
+                    client_id=client.id,
+                    channel="email",
+                    to_phone=client.email,
+                    subject=f"🎉 מזל טוב! הטבת יום הולדת {context['benefit_percent']}% מחכה לך",
+                    body=_email_base("מזל טוב! 🎉 הטבה מיוחדת בשבילך", email_html),
+                    scheduled_at=now,
+                    status="pending",
+                    reminder_type="birthday_email",
+                ))
+                count += 1
 
     if count:
         db.commit()

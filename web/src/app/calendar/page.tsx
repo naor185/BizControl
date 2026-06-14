@@ -968,7 +968,16 @@ export default function CalendarPage() {
                                 {/* Date & Time */}
                                 <div className="flex gap-3">
                                     <div className="flex-1">
-                                        <label className="block text-sm font-semibold text-slate-700 mb-1">התחלה</label>
+                                        <label className="block text-sm font-semibold text-slate-700 mb-1">
+                                            התחלה
+                                            {startAt && (() => {
+                                                const days = ["ראשון","שני","שלישי","רביעי","חמישי","שישי","שבת"];
+                                                const d = new Date(startAt);
+                                                return !isNaN(d.getTime()) ? (
+                                                    <span className="mr-2 text-blue-600 font-normal">יום {days[d.getDay()]}</span>
+                                                ) : null;
+                                            })()}
+                                        </label>
                                         <input
                                             type="datetime-local"
                                             value={startAt}

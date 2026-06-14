@@ -224,8 +224,7 @@ def update_appointment(db: Session, studio_id: UUID, appointment_id: UUID, data)
         # Trigger modern event system
         appointment_completed({"client_id": str(obj.client_id), "appointment_id": str(obj.id)})
 
-    if starts_at_changed and obj.status == "scheduled":
-        enqueue_reschedule_message(db, obj)
+    # reschedule notification is sent by the route (after stale reminders are cleared)
 
     db.commit()
     db.refresh(obj)

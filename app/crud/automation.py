@@ -9,6 +9,7 @@ from app.models.client import Client
 from app.models.appointment import Appointment
 from app.models.client_points_ledger import ClientPointsLedger
 from app.models.message_job import MessageJob
+from app.services.email_center import studio_email_allowed as _email_ok
 
 def format_template(template: str, context: dict) -> str:
     """Replaces placeholders like {client_name} with values from context."""
@@ -140,7 +141,8 @@ def enqueue_confirmation_message(db: Session, appt: Appointment, artist_name: st
         ))
 
     # --- Email ---
-    if client.email and settings.resend_api_key and settings.confirm_email_template:
+    if client.email and settings.resend_api_key and settings.confirm_email_template \
+            and _email_ok(db, appt.studio_id, "email_confirmation_enabled"):
         email_body = smart_format(settings.confirm_email_template, context)
         db.add(MessageJob(
             studio_id=appt.studio_id, client_id=client.id, appointment_id=appt.id,
@@ -155,15 +157,15 @@ def enqueue_deposit_approved_message(db: Session, appt: Appointment, artist_name
     """Send full details message after studio owner approves the deposit."""
     settings = db.get(StudioSettings, appt.studio_id)
     client = db.get(Client, appt.client_id)
-    if not settings or not client or not client.phone:
+    if not settings or not client:
         return
 
     context = _build_context(settings, client, appt, artist_name)
     now = datetime.now(timezone.utc)
 
-    template = settings.deposit_approved_wa_template
-    if not template:
-        template = (
+    wa_template = settings.deposit_approved_wa_template
+    if not wa_template:
+        wa_template = (
             "✅ {client_name}, המקדמה אושרה!\n\n"
             "📅 {appointment_date} בשעה {appointment_time}\n"
             "✂️ {artist_name}\n"
@@ -175,12 +177,38 @@ def enqueue_deposit_approved_message(db: Session, appt: Appointment, artist_name
             "שינוי תור עד {deposit_lock_days} ימים לפני בלבד.\n\nמחכים לך! 🙏"
         )
 
-    db.add(MessageJob(
-        studio_id=appt.studio_id, client_id=client.id, appointment_id=appt.id,
-        channel="whatsapp", to_phone=client.phone,
-        body=smart_format(template, context),
-        scheduled_at=now, status="pending",
-    ))
+    if client.phone:
+        db.add(MessageJob(
+            studio_id=appt.studio_id, client_id=client.id, appointment_id=appt.id,
+            channel="whatsapp", to_phone=client.phone,
+            body=smart_format(wa_template, context),
+            scheduled_at=now, status="pending",
+        ))
+
+    # Email branch
+    if client.email and _email_ok(db, appt.studio_id, "email_deposit_approved_enabled"):
+        from app.utils.email_templates import _email_base
+        email_body = settings.deposit_approved_wa_template  # reuse if studio set one
+        if not email_body:
+            email_body = (
+                f"<p>שלום <strong>{context['client_name']}</strong>,</p>"
+                f"<p>✅ המקדמה שלך אושרה! אנו מחכים לראותך.</p>"
+                f"<table style='border-collapse:collapse;margin:16px 0;font-size:14px;'>"
+                f"<tr><td style='padding:6px 12px 6px 0;color:#64748b;'>📅 תאריך:</td><td style='font-weight:bold;'>{context['appointment_date']} בשעה {context['appointment_time']}</td></tr>"
+                f"<tr><td style='padding:6px 12px 6px 0;color:#64748b;'>✂️ אמן/ית:</td><td style='font-weight:bold;'>{context['artist_name']}</td></tr>"
+                f"<tr><td style='padding:6px 12px 6px 0;color:#64748b;'>📍 כתובת:</td><td style='font-weight:bold;'>{context['studio_address']}</td></tr>"
+                f"</table>"
+                f"{'<p><a href=\"' + context['map_link'] + '\" style=\"color:#3b82f6;\">🗺️ ניווט למיקום</a></p>' if context.get('map_link') else ''}"
+                f"<p style='color:#64748b;font-size:13px;'>מדיניות ביטולים: ביטול עד {context['cancellation_free_days']} ימים לפני — החזר מלא.</p>"
+            )
+        db.add(MessageJob(
+            studio_id=appt.studio_id, client_id=client.id, appointment_id=appt.id,
+            channel="email", to_phone=client.email,
+            subject="✅ המקדמה אושרה — פרטי התור שלך",
+            body=_email_base("המקדמה אושרה! ✅", email_body),
+            scheduled_at=now, status="pending",
+        ))
+
     db.commit()
 
 def enqueue_reschedule_message(db: Session, appt: Appointment) -> None:
@@ -252,7 +280,8 @@ def enqueue_reschedule_message(db: Session, appt: Appointment) -> None:
         </div>
         """
 
-    if client.email and settings.resend_api_key:
+    if client.email and settings.resend_api_key \
+            and _email_ok(db, appt.studio_id, "email_reschedule_enabled"):
         body = smart_format(email_template, context)
         db.add(MessageJob(
             studio_id=appt.studio_id,
@@ -260,11 +289,12 @@ def enqueue_reschedule_message(db: Session, appt: Appointment) -> None:
             appointment_id=appt.id,
             channel="email",
             to_phone=client.email,
+            subject="🔄 עדכון מועד התור שלך",
             body=body,
             scheduled_at=now,
             status="pending",
         ))
-    
+
     db.commit()
 
 def enqueue_cancel_message(db: Session, appt: Appointment) -> None:
@@ -300,7 +330,8 @@ def enqueue_cancel_message(db: Session, appt: Appointment) -> None:
 
     # Email
     email_template = settings.cancel_email_template or "מצטערים, התור שלך בוטל. נשמח לקבוע תור חדש בהקדם!"
-    if client.email and settings.resend_api_key and client.marketing_consent is not False:
+    if client.email and settings.resend_api_key and client.marketing_consent is not False \
+            and _email_ok(db, appt.studio_id, "email_cancel_enabled"):
         body = smart_format(email_template, context)
         db.add(MessageJob(
             studio_id=appt.studio_id,
@@ -308,6 +339,7 @@ def enqueue_cancel_message(db: Session, appt: Appointment) -> None:
             appointment_id=appt.id,
             channel="email",
             to_phone=client.email,
+            subject="ביטול תור",
             body=body,
             scheduled_at=now,
             status="pending",
@@ -426,7 +458,8 @@ def enqueue_post_payment_message(db: Session, appt: Appointment, amount_cents: i
   </div>
   <div style="padding:12px 30px;background:#f3f4f6;text-align:center;font-size:11px;color:#9ca3af;border-radius:0 0 12px 12px;">BizControl</div>
 </div>"""
-    if client.email and settings.resend_api_key:
+    if client.email and settings.resend_api_key \
+            and _email_ok(db, appt.studio_id, "email_post_payment_enabled"):
         email_body = smart_format(email_template, context)
         # Plain-text custom email templates also need aftercare and review appended
         if "{" not in email_template:
@@ -437,6 +470,7 @@ def enqueue_post_payment_message(db: Session, appt: Appointment, amount_cents: i
         db.add(MessageJob(
             studio_id=appt.studio_id, client_id=client.id, appointment_id=appt.id,
             channel="email", to_phone=client.email,
+            subject="תודה על הביקור! 🙏",
             body=email_body,
             scheduled_at=now, status="pending",
             reminder_type="aftercare",
@@ -508,17 +542,42 @@ def maybe_enqueue_club_invite(db: Session, studio_id, client, appointment_id=Non
     delay = int(getattr(settings, "club_invite_delay_minutes", 30) or 30)
     scheduled_at = datetime.now(timezone.utc) + timedelta(minutes=delay)
 
-    db.add(MessageJob(
-        studio_id=studio_id,
-        client_id=client.id,
-        appointment_id=appointment_id,
-        channel="whatsapp",
-        to_phone=client.phone,
-        body=body,
-        scheduled_at=scheduled_at,
-        status="pending",
-        reminder_type="club_invite",
-    ))
+    if client.phone:
+        db.add(MessageJob(
+            studio_id=studio_id,
+            client_id=client.id,
+            appointment_id=appointment_id,
+            channel="whatsapp",
+            to_phone=client.phone,
+            body=body,
+            scheduled_at=scheduled_at,
+            status="pending",
+            reminder_type="club_invite",
+        ))
+
+    # Email club invite
+    if client.email and _email_ok(db, studio_id, "email_club_invite_enabled"):
+        from app.utils.email_templates import _email_base
+        email_html = (
+            f"<p>היי <strong>{client.full_name or ''}</strong>! 👋</p>"
+            f"<p>שמחים שביקרת אצלנו!</p>"
+            f"<p>הצטרף/י למועדון הלקוחות שלנו וקבל/י <strong>{points_on_signup} נקודות מתנה</strong> לביקור הבא 🎉</p>"
+            f"{'<p><a href=\"' + join_link + '\" style=\"display:inline-block;background:#1a1a2e;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;\">הצטרף/י עכשיו</a></p>' if join_link else ''}"
+            f"<p style='color:#94a3b8;font-size:12px;margin-top:24px;'>להסרה מרשימת הדיוור: <a href='{optout_link}' style='color:#94a3b8;'>לחץ כאן</a></p>"
+        )
+        db.add(MessageJob(
+            studio_id=studio_id,
+            client_id=client.id,
+            appointment_id=appointment_id,
+            channel="email",
+            to_phone=client.email,
+            subject=f"🎁 {points_on_signup} נקודות מתנה מחכות לך — הצטרף/י למועדון",
+            body=_email_base("הצטרף/י למועדון הלקוחות שלנו 🎁", email_html),
+            scheduled_at=scheduled_at,
+            status="pending",
+            reminder_type="club_invite_email",
+        ))
+
     db.commit()
     return True
 

@@ -6,6 +6,15 @@ import { apiFetch } from "@/lib/api";
 interface StudioEmailSettings {
     reply_to_email?: string;
     business_signature?: string;
+    email_confirmation_enabled?:     boolean;
+    email_reminder_enabled?:         boolean;
+    email_deposit_approved_enabled?: boolean;
+    email_reschedule_enabled?:       boolean;
+    email_cancel_enabled?:           boolean;
+    email_post_payment_enabled?:     boolean;
+    email_birthday_enabled?:         boolean;
+    email_club_invite_enabled?:      boolean;
+    email_receipt_enabled?:          boolean;
 }
 
 interface StudioStats {
@@ -139,6 +148,45 @@ export default function StudioEmailSettingsPage() {
                                 placeholder={"בברכה,\nסטודיו הקעקועים של נועם\n\nטלפון: 050-0000000\nכתובת: הרצל 100 ראשון לציון"}
                                 className="w-full border border-slate-200 rounded-xl px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black/10 resize-none"
                             />
+                        </div>
+
+                        {/* Email Toggles */}
+                        <div>
+                            <label className="block text-sm font-bold text-slate-700 mb-1.5">
+                                בקרת שליחת מיילים
+                            </label>
+                            <p className="text-xs text-slate-400 mb-3">בחר אילו הודעות המערכת תשלח ללקוחות שלך במייל</p>
+                            <div className="space-y-2">
+                                {([
+                                    { key: "email_confirmation_enabled",     icon: "✅", label: "אישור תור",              desc: "כשנקבע תור חדש" },
+                                    { key: "email_reminder_enabled",         icon: "⏰", label: "תזכורות תור",            desc: "יום לפני, 3 ימים, שבוע, ביום התור" },
+                                    { key: "email_deposit_approved_enabled", icon: "💳", label: "אישור מקדמה",           desc: "כשאתה מאשר קבלת מקדמה" },
+                                    { key: "email_reschedule_enabled",       icon: "🔄", label: "שינוי מועד תור",        desc: "כשתור מוזז לתאריך/שעה חדשים" },
+                                    { key: "email_cancel_enabled",           icon: "❌", label: "ביטול תור",             desc: "כשתור מבוטל" },
+                                    { key: "email_post_payment_enabled",     icon: "🙏", label: "תודה אחרי תשלום",      desc: "אחרי תשלום מלא, כולל טיפול אחרי" },
+                                    { key: "email_birthday_enabled",         icon: "🎉", label: "הטבת יום הולדת",        desc: "קופון לחודש ההולדת לחברי מועדון" },
+                                    { key: "email_club_invite_enabled",      icon: "🎁", label: "הזמנה למועדון לקוחות", desc: "ללקוחות שאינם חברי מועדון אחרי ביקור" },
+                                    { key: "email_receipt_enabled",          icon: "🧾", label: "קישור קבלה",           desc: "אחרי כל תשלום — לינק לצפייה בקבלה" },
+                                ] as { key: keyof StudioEmailSettings; icon: string; label: string; desc: string }[]).map(t => (
+                                    <div key={t.key} className="flex items-center justify-between bg-slate-50 rounded-xl px-4 py-3 border border-slate-100">
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-lg">{t.icon}</span>
+                                            <div>
+                                                <div className="text-sm font-semibold text-slate-800">{t.label}</div>
+                                                <div className="text-xs text-slate-400">{t.desc}</div>
+                                            </div>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            title={`${(settings[t.key] ?? true) ? "כבה" : "הפעל"} ${t.label}`}
+                                            onClick={() => setSettings(p => ({ ...p, [t.key]: !(p[t.key] ?? true) }))}
+                                            className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${(settings[t.key] ?? true) ? "bg-emerald-500" : "bg-slate-300"}`}
+                                        >
+                                            <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${(settings[t.key] ?? true) ? "right-1" : "left-1"}`} />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
 
                         <button type="button" onClick={save} disabled={saving}

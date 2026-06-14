@@ -537,6 +537,82 @@ def _notify_booking_request(db, req: BookingRequest, studio, settings, artist) -
         ))
 
 
+# ── Public Receipt ────────────────────────────────────────────────────────────
+
+@router.get("/receipts/{invoice_id}")
+def get_public_receipt(invoice_id: str, db: Session = Depends(get_db)):
+    from sqlalchemy import text
+    row = db.execute(
+        text("SELECT * FROM invoices WHERE id = :id"),
+        {"id": invoice_id}
+    ).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Receipt not found")
+
+    inv = dict(row._mapping)
+
+    items_rows = db.execute(
+        text("SELECT * FROM invoice_items WHERE invoice_id = :id ORDER BY sort_order"),
+        {"id": invoice_id}
+    ).fetchall()
+
+    item_list = []
+    for it in items_rows:
+        d = dict(it._mapping)
+        d["unit_price_ils"] = round(d["unit_price_cents"] / 100, 2)
+        d["total_price_ils"] = round(d["total_price_cents"] / 100, 2)
+        item_list.append(d)
+
+    doc_types = {
+        "invoice_tax": "חשבונית מס",
+        "receipt": "קבלה",
+        "invoice_tax_receipt": "חשבונית מס/קבלה",
+        "credit": "זיכוי",
+        "transaction": "חשבונית עסקה",
+    }
+    method_labels = {
+        "cash": "מזומן", "bit": "Bit", "paybox": "PayBox",
+        "credit_card": "כרטיס אשראי", "bank_transfer": "העברה בנקאית",
+        "check": "צ'ק", "other": "אחר",
+    }
+
+    issued_at = inv.get("issued_at")
+    if issued_at and hasattr(issued_at, "strftime"):
+        issued_at_str = issued_at.strftime("%d/%m/%Y %H:%M")
+    elif isinstance(issued_at, str):
+        issued_at_str = issued_at[:16].replace("T", " ")
+    else:
+        issued_at_str = ""
+
+    return {
+        "id": str(inv["id"]),
+        "doc_type": inv.get("doc_type"),
+        "doc_type_label": doc_types.get(inv.get("doc_type", ""), inv.get("doc_type", "")),
+        "doc_number": inv.get("doc_number"),
+        "status": inv.get("status"),
+        "issued_at": issued_at_str,
+        "client_name": inv.get("client_name"),
+        "client_phone": inv.get("client_phone"),
+        "business_name": inv.get("business_name"),
+        "business_type": inv.get("business_type"),
+        "business_number": inv.get("business_number"),
+        "business_address": inv.get("business_address"),
+        "business_city": inv.get("business_city"),
+        "business_phone": inv.get("business_phone"),
+        "business_email": inv.get("business_email"),
+        "business_logo_url": inv.get("business_logo_url"),
+        "subtotal_ils": round((inv.get("subtotal_cents") or 0) / 100, 2),
+        "vat_rate": inv.get("vat_rate"),
+        "vat_amount_ils": round((inv.get("vat_amount_cents") or 0) / 100, 2),
+        "total_ils": round((inv.get("total_cents") or 0) / 100, 2),
+        "tip_ils": round((inv.get("tip_cents") or 0) / 100, 2),
+        "payment_method": inv.get("payment_method"),
+        "payment_method_label": method_labels.get(inv.get("payment_method", ""), inv.get("payment_method") or ""),
+        "notes": inv.get("notes"),
+        "items": item_list,
+    }
+
+
 # ── Customer cross-studio bookings lookup ────────────────────────────────────
 
 @router.get("/my-bookings")
