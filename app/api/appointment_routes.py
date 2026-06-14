@@ -400,34 +400,51 @@ def waive_deposit(appointment_id: UUID, ctx: AuthContext = Depends(require_studi
 
 
 @router.post("/{appointment_id}/verify-payment")
-def verify_sent_payment(appointment_id: UUID, ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
-    """Studio confirms they received the deposit (manually, after seeing screenshot on WhatsApp)."""
+def verify_sent_payment(
+    appointment_id: UUID,
+    method: str = "bit",
+    ctx: AuthContext = Depends(require_studio_ctx),
+    db: Session = Depends(get_db),
+):
+    """Studio confirms they received the deposit — opens cashier, records payment, creates receipt."""
     from app.models.payment import Payment
     from app.models.appointment import Appointment
+    from app.models.client import Client
 
     appt = db.get(Appointment, appointment_id)
     if not appt or appt.studio_id != ctx.studio_id:
         raise HTTPException(status_code=404, detail="Appointment not found")
 
     if appt.payment_verified_at:
-        return {"message": "Payment already verified"}
+        return {"message": "Payment already verified", "invoice_id": None}
 
     # Mark as verified
     appt.payment_verified_at = func.now()
 
-    # Create payment record only if there's an actual deposit amount
+    invoice_id = None
+    # Create payment record and auto-generate receipt
     if appt.deposit_amount_cents > 0:
         new_payment = Payment(
             studio_id=ctx.studio_id,
             appointment_id=appt.id,
             client_id=appt.client_id,
             amount_cents=appt.deposit_amount_cents,
-            method="bit",
+            method=method,
             status="paid",
             type="deposit",
-            notes="אומת אוטומטית לאחר דיווח לקוח"
+            notes=f"מקדמה אושרה — {method}",
         )
         db.add(new_payment)
+        db.flush()  # get new_payment.id before commit
+
+        # Auto-create receipt/invoice
+        try:
+            from app.crud.payment import _auto_create_invoice
+            client = db.get(Client, appt.client_id)
+            invoice_id = _auto_create_invoice(db, ctx.studio_id, new_payment, appt, client)
+        except Exception as e:
+            log.error("[verify-payment] auto-invoice failed: %s", e)
+
     db.commit()
 
     # שלח הודעת אישור מקדמה עם פרטים מלאים (כתובת, מפה, תיק עבודות, מדיניות ביטולים)
@@ -456,7 +473,7 @@ def verify_sent_payment(appointment_id: UUID, ctx: AuthContext = Depends(require
     except Exception:
         log.exception("Automation engine error for deposit_paid")
 
-    return {"message": "Payment verified and recorded"}
+    return {"message": "Payment verified and recorded", "invoice_id": invoice_id}
 
 
 @router.post("/{appointment_id}/mark-done")

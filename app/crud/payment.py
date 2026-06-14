@@ -218,7 +218,7 @@ def create_payment(db: Session, studio_id: UUID, data) -> Payment:
 
     return obj
 
-def _auto_create_invoice(db: Session, studio_id: UUID, payment: Payment, appt, client) -> None:
+def _auto_create_invoice(db: Session, studio_id: UUID, payment: Payment, appt, client) -> str:
     """Create an invoice/receipt automatically when a payment is recorded."""
     import uuid as _uuid
     from sqlalchemy import text
@@ -320,6 +320,7 @@ def _auto_create_invoice(db: Session, studio_id: UUID, payment: Payment, appt, c
         },
     )
     db.commit()
+    return invoice_id
 
 
 def list_payments(db: Session, studio_id: UUID, appointment_id: UUID | None = None, client_id: UUID | None = None) -> list[Payment]:

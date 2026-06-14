@@ -71,6 +71,9 @@ export default function Page() {
     const [pendingDeposits, setPendingDeposits] = useState<any[]>([]);
     const [confirmingDeposit, setConfirmingDeposit] = useState<string | null>(null);
     const [waivingDeposit, setWaivingDeposit] = useState<string | null>(null);
+    const [depositCashier, setDepositCashier] = useState<{ id: string; amount: number; clientName: string } | null>(null);
+    const [depositMethod, setDepositMethod] = useState("bit");
+    const [depositReceipt, setDepositReceipt] = useState<{ invoiceId: string; docNum?: number } | null>(null);
     const [consultationConv, setConsultationConv] = useState<ConsultationConversion | null>(null);
     const [bizfindStats, setBizfindStats] = useState<{
         marketplace_visible: boolean;
@@ -116,11 +119,19 @@ export default function Page() {
         }
     };
 
-    const confirmDeposit = async (id: string) => {
-        setConfirmingDeposit(id);
+    const openDepositCashier = (d: any) => {
+        setDepositMethod("bit");
+        setDepositCashier({ id: d.appointment_id, amount: d.deposit_amount_cents, clientName: d.client_name });
+    };
+
+    const confirmDeposit = async () => {
+        if (!depositCashier) return;
+        setConfirmingDeposit(depositCashier.id);
         try {
-            await apiFetch(`/api/appointments/${id}/verify-payment`, { method: "POST" });
-            setPendingDeposits(prev => prev.filter(d => d.appointment_id !== id));
+            const res = await apiFetch<{ invoice_id: string | null }>(`/api/appointments/${depositCashier.id}/verify-payment?method=${depositMethod}`, { method: "POST" });
+            setPendingDeposits(prev => prev.filter(d => d.appointment_id !== depositCashier.id));
+            setDepositCashier(null);
+            if (res.invoice_id) setDepositReceipt({ invoiceId: res.invoice_id });
         } catch (e: any) {
             alert(e?.message || "שגיאה באישור");
         } finally {
@@ -263,11 +274,11 @@ export default function Page() {
                                                 💬 וואטסאפ
                                             </a>
                                             <button
-                                                onClick={() => confirmDeposit(d.appointment_id)}
-                                                disabled={confirmingDeposit === d.appointment_id}
-                                                className="px-3 py-1.5 text-xs font-bold text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition disabled:opacity-50"
+                                                type="button"
+                                                onClick={() => openDepositCashier(d)}
+                                                className="px-3 py-1.5 text-xs font-bold text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition"
                                             >
-                                                {confirmingDeposit === d.appointment_id ? "..." : "קיבלתי ✅"}
+                                                קיבלתי ✅
                                             </button>
                                         </div>
                                     </div>
@@ -574,6 +585,85 @@ export default function Page() {
                     onSuccess={handlePaymentSuccess}
                     appointment={selectedAppt}
                 />
+
+                {/* ── Deposit Cashier Modal ── */}
+                {depositCashier && (
+                    <div className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center" onClick={() => setDepositCashier(null)}>
+                        <div className="bg-white rounded-t-3xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+                            <div className="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-5" />
+                            <div className="text-center mb-5">
+                                <div className="text-lg font-black text-slate-800">אישור קבלת מקדמה</div>
+                                <div className="text-sm text-slate-500 mt-0.5">{depositCashier.clientName}</div>
+                                <div className="text-3xl font-black text-emerald-600 mt-2">
+                                    ₪{(depositCashier.amount / 100).toLocaleString()}
+                                </div>
+                            </div>
+
+                            <div className="mb-5">
+                                <div className="text-xs font-bold text-slate-500 mb-2 text-right">באיזה אמצעי קיבלת?</div>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {[
+                                        { value: "bit", label: "Bit", icon: "💙" },
+                                        { value: "paybox", label: "PayBox", icon: "💜" },
+                                        { value: "cash", label: "מזומן", icon: "💵" },
+                                        { value: "credit_card", label: "כרטיס", icon: "💳" },
+                                        { value: "bank_transfer", label: "העברה", icon: "🏦" },
+                                        { value: "check", label: "צ'ק", icon: "📄" },
+                                    ].map(m => (
+                                        <button
+                                            key={m.value}
+                                            type="button"
+                                            onClick={() => setDepositMethod(m.value)}
+                                            className={`flex flex-col items-center gap-1 py-3 rounded-xl border-2 text-xs font-bold transition-all ${
+                                                depositMethod === m.value
+                                                    ? "border-emerald-500 bg-emerald-50 text-emerald-700"
+                                                    : "border-slate-200 text-slate-600 hover:border-slate-300"
+                                            }`}
+                                        >
+                                            <span className="text-lg">{m.icon}</span>
+                                            {m.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="flex gap-3">
+                                <button type="button" onClick={() => setDepositCashier(null)}
+                                    className="flex-1 py-3 rounded-2xl border border-slate-200 text-slate-600 font-semibold text-sm">
+                                    ביטול
+                                </button>
+                                <button type="button" onClick={confirmDeposit} disabled={!!confirmingDeposit}
+                                    className="flex-[2] py-3 rounded-2xl bg-emerald-600 text-white font-black text-sm disabled:opacity-60 hover:bg-emerald-700 transition">
+                                    {confirmingDeposit ? "מאשר..." : "✅ אשר וצור קבלה"}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* ── Receipt Created Modal ── */}
+                {depositReceipt && (
+                    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setDepositReceipt(null)}>
+                        <div className="bg-white rounded-3xl w-full max-w-sm p-8 text-center shadow-2xl" onClick={e => e.stopPropagation()}>
+                            <div className="text-5xl mb-3">🧾</div>
+                            <div className="text-xl font-black text-slate-800 mb-1">קבלה נוצרה!</div>
+                            <div className="text-sm text-slate-500 mb-6">המקדמה אושרה והקבלה הופקה בהצלחה</div>
+                            <div className="flex gap-3">
+                                <button type="button" onClick={() => setDepositReceipt(null)}
+                                    className="flex-1 py-3 rounded-2xl border border-slate-200 text-slate-600 font-semibold text-sm">
+                                    סגור
+                                </button>
+                                <button type="button" onClick={() => {
+                                    const token = localStorage.getItem("bizcontrol_token") || "";
+                                    window.open(`${process.env.NEXT_PUBLIC_API_URL}/api/invoices/${depositReceipt.invoiceId}/pdf?token=${encodeURIComponent(token)}`, "_blank");
+                                }}
+                                    className="flex-[2] py-3 rounded-2xl bg-slate-900 text-white font-black text-sm hover:bg-slate-700 transition">
+                                    📄 הורד קבלה PDF
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </AppShell>
         </RequireAuth>
     );
