@@ -462,6 +462,38 @@ def verify_sent_payment(
 
     db.commit()
 
+    # ── Loyalty points for deposit (same logic as create_payment) ──────────────
+    if appt.deposit_amount_cents > 0:
+        try:
+            from app.models.client import Client as _Client
+            from app.models.client_points_ledger import ClientPointsLedger as _Ledger
+            _client = db.get(_Client, appt.client_id)
+            _settings = db.get(StudioSettings, ctx.studio_id)
+            if (
+                _client and _client.is_club_member
+                and _settings
+                and (_settings.points_percent_per_payment or 0) > 0
+            ):
+                from app.crud.membership_tier import get_client_tier as _get_tier
+                _tier = _get_tier(db, ctx.studio_id, _client.id)
+                _multiplier = _tier.points_multiplier if _tier else 1.0
+                _amount_ils = appt.deposit_amount_cents / 100.0
+                _pts = int(_amount_ils * (_settings.points_percent_per_payment / 100.0) * _multiplier)
+                if _pts > 0:
+                    _client.loyalty_points = int(_client.loyalty_points or 0) + _pts
+                    db.add(_Ledger(
+                        studio_id=ctx.studio_id,
+                        client_id=_client.id,
+                        appointment_id=appt.id,
+                        payment_id=new_payment.id if appt.deposit_amount_cents > 0 else None,
+                        delta_points=_pts,
+                        reason=f"Cashback for deposit — {appt.deposit_amount_cents // 100}₪",
+                    ))
+                    db.commit()
+                    log.info("Awarded %d points for deposit on appt %s", _pts, appt.id)
+        except Exception as _pe:
+            log.warning("Deposit points failed: %s", _pe)
+
     # שלח הודעת אישור מקדמה עם פרטים מלאים (כתובת, מפה, תיק עבודות, מדיניות ביטולים)
     from app.crud.automation import enqueue_deposit_approved_message
     try:
