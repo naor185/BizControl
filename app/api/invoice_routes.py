@@ -354,6 +354,7 @@ def update_series(
 def list_invoices(
     doc_type: Optional[str] = None,
     client_id: Optional[str] = None,
+    appointment_id: Optional[str] = None,
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
     status: Optional[str] = None,
@@ -371,6 +372,9 @@ def list_invoices(
     if client_id:
         where.append("client_id = :cid")
         params["cid"] = client_id
+    if appointment_id:
+        where.append("appointment_id = :appt_id")
+        params["appt_id"] = appointment_id
     if status:
         where.append("status = :status")
         params["status"] = status

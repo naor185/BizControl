@@ -270,6 +270,8 @@ def _auto_create_invoice(db: Session, studio_id: UUID, payment: Payment, appt, c
     invoice_id = str(_uuid.uuid4())
     description = getattr(appt, "title", None) or "שירות"
 
+    appt_id = str(getattr(appt, "id", None) or "") or None
+
     db.execute(
         text("""
             INSERT INTO invoices (
@@ -278,7 +280,7 @@ def _auto_create_invoice(db: Session, studio_id: UUID, payment: Payment, appt, c
                 business_name, business_type, business_number,
                 business_address, business_city, business_phone, business_email, business_logo_url,
                 subtotal_cents, vat_rate, vat_amount_cents, total_cents, tip_cents,
-                payment_method, source, source_id,
+                payment_method, source, source_id, appointment_id,
                 issued_by_id, issued_at
             ) VALUES (
                 :id, :sid, :dt, :dn, 'issued',
@@ -286,7 +288,7 @@ def _auto_create_invoice(db: Session, studio_id: UUID, payment: Payment, appt, c
                 :bname, :btype, :bnum,
                 :baddr, :bcity, :bphone, :bemail, :blogo,
                 :sub, :vr, :vat, :total, 0,
-                :method, 'payment', :src_id,
+                :method, 'payment', :src_id, :appt_id,
                 NULL, NOW()
             )
         """),
@@ -304,6 +306,7 @@ def _auto_create_invoice(db: Session, studio_id: UUID, payment: Payment, appt, c
             "sub": subtotal_cents, "vr": vat_rate, "vat": vat_amount_cents, "total": total_cents,
             "method": payment.method,
             "src_id": str(payment.id),
+            "appt_id": appt_id,
         },
     )
 

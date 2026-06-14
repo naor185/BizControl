@@ -131,6 +131,7 @@ export default function CalendarPage() {
     const [dismissedBookingBanner, setDismissedBookingBanner] = useState(false);
     const [creatingApptInvoice, setCreatingApptInvoice] = useState(false);
     const [apptInvoiceId, setApptInvoiceId] = useState<string | null>(null);
+    const [apptInvoiceData, setApptInvoiceData] = useState<any | null>(null);
 
     // Type chooser (appointment vs task)
     const [showTypeChooser, setShowTypeChooser] = useState(false);
@@ -473,7 +474,17 @@ export default function CalendarPage() {
         setNotes(app.notes || "");
         setDepositAmount(app.deposit_amount_cents ? Math.round(app.deposit_amount_cents / 100) : "");
         setApptInvoiceId(null);
+        setApptInvoiceData(null);
         setIsModalOpen(true);
+        // Load existing invoice for this appointment (avoid duplicate creation)
+        apiFetch<{ items: any[]; total: number }>(`/api/invoices?appointment_id=${app.id}&limit=1`)
+            .then(r => {
+                if (r.items.length > 0) {
+                    setApptInvoiceId(r.items[0].id);
+                    setApptInvoiceData(r.items[0]);
+                }
+            })
+            .catch(() => {});
     };
 
     // Resize (change duration) — show confirmation, capture times BEFORE revert
@@ -1210,11 +1221,31 @@ export default function CalendarPage() {
                                         const appt = appointments.find(a => a.id === selectedEventId);
                                         const paidCents = appt?.paid_cents || 0;
                                         if (paidCents <= 0) return null;
+                                        const printInv = (invData: any) => {
+                                            const isCredit = invData.doc_type === "credit";
+                                            const hasVat = invData.business_type !== "osek_patur" && (invData.vat_amount_ils || 0) > 0;
+                                            const acc = isCredit ? "#c0392b" : "#1a1a2e";
+                                            const fmtN = (n: number) => `₪${Math.abs(n || 0).toFixed(2)}`;
+                                            const fmtD = (s: string) => new Date(s).toLocaleString("he-IL", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+                                            const methodLabels: Record<string, string> = { cash: "מזומן", bit: "Bit", paybox: "PayBox", credit_card: "כרטיס אשראי", bank_transfer: "העברה בנקאית", check: "צ'ק", other: "אחר" };
+                                            const itemsHtml = (invData.items || []).map((it: any) => `<tr><td style="padding:8px 10px;text-align:right;border-bottom:1px solid #f0f0f0">${it.description}</td><td style="padding:8px 10px;text-align:center;border-bottom:1px solid #f0f0f0">${it.quantity}</td><td style="padding:8px 10px;text-align:center;border-bottom:1px solid #f0f0f0">${fmtN((it.unit_price_cents || 0) / 100)}</td><td style="padding:8px 10px;text-align:left;border-bottom:1px solid #f0f0f0;font-weight:700">${fmtN((it.total_price_cents || 0) / 100)}</td></tr>`).join("");
+                                            const w = window.open("", "_blank");
+                                            if (!w) return;
+                                            w.document.write(`<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="UTF-8"><title>${invData.doc_type_label || "קבלה"} #${invData.doc_number}</title><style>@import url('https://fonts.googleapis.com/css2?family=Heebo:wght@400;700;900&display=swap');*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Heebo',Arial,sans-serif;direction:rtl;background:#fff;color:#1a1a2e}.page{max-width:680px;margin:0 auto}.header{background:${acc};color:#fff;padding:24px 28px 20px}.biz-bar{background:#f8f9fa;padding:14px 28px;border-bottom:1px solid #e5e7eb;font-size:12px;color:#444}.section{padding:20px 28px;border-bottom:1px solid #f0f0f0}.section-label{font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:8px}table{width:100%;border-collapse:collapse}thead tr{background:${acc};color:#fff}thead th{padding:10px;font-size:12px;font-weight:700}.totals{padding:20px 28px}.total-row{display:flex;justify-content:space-between;font-size:13px;color:#64748b;margin-bottom:6px}.total-final{display:flex;justify-content:space-between;font-size:18px;font-weight:900;color:${acc};padding-top:10px;border-top:2px solid ${acc};margin-top:6px}.footer{background:#f0f0f0;text-align:center;padding:12px;font-size:11px;color:#888;margin-top:20px}@media print{body{print-color-adjust:exact;-webkit-print-color-adjust:exact}}</style></head><body><div class="page"><div class="header"><div style="font-size:18px;font-weight:700;float:left">#${invData.doc_number}</div><div style="font-size:22px;font-weight:900">${invData.business_name || "העסק שלי"}</div><div style="font-size:12px;opacity:.75">${invData.doc_type_label || "קבלה"}</div></div><div class="biz-bar">${invData.business_number ? `ח.פ/ע.מ: ${invData.business_number}` : ""}${invData.business_address ? ` &nbsp;|&nbsp; ${invData.business_address}${invData.business_city ? ", " + invData.business_city : ""}` : ""}${invData.business_phone ? ` &nbsp;|&nbsp; טל: ${invData.business_phone}` : ""}<span style="float:left">תאריך: ${fmtD(invData.issued_at || new Date().toISOString())}</span></div>${invData.client_name ? `<div class="section"><div class="section-label">לכבוד</div><div style="font-size:16px;font-weight:700">${invData.client_name}</div>${invData.client_phone ? `<div style="font-size:13px;color:#64748b">${invData.client_phone}</div>` : ""}</div>` : ""}<div class="section" style="padding-bottom:0"><div class="section-label">פירוט</div><table><thead><tr><th style="text-align:right;padding:10px">תיאור</th><th style="text-align:center;padding:10px">כמות</th><th style="text-align:center;padding:10px">מחיר</th><th style="text-align:left;padding:10px">סה"כ</th></tr></thead><tbody>${itemsHtml}</tbody></table></div><div class="totals">${hasVat ? `<div class="total-row"><span>לפני מע"מ</span><span>${fmtN(invData.subtotal_ils || 0)}</span></div><div class="total-row"><span>מע"מ ${invData.vat_rate || 18}%</span><span>${fmtN(invData.vat_amount_ils || 0)}</span></div>` : ""}<div class="total-final"><span>סה"כ לתשלום</span><span>${fmtN(Math.abs(invData.total_ils || 0))}</span></div>${!hasVat ? `<div style="font-size:11px;color:#94a3b8;margin-top:6px">* עוסק פטור, אינו חייב במע"מ</div>` : ""}${invData.payment_method ? `<div style="font-size:12px;color:#64748b;margin-top:12px">אמצעי תשלום: ${methodLabels[invData.payment_method] || invData.payment_method}</div>` : ""}</div><div class="footer">הופק באמצעות מערכת BizControl | מסמך ממוחשב חתום דיגיטלית</div></div><script>window.onload=()=>{window.print()}</script></body></html>`);
+                                            w.document.close();
+                                        };
+
                                         return apptInvoiceId ? (
                                             <button type="button"
-                                                onClick={() => { const t = localStorage.getItem("bizcontrol_token") || ""; window.open(`${process.env.NEXT_PUBLIC_API_URL}/api/invoices/${apptInvoiceId}/pdf?token=${t}`, "_blank"); }}
+                                                onClick={async () => {
+                                                    try {
+                                                        const invData = apptInvoiceData || await apiFetch<any>(`/api/invoices/${apptInvoiceId}`);
+                                                        if (!apptInvoiceData) setApptInvoiceData(invData);
+                                                        printInv(invData);
+                                                    } catch { showToast("שגיאה בטעינת קבלה", "error"); }
+                                                }}
                                                 className="px-4 py-2 text-sm font-bold text-violet-600 hover:bg-violet-50 rounded-xl transition-colors flex items-center gap-1">
-                                                <span>📄</span> הורד קבלה PDF
+                                                <span>📄</span> הדפסה / הורד קבלה
                                             </button>
                                         ) : (
                                             <button type="button" disabled={creatingApptInvoice}
@@ -1223,7 +1254,7 @@ export default function CalendarPage() {
                                                     if (!appt) return;
                                                     setCreatingApptInvoice(true);
                                                     try {
-                                                        const inv = await apiFetch<{ id: string }>("/api/invoices", {
+                                                        const inv = await apiFetch<any>("/api/invoices", {
                                                             method: "POST",
                                                             body: JSON.stringify({
                                                                 doc_type: "receipt",
@@ -1235,6 +1266,8 @@ export default function CalendarPage() {
                                                             }),
                                                         });
                                                         setApptInvoiceId(inv.id);
+                                                        setApptInvoiceData(inv);
+                                                        printInv(inv);
                                                     } catch (e: any) {
                                                         showToast(e?.message || "שגיאה בהפקת קבלה", "error");
                                                     } finally { setCreatingApptInvoice(false); }

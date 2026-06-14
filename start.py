@@ -591,6 +591,8 @@ def ensure_schema():
         """)
         cur.execute("ALTER TABLE invoice_settings ADD COLUMN IF NOT EXISTS settings_completed BOOLEAN NOT NULL DEFAULT FALSE")
         cur.execute("ALTER TABLE invoices ADD COLUMN IF NOT EXISTS business_city VARCHAR(100)")
+        cur.execute("ALTER TABLE invoices ADD COLUMN IF NOT EXISTS appointment_id UUID REFERENCES appointments(id) ON DELETE SET NULL")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_invoices_appointment ON invoices (appointment_id)")
 
         cur.execute("""
             CREATE TABLE IF NOT EXISTS invoice_series (
