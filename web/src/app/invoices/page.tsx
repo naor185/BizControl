@@ -160,9 +160,142 @@ export default function InvoicesPage() {
         return `${process.env.NEXT_PUBLIC_API_URL}/api/invoices/${id}/pdf?token=${encodeURIComponent(token)}`;
     };
 
-    const downloadPdf = (id: string) => {
-        // Use window.open to bypass CORS — server sends Content-Disposition:attachment
-        window.open(getPdfUrl(id), "_blank");
+    const downloadPdf = (inv: Invoice) => {
+        printInvoiceHtml(inv);
+    };
+
+    const printInvoiceHtml = (inv: Invoice) => {
+        const isCredit = inv.doc_type === "credit";
+        const hasVat = inv.business_type !== "osek_patur" && inv.vat_amount_ils > 0;
+        const accentHex = isCredit ? "#c0392b" : "#1a1a2e";
+        const fmt = (n: number) => `₪${Math.abs(n).toFixed(2)}`;
+        const fmtDate = (s: string) => new Date(s).toLocaleDateString("he-IL", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit" });
+
+        const methodLabels: Record<string, string> = {
+            cash:"מזומן", bit:"Bit", paybox:"PayBox", credit_card:"כרטיס אשראי",
+            bank_transfer:"העברה בנקאית", check:"צ'ק", other:"אחר",
+        };
+
+        const itemsHtml = (inv.items || []).map(it => `
+            <tr>
+                <td style="padding:8px 10px;text-align:right;border-bottom:1px solid #f0f0f0">${it.description}</td>
+                <td style="padding:8px 10px;text-align:center;border-bottom:1px solid #f0f0f0">${it.quantity}</td>
+                <td style="padding:8px 10px;text-align:center;border-bottom:1px solid #f0f0f0">${fmt(it.unit_price_cents / 100)}</td>
+                <td style="padding:8px 10px;text-align:left;border-bottom:1px solid #f0f0f0;font-weight:700">${fmt((it.total_price_cents || 0) / 100)}</td>
+            </tr>`).join("");
+
+        const html = `<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+<meta charset="UTF-8">
+<title>${inv.doc_type_label} #${inv.doc_number}</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Heebo:wght@400;700;900&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Heebo', Arial, sans-serif; direction: rtl; background: #fff; color: #1a1a2e; }
+  .page { max-width: 680px; margin: 0 auto; padding: 0; }
+  .header { background: ${accentHex}; color: #fff; padding: 24px 28px 20px; }
+  .header-title { font-size: 22px; font-weight: 900; margin-bottom: 2px; }
+  .header-sub { font-size: 12px; opacity: 0.75; }
+  .header-num { font-size: 18px; font-weight: 700; float: left; }
+  .biz-bar { background: #f8f9fa; padding: 14px 28px; border-bottom: 1px solid #e5e7eb; font-size: 12px; color: #444; }
+  .section { padding: 20px 28px; border-bottom: 1px solid #f0f0f0; }
+  .section-label { font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 8px; }
+  .client-name { font-size: 16px; font-weight: 700; }
+  .client-sub { font-size: 13px; color: #64748b; margin-top: 2px; }
+  table { width: 100%; border-collapse: collapse; }
+  thead tr { background: ${accentHex}; color: #fff; }
+  thead th { padding: 10px; font-size: 12px; font-weight: 700; }
+  thead th:first-child { text-align: right; }
+  thead th:last-child { text-align: left; }
+  .totals { padding: 20px 28px; }
+  .total-row { display: flex; justify-content: space-between; font-size: 13px; color: #64748b; margin-bottom: 6px; }
+  .total-final { display: flex; justify-content: space-between; font-size: 18px; font-weight: 900; color: ${accentHex}; padding-top: 10px; border-top: 2px solid ${accentHex}; margin-top: 6px; }
+  .footer { background: #f0f0f0; text-align: center; padding: 12px; font-size: 11px; color: #888; margin-top: 20px; }
+  @media print {
+    body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+    .no-print { display: none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <!-- Header -->
+  <div class="header">
+    <div class="header-num">#${inv.doc_number}</div>
+    <div class="header-title">${inv.business_name || "העסק שלי"}</div>
+    <div class="header-sub">${inv.doc_type_label}${isCredit && inv.credits_invoice_display ? " · זיכוי עבור " + inv.credits_invoice_display : ""}</div>
+  </div>
+
+  <!-- Business info -->
+  <div class="biz-bar">
+    ${inv.business_number ? `<span>ח.פ/ע.מ: ${inv.business_number}</span>` : ""}
+    ${inv.business_address ? ` &nbsp;|&nbsp; ${inv.business_address}${inv.business_city ? ", " + inv.business_city : ""}` : ""}
+    ${inv.business_phone ? ` &nbsp;|&nbsp; טל: ${inv.business_phone}` : ""}
+    &nbsp;&nbsp;&nbsp;
+    <span style="float:left">תאריך: ${fmtDate(inv.issued_at)}</span>
+  </div>
+
+  ${inv.client_name ? `
+  <!-- Client -->
+  <div class="section">
+    <div class="section-label">לכבוד</div>
+    <div class="client-name">${inv.client_name}</div>
+    ${inv.client_phone ? `<div class="client-sub">${inv.client_phone}</div>` : ""}
+    ${inv.client_email ? `<div class="client-sub">${inv.client_email}</div>` : ""}
+  </div>` : ""}
+
+  <!-- Items -->
+  ${(inv.items || []).length > 0 ? `
+  <div class="section" style="padding-bottom:0">
+    <div class="section-label">פירוט</div>
+    <table>
+      <thead>
+        <tr>
+          <th style="text-align:right;padding:10px">תיאור</th>
+          <th style="text-align:center;padding:10px">כמות</th>
+          <th style="text-align:center;padding:10px">מחיר</th>
+          <th style="text-align:left;padding:10px">סה"כ</th>
+        </tr>
+      </thead>
+      <tbody>${itemsHtml}</tbody>
+    </table>
+  </div>` : ""}
+
+  <!-- Totals -->
+  <div class="totals">
+    ${hasVat ? `
+    <div class="total-row"><span>לפני מע"מ</span><span>${fmt(inv.subtotal_ils)}</span></div>
+    <div class="total-row"><span>מע"מ ${inv.vat_rate}%</span><span>${fmt(inv.vat_amount_ils)}</span></div>` : ""}
+    ${inv.tip_ils > 0 ? `<div class="total-row"><span>טיפ</span><span>${fmt(inv.tip_ils)}</span></div>` : ""}
+    <div class="total-final">
+      <span>סה"כ לתשלום</span>
+      <span>${isCredit ? "-" : ""}${fmt(Math.abs(inv.total_ils))}</span>
+    </div>
+    ${!hasVat ? `<div style="font-size:11px;color:#94a3b8;margin-top:6px">* עוסק פטור, אינו חייב במע"מ</div>` : ""}
+    ${inv.payment_method ? `<div style="font-size:12px;color:#64748b;margin-top:12px">אמצעי תשלום: ${methodLabels[inv.payment_method] || inv.payment_method}${inv.payment_reference ? " · אסמכתה: " + inv.payment_reference : ""}</div>` : ""}
+    ${inv.notes ? `<div style="font-size:12px;color:#64748b;margin-top:8px;padding:10px;background:#fffbeb;border-right:3px solid #f59e0b;border-radius:4px">${inv.notes}</div>` : ""}
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">הופק באמצעות מערכת BizControl | מסמך ממוחשב חתום דיגיטלית</div>
+
+  <!-- Print button (hidden when printing) -->
+  <div class="no-print" style="text-align:center;padding:20px">
+    <button onclick="window.print()" style="background:#1a1a2e;color:#fff;border:none;padding:12px 32px;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit">
+      🖨️ הדפס / שמור כ-PDF
+    </button>
+  </div>
+</div>
+</body>
+</html>`;
+
+        const w = window.open("", "_blank");
+        if (w) {
+            w.document.write(html);
+            w.document.close();
+            setTimeout(() => w.print(), 800);
+        }
     };
 
     const createCredit = async (id: string, paymentMethod: string, notes: string) => {
@@ -211,7 +344,7 @@ export default function InvoicesPage() {
                         const full = await apiFetch<Invoice>(`/api/invoices/${inv.id}`);
                         setViewInvoice(full);
                     }}
-                    onPdf={(id) => downloadPdf(id)}
+                    onPdf={(id) => { const inv = invoices.find(i => i.id === id); if (inv) downloadPdf(inv); }}
                 />
             )}
             {tab === "settings" && settings && (
@@ -228,7 +361,7 @@ export default function InvoicesPage() {
                 <InvoiceDetailModal
                     invoice={viewInvoice}
                     onClose={() => setViewInvoice(null)}
-                    onDownload={() => downloadPdf(viewInvoice.id)}
+                    onDownload={() => downloadPdf(viewInvoice)}
                     getPdfUrl={() => getPdfUrl(viewInvoice.id)}
                     onCredit={(method, notes) => createCredit(viewInvoice.id, method, notes)}
                 />
@@ -344,21 +477,30 @@ function InvoiceDetailModal({ invoice, onClose, onDownload, getPdfUrl, onCredit 
     };
 
     const shareWhatsApp = () => {
-        const url = getPdfUrl();
-        const text = encodeURIComponent(
-            `${invoice.doc_type_label} #${invoice.doc_number}${invoice.business_name ? " - " + invoice.business_name : ""}\nלצפייה ב-PDF: ${url}`
-        );
-        window.open(`https://wa.me/?text=${text}`, "_blank");
+        const waText = [
+            `${invoice.doc_type_label} #${invoice.doc_number}`,
+            invoice.business_name ? `מאת: ${invoice.business_name}` : "",
+            `סכום: ₪${Math.abs(invoice.total_ils).toFixed(2)}`,
+            invoice.client_name ? `ללקוח: ${invoice.client_name}` : "",
+            new Date(invoice.issued_at).toLocaleDateString("he-IL"),
+        ].filter(Boolean).join("\n");
+        const phone = invoice.client_phone?.replace(/\D/g, "");
+        const url = phone
+            ? `https://wa.me/972${phone.replace(/^0/, "")}?text=${encodeURIComponent(waText)}`
+            : `https://wa.me/?text=${encodeURIComponent(waText)}`;
+        window.open(url, "_blank");
     };
 
     const shareSMS = () => {
-        const url = getPdfUrl();
-        const text = encodeURIComponent(`${invoice.doc_type_label} #${invoice.doc_number}\n${url}`);
-        window.location.href = `sms:?body=${text}`;
+        const smsText = `${invoice.doc_type_label} #${invoice.doc_number} | ₪${Math.abs(invoice.total_ils).toFixed(2)} | ${invoice.business_name || ""}`;
+        const phone = invoice.client_phone?.replace(/\D/g, "");
+        window.location.href = phone
+            ? `sms:+972${phone.replace(/^0/, "")}?body=${encodeURIComponent(smsText)}`
+            : `sms:?body=${encodeURIComponent(smsText)}`;
     };
 
     const printDoc = () => {
-        window.open(getPdfUrl(), "_blank");
+        printInvoiceHtml(invoice);
     };
 
     return (
