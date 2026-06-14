@@ -91,12 +91,22 @@ def upload_logo(
         studio = db.get(Studio, ctx.studio_id)
         if studio:
             studio.logo_url = cloud_url
+        db.execute(
+            text("UPDATE marketplace_profiles SET logo_url=:url, updated_at=NOW() WHERE studio_id=:sid"),
+            {"url": cloud_url, "sid": str(ctx.studio_id)},
+        )
         db.commit()
         return {"filename": cloud_url, "url": cloud_url}
     filename = _save_image_bytes(file_bytes, file.filename or "logo.jpg", "logo", ctx.studio_id)
     settings.logo_filename = filename
+    backend_url = os.getenv("API_BASE_URL", "")
+    local_url = f"{backend_url}/uploads/{filename}" if backend_url else f"/uploads/{filename}"
+    db.execute(
+        text("UPDATE marketplace_profiles SET logo_url=:url, updated_at=NOW() WHERE studio_id=:sid"),
+        {"url": local_url, "sid": str(ctx.studio_id)},
+    )
     db.commit()
-    return {"filename": filename}
+    return {"filename": filename, "url": local_url}
 
 
 @router.delete("/logo")

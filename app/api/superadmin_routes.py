@@ -2256,11 +2256,17 @@ def admin_hard_delete_invoice(
             {"sid": str(studio_id), "dt": _dt, "nn": int(_max) + 1}
         )
 
+    # Read back the new next_number for the deleted doc's series (for the response)
+    new_next = db.execute(
+        text("SELECT next_number FROM invoice_series WHERE studio_id=:sid AND doc_type=:dt"),
+        {"sid": str(studio_id), "dt": doc_type}
+    ).scalar()
+
     db.commit()
     return {
         "ok": True,
         "deleted_doc_number": doc_number,
         "next_series_number": new_next,
-        "deleted_payment": payment_id,
-        "points_reversed": points_to_reverse if payment_id and client_id else 0,
+        "deleted_payment": str(payment_id) if payment_id else None,
+        "points_reversed": points_to_reverse if client_id else 0,
     }

@@ -395,10 +395,8 @@ def check_linked(
     }
 
 
-@router.get("/auth/my-bookings")
-def my_bookings(db: Session = Depends(get_db), authorization: str = Header(None)):
-    """Return upcoming + past appointments for the logged-in customer across all studios."""
-    customer_id = _verify_token(authorization[7:] if authorization and authorization.startswith("Bearer ") else "")
+@router.get("/my-bookings")
+def my_bookings(db: Session = Depends(get_db), customer_id: str = Depends(_get_customer_id)):
     row = db.execute(text("SELECT phone FROM marketplace_customers WHERE id = :id"), {"id": customer_id}).fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="לקוח לא נמצא")
