@@ -485,7 +485,6 @@ def verify_sent_payment(
                         studio_id=ctx.studio_id,
                         client_id=_client.id,
                         appointment_id=appt.id,
-                        payment_id=new_payment.id if appt.deposit_amount_cents > 0 else None,
                         delta_points=_pts,
                         reason=f"Cashback for deposit — {appt.deposit_amount_cents // 100}₪",
                     ))

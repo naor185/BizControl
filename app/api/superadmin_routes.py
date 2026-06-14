@@ -2160,37 +2160,41 @@ def admin_hard_delete_invoice(
     payment_id = inv.get("source_id") if inv.get("source") == "payment" else None
     client_id = inv.get("client_id")
 
-    if payment_id:
-        # Reverse loyalty points earned from this payment
-        if client_id:
-            points_rows = db.execute(
+    # Reverse loyalty points by appointment_id (ledger has no payment_id column)
+    points_to_reverse = 0
+    appt_id_for_points = inv.get("appointment_id") or (
+        # fallback: source_id is appt when source='appointment'
+        inv.get("source_id") if inv.get("source") == "appointment" else None
+    )
+    if client_id and appt_id_for_points:
+        points_rows = db.execute(
+            text("""
+                SELECT COALESCE(SUM(delta_points), 0)
+                FROM client_points_ledger
+                WHERE appointment_id = :aid AND delta_points > 0
+            """),
+            {"aid": str(appt_id_for_points)}
+        ).fetchone()
+        points_to_reverse = int(points_rows[0]) if points_rows else 0
+
+        if points_to_reverse > 0:
+            db.execute(
                 text("""
-                    SELECT COALESCE(SUM(ABS(delta_points)), 0)
-                    FROM client_points_ledger
-                    WHERE payment_id = :pid AND delta_points > 0
+                    UPDATE clients
+                    SET loyalty_points = GREATEST(0, COALESCE(loyalty_points, 0) - :pts)
+                    WHERE id = :cid
                 """),
-                {"pid": payment_id}
-            ).fetchone()
-            points_to_reverse = int(points_rows[0]) if points_rows else 0
+                {"pts": points_to_reverse, "cid": str(client_id)}
+            )
 
-            if points_to_reverse > 0:
-                db.execute(
-                    text("""
-                        UPDATE clients
-                        SET loyalty_points = GREATEST(0, COALESCE(loyalty_points, 0) - :pts)
-                        WHERE id = :cid
-                    """),
-                    {"pts": points_to_reverse, "cid": client_id}
-                )
-
-        # Delete points ledger entries for this payment
         db.execute(
-            text("DELETE FROM client_points_ledger WHERE payment_id = :pid"),
-            {"pid": payment_id}
+            text("DELETE FROM client_points_ledger WHERE appointment_id = :aid AND delta_points > 0"),
+            {"aid": str(appt_id_for_points)}
         )
 
+    if payment_id:
         # Delete the payment itself
-        db.execute(text("DELETE FROM payments WHERE id = :pid"), {"pid": payment_id})
+        db.execute(text("DELETE FROM payments WHERE id = :pid"), {"pid": str(payment_id)})
 
     # 3. Delete any message_jobs that referenced this invoice (receipt links etc.)
     appt_id = inv.get("appointment_id")
