@@ -10,4 +10,7 @@ restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
 
 [build.nixpacksPlan.phases.setup]
-nixPkgs = ["python310", "libpq"]
+nixPkgs = ["python310", "libpq", "dejavu_fonts", "fontconfig"]
+
+[build.nixpacksPlan.phases.build]
+cmds = ["fc-cache -fv || true"]

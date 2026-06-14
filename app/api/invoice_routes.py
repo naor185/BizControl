@@ -775,32 +775,72 @@ def download_pdf(
 
 _PDF_FONT_CACHE: dict = {}
 
+def _find_font_path(bold: bool = False) -> Optional[str]:
+    """Locate a Hebrew-capable TTF font on any platform (Linux/Nix/Windows)."""
+    import os, platform as _plat, glob as _glob, subprocess as _sub
+
+    stem = "DejaVuSans-Bold" if bold else "DejaVuSans"
+
+    # Windows (Arial)
+    if _plat.system() == "Windows":
+        p = "C:/Windows/Fonts/" + ("arialbd.ttf" if bold else "arial.ttf")
+        if os.path.exists(p):
+            return p
+
+    # Standard Debian/Ubuntu paths
+    for p in [
+        f"/usr/share/fonts/truetype/dejavu/{stem}.ttf",
+        f"/usr/share/fonts/dejavu/{stem}.ttf",
+        f"/usr/share/fonts/truetype/{stem}.ttf",
+        f"/usr/share/fonts/{stem}.ttf",
+    ]:
+        if os.path.exists(p):
+            return p
+
+    # Nix store (Railway Nixpacks installs here)
+    try:
+        for pat in [
+            f"/nix/store/*/share/fonts/truetype/{stem}.ttf",
+            f"/nix/store/*/share/fonts/**/{stem}.ttf",
+            f"/nix/store/*/share/fonts/truetype/DejaVu/{stem}.ttf",
+        ]:
+            hits = _glob.glob(pat, recursive=True)
+            if hits:
+                return hits[0]
+    except Exception:
+        pass
+
+    # fc-list fallback (fontconfig)
+    try:
+        style = "Bold" if bold else "Book"
+        r = _sub.run(
+            ["fc-list", f":family=DejaVu Sans:style={style}", "--format=%{{file}}\n"],
+            capture_output=True, text=True, timeout=3,
+        )
+        if r.returncode == 0:
+            for line in r.stdout.splitlines():
+                path = line.strip()
+                if path and os.path.exists(path):
+                    return path
+    except Exception:
+        pass
+
+    return None
+
+
 def _get_pdf_fonts():
     global _PDF_FONT_CACHE
     if _PDF_FONT_CACHE:
         return _PDF_FONT_CACHE["reg"], _PDF_FONT_CACHE["bold"]
 
-    import os, platform as _plat
     from reportlab.pdfbase import pdfmetrics
     from reportlab.pdfbase.ttfonts import TTFont
-
-    def _find_font_path(bold=False):
-        if _plat.system() == "Windows":
-            base = "C:/Windows/Fonts/"
-            return base + ("arialbd.ttf" if bold else "arial.ttf")
-        stem = "DejaVuSans-Bold" if bold else "DejaVuSans"
-        for p in [
-            f"/usr/share/fonts/truetype/dejavu/{stem}.ttf",
-            f"/usr/share/fonts/dejavu/{stem}.ttf",
-            f"/usr/share/fonts/truetype/{stem}.ttf",
-        ]:
-            if os.path.exists(p):
-                return p
-        return None
+    import logging as _log
 
     F_REG, F_BOLD = "Helvetica", "Helvetica-Bold"
     reg_path  = _find_font_path(False)
     bold_path = _find_font_path(True)
+    _log.getLogger("bizcontrol.pdf").info("PDF fonts: reg=%s bold=%s", reg_path, bold_path)
     try:
         if reg_path:
             pdfmetrics.registerFont(TTFont("InvReg", reg_path))
@@ -808,10 +848,12 @@ def _get_pdf_fonts():
         if bold_path:
             pdfmetrics.registerFont(TTFont("InvBold", bold_path))
             F_BOLD = "InvBold"
-    except Exception:
+    except Exception as e:
+        _log.getLogger("bizcontrol.pdf").warning("Font registration failed: %s", e)
         F_REG, F_BOLD = "Helvetica", "Helvetica-Bold"
 
     _PDF_FONT_CACHE = {"reg": F_REG, "bold": F_BOLD}
+    _log.getLogger("bizcontrol.pdf").info("PDF font cache: %s", _PDF_FONT_CACHE)
     return F_REG, F_BOLD
 
 
@@ -824,13 +866,27 @@ def _build_pdf(inv: dict, items: list) -> bytes:
     from reportlab.pdfgen import canvas as rl_canvas
     from reportlab.platypus import Table, TableStyle
 
-    try:
-        from bidi.algorithm import get_display
-        def h(t): return get_display(str(t)) if t else ""
-    except Exception:
-        def h(t): return str(t) if t else ""
-
     F_REG, F_BOLD = _get_pdf_fonts()
+
+    # Hebrew text helper: use bidi only when a real Unicode font is available
+    _has_hebrew_font = F_REG not in ("Helvetica",)
+    if _has_hebrew_font:
+        try:
+            from bidi.algorithm import get_display
+            def h(t):
+                try:
+                    return get_display(str(t)) if t else ""
+                except Exception:
+                    return str(t) if t else ""
+        except Exception:
+            def h(t): return str(t) if t else ""
+    else:
+        # No Hebrew font — transliterate or just skip non-ASCII safely
+        def h(t):
+            if not t:
+                return ""
+            s = str(t)
+            return "".join(c if ord(c) < 128 else "?" for c in s)
 
     buf = io.BytesIO()
     c = rl_canvas.Canvas(buf, pagesize=A4)
