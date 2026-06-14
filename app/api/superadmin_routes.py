@@ -2116,3 +2116,24 @@ def delete_hero_slide(
     db.execute(text("DELETE FROM hero_slides WHERE id = :sid"), {"sid": slide_id})
     db.commit()
     return {"ok": True}
+
+
+@router.delete("/invoices/{invoice_id}")
+def admin_hard_delete_invoice(
+    invoice_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Superadmin hard-delete: removes invoice document only (payment & points unchanged)."""
+    if current_user.role != "superadmin":
+        raise HTTPException(403, "סופר-אדמין בלבד")
+    row = db.execute(
+        text("SELECT id FROM invoices WHERE id = :id"),
+        {"id": invoice_id}
+    ).fetchone()
+    if not row:
+        raise HTTPException(404, "מסמך לא נמצא")
+    db.execute(text("DELETE FROM invoice_items WHERE invoice_id = :id"), {"id": invoice_id})
+    db.execute(text("DELETE FROM invoices WHERE id = :id"), {"id": invoice_id})
+    db.commit()
+    return {"ok": True}

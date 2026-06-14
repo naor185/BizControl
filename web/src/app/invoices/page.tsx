@@ -347,9 +347,24 @@ export default function InvoicesPage() {
                     }}
                     onPdf={(id) => { const inv = invoices.find(i => i.id === id); if (inv) downloadPdf(inv); }}
                     onDelete={isAdminView ? async (id) => {
-                        if (!confirm("למחוק מסמך זה לצמיתות? פעולה בלתי הפיכה!")) return;
+                        if (!confirm(
+                            "למחוק מסמך זה לצמיתות?\n\n" +
+                            "⚠️ המחיקה היא של המסמך בלבד:\n" +
+                            "• רשומת התשלום לא תימחק\n" +
+                            "• נקודות המועדון לא ישתנו\n\n" +
+                            "פעולה בלתי הפיכה!"
+                        )) return;
                         try {
-                            await apiFetch(`/api/invoices/${id}`, { method: "DELETE" });
+                            // Use original superadmin token (not impersonation token)
+                            const adminToken = sessionStorage.getItem("admin_token") || "";
+                            const res = await fetch(`/api/admin/invoices/${id}`, {
+                                method: "DELETE",
+                                headers: { "Authorization": `Bearer ${adminToken}` },
+                            });
+                            if (!res.ok) {
+                                const err = await res.json().catch(() => ({}));
+                                throw new Error(err.detail || `שגיאה ${res.status}`);
+                            }
                             loadInvoices();
                         } catch (e: any) {
                             alert(e?.message || "שגיאה במחיקה");
