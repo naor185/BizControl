@@ -405,7 +405,10 @@ def waive_deposit(appointment_id: UUID, ctx: AuthContext = Depends(require_studi
     # Send confirmation with full appointment details (same as after deposit approved)
     try:
         from app.crud.automation import enqueue_deposit_approved_message
-        enqueue_deposit_approved_message(db, appt)
+        from app.models.user import User as _User
+        _artist = db.get(_User, appt.artist_id) if appt.artist_id else None
+        _artist_name = (_artist.display_name or _artist.email) if _artist else ""
+        enqueue_deposit_approved_message(db, appt, artist_name=_artist_name)
     except Exception:
         log.exception("Failed to send waive-deposit confirmation for %s", appointment_id)
     return {"message": "Deposit waived — appointment locked"}
@@ -462,7 +465,10 @@ def verify_sent_payment(
     # שלח הודעת אישור מקדמה עם פרטים מלאים (כתובת, מפה, תיק עבודות, מדיניות ביטולים)
     from app.crud.automation import enqueue_deposit_approved_message
     try:
-        enqueue_deposit_approved_message(db, appt)
+        from app.models.user import User as _User
+        _artist = db.get(_User, appt.artist_id) if appt.artist_id else None
+        _artist_name = (_artist.display_name or _artist.email) if _artist else ""
+        enqueue_deposit_approved_message(db, appt, artist_name=_artist_name)
     except Exception as e:
         log.error("[deposit_approved_msg] failed: %s", e)
 

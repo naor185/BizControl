@@ -937,6 +937,7 @@ def ensure_schema():
         """)
         cur.execute("INSERT INTO email_system_settings (id) VALUES (1) ON CONFLICT DO NOTHING")
         cur.execute("ALTER TABLE message_jobs ADD COLUMN IF NOT EXISTS subject VARCHAR(255)")
+        cur.execute("ALTER TABLE message_jobs ADD COLUMN IF NOT EXISTS media_url TEXT")
 
         cur.execute("""
             CREATE TABLE IF NOT EXISTS studio_email_settings (

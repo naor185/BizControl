@@ -44,15 +44,30 @@ def _send_via_meta(phone_id: str, token: str, to_phone: str, body: str) -> None:
         raise RuntimeError(f"Meta API error {e.code}: {err_msg}")
 
 
-def _send_via_green(instance_id: str, api_key: str, to_phone: str, body: str) -> None:
-    import urllib.request, json as _json
-    url = f"https://api.green-api.com/waInstance{instance_id}/sendMessage/{api_key}"
+def _normalize_phone(to_phone: str) -> str:
     clean = to_phone.replace("+", "").replace(" ", "").replace("-", "")
     if clean.startswith("0") and len(clean) >= 9:
         clean = "972" + clean[1:]
     if not clean.endswith("@c.us"):
         clean = f"{clean}@c.us"
-    payload = _json.dumps({"chatId": clean, "message": body}).encode()
+    return clean
+
+
+def _send_via_green(instance_id: str, api_key: str, to_phone: str, body: str, media_url: str | None = None) -> None:
+    import urllib.request, json as _json
+    clean = _normalize_phone(to_phone)
+    if media_url:
+        url = f"https://api.green-api.com/waInstance{instance_id}/sendFileByUrl/{api_key}"
+        ext = media_url.rsplit(".", 1)[-1].lower() if "." in media_url else "jpg"
+        payload = _json.dumps({
+            "chatId": clean,
+            "urlFile": media_url,
+            "fileName": f"logo.{ext}",
+            "caption": body,
+        }).encode()
+    else:
+        url = f"https://api.green-api.com/waInstance{instance_id}/sendMessage/{api_key}"
+        payload = _json.dumps({"chatId": clean, "message": body}).encode()
     req = urllib.request.Request(url, data=payload, method="POST")
     req.add_header("Content-Type", "application/json")
     with urllib.request.urlopen(req, timeout=10) as resp:
@@ -124,7 +139,7 @@ def _log_whatsapp(db: Session, studio_id, phone: str, body: str, status: str,
         except Exception: pass
 
 
-def send_whatsapp_message(to_phone: str, body: str, settings=None, db: Session | None = None) -> None:
+def send_whatsapp_message(to_phone: str, body: str, settings=None, db: Session | None = None, media_url: str | None = None) -> None:
     provider = getattr(settings, "whatsapp_provider", None) if settings else None
     studio_id = getattr(settings, "studio_id", None) if settings else None
 
@@ -146,13 +161,26 @@ def send_whatsapp_message(to_phone: str, body: str, settings=None, db: Session |
             if not instance_id or not api_key:
                 raise ValueError("Green API credentials missing (instance_id or api_key)")
             instance_id_used = instance_id
-            _send_via_green(instance_id, api_key, to_phone, body)
+            _send_via_green(instance_id, api_key, to_phone, body, media_url=media_url)
 
         elif provider == "meta":
             phone_id = getattr(settings, "whatsapp_phone_id", None)
             api_key = getattr(settings, "whatsapp_api_key", None)
             if not phone_id or not api_key:
                 raise ValueError("Meta API credentials missing (phone_id or api_key)")
+            # Meta: send image first if available, then text
+            if media_url:
+                try:
+                    import httpx as _httpx
+                    _httpx.post(
+                        f"https://graph.facebook.com/v18.0/{phone_id}/messages",
+                        headers={"Authorization": f"Bearer {api_key}"},
+                        json={"messaging_product": "whatsapp", "to": to_phone.replace("+", ""),
+                              "type": "image", "image": {"link": media_url}},
+                        timeout=10,
+                    )
+                except Exception:
+                    pass
             _send_via_meta(phone_id, api_key, to_phone, body)
 
         else:
@@ -228,7 +256,8 @@ def process_due_jobs(db: Session, limit: int = 20) -> int:
                         raise ValueError("Email center send failed — check system API key")
             else:
                 settings = db.get(StudioSettings, job.studio_id)
-                send_whatsapp_message(job.to_phone, job.body, settings, db=db)
+                send_whatsapp_message(job.to_phone, job.body, settings, db=db,
+                                      media_url=getattr(job, "media_url", None))
 
             job.status = "sent"
             job.sent_at = now
