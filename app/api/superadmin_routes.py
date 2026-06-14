@@ -2205,8 +2205,39 @@ def admin_hard_delete_invoice(
         )
 
     # 4. Delete invoice items and the invoice itself
+    doc_type   = inv.get("doc_type")
+    studio_id  = inv.get("studio_id")
+    doc_number = inv.get("doc_number")
+
     db.execute(text("DELETE FROM invoice_items WHERE invoice_id = :id"), {"id": invoice_id})
     db.execute(text("DELETE FROM invoices WHERE id = :id"), {"id": invoice_id})
 
+    # 5. Reset series counter: set next_number = MAX(remaining doc_number) + 1
+    #    so the deleted number is reused on the next issue.
+    remaining_max = db.execute(
+        text("""
+            SELECT COALESCE(MAX(doc_number), 999)
+            FROM invoices
+            WHERE studio_id = :sid AND doc_type = :dt
+        """),
+        {"sid": str(studio_id), "dt": doc_type}
+    ).scalar()
+    new_next = int(remaining_max) + 1
+    db.execute(
+        text("""
+            INSERT INTO invoice_series (studio_id, doc_type, next_number)
+            VALUES (:sid, :dt, :nn)
+            ON CONFLICT (studio_id, doc_type)
+            DO UPDATE SET next_number = :nn
+        """),
+        {"sid": str(studio_id), "dt": doc_type, "nn": new_next}
+    )
+
     db.commit()
-    return {"ok": True, "deleted_payment": payment_id, "points_reversed": points_to_reverse if payment_id and client_id else 0}
+    return {
+        "ok": True,
+        "deleted_doc_number": doc_number,
+        "next_series_number": new_next,
+        "deleted_payment": payment_id,
+        "points_reversed": points_to_reverse if payment_id and client_id else 0,
+    }
