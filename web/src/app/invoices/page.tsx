@@ -348,11 +348,13 @@ export default function InvoicesPage() {
                     onPdf={(id) => { const inv = invoices.find(i => i.id === id); if (inv) downloadPdf(inv); }}
                     onDelete={isAdminView ? async (id) => {
                         if (!confirm(
-                            "למחוק מסמך זה לצמיתות?\n\n" +
-                            "⚠️ המחיקה היא של המסמך בלבד:\n" +
-                            "• רשומת התשלום לא תימחק\n" +
-                            "• נקודות המועדון לא ישתנו\n\n" +
-                            "פעולה בלתי הפיכה!"
+                            "מחיקה מלאה לצמיתות — כאילו לא קרה כלום?\n\n" +
+                            "יימחק הכל:\n" +
+                            "• המסמך (קבלה / חשבונית)\n" +
+                            "• רשומת התשלום\n" +
+                            "• נקודות מועדון שנצברו\n" +
+                            "• זיכויים מקושרים\n\n" +
+                            "⛔ פעולה בלתי הפיכה לחלוטין!"
                         )) return;
                         try {
                             // Use original superadmin token (not impersonation token)

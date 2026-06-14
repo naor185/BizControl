@@ -2124,16 +2124,89 @@ def admin_hard_delete_invoice(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Superadmin hard-delete: removes invoice document only (payment & points unchanged)."""
+    """
+    Superadmin FULL wipe: deletes the invoice AND its payment, reverses
+    loyalty points, deletes any linked credit notes, and cleans up message jobs
+    that reference this transaction. Makes it as if the transaction never happened.
+    """
     if current_user.role != "superadmin":
         raise HTTPException(403, "סופר-אדמין בלבד")
-    row = db.execute(
-        text("SELECT id FROM invoices WHERE id = :id"),
+
+    inv = db.execute(
+        text("SELECT * FROM invoices WHERE id = :id"),
         {"id": invoice_id}
     ).fetchone()
-    if not row:
+    if not inv:
         raise HTTPException(404, "מסמך לא נמצא")
+    inv = dict(inv._mapping)
+
+    # 1. Delete linked credit notes (and their items) first
+    credits = db.execute(
+        text("SELECT id FROM invoices WHERE credits_invoice_id = :id"),
+        {"id": invoice_id}
+    ).fetchall()
+    for cr in credits:
+        db.execute(text("DELETE FROM invoice_items WHERE invoice_id = :id"), {"id": cr[0]})
+        db.execute(text("DELETE FROM invoices WHERE id = :id"), {"id": cr[0]})
+
+    # If this invoice IS a credit note, update the original invoice status
+    if inv.get("credits_invoice_id"):
+        db.execute(
+            text("UPDATE invoices SET status='issued', credited_by_id=NULL WHERE id=:id"),
+            {"id": inv["credits_invoice_id"]}
+        )
+
+    # 2. Find and delete the linked payment (source = 'payment', source_id = payment.id)
+    payment_id = inv.get("source_id") if inv.get("source") == "payment" else None
+    client_id = inv.get("client_id")
+
+    if payment_id:
+        # Reverse loyalty points earned from this payment
+        if client_id:
+            points_rows = db.execute(
+                text("""
+                    SELECT COALESCE(SUM(ABS(delta_points)), 0)
+                    FROM client_points_ledger
+                    WHERE payment_id = :pid AND delta_points > 0
+                """),
+                {"pid": payment_id}
+            ).fetchone()
+            points_to_reverse = int(points_rows[0]) if points_rows else 0
+
+            if points_to_reverse > 0:
+                db.execute(
+                    text("""
+                        UPDATE clients
+                        SET loyalty_points = GREATEST(0, COALESCE(loyalty_points, 0) - :pts)
+                        WHERE id = :cid
+                    """),
+                    {"pts": points_to_reverse, "cid": client_id}
+                )
+
+        # Delete points ledger entries for this payment
+        db.execute(
+            text("DELETE FROM client_points_ledger WHERE payment_id = :pid"),
+            {"pid": payment_id}
+        )
+
+        # Delete the payment itself
+        db.execute(text("DELETE FROM payments WHERE id = :pid"), {"pid": payment_id})
+
+    # 3. Delete any message_jobs that referenced this invoice (receipt links etc.)
+    appt_id = inv.get("appointment_id")
+    if appt_id:
+        db.execute(
+            text("""
+                DELETE FROM message_jobs
+                WHERE appointment_id = :aid
+                  AND reminder_type IN ('receipt_link', 'receipt_link_email', 'post_payment', 'aftercare')
+            """),
+            {"aid": appt_id}
+        )
+
+    # 4. Delete invoice items and the invoice itself
     db.execute(text("DELETE FROM invoice_items WHERE invoice_id = :id"), {"id": invoice_id})
     db.execute(text("DELETE FROM invoices WHERE id = :id"), {"id": invoice_id})
+
     db.commit()
-    return {"ok": True}
+    return {"ok": True, "deleted_payment": payment_id, "points_reversed": points_to_reverse if payment_id and client_id else 0}
