@@ -316,6 +316,7 @@ export default function InvoicesPage() {
             {settings && !settings.settings_completed && !isAdminView && (
                 <InvoiceSetupWizard
                     series={series}
+                    existing={settings}
                     onComplete={async () => { await loadSettings(); await loadSeries(); }}
                 />
             )}
@@ -803,19 +804,19 @@ function InvoiceDetailModal({ invoice, onClose, onDownload, getPdfUrl, onCredit 
 
 const WIZARD_DOC_TYPES = ["invoice_tax_receipt", "invoice_tax", "receipt", "credit", "transaction"] as const;
 
-function InvoiceSetupWizard({ series, onComplete }: { series: SeriesMap; onComplete: () => void }) {
+function InvoiceSetupWizard({ series, existing, onComplete }: { series: SeriesMap; existing: InvoiceSettings; onComplete: () => void }) {
     const [step, setStep] = useState(1);
     const [saving, setSaving] = useState(false);
     const [err, setErr] = useState<string | null>(null);
 
-    // Step 1 — business details
-    const [bizType, setBizType] = useState("osek_murshe");
-    const [bizName, setBizName] = useState("");
-    const [bizNum, setBizNum] = useState("");
-    const [addr, setAddr] = useState("");
-    const [city, setCity] = useState("");
-    const [phone, setPhone] = useState("");
-    const [email, setEmail] = useState("");
+    // Step 1 — business details (pre-filled from saved settings if exist)
+    const [bizType, setBizType] = useState(existing.business_type || "osek_murshe");
+    const [bizName, setBizName] = useState(existing.business_name || "");
+    const [bizNum, setBizNum] = useState(existing.business_number || "");
+    const [addr, setAddr] = useState(existing.business_address || "");
+    const [city, setCity] = useState(existing.business_city || "");
+    const [phone, setPhone] = useState(existing.business_phone || "");
+    const [email, setEmail] = useState(existing.business_email || "");
 
     // Step 2 — series starting numbers
     const [nums, setNums] = useState<Record<string, number>>(() => {
@@ -912,13 +913,13 @@ function InvoiceSetupWizard({ series, onComplete }: { series: SeriesMap; onCompl
                             </div>
                             <div>
                                 <label style={labelStyle}>ח.פ / ע.מ *</label>
-                                <input value={bizNum} onChange={e => setBizNum(e.target.value)} style={inputStyle} placeholder="313192700" dir="ltr" />
+                                <input value={bizNum} onChange={e => setBizNum(e.target.value)} style={inputStyle} placeholder="מספר עוסק / ח.פ" dir="ltr" />
                             </div>
                             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
                                 <div><label style={labelStyle}>כתובת</label>
-                                    <input value={addr} onChange={e => setAddr(e.target.value)} style={inputStyle} placeholder="הרצל 100" /></div>
+                                    <input value={addr} onChange={e => setAddr(e.target.value)} style={inputStyle} placeholder="רחוב ומספר" /></div>
                                 <div><label style={labelStyle}>עיר</label>
-                                    <input value={city} onChange={e => setCity(e.target.value)} style={inputStyle} placeholder="ראשון לציון" /></div>
+                                    <input value={city} onChange={e => setCity(e.target.value)} style={inputStyle} placeholder="עיר" /></div>
                             </div>
                             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
                                 <div><label style={labelStyle}>טלפון</label>
