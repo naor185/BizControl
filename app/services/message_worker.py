@@ -558,13 +558,14 @@ def sweep_same_day_reminders(db: Session) -> int:
             from app.utils.email_templates import _email_base
             map_row = f'<tr><td style="padding:6px 12px 6px 0;color:#64748b;">🗺️ ניווט:</td><td><a href="{ctx["map_link"]}" style="color:#3b82f6;">לחץ כאן לניווט</a></td></tr>' if ctx.get("map_link") else ""
             deposit_row = f'<tr><td colspan="2" style="padding:8px;background:#fef9c3;border-radius:8px;color:#854d0e;">⚠️ טרם שולמה מקדמה בסך ₪{ctx["deposit_amount"]}. <a href="{ctx["payment_link"]}" style="color:#854d0e;">לתשלום לחץ כאן</a></td></tr>' if (has_deposit and not deposit_paid and deposit_warning_enabled and ctx.get("payment_link")) else ""
+            _addr_row = ("<tr><td style='padding:6px 12px 6px 0;color:#64748b;'>📍 כתובת:</td><td style='font-weight:bold;'>" + ctx["studio_address"] + "</td></tr>") if ctx.get("studio_address") else ""
             email_html = (
                 f"<p>בוקר טוב <strong>{ctx['client_name']}</strong> ☀️</p>"
                 f"<p>תזכורת — <strong>היום יש לך תור!</strong></p>"
                 f"<table style='border-collapse:collapse;margin:16px 0;font-size:14px;'>"
                 f"<tr><td style='padding:6px 12px 6px 0;color:#64748b;'>📋 שירות:</td><td style='font-weight:bold;'>{ctx['appointment_title']}</td></tr>"
                 f"<tr><td style='padding:6px 12px 6px 0;color:#64748b;'>🕐 שעה:</td><td style='font-weight:bold;'>{ctx['appointment_time']}</td></tr>"
-                f"{'<tr><td style=\"padding:6px 12px 6px 0;color:#64748b;\">📍 כתובת:</td><td style=\"font-weight:bold;\">' + ctx['studio_address'] + '</td></tr>' if ctx.get('studio_address') else ''}"
+                f"{_addr_row}"
                 f"{map_row}"
                 f"{deposit_row}"
                 f"</table>"

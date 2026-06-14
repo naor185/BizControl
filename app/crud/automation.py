@@ -190,6 +190,7 @@ def enqueue_deposit_approved_message(db: Session, appt: Appointment, artist_name
         from app.utils.email_templates import _email_base
         email_body = settings.deposit_approved_wa_template  # reuse if studio set one
         if not email_body:
+            _map_html = ('<p><a href="' + context["map_link"] + '" style="color:#3b82f6;">🗺️ ניווט למיקום</a></p>') if context.get("map_link") else ""
             email_body = (
                 f"<p>שלום <strong>{context['client_name']}</strong>,</p>"
                 f"<p>✅ המקדמה שלך אושרה! אנו מחכים לראותך.</p>"
@@ -198,7 +199,7 @@ def enqueue_deposit_approved_message(db: Session, appt: Appointment, artist_name
                 f"<tr><td style='padding:6px 12px 6px 0;color:#64748b;'>✂️ אמן/ית:</td><td style='font-weight:bold;'>{context['artist_name']}</td></tr>"
                 f"<tr><td style='padding:6px 12px 6px 0;color:#64748b;'>📍 כתובת:</td><td style='font-weight:bold;'>{context['studio_address']}</td></tr>"
                 f"</table>"
-                f"{'<p><a href=\"' + context['map_link'] + '\" style=\"color:#3b82f6;\">🗺️ ניווט למיקום</a></p>' if context.get('map_link') else ''}"
+                f"{_map_html}"
                 f"<p style='color:#64748b;font-size:13px;'>מדיניות ביטולים: ביטול עד {context['cancellation_free_days']} ימים לפני — החזר מלא.</p>"
             )
         db.add(MessageJob(
@@ -558,11 +559,12 @@ def maybe_enqueue_club_invite(db: Session, studio_id, client, appointment_id=Non
     # Email club invite
     if client.email and _email_ok(db, studio_id, "email_club_invite_enabled"):
         from app.utils.email_templates import _email_base
+        _join_btn = ('<p><a href="' + join_link + '" style="display:inline-block;background:#1a1a2e;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;">הצטרף/י עכשיו</a></p>') if join_link else ""
         email_html = (
             f"<p>היי <strong>{client.full_name or ''}</strong>! 👋</p>"
             f"<p>שמחים שביקרת אצלנו!</p>"
             f"<p>הצטרף/י למועדון הלקוחות שלנו וקבל/י <strong>{points_on_signup} נקודות מתנה</strong> לביקור הבא 🎉</p>"
-            f"{'<p><a href=\"' + join_link + '\" style=\"display:inline-block;background:#1a1a2e;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;\">הצטרף/י עכשיו</a></p>' if join_link else ''}"
+            f"{_join_btn}"
             f"<p style='color:#94a3b8;font-size:12px;margin-top:24px;'>להסרה מרשימת הדיוור: <a href='{optout_link}' style='color:#94a3b8;'>לחץ כאן</a></p>"
         )
         db.add(MessageJob(
