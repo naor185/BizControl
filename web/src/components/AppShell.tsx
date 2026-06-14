@@ -29,7 +29,8 @@ type PinStatus = { has_pin: boolean; is_locked: boolean };
 const MAIN_NAV: { href: string; label: string; icon: string; module?: string }[] = [
     { href: "/calendar",   label: "יומן תורים",  icon: "📅", module: "calendar" },
     { href: "/pos",        label: "קופה",         icon: "🛒", module: "pos" },
-    { href: "/invoices",   label: "חשבוניות",     icon: "🧾", module: "pos" },
+    { href: "/invoices",      label: "חשבוניות",     icon: "🧾", module: "pos" },
+    { href: "/settings/email", label: "הגדרות מייל",  icon: "📧", module: "pos" },
     { href: "/gift-cards", label: "כרטיסי מתנה",  icon: "🎁", module: "pos" },
     { href: "/dashboard",  label: "לוח בקרה",    icon: "📊" },
     { href: "/clients",    label: "לקוחות",       icon: "👥", module: "crm" },

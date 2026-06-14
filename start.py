@@ -916,6 +916,54 @@ def ensure_schema():
                 ON CONFLICT (plan_code, feature_key) DO NOTHING
             """, row)
 
+        # ── Email Center ──────────────────────────────────────────────────────
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS email_system_settings (
+                id INTEGER PRIMARY KEY DEFAULT 1,
+                provider VARCHAR(20) NOT NULL DEFAULT 'resend',
+                api_key TEXT,
+                domain VARCHAR(100) DEFAULT 'biz-control.com',
+                system_email VARCHAR(255) DEFAULT 'noreply@biz-control.com',
+                notification_email VARCHAR(255) DEFAULT 'notifications@biz-control.com',
+                support_email VARCHAR(255) DEFAULT 'support@biz-control.com',
+                reply_email_default VARCHAR(255) DEFAULT 'support@biz-control.com',
+                email_sending_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+                marketing_emails_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+                appointment_emails_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+                invoice_emails_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                CONSTRAINT single_row CHECK (id = 1)
+            )
+        """)
+        cur.execute("INSERT INTO email_system_settings (id) VALUES (1) ON CONFLICT DO NOTHING")
+
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS studio_email_settings (
+                studio_id UUID PRIMARY KEY REFERENCES studios(id) ON DELETE CASCADE,
+                reply_to_email VARCHAR(255),
+                business_signature TEXT,
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS email_logs (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                studio_id UUID REFERENCES studios(id) ON DELETE SET NULL,
+                client_id UUID,
+                recipient_email VARCHAR(255) NOT NULL,
+                subject TEXT NOT NULL,
+                template_key VARCHAR(100),
+                status VARCHAR(20) NOT NULL DEFAULT 'sent',
+                provider_message_id TEXT,
+                error_message TEXT,
+                sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_email_logs_studio ON email_logs (studio_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_email_logs_sent_at ON email_logs (sent_at DESC)")
+
         conn.commit()
         cur.close()
         conn.close()
