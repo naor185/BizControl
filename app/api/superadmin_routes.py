@@ -2140,6 +2140,16 @@ def admin_hard_delete_invoice(
         raise HTTPException(404, "מסמך לא נמצא")
     inv = dict(inv._mapping)
 
+    # If this is a credit note, also resolve original invoice for payment lookup
+    _orig_inv = None
+    if inv.get("credits_invoice_id"):
+        orig = db.execute(
+            text("SELECT * FROM invoices WHERE id = :id"),
+            {"id": inv["credits_invoice_id"]}
+        ).fetchone()
+        if orig:
+            _orig_inv = dict(orig._mapping)
+
     # 1. Delete linked credit notes (and their items) first
     credits = db.execute(
         text("SELECT id FROM invoices WHERE credits_invoice_id = :id"),
@@ -2157,8 +2167,10 @@ def admin_hard_delete_invoice(
         )
 
     # 2. Find and delete the linked payment (source = 'payment', source_id = payment.id)
-    payment_id = inv.get("source_id") if inv.get("source") == "payment" else None
-    client_id = inv.get("client_id")
+    # Resolve payment_id: from direct invoice or from original (if credit note)
+    _src_inv = inv if inv.get("source") == "payment" else (_orig_inv if _orig_inv and _orig_inv.get("source") == "payment" else None)
+    payment_id = _src_inv.get("source_id") if _src_inv else None
+    client_id = inv.get("client_id") or (_orig_inv.get("client_id") if _orig_inv else None)
 
     # Reverse loyalty points by appointment_id (ledger has no payment_id column)
     points_to_reverse = 0
@@ -2192,9 +2204,16 @@ def admin_hard_delete_invoice(
             {"aid": str(appt_id_for_points)}
         )
 
+    # Delete ALL payments linked to this appointment (covers deposit, final payment, manual invoices)
+    _appt_id = (
+        inv.get("appointment_id")
+        or (_orig_inv.get("appointment_id") if _orig_inv else None)
+    )
     if payment_id:
-        # Delete the payment itself
         db.execute(text("DELETE FROM payments WHERE id = :pid"), {"pid": str(payment_id)})
+    if _appt_id:
+        # Also wipe all other payments for this appointment (e.g., deposit + final payment)
+        db.execute(text("DELETE FROM payments WHERE appointment_id = :aid"), {"aid": str(_appt_id)})
 
     # 3. Delete any message_jobs that referenced this invoice (receipt links etc.)
     appt_id = inv.get("appointment_id")
