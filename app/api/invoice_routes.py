@@ -599,6 +599,27 @@ def get_invoice(
     return result
 
 
+@router.delete("/{invoice_id}")
+def delete_invoice(
+    invoice_id: str,
+    ctx: AuthContext = Depends(require_studio_ctx),
+    db: Session = Depends(get_db),
+):
+    """Superadmin only: permanently delete an invoice and its items."""
+    if ctx.role != "superadmin":
+        raise HTTPException(403, "מחיקת מסמכים מותרת לסופר-אדמין בלבד")
+    row = db.execute(
+        text("SELECT id FROM invoices WHERE id = :id AND studio_id = :sid"),
+        {"id": invoice_id, "sid": ctx.studio_id}
+    ).fetchone()
+    if not row:
+        raise HTTPException(404, "מסמך לא נמצא")
+    db.execute(text("DELETE FROM invoice_items WHERE invoice_id = :id"), {"id": invoice_id})
+    db.execute(text("DELETE FROM invoices WHERE id = :id"), {"id": invoice_id})
+    db.commit()
+    return {"ok": True}
+
+
 class CreditNoteRequest(BaseModel):
     payment_method: Optional[str] = None
     notes: Optional[str] = None

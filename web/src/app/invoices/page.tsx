@@ -115,6 +115,7 @@ type Tab = "documents" | "settings" | "series" | "reports";
 // ── Main Component ────────────────────────────────────────────────────────────
 
 export default function InvoicesPage() {
+    const isAdminView = typeof window !== "undefined" && sessionStorage.getItem("admin_return") === "true";
     const [tab, setTab] = useState<Tab>("documents");
     const [settings, setSettings] = useState<InvoiceSettings | null>(null);
     const [series, setSeries] = useState<SeriesMap>({});
@@ -311,8 +312,8 @@ export default function InvoicesPage() {
 
     return (
         <AppShell title="חשבוניות ומסמכים">
-            {/* Setup wizard — shown on first use */}
-            {settings && !settings.settings_completed && (
+            {/* Setup wizard — shown on first use (skip for superadmin impersonation) */}
+            {settings && !settings.settings_completed && !isAdminView && (
                 <InvoiceSetupWizard
                     series={series}
                     onComplete={async () => { await loadSettings(); await loadSeries(); }}
@@ -345,6 +346,15 @@ export default function InvoicesPage() {
                         setViewInvoice(full);
                     }}
                     onPdf={(id) => { const inv = invoices.find(i => i.id === id); if (inv) downloadPdf(inv); }}
+                    onDelete={isAdminView ? async (id) => {
+                        if (!confirm("למחוק מסמך זה לצמיתות? פעולה בלתי הפיכה!")) return;
+                        try {
+                            await apiFetch(`/api/invoices/${id}`, { method: "DELETE" });
+                            loadInvoices();
+                        } catch (e: any) {
+                            alert(e?.message || "שגיאה במחיקה");
+                        }
+                    } : undefined}
                 />
             )}
             {tab === "settings" && settings && (
@@ -372,12 +382,13 @@ export default function InvoicesPage() {
 
 // ── Documents Tab ─────────────────────────────────────────────────────────────
 
-function DocumentsTab({ invoices, total, loading, settings, filterType, setFilterType, filterDate, setFilterDate, onFilter, onView, onPdf }: {
+function DocumentsTab({ invoices, total, loading, settings, filterType, setFilterType, filterDate, setFilterDate, onFilter, onView, onPdf, onDelete }: {
     invoices: Invoice[]; total: number; loading: boolean; settings: InvoiceSettings | null;
     filterType: string; setFilterType: (v: string) => void;
     filterDate: string; setFilterDate: (v: string) => void;
     onFilter: () => void;
     onView: (inv: Invoice) => void; onPdf: (id: string) => void;
+    onDelete?: (id: string) => void;
 }) {
     return (
         <div style={{ padding: "0 1rem" }}>
@@ -406,14 +417,14 @@ function DocumentsTab({ invoices, total, loading, settings, filterType, setFilte
                 </div>
             ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                    {invoices.map(inv => <InvoiceRow key={inv.id} inv={inv} onView={onView} onPdf={onPdf} />)}
+                    {invoices.map(inv => <InvoiceRow key={inv.id} inv={inv} onView={onView} onPdf={onPdf} onDelete={onDelete} />)}
                 </div>
             )}
         </div>
     );
 }
 
-function InvoiceRow({ inv, onView, onPdf }: { inv: Invoice; onView: (i: Invoice) => void; onPdf: (id: string) => void }) {
+function InvoiceRow({ inv, onView, onPdf, onDelete }: { inv: Invoice; onView: (i: Invoice) => void; onPdf: (id: string) => void; onDelete?: (id: string) => void }) {
     const st = STATUS_BADGE[inv.status] || STATUS_BADGE.issued;
     const typeColor = TYPE_COLOR[inv.doc_type] || "#64748b";
     return (
@@ -429,14 +440,23 @@ function InvoiceRow({ inv, onView, onPdf }: { inv: Invoice; onView: (i: Invoice)
                     {inv.client_name || "—"} · {new Date(inv.issued_at).toLocaleDateString("he-IL")}
                 </div>
             </div>
-            <div style={{ textAlign: "left", flexShrink: 0 }}>
+            <div style={{ textAlign: "left", flexShrink: 0, display: "flex", flexDirection: "column", gap: "0.25rem", alignItems: "flex-end" }}>
                 <div style={{ fontWeight: 800, fontSize: "1rem", color: inv.doc_type === "credit" ? "#dc2626" : "#111" }}>
                     {inv.doc_type === "credit" ? "-" : ""}₪{Math.abs(inv.total_ils).toFixed(2)}
                 </div>
-                <button type="button" onClick={e => { e.stopPropagation(); onPdf(inv.id); }}
-                    style={{ background: "none", border: "1px solid #e2e8f0", borderRadius: 6, padding: "0.2rem 0.5rem", fontSize: "0.72rem", cursor: "pointer", color: "#64748b", marginTop: "0.25rem" }}>
-                    PDF
-                </button>
+                <div style={{ display: "flex", gap: "0.25rem" }}>
+                    <button type="button" onClick={e => { e.stopPropagation(); onPdf(inv.id); }}
+                        style={{ background: "none", border: "1px solid #e2e8f0", borderRadius: 6, padding: "0.2rem 0.5rem", fontSize: "0.72rem", cursor: "pointer", color: "#64748b" }}>
+                        🖨️ PDF
+                    </button>
+                    {onDelete && (
+                        <button type="button" onClick={e => { e.stopPropagation(); onDelete(inv.id); }}
+                            style={{ background: "none", border: "1px solid #fecaca", borderRadius: 6, padding: "0.2rem 0.5rem", fontSize: "0.72rem", cursor: "pointer", color: "#dc2626" }}
+                            title="מחק לצמיתות (סופר-אדמין)">
+                            🗑️
+                        </button>
+                    )}
+                </div>
             </div>
         </div>
     );
