@@ -160,24 +160,9 @@ export default function InvoicesPage() {
         return `${process.env.NEXT_PUBLIC_API_URL}/api/invoices/${id}/pdf?token=${encodeURIComponent(token)}`;
     };
 
-    const downloadPdf = async (id: string, label: string, num: number) => {
-        try {
-            const url = getPdfUrl(id);
-            const res = await fetch(url);
-            if (!res.ok) {
-                const errText = await res.text().catch(() => "");
-                alert(`שגיאה בהורדת PDF (${res.status})${errText ? ": " + errText : ""}`);
-                return;
-            }
-            const blob = await res.blob();
-            const a = document.createElement("a");
-            a.href = URL.createObjectURL(blob);
-            a.download = `${label}_${num}.pdf`;
-            a.click();
-            URL.revokeObjectURL(a.href);
-        } catch (e: unknown) {
-            alert(`שגיאה בהורדת PDF: ${(e as Error).message}`);
-        }
+    const downloadPdf = (id: string) => {
+        // Use window.open to bypass CORS — server sends Content-Disposition:attachment
+        window.open(getPdfUrl(id), "_blank");
     };
 
     const createCredit = async (id: string, paymentMethod: string, notes: string) => {
@@ -226,7 +211,7 @@ export default function InvoicesPage() {
                         const full = await apiFetch<Invoice>(`/api/invoices/${inv.id}`);
                         setViewInvoice(full);
                     }}
-                    onPdf={(id) => downloadPdf(id, invoices.find(i => i.id === id)?.doc_type_label || "מסמך", invoices.find(i => i.id === id)?.doc_number || 0)}
+                    onPdf={(id) => downloadPdf(id)}
                 />
             )}
             {tab === "settings" && settings && (
@@ -243,7 +228,7 @@ export default function InvoicesPage() {
                 <InvoiceDetailModal
                     invoice={viewInvoice}
                     onClose={() => setViewInvoice(null)}
-                    onDownload={() => downloadPdf(viewInvoice.id, viewInvoice.doc_type_label, viewInvoice.doc_number)}
+                    onDownload={() => downloadPdf(viewInvoice.id)}
                     getPdfUrl={() => getPdfUrl(viewInvoice.id)}
                     onCredit={(method, notes) => createCredit(viewInvoice.id, method, notes)}
                 />
