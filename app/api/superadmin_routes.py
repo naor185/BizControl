@@ -2235,26 +2235,26 @@ def admin_hard_delete_invoice(
     db.execute(text("DELETE FROM invoice_items WHERE invoice_id = :id"), {"id": invoice_id})
     db.execute(text("DELETE FROM invoices WHERE id = :id"), {"id": invoice_id})
 
-    # 5. Reset series counter: set next_number = MAX(remaining doc_number) + 1
-    #    so the deleted number is reused on the next issue.
-    remaining_max = db.execute(
-        text("""
-            SELECT COALESCE(MAX(doc_number), 999)
-            FROM invoices
-            WHERE studio_id = :sid AND doc_type = :dt
-        """),
-        {"sid": str(studio_id), "dt": doc_type}
-    ).scalar()
-    new_next = int(remaining_max) + 1
-    db.execute(
-        text("""
-            INSERT INTO invoice_series (studio_id, doc_type, next_number)
-            VALUES (:sid, :dt, :nn)
-            ON CONFLICT (studio_id, doc_type)
-            DO UPDATE SET next_number = :nn
-        """),
-        {"sid": str(studio_id), "dt": doc_type, "nn": new_next}
-    )
+    # 5. Reset ALL series counters for this studio based on remaining invoices.
+    #    Each doc_type series is set to MAX(remaining doc_number)+1, or 1000 if none left.
+    for _dt in ["invoice_tax", "receipt", "invoice_tax_receipt", "credit", "transaction"]:
+        _max = db.execute(
+            text("""
+                SELECT COALESCE(MAX(doc_number), 999)
+                FROM invoices
+                WHERE studio_id = :sid AND doc_type = :dt
+            """),
+            {"sid": str(studio_id), "dt": _dt}
+        ).scalar()
+        db.execute(
+            text("""
+                INSERT INTO invoice_series (studio_id, doc_type, next_number)
+                VALUES (:sid, :dt, :nn)
+                ON CONFLICT (studio_id, doc_type)
+                DO UPDATE SET next_number = :nn
+            """),
+            {"sid": str(studio_id), "dt": _dt, "nn": int(_max) + 1}
+        )
 
     db.commit()
     return {

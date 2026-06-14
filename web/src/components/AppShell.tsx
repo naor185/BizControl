@@ -126,6 +126,11 @@ export default function AppShell({
     }
 
     const handleBusinessClick = () => {
+        // Superadmin impersonating: bypass PIN entirely
+        if (isImpersonating) {
+            router.push("/business");
+            return;
+        }
         if (isBusinessSessionValid()) {
             router.push("/business");
             return;
