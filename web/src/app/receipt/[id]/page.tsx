@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "https://api.biz-control.com").replace(/\/$/, "");
+// Empty string = relative URL → Next.js rewrites proxy /api/* to backend (same as lib/api.ts)
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_BASE || "").replace(/\/$/, "");
 
 type ReceiptItem = {
   description: string;
@@ -97,6 +98,7 @@ export default function PublicReceiptPage() {
         {/* Print button */}
         <div className="max-w-lg mx-auto mb-4 no-print flex justify-end">
           <button
+            type="button"
             onClick={() => window.print()}
             className="flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg shadow-sm hover:bg-gray-50 text-sm font-medium transition"
           >
