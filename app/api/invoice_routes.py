@@ -414,6 +414,10 @@ def create_invoice(
     settings = dict(settings_row._mapping) if settings_row else {}
     biz_type = settings.get("business_type", "osek_patur")
 
+    # For osek_patur: force to "receipt" (never invoice_tax_receipt which implies VAT)
+    if biz_type == "osek_patur" and body.doc_type in ("invoice_tax_receipt", "invoice_tax"):
+        body = body.model_copy(update={"doc_type": "receipt"})
+
     allowed = ALLOWED_DOCS.get(biz_type, [])
     if body.doc_type not in allowed:
         raise HTTPException(400, f"סוג מסמך '{DOC_TYPES.get(body.doc_type, body.doc_type)}' לא מותר לסוג עסק זה")
