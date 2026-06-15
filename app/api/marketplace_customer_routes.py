@@ -1,12 +1,13 @@
 """
 BizFind Marketplace Customer Auth API
 
-POST /api/marketplace/auth/request-otp  — send OTP to phone
-POST /api/marketplace/auth/verify-otp   — verify OTP, return JWT + customer
-POST /api/marketplace/auth/complete     — set name (first-time users)
-GET  /api/marketplace/auth/me           — get profile (JWT required)
-POST /api/marketplace/auth/favorites    — toggle favorite studio
-GET  /api/marketplace/auth/favorites    — list favorites
+POST /api/marketplace/auth/request-otp   — send OTP to phone
+POST /api/marketplace/auth/verify-otp    — verify OTP, return JWT + customer
+POST /api/marketplace/auth/complete      — set name (first-time users)
+POST /api/marketplace/auth/register-email — register with email+password
+POST /api/marketplace/auth/login-email   — login with email+password
+GET  /api/marketplace/auth/me            — get profile (JWT required)
+POST /api/marketplace/auth/favorites     — toggle favorite studio
 GET  /api/marketplace/auth/linked/{slug} — check if customer is a client of this studio
 """
 from __future__ import annotations
@@ -17,6 +18,10 @@ import string
 import uuid
 from datetime import datetime, timezone, timedelta
 from typing import Optional
+
+from passlib.context import CryptContext as _CryptContext
+
+_pwd_ctx = _CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 from fastapi import APIRouter, Depends, HTTPException, Header, Request
 from pydantic import BaseModel
@@ -136,6 +141,18 @@ class CompleteProfileIn(BaseModel):
 class ToggleFavoriteIn(BaseModel):
     studio_slug: str
 
+class EmailRegisterIn(BaseModel):
+    email: str
+    password: str
+    first_name: str
+    last_name: str
+    phone: Optional[str] = None
+    city: Optional[str] = None
+
+class EmailLoginIn(BaseModel):
+    email: str
+    password: str
+
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
@@ -240,13 +257,84 @@ def complete_profile(
     return {"ok": True}
 
 
+@router.post("/register-email")
+def register_email(body: EmailRegisterIn, db: Session = Depends(get_db)):
+    email = body.email.strip().lower()
+    if "@" not in email or "." not in email.split("@")[-1]:
+        raise HTTPException(status_code=400, detail="כתובת אימייל לא תקינה")
+    if len(body.password) < 6:
+        raise HTTPException(status_code=400, detail="הסיסמה חייבת להכיל לפחות 6 תווים")
+    if not body.first_name.strip() or not body.last_name.strip():
+        raise HTTPException(status_code=400, detail="שם פרטי ושם משפחה נדרשים")
+
+    existing = db.execute(
+        text("SELECT id FROM marketplace_customers WHERE email = :email"),
+        {"email": email}
+    ).fetchone()
+    if existing:
+        raise HTTPException(status_code=409, detail="אימייל זה כבר רשום. נסה להתחבר")
+
+    phone = body.phone.strip().replace("-", "").replace(" ", "") if body.phone else None
+    hashed = _pwd_ctx.hash(body.password)
+    cid = str(uuid.uuid4())
+    db.execute(
+        text("""
+            INSERT INTO marketplace_customers
+                (id, email, password_hash, first_name, last_name, phone, city, last_login_at)
+            VALUES (:id, :email, :phash, :fn, :ln, :phone, :city, NOW())
+        """),
+        {"id": cid, "email": email, "phash": hashed,
+         "fn": body.first_name.strip(), "ln": body.last_name.strip(),
+         "phone": phone, "city": body.city}
+    )
+    db.commit()
+
+    customer = {
+        "id": cid, "email": email, "phone": phone or "",
+        "first_name": body.first_name.strip(), "last_name": body.last_name.strip(),
+        "full_name": f"{body.first_name.strip()} {body.last_name.strip()}",
+        "city": body.city,
+    }
+    return {"token": _make_token(cid), "is_new": True, "customer": customer}
+
+
+@router.post("/login-email")
+@limiter.limit("10/minute")
+def login_email(request: Request, body: EmailLoginIn, db: Session = Depends(get_db)):
+    email = body.email.strip().lower()
+
+    row = db.execute(
+        text("""
+            SELECT id, first_name, last_name, phone, city, password_hash
+            FROM marketplace_customers WHERE email = :email
+        """),
+        {"email": email}
+    ).fetchone()
+
+    if not row or not row[5] or not _pwd_ctx.verify(body.password, row[5]):
+        raise HTTPException(status_code=401, detail="אימייל או סיסמה שגויים")
+
+    cid = str(row[0])
+    db.execute(text("UPDATE marketplace_customers SET last_login_at = NOW() WHERE id = :id"), {"id": cid})
+    db.commit()
+
+    fn, ln = row[1] or "", row[2] or ""
+    customer = {
+        "id": cid, "email": email, "phone": row[3] or "",
+        "first_name": fn, "last_name": ln,
+        "full_name": f"{fn} {ln}".strip(),
+        "city": row[4],
+    }
+    return {"token": _make_token(cid), "customer": customer}
+
+
 @router.get("/me")
 def get_me(
     db: Session = Depends(get_db),
     customer_id: str = Depends(_get_customer_id),
 ):
     row = db.execute(
-        text("SELECT id, phone, first_name, last_name, city, created_at FROM marketplace_customers WHERE id = :id"),
+        text("SELECT id, phone, first_name, last_name, city, created_at, email FROM marketplace_customers WHERE id = :id"),
         {"id": customer_id}
     ).fetchone()
     if not row:
@@ -257,12 +345,14 @@ def get_me(
         {"cid": customer_id}
     ).fetchall()
 
+    fn, ln = row[2] or "", row[3] or ""
     return {
         "id": str(row[0]),
-        "phone": row[1],
-        "first_name": row[2] or "",
-        "last_name": row[3] or "",
-        "full_name": f"{row[2] or ''} {row[3] or ''}".strip(),
+        "phone": row[1] or "",
+        "email": row[6] or "",
+        "first_name": fn,
+        "last_name": ln,
+        "full_name": f"{fn} {ln}".strip(),
         "city": row[4],
         "created_at": row[5].isoformat() if row[5] else None,
         "favorites": [f[0] for f in favs],
@@ -399,6 +489,38 @@ def check_linked(
         "appointment_count": appt_count,
         "total_paid_ils": round(total_paid / 100, 2),
     }
+
+
+@router.get("/my-waitlist")
+def my_waitlist(db: Session = Depends(get_db), customer_id: str = Depends(_get_customer_id)):
+    """Return all active waitlist entries for the logged-in customer (by phone)."""
+    row = db.execute(text("SELECT phone FROM marketplace_customers WHERE id = :id"), {"id": customer_id}).fetchone()
+    if not row:
+        return []
+    phone = row[0]
+    rows = db.execute(text("""
+        SELECT wl.id, wl.status, wl.created_at, wl.notified_at,
+               s.name AS studio_name, s.slug AS studio_slug,
+               wl.notes
+        FROM wait_list wl
+        JOIN studios s ON s.id = wl.studio_id
+        WHERE wl.client_phone = :phone
+          AND wl.status IN ('waiting', 'notified')
+        ORDER BY wl.created_at DESC
+        LIMIT 20
+    """), {"phone": phone}).fetchall()
+    return [
+        {
+            "id": str(r[0]),
+            "status": r[1],
+            "created_at": r[2].isoformat() if r[2] else None,
+            "notified_at": r[3].isoformat() if r[3] else None,
+            "studio_name": r[4],
+            "studio_slug": r[5],
+            "notes": r[6],
+        }
+        for r in rows
+    ]
 
 
 @router.get("/my-bookings")

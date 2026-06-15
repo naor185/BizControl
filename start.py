@@ -999,6 +999,13 @@ def ensure_schema():
             )
         """)
 
+        # ── Marketplace customer email/password auth ─────────────────────────
+        cur.execute("""
+            ALTER TABLE marketplace_customers
+            ADD COLUMN IF NOT EXISTS email VARCHAR(255) UNIQUE,
+            ADD COLUMN IF NOT EXISTS password_hash TEXT
+        """)
+
         # ── Booking request public token (for customer-facing status link) ────
         cur.execute("""
             ALTER TABLE booking_requests

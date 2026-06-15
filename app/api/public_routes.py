@@ -1,4 +1,5 @@
 import logging
+import os
 import uuid
 from uuid import UUID as PyUUID
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -664,6 +665,110 @@ def get_public_booking(token: str, db: Session = Depends(get_db)):
         "appointment_id": str(req.appointment_id) if req.appointment_id else None,
         "appointment_status": appt.status if appt else None,
     }
+
+
+# ── Public Waitlist (customer joins from BizFind booking page) ───────────────
+
+class WaitlistJoinIn(BaseModel):
+    name: str
+    phone: str
+    artist_id: Optional[str] = None
+    service_note: Optional[str] = None
+
+
+@router.post("/waitlist/{slug}", status_code=201)
+def join_waitlist(slug: str, payload: WaitlistJoinIn, db: Session = Depends(get_db)):
+    """Public: customer joins the waitlist for a studio without auth."""
+    from app.models.wait_list import WaitListEntry
+    from app.models.message_job import MessageJob
+
+    studio = db.scalar(select(Studio).where(Studio.slug == slug, Studio.is_active == True))  # noqa
+    if not studio:
+        raise HTTPException(status_code=404, detail="Studio not found")
+
+    phone = payload.phone.strip().replace("-", "").replace(" ", "")
+    if not phone:
+        raise HTTPException(status_code=400, detail="נדרש מספר טלפון")
+
+    # Prevent duplicate active entries
+    existing = db.scalar(
+        select(WaitListEntry).where(
+            WaitListEntry.studio_id == studio.id,
+            WaitListEntry.client_phone == phone,
+            WaitListEntry.status.in_(["waiting", "notified"]),
+        )
+    )
+    if existing:
+        return {"id": str(existing.id), "status": existing.status, "already_waiting": True}
+
+    artist_id = None
+    if payload.artist_id:
+        try:
+            import uuid as _uuid
+            artist_id = _uuid.UUID(payload.artist_id)
+        except ValueError:
+            pass
+
+    entry = WaitListEntry(
+        studio_id=studio.id,
+        client_name=payload.name.strip(),
+        client_phone=phone,
+        preferred_artist_id=artist_id,
+        notes=payload.service_note,
+        status="waiting",
+    )
+    db.add(entry)
+    db.flush()
+
+    # Confirm to client via WhatsApp
+    settings = db.get(StudioSettings, studio.id)
+    bizfind_url = os.getenv("BIZFIND_URL", "https://find-biz.com")
+    confirm_msg = (
+        f"שלום {payload.name.strip()}! 📋\n\n"
+        f"נרשמת לרשימת המתנה של {studio.name}.\n"
+        f"ברגע שיתפנה מקום, תקבל הודעה מיידית.\n\n"
+        f"לביטול הרישום שלח/י 'ביטול' בתשובה להודעה זו."
+    )
+    db.add(MessageJob(
+        studio_id=studio.id,
+        channel="whatsapp",
+        to_phone=phone,
+        body=confirm_msg,
+        scheduled_at=datetime.now(timezone.utc),
+        status="pending",
+        reminder_type="waitlist_join",
+    ))
+    db.commit()
+
+    return {"id": str(entry.id), "status": "waiting", "already_waiting": False}
+
+
+@router.get("/waitlist/{slug}")
+def my_waitlist_status(slug: str, phone: str = Query(...), db: Session = Depends(get_db)):
+    """Public: customer checks their waitlist status by phone."""
+    from app.models.wait_list import WaitListEntry
+
+    studio = db.scalar(select(Studio).where(Studio.slug == slug, Studio.is_active == True))  # noqa
+    if not studio:
+        raise HTTPException(status_code=404, detail="Studio not found")
+
+    clean = phone.strip().replace("-", "").replace(" ", "")
+    entries = db.scalars(
+        select(WaitListEntry).where(
+            WaitListEntry.studio_id == studio.id,
+            WaitListEntry.client_phone == clean,
+        ).order_by(WaitListEntry.created_at.desc()).limit(5)
+    ).all()
+
+    return [
+        {
+            "id": str(e.id),
+            "status": e.status,
+            "created_at": e.created_at.isoformat(),
+            "notified_at": e.notified_at.isoformat() if e.notified_at else None,
+        }
+        for e in entries
+    ]
 
 
 # ── Customer cross-studio bookings lookup ────────────────────────────────────

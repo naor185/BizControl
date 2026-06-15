@@ -23,6 +23,7 @@ export default function MePage() {
     const [loadingFavs, setLoadingFavs] = useState(false);
     const [mounted, setMounted] = useState(false);
     const [invoices, setInvoices] = useState<MyInvoice[]>([]);
+    const [waitlist, setWaitlist] = useState<WaitlistEntry[]>([]);
 
     useEffect(() => {
         setMounted(true);
@@ -45,6 +46,10 @@ export default function MePage() {
 
         apiFetch<MyInvoice[]>("/api/marketplace/auth/my-invoices")
             .then(setInvoices)
+            .catch(() => {});
+
+        apiFetch<WaitlistEntry[]>("/api/marketplace/auth/my-waitlist")
+            .then(setWaitlist)
             .catch(() => {});
     }, [customer?.id]);
 
@@ -194,6 +199,39 @@ export default function MePage() {
                     </section>
                 )}
 
+                {/* Waitlist */}
+                {waitlist.length > 0 && (
+                    <section style={{ marginBottom: "2rem" }}>
+                        <h2 style={{ fontWeight: 800, fontSize: "1rem", marginBottom: "0.75rem", color: "#e2e8f0" }}>
+                            📋 רשימת המתנה שלי ({waitlist.length})
+                        </h2>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                            {waitlist.map(w => (
+                                <div key={w.id} style={{ background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.08)", borderRadius: 14, padding: "0.85rem 1rem" }}>
+                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                        <div style={{ fontWeight: 700, fontSize: "0.88rem" }}>{w.studio_name}</div>
+                                        <span style={{
+                                            fontSize: "0.72rem", fontWeight: 700, borderRadius: 8, padding: "0.2rem 0.55rem",
+                                            background: w.status === "notified" ? "rgba(251,191,36,.15)" : "rgba(148,163,184,.1)",
+                                            color: w.status === "notified" ? "#fbbf24" : "#94a3b8",
+                                            border: `1px solid ${w.status === "notified" ? "rgba(251,191,36,.3)" : "rgba(148,163,184,.2)"}`,
+                                        }}>
+                                            {w.status === "notified" ? "🔔 התפנה מקום!" : "⏳ ממתין"}
+                                        </span>
+                                    </div>
+                                    {w.notes && <div style={{ color: "#64748b", fontSize: "0.78rem", marginTop: "0.25rem" }}>{w.notes}</div>}
+                                    {w.status === "notified" && (
+                                        <Link href={`/b/${w.studio_slug}/book`}
+                                            style={{ display: "inline-block", marginTop: "0.6rem", background: "linear-gradient(135deg,#7c3aed,#4c1d95)", color: "#fff", borderRadius: 10, padding: "0.45rem 1rem", fontSize: "0.8rem", fontWeight: 700, textDecoration: "none" }}>
+                                            קבע תור עכשיו →
+                                        </Link>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+                )}
+
                 {/* My bookings link */}
                 <section style={{ marginBottom: "2rem" }}>
                     <a
@@ -226,4 +264,9 @@ export default function MePage() {
 
 interface FavStudio {
     slug: string; name: string; city?: string; logo_url?: string; primary_color: string;
+}
+
+interface WaitlistEntry {
+    id: string; status: string; studio_name: string; studio_slug: string;
+    notes: string | null; created_at: string | null; notified_at: string | null;
 }

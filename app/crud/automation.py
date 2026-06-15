@@ -103,12 +103,6 @@ def enqueue_confirmation_message(db: Session, appt: Appointment, artist_name: st
         context["deposit_amount"] = ""
 
     # --- WhatsApp ---
-    # Build studio logo URL (used as media_url so it appears at top of message)
-    _backend_url = os.getenv("BACKEND_URL", os.getenv("RAILWAY_STATIC_URL", "")).rstrip("/")
-    _logo_url: str | None = None
-    if settings.logo_filename and _backend_url:
-        _logo_url = f"{_backend_url}/uploads/{settings.logo_filename}"
-
     if client.phone:
         if has_deposit and settings.deposit_request_wa_template:
             wa_body = smart_format(settings.deposit_request_wa_template, context)
@@ -143,7 +137,6 @@ def enqueue_confirmation_message(db: Session, appt: Appointment, artist_name: st
         db.add(MessageJob(
             studio_id=appt.studio_id, client_id=client.id, appointment_id=appt.id,
             channel="whatsapp", to_phone=client.phone, body=wa_body,
-            media_url=_logo_url,
             scheduled_at=now, status="pending",
         ))
 

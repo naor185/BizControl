@@ -53,26 +53,62 @@ def _normalize_phone(to_phone: str) -> str:
     return clean
 
 
+def _green_post(url: str, payload: bytes) -> dict:
+    """POST to Green API and return parsed JSON. Raises on HTTP error or error body."""
+    import urllib.request, urllib.error, json as _json
+    req = urllib.request.Request(url, data=payload, method="POST")
+    req.add_header("Content-Type", "application/json")
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            raw = resp.read()
+    except urllib.error.HTTPError as e:
+        raw = e.read()
+        try:
+            data = _json.loads(raw)
+            msg = data.get("message") or data.get("error") or str(data)
+        except Exception:
+            msg = raw.decode(errors="replace")
+        raise RuntimeError(f"Green API HTTP {e.code}: {msg}")
+
+    try:
+        data = _json.loads(raw)
+    except Exception:
+        return {}
+
+    # Green API returns {"error": 400, "message": "..."} or {"statusCode": 400} with HTTP 200
+    if "error" in data and data["error"] not in (None, 0, False, ""):
+        msg = data.get("message") or str(data["error"])
+        raise RuntimeError(f"Green API error: {msg}")
+    if data.get("statusCode", 0) not in (0, 200, None):
+        raise RuntimeError(f"Green API statusCode: {data}")
+
+    return data
+
+
 def _send_via_green(instance_id: str, api_key: str, to_phone: str, body: str, media_url: str | None = None) -> None:
-    import urllib.request, json as _json
+    import json as _json
     clean = _normalize_phone(to_phone)
+
     if media_url:
-        url = f"https://api.green-api.com/waInstance{instance_id}/sendFileByUrl/{api_key}"
         ext = media_url.rsplit(".", 1)[-1].lower() if "." in media_url else "jpg"
+        url = f"https://api.green-api.com/waInstance{instance_id}/sendFileByUrl/{api_key}"
         payload = _json.dumps({
             "chatId": clean,
             "urlFile": media_url,
             "fileName": f"logo.{ext}",
             "caption": body,
         }).encode()
-    else:
-        url = f"https://api.green-api.com/waInstance{instance_id}/sendMessage/{api_key}"
-        payload = _json.dumps({"chatId": clean, "message": body}).encode()
-    req = urllib.request.Request(url, data=payload, method="POST")
-    req.add_header("Content-Type", "application/json")
-    with urllib.request.urlopen(req, timeout=10) as resp:
-        if resp.status >= 300:
-            raise RuntimeError(f"Green API error {resp.status}")
+        try:
+            _green_post(url, payload)
+            return
+        except Exception as media_err:
+            # Fall back to plain text if media fails
+            log.warning("Green API sendFileByUrl failed (%s) — falling back to text-only", media_err)
+
+    # Plain text message (primary path, or fallback after media failure)
+    url = f"https://api.green-api.com/waInstance{instance_id}/sendMessage/{api_key}"
+    payload = _json.dumps({"chatId": clean, "message": body}).encode()
+    _green_post(url, payload)
 
 
 def _get_platform_settings(db: Session):

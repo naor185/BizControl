@@ -16,6 +16,7 @@ export default function BookPage() {
     const [services, setServices] = useState<Service[]>([]);
     const [artists, setArtists] = useState<Artist[]>([]);
 
+    const [bookingEnabled, setBookingEnabled] = useState<boolean | null>(null);
     const [step, setStep] = useState<Step>("service");
     const [service, setService] = useState<Service | null>(null);
     const [artist, setArtist] = useState<Artist | null>(null);
@@ -29,6 +30,10 @@ export default function BookPage() {
     const [submitting, setSubmitting] = useState(false);
     const [done, setDone] = useState(false);
     const [err, setErr] = useState<string | null>(null);
+    const [showWaitlist, setShowWaitlist] = useState(false);
+    const [waitlistDone, setWaitlistDone] = useState(false);
+    const [wlName, setWlName] = useState("");
+    const [wlPhone, setWlPhone] = useState("");
 
     useEffect(() => {
         fetch(`${API}/api/marketplace/${slug}`)
@@ -36,6 +41,7 @@ export default function BookPage() {
             .then(d => {
                 setStudioName(d.name);
                 setPrimary(d.primary_color || "#7c3aed");
+                setBookingEnabled(!!d.self_booking_enabled);
                 setServices(d.services.filter((s: Service) => s.is_bookable_online));
                 setArtists(d.artists);
                 // Auto-select only artist
@@ -72,6 +78,20 @@ export default function BookPage() {
     const today = new Date().toISOString().split("T")[0];
     const steps: Step[] = ["service", "artist", "date", "time", "details"];
     const stepIdx = steps.indexOf(step);
+
+    if (bookingEnabled === false) return (
+        <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "1rem", padding: "2rem", textAlign: "center" }}>
+            <div style={{ fontSize: "3.5rem" }}>🔒</div>
+            <h2 style={{ fontSize: "1.4rem", fontWeight: 900, color: "#e2e8f0" }}>קביעת תורים אונליין סגורה</h2>
+            <p style={{ color: "#64748b", fontSize: "0.9rem", lineHeight: 1.7 }}>
+                {studioName || "העסק"} אינו מקבל תורים אונליין כרגע.<br />
+                ניתן ליצור קשר ישירות עם העסק לקביעת תור.
+            </p>
+            <Link href={`/b/${slug}`} style={{ background: "linear-gradient(135deg,#7c3aed,#4c1d95)", color: "#fff", textDecoration: "none", padding: "0.8rem 1.8rem", borderRadius: 14, fontWeight: 700 }}>
+                חזרה לפרופיל
+            </Link>
+        </div>
+    );
 
     if (done) return (
         <div style={{ height: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "1.5rem", padding: "2rem", textAlign: "center" }}>
@@ -164,7 +184,37 @@ export default function BookPage() {
                         ) : slots.length === 0 ? (
                             <div style={{ textAlign: "center", padding: "2rem", color: "#64748b" }}>
                                 <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>😕</div>
-                                <div>אין שעות פנויות. נסה תאריך אחר.</div>
+                                <div style={{ marginBottom: "1.25rem" }}>אין שעות פנויות לתאריך זה.</div>
+                                {!waitlistDone && !showWaitlist && (
+                                    <button type="button" onClick={() => setShowWaitlist(true)}
+                                        style={{ background: "rgba(124,58,237,.15)", border: "1px solid #7c3aed", color: "#a78bfa", borderRadius: 14, padding: "0.7rem 1.5rem", cursor: "pointer", fontWeight: 700, fontSize: "0.9rem" }}>
+                                        📋 הצטרף לרשימת המתנה
+                                    </button>
+                                )}
+                                {showWaitlist && !waitlistDone && (
+                                    <div style={{ textAlign: "right", marginTop: "1rem", display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+                                        <input value={wlName} onChange={e => setWlName(e.target.value)} placeholder="שם מלא *"
+                                            style={{ background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.15)", borderRadius: 12, padding: "0.75rem", color: "#fff", fontSize: "0.95rem", outline: "none" }} />
+                                        <input value={wlPhone} onChange={e => setWlPhone(e.target.value)} placeholder="טלפון *" type="tel"
+                                            style={{ background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.15)", borderRadius: 12, padding: "0.75rem", color: "#fff", fontSize: "0.95rem", outline: "none" }} />
+                                        <button type="button" disabled={!wlName || !wlPhone}
+                                            onClick={async () => {
+                                                const res = await fetch(`${API}/api/public/waitlist/${slug}`, {
+                                                    method: "POST", headers: { "Content-Type": "application/json" },
+                                                    body: JSON.stringify({ name: wlName, phone: wlPhone, artist_id: artist?.id, service_note: service?.name }),
+                                                });
+                                                if (res.ok) setWaitlistDone(true);
+                                            }}
+                                            style={{ background: primary, color: "#fff", borderRadius: 12, padding: "0.75rem", cursor: "pointer", fontWeight: 700, border: "none", opacity: (!wlName || !wlPhone) ? 0.5 : 1 }}>
+                                            אשר רישום לרשימת המתנה
+                                        </button>
+                                    </div>
+                                )}
+                                {waitlistDone && (
+                                    <div style={{ background: "rgba(74,222,128,.1)", border: "1px solid #4ade80", borderRadius: 14, padding: "1rem", color: "#4ade80", marginTop: "0.5rem" }}>
+                                        ✅ נרשמת לרשימת המתנה! תקבל הודעה בוואטסאפ כשיתפנה מקום.
+                                    </div>
+                                )}
                             </div>
                         ) : (
                             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(85px,1fr))", gap: "0.55rem" }}>

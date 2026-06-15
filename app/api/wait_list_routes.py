@@ -189,8 +189,8 @@ def _send_wait_list_notification(db: Session, entry: WaitListEntry, studio_id) -
     studio_name = studio.name if studio else "הסטודיו"
     name = entry.client_name or "שלום"
     slug = studio.slug if studio else ""
-    frontend = _os.environ.get("FRONTEND_URL", "https://bizcontrol-seven.vercel.app")
-    booking_url = f"{frontend}/book/{slug}" if slug else ""
+    bizfind_url = _os.environ.get("BIZFIND_URL", "https://find-biz.com")
+    booking_url = f"{bizfind_url}/b/{slug}/book" if slug else ""
     booking_line = f"\n\nלקביעת תור מהיר:\n{booking_url}" if booking_url else ""
     body = (
         f"שלום {name}! 🎉\n\n"

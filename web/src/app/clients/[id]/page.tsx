@@ -52,6 +52,8 @@ type MessageItem = {
     to_phone: string;
     body: string;
     status: string;
+    last_error?: string | null;
+    attempts?: number;
     created_at: string;
 };
 
@@ -669,18 +671,35 @@ export default function ClientProfilePage() {
                                         profile.messages.map((m) => {
                                             const icon = m.channel === 'whatsapp' ? '💬' : m.channel === 'sms' ? '📱' : '✉️';
                                             const channelName = m.channel === 'whatsapp' ? 'WhatsApp' : m.channel === 'sms' ? 'SMS' : 'Email';
+                                            const statusBadge = () => {
+                                                switch (m.status) {
+                                                    case 'sent':    return { label: '✓ נשלח', cls: 'bg-emerald-100 text-emerald-700' };
+                                                    case 'pending': return { label: '⏳ ממתין...', cls: 'bg-amber-100 text-amber-700' };
+                                                    case 'failed':  return { label: '✗ נכשל', cls: 'bg-rose-100 text-rose-700' };
+                                                    case 'canceled': return { label: 'בוטל', cls: 'bg-slate-100 text-slate-500' };
+                                                    default:        return { label: m.status, cls: 'bg-slate-100 text-slate-500' };
+                                                }
+                                            };
+                                            const badge = statusBadge();
                                             return (
-                                                <div key={m.id} className="flex items-center justify-between p-3 rounded-xl border border-slate-100 bg-slate-50 text-sm hover:border-slate-200 transition-colors">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="text-xl">{icon}</div>
-                                                        <div>
-                                                            <div className="font-bold text-slate-700">{channelName}</div>
-                                                            <div className="text-[11px] text-slate-400">{new Date(m.created_at).toLocaleString("he-IL")}</div>
+                                                <div key={m.id} className="p-3 rounded-xl border border-slate-100 bg-slate-50 text-sm hover:border-slate-200 transition-colors">
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="text-xl">{icon}</div>
+                                                            <div>
+                                                                <div className="font-bold text-slate-700">{channelName}</div>
+                                                                <div className="text-[11px] text-slate-400">{new Date(m.created_at).toLocaleString("he-IL")}</div>
+                                                            </div>
+                                                        </div>
+                                                        <div className={`text-xs font-medium px-2 py-1 rounded-md ${badge.cls}`}>
+                                                            {badge.label}
                                                         </div>
                                                     </div>
-                                                    <div className="text-xs font-medium px-2 py-1 rounded-md bg-emerald-100 text-emerald-700">
-                                                        {m.status === 'pending' ? 'ממתין לשליחה...' : 'נשלח מעולה בהצלחה רבה'}
-                                                    </div>
+                                                    {m.status === 'failed' && m.last_error && (
+                                                        <div className="mt-1.5 text-[11px] text-rose-600 bg-rose-50 rounded px-2 py-1 border border-rose-100 break-words">
+                                                            {m.last_error}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             );
                                         })
