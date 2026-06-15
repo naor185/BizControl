@@ -116,7 +116,7 @@ def enqueue_confirmation_message(db: Session, appt: Appointment, artist_name: st
                 f"📅 {context['appointment_date']} בשעה {context['appointment_time']}",
             ]
             if context.get("artist_name"):
-                lines.append(f"✂️ {context['artist_name']}")
+                lines.append(f"👤 {context['artist_name']}")
             # Address + map first — WhatsApp previews the FIRST link in the message.
             # Putting map before payment ensures the map card appears at top, not the payment provider.
             if context.get("studio_address"):
@@ -185,7 +185,7 @@ def enqueue_deposit_approved_message(db: Session, appt: Appointment, artist_name
         wa_template = (
             "✅ {client_name}, המקדמה אושרה!\n\n"
             "📅 {appointment_date} בשעה {appointment_time}\n"
-            "✂️ {artist_name}\n"
+            "👤 {artist_name}\n"
             "📍 {studio_address}\n"
             "🗺️ ניווט: {map_link}\n"
             "🖼️ תיק עבודות: {portfolio_link}\n\n"

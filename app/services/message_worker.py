@@ -175,9 +175,17 @@ def _log_whatsapp(db: Session, studio_id, phone: str, body: str, status: str,
         except Exception: pass
 
 
+_PLATFORM_FOOTER = (
+    "\n\n—\n"
+    "🤖 הודעה אוטומטית ממערכת BizControl.\n"
+    "אין להשיב להודעה זו."
+)
+
+
 def send_whatsapp_message(to_phone: str, body: str, settings=None, db: Session | None = None, media_url: str | None = None) -> None:
     provider = getattr(settings, "whatsapp_provider", None) if settings else None
     studio_id = getattr(settings, "studio_id", None) if settings else None
+    using_platform_fallback = False
 
     # Fall back to platform WhatsApp if studio has none configured
     if not provider and db is not None:
@@ -185,9 +193,14 @@ def send_whatsapp_message(to_phone: str, body: str, settings=None, db: Session |
         if platform and platform.whatsapp_provider:
             settings = platform
             provider = platform.whatsapp_provider
+            using_platform_fallback = True
 
     if not provider:
         raise ValueError("WhatsApp provider not configured for this studio")
+
+    # Append system footer when sending from BizControl's own number
+    if using_platform_fallback:
+        body = body.rstrip() + _PLATFORM_FOOTER
 
     instance_id_used = ""
     try:

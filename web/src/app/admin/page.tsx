@@ -1325,85 +1325,45 @@ export default function AdminPage() {
                                 <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center text-xl">💬</div>
                                 <div>
                                     <h2 className="text-lg font-bold">BizFind — WhatsApp לשליחת OTP</h2>
-                                    <p className="text-slate-400 text-sm mt-0.5">OTP נשלח ללקוחות BizFind בעת הרשמה. ניתן לשלוח מ-Platform Green API או מסטודיו ספציפי.</p>
+                                    <p className="text-slate-400 text-sm mt-0.5">OTP נשלח ללקוחות BizFind בעת הרשמה, מהמספר המרכזי של הפלטפורמה.</p>
                                 </div>
                             </div>
 
-                            {/* Primary: Platform Green API status */}
-                            <div className={`flex items-start gap-3 px-4 py-3 rounded-xl text-sm border ${platformWAInstance && platformWATokenSet ? "bg-emerald-900/30 border-emerald-500/30 text-emerald-300" : "bg-slate-800/50 border-white/10 text-slate-400"}`}>
-                                <span className="mt-0.5">{platformWAInstance && platformWATokenSet ? "✅" : "⚪"}</span>
+                            {/* Platform status only */}
+                            <div className={`flex items-start gap-3 px-4 py-4 rounded-xl text-sm border ${platformWAInstance && platformWATokenSet ? "bg-emerald-900/30 border-emerald-500/30 text-emerald-300" : "bg-amber-900/20 border-amber-500/30 text-amber-300"}`}>
+                                <span className="text-lg mt-0.5">{platformWAInstance && platformWATokenSet ? "✅" : "⚠️"}</span>
                                 <div>
-                                    <div className="font-semibold">
+                                    <div className="font-bold">
                                         {platformWAInstance && platformWATokenSet
-                                            ? `Platform Green API פעיל — Instance: ${platformWAInstance}`
-                                            : "Platform Green API לא מוגדר"}
+                                            ? `מחובר — Instance: ${platformWAInstance}`
+                                            : "לא מוגדר — הגדר Platform Green API למעלה"}
                                     </div>
-                                    <div className="text-xs opacity-70 mt-0.5">
+                                    <div className="text-xs opacity-70 mt-1">
                                         {platformWAInstance && platformWATokenSet
-                                            ? "זהו שולח ה-OTP הראשי — OTP יישלח ממספר זה אוטומטית"
-                                            : "הגדר Platform Green API למעלה כדי להפעיל שליחת OTP"}
+                                            ? "OTP יישלח ממספר הפלטפורמה אוטומטית — הכל תקין ✓"
+                                            : "יש להגדיר Platform Green API כדי לשלוח OTP"}
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Secondary: Studio override */}
-                            <details className="group">
-                                <summary className="text-xs font-semibold text-slate-400 cursor-pointer hover:text-white transition-colors list-none flex items-center gap-1.5">
-                                    <span className="group-open:rotate-90 inline-block transition-transform">▶</span>
-                                    אפשרות מתקדמת — שלח OTP ממספר סטודיו ספציפי (במקום Platform)
-                                </summary>
-                                <div className="mt-3 space-y-3 pt-3 border-t border-white/10">
-                                    {bizfindSettings && bizfindSettings.otp_studio_id && (
-                                        <div className="flex items-center gap-2 px-3 py-2 bg-emerald-900/20 border border-emerald-500/20 rounded-xl text-xs text-emerald-300">
-                                            ✅ שולח מ: <strong>{bizfindSettings.otp_studio_name}</strong>
-                                            {bizfindSettings.otp_phone_number && ` — ${bizfindSettings.otp_phone_number.replace(/^972/, "0")}`}
-                                        </div>
-                                    )}
-                                    {bizfindStudios.length === 0 ? (
-                                        <div className="text-xs text-slate-500 bg-white/5 border border-white/10 rounded-xl px-3 py-2">
-                                            אין סטודיואים עם Green API מחובר — Platform Green API ישמש לשליחה.
-                                        </div>
-                                    ) : (
-                                        <select
-                                            value={bizfindSelected}
-                                            onChange={e => setBizfindSelected(e.target.value)}
-                                            aria-label="בחר סטודיו שולח OTP"
-                                            className="w-full bg-slate-800 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-white/30"
-                                        >
-                                            <option value="">— השתמש ב-Platform Green API —</option>
-                                            {bizfindStudios.map(s => (
-                                                <option key={s.studio_id} value={s.studio_id}>
-                                                    {s.name}{s.phone_number ? ` — ${s.phone_number.replace(/^972/, "0")}` : ""}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    )}
-                                </div>
-                            </details>
-
-                            <button type="button" onClick={handleSaveBizfind} disabled={bizfindSaving}
-                                className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white font-bold py-2.5 rounded-xl transition-colors text-sm">
-                                {bizfindSaving ? "שומר..." : "💾 שמור"}
-                            </button>
-
-                            {/* Test */}
-                            {bizfindSettings?.otp_studio_id && (
+                            {/* Test — only when platform is active */}
+                            {platformWAInstance && platformWATokenSet && (
                                 <div className="border-t border-white/10 pt-4 space-y-3">
-                                    <p className="text-xs text-slate-400">בדוק שליחה — תקבל הודעת WhatsApp מהמספר של הסטודיו</p>
+                                    <p className="text-xs text-slate-400">בדיקת שליחה — תקבל הודעת OTP לדוגמה מהמספר המרכזי</p>
                                     <div className="flex gap-2">
-                                        <input value={bizfindTestPhone}
-                                            onChange={e => { setBizfindTestPhone(e.target.value); setBizfindTestResult(null); }}
+                                        <input value={platformWATestPhone}
+                                            onChange={e => { setPlatformWATestPhone(e.target.value); setPlatformWATestResult(null); }}
                                             placeholder="050-0000000" type="tel" dir="ltr"
                                             className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-white/30"
                                         />
-                                        <button type="button" onClick={handleTestBizfindOtp} disabled={!bizfindTestPhone.trim()}
+                                        <button type="button" onClick={handleTestPlatformGreenAPI} disabled={!platformWATestPhone.trim()}
                                             className="px-5 py-2.5 bg-emerald-700 hover:bg-emerald-600 disabled:opacity-40 text-white text-sm font-bold rounded-xl transition-colors">
                                             שלח טסט
                                         </button>
                                     </div>
-                                    {bizfindTestResult && (
-                                        <div className={`text-sm px-4 py-2.5 rounded-xl ${bizfindTestResult.ok ? "bg-emerald-900/40 text-emerald-300" : "bg-red-900/40 text-red-300"}`}>
-                                            {bizfindTestResult.msg}
+                                    {platformWATestResult && (
+                                        <div className={`text-sm px-4 py-2.5 rounded-xl ${platformWATestResult.ok ? "bg-emerald-900/40 text-emerald-300" : "bg-red-900/40 text-red-300"}`}>
+                                            {platformWATestResult.msg}
                                         </div>
                                     )}
                                 </div>

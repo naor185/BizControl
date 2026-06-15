@@ -40,10 +40,11 @@ const MAIN_NAV: { href: string; label: string; icon: string; module?: string }[]
 ];
 
 const MANAGE_NAV: { href: string; label: string; icon: string; module?: string }[] = [
-    { href: "/services",     label: "שירותים",        icon: "🛎️", module: "services" },
-    { href: "/wait-list",    label: "רשימת המתנה",   icon: "⏳",  module: "wait_list" },
-    { href: "/products",     label: "מוצרים",         icon: "📦",  module: "products" },
-    { href: "/obligations",  label: "התחייבויות",      icon: "💳",  module: "obligations" },
+    { href: "/services",          label: "שירותים",        icon: "🛎️", module: "services" },
+    { href: "/wait-list",         label: "רשימת המתנה",   icon: "⏳",  module: "wait_list" },
+    { href: "/products",          label: "מוצרים",         icon: "📦",  module: "products" },
+    { href: "/obligations",       label: "התחייבויות",      icon: "💳",  module: "obligations" },
+    { href: "/message-templates", label: "תבניות הודעות",   icon: "💬" },
 ];
 
 export default function AppShell({
