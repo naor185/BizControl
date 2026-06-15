@@ -199,13 +199,6 @@ export default function AdminPage() {
     const [platformWATestPhone, setPlatformWATestPhone] = useState("");
     const [platformWATestResult, setPlatformWATestResult] = useState<{ok:boolean;msg:string}|null>(null);
 
-    // Platform Meta Cloud API
-    const [platformMetaPhoneId, setPlatformMetaPhoneId] = useState("");
-    const [platformMetaToken, setPlatformMetaToken] = useState("");
-    const [platformMetaTokenSet, setPlatformMetaTokenSet] = useState(false);
-    const [platformMetaSaving, setPlatformMetaSaving] = useState(false);
-    const [platformMetaTestPhone, setPlatformMetaTestPhone] = useState("");
-    const [platformMetaTestResult, setPlatformMetaTestResult] = useState<{ok:boolean;msg:string}|null>(null);
 
     // Leads Inbox
     type GlobalLead = {
@@ -391,12 +384,6 @@ export default function AdminPage() {
             setPlatformWATokenSet(platWA.token_set);
         } catch { /* platform green api failed — leave defaults */ }
 
-        // Load Platform Meta Cloud API
-        try {
-            const metaWA = await apiFetch<{phone_id:string|null;token_set:boolean}>("/api/admin/platform-meta-api");
-            setPlatformMetaPhoneId(metaWA.phone_id || "");
-            setPlatformMetaTokenSet(metaWA.token_set);
-        } catch { /* platform meta api failed — leave defaults */ }
 
         // Load remaining settings — each isolated so one failure doesn't block others
         try {
@@ -491,32 +478,6 @@ export default function AdminPage() {
         } catch (e:any) { setPlatformWATestResult({ ok: false, msg: e?.message || "שגיאה" }); }
     };
 
-    const handleSavePlatformMetaAPI = async () => {
-        if (!platformMetaPhoneId.trim()) { toast.error("הכנס Phone Number ID"); return; }
-        setPlatformMetaSaving(true);
-        try {
-            const body: Record<string,string|null> = { phone_id: platformMetaPhoneId.trim() };
-            if (platformMetaToken.trim()) body.token = platformMetaToken.trim();
-            const d = await apiFetch<{phone_id:string|null;token_set:boolean}>("/api/admin/platform-meta-api", {
-                method: "POST", body: JSON.stringify(body),
-            });
-            setPlatformMetaPhoneId(d.phone_id || "");
-            setPlatformMetaTokenSet(d.token_set);
-            setPlatformMetaToken("");
-            toast.success("✅ Meta Cloud API הפלטפורמה נשמר!");
-        } catch (e:any) { toast.error(e?.message); }
-        finally { setPlatformMetaSaving(false); }
-    };
-
-    const handleTestPlatformMetaAPI = async () => {
-        if (!platformMetaTestPhone.trim()) return;
-        try {
-            await apiFetch("/api/admin/platform-meta-api/test", {
-                method: "POST", body: JSON.stringify({ phone: platformMetaTestPhone.trim() }),
-            });
-            setPlatformMetaTestResult({ ok: true, msg: "✅ הודעת בדיקה נשלחה!" });
-        } catch (e:any) { setPlatformMetaTestResult({ ok: false, msg: e?.message || "שגיאה" }); }
-    };
 
     const handleSaveSystemWA = async () => {
         setSystemWASaving(true);
@@ -1361,72 +1322,6 @@ export default function AdminPage() {
                             )}
                         </div>
 
-                        {/* Platform Meta Cloud API Card */}
-                        <div className="bg-gradient-to-br from-blue-900/30 to-slate-900/50 border border-blue-500/40 rounded-2xl p-6 space-y-5">
-                            <div className="flex items-center gap-3">
-                                <div className="w-12 h-12 rounded-2xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-2xl">🔷</div>
-                                <div>
-                                    <h2 className="text-lg font-bold text-white">Meta Cloud API — WhatsApp רשמי</h2>
-                                    <p className="text-slate-400 text-sm mt-0.5">+972 52 851 8805 דרך Meta Business API — שליחה ישירה ואמינה (מועדף)</p>
-                                </div>
-                            </div>
-
-                            <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-sm font-semibold ${platformMetaPhoneId && platformMetaTokenSet ? "bg-blue-900/40 border-blue-500/40 text-blue-300" : "bg-amber-900/20 border-amber-500/30 text-amber-300"}`}>
-                                <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${platformMetaPhoneId && platformMetaTokenSet ? "bg-blue-400 animate-pulse" : "bg-amber-400"}`} />
-                                {platformMetaPhoneId && platformMetaTokenSet
-                                    ? `✅ מחובר — Phone ID: ${platformMetaPhoneId}`
-                                    : "⚠️ לא מוגדר — הגדר Phone ID ו-Access Token"}
-                            </div>
-
-                            <div className="grid grid-cols-1 gap-3">
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-300 mb-1.5">📱 Phone Number ID <span className="text-slate-500 font-normal">(מ-Meta Developers Console)</span></label>
-                                    <input value={platformMetaPhoneId} onChange={e => setPlatformMetaPhoneId(e.target.value)}
-                                        placeholder="1160173110503882" dir="ltr"
-                                        className="w-full bg-black/30 border border-white/15 rounded-xl px-4 py-3 text-sm text-white font-mono placeholder:text-slate-600 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400" />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-300 mb-1.5">
-                                        🔐 Access Token {platformMetaTokenSet && <span className="text-blue-400 font-normal mr-1">✓ שמור</span>}
-                                    </label>
-                                    <input value={platformMetaToken} onChange={e => setPlatformMetaToken(e.target.value)}
-                                        type="password" dir="ltr"
-                                        placeholder={platformMetaTokenSet ? "השאר ריק לשמירה על הToken הקיים" : "הדבק את ה-Access Token מ-Meta..."}
-                                        className="w-full bg-black/30 border border-white/15 rounded-xl px-4 py-3 text-sm text-white font-mono placeholder:text-slate-600 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400" />
-                                </div>
-                            </div>
-
-                            <div className="bg-black/20 rounded-xl px-4 py-3 text-xs text-amber-300/80">
-                                ⚠️ טוקן זמני פג תוקף תוך 24 שעות. לטוקן קבוע: <span className="text-blue-300">business.facebook.com → System Users → Generate Token</span>
-                            </div>
-
-                            <button type="button" onClick={handleSavePlatformMetaAPI}
-                                disabled={platformMetaSaving || !platformMetaPhoneId.trim()}
-                                className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white font-black py-3 rounded-xl text-sm transition-colors shadow-lg shadow-blue-900/40">
-                                {platformMetaSaving ? "שומר..." : "💾 שמור והפעל"}
-                            </button>
-
-                            {platformMetaPhoneId && platformMetaTokenSet && (
-                                <div className="border-t border-white/10 pt-4">
-                                    <div className="text-xs text-slate-400 mb-2">בדוק שה-API עובד — שלח הודעת טסט:</div>
-                                    <div className="flex gap-2">
-                                        <input value={platformMetaTestPhone} onChange={e => { setPlatformMetaTestPhone(e.target.value); setPlatformMetaTestResult(null); }}
-                                            placeholder="050-0000000" type="tel" dir="ltr"
-                                            className="flex-1 bg-black/30 border border-white/15 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-white/30" />
-                                        <button type="button" onClick={handleTestPlatformMetaAPI} disabled={!platformMetaTestPhone.trim()}
-                                            className="px-5 py-2.5 bg-blue-700 hover:bg-blue-600 disabled:opacity-40 text-white text-sm font-bold rounded-xl transition-colors">
-                                            שלח טסט
-                                        </button>
-                                    </div>
-                                    {platformMetaTestResult && (
-                                        <div className={`text-sm px-4 py-2.5 rounded-xl mt-2 break-all whitespace-pre-wrap ${platformMetaTestResult.ok ? "bg-blue-900/40 text-blue-300" : "bg-red-900/40 text-red-300"}`} dir="ltr">
-                                            {platformMetaTestResult.msg}
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-
                         {/* BizFind OTP WhatsApp Card */}
                         <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-5">
                             <div className="flex items-center gap-3">
@@ -1438,20 +1333,18 @@ export default function AdminPage() {
                             </div>
 
                             {/* Platform status only */}
-                            <div className={`flex items-start gap-3 px-4 py-4 rounded-xl text-sm border ${(platformMetaPhoneId && platformMetaTokenSet) || (platformWAInstance && platformWATokenSet) ? "bg-emerald-900/30 border-emerald-500/30 text-emerald-300" : "bg-amber-900/20 border-amber-500/30 text-amber-300"}`}>
-                                <span className="text-lg mt-0.5">{(platformMetaPhoneId && platformMetaTokenSet) || (platformWAInstance && platformWATokenSet) ? "✅" : "⚠️"}</span>
+                            <div className={`flex items-start gap-3 px-4 py-4 rounded-xl text-sm border ${platformWAInstance && platformWATokenSet ? "bg-emerald-900/30 border-emerald-500/30 text-emerald-300" : "bg-amber-900/20 border-amber-500/30 text-amber-300"}`}>
+                                <span className="text-lg mt-0.5">{platformWAInstance && platformWATokenSet ? "✅" : "⚠️"}</span>
                                 <div>
                                     <div className="font-bold">
-                                        {platformMetaPhoneId && platformMetaTokenSet
-                                            ? `מחובר — Meta Cloud API (Phone ID: ${platformMetaPhoneId})`
-                                            : platformWAInstance && platformWATokenSet
-                                                ? `מחובר — Green API (Instance: ${platformWAInstance})`
-                                                : "לא מוגדר — הגדר Meta Cloud API או Platform Green API למעלה"}
+                                        {platformWAInstance && platformWATokenSet
+                                            ? `מחובר — Instance: ${platformWAInstance}`
+                                            : "לא מוגדר — הגדר Platform Green API למעלה"}
                                     </div>
                                     <div className="text-xs opacity-70 mt-1">
-                                        {(platformMetaPhoneId && platformMetaTokenSet) || (platformWAInstance && platformWATokenSet)
+                                        {platformWAInstance && platformWATokenSet
                                             ? "OTP יישלח ממספר הפלטפורמה אוטומטית — הכל תקין ✓"
-                                            : "יש להגדיר לפחות ספק WhatsApp אחד של הפלטפורמה"}
+                                            : "יש להגדיר Platform Green API כדי לשלוח OTP"}
                                     </div>
                                 </div>
                             </div>
