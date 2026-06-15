@@ -1277,13 +1277,8 @@ def test_bizfind_otp(payload: TestOTPIn, admin: User = Depends(require_superadmi
     if phone.startswith("0"):
         phone = "972" + phone[1:]
     try:
-        import requests as _req
-        url = f"https://api.green-api.com/waInstance{instance}/sendMessage/{token}"
-        r = _req.post(url, json={"chatId": phone + "@c.us", "message": "✅ BizFind — הגדרות OTP עובדות!"}, timeout=10)
-        if r.status_code != 200:
-            raise HTTPException(status_code=502, detail=f"Green API שגיאה: {r.text[:200]}")
-    except HTTPException:
-        raise
+        from app.services.message_worker import _send_via_green
+        _send_via_green(instance, token, phone, "✅ BizFind — הגדרות OTP עובדות!")
     except Exception as e:
         raise HTTPException(status_code=502, detail=str(e))
     return {"status": "sent"}
@@ -1330,13 +1325,8 @@ def test_platform_green_api(payload: TestOTPIn, admin: User = Depends(require_su
     if phone.startswith("0"):
         phone = "972" + phone[1:]
     try:
-        import requests as _req
-        r = _req.post(f"https://api.green-api.com/waInstance{instance}/sendMessage/{token}",
-                      json={"chatId": phone + "@c.us", "message": "✅ BizControl Platform — Green API עובד!"}, timeout=10)
-        if r.status_code != 200:
-            raise HTTPException(status_code=502, detail=f"Green API: {r.text[:200]}")
-    except HTTPException:
-        raise
+        from app.services.message_worker import _send_via_green
+        _send_via_green(instance, token, phone, "✅ BizControl Platform — Green API עובד!")
     except Exception as e:
         raise HTTPException(status_code=502, detail=str(e))
     return {"status": "sent"}
