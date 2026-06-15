@@ -113,16 +113,29 @@ def _send_via_green(instance_id: str, api_key: str, to_phone: str, body: str, me
 
 def _get_platform_settings(db: Session):
     """Return platform WhatsApp credentials as fallback.
-    Priority: 1) platform_config platform_wa_instance/token  2) system_wa_studio_id  3) PLATFORM_STUDIO_ID env"""
+    Priority: 1) platform_meta_phone_id/token (Meta API)  2) platform_wa_instance/token (Green API)  3) system_wa_studio_id  4) PLATFORM_STUDIO_ID env"""
     import os, uuid as _uuid
     from sqlalchemy import text as _t
 
-    # 1. Dedicated platform Green API instance
+    # 1. Platform Meta Cloud API (preferred — official, no device needed)
+    try:
+        row_p = db.execute(_t("SELECT value FROM platform_config WHERE key='platform_meta_phone_id'")).fetchone()
+        row_t = db.execute(_t("SELECT value FROM platform_config WHERE key='platform_meta_token'")).fetchone()
+        if row_p and row_p[0] and row_t and row_t[0]:
+            class _PlatformMeta:
+                whatsapp_provider = "meta"
+                whatsapp_phone_id = row_p[0]
+                whatsapp_api_key = row_t[0]
+                studio_id = None
+            return _PlatformMeta()
+    except Exception:
+        pass
+
+    # 2. Dedicated platform Green API instance
     try:
         row_i = db.execute(_t("SELECT value FROM platform_config WHERE key='platform_wa_instance'")).fetchone()
         row_t = db.execute(_t("SELECT value FROM platform_config WHERE key='platform_wa_token'")).fetchone()
         if row_i and row_i[0] and row_t and row_t[0]:
-            # Return a simple namespace object with needed fields
             class _PlatformWA:
                 whatsapp_provider = "green_api"
                 whatsapp_instance_id = row_i[0]

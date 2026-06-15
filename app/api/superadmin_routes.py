@@ -1332,6 +1332,56 @@ def test_platform_green_api(payload: TestOTPIn, admin: User = Depends(require_su
     return {"status": "sent"}
 
 
+# ── Platform Meta Cloud API ───────────────────────────────────────────────────
+
+class PlatformMetaOut(BaseModel):
+    phone_id: str | None
+    token_set: bool
+
+
+class PlatformMetaIn(BaseModel):
+    phone_id: str | None = None
+    token: str | None = None
+
+
+@router.get("/platform-meta-api", response_model=PlatformMetaOut)
+def get_platform_meta_api(admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    return PlatformMetaOut(
+        phone_id=_cfg_get(db, "platform_meta_phone_id"),
+        token_set=bool(_cfg_get(db, "platform_meta_token")),
+    )
+
+
+@router.post("/platform-meta-api", response_model=PlatformMetaOut)
+def save_platform_meta_api(payload: PlatformMetaIn, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    if payload.phone_id is not None:
+        _cfg_set(db, "platform_meta_phone_id", payload.phone_id.strip() or None)
+    if payload.token is not None:
+        _cfg_set(db, "platform_meta_token", payload.token.strip() or None)
+    db.commit()
+    return PlatformMetaOut(
+        phone_id=_cfg_get(db, "platform_meta_phone_id"),
+        token_set=bool(_cfg_get(db, "platform_meta_token")),
+    )
+
+
+@router.post("/platform-meta-api/test")
+def test_platform_meta_api(payload: TestOTPIn, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    phone_id = _cfg_get(db, "platform_meta_phone_id")
+    token = _cfg_get(db, "platform_meta_token")
+    if not phone_id or not token:
+        raise HTTPException(status_code=400, detail="Phone ID או Token לא מוגדרים")
+    phone = payload.phone.strip().replace("-", "").replace(" ", "")
+    if phone.startswith("0"):
+        phone = "972" + phone[1:]
+    try:
+        from app.services.message_worker import _send_via_meta
+        _send_via_meta(phone_id, token, phone, "✅ BizControl Platform — Meta Cloud API עובד!")
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=str(e))
+    return {"status": "sent"}
+
+
 class SystemWAOut(BaseModel):
     studio_id: str | None
     studio_name: str | None
