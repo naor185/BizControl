@@ -1311,7 +1311,7 @@ export default function AdminPage() {
                                         </button>
                                     </div>
                                     {platformWATestResult && (
-                                        <div className={`text-sm px-4 py-2.5 rounded-xl mt-2 ${platformWATestResult.ok ? "bg-emerald-900/40 text-emerald-300" : "bg-red-900/40 text-red-300"}`}>
+                                        <div className={`text-sm px-4 py-2.5 rounded-xl mt-2 break-all whitespace-pre-wrap ${platformWATestResult.ok ? "bg-emerald-900/40 text-emerald-300" : "bg-red-900/40 text-red-300"}`} dir="ltr">
                                             {platformWATestResult.msg}
                                         </div>
                                     )}
@@ -1346,28 +1346,6 @@ export default function AdminPage() {
                                 </div>
                             </div>
 
-                            {/* Test — only when platform is active */}
-                            {platformWAInstance && platformWATokenSet && (
-                                <div className="border-t border-white/10 pt-4 space-y-3">
-                                    <p className="text-xs text-slate-400">בדיקת שליחה — תקבל הודעת OTP לדוגמה מהמספר המרכזי</p>
-                                    <div className="flex gap-2">
-                                        <input value={platformWATestPhone}
-                                            onChange={e => { setPlatformWATestPhone(e.target.value); setPlatformWATestResult(null); }}
-                                            placeholder="050-0000000" type="tel" dir="ltr"
-                                            className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-white/30"
-                                        />
-                                        <button type="button" onClick={handleTestPlatformGreenAPI} disabled={!platformWATestPhone.trim()}
-                                            className="px-5 py-2.5 bg-emerald-700 hover:bg-emerald-600 disabled:opacity-40 text-white text-sm font-bold rounded-xl transition-colors">
-                                            שלח טסט
-                                        </button>
-                                    </div>
-                                    {platformWATestResult && (
-                                        <div className={`text-sm px-4 py-2.5 rounded-xl ${platformWATestResult.ok ? "bg-emerald-900/40 text-emerald-300" : "bg-red-900/40 text-red-300"}`}>
-                                            {platformWATestResult.msg}
-                                        </div>
-                                    )}
-                                </div>
-                            )}
                         </div>
 
                         {/* Change Password Card */}
