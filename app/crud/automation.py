@@ -137,6 +137,20 @@ def enqueue_confirmation_message(db: Session, appt: Appointment, artist_name: st
                 lines += ["", f"ביטול ללא עלות עד {cancellation_days} ימים לפני התור."]
             lines += ["", "מחכים לך! 🙏"]
             wa_body = "\n".join(lines)
+        # Ensure map link appears before payment link so WhatsApp previews the map, not the payment provider.
+        # This works for both custom templates and the default template.
+        _map_url = context.get("map_link", "")
+        _pay_url = context.get("payment_link", "")
+        if _map_url and _pay_url and _map_url in wa_body and _pay_url in wa_body:
+            if wa_body.index(_pay_url) < wa_body.index(_map_url):
+                _lines = wa_body.split('\n')
+                _map_lines = [l for l in _lines if _map_url in l]
+                _rest = [l for l in _lines if _map_url not in l]
+                _pay_pos = next((i for i, l in enumerate(_rest) if _pay_url in l), 0)
+                for _j, _ml in enumerate(_map_lines):
+                    _rest.insert(_pay_pos + _j, _ml)
+                wa_body = '\n'.join(_rest)
+
         db.add(MessageJob(
             studio_id=appt.studio_id, client_id=client.id, appointment_id=appt.id,
             channel="whatsapp", to_phone=client.phone, body=wa_body,
