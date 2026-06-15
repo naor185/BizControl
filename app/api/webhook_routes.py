@@ -175,7 +175,9 @@ def _save(
 
 @router.get("/meta")
 def meta_verify(request: Request):
-    verify_token = os.getenv("META_WEBHOOK_VERIFY_TOKEN", "bizcontrol_verify")
+    verify_token = os.getenv("META_WEBHOOK_VERIFY_TOKEN", "")
+    if not verify_token:
+        raise HTTPException(status_code=403, detail="META_WEBHOOK_VERIFY_TOKEN not configured")
     mode      = request.query_params.get("hub.mode")
     token     = request.query_params.get("hub.verify_token")
     challenge = request.query_params.get("hub.challenge")

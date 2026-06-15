@@ -69,7 +69,6 @@ function LoginContent() {
             if (saved) {
                 setStudioSlug(saved.studioSlug || "");
                 setEmail(saved.email || "");
-                setPassword(saved.password || "");
                 setRememberMe(true);
             }
         } catch {}
@@ -105,7 +104,7 @@ function LoginContent() {
             }
 
             if (rememberMe) {
-                localStorage.setItem(LS_KEY, JSON.stringify({ studioSlug: slug, email: emailVal, password: pwd }));
+                localStorage.setItem(LS_KEY, JSON.stringify({ studioSlug: slug, email: emailVal }));
             } else {
                 localStorage.removeItem(LS_KEY);
             }

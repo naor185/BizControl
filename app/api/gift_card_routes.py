@@ -3,7 +3,7 @@ Gift Cards — create, send by email, redeem at POS, check balance.
 """
 from __future__ import annotations
 
-import random
+import secrets
 import string
 import uuid
 from datetime import datetime, timezone, date
@@ -26,7 +26,7 @@ public_router = APIRouter(prefix="/public/gift-cards", tags=["GiftCardsPublic"])
 def _gen_code() -> str:
     """Generate a human-friendly 12-char code: XXXX-XXXX-XXXX."""
     chars = string.ascii_uppercase + string.digits
-    raw = "".join(random.choices(chars, k=12))
+    raw = "".join(secrets.choice(chars) for _ in range(12))
     return f"{raw[:4]}-{raw[4:8]}-{raw[8:]}"
 
 

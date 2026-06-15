@@ -292,7 +292,7 @@ def set_password(payload: SetPasswordRequest, db: Session = Depends(get_db)):
     if data.get("type") != "set_password":
         raise HTTPException(status_code=400, detail="הקישור לא תקין")
     user = db.get(User, data["sub"])
-    if not user:
+    if not user or not user.is_active:
         raise HTTPException(status_code=404, detail="משתמש לא נמצא")
     user.password_hash = ph.hash(payload.new_password)
     db.commit()

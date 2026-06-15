@@ -39,6 +39,10 @@ ph = PasswordHasher()
 ADMIN_SETUP_SECRET = os.getenv("ADMIN_SETUP_SECRET", "bizcontrol-setup-secret")
 PLATFORM_SLUG = os.getenv("PLATFORM_SLUG", "bizcontrol-platform")
 
+_env = os.getenv("ENVIRONMENT", "development").lower()
+if _env == "production" and ADMIN_SETUP_SECRET == "bizcontrol-setup-secret":
+    raise RuntimeError("FATAL: ADMIN_SETUP_SECRET env var must be set in production")
+
 
 from app.utils.email_templates import welcome_email_html as _welcome_email_html
 from app.utils.email_templates import reset_password_email_html as _reset_password_email_html

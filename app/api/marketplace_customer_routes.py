@@ -18,16 +18,17 @@ import uuid
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Header
+from fastapi import APIRouter, Depends, HTTPException, Header, Request
 from pydantic import BaseModel
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.security import JWT_SECRET
+from app.core.limiter import limiter
 
 router = APIRouter(prefix="/marketplace/auth", tags=["MarketplaceAuth"])
 
-JWT_SECRET = os.getenv("JWT_SECRET", "bizcontrol_secret")
 OTP_TTL_MINUTES = 10
 
 
@@ -162,7 +163,8 @@ def request_otp(body: RequestOTPIn, db: Session = Depends(get_db)):
 
 
 @router.post("/verify-otp")
-def verify_otp(body: VerifyOTPIn, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def verify_otp(request: Request, body: VerifyOTPIn, db: Session = Depends(get_db)):
     phone = body.phone.strip().replace("-", "").replace(" ", "")
     now = datetime.now(timezone.utc)
 

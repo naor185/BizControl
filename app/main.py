@@ -86,13 +86,14 @@ def start_scheduler():
     def tick_birthday_automations():
         """Fire client_birthday automation rules for clients with a birthday today."""
         import pytz as _pytz
-        from datetime import date as _date
+        from datetime import datetime as _dt, date as _date
         from sqlalchemy import select as _select, extract as _extract
         from app.models.client import Client as _Client
         from app.services.automation_engine import fire_event as _fire
+        _log_b = logging.getLogger("bizcontrol.automations")
         db = SessionLocal()
         try:
-            _today = _date.today()  # server date (UTC); birthday month/day still match
+            _today = _dt.now(_pytz.timezone("Asia/Jerusalem")).date()
             clients = db.scalars(
                 _select(_Client).where(
                     _Client.birth_date.isnot(None),
@@ -108,9 +109,9 @@ def start_scheduler():
                         "client_phone": c.phone or "",
                     }, client_id=c.id)
                 except Exception:
-                    pass
+                    _log_b.warning("birthday automation failed for client %s", c.id, exc_info=True)
         except Exception:
-            logging.getLogger("bizcontrol.automations").exception("birthday automations sweep failed")
+            _log_b.exception("birthday automations sweep failed")
         finally:
             db.close()
 
@@ -133,7 +134,7 @@ def start_scheduler():
 
     def tick_waitlist_expiry():
         """Mark wait-list entries notified >24h ago as expired."""
-        from datetime import timedelta
+        from datetime import datetime, timedelta, timezone
         from sqlalchemy import select as _sel, update as _upd
         from app.models.wait_list import WaitListEntry as _WL
         db = SessionLocal()
@@ -216,7 +217,7 @@ def start_scheduler():
             )
             db.commit()
         except Exception:
-            _log.exception("handoff cleanup failed")
+            logging.getLogger("bizcontrol.handoffs").exception("handoff cleanup failed")
         finally:
             db.close()
 
