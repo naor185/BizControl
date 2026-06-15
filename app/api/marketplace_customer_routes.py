@@ -304,12 +304,16 @@ def my_invoices(
         return []
 
     phone = customer_row[0]
+    # Only show invoices from studios where this customer has actually booked
+    # (prevents leaking another studio's billing data to someone who shares a phone number)
     rows = db.execute(
         text("""
-            SELECT id, doc_type, doc_number, status, total_cents, issued_at, business_name
-            FROM invoices
-            WHERE client_phone = :phone AND doc_type != 'credit'
-            ORDER BY issued_at DESC LIMIT 50
+            SELECT DISTINCT i.id, i.doc_type, i.doc_number, i.status,
+                   i.total_cents, i.issued_at, i.business_name
+            FROM invoices i
+            JOIN clients c ON c.studio_id = i.studio_id AND c.phone = :phone
+            WHERE i.client_phone = :phone AND i.doc_type != 'credit'
+            ORDER BY i.issued_at DESC LIMIT 50
         """),
         {"phone": phone}
     ).fetchall()

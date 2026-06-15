@@ -303,9 +303,15 @@ def delete_gallery_photo(
     ).fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="Photo not found")
-    file_path = row[0].lstrip("/")
-    if os.path.exists(file_path):
-        os.remove(file_path)
+    url = row[0]
+    # Only delete local files — never touch remote URLs or paths outside /uploads/
+    if url and not url.startswith("http"):
+        file_path = os.path.normpath(url.lstrip("/"))
+        uploads_root = os.path.normpath(UPLOAD_DIR)
+        safe_path = os.path.join(uploads_root, os.path.basename(file_path))
+        if os.path.abspath(file_path).startswith(os.path.abspath(uploads_root)):
+            if os.path.exists(file_path):
+                os.remove(file_path)
     db.execute(text("DELETE FROM studio_gallery WHERE id=:pid"), {"pid": photo_id})
     db.commit()
     return {"ok": True}
