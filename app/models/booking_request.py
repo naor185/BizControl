@@ -37,6 +37,9 @@ class BookingRequest(Base):
     # Linked appointment (set when approved)
     appointment_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("appointments.id", ondelete="SET NULL"), nullable=True)
 
+    # Public token — shared with the customer so they can track their booking status without auth
+    public_token: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=True, default=uuid.uuid4)
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     artist = relationship("User", foreign_keys=[artist_id])

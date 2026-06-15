@@ -324,6 +324,27 @@ def create_studio(payload: CreateStudioIn, admin: User = Depends(require_superad
         is_active=True,
     )
     db.add(owner)
+
+    # Create marketplace profile immediately so the studio appears on BizFind
+    db.execute(
+        text("""
+            INSERT INTO marketplace_profiles
+                (id, studio_id, business_name, category, city, plan_code,
+                 is_active, is_published, created_at, updated_at)
+            VALUES
+                (:id, :sid, :name, '', '', :plan,
+                 true, true, NOW(), NOW())
+            ON CONFLICT (studio_id) DO NOTHING
+        """),
+        {"id": str(uuid.uuid4()), "sid": str(studio.id),
+         "name": payload.studio_name, "plan": payload.subscription_plan},
+    )
+    # Also set marketplace_visible so the studio appears in BizFind search
+    db.execute(
+        text("UPDATE studio_settings SET marketplace_visible = true WHERE studio_id = :sid"),
+        {"sid": str(studio.id)},
+    )
+
     _audit(db, admin, "create_studio", studio, {"owner_email": owner.email, "plan": studio.subscription_plan})
     db.commit()
 

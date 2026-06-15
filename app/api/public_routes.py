@@ -499,6 +499,7 @@ def create_booking(slug: str, payload: BookingCreateRequest, db: Session = Depen
 
 def _notify_booking_request(db, req: BookingRequest, studio, settings, artist) -> None:
     from app.models.message_job import MessageJob
+    from app.models.notification import Notification
     from app.models.user import User as UserModel
 
     from zoneinfo import ZoneInfo
@@ -515,7 +516,16 @@ def _notify_booking_request(db, req: BookingRequest, studio, settings, artist) -
         f"כנס למערכת לאשר או לדחות."
     )
 
-    # Notify artist
+    # In-app notification (drives BizControl bell icon + SSE counter)
+    db.add(Notification(
+        studio_id=studio.id,
+        type="booking_request",
+        title=f"בקשת תור חדשה מ-{req.client_name}",
+        body=f"{local_time} — {req.service_note or 'ללא הערות'}",
+        action_url="/booking-requests",
+    ))
+
+    # Notify artist via WhatsApp
     if artist.phone:
         db.add(MessageJob(
             studio_id=studio.id, channel="whatsapp",
@@ -610,6 +620,49 @@ def get_public_receipt(invoice_id: str, db: Session = Depends(get_db)):
         "payment_method_label": method_labels.get(inv.get("payment_method", ""), inv.get("payment_method") or ""),
         "notes": inv.get("notes"),
         "items": item_list,
+    }
+
+
+# ── Public booking status (customer link from approval WhatsApp) ─────────────
+
+@router.get("/booking/{token}")
+def get_public_booking(token: str, db: Session = Depends(get_db)):
+    """No-auth endpoint: customer tracks their booking request by public token."""
+    from app.models.booking_request import BookingRequest
+    import uuid as _uuid
+    try:
+        token_uuid = _uuid.UUID(token)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="לינק לא תקין")
+
+    req = db.scalar(
+        select(BookingRequest).where(BookingRequest.public_token == token_uuid)
+    )
+    if not req:
+        raise HTTPException(status_code=404, detail="הזמנה לא נמצאה")
+
+    studio = db.get(Studio, req.studio_id)
+    settings = db.get(StudioSettings, req.studio_id)
+    artist = db.get(User, req.artist_id) if req.artist_id else None
+
+    from zoneinfo import ZoneInfo
+    tz = ZoneInfo((settings.timezone if settings else None) or "Asia/Jerusalem")
+    local_time = req.requested_at.astimezone(tz).strftime("%d/%m/%Y %H:%M")
+
+    appt = db.get(Appointment, req.appointment_id) if req.appointment_id else None
+
+    return {
+        "status": req.status,
+        "client_name": req.client_name,
+        "requested_at": local_time,
+        "service_note": req.service_note,
+        "artist_name": (artist.display_name or artist.email) if artist else None,
+        "studio_name": studio.name if studio else None,
+        "studio_address": settings.studio_address if settings else None,
+        "studio_logo": studio.logo_url if studio else None,
+        "rejection_reason": req.rejection_reason,
+        "appointment_id": str(req.appointment_id) if req.appointment_id else None,
+        "appointment_status": appt.status if appt else None,
     }
 
 

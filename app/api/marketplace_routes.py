@@ -174,10 +174,11 @@ def bizfind_register(payload: BizFindRegisterIn, db: Session = Depends(get_db)):
     db.add(studio)
     db.flush()
 
-    # Studio settings — tag with category and city
+    # Studio settings — tag with category and city; enable marketplace visibility immediately
     settings = StudioSettings(
         studio_id=studio.id,
         studio_address=payload.city.strip(),
+        marketplace_visible=True,
     )
     db.add(settings)
 

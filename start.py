@@ -999,6 +999,16 @@ def ensure_schema():
             )
         """)
 
+        # ── Booking request public token (for customer-facing status link) ────
+        cur.execute("""
+            ALTER TABLE booking_requests
+            ADD COLUMN IF NOT EXISTS public_token UUID DEFAULT gen_random_uuid()
+        """)
+        cur.execute("""
+            UPDATE booking_requests SET public_token = gen_random_uuid()
+            WHERE public_token IS NULL
+        """)
+
         conn.commit()
         cur.close()
         conn.close()
