@@ -206,6 +206,21 @@ def start_scheduler():
             db.close()
 
     scheduler.add_job(tick_broadcasts, "interval", minutes=1, id="broadcasts_tick", replace_existing=True)
+
+    def tick_cleanup_handoffs():
+        from sqlalchemy import text as _text
+        db = SessionLocal()
+        try:
+            db.execute(
+                _text("DELETE FROM auth_handoff_codes WHERE expires_at < NOW() - INTERVAL '1 hour'")
+            )
+            db.commit()
+        except Exception:
+            _log.exception("handoff cleanup failed")
+        finally:
+            db.close()
+
+    scheduler.add_job(tick_cleanup_handoffs, "cron", hour=3, minute=0, id="handoff_cleanup", replace_existing=True)
     scheduler.start()
 
 def stop_scheduler():
