@@ -110,28 +110,31 @@ def enqueue_confirmation_message(db: Session, appt: Appointment, artist_name: st
             wa_body = smart_format(settings.confirm_wa_template, context)
         else:
             lines = [
-                f"שלום {client.full_name} 👋",
+                f"היי {client.full_name} 👋",
                 f"התור שלך ל{appt.title} נקבע בהצלחה ✅",
                 "",
-                f"📅 תאריך: {context['appointment_date']}",
-                f"🕐 שעה: {context['appointment_time']}",
+                f"📅 {context['appointment_date']} בשעה {context['appointment_time']}",
             ]
             if context.get("artist_name"):
                 lines.append(f"✂️ {context['artist_name']}")
-            if has_deposit and context.get("payment_link"):
-                lines += ["", f"💳 לתשלום המקדמה:", context["payment_link"]]
+            # Address + map first — WhatsApp previews the FIRST link in the message.
+            # Putting map before payment ensures the map card appears at top, not the payment provider.
             if context.get("studio_address"):
                 lines += ["", f"📍 {context['studio_address']}"]
             if context.get("map_link"):
-                lines.append(f"🗺️ ניווט: {context['map_link']}")
+                lines.append(f"🗺️ {context['map_link']}")
             if context.get("portfolio_link"):
                 lines.append(f"🖼️ תיק עבודות: {context['portfolio_link']}")
-            cancellation_days = context.get("cancellation_free_days")
-            if cancellation_days:
+            if has_deposit and context.get("payment_link"):
                 lines += [
                     "",
-                    f"ביטול ללא עלות עד {cancellation_days} ימים לפני התור.",
+                    f"💳 לאישור התור נדרשת מקדמה של ₪{context.get('deposit_amount', '')}",
+                    f"לתשלום: {context['payment_link']}",
+                    "אחרי התשלום שלח אסמכתא ונאשר את התור ✅",
                 ]
+            cancellation_days = context.get("cancellation_free_days")
+            if cancellation_days:
+                lines += ["", f"ביטול ללא עלות עד {cancellation_days} ימים לפני התור."]
             lines += ["", "מחכים לך! 🙏"]
             wa_body = "\n".join(lines)
         db.add(MessageJob(
