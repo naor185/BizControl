@@ -43,9 +43,15 @@ type Settings = {
     deposit_request_wa_template?: string | null;
     deposit_approved_wa_template?: string | null;
     points_redeem_wa_template?: string | null;
+    points_balance_wa_template?: string | null;
     non_member_wa_template?: string | null;
     club_invite_enabled?: boolean;
     club_invite_delay_minutes?: number;
+    same_day_reminder_wa_template?: string | null;
+    same_day_reminder_enabled?: boolean;
+    reminder_1_day_enabled?: boolean;
+    reminder_3_days_enabled?: boolean;
+    reminder_7_days_enabled?: boolean;
 
     birthday_wa_template?: string | null;
     birthday_email_template?: string | null;
@@ -555,7 +561,7 @@ export default function AutomationSettingsPage() {
     const [saving, setSaving] = useState(false);
     const [err, setErr] = useState<string | null>(null);
     const [msg, setMsg] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<"branding" | "landing" | "communication" | "policy" | "automation" | "finance" | "integrations" | "marketplace">("branding");
+    const [activeTab, setActiveTab] = useState<"branding" | "landing" | "policy" | "automation" | "finance" | "integrations" | "marketplace">("branding");
 
     const [aiPrompt, setAiPrompt] = useState("");
     const [isAiLoading, setIsAiLoading] = useState(false);
@@ -885,7 +891,6 @@ export default function AutomationSettingsPage() {
     const tabs = [
         { id: "branding", label: "מיתוג ועיצוב", icon: "🎨" },
         { id: "landing", label: "דפי נחיתה", icon: "🚀" },
-        { id: "communication", label: "הודעות אוטומטיות", icon: "📩" },
         { id: "policy", label: "מדיניות וכתובת", icon: "📋" },
         { id: "automation", label: "חוקים ואוטומציה", icon: "⚙️" },
         { id: "finance", label: "תשלומים ופיננסים", icon: "💰" },
@@ -1405,316 +1410,6 @@ export default function AutomationSettingsPage() {
                             </div>
                         )}
 
-                        {/* 3. COMMUNICATION & MESSAGES TAB */}
-                        {activeTab === "communication" && (
-                            <div className="space-y-8">
-                                <div className="bg-white rounded-2xl border border-slate-100 shadow-xl shadow-slate-200/40 p-6 md:p-10 relative overflow-hidden">
-                                    <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-bl-full -z-10"></div>
-                                    <div className="flex items-center gap-3 mb-8">
-                                        <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-xl">📩</div>
-                                        <div>
-                                            <h3 className="text-2xl font-bold text-slate-800">ניהול תבניות ותקשורת</h3>
-                                            <p className="text-sm text-slate-500">ערוך את המלל שיישלח ללקוחות בנקודות זמן קריטיות.</p>
-                                        </div>
-                                    </div>
-
-                                    <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 mb-10 flex gap-4">
-                                        <div className="text-2xl">💡</div>
-                                        <div className="w-full">
-                                            <h4 className="font-bold text-blue-900 text-sm mb-1">משתנים זמינים בהודעות</h4>
-                                            <p className="text-xs text-blue-800/80 leading-relaxed mb-2">העתק והדבק את המשתנים הרצויים לתוך תבנית ההודעה:</p>
-                                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                                                {[
-                                                    "{client_name}", "{appointment_title}", "{appointment_date}", "{appointment_time}",
-                                                    "{artist_name}", "{deposit_amount}", "{studio_address}", "{map_link}",
-                                                    "{portfolio_link}", "{bit_link}", "{paybox_link}", "{bank_details}",
-                                                    "{cancellation_free_days}", "{deposit_lock_days}", "{loyalty_points}", "{join_link}",
-                                                    "{points_used}", "{discount_amount}", "{points_on_signup}", "{contact_phone}"
-                                                ].map(tag => (
-                                                    <button key={tag} type="button" onClick={() => navigator.clipboard.writeText(tag)}
-                                                        className="text-[10px] bg-white border border-blue-200 px-1.5 py-1 rounded text-blue-700 hover:bg-blue-100 transition-colors text-right font-mono">
-                                                        {tag}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                            <p className="text-[10px] text-blue-600 mt-2">לחץ על משתנה כדי להעתיק אותו</p>
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-12">
-                                        {/* JOIN / Welcome */}
-                                        <div className="space-y-6">
-                                            <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
-                                                <span className="text-xl">👋</span>
-                                                <h4 className="font-bold text-slate-800">הודעת ברוכים הבאים (מיידי בהרשמה)</h4>
-                                            </div>
-                                            <div className="grid md:grid-cols-2 gap-6">
-                                                <div className="space-y-2">
-                                                    <label className="block text-xs font-bold text-slate-600 uppercase tracking-widest text-right">WhatsApp Template</label>
-                                                    <textarea rows={4} value={settings.welcome_wa_template || ""} onChange={e => handleChange("welcome_wa_template", e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500 text-sm" placeholder="שלום {client_name}, ברוכים הבאים!..." />
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <label className="block text-xs font-bold text-slate-600 uppercase tracking-widest text-right">Email Template</label>
-                                                    <textarea rows={4} value={settings.welcome_email_template || ""} onChange={e => handleChange("welcome_email_template", e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500 text-sm" placeholder="שלום {client_name}..." />
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Confirmation */}
-                                        <div className="space-y-6">
-                                            <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
-                                                <span className="text-xl">✅</span>
-                                                <h4 className="font-bold text-slate-800">אישור תור חדש</h4>
-                                            </div>
-                                            <div className="grid md:grid-cols-2 gap-6">
-                                                <div className="space-y-2">
-                                                    <label className="block text-xs font-bold text-slate-600 uppercase tracking-widest text-right">WhatsApp Template</label>
-                                                    <textarea rows={4} value={settings.confirm_wa_template || ""} onChange={e => handleChange("confirm_wa_template", e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500 text-sm" placeholder="היי {client_name}, התור נקבע!..." />
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <label className="block text-xs font-bold text-slate-600 uppercase tracking-widest text-right">Email Template</label>
-                                                    <textarea rows={4} value={settings.confirm_email_template || ""} onChange={e => handleChange("confirm_email_template", e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500 text-sm" placeholder="שלום {client_name}..." />
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Reminder 24h */}
-                                        <div className="space-y-6">
-                                            <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
-                                                <span className="text-xl">🔔</span>
-                                                <h4 className="font-bold text-slate-800">תזכורת לתור (24 שעות לפני)</h4>
-                                            </div>
-                                            <div className="grid md:grid-cols-2 gap-6">
-                                                <div className="space-y-2">
-                                                    <label className="block text-xs font-bold text-slate-600 uppercase tracking-widest text-right">WhatsApp Template</label>
-                                                    <textarea rows={4} value={settings.reminder_wa_template || ""} onChange={e => handleChange("reminder_wa_template", e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500 text-sm" placeholder="תזכורת: מחכים לך מחר!..." />
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <label className="block text-xs font-bold text-slate-600 uppercase tracking-widest text-right">Email Template</label>
-                                                    <textarea rows={4} value={settings.reminder_email_template || ""} onChange={e => handleChange("reminder_email_template", e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500 text-sm" placeholder="היי {client_name}, רק מזכירים..." />
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Reminder 3 days */}
-                                        <div className="space-y-6">
-                                            <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
-                                                <span className="text-xl">📅</span>
-                                                <h4 className="font-bold text-slate-800">תזכורת 3 ימים לפני תור</h4>
-                                            </div>
-                                            <p className="text-sm text-slate-500 -mt-4">נשלחת רק לתורים עם מקדמה. ללא מקדמה — נשלחת תזכורת רגילה ללא אזכור תשלום.</p>
-                                            <div className="space-y-2">
-                                                <label className="block text-xs font-bold text-slate-600 uppercase tracking-widest text-right">WhatsApp Template</label>
-                                                <textarea
-                                                    rows={4}
-                                                    value={settings.reminder_3day_wa_template || ""}
-                                                    onChange={e => handleChange("reminder_3day_wa_template", e.target.value)}
-                                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500 text-sm"
-                                                    placeholder="היי {client_name}! תזכורת - התור שלך ל-{appointment_title} בעוד 3 ימים..."
-                                                />
-                                                <p className="text-xs text-slate-400">משתנים: {"{client_name}"}, {"{appointment_title}"}, {"{appointment_date}"}, {"{appointment_time}"}, {"{payment_link}"}</p>
-                                            </div>
-                                        </div>
-
-                                        {/* Reschedule */}
-                                        <div className="space-y-6">
-                                            <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
-                                                <span className="text-xl">🔄</span>
-                                                <h4 className="font-bold text-slate-800">עדכון/הזזת תור</h4>
-                                            </div>
-                                            <div className="grid md:grid-cols-2 gap-6">
-                                                <div className="space-y-2">
-                                                    <label className="block text-xs font-bold text-slate-600 uppercase tracking-widest text-right">WhatsApp Template</label>
-                                                    <textarea rows={4} value={settings.reschedule_wa_template || ""} onChange={e => handleChange("reschedule_wa_template", e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500 text-sm" />
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <label className="block text-xs font-bold text-slate-600 uppercase tracking-widest text-right">Email Template</label>
-                                                    <textarea rows={4} value={settings.reschedule_email_template || ""} onChange={e => handleChange("reschedule_email_template", e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500 text-sm" />
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Cancellation */}
-                                        <div className="space-y-6">
-                                            <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
-                                                <span className="text-xl">❌</span>
-                                                <h4 className="font-bold text-slate-800">הודעת ביטול תור</h4>
-                                            </div>
-                                            <div className="grid md:grid-cols-2 gap-6">
-                                                <div className="space-y-2">
-                                                    <label className="block text-xs font-bold text-slate-600 uppercase tracking-widest text-right">WhatsApp Template</label>
-                                                    <textarea rows={4} value={settings.cancel_wa_template || ""} onChange={e => handleChange("cancel_wa_template", e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-red-400 text-sm" />
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <label className="block text-xs font-bold text-slate-600 uppercase tracking-widest text-right">Email Template</label>
-                                                    <textarea rows={4} value={settings.cancel_email_template || ""} onChange={e => handleChange("cancel_email_template", e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-red-400 text-sm" />
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Birthday Message */}
-                                        <div className="space-y-6">
-                                            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-xl">🎉</span>
-                                                    <h4 className="font-bold text-slate-800">ברכת יום הולדת + קופון הנחה</h4>
-                                                </div>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleChange("birthday_automation_enabled", !settings.birthday_automation_enabled)}
-                                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${settings.birthday_automation_enabled ? "bg-pink-500" : "bg-slate-300"}`}
-                                                >
-                                                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${settings.birthday_automation_enabled ? "translate-x-6" : "translate-x-1"}`} />
-                                                </button>
-                                            </div>
-                                            {!settings.birthday_automation_enabled && (
-                                                <p className="text-xs text-slate-400 font-medium bg-slate-50 px-3 py-2 rounded-xl border border-slate-200">האוטומציה כבויה — הודעות יום הולדת וקופונים לא יישלחו</p>
-                                            )}
-                                            <div className="grid md:grid-cols-2 gap-6">
-                                                <div className="space-y-2">
-                                                    <label className="block text-xs font-bold text-slate-600 uppercase tracking-widest text-right">WhatsApp Template</label>
-                                                    <textarea rows={4} value={settings.birthday_wa_template || ""} onChange={e => handleChange("birthday_wa_template", e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-pink-400 text-sm" placeholder="מזל טוב {client_name}! לרגל יום הולדתך..." />
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <label className="block text-xs font-bold text-slate-600 uppercase tracking-widest text-right">Email Template</label>
-                                                    <textarea rows={4} value={settings.birthday_email_template || ""} onChange={e => handleChange("birthday_email_template", e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-pink-400 text-sm" placeholder="יום הולדת שמח {client_name}!..." />
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Deposit Request */}
-                                        <div className="space-y-4">
-                                            <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
-                                                <span className="text-xl">💳</span>
-                                                <div>
-                                                    <h4 className="font-bold text-slate-800">בקשת מקדמה (נשלח אוטומטית בקביעת תור)</h4>
-                                                    <p className="text-xs text-slate-500">נשלח רק לתורים שדורשים מקדמה (מעל 30 דקות)</p>
-                                                </div>
-                                            </div>
-                                            <textarea rows={7} value={settings.deposit_request_wa_template || ""} onChange={e => handleChange("deposit_request_wa_template", e.target.value)}
-                                                className="w-full bg-slate-50 border border-emerald-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-mono" />
-                                        </div>
-
-                                        {/* Deposit Approved */}
-                                        <div className="space-y-4">
-                                            <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
-                                                <span className="text-xl">✅</span>
-                                                <div>
-                                                    <h4 className="font-bold text-slate-800">אישור מקדמה + פרטים מלאים</h4>
-                                                    <p className="text-xs text-slate-500">נשלח אוטומטית אחרי שאתה מאשר את קבלת המקדמה במערכת</p>
-                                                </div>
-                                            </div>
-                                            <textarea rows={10} value={settings.deposit_approved_wa_template || ""} onChange={e => handleChange("deposit_approved_wa_template", e.target.value)}
-                                                className="w-full bg-slate-50 border border-emerald-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-mono" />
-                                        </div>
-
-                                        {/* Non-Member Club Invite */}
-                                        <div className="space-y-4">
-                                            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-xl">👤</span>
-                                                    <div>
-                                                        <h4 className="font-bold text-slate-800">הזמנה למועדון — לקוח שאינו חבר</h4>
-                                                        <p className="text-xs text-slate-500">נשלח אחרי תשלום ללקוח שעדיין לא נרשם למועדון</p>
-                                                    </div>
-                                                </div>
-                                                {/* Toggle */}
-                                                <button
-                                                    type="button"
-                                                    title={(settings.club_invite_enabled ?? true) ? "כבה הזמנת מועדון" : "הפעל הזמנת מועדון"}
-                                                    onClick={() => handleChange("club_invite_enabled", !(settings.club_invite_enabled ?? true))}
-                                                    className={`relative w-12 h-6 rounded-full transition-colors ${(settings.club_invite_enabled ?? true) ? "bg-purple-500" : "bg-slate-300"}`}
-                                                >
-                                                    <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${(settings.club_invite_enabled ?? true) ? "right-1" : "left-1"}`} />
-                                                </button>
-                                            </div>
-                                            {(settings.club_invite_enabled ?? true) && (
-                                                <div className="space-y-3">
-                                                    <div className="flex items-center gap-3">
-                                                        <label className="text-xs font-semibold text-slate-600 shrink-0">שלח אחרי</label>
-                                                        <input
-                                                            type="number"
-                                                            min={0}
-                                                            max={1440}
-                                                            value={settings.club_invite_delay_minutes ?? 30}
-                                                            onChange={e => handleChange("club_invite_delay_minutes", parseInt(e.target.value) || 0)}
-                                                            title="זמן המתנה בדקות"
-                                                            placeholder="30"
-                                                            className="w-20 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-purple-400 text-center"
-                                                        />
-                                                        <span className="text-xs text-slate-500">דקות מסיום הביקור</span>
-                                                    </div>
-                                                    <p className="text-xs text-slate-400">משתני תבנית: <code className="bg-slate-100 px-1 rounded">{"{client_name}"}</code> <code className="bg-slate-100 px-1 rounded">{"{points_on_signup}"}</code> <code className="bg-slate-100 px-1 rounded">{"{join_link}"}</code> <code className="bg-slate-100 px-1 rounded">{"{optout_link}"}</code></p>
-                                                    <textarea rows={5} value={settings.non_member_wa_template || ""} onChange={e => handleChange("non_member_wa_template", e.target.value)}
-                                                        title="תוכן הודעת הזמנה למועדון"
-                                                        placeholder={"היי {client_name}! 👋\n\nשמחים שביקרת אצלנו!\nהצטרף/י למועדון וקבל/י {points_on_signup} נקודות 🎉\n\nהרשמה: {join_link}"}
-                                                        className="w-full bg-slate-50 border border-purple-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-purple-500 text-sm font-mono" />
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        {/* Points Redeem */}
-                                        <div className="space-y-4">
-                                            <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
-                                                <span className="text-xl">🎁</span>
-                                                <div>
-                                                    <h4 className="font-bold text-slate-800">מימוש נקודות מהקרדיט</h4>
-                                                    <p className="text-xs text-slate-500">נשלח ללקוח כשהוא ממש נקודות נאמנות</p>
-                                                </div>
-                                            </div>
-                                            <textarea rows={4} value={settings.points_redeem_wa_template || ""} onChange={e => handleChange("points_redeem_wa_template", e.target.value)}
-                                                className="w-full bg-slate-50 border border-amber-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-amber-500 text-sm font-mono" />
-                                        </div>
-
-                                        {/* Post-Payment & Aftercare */}
-                                        <div className="space-y-6">
-                                            <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
-                                                <span className="text-xl">🩹</span>
-                                                <h4 className="font-bold text-slate-800">הוראות טיפול (Aftercare) וסיום תור</h4>
-                                            </div>
-                                            <div className="space-y-4">
-                                                <div className="space-y-2">
-                                                    <label className="block text-sm font-bold text-slate-700">הוראות טיפול (נשלח אוטומטית בסיום התור)</label>
-                                                    <textarea rows={6} value={settings.aftercare_message || ""} onChange={e => handleChange("aftercare_message", e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 text-sm" placeholder="כאן כותבים את הוראות הטיפול בקעקוע..." />
-                                                </div>
-                                                <div className="grid md:grid-cols-2 gap-6">
-                                                    <div className="space-y-2">
-                                                        <label className="block text-xs font-bold text-slate-600 uppercase tracking-widest text-right">שורת אישור תשלום (WhatsApp)</label>
-                                                        <textarea rows={3} value={settings.post_payment_wa_template || ""} onChange={e => handleChange("post_payment_wa_template", e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-green-500 text-sm" placeholder="תודה שביקרת אצלנו!..." />
-                                                    </div>
-                                                    <div className="space-y-2">
-                                                        <label className="block text-xs font-bold text-slate-600 uppercase tracking-widest text-right">שורת אישור תשלום (Email)</label>
-                                                        <textarea rows={3} value={settings.post_payment_email_template || ""} onChange={e => handleChange("post_payment_email_template", e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500 text-sm" />
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Review Links */}
-                                        <div className="space-y-6 pt-4">
-                                            <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
-                                                <span className="text-xl">⭐</span>
-                                                <h4 className="font-bold text-slate-800">קישורי רשתות וביקורות</h4>
-                                            </div>
-                                            <div className="grid md:grid-cols-2 gap-6">
-                                                <div className="space-y-2 md:col-span-2">
-                                                    <label className="block text-sm font-bold text-slate-700">Google Review Link</label>
-                                                    <input type="url" dir="ltr" value={settings.review_link_google || ""} onChange={e => handleChange("review_link_google", e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-yellow-500 text-sm" />
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <label className="block text-sm font-semibold text-slate-700">Instagram</label>
-                                                    <input type="url" dir="ltr" value={settings.review_link_instagram || ""} onChange={e => handleChange("review_link_instagram", e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-pink-500 text-sm" />
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <label className="block text-sm font-semibold text-slate-700">Facebook</label>
-                                                    <input type="url" dir="ltr" value={settings.review_link_facebook || ""} onChange={e => handleChange("review_link_facebook", e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
 
                         {/* 3.5 POLICY TAB */}
                         {activeTab === "policy" && (
