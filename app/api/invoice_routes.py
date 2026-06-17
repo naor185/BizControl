@@ -941,22 +941,6 @@ def _build_pdf(inv: dict, items: list) -> bytes:
     c.setFillColor(header_color)
     c.rect(0, H - 90, W, 90, fill=1, stroke=0)
 
-    # Logo
-    logo_url = inv.get("business_logo_url")
-    if logo_url:
-        try:
-            from reportlab.lib.utils import ImageReader
-            import urllib.request
-            if logo_url.startswith("http"):
-                with urllib.request.urlopen(logo_url, timeout=3) as resp:
-                    logo_img = ImageReader(io.BytesIO(resp.read()))
-            else:
-                logo_img = ImageReader(logo_url)
-            c.drawImage(logo_img, 1.5*cm, H-85, width=60, height=60,
-                       preserveAspectRatio=True, mask="auto")
-        except Exception:
-            pass
-
     # Business name
     c.setFont(F_BOLD, 20)
     c.setFillColor(colors.white)

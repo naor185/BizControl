@@ -110,14 +110,6 @@ export default function PublicReceiptPage() {
         <div className="receipt-card max-w-lg mx-auto bg-white rounded-2xl shadow-lg overflow-hidden">
           {/* Header */}
           <div className="bg-[#1a1a2e] text-white px-6 py-5">
-            {receipt.business_logo_url && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={receipt.business_logo_url}
-                alt="לוגו"
-                className="h-12 w-auto mb-3 object-contain"
-              />
-            )}
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-xl font-bold">{receipt.business_name || "העסק"}</p>

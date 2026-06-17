@@ -626,10 +626,7 @@ export default function ClientProfilePage() {
                                                             {isCredit ? "-" : ""}₪{Math.abs(inv.total_ils).toFixed(2)}
                                                         </span>
                                                         <button type="button"
-                                                            onClick={() => {
-                                                                const token = localStorage.getItem("bizcontrol_token") || "";
-                                                                window.open(`${process.env.NEXT_PUBLIC_API_URL}/api/invoices/${inv.id}/pdf?token=${token}`, "_blank");
-                                                            }}
+                                                            onClick={() => window.open(`/receipt/${inv.id}`, "_blank")}
                                                             className="px-2 py-1 text-xs bg-violet-50 text-violet-600 border border-violet-100 rounded-lg hover:bg-violet-100">
                                                             PDF
                                                         </button>
