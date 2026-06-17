@@ -34,13 +34,29 @@ def list_(
     ctx: AuthContext = Depends(require_studio_ctx),
     db: Session = Depends(get_db),
 ):
+    from sqlalchemy import text as _t
     stmt = select(Payment).where(Payment.studio_id == ctx.studio_id)
     if appointment_id:
         stmt = stmt.where(Payment.appointment_id == appointment_id)
     if client_id:
         stmt = stmt.where(Payment.client_id == client_id)
     stmt = stmt.options(joinedload(Payment.client)).order_by(Payment.created_at.desc())
-    return list(db.scalars(stmt).all())
+    payments = list(db.scalars(stmt).all())
+    # Attach receipt_id from invoices table (non-credit invoice linked to this payment)
+    if payments:
+        ids = [str(p.id) for p in payments]
+        placeholders = ",".join(f"'{pid}'" for pid in ids)
+        rows = db.execute(_t(
+            f"SELECT source_id, id FROM invoices WHERE source_id IN ({placeholders}) AND doc_type != 'credit'"
+        )).fetchall()
+        receipt_map = {str(r[0]): str(r[1]) for r in rows}
+        result = []
+        for p in payments:
+            d = PaymentOut.model_validate(p)
+            d.receipt_id = receipt_map.get(str(p.id))
+            result.append(d)
+        return result
+    return payments
 
 @router.delete("/client/{client_id}/all", status_code=status.HTTP_200_OK)
 def delete_all_for_client(
@@ -48,6 +64,8 @@ def delete_all_for_client(
     ctx: AuthContext = Depends(require_studio_ctx),
     db: Session = Depends(get_db),
 ):
+    if ctx.role != "superadmin":
+        raise HTTPException(status_code=403, detail="מחיקת תשלומים זמינה לסופר-אדמין בלבד")
     count = delete_all_client_payments(db, ctx.studio_id, client_id)
     return {"deleted": count}
 

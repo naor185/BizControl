@@ -49,6 +49,7 @@ class PaymentOut(BaseModel):
     notes: str | None
     created_at: datetime
     client: ClientMinimal | None = None
+    receipt_id: str | None = None
 
     model_config = {"from_attributes": True}
 

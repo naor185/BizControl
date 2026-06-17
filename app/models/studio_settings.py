@@ -126,6 +126,7 @@ class StudioSettings(Base):
     non_member_wa_template: Mapped[str | None] = mapped_column(Text, nullable=True)
     club_invite_enabled: Mapped[bool] = mapped_column(default=True)
     club_invite_delay_minutes: Mapped[int] = mapped_column(default=30)
+    points_balance_wa_template: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Green API (WhatsApp via linked device)
     whatsapp_instance_id: Mapped[str | None] = mapped_column(String(255), nullable=True)

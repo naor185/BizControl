@@ -116,6 +116,12 @@ const SECTIONS: AutomSection[] = [
         description: "נשלחת ללקוח חדש כאשר מצטרף למועדון",
         hints: ["client_name","loyalty_points"],
     },
+    {
+        id: "points_balance", title: "יתרת נקודות", icon: "⭐",
+        templateKey: "points_balance_wa_template",
+        description: "נשלחת ידנית מפרופיל הלקוח — מאפשרת ללקוח לדעת כמה נקודות נצברו",
+        hints: ["client_name","loyalty_points"],
+    },
 ];
 
 // ── Template editor ────────────────────────────────────────────────────────────

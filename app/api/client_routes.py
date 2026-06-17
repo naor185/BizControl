@@ -326,3 +326,49 @@ def profile(
         "total_appointments_cents": total_appts_cents,
         "remaining_balance_cents": remaining
     }
+
+
+@router.post("/{client_id}/send-points-balance")
+def send_points_balance(
+    client_id: UUID,
+    ctx: AuthContext = Depends(require_studio_ctx),
+    db: Session = Depends(get_db),
+):
+    """Send the client their current loyalty points balance via WhatsApp."""
+    from datetime import datetime, timezone
+    from app.models.studio_settings import StudioSettings
+    from app.crud.automation import format_template
+
+    client = db.scalar(select(Client).where(Client.id == client_id, Client.studio_id == ctx.studio_id))
+    if not client:
+        raise HTTPException(status_code=404, detail="לקוח לא נמצא")
+    if not client.phone:
+        raise HTTPException(status_code=400, detail="ללקוח אין מספר טלפון")
+
+    settings = db.get(StudioSettings, ctx.studio_id)
+    template = (
+        getattr(settings, "points_balance_wa_template", None)
+        if settings else None
+    ) or "היי {client_name}! 🌟\n\nיתרת הנקודות שלך במועדון: *{loyalty_points} נקודות*\n\nנשמח לראותך שוב בקרוב! 💫"
+
+    context = {
+        "client_name": client.full_name or "לקוח",
+        "loyalty_points": str(int(client.loyalty_points or 0)),
+    }
+    body = format_template(template, context)
+
+    phone = client.phone.strip().replace("-", "").replace(" ", "")
+    if phone.startswith("0"):
+        phone = "972" + phone[1:]
+
+    db.add(MessageJob(
+        studio_id=ctx.studio_id,
+        client_id=client.id,
+        channel="whatsapp",
+        to_phone=phone,
+        body=body,
+        scheduled_at=datetime.now(timezone.utc),
+        status="pending",
+    ))
+    db.commit()
+    return {"ok": True}

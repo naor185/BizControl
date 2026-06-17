@@ -111,6 +111,7 @@ class AutomationSettingsOut(BaseModel):
     deposit_approved_wa_template: str | None = None
     points_redeem_wa_template: str | None = None
     non_member_wa_template: str | None = None
+    points_balance_wa_template: str | None = None
 
     # Green API
     whatsapp_instance_id: str | None = None
@@ -274,6 +275,7 @@ class AutomationSettingsUpdate(BaseModel):
     deposit_approved_wa_template: str | None = None
     points_redeem_wa_template: str | None = None
     non_member_wa_template: str | None = None
+    points_balance_wa_template: str | None = None
 
     # Green API
     whatsapp_instance_id: str | None = None

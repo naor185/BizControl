@@ -192,18 +192,6 @@ export default function ClientProfilePage() {
         }
     };
 
-    const handleDeletePayment = async (paymentId: string, withAppt: boolean) => {
-        const msg = withAppt
-            ? "למחוק את התשלום ואת הביקור המשויך אליו?"
-            : "למחוק את התשלום הזה בלבד?";
-        if (!confirm(msg)) return;
-        try {
-            await apiFetch(`/api/payments/${paymentId}?with_appointment=${withAppt}`, { method: "DELETE" });
-            await loadData();
-        } catch (e: any) {
-            toast.error(e?.message || "שגיאה במחיקת תשלום");
-        }
-    };
 
     const startEditInfo = () => {
         if (!profile) return;
@@ -251,13 +239,17 @@ export default function ClientProfilePage() {
         }
     };
 
-    const handleDeleteAllPayments = async () => {
-        if (!confirm("למחוק את כל היסטוריית התשלומים של הלקוח הזה? הנקודות יתאפסו גם הן. הפעולה אינה הפיכה.")) return;
+    const [sendingPointsBalance, setSendingPointsBalance] = useState(false);
+
+    const handleSendPointsBalance = async () => {
+        setSendingPointsBalance(true);
         try {
-            await apiFetch(`/api/payments/client/${id}/all`, { method: "DELETE" });
-            loadData();
+            await apiFetch(`/api/clients/${id}/send-points-balance`, { method: "POST" });
+            toast.success("✅ הודעת יתרת נקודות נשלחה!");
         } catch (e: any) {
-            toast.error(e?.message || "שגיאה במחיקת תשלומים");
+            toast.error(e?.message || "שגיאה בשליחה");
+        } finally {
+            setSendingPointsBalance(false);
         }
     };
 
@@ -530,6 +522,18 @@ export default function ClientProfilePage() {
                                     ✅ חבר/ת מועדון פעיל/ה
                                 </div>
                             )}
+
+                            {profile.client.is_club_member && profile.client.phone && (
+                                <button
+                                    type="button"
+                                    onClick={handleSendPointsBalance}
+                                    disabled={sendingPointsBalance}
+                                    className="w-full py-3 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white font-bold rounded-2xl shadow-md shadow-amber-200 transition-all flex items-center justify-center gap-2 text-sm"
+                                >
+                                    <span>⭐</span>
+                                    {sendingPointsBalance ? "שולח..." : "שלח יתרת נקודות בוואטסאפ"}
+                                </button>
+                            )}
                         </div>
 
                         {/* Left Column: History (Appts, Messages, Points) */}
@@ -555,20 +559,12 @@ export default function ClientProfilePage() {
                             <div className="rounded-xl border bg-white p-5 shadow-sm">
                                 <div className="flex justify-between items-center mb-4 border-b pb-2">
                                     <h3 className="text-lg font-semibold">היסטוריית תשלומים</h3>
-                                    {payments.length > 0 && (
-                                        <button
-                                            onClick={handleDeleteAllPayments}
-                                            className="text-xs text-rose-600 hover:text-rose-700 font-bold bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-100 transition-colors"
-                                        >
-                                            מחק הכל 🗑️
-                                        </button>
-                                    )}
                                 </div>
                                 {payments.length === 0 ? (
                                     <div className="text-sm text-gray-500">אין תשלומים רשומים.</div>
                                 ) : (
                                     <div className="space-y-2">
-                                        {payments.map(p => {
+                                        {payments.map((p: any) => {
                                             const typeLabel = p.type === "payment" ? "תשלום" : p.type === "deposit" ? "מקדמה" : "זיכוי";
                                             const methodLabel: Record<string, string> = { cash: "מזומן", credit_card: "אשראי", bit: "Bit", paybox: "Paybox", bank_transfer: "העברה", other: "אחר" };
                                             return (
@@ -579,12 +575,15 @@ export default function ClientProfilePage() {
                                                         {p.notes && <div className="text-xs text-slate-400">{p.notes}</div>}
                                                         <div className="text-[10px] text-slate-400">{new Date(p.created_at).toLocaleDateString("he-IL")}</div>
                                                     </div>
-                                                    <div className="flex gap-1">
-                                                        <button onClick={() => handleDeletePayment(p.id, false)} className="px-2 py-1 text-xs bg-rose-50 text-rose-600 border border-rose-100 rounded-lg hover:bg-rose-100">מחק</button>
-                                                        {p.appointment_id && (
-                                                            <button onClick={() => handleDeletePayment(p.id, true)} className="px-2 py-1 text-xs bg-orange-50 text-orange-600 border border-orange-100 rounded-lg hover:bg-orange-100">+ מחק ביקור</button>
-                                                        )}
-                                                    </div>
+                                                    {p.receipt_id && (
+                                                        <a
+                                                            href={`/receipt/${p.receipt_id}`}
+                                                            target="_blank"
+                                                            className="px-2 py-1 text-xs bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-lg hover:bg-emerald-100 font-semibold"
+                                                        >
+                                                            🧾 קבלה
+                                                        </a>
+                                                    )}
                                                 </div>
                                             );
                                         })}

@@ -643,6 +643,7 @@ export default function AutomationSettingsPage() {
                     deposit_approved_wa_template: data.deposit_approved_wa_template ?? "✅ {client_name}, המקדמה אושרה!\n\nהתור שלך מאושר ונעול:\n📅 תאריך: {appointment_date}\n🕐 שעה: {appointment_time}\n✂️ אמן/ית: {artist_name}\n📍 כתובת: {studio_address}\n🗺️ ניווט: {map_link}\n🖼️ תיק עבודות: {portfolio_link}\n\n*מדיניות ביטולים:* ביטול עד {cancellation_free_days} ימים לפני — החזר מלא. פחות מ-{cancellation_free_days} ימים — ללא החזר מקדמה. שינוי תור אפשרי עד {deposit_lock_days} ימים לפני.\n\nמחכים לך! 🙏",
                     points_redeem_wa_template: data.points_redeem_wa_template ?? "🎁 {client_name}, מימשת {points_used} נקודות בשווי {discount_amount}₪!\n\nנקודות שנותרו: {loyalty_points} נקודות.\nתודה שאתה/את חלק מהמועדון שלנו ❤️",
                     non_member_wa_template: data.non_member_wa_template ?? "היי {client_name}! 👋\n\nשמחים שביקרת אצלנו!\nהצטרף/י למועדון הלקוחות שלנו וקבל/י {points_on_signup} נקודות מתנה לביקור הבא 🎉\n\nהרשמה: {join_link}",
+                    points_balance_wa_template: data.points_balance_wa_template ?? "היי {client_name}! 🌟\n\nיתרת הנקודות שלך במועדון: *{loyalty_points} נקודות*\n\nנשמח לראותך שוב בקרוב! 💫",
                     // Template defaults — plain text, no placeholders needed
                     confirm_wa_template: data.confirm_wa_template ?? "היי! התור שלך נקבע בהצלחה. מחכים לך 😊",
                     confirm_email_template: data.confirm_email_template ?? "היי! התור שלך נקבע בהצלחה. מחכים לך 😊",

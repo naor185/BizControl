@@ -185,6 +185,7 @@ def ensure_schema():
             "ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS marketplace_tiktok VARCHAR(255)",
             "ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS marketplace_website VARCHAR(255)",
             "ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS marketplace_youtube VARCHAR(255)",
+            "ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS points_balance_wa_template TEXT",
         ]:
             cur.execute(stmt)
         cur.execute("""
