@@ -270,14 +270,26 @@ def create_booking(slug: str, payload: BookingRequest, db: Session = Depends(get
         import pytz
         tz = pytz.timezone(tz_str)
         local_start = starts.astimezone(tz)
-        body = (
-            f"שלום {payload.client_name}! ✅\n\n"
-            f"התור שלך נקבע בהצלחה!\n\n"
-            f"📋 שירות: {service.name}\n"
-            f"📅 תאריך: {local_start.strftime('%d/%m/%Y')}\n"
-            f"⏰ שעה: {local_start.strftime('%H:%M')}\n\n"
-            f"ב{studio.name} 🙏"
-        )
+        custom_tpl = getattr(settings, "booking_confirm_wa_template", None)
+        if custom_tpl:
+            from app.crud.automation import format_template
+            body = format_template(custom_tpl, {
+                "client_name": payload.client_name,
+                "service_name": service.name,
+                "appointment_title": service.name,
+                "appointment_date": local_start.strftime("%d/%m/%Y"),
+                "appointment_time": local_start.strftime("%H:%M"),
+                "studio_name": studio.name,
+            })
+        else:
+            body = (
+                f"שלום {payload.client_name}! ✅\n\n"
+                f"התור שלך נקבע בהצלחה!\n\n"
+                f"📋 שירות: {service.name}\n"
+                f"📅 תאריך: {local_start.strftime('%d/%m/%Y')}\n"
+                f"⏰ שעה: {local_start.strftime('%H:%M')}\n\n"
+                f"ב{studio.name} 🙏"
+            )
         db.add(MessageJob(
             studio_id=studio.id, client_id=client.id,
             appointment_id=appt.id,
@@ -409,5 +421,36 @@ def public_join_wait_list(slug: str, payload: WaitListJoinIn, db: Session = Depe
         status="waiting",
     )
     db.add(entry)
+    db.flush()
+
+    # Notify client they were added to the waitlist
+    phone = payload.client_phone.strip()
+    if phone:
+        from app.models.studio_settings import StudioSettings as _SS2
+        from app.models.message_job import MessageJob
+        _settings2 = db.get(_SS2, studio.id)
+        custom_tpl = getattr(_settings2, "waitlist_joined_wa_template", None) if _settings2 else None
+        if custom_tpl:
+            from app.crud.automation import format_template
+            wl_body = format_template(custom_tpl, {
+                "client_name": payload.client_name.strip(),
+                "studio_name": studio.name,
+            })
+        else:
+            wl_body = (
+                f"שלום {payload.client_name.strip()}! 📋\n\n"
+                f"נוספת לרשימת ההמתנה של {studio.name}.\n"
+                f"נודיע לך בוואטסאפ כשיתפנה מקום 😊"
+            )
+        db.add(MessageJob(
+            studio_id=studio.id,
+            channel="whatsapp",
+            to_phone=phone,
+            body=wl_body,
+            scheduled_at=datetime.now(timezone.utc),
+            status="pending",
+            reminder_type="waitlist_joined",
+        ))
+
     db.commit()
     return {"message": "נוספת לרשימת ההמתנה! נודיע לך בWhatsApp כשיתפנה מקום 📅"}

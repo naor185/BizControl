@@ -181,14 +181,25 @@ def approve_request(
     bizfind_url = os.getenv("BIZFIND_URL", "https://find-biz.com")
     booking_link = f"{bizfind_url}/booking/{req.public_token}" if req.public_token else ""
     link_line = f"\n🔗 צפה בפרטי התור שלך:\n{booking_link}" if booking_link else ""
-    confirm_msg = (
-        f"✅ התור שלך אושר!\n"
-        f"👤 {req.client_name}, התור שלך עם {artist_name} אושר.\n"
-        f"📅 {local_time}\n"
-        f"📝 {req.service_note or ''}"
-        f"{link_line}\n\n"
-        f"מחכים לך! 🙏"
-    )
+    custom_tpl = getattr(settings, "booking_request_approved_wa_template", None)
+    if custom_tpl:
+        from app.crud.automation import format_template
+        confirm_msg = format_template(custom_tpl, {
+            "client_name": req.client_name,
+            "artist_name": artist_name,
+            "appointment_date": local_time,
+            "service_note": req.service_note or "",
+            "booking_link": booking_link,
+        })
+    else:
+        confirm_msg = (
+            f"✅ התור שלך אושר!\n"
+            f"👤 {req.client_name}, התור שלך עם {artist_name} אושר.\n"
+            f"📅 {local_time}\n"
+            f"📝 {req.service_note or ''}"
+            f"{link_line}\n\n"
+            f"מחכים לך! 🙏"
+        )
     if req.client_phone:
         db.add(MessageJob(
             studio_id=current_user.studio_id,
@@ -236,10 +247,19 @@ def reject_request(
     # Notify client
     local_time = _fmt_local(req.requested_at, settings.timezone or "Asia/Jerusalem")
     reason_line = f"\nסיבה: {payload.reason}" if payload.reason else ""
-    reject_msg = (
-        f"❌ בקשת התור שלך ל-{local_time} לא אושרה.{reason_line}\n\n"
-        f"ניתן לשריין זמן אחר דרך האתר שלנו. 🙏"
-    )
+    custom_tpl = getattr(settings, "booking_request_rejected_wa_template", None)
+    if custom_tpl:
+        from app.crud.automation import format_template
+        reject_msg = format_template(custom_tpl, {
+            "client_name": req.client_name,
+            "appointment_date": local_time,
+            "rejection_reason": payload.reason or "",
+        })
+    else:
+        reject_msg = (
+            f"❌ בקשת התור שלך ל-{local_time} לא אושרה.{reason_line}\n\n"
+            f"ניתן לשריין זמן אחר דרך האתר שלנו. 🙏"
+        )
     if req.client_phone:
         db.add(MessageJob(
             studio_id=current_user.studio_id,

@@ -357,16 +357,30 @@ def _enqueue_receipt_link(db, studio_id, invoice_id: str, appt, client) -> None:
     title = getattr(appt, "title", None) or "שירות"
 
     from app.models.message_job import MessageJob
+    from app.models.studio_settings import StudioSettings as _RLSettings
     now = datetime.now(timezone.utc)
 
+    _rl_settings = db.get(_RLSettings, studio_id)
+    custom_tpl = getattr(_rl_settings, "receipt_link_wa_template", None) if _rl_settings else None
+
     if client.phone:
+        if custom_tpl:
+            from app.crud.automation import format_template
+            receipt_wa_body = format_template(custom_tpl, {
+                "client_name": client.full_name or "",
+                "service_name": title,
+                "appointment_title": title,
+                "receipt_link": receipt_url,
+            })
+        else:
+            receipt_wa_body = f"🧾 הקבלה שלך עבור {title}:\n{receipt_url}"
         db.add(MessageJob(
             studio_id=studio_id,
             client_id=client.id,
             appointment_id=getattr(appt, "id", None),
             channel="whatsapp",
             to_phone=client.phone,
-            body=f"🧾 הקבלה שלך עבור {title}:\n{receipt_url}",
+            body=receipt_wa_body,
             scheduled_at=now,
             status="pending",
             reminder_type="receipt_link",

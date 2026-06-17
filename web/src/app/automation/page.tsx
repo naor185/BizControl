@@ -561,7 +561,7 @@ export default function AutomationSettingsPage() {
     const [saving, setSaving] = useState(false);
     const [err, setErr] = useState<string | null>(null);
     const [msg, setMsg] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<"branding" | "landing" | "policy" | "automation" | "finance" | "integrations" | "marketplace">("branding");
+    const [activeTab, setActiveTab] = useState<"branding" | "policy" | "finance" | "integrations" | "public">("branding");
 
     const [aiPrompt, setAiPrompt] = useState("");
     const [isAiLoading, setIsAiLoading] = useState(false);
@@ -889,13 +889,11 @@ export default function AutomationSettingsPage() {
     }
 
     const tabs = [
-        { id: "branding", label: "מיתוג ועיצוב", icon: "🎨" },
-        { id: "landing", label: "דפי נחיתה", icon: "🚀" },
-        { id: "policy", label: "מדיניות וכתובת", icon: "📋" },
-        { id: "automation", label: "חוקים ואוטומציה", icon: "⚙️" },
-        { id: "finance", label: "תשלומים ופיננסים", icon: "💰" },
+        { id: "branding", label: "זהות ומיתוג", icon: "🎨" },
+        { id: "policy", label: "מדיניות ואוטומציה", icon: "⚙️" },
+        { id: "finance", label: "פיננסים ותשלומים", icon: "💰" },
         { id: "integrations", label: "חיבורים", icon: "🔌" },
-        { id: "marketplace", label: "Marketplace", icon: "🗺️" },
+        { id: "public", label: "נוכחות ציבורית", icon: "🌐" },
     ] as const;
 
     return (
@@ -1010,6 +1008,49 @@ export default function AutomationSettingsPage() {
                                 </div>
                             </div>
 
+                            {/* Brand Colors */}
+                            <div className="bg-white rounded-2xl border border-slate-100 shadow-xl shadow-slate-200/40 p-6 md:p-10 relative overflow-hidden">
+                                <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/10 rounded-bl-full -z-10"></div>
+                                <h3 className="text-2xl font-bold text-slate-800 mb-2">צבעי המותג</h3>
+                                <p className="text-slate-500 text-sm mb-6">צבעים אלו יופיעו בדף הנחיתה, בדף ההזמנה האונליין ובממשק הסטודיו.</p>
+                                <div className="grid grid-cols-2 gap-6">
+                                    <div className="space-y-2">
+                                        <label className="block text-sm font-semibold text-slate-700">צבע ראשי (Primary)</label>
+                                        <div className="flex items-center gap-3 bg-slate-50 p-2 rounded-xl border border-slate-200 focus-within:ring-2 focus-within:ring-purple-500 transition-all">
+                                            <input
+                                                type="color"
+                                                value={settings.theme_primary_color || "#000000"}
+                                                onChange={e => handleChange("theme_primary_color", e.target.value)}
+                                                className="h-10 w-12 rounded cursor-pointer border-0 p-0"
+                                            />
+                                            <input
+                                                type="text" dir="ltr"
+                                                value={settings.theme_primary_color || "#000000"}
+                                                onChange={e => handleChange("theme_primary_color", e.target.value)}
+                                                className="bg-transparent w-full text-xs outline-none uppercase font-mono font-medium text-slate-700"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="block text-sm font-semibold text-slate-700">צבע משני (Secondary)</label>
+                                        <div className="flex items-center gap-3 bg-slate-50 p-2 rounded-xl border border-slate-200 focus-within:ring-2 focus-within:ring-purple-500 transition-all">
+                                            <input
+                                                type="color"
+                                                value={settings.theme_secondary_color || "#ffffff"}
+                                                onChange={e => handleChange("theme_secondary_color", e.target.value)}
+                                                className="h-10 w-12 rounded cursor-pointer border-0 p-0"
+                                            />
+                                            <input
+                                                type="text" dir="ltr"
+                                                value={settings.theme_secondary_color || "#ffffff"}
+                                                onChange={e => handleChange("theme_secondary_color", e.target.value)}
+                                                className="bg-transparent w-full text-xs outline-none uppercase font-mono font-medium text-slate-700"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
                             {/* Studio Info — moved from policy tab */}
                             <div className="bg-white rounded-2xl border border-slate-100 shadow-xl shadow-slate-200/40 p-6 md:p-10 relative overflow-hidden">
                                 <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/10 rounded-bl-full -z-10"></div>
@@ -1058,47 +1099,11 @@ export default function AutomationSettingsPage() {
                                 </div>
                             </div>
 
-                            {/* Cancellation Policy — moved from policy tab */}
-                            <div className="bg-white rounded-2xl border border-slate-100 shadow-xl shadow-slate-200/40 p-6 md:p-10 relative overflow-hidden">
-                                <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/10 rounded-bl-full -z-10"></div>
-                                <h3 className="text-2xl font-bold text-slate-800 mb-2">מדיניות ביטולים ומקדמה</h3>
-                                <p className="text-slate-500 text-sm mb-8">הגדרות אלו ישולבו אוטומטית בהודעת אישור המקדמה.</p>
-                                <div className="grid md:grid-cols-2 gap-8">
-                                    <div className="bg-emerald-50 p-6 rounded-2xl border border-emerald-100">
-                                        <label className="block text-base font-bold text-slate-800 mb-2">ביטול חינם עד כמה ימים לפני? ✅</label>
-                                        <p className="text-sm text-slate-500 mb-4">לקוח יקבל החזר מקדמה מלא אם יבטל לפחות X ימים לפני התור.</p>
-                                        <div className="flex items-center gap-3">
-                                            <input type="number" min="0" max="60"
-                                                value={settings.cancellation_free_days ?? ""}
-                                                placeholder="7"
-                                                onChange={e => handleChange("cancellation_free_days", e.target.value === "" ? 0 : parseInt(e.target.value) || 0)}
-                                                className="w-24 text-center bg-white border border-emerald-200 rounded-xl px-4 py-3 font-bold text-xl outline-none focus:ring-2 focus:ring-emerald-500" />
-                                            <span className="text-slate-600 font-medium">ימים לפני</span>
-                                        </div>
-                                    </div>
-                                    <div className="bg-red-50 p-6 rounded-2xl border border-red-100">
-                                        <label className="block text-base font-bold text-slate-800 mb-2">נעילת שינוי תור עד כמה ימים לפני? 🔒</label>
-                                        <p className="text-sm text-slate-500 mb-4">לאחר תשלום מקדמה, הלקוח לא יוכל לשנות את התור X ימים לפניו.</p>
-                                        <div className="flex items-center gap-3">
-                                            <input type="number" min="0" max="60"
-                                                value={settings.deposit_lock_days ?? ""}
-                                                placeholder="7"
-                                                onChange={e => handleChange("deposit_lock_days", e.target.value === "" ? 0 : parseInt(e.target.value) || 0)}
-                                                className="w-24 text-center bg-white border border-red-200 rounded-xl px-4 py-3 font-bold text-xl outline-none focus:ring-2 focus:ring-red-500" />
-                                            <span className="text-slate-600 font-medium">ימים לפני</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="mt-6 bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
-                                    <span className="font-bold">תצוגה מקדימה של מדיניות הביטולים: </span>
-                                    ביטול עד {settings.cancellation_free_days ?? 7} ימים לפני — החזר מלא של המקדמה. פחות מ-{settings.cancellation_free_days ?? 7} ימים — ללא החזר. שינוי תור אפשרי עד {settings.deposit_lock_days ?? 7} ימים לפני בלבד.
-                                </div>
-                            </div>
                             </div>
                         )}
 
-                        {/* 2. LANDING PAGES TAB */}
-                        {activeTab === "landing" && (
+                        {/* 2. PUBLIC PRESENCE TAB (landing + marketplace) */}
+                        {activeTab === "public" && (
                             <div className="space-y-6">
 
                             {/* Unique Link Banner */}
@@ -1176,45 +1181,6 @@ export default function AutomationSettingsPage() {
                                                         "צור עיצוב"
                                                     )}
                                                 </button>
-                                            </div>
-                                        </div>
-
-                                        {/* Color Pickers - MOVED FROM BRANDING */}
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="space-y-2">
-                                                <label className="block text-sm font-semibold text-slate-700">צבע ראשי (Primary)</label>
-                                                <div className="flex items-center gap-3 bg-slate-50 p-2 rounded-xl border border-slate-200 focus-within:ring-2 focus-within:ring-purple-500 transition-all">
-                                                    <input
-                                                        type="color"
-                                                        value={settings.theme_primary_color || "#000000"}
-                                                        onChange={e => handleChange("theme_primary_color", e.target.value)}
-                                                        className="h-10 w-12 rounded cursor-pointer border-0 p-0"
-                                                    />
-                                                    <input
-                                                        type="text" dir="ltr"
-                                                        value={settings.theme_primary_color || "#000000"}
-                                                        onChange={e => handleChange("theme_primary_color", e.target.value)}
-                                                        className="bg-transparent w-full text-xs outline-none uppercase font-mono font-medium text-slate-700"
-                                                    />
-                                                </div>
-                                            </div>
-
-                                            <div className="space-y-2">
-                                                <label className="block text-sm font-semibold text-slate-700">צבע משני (Secondary)</label>
-                                                <div className="flex items-center gap-3 bg-slate-50 p-2 rounded-xl border border-slate-200 focus-within:ring-2 focus-within:ring-purple-500 transition-all">
-                                                    <input
-                                                        type="color"
-                                                        value={settings.theme_secondary_color || "#ffffff"}
-                                                        onChange={e => handleChange("theme_secondary_color", e.target.value)}
-                                                        className="h-10 w-12 rounded cursor-pointer border-0 p-0"
-                                                    />
-                                                    <input
-                                                        type="text" dir="ltr"
-                                                        value={settings.theme_secondary_color || "#ffffff"}
-                                                        onChange={e => handleChange("theme_secondary_color", e.target.value)}
-                                                        className="bg-transparent w-full text-xs outline-none uppercase font-mono font-medium text-slate-700"
-                                                    />
-                                                </div>
                                             </div>
                                         </div>
 
@@ -1407,11 +1373,13 @@ export default function AutomationSettingsPage() {
                                     </div>
                                 </div>
                             </div>
+                            {/* Marketplace section inside public tab */}
+                            <MarketplaceTab settings={settings} handleChange={handleChange} apiFetch={apiFetch} />
                             </div>
                         )}
 
 
-                        {/* 3.5 POLICY TAB */}
+                        {/* 3. POLICY + AUTOMATION TAB */}
                         {activeTab === "policy" && (
                             <div className="space-y-8">
                                 {/* Bank Details */}
@@ -1479,11 +1447,48 @@ export default function AutomationSettingsPage() {
                                         </div>
                                     </div>
                                 </div>
+
+                                {/* Cancellation Policy — merged from branding tab */}
+                                <div className="bg-white rounded-2xl border border-slate-100 shadow-xl shadow-slate-200/40 p-6 md:p-10 relative overflow-hidden">
+                                    <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/10 rounded-bl-full -z-10"></div>
+                                    <h3 className="text-2xl font-bold text-slate-800 mb-2">מדיניות ביטולים ומקדמה</h3>
+                                    <p className="text-slate-500 text-sm mb-8">הגדרות אלו ישולבו אוטומטית בהודעת אישור המקדמה.</p>
+                                    <div className="grid md:grid-cols-2 gap-8">
+                                        <div className="bg-emerald-50 p-6 rounded-2xl border border-emerald-100">
+                                            <label className="block text-base font-bold text-slate-800 mb-2">ביטול חינם עד כמה ימים לפני? ✅</label>
+                                            <p className="text-sm text-slate-500 mb-4">לקוח יקבל החזר מקדמה מלא אם יבטל לפחות X ימים לפני התור.</p>
+                                            <div className="flex items-center gap-3">
+                                                <input type="number" min="0" max="60"
+                                                    value={settings.cancellation_free_days ?? ""}
+                                                    placeholder="7"
+                                                    onChange={e => handleChange("cancellation_free_days", e.target.value === "" ? 0 : parseInt(e.target.value) || 0)}
+                                                    className="w-24 text-center bg-white border border-emerald-200 rounded-xl px-4 py-3 font-bold text-xl outline-none focus:ring-2 focus:ring-emerald-500" />
+                                                <span className="text-slate-600 font-medium">ימים לפני</span>
+                                            </div>
+                                        </div>
+                                        <div className="bg-red-50 p-6 rounded-2xl border border-red-100">
+                                            <label className="block text-base font-bold text-slate-800 mb-2">נעילת שינוי תור עד כמה ימים לפני? 🔒</label>
+                                            <p className="text-sm text-slate-500 mb-4">לאחר תשלום מקדמה, הלקוח לא יוכל לשנות את התור X ימים לפניו.</p>
+                                            <div className="flex items-center gap-3">
+                                                <input type="number" min="0" max="60"
+                                                    value={settings.deposit_lock_days ?? ""}
+                                                    placeholder="7"
+                                                    onChange={e => handleChange("deposit_lock_days", e.target.value === "" ? 0 : parseInt(e.target.value) || 0)}
+                                                    className="w-24 text-center bg-white border border-red-200 rounded-xl px-4 py-3 font-bold text-xl outline-none focus:ring-2 focus:ring-red-500" />
+                                                <span className="text-slate-600 font-medium">ימים לפני</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="mt-6 bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
+                                        <span className="font-bold">תצוגה מקדימה של מדיניות הביטולים: </span>
+                                        ביטול עד {settings.cancellation_free_days ?? 7} ימים לפני — החזר מלא של המקדמה. פחות מ-{settings.cancellation_free_days ?? 7} ימים — ללא החזר. שינוי תור אפשרי עד {settings.deposit_lock_days ?? 7} ימים לפני בלבד.
+                                    </div>
+                                </div>
                             </div>
                         )}
 
-                        {/* 4. LOYALTY RULES & CALENDAR TAB */}
-                        {activeTab === "automation" && (
+                        {/* 4. AUTOMATION RULES — merged into policy tab */}
+                        {activeTab === "policy" && (
                             <div className="space-y-6">
                                 <div className="bg-white rounded-2xl border border-slate-100 shadow-xl shadow-slate-200/40 p-6 md:p-10 relative overflow-hidden">
                                     <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-bl-full -z-10"></div>
@@ -1782,6 +1787,14 @@ export default function AutomationSettingsPage() {
                                             </div>
                                         </div>
                                     </div>
+
+                                    <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
+                                        <label className="block text-base font-bold text-slate-800 mb-2">קישור לביקורת בגוגל ⭐</label>
+                                        <p className="text-sm text-slate-500 mb-4">הקישור יצורף להודעת תודה לאחר תשלום בקופה (POS) כדי לעודד ביקורות.</p>
+                                        <input type="url" dir="ltr" value={settings.review_link_google || ""} onChange={e => handleChange("review_link_google", e.target.value)}
+                                            placeholder="https://g.page/r/..."
+                                            className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-yellow-500" />
+                                    </div>
                                 </div>
                             </div>
                         )}
@@ -1999,10 +2012,6 @@ export default function AutomationSettingsPage() {
                         </div>
                     )}
 
-                        {/* 7. MARKETPLACE TAB */}
-                        {activeTab === "marketplace" && (
-                            <MarketplaceTab settings={settings} handleChange={handleChange} apiFetch={apiFetch} />
-                        )}
                 </div>
 
                 {/* Floating Save Button */}

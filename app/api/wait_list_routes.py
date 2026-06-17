@@ -192,11 +192,23 @@ def _send_wait_list_notification(db: Session, entry: WaitListEntry, studio_id) -
     bizfind_url = _os.environ.get("BIZFIND_URL", "https://find-biz.com")
     booking_url = f"{bizfind_url}/b/{slug}/book" if slug else ""
     booking_line = f"\n\nלקביעת תור מהיר:\n{booking_url}" if booking_url else ""
-    body = (
-        f"שלום {name}! 🎉\n\n"
-        f"התפנה מקום ב{studio_name}!{booking_line}\n\n"
-        f"המקום לא שמור — קבע/י מהר 📅"
-    )
+
+    from app.models.studio_settings import StudioSettings as _WLSettings
+    _wl_settings = db.get(_WLSettings, studio_id)
+    custom_tpl = getattr(_wl_settings, "waitlist_notify_wa_template", None) if _wl_settings else None
+    if custom_tpl:
+        from app.crud.automation import format_template
+        body = format_template(custom_tpl, {
+            "client_name": name,
+            "studio_name": studio_name,
+            "booking_link": booking_url,
+        })
+    else:
+        body = (
+            f"שלום {name}! 🎉\n\n"
+            f"התפנה מקום ב{studio_name}!{booking_line}\n\n"
+            f"המקום לא שמור — קבע/י מהר 📅"
+        )
 
     db.add(MessageJob(
         studio_id=studio_id,

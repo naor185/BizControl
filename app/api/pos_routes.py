@@ -207,10 +207,20 @@ def pos_checkout(
             _review = ""
             if _settings and _settings.review_link_google:
                 _review = f"\n\n⭐ נשמח לביקורת שלך בגוגל!\n{_settings.review_link_google.strip()}"
-            _body = (
-                f"היי {client.full_name}! 😊\nתודה על הרכישה ❤️"
-                f"{_pts_block}{_review}"
-            )
+            _custom_tpl = getattr(_settings, "pos_receipt_wa_template", None) if _settings else None
+            if _custom_tpl:
+                from app.crud.automation import format_template
+                _body = format_template(_custom_tpl, {
+                    "client_name": client.full_name or "",
+                    "total_amount": f"₪{total / 100:.2f}",
+                    "points_earned": str(points_earned),
+                    "loyalty_points": str(_pts_total),
+                })
+            else:
+                _body = (
+                    f"היי {client.full_name}! 😊\nתודה על הרכישה ❤️"
+                    f"{_pts_block}{_review}"
+                )
             now_utc = datetime.now(timezone.utc)
             db.add(MessageJob(
                 studio_id=ctx.studio_id,

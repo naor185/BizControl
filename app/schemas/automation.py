@@ -113,6 +113,15 @@ class AutomationSettingsOut(BaseModel):
     non_member_wa_template: str | None = None
     points_balance_wa_template: str | None = None
 
+    # BizFind & Receipt message templates
+    booking_confirm_wa_template: str | None = None
+    booking_request_approved_wa_template: str | None = None
+    booking_request_rejected_wa_template: str | None = None
+    waitlist_notify_wa_template: str | None = None
+    waitlist_joined_wa_template: str | None = None
+    receipt_link_wa_template: str | None = None
+    pos_receipt_wa_template: str | None = None
+
     # Green API
     whatsapp_instance_id: str | None = None
 
@@ -276,6 +285,15 @@ class AutomationSettingsUpdate(BaseModel):
     points_redeem_wa_template: str | None = None
     non_member_wa_template: str | None = None
     points_balance_wa_template: str | None = None
+
+    # BizFind & Receipt message templates
+    booking_confirm_wa_template: str | None = None
+    booking_request_approved_wa_template: str | None = None
+    booking_request_rejected_wa_template: str | None = None
+    waitlist_notify_wa_template: str | None = None
+    waitlist_joined_wa_template: str | None = None
+    receipt_link_wa_template: str | None = None
+    pos_receipt_wa_template: str | None = None
 
     # Green API
     whatsapp_instance_id: str | None = None

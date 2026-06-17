@@ -128,6 +128,15 @@ class StudioSettings(Base):
     club_invite_delay_minutes: Mapped[int] = mapped_column(default=30)
     points_balance_wa_template: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    # BizFind & Receipt message templates
+    booking_confirm_wa_template: Mapped[str | None] = mapped_column(Text, nullable=True)
+    booking_request_approved_wa_template: Mapped[str | None] = mapped_column(Text, nullable=True)
+    booking_request_rejected_wa_template: Mapped[str | None] = mapped_column(Text, nullable=True)
+    waitlist_notify_wa_template: Mapped[str | None] = mapped_column(Text, nullable=True)
+    waitlist_joined_wa_template: Mapped[str | None] = mapped_column(Text, nullable=True)
+    receipt_link_wa_template: Mapped[str | None] = mapped_column(Text, nullable=True)
+    pos_receipt_wa_template: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     # Green API (WhatsApp via linked device)
     whatsapp_instance_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
 

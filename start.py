@@ -186,6 +186,14 @@ def ensure_schema():
             "ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS marketplace_website VARCHAR(255)",
             "ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS marketplace_youtube VARCHAR(255)",
             "ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS points_balance_wa_template TEXT",
+            # BizFind & Receipt message templates
+            "ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS booking_confirm_wa_template TEXT",
+            "ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS booking_request_approved_wa_template TEXT",
+            "ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS booking_request_rejected_wa_template TEXT",
+            "ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS waitlist_notify_wa_template TEXT",
+            "ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS waitlist_joined_wa_template TEXT",
+            "ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS receipt_link_wa_template TEXT",
+            "ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS pos_receipt_wa_template TEXT",
         ]:
             cur.execute(stmt)
         cur.execute("""

@@ -9,9 +9,11 @@ import { toast } from "@/lib/toast";
 const PLACEHOLDERS = [
     { key: "{client_name}",            label: "שם לקוח" },
     { key: "{appointment_title}",      label: "שם שירות" },
+    { key: "{service_name}",           label: "שם שירות" },
     { key: "{appointment_date}",       label: "תאריך תור" },
     { key: "{appointment_time}",       label: "שעת תור" },
     { key: "{artist_name}",            label: "שם אמן/מטפל" },
+    { key: "{studio_name}",            label: "שם הסטודיו" },
     { key: "{studio_address}",         label: "כתובת הסטודיו" },
     { key: "{map_link}",               label: "🗺️ קישור מפה" },
     { key: "{portfolio_link}",         label: "🖼️ תיק עבודות" },
@@ -27,6 +29,11 @@ const PLACEHOLDERS = [
     { key: "{join_link}",              label: "🔗 קישור הצטרפות" },
     { key: "{points_used}",            label: "נקודות שנוצלו" },
     { key: "{discount_amount}",        label: "₪ סכום הנחה" },
+    { key: "{receipt_link}",           label: "🧾 קישור קבלה" },
+    { key: "{booking_link}",           label: "🔗 קישור הזמנה" },
+    { key: "{total_amount}",           label: "₪ סכום כולל" },
+    { key: "{rejection_reason}",       label: "סיבת דחייה" },
+    { key: "{service_note}",           label: "הערת שירות" },
 ];
 
 // ── Section types ──────────────────────────────────────────────────────────────
@@ -42,6 +49,7 @@ interface AutomSection {
     delayLabel?: string;
     description: string;
     hints: string[];
+    bizfind?: boolean;
 }
 interface SectionGroup { id: string; title: string; icon: string; sections: AutomSection[]; }
 
@@ -124,10 +132,62 @@ const GROUPS: SectionGroup[] = [
                 hints: ["client_name","appointment_title","appointment_date","loyalty_points"],
             },
             {
+                id: "receipt_link", title: "קישור קבלה", icon: "🧾",
+                templateKey: "receipt_link_wa_template",
+                description: "נשלחת ללקוח עם קישור לקבלה דיגיטלית לאחר תשלום",
+                hints: ["client_name","service_name","receipt_link"],
+            },
+            {
+                id: "pos_receipt", title: "תודה על רכישה (קופה)", icon: "🛍️",
+                templateKey: "pos_receipt_wa_template",
+                description: "נשלחת ללקוח לאחר רכישה בקופה (POS)",
+                hints: ["client_name","total_amount","points_earned","loyalty_points"],
+            },
+            {
                 id: "aftercare", title: "הוראות טיפול לאחר תור", icon: "🩹",
                 templateKey: "aftercare_message",
                 description: "הוראות אפטרקר שנשלחות לאחר סיום תור",
                 hints: ["client_name","appointment_title","artist_name"],
+            },
+        ],
+    },
+    {
+        id: "bizfind", title: "BizFind — קביעות אונליין", icon: "🌐",
+        sections: [
+            {
+                id: "booking_confirm", title: "אישור קביעה עצמית", icon: "✅",
+                templateKey: "booking_confirm_wa_template",
+                bizfind: true,
+                description: "נשלחת ללקוח שקבע תור עצמאית דרך דף BizFind",
+                hints: ["client_name","service_name","appointment_date","appointment_time","studio_name"],
+            },
+            {
+                id: "booking_request_approved", title: "בקשת תור — אושרה", icon: "👍",
+                templateKey: "booking_request_approved_wa_template",
+                bizfind: true,
+                description: "נשלחת ללקוח כאשר בקשת התור שלו אושרה על-ידי הסטודיו",
+                hints: ["client_name","artist_name","appointment_date","service_note","booking_link"],
+            },
+            {
+                id: "booking_request_rejected", title: "בקשת תור — נדחתה", icon: "❌",
+                templateKey: "booking_request_rejected_wa_template",
+                bizfind: true,
+                description: "נשלחת ללקוח כאשר בקשת התור שלו נדחתה",
+                hints: ["client_name","appointment_date","rejection_reason"],
+            },
+            {
+                id: "waitlist_joined", title: "הצטרפות לרשימת המתנה", icon: "📋",
+                templateKey: "waitlist_joined_wa_template",
+                bizfind: true,
+                description: "נשלחת ללקוח כאשר הוא מצטרף לרשימת ההמתנה",
+                hints: ["client_name","studio_name"],
+            },
+            {
+                id: "waitlist_notify", title: "התפנה מקום — רשימת המתנה", icon: "🎉",
+                templateKey: "waitlist_notify_wa_template",
+                bizfind: true,
+                description: "נשלחת ללקוחות ברשימת ההמתנה כאשר מתפנה מקום",
+                hints: ["client_name","studio_name","booking_link"],
             },
         ],
     },
@@ -241,6 +301,11 @@ function TemplateEditor({
                 <div>
                     <span style={{ fontSize: "1.05rem", marginLeft: "0.35rem" }}>{section.icon}</span>
                     <span style={{ fontWeight: 800, fontSize: "0.97rem" }}>{section.title}</span>
+                    {section.bizfind && (
+                        <span style={{ display: "inline-block", fontSize: "0.64rem", fontWeight: 700, background: "rgba(59,130,246,.12)", border: "1px solid rgba(59,130,246,.3)", color: "#60a5fa", padding: "0.1rem 0.45rem", borderRadius: 6, marginRight: "0.4rem", verticalAlign: "middle" }}>
+                            BizFind
+                        </span>
+                    )}
                     <div style={{ color: "#64748b", fontSize: "0.77rem", marginTop: "0.2rem" }}>{section.description}</div>
                 </div>
                 <div style={{ display: "flex", gap: "0.4rem", alignItems: "center", flexWrap: "wrap" }}>
