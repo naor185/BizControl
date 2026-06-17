@@ -94,6 +94,14 @@ type Settings = {
     marketplace_description?: string | null;
     marketplace_cover_url?: string | null;
     marketplace_phone?: string | null;
+    marketplace_instagram?: string | null;
+    marketplace_facebook?: string | null;
+    marketplace_tiktok?: string | null;
+    marketplace_youtube?: string | null;
+    marketplace_website?: string | null;
+    marketplace_whatsapp?: string | null;
+    marketplace_hours?: string | null;
+    notification_phone?: string | null;
 
     studio_slug?: string | null;
 
@@ -402,6 +410,62 @@ function MarketplaceTab({ settings, handleChange, apiFetch }: { settings: any; h
                             className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-violet-400 resize-none"
                         />
                     </div>
+                    <div className="md:col-span-2">
+                        <label className="block text-sm font-semibold text-slate-700 mb-1">🕐 שעות פעילות</label>
+                        <input
+                            type="text"
+                            value={settings.marketplace_hours || ""}
+                            onChange={e => handleChange("marketplace_hours", e.target.value)}
+                            placeholder="א׳-ה׳ 10:00-20:00, ו׳ 10:00-14:00"
+                            className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-violet-400"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-semibold text-slate-700 mb-1">📱 WhatsApp לתצוגה</label>
+                        <input
+                            type="text"
+                            value={settings.marketplace_whatsapp || ""}
+                            onChange={e => handleChange("marketplace_whatsapp", e.target.value)}
+                            placeholder="050-0000000"
+                            className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-violet-400"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-semibold text-slate-700 mb-1">🔔 WhatsApp להתראות</label>
+                        <input
+                            type="text"
+                            value={(settings as any).notification_phone || ""}
+                            onChange={e => handleChange("notification_phone" as any, e.target.value)}
+                            placeholder="050-0000000 (מקבל התראה על הזמנות)"
+                            className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-violet-400"
+                        />
+                    </div>
+                </div>
+
+                {/* Social Links */}
+                <div className="mt-5">
+                    <h4 className="text-sm font-bold text-slate-700 mb-3">🔗 רשתות חברתיות</h4>
+                    <div className="grid md:grid-cols-2 gap-3">
+                        {[
+                            { key: "marketplace_instagram", label: "📸 Instagram", placeholder: "https://instagram.com/yourstudio" },
+                            { key: "marketplace_facebook",  label: "👥 Facebook",  placeholder: "https://facebook.com/yourstudio" },
+                            { key: "marketplace_tiktok",    label: "🎵 TikTok",    placeholder: "https://tiktok.com/@yourstudio" },
+                            { key: "marketplace_youtube",   label: "▶️ YouTube",   placeholder: "https://youtube.com/@yourstudio" },
+                            { key: "marketplace_website",   label: "🌐 אתר אינטרנט", placeholder: "https://yourstudio.com" },
+                        ].map(f => (
+                            <div key={f.key}>
+                                <label className="block text-xs font-semibold text-slate-600 mb-1">{f.label}</label>
+                                <input
+                                    type="url"
+                                    value={(settings as any)[f.key] || ""}
+                                    onChange={e => handleChange(f.key as any, e.target.value)}
+                                    placeholder={f.placeholder}
+                                    dir="ltr"
+                                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-violet-400 font-mono"
+                                />
+                            </div>
+                        ))}
+                    </div>
                 </div>
             </div>
 
@@ -557,6 +621,14 @@ export default function AutomationSettingsPage() {
                     marketplace_description: data.marketplace_description ?? "",
                     marketplace_cover_url: data.marketplace_cover_url ?? "",
                     marketplace_phone: data.marketplace_phone ?? "",
+                    marketplace_instagram: data.marketplace_instagram ?? "",
+                    marketplace_facebook: data.marketplace_facebook ?? "",
+                    marketplace_tiktok: data.marketplace_tiktok ?? "",
+                    marketplace_youtube: data.marketplace_youtube ?? "",
+                    marketplace_website: data.marketplace_website ?? "",
+                    marketplace_whatsapp: data.marketplace_whatsapp ?? "",
+                    marketplace_hours: data.marketplace_hours ?? "",
+                    notification_phone: data.notification_phone ?? "",
                     cancellation_free_days: data.cancellation_free_days ?? 7,
                     deposit_lock_days: data.deposit_lock_days ?? 7,
                     deposit_fixed_amount_ils: data.deposit_fixed_amount_ils ?? 0,
