@@ -406,6 +406,75 @@ def create_invoice_from_payment(
     return {"invoice_id": invoice_id, "already_existed": False}
 
 
+@router.post("/backfill-missing")
+def backfill_missing_invoices(
+    ctx: AuthContext = Depends(require_studio_ctx),
+    db: Session = Depends(get_db),
+):
+    """Find every paid payment that has no invoice and generate one for each."""
+    from app.models.payment import Payment as _Payment
+    from app.models.appointment import Appointment as _Appointment
+    from app.models.client import Client as _Client
+    from app.crud.payment import _auto_create_invoice
+    import logging as _log
+    _logger = _log.getLogger(__name__)
+
+    # Payments that are paid (payment or deposit) but have no matching invoice
+    rows = db.execute(
+        text("""
+            SELECT p.id, p.appointment_id, p.client_id, p.amount_cents, p.type, p.method
+            FROM payments p
+            WHERE p.studio_id = :sid
+              AND p.status = 'paid'
+              AND p.type IN ('payment', 'deposit')
+              AND p.amount_cents > 0
+              AND NOT EXISTS (
+                  SELECT 1 FROM invoices i
+                  WHERE i.source_id = p.id::text
+                    AND i.doc_type != 'credit'
+              )
+            ORDER BY p.created_at ASC
+        """),
+        {"sid": ctx.studio_id},
+    ).fetchall()
+
+    created = []
+    failed = []
+
+    for row in rows:
+        payment_id = str(row[0])
+        try:
+            payment_obj = db.get(_Payment, payment_id)
+            if not payment_obj:
+                failed.append({"payment_id": payment_id, "reason": "payment not found"})
+                continue
+
+            appt = db.get(_Appointment, payment_obj.appointment_id) if payment_obj.appointment_id else None
+            client = db.get(_Client, payment_obj.client_id) if payment_obj.client_id else None
+
+            if not client or not appt:
+                failed.append({"payment_id": payment_id, "reason": "missing client or appointment"})
+                continue
+
+            invoice_id = _auto_create_invoice(db, ctx.studio_id, payment_obj, appt, client)
+            created.append({"payment_id": payment_id, "invoice_id": invoice_id})
+        except Exception as e:
+            _logger.exception("[backfill] failed for payment %s", payment_id)
+            # Roll back the current aborted transaction so next iteration can proceed
+            try:
+                db.rollback()
+            except Exception:
+                pass
+            failed.append({"payment_id": payment_id, "reason": str(e)})
+
+    return {
+        "created": len(created),
+        "failed": len(failed),
+        "details_created": created,
+        "details_failed": failed,
+    }
+
+
 @router.get("")
 def list_invoices(
     doc_type: Optional[str] = None,

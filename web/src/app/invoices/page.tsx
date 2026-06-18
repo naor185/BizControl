@@ -408,6 +408,24 @@ function DocumentsTab({ invoices, total, loading, settings, filterType, setFilte
     onView: (inv: Invoice) => void; onPdf: (id: string) => void;
     onDelete?: (id: string) => void;
 }) {
+    const [backfilling, setBackfilling] = useState(false);
+    const [backfillResult, setBackfillResult] = useState<{ created: number; failed: number } | null>(null);
+
+    const handleBackfill = async () => {
+        if (!confirm("יצור קבלות לכל התשלומים שלא קיבלו קבלה. להמשיך?")) return;
+        setBackfilling(true);
+        setBackfillResult(null);
+        try {
+            const res = await apiFetch<{ created: number; failed: number; details_failed: { payment_id: string; reason: string }[] }>("/api/invoices/backfill-missing", { method: "POST" });
+            setBackfillResult({ created: res.created, failed: res.failed });
+            if (res.created > 0) onFilter();
+        } catch (e: any) {
+            alert(e?.message || "שגיאה ביצירת קבלות");
+        } finally {
+            setBackfilling(false);
+        }
+    };
+
     return (
         <div style={{ padding: "0 1rem" }}>
             {/* Toolbar */}
@@ -424,6 +442,21 @@ function DocumentsTab({ invoices, total, loading, settings, filterType, setFilte
                     style={{ padding: "0.5rem 0.75rem", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: "0.85rem" }} />
 
                 <span style={{ color: "#94a3b8", fontSize: "0.82rem", marginRight: "auto" }}>{total} מסמכים</span>
+
+                <button
+                    type="button"
+                    onClick={handleBackfill}
+                    disabled={backfilling}
+                    style={{ padding: "0.45rem 0.9rem", borderRadius: 8, border: "1px solid #ddd6fe", background: backfilling ? "#f5f3ff" : "#ede9fe", color: "#7c3aed", fontSize: "0.8rem", fontWeight: 600, cursor: backfilling ? "not-allowed" : "pointer" }}
+                    title="צור קבלות לכל התשלומים שלא קיבלו קבלה"
+                >
+                    {backfilling ? "מייצר..." : "🔄 השלם קבלות חסרות"}
+                </button>
+                {backfillResult && (
+                    <span style={{ fontSize: "0.78rem", color: backfillResult.failed > 0 ? "#dc2626" : "#16a34a", fontWeight: 600 }}>
+                        ✅ {backfillResult.created} נוצרו{backfillResult.failed > 0 ? ` · ❌ ${backfillResult.failed} נכשלו` : ""}
+                    </span>
+                )}
             </div>
 
             {loading ? (
