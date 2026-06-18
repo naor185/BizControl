@@ -120,6 +120,60 @@ def _handle_new_club_member(db: Session, studio_id: UUID, client: Client):
             status="pending",
         ))
 
+    # Send birthday coupon immediately if birthday is this month (missed monthly sweep)
+    if client.birth_date and client.phone and not getattr(client, "whatsapp_opted_out", False):
+        now = datetime.now(timezone.utc)
+        if client.birth_date.month == now.month:
+            try:
+                from app.crud.birthday_coupon import get_or_create_birthday_coupon
+                from sqlalchemy import select as _sel
+                tag = f"[birthday-{now.year}-{now.month:02d}]"
+                already = db.scalar(
+                    _sel(MessageJob).where(
+                        MessageJob.client_id == client.id,
+                        MessageJob.body.contains(tag),
+                    )
+                )
+                if not already:
+                    discount_percent = int(settings.birthday_benefit_percent or 10) or 10
+                    coupon = get_or_create_birthday_coupon(
+                        db,
+                        studio_id=studio_id,
+                        client_id=client.id,
+                        month=now.month,
+                        year=now.year,
+                        discount_percent=discount_percent,
+                        client_name=client.full_name or "",
+                    )
+                    bd_template = settings.birthday_wa_template
+                    if not bd_template:
+                        bd_template = (
+                            f"{tag}\n"
+                            "היי {client_name}, מזל טוב! 🎉\n"
+                            "הנה הטבה מיוחדת של {benefit_percent}% הנחה לחודש ההולדת שלך — במיוחד בשבילך ❤️\n\n"
+                            "קוד הקופון שלך: *{coupon_code}*"
+                        )
+                    else:
+                        bd_template = f"{tag}\n{bd_template}"
+                    bd_body = format_template(bd_template, {
+                        "client_name": client.full_name or "",
+                        "benefit_percent": discount_percent,
+                        "coupon_code": coupon.code,
+                        "birth_day": client.birth_date.day,
+                        "birth_month": now.month,
+                    })
+                    db.add(MessageJob(
+                        studio_id=studio_id,
+                        client_id=client.id,
+                        channel="whatsapp",
+                        to_phone=client.phone,
+                        body=bd_body,
+                        scheduled_at=datetime.now(timezone.utc),
+                        status="pending",
+                    ))
+            except Exception as _e:
+                log.warning("birthday coupon on join failed for client %s: %s", client.id, _e)
+
 
 def _run_club_member_bg(studio_id: UUID, client_id: UUID) -> None:
     """Runs in background after client commit — creates points/messages/notification."""

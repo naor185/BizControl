@@ -275,6 +275,95 @@ def birthday_status(
     return {"month": target_month, "year": target_year, "clients": result}
 
 
+@router.post("/send-birthday-coupon/{client_id}")
+def send_birthday_coupon_now(
+    client_id: UUID,
+    month: Optional[int] = None,
+    year: Optional[int] = None,
+    ctx: AuthContext = Depends(require_studio_ctx),
+    db: Session = Depends(get_db),
+):
+    """Manually send a birthday coupon to a specific client (for clients who missed the monthly sweep)."""
+    from app.models.message_job import MessageJob
+    from app.models.studio_settings import StudioSettings
+    from app.crud.birthday_coupon import get_or_create_birthday_coupon
+    from app.crud.automation import format_template
+
+    client = db.get(Client, client_id)
+    if not client or client.studio_id != ctx.studio_id or not client.is_active:
+        raise HTTPException(status_code=404, detail="לקוח לא נמצא")
+    if not client.is_club_member:
+        raise HTTPException(status_code=400, detail="הלקוח אינו חבר מועדון")
+    if not client.birth_date:
+        raise HTTPException(status_code=400, detail="אין תאריך לידה ללקוח")
+
+    now = datetime.now(timezone.utc)
+    target_month = month or client.birth_date.month
+    target_year = year or now.year
+
+    settings = db.get(StudioSettings, ctx.studio_id)
+    if not settings:
+        raise HTTPException(status_code=500, detail="הגדרות סטודיו לא נמצאו")
+
+    tag = f"[birthday-{target_year}-{target_month:02d}]"
+
+    # Check if already sent
+    existing_msg = db.scalar(
+        select(MessageJob).where(
+            MessageJob.client_id == client.id,
+            MessageJob.body.contains(tag),
+        )
+    )
+    if existing_msg:
+        raise HTTPException(status_code=400, detail="קופון יומולדת כבר נשלח ללקוח זה לחודש זה")
+
+    discount_percent = int(settings.birthday_benefit_percent or 10) or 10
+    coupon = get_or_create_birthday_coupon(
+        db,
+        studio_id=ctx.studio_id,
+        client_id=client.id,
+        month=target_month,
+        year=target_year,
+        discount_percent=discount_percent,
+        client_name=client.full_name or "",
+    )
+
+    context = {
+        "client_name": client.full_name or "",
+        "benefit_percent": discount_percent,
+        "coupon_code": coupon.code,
+        "birth_day": client.birth_date.day if client.birth_date else "",
+        "birth_month": target_month,
+    }
+
+    wa_template = settings.birthday_wa_template
+    if not wa_template:
+        wa_template = (
+            f"{tag}\n"
+            "היי {client_name}, מזל טוב! 🎉\n"
+            "הנה הטבה מיוחדת של {benefit_percent}% הנחה לחודש ההולדת שלך — במיוחד בשבילך ❤️\n\n"
+            "קוד הקופון שלך: *{coupon_code}*"
+        )
+    else:
+        wa_template = f"{tag}\n{wa_template}"
+
+    if not client.phone or client.whatsapp_opted_out:
+        raise HTTPException(status_code=400, detail="ללקוח אין טלפון או שהוא ביטל הסכמה לוואטסאפ")
+
+    wa_body = format_template(wa_template, context)
+    db.add(MessageJob(
+        studio_id=ctx.studio_id,
+        client_id=client.id,
+        channel="whatsapp",
+        to_phone=client.phone,
+        body=wa_body,
+        scheduled_at=now,
+        status="pending",
+    ))
+    db.commit()
+    return {"ok": True, "coupon_code": coupon.code}
+
+
 @design_router.patch("", response_model=DesignOut)
 def update_wallet_design(
     payload: DesignUpdate,
