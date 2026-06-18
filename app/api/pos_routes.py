@@ -190,6 +190,24 @@ def pos_checkout(
     db.commit()
     db.refresh(txn)
 
+    # Auto-create receipt for POS sale
+    if client and txn.total_cents > 0:
+        try:
+            import types as _types
+            from app.crud.payment import _auto_create_invoice
+            _fake_payment = _types.SimpleNamespace(
+                id=txn.id,
+                amount_cents=txn.total_cents,
+                method=txn.method,
+                type="payment",
+            )
+            _items_desc = ", ".join(i.description for i in db_items[:3])
+            _fake_appt = _types.SimpleNamespace(id=None, title=_items_desc or "מכירה בקופה")
+            _auto_create_invoice(db, ctx.studio_id, _fake_payment, _fake_appt, client)
+        except Exception:
+            import logging as _l
+            _l.getLogger(__name__).exception("[pos] auto-invoice failed for txn %s", txn.id)
+
     # WhatsApp thank-you message to client
     if client and client.phone and not getattr(client, "whatsapp_opted_out", False):
         try:
