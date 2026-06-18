@@ -156,10 +156,7 @@ export default function InvoicesPage() {
     useEffect(() => { loadSettings(); loadSeries(); }, []);
     useEffect(() => { if (tab === "documents") loadInvoices(); }, [tab, loadInvoices]);
 
-    const getPdfUrl = (id: string) => {
-        const token = localStorage.getItem("bizcontrol_token") || "";
-        return `${process.env.NEXT_PUBLIC_API_URL}/api/invoices/${id}/pdf?token=${encodeURIComponent(token)}`;
-    };
+    const getPdfUrl = (id: string) => `/receipt/${id}`;
 
     const downloadPdf = (inv: Invoice) => {
         printInvoiceHtml(inv);
@@ -591,7 +588,7 @@ function InvoiceDetailModal({ invoice, onClose, onDownload, getPdfUrl, onCredit 
     };
 
     const printDoc = () => {
-        printInvoiceHtml(invoice);
+        onDownload();
     };
 
     return (

@@ -654,11 +654,10 @@ export default function Page() {
                                     סגור
                                 </button>
                                 <button type="button" onClick={() => {
-                                    const token = localStorage.getItem("bizcontrol_token") || "";
-                                    window.open(`${process.env.NEXT_PUBLIC_API_URL}/api/invoices/${depositReceipt.invoiceId}/pdf?token=${encodeURIComponent(token)}`, "_blank");
+                                    window.open(`/receipt/${depositReceipt.invoiceId}`, "_blank");
                                 }}
                                     className="flex-[2] py-3 rounded-2xl bg-slate-900 text-white font-black text-sm hover:bg-slate-700 transition">
-                                    📄 הורד קבלה PDF
+                                    🧾 צפה בקבלה
                                 </button>
                             </div>
                         </div>
