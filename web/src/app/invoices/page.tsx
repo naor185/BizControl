@@ -125,6 +125,7 @@ export default function InvoicesPage() {
     const [filterType, setFilterType] = useState("");
     const [filterDate, setFilterDate] = useState("");
     const [viewInvoice, setViewInvoice] = useState<Invoice | null>(null);
+    const [viewLoading, setViewLoading] = useState<string | null>(null);
 
     const loadSettings = useCallback(async () => {
         const s = await apiFetch<InvoiceSettings>("/api/invoices/settings");
@@ -339,11 +340,17 @@ export default function InvoicesPage() {
                     filterDate={filterDate} setFilterDate={setFilterDate}
                     onFilter={loadInvoices}
                     settings={settings}
+                    viewLoadingId={viewLoading}
                     onView={async (inv) => {
-                        const full = await apiFetch<Invoice>(`/api/invoices/${inv.id}`);
-                        setViewInvoice(full);
+                        setViewLoading(inv.id);
+                        try {
+                            const full = await apiFetch<Invoice>(`/api/invoices/${inv.id}`);
+                            setViewInvoice(full);
+                        } finally {
+                            setViewLoading(null);
+                        }
                     }}
-                    onPdf={(id) => { const inv = invoices.find(i => i.id === id); if (inv) downloadPdf(inv); }}
+                    onPdf={(id) => window.open(`/receipt/${id}`, "_blank")}
                     onDelete={isAdminView ? async (id) => {
                         if (!confirm(
                             "מחיקה מלאה לצמיתות — כאילו לא קרה כלום?\n\n" +
@@ -397,13 +404,14 @@ export default function InvoicesPage() {
 
 // ── Documents Tab ─────────────────────────────────────────────────────────────
 
-function DocumentsTab({ invoices, total, loading, settings, filterType, setFilterType, filterDate, setFilterDate, onFilter, onView, onPdf, onDelete }: {
+function DocumentsTab({ invoices, total, loading, settings, filterType, setFilterType, filterDate, setFilterDate, onFilter, onView, onPdf, onDelete, viewLoadingId }: {
     invoices: Invoice[]; total: number; loading: boolean; settings: InvoiceSettings | null;
     filterType: string; setFilterType: (v: string) => void;
     filterDate: string; setFilterDate: (v: string) => void;
     onFilter: () => void;
     onView: (inv: Invoice) => void; onPdf: (id: string) => void;
     onDelete?: (id: string) => void;
+    viewLoadingId?: string | null;
 }) {
     const [backfilling, setBackfilling] = useState(false);
     const [backfillResult, setBackfillResult] = useState<{ created: number; failed: number } | null>(null);
@@ -465,14 +473,14 @@ function DocumentsTab({ invoices, total, loading, settings, filterType, setFilte
                 </div>
             ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                    {invoices.map(inv => <InvoiceRow key={inv.id} inv={inv} onView={onView} onPdf={onPdf} onDelete={onDelete} />)}
+                    {invoices.map(inv => <InvoiceRow key={inv.id} inv={inv} onView={onView} onPdf={onPdf} onDelete={onDelete} isLoading={viewLoadingId === inv.id} />)}
                 </div>
             )}
         </div>
     );
 }
 
-function InvoiceRow({ inv, onView, onPdf, onDelete }: { inv: Invoice; onView: (i: Invoice) => void; onPdf: (id: string) => void; onDelete?: (id: string) => void }) {
+function InvoiceRow({ inv, onView, onPdf, onDelete, isLoading }: { inv: Invoice; onView: (i: Invoice) => void; onPdf: (id: string) => void; onDelete?: (id: string) => void; isLoading?: boolean }) {
     const st = STATUS_BADGE[inv.status] || STATUS_BADGE.issued;
     const typeColor = TYPE_COLOR[inv.doc_type] || "#64748b";
 
@@ -489,8 +497,8 @@ function InvoiceRow({ inv, onView, onPdf, onDelete }: { inv: Invoice; onView: (i
     };
 
     return (
-        <div style={{ background: "#fff", border: "1px solid #f1f5f9", borderRadius: 12, padding: "0.9rem 1rem", display: "flex", alignItems: "center", gap: "0.75rem", cursor: "pointer" }}
-            onClick={() => onView(inv)}>
+        <div style={{ background: isLoading ? "#f5f3ff" : "#fff", border: `1px solid ${isLoading ? "#ddd6fe" : "#f1f5f9"}`, borderRadius: 12, padding: "0.9rem 1rem", display: "flex", alignItems: "center", gap: "0.75rem", cursor: isLoading ? "wait" : "pointer", opacity: isLoading ? 0.75 : 1, transition: "all 0.15s" }}
+            onClick={() => !isLoading && onView(inv)}>
             <div style={{ width: 4, height: 44, borderRadius: 4, background: typeColor, flexShrink: 0 }} />
             <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", marginBottom: "0.25rem" }}>
@@ -498,7 +506,7 @@ function InvoiceRow({ inv, onView, onPdf, onDelete }: { inv: Invoice; onView: (i
                     <span style={{ background: st.bg, color: st.color, fontSize: "0.7rem", fontWeight: 700, padding: "0.15rem 0.5rem", borderRadius: 6 }}>{st.label}</span>
                 </div>
                 <div style={{ color: "#64748b", fontSize: "0.8rem" }}>
-                    {inv.client_name || "—"} · {new Date(inv.issued_at).toLocaleDateString("he-IL")}
+                    {isLoading ? "⏳ טוען..." : `${inv.client_name || "—"} · ${new Date(inv.issued_at).toLocaleDateString("he-IL")}`}
                 </div>
             </div>
             <div style={{ textAlign: "left", flexShrink: 0, display: "flex", flexDirection: "column", gap: "0.25rem", alignItems: "flex-end" }}>
