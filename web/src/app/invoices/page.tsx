@@ -445,6 +445,19 @@ function DocumentsTab({ invoices, total, loading, settings, filterType, setFilte
 function InvoiceRow({ inv, onView, onPdf, onDelete }: { inv: Invoice; onView: (i: Invoice) => void; onPdf: (id: string) => void; onDelete?: (id: string) => void }) {
     const st = STATUS_BADGE[inv.status] || STATUS_BADGE.issued;
     const typeColor = TYPE_COLOR[inv.doc_type] || "#64748b";
+
+    const sendWA = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        const receiptUrl = `${window.location.origin}/receipt/${inv.id}`;
+        const text = `🧾 ${inv.doc_type_label} #${inv.doc_number}\nסכום: ₪${Math.abs(inv.total_ils).toFixed(2)}\nלצפייה בקבלה:\n${receiptUrl}`;
+        const raw = (inv.client_phone || "").replace(/\D/g, "");
+        const phone = raw.replace(/^0/, "");
+        const url = phone
+            ? `https://wa.me/972${phone}?text=${encodeURIComponent(text)}`
+            : `https://wa.me/?text=${encodeURIComponent(text)}`;
+        window.open(url, "_blank");
+    };
+
     return (
         <div style={{ background: "#fff", border: "1px solid #f1f5f9", borderRadius: 12, padding: "0.9rem 1rem", display: "flex", alignItems: "center", gap: "0.75rem", cursor: "pointer" }}
             onClick={() => onView(inv)}>
@@ -463,6 +476,11 @@ function InvoiceRow({ inv, onView, onPdf, onDelete }: { inv: Invoice; onView: (i
                     {inv.doc_type === "credit" ? "-" : ""}₪{Math.abs(inv.total_ils).toFixed(2)}
                 </div>
                 <div style={{ display: "flex", gap: "0.25rem" }}>
+                    <button type="button" onClick={sendWA}
+                        style={{ background: "none", border: "1px solid #bbf7d0", borderRadius: 6, padding: "0.2rem 0.5rem", fontSize: "0.72rem", cursor: "pointer", color: "#16a34a" }}
+                        title="שלח קבלה בוואטסאפ">
+                        💬 WA
+                    </button>
                     <button type="button" onClick={e => { e.stopPropagation(); onPdf(inv.id); }}
                         style={{ background: "none", border: "1px solid #e2e8f0", borderRadius: 6, padding: "0.2rem 0.5rem", fontSize: "0.72rem", cursor: "pointer", color: "#64748b" }}>
                         🖨️ PDF
@@ -515,12 +533,14 @@ function InvoiceDetailModal({ invoice, onClose, onDownload, getPdfUrl, onCredit 
     };
 
     const shareWhatsApp = () => {
+        const receiptUrl = `${window.location.origin}/receipt/${invoice.id}`;
         const waText = [
-            `${invoice.doc_type_label} #${invoice.doc_number}`,
+            `🧾 ${invoice.doc_type_label} #${invoice.doc_number}`,
             invoice.business_name ? `מאת: ${invoice.business_name}` : "",
             `סכום: ₪${Math.abs(invoice.total_ils).toFixed(2)}`,
             invoice.client_name ? `ללקוח: ${invoice.client_name}` : "",
             new Date(invoice.issued_at).toLocaleDateString("he-IL"),
+            `\nלצפייה בקבלה:\n${receiptUrl}`,
         ].filter(Boolean).join("\n");
         const phone = invoice.client_phone?.replace(/\D/g, "");
         const url = phone

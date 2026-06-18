@@ -352,7 +352,7 @@ def _enqueue_receipt_link(db, studio_id, invoice_id: str, appt, client) -> None:
     if already:
         return
 
-    frontend_url = _os.getenv("FRONTEND_URL", "http://localhost:3000").rstrip("/")
+    frontend_url = _os.getenv("FRONTEND_URL", "https://bizcontrol-seven.vercel.app").rstrip("/")
     receipt_url = f"{frontend_url}/receipt/{invoice_id}"
     title = getattr(appt, "title", None) or "שירות"
 

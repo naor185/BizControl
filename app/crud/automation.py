@@ -57,7 +57,7 @@ def smart_format(template: str, context: dict) -> str:
 
 
 def _build_context(settings: StudioSettings, client: Client, appt: Appointment, artist_name: str = "") -> dict:
-    base_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+    base_url = os.getenv("FRONTEND_URL", "https://bizcontrol-seven.vercel.app")
     deposit_amount = appt.deposit_amount_cents / 100 if appt.deposit_amount_cents else 0
     bank_details = ""
     if settings.bank_name or settings.bank_branch or settings.bank_account:
@@ -534,7 +534,7 @@ def maybe_enqueue_club_invite(db: Session, studio_id, client, appointment_id=Non
 
     from app.models.studio import Studio
     from app.api.invite_routes import create_invite_token
-    frontend_url = _os.getenv("FRONTEND_URL", "http://localhost:3000").rstrip("/")
+    frontend_url = _os.getenv("FRONTEND_URL", "https://bizcontrol-seven.vercel.app").rstrip("/")
     studio = db.get(Studio, studio_id)
     slug = studio.slug if studio else None
     join_link = f"{frontend_url}/s/{slug}" if slug else ""
