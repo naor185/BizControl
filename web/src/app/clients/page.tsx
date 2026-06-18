@@ -569,12 +569,18 @@ function PageInner() {
                                             <tbody>
                                                 {bdData.map(c => {
                                                     const today = new Date();
+                                                    const todayMonth = today.getMonth() + 1;
+                                                    const todayYear = today.getFullYear();
                                                     const birthDay = c.birth_date ? new Date(c.birth_date).getDate() : null;
                                                     const birthdayPassed = birthDay !== null && (
-                                                        bdYear < today.getFullYear() ||
-                                                        (bdYear === today.getFullYear() && bdMonth < today.getMonth() + 1) ||
-                                                        (bdYear === today.getFullYear() && bdMonth === today.getMonth() + 1 && birthDay < today.getDate())
+                                                        bdYear < todayYear ||
+                                                        (bdYear === todayYear && bdMonth < todayMonth) ||
+                                                        (bdYear === todayYear && bdMonth === todayMonth && birthDay <= today.getDate())
                                                     );
+                                                    // "יישלח ב-25" only when viewing the NEXT month and sweep hasn't run yet
+                                                    const isNextMonthView = (bdMonth === todayMonth + 1 && bdYear === todayYear) ||
+                                                        (todayMonth === 12 && bdMonth === 1 && bdYear === todayYear + 1);
+                                                    const sweepWillSend = isNextMonthView && today.getDate() < 25;
                                                     const canSendNow = c.is_club_member && !c.message_sent && !c.whatsapp_opted_out && c.coupon_status !== "redeemed";
                                                     const statusConfig: Record<string, { label: string; cls: string }> = {
                                                         active:   { label: "פעיל",    cls: "bg-emerald-50 text-emerald-700 border-emerald-200" },
@@ -583,7 +589,9 @@ function PageInner() {
                                                         not_sent: { label: "לא נשלח", cls: "bg-slate-50 text-slate-400 border-slate-200" },
                                                         pending:  birthdayPassed
                                                             ? { label: "לא קיבל", cls: "bg-red-50 text-red-600 border-red-200" }
-                                                            : { label: "יישלח ב-25", cls: "bg-amber-50 text-amber-700 border-amber-200" },
+                                                            : sweepWillSend
+                                                            ? { label: "יישלח ב-25", cls: "bg-amber-50 text-amber-700 border-amber-200" }
+                                                            : { label: "לא יישלח", cls: "bg-slate-100 text-slate-500 border-slate-200" },
                                                     };
                                                     const st = statusConfig[c.coupon_status] ?? { label: c.coupon_status, cls: "bg-slate-50 text-slate-400 border-slate-200" };
                                                     return (
