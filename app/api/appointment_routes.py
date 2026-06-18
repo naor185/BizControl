@@ -457,8 +457,8 @@ def verify_sent_payment(
             from app.crud.payment import _auto_create_invoice
             client = db.get(Client, appt.client_id)
             invoice_id = _auto_create_invoice(db, ctx.studio_id, new_payment, appt, client)
-        except Exception as e:
-            log.error("[verify-payment] auto-invoice failed: %s", e)
+        except Exception:
+            log.exception("[verify-payment] auto-invoice failed")
 
     db.commit()
 

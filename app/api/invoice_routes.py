@@ -350,6 +350,62 @@ def update_series(
 
 # ── Invoice CRUD ──────────────────────────────────────────────────────────────
 
+@router.post("/from-payment/{payment_id}")
+def create_invoice_from_payment(
+    payment_id: str,
+    ctx: AuthContext = Depends(require_studio_ctx),
+    db: Session = Depends(get_db),
+):
+    """Manually create an invoice from an existing payment (retroactive / retry)."""
+    from app.models.payment import Payment as _Payment
+    from app.models.appointment import Appointment as _Appointment
+    from app.models.client import Client as _Client
+    from app.crud.payment import _auto_create_invoice
+    import logging as _log
+    _logger = _log.getLogger(__name__)
+
+    payment = db.execute(
+        text("SELECT * FROM payments WHERE id = :pid AND studio_id = :sid"),
+        {"pid": payment_id, "sid": ctx.studio_id},
+    ).fetchone()
+    if not payment:
+        raise HTTPException(404, "תשלום לא נמצא")
+
+    # Check if invoice already exists for this payment
+    existing = db.execute(
+        text("SELECT id FROM invoices WHERE source_id = :sid AND doc_type != 'credit' AND studio_id = :stid"),
+        {"sid": payment_id, "stid": ctx.studio_id},
+    ).fetchone()
+    if existing:
+        return {"invoice_id": str(existing[0]), "already_existed": True}
+
+    # Load ORM objects for _auto_create_invoice
+    payment_obj = db.get(_Payment, payment_id)
+    if not payment_obj:
+        raise HTTPException(404, "תשלום לא נמצא")
+
+    appt = None
+    if payment_obj.appointment_id:
+        appt = db.get(_Appointment, payment_obj.appointment_id)
+
+    client = None
+    if payment_obj.client_id:
+        client = db.get(_Client, payment_obj.client_id)
+
+    if not client:
+        raise HTTPException(400, "לקוח לא נמצא לתשלום זה")
+    if not appt:
+        raise HTTPException(400, "תור לא נמצא לתשלום זה")
+
+    try:
+        invoice_id = _auto_create_invoice(db, ctx.studio_id, payment_obj, appt, client)
+    except Exception:
+        _logger.exception("[from-payment] _auto_create_invoice failed for payment %s", payment_id)
+        raise HTTPException(500, "שגיאה ביצירת קבלה — בדוק לוגים")
+
+    return {"invoice_id": invoice_id, "already_existed": False}
+
+
 @router.get("")
 def list_invoices(
     doc_type: Optional[str] = None,

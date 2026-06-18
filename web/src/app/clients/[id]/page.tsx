@@ -26,6 +26,7 @@ type Payment = {
     notes?: string | null;
     appointment_id?: string | null;
     created_at: string;
+    receipt_id?: string | null;
 };
 
 type ClientBasic = {
@@ -115,6 +116,7 @@ export default function ClientProfilePage() {
     const [joinName, setJoinName] = useState("");
     const [joinPhone, setJoinPhone] = useState("");
     const [invoices, setInvoices] = useState<Invoice[]>([]);
+    const [creatingInvoiceFor, setCreatingInvoiceFor] = useState<string | null>(null);
 
     const loadInvoices = useCallback(async () => {
         if (!id) return;
@@ -564,7 +566,7 @@ export default function ClientProfilePage() {
                                     <div className="text-sm text-gray-500">אין תשלומים רשומים.</div>
                                 ) : (
                                     <div className="space-y-2">
-                                        {payments.map((p: any) => {
+                                        {payments.map((p: Payment) => {
                                             const typeLabel = p.type === "payment" ? "תשלום" : p.type === "deposit" ? "מקדמה" : "זיכוי";
                                             const methodLabel: Record<string, string> = { cash: "מזומן", credit_card: "אשראי", bit: "Bit", paybox: "Paybox", bank_transfer: "העברה", other: "אחר" };
                                             return (
@@ -575,7 +577,7 @@ export default function ClientProfilePage() {
                                                         {p.notes && <div className="text-xs text-slate-400">{p.notes}</div>}
                                                         <div className="text-[10px] text-slate-400">{new Date(p.created_at).toLocaleDateString("he-IL")}</div>
                                                     </div>
-                                                    {p.receipt_id && (
+                                                    {p.receipt_id ? (
                                                         <a
                                                             href={`/receipt/${p.receipt_id}`}
                                                             target="_blank"
@@ -583,7 +585,29 @@ export default function ClientProfilePage() {
                                                         >
                                                             🧾 קבלה
                                                         </a>
-                                                    )}
+                                                    ) : p.status === "paid" && p.type !== "refund" ? (
+                                                        <button
+                                                            type="button"
+                                                            onClick={async () => {
+                                                                setCreatingInvoiceFor(p.id);
+                                                                try {
+                                                                    const res = await apiFetch<{ invoice_id: string }>(`/api/invoices/from-payment/${p.id}`, { method: "POST" });
+                                                                    toast.success("קבלה נוצרה בהצלחה!");
+                                                                    loadData();
+                                                                    loadInvoices();
+                                                                    if (res.invoice_id) window.open(`/receipt/${res.invoice_id}`, "_blank");
+                                                                } catch (e: any) {
+                                                                    toast.error(e?.message || "שגיאה ביצירת קבלה");
+                                                                } finally {
+                                                                    setCreatingInvoiceFor(null);
+                                                                }
+                                                            }}
+                                                            disabled={creatingInvoiceFor === p.id}
+                                                            className="px-2 py-1 text-xs bg-violet-50 text-violet-700 border border-violet-100 rounded-lg hover:bg-violet-100 font-semibold disabled:opacity-50"
+                                                        >
+                                                            {creatingInvoiceFor === p.id ? "..." : "🧾 צור קבלה"}
+                                                        </button>
+                                                    ) : null}
                                                 </div>
                                             );
                                         })}

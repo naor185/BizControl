@@ -214,7 +214,7 @@ def create_payment(db: Session, studio_id: UUID, data) -> Payment:
             _auto_create_invoice(db, studio_id, obj, appt, client)
         except Exception:
             import logging as _log
-            _log.getLogger(__name__).exception("Auto-invoice failed for payment %s", obj.id)
+            _log.getLogger(__name__).exception("[auto-invoice] FAILED for payment %s (type=%s amount=%s)", obj.id, obj.type, obj.amount_cents)
 
     return obj
 
