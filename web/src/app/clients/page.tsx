@@ -117,7 +117,7 @@ function PageInner() {
             setErr(null);
             setLoading(true);
             const [data, counts] = await Promise.all([
-                apiFetch<Client[]>("/api/clients", { method: "GET" }),
+                apiFetch<Client[]>("/api/clients?limit=500", { method: "GET" }),
                 apiFetch<{ total: number; club_members: number }>("/api/clients/counts"),
             ]);
             setItems(data);
