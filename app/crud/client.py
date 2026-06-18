@@ -231,7 +231,7 @@ def list_clients(
             Client.email.ilike(like)
         )
 
-    stmt = stmt.order_by(Client.created_at.desc()).offset(skip).limit(min(limit, 100))
+    stmt = stmt.order_by(Client.created_at.desc()).offset(skip).limit(min(limit, 1000))
     return list(db.scalars(stmt).all())
 
 def update_client(db: Session, studio_id: UUID, client_id: UUID, data: ClientUpdate) -> Client | None:
