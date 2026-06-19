@@ -751,6 +751,7 @@ export default function CalendarPage() {
     return (
         <RequireAuth>
             <AppShell
+                fullBleed={isMobile}
                 title="יומן תורים"
                 titleAction={
                     <div className="flex items-center gap-2 relative">
@@ -889,22 +890,52 @@ export default function CalendarPage() {
                     .fc .fc-button-group { gap: 0.35rem !important; display: inline-flex !important; }
                     .fc .fc-button-group .fc-button { border-radius: 8px !important; }
                     .fc .fc-toolbar-chunk { display: flex !important; align-items: center !important; gap: 0.4rem !important; }
-                    @media (max-width: 640px) {
-                        .fc .fc-toolbar-title { font-size: 0.8rem !important; }
-                        .fc .fc-button { padding: 0.25rem 0.55rem !important; font-size: 0.72rem !important; min-width: 1.8rem !important; }
-                        .fc .fc-today-button { min-width: 2.8rem !important; }
-                        .fc-timegrid-slot-label { font-size: 0.6rem !important; }
-                        .fc-timegrid-axis { width: 2.2rem !important; }
-                        .fc-event { font-size: 0.68rem !important; border-radius: 4px !important; }
-                        .fc-event-title { font-size: 0.68rem !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; }
-                        .fc-timegrid-event .fc-event-main { padding: 1px 3px !important; }
-                        .fc-col-header-cell { font-size: 0.68rem !important; }
-                        .fc-col-header-cell-cushion { padding: 2px 1px !important; }
-                        .fc .fc-toolbar.fc-footer-toolbar .fc-button { padding: 0.3rem 0.8rem !important; font-size: 0.78rem !important; min-width: 3rem !important; }
-                        .fc .fc-button-group { gap: 0.25rem !important; }
+                    @media (max-width: 768px) {
+                        /* Bigger slots — comfortable finger tap (32px per 30min) */
+                        .fc-timegrid-slot { height: 2.5rem !important; }
+                        /* Readable time labels */
+                        .fc-timegrid-slot-label { font-size: 0.75rem !important; color: #475569 !important; font-weight: 600 !important; }
+                        /* Wider time axis */
+                        .fc-timegrid-axis { width: 3rem !important; }
+                        /* Toolbar title */
+                        .fc .fc-toolbar-title { font-size: 1rem !important; font-weight: 800 !important; }
+                        /* Big touch-friendly buttons */
+                        .fc .fc-button {
+                            padding: 0.5rem 0.9rem !important;
+                            font-size: 0.82rem !important;
+                            min-height: 2.5rem !important;
+                            min-width: 2.5rem !important;
+                        }
+                        .fc .fc-today-button { min-width: 3rem !important; }
+                        /* Events — bigger text, easier to read */
+                        .fc-event { font-size: 0.82rem !important; border-radius: 6px !important; }
+                        .fc-event-title { font-size: 0.82rem !important; font-weight: 700 !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; }
+                        .fc-event-time { font-size: 0.75rem !important; }
+                        .fc-timegrid-event .fc-event-main { padding: 3px 6px !important; }
+                        /* Day header */
+                        .fc-col-header-cell { font-size: 0.9rem !important; font-weight: 700 !important; }
+                        .fc-col-header-cell-cushion { padding: 8px 4px !important; }
+                        /* Footer toolbar (view switcher) */
+                        .fc .fc-toolbar.fc-footer-toolbar { margin-top: 0.3rem !important; }
+                        .fc .fc-toolbar.fc-footer-toolbar .fc-button {
+                            padding: 0.5rem 1.1rem !important;
+                            font-size: 0.82rem !important;
+                            min-width: 3.5rem !important;
+                            min-height: 2.5rem !important;
+                        }
+                        .fc .fc-button-group { gap: 0.3rem !important; }
+                        /* Now indicator — thick red line */
+                        .fc-timegrid-now-indicator-line { border-color: #ef4444 !important; border-width: 2px !important; }
+                        .fc-timegrid-now-indicator-arrow { border-width: 7px !important; border-top-color: #ef4444 !important; }
+                        /* Today highlight */
+                        .fc-day-today .fc-timegrid-col-bg { background: rgba(59,130,246,0.04) !important; }
+                        /* Remove border from scrollgrid for cleaner look */
+                        .fc-scrollgrid { border-radius: 0 !important; }
+                        /* Tap cursor on empty slots */
+                        .fc-timegrid-slot-lane { cursor: pointer !important; }
                     }
                 `}} />
-                <div className="p-1 md:p-2 max-w-[1600px] w-full mx-auto flex flex-col h-[calc(100vh-5rem-4rem)] md:h-[calc(100vh-5rem)]">
+                <div className={`p-1 md:p-2 max-w-[1600px] w-full mx-auto flex flex-col ${isMobile ? "h-[calc(100vh-3.5rem-4rem)]" : "h-[calc(100vh-5rem)]"}`}>
 
                     {/* Minimal top bar — only error/loading, no date range or holidays toggle */}
                     {(loading || err) && (
@@ -947,10 +978,10 @@ export default function CalendarPage() {
                             selectLongPressDelay={300}
                             dayMaxEvents={true}
                             nowIndicator={true}
-                            allDaySlot={true}
+                            allDaySlot={!isMobile}
                             slotMinTime={calendarStartHour}
                             slotMaxTime={calendarEndHour}
-                            expandRows={true}
+                            expandRows={!isMobile}
                             stickyHeaderDates={true}
                             slotDuration="00:30:00"
                             slotLabelInterval="01:00"
