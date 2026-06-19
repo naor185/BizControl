@@ -923,7 +923,7 @@ export default function CalendarPage() {
                         <FullCalendar
                             ref={calendarRef}
                             plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-                            initialView="timeGridWeek"
+                            initialView={isMobile ? "timeGridDay" : "timeGridWeek"}
                             headerToolbar={isMobile ? {
                                 left: "prev,next",
                                 center: "title",

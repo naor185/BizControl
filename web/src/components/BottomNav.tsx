@@ -9,13 +9,14 @@ import { TranslationKey } from "@/lib/i18n";
 
 const PRIMARY_NAV: { href: string; labelKey: TranslationKey; icon: string; badge?: boolean }[] = [
     { href: "/calendar",  labelKey: "nav_calendar",  icon: "📅" },
+    { href: "/pos",       labelKey: "nav_pos",       icon: "🛒" },
     { href: "/clients",   labelKey: "nav_clients",   icon: "👥" },
     { href: "/inbox",     labelKey: "nav_inbox",     icon: "💬", badge: true },
-    { href: "/payments",  labelKey: "nav_payments",  icon: "💳" },
 ];
 
 const MORE_NAV: { href: string; labelKey: TranslationKey; icon: string }[] = [
     { href: "/dashboard",    labelKey: "nav_dashboard", icon: "📊" },
+    { href: "/payments",     labelKey: "nav_payments",  icon: "💳" },
     { href: "/leads",        labelKey: "nav_leads",     icon: "🎯" },
     { href: "/expenses",     labelKey: "nav_expenses",  icon: "💼" },
     { href: "/products",     labelKey: "nav_products",  icon: "📦" },

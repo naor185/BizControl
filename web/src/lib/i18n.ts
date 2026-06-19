@@ -27,6 +27,7 @@ export const translations = {
         nav_wallet:     "Wallet Card",
         nav_tiers:      "דרגות מועדון",
         nav_stamps:     "כרטיס חותמות",
+        nav_pos:        "קופה",
         nav_more:       "עוד",
         // Auth
         login_title:    "התחברות למערכת",
@@ -107,6 +108,7 @@ export const translations = {
         nav_wallet:     "Wallet Card",
         nav_tiers:      "Club Tiers",
         nav_stamps:     "Stamp Cards",
+        nav_pos:        "POS",
         nav_more:       "More",
         // Auth
         login_title:    "Sign in",
@@ -187,6 +189,7 @@ export const translations = {
         nav_wallet:     "Wallet Card",
         nav_tiers:      "مستويات النادي",
         nav_stamps:     "بطاقة الطوابع",
+        nav_pos:        "الصندوق",
         nav_more:       "المزيد",
         // Auth
         login_title:    "تسجيل الدخول",
