@@ -92,9 +92,16 @@ export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promi
                     const retryText = await retry.text();
                     return (retryText ? safeJson(retryText) : {}) as T;
                 }
+                // Retry also returned 401 — only NOW clear and redirect
             }
-            clearToken();
-            window.location.href = "/login";
+            // Don't redirect on background/non-critical endpoints — only on auth-critical ones
+            const isCritical = url.includes("/api/auth/me") || url.includes("/api/auth/studio-info");
+            if (isCritical) {
+                clearToken();
+                window.location.href = "/login";
+                throw new Error("Session expired");
+            }
+            // For non-critical endpoints, just throw without clearing the token
             throw new Error("Session expired");
         }
 
