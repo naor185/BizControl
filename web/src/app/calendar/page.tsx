@@ -993,53 +993,68 @@ export default function CalendarPage() {
 
                 {/* Appointment Modal */}
                 {isModalOpen && (
-                    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm sm:p-4 animate-in fade-in duration-200">
-                        <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full sm:max-w-lg shadow-2xl overflow-hidden max-h-[78vh] sm:max-h-[90vh] flex flex-col animate-in slide-in-from-bottom sm:zoom-in-95 duration-300">
-                            <div className="bg-slate-50 border-b border-slate-100 p-5 flex items-center justify-between flex-shrink-0">
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-3 sm:p-4 animate-in fade-in duration-200">
+                        <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden max-h-[calc(100vh-5rem)] flex flex-col animate-in zoom-in-95 duration-300" dir="rtl">
+                            <div className="bg-slate-50 border-b border-slate-100 px-5 py-4 flex items-center justify-between flex-shrink-0">
                                 <h3 className="text-xl font-bold text-slate-800">{selectedEventId ? "עריכת תור" : "קביעת תור חדש"}</h3>
-                                <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-2 bg-white rounded-full shadow-sm hover:shadow transition-all">✕</button>
+                                <button type="button" onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-2 bg-white rounded-full shadow-sm hover:shadow transition-all">✕</button>
                             </div>
 
-                            <div className="p-5 space-y-3 overflow-y-auto flex-1">
-                                {/* Date & Time */}
+                            <div className="p-4 space-y-3 overflow-y-auto flex-1">
+                                {/* Date row */}
+                                <div>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-1">
+                                        תאריך
+                                        {startAt && (() => {
+                                            const days = ["ראשון","שני","שלישי","רביעי","חמישי","שישי","שבת"];
+                                            const d = new Date(startAt);
+                                            return !isNaN(d.getTime()) ? (
+                                                <span className="mr-2 text-blue-600 font-normal">יום {days[d.getDay()]}</span>
+                                            ) : null;
+                                        })()}
+                                    </label>
+                                    <input
+                                        type="date"
+                                        value={startAt.split("T")[0] || ""}
+                                        onChange={e => {
+                                            const newDate = e.target.value;
+                                            const startTime = startAt.split("T")[1] || "10:00";
+                                            const endTime = endAt.split("T")[1] || "11:00";
+                                            setStartAt(`${newDate}T${startTime}`);
+                                            setEndAt(`${newDate}T${endTime}`);
+                                        }}
+                                        title="תאריך התור"
+                                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-blue-500 text-base font-medium"
+                                        dir="ltr"
+                                    />
+                                </div>
+                                {/* Time row — start & end side by side, equal width */}
                                 <div className="flex gap-3">
                                     <div className="flex-1">
-                                        <label className="block text-sm font-semibold text-slate-700 mb-1">
-                                            התחלה
-                                            {startAt && (() => {
-                                                const days = ["ראשון","שני","שלישי","רביעי","חמישי","שישי","שבת"];
-                                                const d = new Date(startAt);
-                                                return !isNaN(d.getTime()) ? (
-                                                    <span className="mr-2 text-blue-600 font-normal">יום {days[d.getDay()]}</span>
-                                                ) : null;
-                                            })()}
-                                        </label>
+                                        <label className="block text-sm font-semibold text-slate-700 mb-1">שעת התחלה</label>
                                         <input
-                                            type="datetime-local"
-                                            value={startAt}
+                                            type="time"
+                                            title="שעת התחלה"
+                                            value={startAt.split("T")[1] || ""}
                                             onChange={e => {
-                                                const newVal = e.target.value;
-                                                setStartAt(newVal);
-                                                if (newVal && endAt) {
-                                                    const [d] = newVal.split("T");
-                                                    const [, t] = endAt.split("T");
-                                                    setEndAt(`${d}T${t}`);
-                                                }
+                                                const [d] = startAt.split("T");
+                                                setStartAt(`${d}T${e.target.value}`);
                                             }}
-                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-blue-500 text-base font-semibold text-center"
                                             dir="ltr"
                                         />
                                     </div>
-                                    <div className="w-28">
-                                        <label className="block text-sm font-semibold text-slate-700 mb-1">סיום</label>
+                                    <div className="flex-1">
+                                        <label className="block text-sm font-semibold text-slate-700 mb-1">שעת סיום</label>
                                         <input
                                             type="time"
+                                            title="שעת סיום"
                                             value={endAt.split("T")[1] || ""}
                                             onChange={e => {
                                                 const [d] = startAt.split("T");
                                                 setEndAt(`${d}T${e.target.value}`);
                                             }}
-                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-blue-500 text-base font-semibold text-center"
                                             dir="ltr"
                                         />
                                     </div>
