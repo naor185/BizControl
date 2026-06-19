@@ -891,47 +891,43 @@ export default function CalendarPage() {
                     .fc .fc-button-group .fc-button { border-radius: 8px !important; }
                     .fc .fc-toolbar-chunk { display: flex !important; align-items: center !important; gap: 0.4rem !important; }
                     @media (max-width: 768px) {
-                        /* Bigger slots — comfortable finger tap (32px per 30min) */
+                        /* Bigger slots — comfortable finger tap */
                         .fc-timegrid-slot { height: 2.5rem !important; }
                         /* Readable time labels */
                         .fc-timegrid-slot-label { font-size: 0.75rem !important; color: #475569 !important; font-weight: 600 !important; }
                         /* Wider time axis */
                         .fc-timegrid-axis { width: 3rem !important; }
-                        /* Toolbar title */
-                        .fc .fc-toolbar-title { font-size: 1rem !important; font-weight: 800 !important; }
-                        /* Big touch-friendly buttons */
+                        /* Toolbar title — smaller to leave room for buttons */
+                        .fc .fc-toolbar-title { font-size: 0.85rem !important; font-weight: 800 !important; }
+                        /* Compact header buttons that still have big enough touch target */
                         .fc .fc-button {
-                            padding: 0.5rem 0.9rem !important;
-                            font-size: 0.82rem !important;
-                            min-height: 2.5rem !important;
-                            min-width: 2.5rem !important;
+                            padding: 0.35rem 0.55rem !important;
+                            font-size: 0.76rem !important;
+                            min-height: 2.25rem !important;
+                            min-width: 2.25rem !important;
+                            border-radius: 8px !important;
                         }
-                        .fc .fc-today-button { min-width: 3rem !important; }
+                        /* View switcher group (יום/שבוע/חודש) */
+                        .fc .fc-button-group .fc-button {
+                            padding: 0.35rem 0.6rem !important;
+                        }
+                        .fc .fc-button-group { gap: 0.2rem !important; }
+                        /* prev/next/today group on the left */
+                        .fc .fc-toolbar-chunk { gap: 0.25rem !important; }
                         /* Events — bigger text, easier to read */
                         .fc-event { font-size: 0.82rem !important; border-radius: 6px !important; }
                         .fc-event-title { font-size: 0.82rem !important; font-weight: 700 !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; }
                         .fc-event-time { font-size: 0.75rem !important; }
                         .fc-timegrid-event .fc-event-main { padding: 3px 6px !important; }
                         /* Day header */
-                        .fc-col-header-cell { font-size: 0.9rem !important; font-weight: 700 !important; }
-                        .fc-col-header-cell-cushion { padding: 8px 4px !important; }
-                        /* Footer toolbar (view switcher) */
-                        .fc .fc-toolbar.fc-footer-toolbar { margin-top: 0.3rem !important; }
-                        .fc .fc-toolbar.fc-footer-toolbar .fc-button {
-                            padding: 0.5rem 1.1rem !important;
-                            font-size: 0.82rem !important;
-                            min-width: 3.5rem !important;
-                            min-height: 2.5rem !important;
-                        }
-                        .fc .fc-button-group { gap: 0.3rem !important; }
+                        .fc-col-header-cell { font-size: 0.88rem !important; font-weight: 700 !important; }
+                        .fc-col-header-cell-cushion { padding: 6px 4px !important; }
                         /* Now indicator — thick red line */
                         .fc-timegrid-now-indicator-line { border-color: #ef4444 !important; border-width: 2px !important; }
                         .fc-timegrid-now-indicator-arrow { border-width: 7px !important; border-top-color: #ef4444 !important; }
                         /* Today highlight */
                         .fc-day-today .fc-timegrid-col-bg { background: rgba(59,130,246,0.04) !important; }
-                        /* Remove border from scrollgrid for cleaner look */
                         .fc-scrollgrid { border-radius: 0 !important; }
-                        /* Tap cursor on empty slots */
                         .fc-timegrid-slot-lane { cursor: pointer !important; }
                     }
                 `}} />
@@ -956,17 +952,15 @@ export default function CalendarPage() {
                             plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
                             initialView={isMobile ? "timeGridDay" : "timeGridWeek"}
                             headerToolbar={isMobile ? {
-                                left: "prev,next",
+                                left: "prev,next,today",
                                 center: "title",
-                                right: "today"
+                                right: "timeGridDay,timeGridWeek,dayGridMonth"
                             } : {
                                 left: "prev,next today",
                                 center: "title",
                                 right: "timeGridDay,timeGridWeek,dayGridMonth"
                             }}
-                            footerToolbar={isMobile ? {
-                                center: "timeGridDay,timeGridWeek,dayGridMonth"
-                            } : false}
+                            footerToolbar={false}
                             locales={[heLocale]}
                             locale="he"
                             direction="rtl"
