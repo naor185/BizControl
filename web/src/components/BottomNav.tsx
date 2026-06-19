@@ -22,9 +22,10 @@ const MORE_NAV: { href: string; labelKey: TranslationKey; icon: string }[] = [
     { href: "/products",     labelKey: "nav_products",  icon: "📦" },
     { href: "/team",         labelKey: "nav_team",      icon: "🎨" },
     { href: "/team/payroll", labelKey: "nav_payroll",   icon: "💰" },
-    { href: "/message-log",  labelKey: "nav_messages",  icon: "📋" },
-    { href: "/billing",      labelKey: "nav_billing",   icon: "💎" },
-    { href: "/automation",   labelKey: "nav_settings",  icon: "⚙️" },
+    { href: "/message-log",       labelKey: "nav_messages",      icon: "📋" },
+    { href: "/message-templates", labelKey: "nav_msg_templates", icon: "✉️" },
+    { href: "/billing",           labelKey: "nav_billing",       icon: "💎" },
+    { href: "/automation",        labelKey: "nav_settings",      icon: "⚙️" },
     { href: "/help",         labelKey: "nav_help",      icon: "🆘" },
 ];
 

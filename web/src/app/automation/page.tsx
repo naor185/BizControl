@@ -1490,6 +1490,18 @@ export default function AutomationSettingsPage() {
                         {/* 4. AUTOMATION RULES — merged into policy tab */}
                         {activeTab === "policy" && (
                             <div className="space-y-6">
+                                {/* Quick link to message templates */}
+                                <Link href="/message-templates" className="flex items-center justify-between gap-4 bg-gradient-to-l from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-5 hover:shadow-md transition-all group">
+                                    <div className="flex items-center gap-4">
+                                        <span className="text-3xl">✉️</span>
+                                        <div>
+                                            <p className="font-bold text-slate-800 text-base">תבניות הודעות</p>
+                                            <p className="text-sm text-slate-500">ערוך את טקסט ההודעות: אישור תור, תזכורות, Aftercare, ברוכים הבאים ועוד</p>
+                                        </div>
+                                    </div>
+                                    <span className="text-blue-500 text-xl group-hover:translate-x-[-4px] transition-transform">←</span>
+                                </Link>
+
                                 <div className="bg-white rounded-2xl border border-slate-100 shadow-xl shadow-slate-200/40 p-6 md:p-10 relative overflow-hidden">
                                     <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-bl-full -z-10"></div>
                                     <h3 className="text-2xl font-bold text-slate-800 mb-6">חוקי מועדון ואוטומציה</h3>

@@ -29,6 +29,7 @@ export const translations = {
         nav_stamps:     "כרטיס חותמות",
         nav_pos:        "קופה",
         nav_more:       "עוד",
+        nav_msg_templates: "תבניות הודעות",
         // Auth
         login_title:    "התחברות למערכת",
         login_subtitle: "הזן את פרטי הגישה שלך",
@@ -110,6 +111,7 @@ export const translations = {
         nav_stamps:     "Stamp Cards",
         nav_pos:        "POS",
         nav_more:       "More",
+        nav_msg_templates: "Msg Templates",
         // Auth
         login_title:    "Sign in",
         login_subtitle: "Enter your access credentials",
@@ -191,6 +193,7 @@ export const translations = {
         nav_stamps:     "بطاقة الطوابع",
         nav_pos:        "الصندوق",
         nav_more:       "المزيد",
+        nav_msg_templates: "قوالب الرسائل",
         // Auth
         login_title:    "تسجيل الدخول",
         login_subtitle: "أدخل بيانات الوصول",
