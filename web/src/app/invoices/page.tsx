@@ -1256,7 +1256,7 @@ function ReportsTab() {
             const params = new URLSearchParams();
             if (dateFrom) params.set("date_from", dateFrom + "T00:00:00");
             if (dateTo) params.set("date_to", dateTo + "T23:59:59");
-            const r = await apiFetch<any>(`/api/invoices/reports/summary?${params}`);
+            const r = await apiFetch<any>(`/api/invoices/report-summary?${params}`);
             setData(r);
         } catch (e: any) {
             setErr(e?.message || "שגיאה בטעינת הדוח");

@@ -807,7 +807,7 @@ def create_invoice(
     return _invoice_to_dict(inv_row)
 
 
-@router.get("/reports/summary")
+@router.get("/report-summary")
 def reports_summary(
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
