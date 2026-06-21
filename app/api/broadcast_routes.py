@@ -1,8 +1,11 @@
 from __future__ import annotations
+import os
+import shutil
 from datetime import datetime, timezone
-from uuid import UUID
+from typing import Optional
+from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -13,12 +16,19 @@ from app.models.broadcast import Broadcast
 
 router = APIRouter(prefix="/broadcasts", tags=["broadcasts"])
 
+ALLOWED_MEDIA_TYPES = {
+    "image/jpeg", "image/png", "image/webp", "image/gif",
+    "video/mp4", "video/quicktime", "video/x-msvideo", "video/3gpp", "video/webm",
+}
+_UPLOAD_DIR = "uploads/broadcasts"
+
 
 class BroadcastCreate(BaseModel):
     title: str
     body: str
     audience: str = "all"   # all | club | non_club
     scheduled_at: datetime
+    media_url: Optional[str] = None
 
 
 @router.get("")
@@ -33,6 +43,24 @@ def list_broadcasts(
         .limit(100)
     ).all()
     return [_out(b) for b in rows]
+
+
+@router.post("/upload-media")
+def upload_broadcast_media(
+    file: UploadFile = File(...),
+    ctx: AuthContext = Depends(require_studio_ctx),
+):
+    if file.content_type not in ALLOWED_MEDIA_TYPES:
+        raise HTTPException(400, "סוג קובץ לא נתמך. מותרים: תמונות ווידאו בלבד")
+    os.makedirs(_UPLOAD_DIR, exist_ok=True)
+    ext = (file.filename or "file").rsplit(".", 1)[-1].lower() if "." in (file.filename or "") else "jpg"
+    filename = f"broadcast_{ctx.studio_id}_{uuid4().hex[:10]}.{ext}"
+    dest = os.path.join(_UPLOAD_DIR, filename)
+    with open(dest, "wb") as buf:
+        shutil.copyfileobj(file.file, buf)
+    backend_url = os.getenv("API_BASE_URL", "").rstrip("/")
+    url = f"{backend_url}/uploads/broadcasts/{filename}" if backend_url else f"/uploads/broadcasts/{filename}"
+    return {"url": url, "filename": filename}
 
 
 @router.post("", status_code=201)
@@ -67,6 +95,7 @@ def create_broadcast(
         scheduled_at=payload.scheduled_at,
         status="scheduled",
         recipient_count=count,
+        media_url=payload.media_url or None,
     )
     db.add(b)
     db.commit()
@@ -98,6 +127,7 @@ def cancel_broadcast(
 class BroadcastTestIn(BaseModel):
     body: str
     phone: str
+    media_url: Optional[str] = None
 
 
 @router.post("/test")
@@ -117,7 +147,13 @@ def send_test(
 
     settings = db.get(StudioSettings, ctx.studio_id)
     try:
-        send_whatsapp_message(payload.phone.strip(), payload.body.strip(), settings, db)
+        send_whatsapp_message(
+            payload.phone.strip(),
+            payload.body.strip(),
+            settings,
+            db,
+            media_url=payload.media_url or None,
+        )
     except ValueError as e:
         raise HTTPException(503, str(e))
     except Exception as e:
@@ -136,5 +172,6 @@ def _out(b: Broadcast) -> dict:
         "status": b.status,
         "recipient_count": b.recipient_count or 0,
         "sent_count": b.sent_count or 0,
+        "media_url": b.media_url,
         "created_at": b.created_at.isoformat() if b.created_at else None,
     }

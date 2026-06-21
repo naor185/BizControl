@@ -193,6 +193,7 @@ def start_scheduler():
                         channel="whatsapp",
                         to_phone=client.phone,
                         body=b.body,
+                        media_url=b.media_url or None,
                         scheduled_at=now,
                         status="pending",
                         reminder_type="broadcast",

@@ -21,6 +21,8 @@ class Broadcast(Base):
     status = Column(String(30), nullable=False, default="scheduled")
     # scheduled → processing → sent / canceled
 
+    media_url = Column(Text, nullable=True)
+
     recipient_count = Column(Integer, default=0)
     sent_count = Column(Integer, default=0)
 

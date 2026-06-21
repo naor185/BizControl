@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import RequireAuth from "@/components/RequireAuth";
 import AppShell from "@/components/AppShell";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, API_BASE } from "@/lib/api";
 
 type Broadcast = {
     id: string;
@@ -14,6 +14,7 @@ type Broadcast = {
     status: string;
     recipient_count: number;
     sent_count: number;
+    media_url?: string | null;
     created_at: string;
 };
 
@@ -30,12 +31,6 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
     canceled: { label: "בוטל", color: "bg-slate-100 text-slate-500" },
 };
 
-function toLocalDatetimeValue(isoStr?: string) {
-    if (!isoStr) return "";
-    const d = new Date(isoStr);
-    const pad = (n: number) => String(n).padStart(2, "0");
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
 
 export default function BroadcastsPage() {
     const [broadcasts, setBroadcasts] = useState<Broadcast[]>([]);
@@ -55,6 +50,13 @@ export default function BroadcastsPage() {
     const [sendingTest, setSendingTest] = useState(false);
     const [testResult, setTestResult] = useState<string | null>(null);
 
+    // Media state
+    const [mediaUrl, setMediaUrl] = useState<string | null>(null);
+    const [mediaPreview, setMediaPreview] = useState<string | null>(null);
+    const [mediaIsVideo, setMediaIsVideo] = useState(false);
+    const [uploading, setUploading] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
     const load = async () => {
         try {
             const data = await apiFetch<Broadcast[]>("/api/broadcasts");
@@ -67,7 +69,48 @@ export default function BroadcastsPage() {
 
     const resetForm = () => {
         setTitle(""); setBody(""); setAudience("all"); setScheduledAt("");
+        setMediaUrl(null); setMediaPreview(null); setMediaIsVideo(false);
         setError(null);
+    };
+
+    const handleMediaSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const isVid = file.type.startsWith("video/");
+        setMediaIsVideo(isVid);
+        setMediaPreview(URL.createObjectURL(file));
+        setUploading(true);
+        setMediaUrl(null);
+        try {
+            const form = new FormData();
+            form.append("file", file);
+            const token = typeof window !== "undefined" ? localStorage.getItem("bizcontrol_token") : null;
+            const res = await fetch(`${API_BASE}/api/broadcasts/upload-media`, {
+                method: "POST",
+                headers: token ? { Authorization: `Bearer ${token}` } : {},
+                body: form,
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(err?.detail || "שגיאה בהעלאה");
+            }
+            const data = await res.json();
+            setMediaUrl(data.url);
+        } catch (err: any) {
+            setError(err?.message || "שגיאה בהעלאת הקובץ");
+            setMediaPreview(null);
+            setMediaIsVideo(false);
+        } finally {
+            setUploading(false);
+            if (fileInputRef.current) fileInputRef.current.value = "";
+        }
+    };
+
+    const removeMedia = () => {
+        setMediaUrl(null);
+        setMediaPreview(null);
+        setMediaIsVideo(false);
+        if (fileInputRef.current) fileInputRef.current.value = "";
     };
 
     const handleCreate = async () => {
@@ -80,6 +123,10 @@ export default function BroadcastsPage() {
             setError("התאריך חייב להיות בעתיד");
             return;
         }
+        if (uploading) {
+            setError("אנא המתן לסיום העלאת הקובץ");
+            return;
+        }
         setSaving(true);
         setError(null);
         try {
@@ -90,6 +137,7 @@ export default function BroadcastsPage() {
                     body: body.trim(),
                     audience,
                     scheduled_at: dt.toISOString(),
+                    media_url: mediaUrl || null,
                 }),
             });
             setSuccess("התפוצה נקבעה בהצלחה ✅");
@@ -112,7 +160,7 @@ export default function BroadcastsPage() {
         try {
             await apiFetch("/api/broadcasts/test", {
                 method: "POST",
-                body: JSON.stringify({ body: body.trim(), phone: testPhone.trim() }),
+                body: JSON.stringify({ body: body.trim(), phone: testPhone.trim(), media_url: mediaUrl || null }),
             });
             setTestResult(`✅ הודעת בדיקה נשלחה ל-${testPhone.trim()}`);
         } catch (e: any) {
@@ -151,6 +199,7 @@ export default function BroadcastsPage() {
                         </div>
                         {!showForm && (
                             <button
+                                type="button"
                                 onClick={() => { setShowForm(true); setError(null); }}
                                 className="px-5 py-2.5 bg-slate-900 text-white text-sm font-bold rounded-xl hover:bg-slate-700 transition"
                             >
@@ -191,6 +240,62 @@ export default function BroadcastsPage() {
                                 <div className="text-xs text-slate-400 text-left mt-0.5">{body.length} תווים</div>
                             </div>
 
+                            {/* Media upload */}
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5">תמונה / סרטון (אופציונלי)</label>
+                                {mediaPreview ? (
+                                    <div className="relative w-fit">
+                                        {mediaIsVideo ? (
+                                            <video
+                                                src={mediaPreview}
+                                                className="h-40 rounded-xl object-cover border border-slate-200"
+                                                controls
+                                            />
+                                        ) : (
+                                            <img
+                                                src={mediaPreview}
+                                                alt="תצוגה מקדימה"
+                                                className="h-40 rounded-xl object-cover border border-slate-200"
+                                            />
+                                        )}
+                                        {uploading && (
+                                            <div className="absolute inset-0 bg-white/70 flex items-center justify-center rounded-xl">
+                                                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-slate-700" />
+                                            </div>
+                                        )}
+                                        {!uploading && (
+                                            <button
+                                                onClick={removeMedia}
+                                                className="absolute top-1.5 right-1.5 bg-white/90 hover:bg-white text-slate-600 hover:text-red-600 rounded-full p-1 shadow transition"
+                                                title="הסר מדיה"
+                                            >
+                                                ✕
+                                            </button>
+                                        )}
+                                        {!uploading && mediaUrl && (
+                                            <div className="text-xs text-green-600 mt-1 font-medium">✅ הקובץ הועלה בהצלחה</div>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <button
+                                        type="button"
+                                        onClick={() => fileInputRef.current?.click()}
+                                        className="flex items-center gap-2 px-4 py-3 bg-slate-50 border-2 border-dashed border-slate-300 rounded-xl text-slate-500 text-sm hover:border-slate-400 hover:bg-slate-100 transition w-full justify-center"
+                                    >
+                                        <span className="text-lg">📎</span>
+                                        <span>לחץ להוספת תמונה או סרטון</span>
+                                    </button>
+                                )}
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    title="העלה תמונה או סרטון"
+                                    accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime,video/x-msvideo,video/3gpp,video/webm"
+                                    onChange={handleMediaSelect}
+                                    className="hidden"
+                                />
+                            </div>
+
                             {/* Test message */}
                             <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2">
                                 <div className="text-sm font-semibold text-slate-700">📱 שלח הודעת בדיקה</div>
@@ -207,7 +312,7 @@ export default function BroadcastsPage() {
                                     <button
                                         type="button"
                                         onClick={handleSendTest}
-                                        disabled={sendingTest}
+                                        disabled={sendingTest || uploading}
                                         className="px-4 py-2 bg-slate-700 text-white text-sm font-bold rounded-xl hover:bg-slate-900 disabled:opacity-40 transition shrink-0"
                                     >
                                         {sendingTest ? "שולח..." : "שלח בדיקה"}
@@ -224,6 +329,7 @@ export default function BroadcastsPage() {
                                 <div>
                                     <label className="block text-sm font-semibold text-slate-700 mb-1.5">קהל יעד</label>
                                     <select
+                                        title="קהל יעד"
                                         value={audience}
                                         onChange={e => setAudience(e.target.value)}
                                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-slate-400"
@@ -237,6 +343,7 @@ export default function BroadcastsPage() {
                                     <label className="block text-sm font-semibold text-slate-700 mb-1.5">תאריך ושעת שליחה</label>
                                     <input
                                         type="datetime-local"
+                                        title="תאריך ושעת שליחה"
                                         value={scheduledAt}
                                         onChange={e => setScheduledAt(e.target.value)}
                                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-slate-400"
@@ -251,13 +358,15 @@ export default function BroadcastsPage() {
 
                             <div className="flex gap-3 pt-1">
                                 <button
+                                    type="button"
                                     onClick={handleCreate}
-                                    disabled={saving}
+                                    disabled={saving || uploading}
                                     className="flex-1 py-3 bg-slate-900 text-white text-sm font-bold rounded-xl hover:bg-slate-700 disabled:opacity-40 transition"
                                 >
-                                    {saving ? "שומר..." : "קבע תפוצה 📨"}
+                                    {saving ? "שומר..." : uploading ? "מעלה קובץ..." : "קבע תפוצה 📨"}
                                 </button>
                                 <button
+                                    type="button"
                                     onClick={() => { setShowForm(false); resetForm(); }}
                                     className="px-5 py-3 text-sm font-semibold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition"
                                 >
@@ -325,6 +434,7 @@ function BroadcastRow({ b, onCancel, canceling }: { b: Broadcast; onCancel: (id:
     const dt = new Date(b.scheduled_at);
     const dateStr = dt.toLocaleDateString("he-IL", { weekday: "short", day: "2-digit", month: "2-digit", year: "2-digit" });
     const timeStr = dt.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
+    const isVid = b.media_url ? /\.(mp4|mov|avi|3gp|webm)(\?|$)/i.test(b.media_url) : false;
 
     return (
         <div className="px-6 py-4">
@@ -334,6 +444,9 @@ function BroadcastRow({ b, onCancel, canceling }: { b: Broadcast; onCancel: (id:
                         <span className="font-semibold text-slate-800">{b.title}</span>
                         <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${s.color}`}>{s.label}</span>
                         <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">{AUDIENCE_LABELS[b.audience] || b.audience}</span>
+                        {b.media_url && (
+                            <span className="text-xs text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full">{isVid ? "🎬 סרטון" : "🖼️ תמונה"}</span>
+                        )}
                     </div>
                     <div className="text-xs text-slate-400 mt-1">
                         {dateStr} · {timeStr}
@@ -347,6 +460,7 @@ function BroadcastRow({ b, onCancel, canceling }: { b: Broadcast; onCancel: (id:
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                     <button
+                        type="button"
                         onClick={() => setExpanded(v => !v)}
                         className="text-xs text-slate-400 hover:text-slate-600 px-2 py-1 rounded-lg hover:bg-slate-50 transition"
                     >
@@ -354,6 +468,7 @@ function BroadcastRow({ b, onCancel, canceling }: { b: Broadcast; onCancel: (id:
                     </button>
                     {b.status === "scheduled" && (
                         <button
+                            type="button"
                             onClick={() => onCancel(b.id)}
                             disabled={canceling}
                             className="text-xs text-red-500 hover:text-red-700 px-2 py-1 rounded-lg hover:bg-red-50 transition disabled:opacity-50"
@@ -364,8 +479,17 @@ function BroadcastRow({ b, onCancel, canceling }: { b: Broadcast; onCancel: (id:
                 </div>
             </div>
             {expanded && (
-                <div className="mt-3 bg-slate-50 rounded-xl px-4 py-3 text-sm text-slate-700 whitespace-pre-wrap border border-slate-100">
-                    {b.body}
+                <div className="mt-3 space-y-2">
+                    <div className="bg-slate-50 rounded-xl px-4 py-3 text-sm text-slate-700 whitespace-pre-wrap border border-slate-100">
+                        {b.body}
+                    </div>
+                    {b.media_url && (
+                        isVid ? (
+                            <video src={b.media_url} controls className="h-40 rounded-xl border border-slate-200 object-cover" />
+                        ) : (
+                            <img src={b.media_url} alt="מדיה" className="h-40 rounded-xl border border-slate-200 object-cover" />
+                        )
+                    )}
                 </div>
             )}
         </div>

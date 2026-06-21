@@ -37,6 +37,7 @@ def ensure_schema():
         """)
         cur.execute("CREATE INDEX IF NOT EXISTS ix_broadcasts_studio_id ON broadcasts (studio_id)")
         cur.execute("CREATE INDEX IF NOT EXISTS ix_broadcasts_status ON broadcasts (status)")
+        cur.execute("ALTER TABLE broadcasts ADD COLUMN IF NOT EXISTS media_url TEXT")
 
         cur.execute("""
             CREATE TABLE IF NOT EXISTS studio_notes (
