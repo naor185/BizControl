@@ -27,24 +27,25 @@ type Me = {
 type PinStatus = { has_pin: boolean; is_locked: boolean };
 
 const MAIN_NAV: { href: string; label: string; icon: string; module?: string }[] = [
-    { href: "/calendar",   label: "יומן תורים",  icon: "📅", module: "calendar" },
-    { href: "/pos",        label: "קופה",         icon: "🛒", module: "pos" },
-    { href: "/invoices",      label: "חשבוניות",     icon: "🧾", module: "pos" },
-    { href: "/settings/email", label: "הגדרות מייל",  icon: "📧", module: "pos" },
-    { href: "/gift-cards", label: "כרטיסי מתנה",  icon: "🎁", module: "pos" },
-    { href: "/dashboard",  label: "לוח בקרה",    icon: "📊" },
-    { href: "/clients",    label: "לקוחות",       icon: "👥", module: "crm" },
-    { href: "/broadcasts", label: "תפוצות",       icon: "📢", module: "broadcasts" },
-    { href: "/analytics",          label: "אנליטיקות",    icon: "📈", module: "analytics" },
-    { href: "/analytics/business", label: "אנליטיקה עסקית", icon: "📊", module: "analytics" },
+    { href: "/calendar",           label: "יומן תורים",       icon: "📅", module: "calendar" },
+    { href: "/pos",                label: "קופה",              icon: "🛒", module: "pos" },
+    { href: "/dashboard",          label: "לוח בקרה",         icon: "📊" },
+    { href: "/clients",            label: "לקוחות",            icon: "👥", module: "crm" },
+    { href: "/analytics",          label: "אנליטיקות",         icon: "📈", module: "analytics" },
+    { href: "/analytics/business", label: "אנליטיקה עסקית",   icon: "📊", module: "analytics" },
 ];
 
 const MANAGE_NAV: { href: string; label: string; icon: string; module?: string }[] = [
-    { href: "/services",          label: "שירותים",        icon: "🛎️", module: "services" },
-    { href: "/wait-list",         label: "רשימת המתנה",   icon: "⏳",  module: "wait_list" },
-    { href: "/products",          label: "מוצרים",         icon: "📦",  module: "products" },
-    { href: "/obligations",       label: "התחייבויות",      icon: "💳",  module: "obligations" },
+    { href: "/invoices",          label: "חשבוניות",        icon: "🧾", module: "pos" },
+    { href: "/settings/email",    label: "הגדרות מייל",     icon: "📧", module: "pos" },
+    { href: "/gift-cards",        label: "כרטיסי מתנה",    icon: "🎁", module: "pos" },
+    { href: "/broadcasts",        label: "תפוצות",          icon: "📢", module: "broadcasts" },
+    { href: "/services",          label: "שירותים",         icon: "🛎️", module: "services" },
+    { href: "/wait-list",         label: "רשימת המתנה",    icon: "⏳",  module: "wait_list" },
+    { href: "/products",          label: "מוצרים",          icon: "📦",  module: "products" },
+    { href: "/obligations",       label: "התחייבויות",       icon: "💳",  module: "obligations" },
     { href: "/message-templates", label: "תבניות הודעות",   icon: "💬" },
+    { href: "/automation",        label: "הגדרות",          icon: "⚙️" },
 ];
 
 export default function AppShell({
