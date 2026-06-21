@@ -111,7 +111,7 @@ const TYPE_COLOR: Record<string, string> = {
     transaction: "#f59e0b",
 };
 
-type Tab = "documents" | "settings" | "series" | "reports";
+type Tab = "documents" | "settings" | "series";
 
 // ── Main Component ────────────────────────────────────────────────────────────
 
@@ -322,14 +322,14 @@ export default function InvoicesPage() {
 
             {/* Tabs */}
             <div style={{ display: "flex", gap: "0.5rem", padding: "1rem 1rem 0", borderBottom: "1px solid #f0f0f0", marginBottom: "1rem" }}>
-                {(["documents", "settings", "series", "reports"] as Tab[]).map(t => (
+                {(["documents", "settings", "series"] as Tab[]).map(t => (
                     <button key={t} type="button" onClick={() => setTab(t)} style={{
                         padding: "0.5rem 1rem", border: "none", background: "none", cursor: "pointer",
                         fontWeight: tab === t ? 700 : 400, fontSize: "0.9rem",
                         borderBottom: tab === t ? "2px solid #7c3aed" : "2px solid transparent",
                         color: tab === t ? "#7c3aed" : "#64748b",
                     }}>
-                        {{ documents: "📄 מסמכים", settings: "⚙️ הגדרות", series: "🔢 סדרות", reports: "📊 דוחות" }[t]}
+                        {{ documents: "📄 מסמכים", settings: "⚙️ הגדרות", series: "🔢 סדרות" }[t]}
                     </button>
                 ))}
             </div>
@@ -386,10 +386,6 @@ export default function InvoicesPage() {
             {tab === "series" && (
                 <SeriesTab series={series} locked={settings?.settings_completed ?? false} onSaved={loadSeries} />
             )}
-            {tab === "reports" && (
-                <ReportsTab />
-            )}
-
             {viewInvoice && (
                 <InvoiceDetailModal
                     invoice={viewInvoice}
