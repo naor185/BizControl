@@ -807,6 +807,115 @@ def create_invoice(
     return _invoice_to_dict(inv_row)
 
 
+@router.get("/reports/summary")
+def reports_summary(
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    ctx: AuthContext = Depends(require_studio_ctx),
+    db: Session = Depends(get_db),
+):
+    params: dict = {"sid": ctx.studio_id}
+    date_filter = ""
+    if date_from:
+        date_filter += " AND issued_at >= :df"
+        params["df"] = date_from
+    if date_to:
+        date_filter += " AND issued_at <= :dt"
+        params["dt"] = date_to
+
+    base = f"studio_id=:sid AND doc_type != 'credit' AND status != 'credited' {date_filter}"
+
+    total = db.execute(
+        text(f"SELECT COALESCE(SUM(total_cents),0) FROM invoices WHERE {base}"),
+        params
+    ).scalar() or 0
+
+    vat = db.execute(
+        text(f"SELECT COALESCE(SUM(vat_amount_cents),0) FROM invoices WHERE {base}"),
+        params
+    ).scalar() or 0
+
+    stats = db.execute(
+        text(f"SELECT COUNT(*), COALESCE(AVG(total_cents),0) FROM invoices WHERE {base}"),
+        params
+    ).fetchone()
+    count = stats[0] or 0
+    avg = int(stats[1]) if stats[1] else 0
+
+    by_method = db.execute(
+        text(f"""
+            SELECT payment_method, COUNT(*), COALESCE(SUM(total_cents),0)
+            FROM invoices WHERE {base}
+            GROUP BY payment_method ORDER BY 3 DESC
+        """),
+        params
+    ).fetchall()
+
+    by_type = db.execute(
+        text(f"""
+            SELECT doc_type, COUNT(*), COALESCE(SUM(total_cents),0)
+            FROM invoices WHERE {base}
+            GROUP BY doc_type ORDER BY 3 DESC
+        """),
+        params
+    ).fetchall()
+
+    by_service = db.execute(
+        text(f"""
+            SELECT ii.description, COUNT(*), COALESCE(SUM(ii.total_price_cents),0)
+            FROM invoice_items ii
+            JOIN invoices inv ON inv.id = ii.invoice_id
+            WHERE inv.studio_id=:sid AND inv.doc_type != 'credit'
+              AND inv.status != 'credited' {date_filter}
+              AND ii.service_id IS NOT NULL
+            GROUP BY ii.description ORDER BY 3 DESC LIMIT 20
+        """),
+        params
+    ).fetchall()
+
+    by_product = db.execute(
+        text(f"""
+            SELECT ii.description, COUNT(*), COALESCE(SUM(ii.total_price_cents),0)
+            FROM invoice_items ii
+            JOIN invoices inv ON inv.id = ii.invoice_id
+            WHERE inv.studio_id=:sid AND inv.doc_type != 'credit'
+              AND inv.status != 'credited' {date_filter}
+              AND ii.product_id IS NOT NULL
+            GROUP BY ii.description ORDER BY 3 DESC LIMIT 20
+        """),
+        params
+    ).fetchall()
+
+    by_employee = db.execute(
+        text(f"""
+            SELECT u.display_name, COUNT(inv.id), COALESCE(SUM(inv.total_cents),0)
+            FROM invoices inv
+            LEFT JOIN users u ON u.id = inv.issued_by_id
+            WHERE {base}
+            GROUP BY u.display_name ORDER BY 3 DESC
+        """),
+        params
+    ).fetchall()
+
+    def rows_to_list(rows):
+        return [{"label": r[0] or "—", "count": r[1], "total_ils": round(r[2]/100, 2)} for r in rows]
+
+    return {
+        "total_ils": round(total / 100, 2),
+        "vat_ils": round(vat / 100, 2),
+        "count": count,
+        "avg_ils": round(avg / 100, 2),
+        "by_method": rows_to_list(by_method),
+        "by_doc_type": [
+            {"label": DOC_TYPES.get(r[0], r[0]), "count": r[1], "total_ils": round(r[2]/100, 2)}
+            for r in by_type
+        ],
+        "by_service": rows_to_list(by_service),
+        "by_product": rows_to_list(by_product),
+        "by_employee": rows_to_list(by_employee),
+    }
+
+
 @router.get("/{invoice_id}")
 def get_invoice(
     invoice_id: str,
@@ -1413,121 +1522,3 @@ def _build_pdf(inv: dict, items: list) -> bytes:
     c.save()
     return buf.getvalue()
 
-
-# ── Reports ───────────────────────────────────────────────────────────────────
-
-@router.get("/reports/summary")
-def reports_summary(
-    date_from: Optional[str] = None,
-    date_to: Optional[str] = None,
-    ctx: AuthContext = Depends(require_studio_ctx),
-    db: Session = Depends(get_db),
-):
-    params: dict = {"sid": ctx.studio_id}
-    date_filter = ""
-    if date_from:
-        date_filter += " AND issued_at >= :df"
-        params["df"] = date_from
-    if date_to:
-        date_filter += " AND issued_at <= :dt"
-        params["dt"] = date_to
-
-    base = f"studio_id=:sid AND doc_type != 'credit' AND status != 'credited' {date_filter}"
-
-    # Total revenue
-    total = db.execute(
-        text(f"SELECT COALESCE(SUM(total_cents),0) FROM invoices WHERE {base}"),
-        params
-    ).scalar() or 0
-
-    # Total VAT collected
-    vat = db.execute(
-        text(f"SELECT COALESCE(SUM(vat_amount_cents),0) FROM invoices WHERE {base}"),
-        params
-    ).scalar() or 0
-
-    # Invoice count & average
-    stats = db.execute(
-        text(f"SELECT COUNT(*), COALESCE(AVG(total_cents),0) FROM invoices WHERE {base}"),
-        params
-    ).fetchone()
-    count = stats[0] or 0
-    avg = int(stats[1]) if stats[1] else 0
-
-    # By payment method
-    by_method = db.execute(
-        text(f"""
-            SELECT payment_method, COUNT(*), COALESCE(SUM(total_cents),0)
-            FROM invoices WHERE {base}
-            GROUP BY payment_method ORDER BY 3 DESC
-        """),
-        params
-    ).fetchall()
-
-    # By doc type
-    by_type = db.execute(
-        text(f"""
-            SELECT doc_type, COUNT(*), COALESCE(SUM(total_cents),0)
-            FROM invoices WHERE {base}
-            GROUP BY doc_type ORDER BY 3 DESC
-        """),
-        params
-    ).fetchall()
-
-    # Revenue by service (via invoice_items)
-    by_service = db.execute(
-        text(f"""
-            SELECT ii.description, COUNT(*), COALESCE(SUM(ii.total_price_cents),0)
-            FROM invoice_items ii
-            JOIN invoices inv ON inv.id = ii.invoice_id
-            WHERE inv.studio_id=:sid AND inv.doc_type != 'credit'
-              AND inv.status != 'credited' {date_filter}
-              AND ii.service_id IS NOT NULL
-            GROUP BY ii.description ORDER BY 3 DESC LIMIT 20
-        """),
-        params
-    ).fetchall()
-
-    # Revenue by product
-    by_product = db.execute(
-        text(f"""
-            SELECT ii.description, COUNT(*), COALESCE(SUM(ii.total_price_cents),0)
-            FROM invoice_items ii
-            JOIN invoices inv ON inv.id = ii.invoice_id
-            WHERE inv.studio_id=:sid AND inv.doc_type != 'credit'
-              AND inv.status != 'credited' {date_filter}
-              AND ii.product_id IS NOT NULL
-            GROUP BY ii.description ORDER BY 3 DESC LIMIT 20
-        """),
-        params
-    ).fetchall()
-
-    # Revenue by employee (issued_by)
-    by_employee = db.execute(
-        text(f"""
-            SELECT u.display_name, COUNT(inv.id), COALESCE(SUM(inv.total_cents),0)
-            FROM invoices inv
-            LEFT JOIN users u ON u.id = inv.issued_by_id
-            WHERE {base}
-            GROUP BY u.display_name ORDER BY 3 DESC
-        """),
-        params
-    ).fetchall()
-
-    def rows_to_list(rows):
-        return [{"label": r[0] or "—", "count": r[1], "total_ils": round(r[2]/100, 2)} for r in rows]
-
-    return {
-        "total_ils": round(total / 100, 2),
-        "vat_ils": round(vat / 100, 2),
-        "count": count,
-        "avg_ils": round(avg / 100, 2),
-        "by_method": rows_to_list(by_method),
-        "by_doc_type": [
-            {"label": DOC_TYPES.get(r[0], r[0]), "count": r[1], "total_ils": round(r[2]/100, 2)}
-            for r in by_type
-        ],
-        "by_service": rows_to_list(by_service),
-        "by_product": rows_to_list(by_product),
-        "by_employee": rows_to_list(by_employee),
-    }
