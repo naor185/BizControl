@@ -20,6 +20,7 @@ interface InvoiceSettings {
     default_notes?: string;
     settings_completed: boolean;
     allowed_doc_types: string[];
+    accountant_email?: string | null;
 }
 
 interface SeriesMap {
@@ -1048,6 +1049,27 @@ function InvoiceSetupWizard({ series, existing, onComplete }: { series: SeriesMa
 
 function SettingsTab({ settings, onSaved }: { settings: InvoiceSettings; onSaved: () => void }) {
     const locked = settings.settings_completed;
+    const [accountantEmail, setAccountantEmail] = useState(settings.accountant_email || "");
+    const [savingEmail, setSavingEmail] = useState(false);
+    const [emailMsg, setEmailMsg] = useState<string | null>(null);
+
+    const saveAccountantEmail = async () => {
+        setSavingEmail(true);
+        setEmailMsg(null);
+        try {
+            await apiFetch("/api/invoices/settings/accountant-email", {
+                method: "PATCH",
+                body: JSON.stringify({ accountant_email: accountantEmail }),
+            });
+            setEmailMsg("נשמר ✓");
+            onSaved();
+        } catch {
+            setEmailMsg("שגיאה בשמירה");
+        } finally {
+            setSavingEmail(false);
+            setTimeout(() => setEmailMsg(null), 3000);
+        }
+    };
 
     return (
         <div style={{ padding: "0 1rem 2rem", maxWidth: 540 }}>
@@ -1094,6 +1116,39 @@ function SettingsTab({ settings, onSaved }: { settings: InvoiceSettings; onSaved
                 {!locked && (
                     <p style={{ color: "#94a3b8", fontSize: "0.8rem" }}>השלם את אשף ההגדרה הראשוני כדי לנעול את הפרטים.</p>
                 )}
+
+                {/* Accountant email — always editable */}
+                <div style={{ marginTop: "1rem", padding: "1.25rem", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 14 }}>
+                    <div style={{ fontWeight: 700, fontSize: "0.95rem", color: "#166534", marginBottom: "0.4rem" }}>
+                        📧 מייל רואה חשבון
+                    </div>
+                    <div style={{ fontSize: "0.8rem", color: "#4ade80", color: "#16a34a", marginBottom: "0.75rem" }}>
+                        כל קבלה וחשבונית שתופק תישלח אוטומטית גם לכתובת זו.
+                    </div>
+                    <div style={{ display: "flex", gap: "0.5rem" }}>
+                        <input
+                            type="email"
+                            placeholder="accountant@example.com"
+                            value={accountantEmail}
+                            onChange={e => setAccountantEmail(e.target.value)}
+                            dir="ltr"
+                            style={{ ...inputStyle, flex: 1, margin: 0 }}
+                        />
+                        <button
+                            type="button"
+                            onClick={saveAccountantEmail}
+                            disabled={savingEmail}
+                            style={{ background: "#16a34a", color: "#fff", border: "none", borderRadius: 10, padding: "0 1rem", cursor: "pointer", fontWeight: 700, fontSize: "0.85rem", whiteSpace: "nowrap", opacity: savingEmail ? 0.6 : 1 }}
+                        >
+                            {savingEmail ? "..." : "שמור"}
+                        </button>
+                    </div>
+                    {emailMsg && (
+                        <div style={{ marginTop: "0.5rem", fontSize: "0.82rem", color: emailMsg.includes("✓") ? "#16a34a" : "#dc2626", fontWeight: 600 }}>
+                            {emailMsg}
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );
@@ -1134,36 +1189,47 @@ function SeriesTab({ series, locked, onSaved }: { series: SeriesMap; locked: boo
 function ReportsTab() {
     const [data, setData] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+    const [err, setErr] = useState<string | null>(null);
     const [dateFrom, setDateFrom] = useState("");
     const [dateTo, setDateTo] = useState("");
 
     const load = useCallback(async () => {
         setLoading(true);
+        setErr(null);
         try {
             const params = new URLSearchParams();
             if (dateFrom) params.set("date_from", dateFrom + "T00:00:00");
             if (dateTo) params.set("date_to", dateTo + "T23:59:59");
             const r = await apiFetch<any>(`/api/invoices/reports/summary?${params}`);
             setData(r);
+        } catch (e: any) {
+            setErr(e?.message || "שגיאה בטעינת הדוח");
         } finally { setLoading(false); }
     }, [dateFrom, dateTo]);
 
     useEffect(() => { load(); }, [load]);
 
-    if (loading) return <div style={{ textAlign: "center", padding: "3rem", color: "#94a3b8" }}>טוען...</div>;
-    if (!data) return null;
-
     return (
         <div style={{ padding: "0 1rem 2rem" }}>
+            {/* Explanation */}
+            <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: "0.75rem 1rem", marginBottom: "1rem", fontSize: "0.82rem", color: "#475569" }}>
+                📊 דוח כספי מסכם לפי תקופה — הכנסות כולל מע&quot;מ, פילוח לפי סוג מסמך, אמצעי תשלום, שירות ועובד.
+            </div>
+
             {/* Date filter */}
             <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem", flexWrap: "wrap" }}>
-                <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
+                <input type="date" title="מתאריך" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
                     style={{ padding: "0.5rem 0.75rem", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: "0.85rem" }} />
-                <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
+                <span style={{ alignSelf: "center", color: "#94a3b8" }}>עד</span>
+                <input type="date" title="עד תאריך" value={dateTo} onChange={e => setDateTo(e.target.value)}
                     style={{ padding: "0.5rem 0.75rem", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: "0.85rem" }} />
                 <button type="button" onClick={load} style={{ background: "#7c3aed", color: "#fff", border: "none", borderRadius: 8, padding: "0.5rem 1rem", cursor: "pointer", fontSize: "0.85rem" }}>סנן</button>
             </div>
 
+            {loading && <div style={{ textAlign: "center", padding: "2rem", color: "#94a3b8" }}>טוען...</div>}
+            {err && <div style={{ textAlign: "center", padding: "1.5rem", color: "#dc2626", background: "#fef2f2", borderRadius: 10 }}>⚠️ {err}</div>}
+
+            {!loading && !err && data && (<>
             {/* KPIs */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", marginBottom: "1.5rem" }}>
                 <KpiCard title="הכנסות" value={`₪${data.total_ils.toFixed(2)}`} color="#7c3aed" />
@@ -1178,6 +1244,12 @@ function ReportsTab() {
             <ReportSection title="הכנסות לפי שירות" rows={data.by_service} />
             <ReportSection title="הכנסות לפי מוצר" rows={data.by_product} />
             <ReportSection title="הכנסות לפי עובד" rows={data.by_employee} />
+            {data.count === 0 && (
+                <div style={{ textAlign: "center", padding: "2rem", color: "#94a3b8", fontSize: "0.9rem" }}>
+                    אין מסמכים בתקופה שנבחרה
+                </div>
+            )}
+            </>)}
         </div>
     );
 }

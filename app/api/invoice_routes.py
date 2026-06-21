@@ -312,6 +312,22 @@ def unlock_settings(
     return {"ok": True}
 
 
+@router.patch("/settings/accountant-email")
+def update_accountant_email(
+    body: dict,
+    ctx: AuthContext = Depends(require_studio_ctx),
+    db: Session = Depends(get_db),
+):
+    """Update accountant email — always editable, not locked with main settings."""
+    email = body.get("accountant_email", "").strip() or None
+    db.execute(
+        text("UPDATE invoice_settings SET accountant_email=:email, updated_at=NOW() WHERE studio_id=:sid"),
+        {"email": email, "sid": ctx.studio_id}
+    )
+    db.commit()
+    return {"ok": True, "accountant_email": email}
+
+
 @router.get("/series")
 def get_series(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
     rows = db.execute(
