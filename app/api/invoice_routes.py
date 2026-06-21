@@ -23,6 +23,8 @@ from app.core.database import get_db
 from app.core.deps import require_studio_ctx, AuthContext
 from app.core.security import decode_token
 from app.models.user import User
+from app.models.studio_settings import StudioSettings
+from app.utils.email_utils import send_email_sync
 
 router = APIRouter(prefix="/invoices", tags=["Invoices"])
 
@@ -326,6 +328,113 @@ def update_accountant_email(
     )
     db.commit()
     return {"ok": True, "accountant_email": email}
+
+
+@router.post("/send-to-accountant")
+def send_to_accountant(
+    body: dict,
+    ctx: AuthContext = Depends(require_studio_ctx),
+    db: Session = Depends(get_db),
+):
+    """Manually send invoices for a date range to the studio's accountant email."""
+    inv_settings = db.execute(
+        text("SELECT accountant_email FROM invoice_settings WHERE studio_id = :sid"),
+        {"sid": ctx.studio_id}
+    ).fetchone()
+    accountant_email = inv_settings[0] if inv_settings else None
+    if not accountant_email:
+        raise HTTPException(400, "לא הוגדר מייל רואה חשבון. הגדר אותו בטאב ההגדרות.")
+
+    studio_settings = db.get(StudioSettings, ctx.studio_id)
+    resend_key = getattr(studio_settings, "resend_api_key", None)
+    from_email = getattr(studio_settings, "resend_from_email", None) or "onboarding@resend.dev"
+    if not resend_key:
+        raise HTTPException(400, "לא הוגדר Resend API Key. הגדר אותו בהגדרות מייל.")
+
+    date_from = body.get("date_from")
+    date_to = body.get("date_to")
+    if not date_from or not date_to:
+        raise HTTPException(400, "חסרים תאריכים")
+
+    rows = db.execute(
+        text("""
+            SELECT doc_type, doc_number, client_name, total_cents, vat_amount_cents,
+                   payment_method, issued_at
+            FROM invoices
+            WHERE studio_id = :sid
+              AND issued_at >= :df AND issued_at <= :dt
+              AND status != 'voided'
+            ORDER BY issued_at
+        """),
+        {"sid": ctx.studio_id, "df": date_from, "dt": date_to}
+    ).fetchall()
+
+    method_labels = {
+        "cash": "מזומן", "bit": "Bit", "paybox": "PayBox",
+        "credit_card": "כרטיס אשראי", "bank_transfer": "העברה בנקאית",
+        "check": "צ'ק", "other": "אחר",
+    }
+    doc_labels = {
+        "invoice_tax": "חשבונית מס", "receipt": "קבלה",
+        "invoice_tax_receipt": "חשבונית מס/קבלה", "credit": "זיכוי",
+        "transaction": "חשבונית עסקה",
+    }
+
+    rows_html = ""
+    total_sum = 0
+    vat_sum = 0
+    for r in rows:
+        total_ils = round((r[3] or 0) / 100, 2)
+        vat_ils = round((r[4] or 0) / 100, 2)
+        total_sum += total_ils
+        vat_sum += vat_ils
+        issued = r[6].strftime("%d/%m/%Y") if r[6] else ""
+        rows_html += f"""
+        <tr>
+          <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0">{doc_labels.get(r[0], r[0])} #{r[1]}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0">{r[2] or '—'}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;text-align:center">{issued}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;text-align:center">{method_labels.get(r[5] or '', r[5] or '—')}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;text-align:left;font-weight:700">₪{total_ils:.2f}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;text-align:left">₪{vat_ils:.2f}</td>
+        </tr>"""
+
+    biz_name = getattr(studio_settings, "studio_name", "") or ""
+    html = f"""
+    <html dir="rtl" lang="he"><head><meta charset="UTF-8">
+    <style>body{{font-family:Arial,sans-serif;direction:rtl;color:#1a1a2e}}
+    table{{width:100%;border-collapse:collapse}}th{{background:#1a1a2e;color:#fff;padding:10px 12px;font-size:13px}}</style>
+    </head><body>
+    <div style="max-width:700px;margin:0 auto;padding:20px">
+      <h2 style="color:#1a1a2e;margin-bottom:4px">דוח מסמכים — {biz_name}</h2>
+      <p style="color:#64748b;font-size:13px;margin-bottom:20px">
+        תקופה: {date_from[:10]} עד {date_to[:10]} | סה"כ {len(rows)} מסמכים
+      </p>
+      <table>
+        <thead><tr>
+          <th>מסמך</th><th>לקוח</th><th>תאריך</th><th>אמצעי תשלום</th>
+          <th style="text-align:left">סכום</th><th style="text-align:left">מע"מ</th>
+        </tr></thead>
+        <tbody>{rows_html}</tbody>
+        <tfoot><tr style="background:#f8fafc;font-weight:700">
+          <td colspan="4" style="padding:10px 12px;text-align:right">סה"כ</td>
+          <td style="padding:10px 12px;text-align:left">₪{total_sum:.2f}</td>
+          <td style="padding:10px 12px;text-align:left">₪{vat_sum:.2f}</td>
+        </tr></tfoot>
+      </table>
+      <p style="color:#94a3b8;font-size:11px;margin-top:20px">נשלח ממערכת BizControl</p>
+    </div></body></html>"""
+
+    ok = send_email_sync(
+        api_key=resend_key,
+        from_email=from_email,
+        to_email=accountant_email,
+        subject=f"דוח מסמכים {date_from[:10]}–{date_to[:10]} | {biz_name}",
+        html_content=html,
+    )
+    if not ok:
+        raise HTTPException(500, "שגיאה בשליחת המייל. בדוק את הגדרות ה-Resend.")
+    return {"sent": len(rows)}
 
 
 @router.get("/series")
