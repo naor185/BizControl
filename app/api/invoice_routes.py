@@ -1142,6 +1142,9 @@ def download_pdf(
     inv = dict(row._mapping)
     item_list = [dict(r._mapping) for r in items]
 
+    # Attach club member points if applicable
+    _attach_points_to_inv(db, inv)
+
     try:
         pdf_bytes = _build_pdf(inv, item_list)
     except Exception as e:
@@ -1246,6 +1249,29 @@ def _get_pdf_fonts():
 
 
 # ── PDF Builder ───────────────────────────────────────────────────────────────
+
+def _attach_points_to_inv(db, inv: dict) -> None:
+    """Add loyalty_points_total and points_earned to invoice dict for PDF rendering."""
+    client_id = inv.get("client_id")
+    appointment_id = inv.get("appointment_id")
+    if not client_id:
+        return
+    client_row = db.execute(
+        text("SELECT loyalty_points, is_club_member FROM clients WHERE id = :id"),
+        {"id": str(client_id)},
+    ).fetchone()
+    if not client_row or not client_row[1]:
+        return
+    inv["loyalty_points_total"] = int(client_row[0] or 0)
+    if appointment_id:
+        earned_row = db.execute(
+            text("SELECT COALESCE(SUM(delta_points), 0) FROM client_points_ledger WHERE appointment_id = :aid AND client_id = :cid AND delta_points > 0"),
+            {"aid": str(appointment_id), "cid": str(client_id)},
+        ).fetchone()
+        earned = int(earned_row[0]) if earned_row else 0
+        if earned > 0:
+            inv["points_earned"] = earned
+
 
 def _build_pdf(inv: dict, items: list) -> bytes:
     from reportlab.lib import colors
@@ -1479,6 +1505,24 @@ def _build_pdf(inv: dict, items: list) -> bytes:
             y -= 13
             c.drawRightString(W - 1.5*cm, y, h(f"אסמכתה: {inv['payment_reference']}"))
         y -= 16
+
+    # ── Club member points ────────────────────────────────────
+    points_earned = inv.get("points_earned")
+    points_total = inv.get("loyalty_points_total")
+    if points_earned or points_total is not None:
+        y -= 4
+        c.setFillColor(colors.HexColor("#f0fdf4"))
+        c.roundRect(1.5*cm, y - 28, W - 3*cm, 30, 4, fill=1, stroke=0)
+        c.setFillColor(colors.HexColor("#166534"))
+        if points_earned:
+            c.setFont(F_BOLD, 9)
+            c.drawRightString(W - 2.2*cm, y - 10, h(f"⭐ בקנייה זו צברת {points_earned} נקודות למימוש בקנייה הבאה!"))
+            c.setFont(F_REG, 9)
+            c.drawRightString(W - 2.2*cm, y - 22, h(f"סך הכל נקודות: {points_total}"))
+        else:
+            c.setFont(F_REG, 9)
+            c.drawRightString(W - 2.2*cm, y - 16, h(f"⭐ סך הכל נקודות מועדון: {points_total}"))
+        y -= 38
 
     # ── Notes & Terms ─────────────────────────────────────────
     if inv.get("notes"):

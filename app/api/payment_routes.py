@@ -20,6 +20,30 @@ from app.services.pdf_service import generate_receipt_pdf, generate_invoice_pdf
 
 router = APIRouter(prefix="/payments", tags=["Payments"])
 
+
+def _attach_points(db, inv: dict) -> None:
+    """Add loyalty_points_total and points_earned to invoice dict for PDF rendering."""
+    from sqlalchemy import text as _t
+    client_id = inv.get("client_id")
+    appointment_id = inv.get("appointment_id")
+    if not client_id:
+        return
+    client_row = db.execute(
+        _t("SELECT loyalty_points, is_club_member FROM clients WHERE id = :id"),
+        {"id": str(client_id)},
+    ).fetchone()
+    if not client_row or not client_row[1]:
+        return
+    inv["loyalty_points_total"] = int(client_row[0] or 0)
+    if appointment_id:
+        earned_row = db.execute(
+            _t("SELECT COALESCE(SUM(delta_points), 0) FROM client_points_ledger WHERE appointment_id = :aid AND client_id = :cid AND delta_points > 0"),
+            {"aid": str(appointment_id), "cid": str(client_id)},
+        ).fetchone()
+        earned = int(earned_row[0]) if earned_row else 0
+        if earned > 0:
+            inv["points_earned"] = earned
+
 @router.post("", response_model=PaymentOut, status_code=status.HTTP_201_CREATED)
 def create(payload: PaymentCreate, ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
     try:
@@ -240,35 +264,53 @@ def download_receipt(
     ctx: AuthContext = Depends(require_studio_ctx),
     db: Session = Depends(get_db),
 ):
+    from sqlalchemy import text as _t
+    from app.api.invoice_routes import _build_pdf, DOC_TYPES
+
     payment = db.scalar(select(Payment).where(Payment.id == payment_id, Payment.studio_id == ctx.studio_id))
     if not payment:
         raise HTTPException(status_code=404, detail="Payment not found")
 
-    appointment = db.get(Appointment, payment.appointment_id) if payment.appointment_id else None
-    client = db.get(Client, payment.client_id) if payment.client_id else None
-    studio = db.get(Studio, ctx.studio_id)
-    settings = db.get(StudioSettings, ctx.studio_id)
+    inv_row = db.execute(
+        _t("SELECT * FROM invoices WHERE source_id = :pid AND studio_id = :sid AND doc_type != 'credit' LIMIT 1"),
+        {"pid": str(payment_id), "sid": str(ctx.studio_id)},
+    ).fetchone()
 
-    logo_url = None
-    if settings and settings.logo_filename:
-        logo_url = os.path.join("uploads", settings.logo_filename)
-    elif studio and studio.logo_url:
-        logo_url = studio.logo_url
+    if inv_row:
+        inv = dict(inv_row._mapping)
+        items = db.execute(
+            _t("SELECT * FROM invoice_items WHERE invoice_id = :id ORDER BY sort_order"),
+            {"id": inv["id"]},
+        ).fetchall()
+        item_list = [dict(r._mapping) for r in items]
+        _attach_points(db, inv)
+        pdf_bytes = _build_pdf(inv, item_list)
+        doc_label = DOC_TYPES.get(inv["doc_type"], "קבלה")
+        filename = f"{doc_label}_{inv['doc_number']}.pdf"
+    else:
+        appointment = db.get(Appointment, payment.appointment_id) if payment.appointment_id else None
+        client = db.get(Client, payment.client_id) if payment.client_id else None
+        studio = db.get(Studio, ctx.studio_id)
+        settings = db.get(StudioSettings, ctx.studio_id)
+        logo_url = None
+        if settings and settings.logo_filename:
+            logo_url = os.path.join("uploads", settings.logo_filename)
+        elif studio and studio.logo_url:
+            logo_url = studio.logo_url
+        pdf_bytes = generate_receipt_pdf(
+            payment=payment,
+            appointment=appointment,
+            client=client,
+            studio_name=studio.name if studio else "Studio",
+            studio_slug=studio.slug if studio else "",
+            logo_url=logo_url,
+        )
+        filename = f"receipt_{str(payment_id)[:8].upper()}.pdf"
 
-    pdf_bytes = generate_receipt_pdf(
-        payment=payment,
-        appointment=appointment,
-        client=client,
-        studio_name=studio.name if studio else "Studio",
-        studio_slug=studio.slug if studio else "",
-        logo_url=logo_url,
-    )
-
-    short_id = str(payment_id)[:8].upper()
     return StreamingResponse(
         io.BytesIO(pdf_bytes),
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="receipt_{short_id}.pdf"'},
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 
@@ -293,23 +335,43 @@ def download_invoice(
     elif studio and studio.logo_url:
         logo_url_inv = studio.logo_url
 
-    pdf_bytes = generate_invoice_pdf(
-        payment=payment,
-        appointment=appointment,
-        client=client,
-        studio_name=studio.name if studio else "Studio",
-        studio_slug=studio.slug if studio else "",
-        studio_address=settings.studio_address if settings else None,
-        bank_name=settings.bank_name if settings else None,
-        bank_branch=settings.bank_branch if settings else None,
-        bank_account=settings.bank_account if settings else None,
-        vat_percent=float(settings.vat_percent) if settings else 18.0,
-        logo_url=logo_url_inv,
-    )
+    from sqlalchemy import text as _t
+    from app.api.invoice_routes import _build_pdf, DOC_TYPES
 
-    short_id = str(payment_id)[:8].upper()
+    inv_row2 = db.execute(
+        _t("SELECT * FROM invoices WHERE source_id = :pid AND studio_id = :sid AND doc_type != 'credit' LIMIT 1"),
+        {"pid": str(payment_id), "sid": str(ctx.studio_id)},
+    ).fetchone()
+
+    if inv_row2:
+        inv2 = dict(inv_row2._mapping)
+        items2 = db.execute(
+            _t("SELECT * FROM invoice_items WHERE invoice_id = :id ORDER BY sort_order"),
+            {"id": inv2["id"]},
+        ).fetchall()
+        item_list2 = [dict(r._mapping) for r in items2]
+        _attach_points(db, inv2)
+        pdf_bytes = _build_pdf(inv2, item_list2)
+        doc_label2 = DOC_TYPES.get(inv2["doc_type"], "חשבונית")
+        filename2 = f"{doc_label2}_{inv2['doc_number']}.pdf"
+    else:
+        pdf_bytes = generate_invoice_pdf(
+            payment=payment,
+            appointment=appointment,
+            client=client,
+            studio_name=studio.name if studio else "Studio",
+            studio_slug=studio.slug if studio else "",
+            studio_address=settings.studio_address if settings else None,
+            bank_name=settings.bank_name if settings else None,
+            bank_branch=settings.bank_branch if settings else None,
+            bank_account=settings.bank_account if settings else None,
+            vat_percent=float(settings.vat_percent) if settings else 18.0,
+            logo_url=logo_url_inv,
+        )
+        filename2 = f"invoice_{str(payment_id)[:8].upper()}.pdf"
+
     return StreamingResponse(
         io.BytesIO(pdf_bytes),
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="invoice_{short_id}.pdf"'},
+        headers={"Content-Disposition": f'attachment; filename="{filename2}"'},
     )

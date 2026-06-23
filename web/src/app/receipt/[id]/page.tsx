@@ -38,6 +38,8 @@ type Receipt = {
   payment_method_label: string;
   notes: string | null;
   items: ReceiptItem[];
+  points_earned: number | null;
+  loyalty_points_total: number | null;
 };
 
 function fmt(n: number) {
@@ -202,6 +204,20 @@ export default function PublicReceiptPage() {
               <div className="flex items-center gap-2 bg-green-50 text-green-800 rounded-lg px-4 py-2.5 text-sm">
                 <span>✅</span>
                 <span>שולם ב{receipt.payment_method_label}</span>
+              </div>
+            )}
+
+            {/* Club member points */}
+            {receipt.loyalty_points_total !== null && receipt.loyalty_points_total !== undefined && (
+              <div className="bg-green-50 border border-green-100 rounded-xl px-4 py-3 text-sm text-green-800">
+                {receipt.points_earned ? (
+                  <>
+                    <p className="font-bold">⭐ בקנייה זו צברת {receipt.points_earned} נקודות למימוש בקנייה הבאה שלך!</p>
+                    <p className="mt-0.5 text-green-700">סך הכל נקודות: {receipt.loyalty_points_total}</p>
+                  </>
+                ) : (
+                  <p className="font-medium">⭐ סך הכל נקודות מועדון: {receipt.loyalty_points_total}</p>
+                )}
               </div>
             )}
 

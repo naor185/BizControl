@@ -599,6 +599,27 @@ def get_public_receipt(invoice_id: str, db: Session = Depends(get_db)):
     else:
         issued_at_str = ""
 
+    # Club member points
+    points_earned = None
+    points_total = None
+    client_id = inv.get("client_id")
+    appointment_id = inv.get("appointment_id")
+    if client_id:
+        client_row = db.execute(
+            text("SELECT loyalty_points, is_club_member FROM clients WHERE id = :id"),
+            {"id": str(client_id)},
+        ).fetchone()
+        if client_row and client_row[1]:
+            points_total = int(client_row[0] or 0)
+            if appointment_id:
+                earned_row = db.execute(
+                    text("SELECT COALESCE(SUM(delta_points), 0) FROM client_points_ledger WHERE appointment_id = :aid AND client_id = :cid AND delta_points > 0"),
+                    {"aid": str(appointment_id), "cid": str(client_id)},
+                ).fetchone()
+                earned = int(earned_row[0]) if earned_row else 0
+                if earned > 0:
+                    points_earned = earned
+
     return {
         "id": str(inv["id"]),
         "doc_type": inv.get("doc_type"),
@@ -625,6 +646,8 @@ def get_public_receipt(invoice_id: str, db: Session = Depends(get_db)):
         "payment_method_label": method_labels.get(inv.get("payment_method", ""), inv.get("payment_method") or ""),
         "notes": inv.get("notes"),
         "items": item_list,
+        "points_earned": points_earned,
+        "loyalty_points_total": points_total,
     }
 
 
