@@ -8,6 +8,11 @@ export const metadata = {
   title: "BizControl",
   description: "Studio CRM",
   manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "BizControl",
+  },
   icons: {
     icon: "/icons/icon-192.png",
     apple: "/icons/icon-192.png",
@@ -17,6 +22,10 @@ export const metadata = {
 
 export const viewport = {
   themeColor: "#000000",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  userScalable: true,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

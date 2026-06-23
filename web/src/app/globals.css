@@ -17,6 +17,18 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* PWA: prevent rubber-band scroll on iOS in standalone mode */
+  overscroll-behavior: none;
+}
+
+/* Remove 300ms tap delay on touch devices */
+button, a, input, select, textarea {
+  touch-action: manipulation;
+}
+
+/* Safe area padding utility for iOS home indicator */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 html {

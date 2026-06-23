@@ -41,6 +41,7 @@ export default function PaymentModal({ isOpen, onClose, onSuccess, appointment }
     const [splitEnabled, setSplitEnabled] = useState(false);
     const [splitAmt1, setSplitAmt1] = useState<string>("");
     const [splitMethod2, setSplitMethod2] = useState<string>("bit");
+    const [sendReceipt, setSendReceipt] = useState(true);
 
     useEffect(() => {
         if (appointment && isOpen) {
@@ -58,6 +59,7 @@ export default function PaymentModal({ isOpen, onClose, onSuccess, appointment }
             setSplitEnabled(false);
             setSplitAmt1("");
             setSplitMethod2("bit");
+            setSendReceipt(true);
             getProducts().then(setAllProducts).catch(console.error);
         }
     }, [appointment, isOpen]);
@@ -133,9 +135,10 @@ export default function PaymentModal({ isOpen, onClose, onSuccess, appointment }
                         method,
                         notes: notes ? `${notes} [חלק 1 מפיצול]` : "[חלק 1 מפיצול]",
                         coupon_code: couponValid && couponCode.trim() ? couponCode.trim().toUpperCase() : null,
+                        send_receipt: sendReceipt,
                     }),
                 });
-                // Second payment — no discounts (already applied to first)
+                // Second payment — no discounts (already applied to first), no second receipt
                 await apiFetch("/api/payments", {
                     method: "POST",
                     body: JSON.stringify({
@@ -146,6 +149,7 @@ export default function PaymentModal({ isOpen, onClose, onSuccess, appointment }
                         notes: notes ? `${notes} [חלק 2 מפיצול]` : "[חלק 2 מפיצול]",
                         coupon_code: null,
                         product_items: [],
+                        send_receipt: false,
                     }),
                 });
             } else {
@@ -158,6 +162,7 @@ export default function PaymentModal({ isOpen, onClose, onSuccess, appointment }
                         method,
                         notes,
                         coupon_code: couponValid && couponCode.trim() ? couponCode.trim().toUpperCase() : null,
+                        send_receipt: sendReceipt,
                     }),
                 });
             }
@@ -468,6 +473,20 @@ export default function PaymentModal({ isOpen, onClose, onSuccess, appointment }
                     <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={1}
                         placeholder="הערות לתיעוד (אופציונלי)..."
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none resize-none" />
+
+                    {/* Send receipt toggle */}
+                    <button
+                        type="button"
+                        onClick={() => setSendReceipt(v => !v)}
+                        className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl border transition-colors ${sendReceipt ? "bg-sky-50 border-sky-200" : "bg-slate-50 border-slate-200"}`}
+                    >
+                        <span className={`text-xs font-bold ${sendReceipt ? "text-sky-700" : "text-slate-500"}`}>
+                            {sendReceipt ? "📨 שלח קבלה ללקוח" : "🔕 לא לשלוח קבלה ללקוח"}
+                        </span>
+                        <div className={`relative w-9 h-5 rounded-full transition-colors ${sendReceipt ? "bg-sky-500" : "bg-slate-300"}`}>
+                            <div className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${sendReceipt ? "right-0.5" : "left-0.5"}`} />
+                        </div>
+                    </button>
                 </div>
 
                 {/* Footer */}

@@ -209,16 +209,17 @@ def create_payment(db: Session, studio_id: UUID, data) -> Payment:
         db.commit()
 
     # Auto-create invoice/receipt for paid transactions (best-effort, non-blocking)
+    send_receipt = getattr(data, "send_receipt", True)
     if obj.status == "paid" and obj.type in ("payment", "deposit"):
         try:
-            _auto_create_invoice(db, studio_id, obj, appt, client)
+            _auto_create_invoice(db, studio_id, obj, appt, client, send_receipt=send_receipt)
         except Exception:
             import logging as _log
             _log.getLogger(__name__).exception("[auto-invoice] FAILED for payment %s (type=%s amount=%s)", obj.id, obj.type, obj.amount_cents)
 
     return obj
 
-def _auto_create_invoice(db: Session, studio_id: UUID, payment: Payment, appt, client) -> str:
+def _auto_create_invoice(db: Session, studio_id: UUID, payment: Payment, appt, client, *, send_receipt: bool = True) -> str:
     """Create an invoice/receipt automatically when a payment is recorded."""
     import uuid as _uuid
     from sqlalchemy import text
@@ -324,8 +325,9 @@ def _auto_create_invoice(db: Session, studio_id: UUID, payment: Payment, appt, c
     )
     db.commit()
 
-    # Send receipt link to client via WhatsApp
-    _enqueue_receipt_link(db, studio_id, invoice_id, appt, client)
+    # Send receipt link to client via WhatsApp (only if studio explicitly requested it)
+    if send_receipt:
+        _enqueue_receipt_link(db, studio_id, invoice_id, appt, client)
 
     return invoice_id
 

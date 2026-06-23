@@ -411,6 +411,7 @@ export default function CalendarPage() {
         setClientId(""); setClientSearch(""); setIsWalkIn(false);
         setArtistId(""); setStatus("scheduled"); setNotes(""); setSelectedServiceId("");
         setShowNewClientForm(false);
+        setNewClientName(""); setNewClientPhone(""); setNewClientClub(false); setNewClientErr(null);
         setIsModalOpen(true);
     };
 
@@ -475,6 +476,8 @@ export default function CalendarPage() {
         setDepositAmount(app.deposit_amount_cents ? Math.round(app.deposit_amount_cents / 100) : "");
         setApptInvoiceId(null);
         setApptInvoiceData(null);
+        setShowNewClientForm(false);
+        setNewClientName(""); setNewClientPhone(""); setNewClientClub(false); setNewClientErr(null);
         setIsModalOpen(true);
         // Load existing invoice for this appointment (avoid duplicate creation)
         apiFetch<{ items: any[]; total: number }>(`/api/invoices?appointment_id=${app.id}&limit=1`)
@@ -993,8 +996,9 @@ export default function CalendarPage() {
 
                 {/* Appointment Modal */}
                 {isModalOpen && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-3 sm:p-4 animate-in fade-in duration-200">
-                        <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden max-h-[calc(100vh-5rem)] flex flex-col animate-in zoom-in-95 duration-300" dir="rtl">
+                    <div className={`fixed inset-0 z-50 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200 ${isMobile ? "flex items-end justify-center" : "flex items-center justify-center p-3 sm:p-4"}`}>
+                        <div className={`bg-white w-full shadow-2xl overflow-hidden flex flex-col ${isMobile ? "rounded-t-3xl max-h-[92vh] animate-in slide-in-from-bottom duration-300" : "rounded-3xl max-w-lg max-h-[calc(100vh-5rem)] animate-in zoom-in-95 duration-300"}`} dir="rtl">
+                            {isMobile && <div className="flex justify-center pt-3 pb-1 flex-shrink-0"><div className="w-10 h-1 rounded-full bg-slate-300" /></div>}
                             <div className="bg-slate-50 border-b border-slate-100 px-5 py-4 flex items-center justify-between flex-shrink-0">
                                 <h3 className="text-xl font-bold text-slate-800">{selectedEventId ? "עריכת תור" : "קביעת תור חדש"}</h3>
                                 <button type="button" onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-2 bg-white rounded-full shadow-sm hover:shadow transition-all">✕</button>
@@ -1100,7 +1104,7 @@ export default function CalendarPage() {
                                     <div className="flex gap-2 mb-2">
                                         <button
                                             type="button"
-                                            onClick={() => { setShowNewClientForm(v => !v); setNewClientErr(null); }}
+                                            onClick={() => { setShowNewClientForm(v => { if (v) { setNewClientName(""); setNewClientPhone(""); setNewClientClub(false); } return !v; }); setNewClientErr(null); }}
                                             className={`flex-1 py-2 px-3 rounded-xl text-sm font-bold border-2 transition-all ${showNewClientForm ? "bg-blue-600 border-blue-600 text-white" : "bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"}`}
                                         >
                                             + צור לקוח חדש
@@ -1566,7 +1570,7 @@ export default function CalendarPage() {
 
                 {/* Mobile FAB */}
                 <button
-                    className="fixed bottom-24 left-4 z-40 sm:hidden w-14 h-14 bg-sky-600 text-white rounded-full shadow-2xl shadow-slate-900/40 flex items-center justify-center text-3xl font-light active:scale-95 transition-transform"
+                    className="fixed bottom-28 left-4 z-40 sm:hidden w-14 h-14 bg-sky-600 text-white rounded-full shadow-2xl shadow-slate-900/40 flex items-center justify-center text-3xl font-light active:scale-95 transition-transform"
                     onClick={() => {
                         const now = new Date();
                         const later = new Date(now.getTime() + 2 * 60 * 60 * 1000);
@@ -1580,6 +1584,7 @@ export default function CalendarPage() {
                         setClientId(""); setClientSearch(""); setIsWalkIn(false);
                         setArtistId(""); setStatus("scheduled"); setNotes("");
                         setShowNewClientForm(false);
+                        setNewClientName(""); setNewClientPhone(""); setNewClientClub(false); setNewClientErr(null);
                         setIsModalOpen(true);
                     }}
                 >

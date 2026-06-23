@@ -35,6 +35,9 @@ class PaymentCreate(BaseModel):
     # Optional list of products sold
     product_items: Optional[list[ProductItemCreate]] = None
 
+    # Whether to send receipt link to client via WhatsApp/email after payment
+    send_receipt: bool = True
+
 class PaymentOut(BaseModel):
     id: UUID
     studio_id: UUID
