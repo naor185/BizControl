@@ -85,8 +85,36 @@ def _green_post(url: str, payload: bytes) -> dict:
     return data
 
 
+_green_state_cache: dict[str, tuple[str, float]] = {}  # instance_id → (state, expiry_ts)
+
+
+def _check_green_state(instance_id: str, api_key: str) -> str:
+    """Return stateInstance, cached for 60s to avoid hammering Green API."""
+    import time as _time, urllib.request as _ur, json as _j
+    now = _time.monotonic()
+    cached = _green_state_cache.get(instance_id)
+    if cached and now < cached[1]:
+        return cached[0]
+    try:
+        url = f"https://api.green-api.com/waInstance{instance_id}/getStateInstance/{api_key}"
+        with _ur.urlopen(_ur.Request(url), timeout=5) as r:
+            state = _j.loads(r.read()).get("stateInstance", "unknown")
+    except Exception:
+        state = "unknown"
+    _green_state_cache[instance_id] = (state, now + 60)
+    return state
+
+
 def _send_via_green(instance_id: str, api_key: str, to_phone: str, body: str, media_url: str | None = None) -> None:
     import json as _json
+
+    state = _check_green_state(instance_id, api_key)
+    if state in ("notAuthorized", "blocked"):
+        raise RuntimeError(
+            f"WhatsApp מנותק (מצב: {state}). "
+            "יש לסרוק מחדש QR בהגדרות WhatsApp → אינטגרציות."
+        )
+
     clean = _normalize_phone(to_phone)
 
     if media_url:

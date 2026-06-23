@@ -76,6 +76,7 @@ export default function AppShell({
     const [pendingDepositsCount, setPendingDepositsCount] = useState(0);
     const [enabledModules, setEnabledModules] = useState<Record<string, boolean> | null>(null);
     const [showWaModal, setShowWaModal] = useState(false);
+    const [waDisconnected, setWaDisconnected] = useState(false);
 
     useEffect(() => {
         if (typeof window !== "undefined") {
@@ -118,6 +119,15 @@ export default function AppShell({
                     if (days >= 0 && days <= 14) setTrialDaysLeft(days);
                 }
             } catch { /* silent */ }
+
+            // Non-blocking: check WhatsApp connection state
+            apiFetch<{ connected: boolean; status: string }>("/api/whatsapp/status")
+                .then(s => {
+                    if (s.status !== "not_configured" && s.status !== "authorized" && s.status !== "unknown") {
+                        setWaDisconnected(true);
+                    }
+                })
+                .catch(() => {});
         })();
     }, []);
 
@@ -174,6 +184,19 @@ export default function AppShell({
                     </span>
                     <Link href="/billing" className="bg-white text-violet-700 px-3 py-1 rounded-lg text-xs font-bold hover:bg-violet-50 transition-colors no-underline">
                         שדרגו עכשיו ←
+                    </Link>
+                </div>
+            )}
+
+            {/* WhatsApp disconnection banner */}
+            {waDisconnected && (
+                <div className="bg-rose-600 text-white text-sm font-semibold px-4 py-2.5 flex items-center justify-between z-50 relative">
+                    <span className="flex items-center gap-2">
+                        <span>⚠️</span>
+                        <span>WhatsApp מנותק — הודעות לא נשלחות ללקוחות!</span>
+                    </span>
+                    <Link href="/integrations/whatsapp" className="bg-white text-rose-700 px-3 py-1 rounded-lg text-xs font-bold hover:bg-rose-50 transition-colors no-underline shrink-0">
+                        חבר מחדש ←
                     </Link>
                 </div>
             )}
