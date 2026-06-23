@@ -170,7 +170,7 @@ function PageInner() {
         }
         try {
             setIsSaving(true);
-            await apiFetch("/api/clients", {
+            const result = await apiFetch<{ id: string; is_club_member: boolean }>("/api/clients", {
                 method: "POST",
                 body: JSON.stringify({
                     full_name: newName.trim(), phone: newPhone.trim(),
@@ -183,6 +183,11 @@ function PageInner() {
             setNewBirthDate(""); setNewNotes(""); setIsClubMember(false);
             setCreateError(null);
             loadClients();
+            if (isClubMember && result?.is_club_member) {
+                toast.success("הלקוח שודרג לחבר מועדון ✅");
+            } else {
+                toast.success("לקוח נוסף בהצלחה ✅");
+            }
         } catch (e: unknown) {
             setCreateError((e as Error)?.message || "שגיאה ביצירת לקוח");
         } finally { setIsSaving(false); }

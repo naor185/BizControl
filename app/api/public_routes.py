@@ -150,17 +150,21 @@ def join_studio(studio_id: str, payload: ClientJoinRequest, db: Session = Depend
     email_clean = str(payload.email).lower().strip() if payload.email else None
     studio_uuid = PyUUID(studio_id)
 
-    conditions = [func.lower(Client.full_name) == full_name_clean.lower()]
+    # Match by phone (primary) or email (secondary) — never by name alone,
+    # as names are not unique identifiers.
+    conditions = []
     if phone_clean:
         conditions.append(Client.phone == phone_clean)
     if email_clean:
         conditions.append(Client.email == email_clean)
 
-    existing = db.query(Client).filter(
-        Client.studio_id == studio_id,
-        Client.is_active == True,  # noqa: E712
-        or_(*conditions)
-    ).first()
+    existing = None
+    if conditions:
+        existing = db.query(Client).filter(
+            Client.studio_id == studio_id,
+            Client.is_active == True,  # noqa: E712
+            or_(*conditions)
+        ).first()
 
     if existing:
         _maybe_create_lead(db, studio_id, existing.full_name, existing.phone, payload)

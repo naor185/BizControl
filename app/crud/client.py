@@ -15,6 +15,27 @@ def _handle_new_club_member(db: Session, studio_id: UUID, client: Client):
     from app.models.message_job import MessageJob
     from app.crud.automation import format_template
     from datetime import datetime, timezone
+    from sqlalchemy import select as _sel
+
+    # ── Idempotency guard ────────────────────────────────────────────────────
+    # Prevents duplicate points + welcome messages when called multiple times
+    # (e.g. WhatsApp failed → user retried enrollment, or toggle off/on).
+    already_bonus = db.scalar(
+        _sel(ClientPointsLedger).where(
+            ClientPointsLedger.client_id == client.id,
+            ClientPointsLedger.reason == "Club signup bonus",
+        )
+    )
+    already_welcome = db.scalar(
+        _sel(MessageJob).where(
+            MessageJob.client_id == client.id,
+            MessageJob.reminder_type == "club_welcome",
+        )
+    )
+    if already_bonus or already_welcome:
+        log.info("_handle_new_club_member: already processed for client %s — skipping", client.id)
+        return
+    # ─────────────────────────────────────────────────────────────────────────
 
     settings = db.get(StudioSettings, studio_id)
     if not settings:
@@ -74,6 +95,7 @@ def _handle_new_club_member(db: Session, studio_id: UUID, client: Client):
             body=wa_body,
             scheduled_at=datetime.now(timezone.utc),
             status="pending",
+            reminder_type="club_welcome",
         ))
 
     # In-app notification to studio owner — always show total points balance
@@ -222,6 +244,15 @@ def create_client(db: Session, studio_id: UUID, data: ClientCreate, background_t
 
     if existing:
         if existing.is_active:
+            # Merge: if adding as club member and client exists as regular → upgrade
+            if data.is_club_member:
+                if not existing.is_club_member:
+                    existing.is_club_member = True
+                    _trigger_club_welcome(db, studio_id, existing)
+                    db.commit()
+                    db.refresh(existing)
+                # Already a club member — return as-is (idempotent)
+                return existing
             raise ValueError("לקוח עם טלפון או אימייל זהה כבר קיים במערכת")
 
         was_club = existing.is_club_member
