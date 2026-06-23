@@ -285,6 +285,16 @@ def process_due_jobs(db: Session, limit: int = 20) -> int:
 
     for job in jobs:
         try:
+            # Club invite: skip if client already joined the club since enqueueing
+            if getattr(job, "reminder_type", None) in ("club_invite", "club_invite_email") and job.client_id:
+                _client_check = db.get(Client, job.client_id)
+                if _client_check and getattr(_client_check, "is_club_member", False):
+                    job.status = "canceled"
+                    job.last_error = "Client already joined club — invite skipped"
+                    db.commit()
+                    count += 1
+                    continue
+
             if job.channel == "whatsapp" and job.client_id:
                 client = db.get(Client, job.client_id)
                 if client and getattr(client, "whatsapp_opted_out", False):
@@ -828,4 +838,78 @@ def sweep_birthday_messages(db: Session) -> int:
     if count:
         db.commit()
     log.info("sweep_birthday_messages: sent %d messages for birthday month %d/%d", count, target_month, target_year)
+    return count
+
+
+def sweep_deposit_reminders(db: Session) -> int:
+    """
+    24 שעות אחרי קביעת תור שדורש מקדמה — אם המקדמה טרם שולמה/אושרה,
+    שולחים ללקוח תזכורת לשלם מקדמה לשריון התור.
+    לא נשלחת אם: payment_verified_at IS NOT NULL / deposit_amount_cents = 0 / כבר נשלחה.
+    """
+    now = datetime.now(timezone.utc)
+    window_start = now - timedelta(hours=48)
+    window_end   = now - timedelta(hours=24)
+
+    appts = db.scalars(
+        select(Appointment).where(
+            Appointment.deposit_amount_cents > 0,
+            Appointment.payment_verified_at.is_(None),
+            Appointment.status == "scheduled",
+            Appointment.created_at >= window_start,
+            Appointment.created_at <= window_end,
+        )
+    ).all()
+
+    count = 0
+    for appt in appts:
+        if _already_enqueued(db, appt.id, "deposit_24h"):
+            continue
+
+        client = db.get(Client, appt.client_id)
+        if not client or not client.phone:
+            continue
+        if getattr(client, "whatsapp_opted_out", False):
+            continue
+
+        settings = db.get(StudioSettings, appt.studio_id)
+        if not settings:
+            continue
+
+        il_dt = appt.starts_at.astimezone(_IL_TZ)
+        date_str = il_dt.strftime("%d/%m/%Y")
+        time_str = il_dt.strftime("%H:%M")
+        deposit_ils = appt.deposit_amount_cents / 100
+
+        template = getattr(settings, "deposit_reminder_wa_template", None) or (
+            "היי {client_name} 👋\n\n"
+            "תזכורת: התור שלך בתאריך {date} בשעה {time} עדיין ממתין לאישור מקדמה.\n\n"
+            "💰 סכום המקדמה: ₪{deposit_amount}\n\n"
+            "לשריון התור יש לשלוח את המקדמה. ללא תשלום המקדמה התור אינו מאושר סופית.\n\n"
+            "לפרטים נוספים צור/י קשר ישירות."
+        )
+
+        body = format_template(template, {
+            "client_name": client.full_name or "",
+            "date": date_str,
+            "time": time_str,
+            "deposit_amount": f"{deposit_ils:.0f}" if deposit_ils == int(deposit_ils) else f"{deposit_ils:.2f}",
+        })
+
+        db.add(MessageJob(
+            studio_id=appt.studio_id,
+            client_id=appt.client_id,
+            appointment_id=appt.id,
+            channel="whatsapp",
+            to_phone=client.phone,
+            body=body,
+            scheduled_at=now,
+            status="pending",
+            reminder_type="deposit_24h",
+        ))
+        count += 1
+
+    if count:
+        db.commit()
+    log.info("sweep_deposit_reminders: enqueued %d deposit reminders", count)
     return count

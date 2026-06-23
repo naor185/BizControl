@@ -33,7 +33,7 @@ from app.core.limiter import limiter
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from app.db.session import SessionLocal
-from app.services.message_worker import process_due_jobs, sweep_upcoming_reminders, sweep_7day_reminders, sweep_3day_reminders, sweep_birthday_messages, sweep_same_day_reminders
+from app.services.message_worker import process_due_jobs, sweep_upcoming_reminders, sweep_7day_reminders, sweep_3day_reminders, sweep_birthday_messages, sweep_same_day_reminders, sweep_deposit_reminders
 from app.services.plan_alert_service import sweep_plan_expiry_alerts
 from app.api.router import api_router
 from app.services.automation_service import AutomationService
@@ -80,6 +80,13 @@ def start_scheduler():
         db = SessionLocal()
         try:
             sweep_birthday_messages(db)
+        finally:
+            db.close()
+
+    def tick_deposit_reminders():
+        db = SessionLocal()
+        try:
+            sweep_deposit_reminders(db)
         finally:
             db.close()
 
@@ -130,6 +137,7 @@ def start_scheduler():
     scheduler.add_job(tick_same_day_reminders, "cron", hour=8, minute=0, timezone="Asia/Jerusalem", id="same_day_reminders_tick", replace_existing=True)
     scheduler.add_job(tick_plan_alerts, "cron", hour=9, minute=0, id="plan_alerts_tick", replace_existing=True)
     scheduler.add_job(tick_birthday_messages, "cron", day=25, hour=10, minute=0, id="birthday_messages_tick", replace_existing=True)
+    scheduler.add_job(tick_deposit_reminders, "interval", hours=1, id="deposit_reminders_tick", replace_existing=True)
     scheduler.add_job(tick_birthday_automations, "cron", hour=9, minute=5, timezone="Asia/Jerusalem", id="birthday_automations_tick", replace_existing=True)
 
     def tick_waitlist_expiry():
