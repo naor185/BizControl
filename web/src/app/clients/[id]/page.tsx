@@ -667,18 +667,20 @@ export default function ClientProfilePage() {
                                 <div className="flex items-center justify-between">
                                     <div>
                                         <h3 className="text-base font-semibold text-slate-800">הודעות וואטסאפ</h3>
-                                        <p className="text-xs text-slate-500 mt-0.5">בטל שליחת הודעות אוטומטיות ללקוח זה</p>
+                                        <p className={`text-xs mt-0.5 font-medium ${profile.client.whatsapp_opted_out ? "text-rose-500" : "text-emerald-600"}`}>
+                                            {profile.client.whatsapp_opted_out ? "⛔ הודעות מושבתות ללקוח זה" : "✅ הלקוח מקבל הודעות אוטומטיות"}
+                                        </p>
                                     </div>
                                     <button
+                                        type="button"
+                                        dir="ltr"
                                         onClick={handleToggleOptOut}
-                                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${profile.client.whatsapp_opted_out ? "bg-rose-400" : "bg-emerald-500"}`}
+                                        title={profile.client.whatsapp_opted_out ? "לחץ להפעלת הודעות" : "לחץ לביטול הודעות"}
+                                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${profile.client.whatsapp_opted_out ? "bg-slate-300" : "bg-emerald-500"}`}
                                     >
                                         <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${profile.client.whatsapp_opted_out ? "translate-x-1" : "translate-x-6"}`} />
                                     </button>
                                 </div>
-                                {profile.client.whatsapp_opted_out && (
-                                    <p className="mt-2 text-xs text-rose-600 font-medium">לקוח זה לא יקבל הודעות וואטסאפ אוטומטיות</p>
-                                )}
                             </div>
 
                             {/* Messages */}
