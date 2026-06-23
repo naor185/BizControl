@@ -4,7 +4,7 @@ import { toast } from "@/lib/toast";
 import { useEffect, useMemo, useState } from "react";
 import RequireAuth from "@/components/RequireAuth";
 import AppShell from "@/components/AppShell";
-import { apiFetch, downloadReceipt, downloadInvoice, getCurrentUserRole } from "@/lib/api";
+import { apiFetch, downloadReceipt, getCurrentUserRole } from "@/lib/api";
 
 import Link from "next/link";
 
@@ -399,22 +399,11 @@ export default function Page() {
                                                                     <button
                                                                         type="button"
                                                                         onClick={() => downloadReceipt(e.paymentId!)}
-                                                                        className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-blue-500 transition-all p-1.5 rounded-lg hover:bg-blue-50"
+                                                                        className="text-slate-700 hover:text-blue-600 transition-colors p-1.5 rounded-lg hover:bg-blue-50"
                                                                         title="הורד קבלה PDF"
                                                                     >
                                                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                                                        </svg>
-                                                                    </button>
-                                                                    {/* Download invoice PDF */}
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => downloadInvoice(e.paymentId!)}
-                                                                        className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-purple-500 transition-all p-1.5 rounded-lg hover:bg-purple-50"
-                                                                        title="הורד חשבונית מס PDF"
-                                                                    >
-                                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                                                         </svg>
                                                                     </button>
                                                                     {/* Issue credit note — owner/admin/superadmin, only for non-refund entries */}
@@ -422,7 +411,7 @@ export default function Page() {
                                                                         <button
                                                                             type="button"
                                                                             onClick={() => setCreditingId(e.paymentId!)}
-                                                                            className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-amber-500 transition-all p-1.5 rounded-lg hover:bg-amber-50"
+                                                                            className="text-slate-700 hover:text-amber-600 transition-colors p-1.5 rounded-lg hover:bg-amber-50"
                                                                             title="הוצא זיכוי"
                                                                         >
                                                                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -435,7 +424,7 @@ export default function Page() {
                                                                         <button
                                                                             type="button"
                                                                             onClick={() => setDeletingId(e.paymentId!)}
-                                                                            className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 transition-all p-1.5 rounded-lg hover:bg-red-50"
+                                                                            className="text-slate-700 hover:text-red-600 transition-colors p-1.5 rounded-lg hover:bg-red-50"
                                                                             title="מחק תשלום לצמיתות (סופר-אדמין)"
                                                                         >
                                                                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
