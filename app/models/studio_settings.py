@@ -136,6 +136,7 @@ class StudioSettings(Base):
     waitlist_joined_wa_template: Mapped[str | None] = mapped_column(Text, nullable=True)
     receipt_link_wa_template: Mapped[str | None] = mapped_column(Text, nullable=True)
     pos_receipt_wa_template: Mapped[str | None] = mapped_column(Text, nullable=True)
+    deposit_reminder_wa_template: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Green API (WhatsApp via linked device)
     whatsapp_instance_id: Mapped[str | None] = mapped_column(String(255), nullable=True)

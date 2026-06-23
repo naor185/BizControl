@@ -196,6 +196,7 @@ def ensure_schema():
             "ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS waitlist_joined_wa_template TEXT",
             "ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS receipt_link_wa_template TEXT",
             "ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS pos_receipt_wa_template TEXT",
+            "ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS deposit_reminder_wa_template TEXT",
         ]:
             cur.execute(stmt)
         cur.execute("""

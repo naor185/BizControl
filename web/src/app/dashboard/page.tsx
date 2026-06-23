@@ -107,6 +107,24 @@ export default function Page() {
         }
     };
 
+    const [sendingReminder, setSendingReminder] = useState<string | null>(null);
+
+    const sendDepositReminder = async (id: string) => {
+        setSendingReminder(id);
+        try {
+            await apiFetch(`/api/appointments/${id}/send-deposit-reminder`, { method: "POST" });
+            setPendingDeposits(prev => prev.map(d =>
+                d.appointment_id === id
+                    ? { ...d, deposit_reminder_sent: true, deposit_reminder_sent_at: new Date().toISOString() }
+                    : d
+            ));
+        } catch (e: any) {
+            alert(e?.message || "שגיאה בשליחת תזכורת");
+        } finally {
+            setSendingReminder(null);
+        }
+    };
+
     const waiveDeposit = async (id: string) => {
         setWaivingDeposit(id);
         try {
@@ -259,8 +277,29 @@ export default function Page() {
                                             <div className="text-xs font-bold text-amber-600 mt-0.5">
                                                 מקדמה: ₪{(d.deposit_amount_cents / 100).toLocaleString()}
                                             </div>
+                                            {/* Reminder status */}
+                                            <div className="mt-1">
+                                                {d.deposit_reminder_sent ? (
+                                                    <span className="inline-flex items-center gap-1 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5">
+                                                        ✅ תזכורת נשלחה{d.deposit_reminder_sent_at ? ` · ${new Date(d.deposit_reminder_sent_at).toLocaleDateString("he-IL")}` : ""}
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center gap-1 text-xs text-slate-400 bg-slate-50 border border-slate-200 rounded-full px-2 py-0.5">
+                                                        🔔 טרם נשלחה תזכורת
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
                                         <div className="flex gap-2 shrink-0 flex-wrap justify-end">
+                                            <button
+                                                type="button"
+                                                onClick={() => sendDepositReminder(d.appointment_id)}
+                                                disabled={sendingReminder === d.appointment_id}
+                                                className="px-3 py-1.5 text-xs font-semibold text-orange-700 border border-orange-200 rounded-lg hover:bg-orange-50 transition disabled:opacity-50"
+                                                title="שלח תזכורת WhatsApp עכשיו"
+                                            >
+                                                {sendingReminder === d.appointment_id ? "שולח..." : "שלח תזכורת 🔔"}
+                                            </button>
                                             <button
                                                 onClick={() => waiveDeposit(d.appointment_id)}
                                                 disabled={waivingDeposit === d.appointment_id}

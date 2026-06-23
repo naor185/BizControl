@@ -144,6 +144,12 @@ const GROUPS: SectionGroup[] = [
                 hints: ["client_name","total_amount","points_earned","loyalty_points"],
             },
             {
+                id: "deposit_reminder", title: "תזכורת מקדמה", icon: "💰",
+                templateKey: "deposit_reminder_wa_template",
+                description: "נשלחת ללקוח 24 שעות לאחר קביעת תור אם המקדמה טרם שולמה. ניתן גם לשלוח ידנית מלוח הבקרה.",
+                hints: ["client_name","date","time","deposit_amount"],
+            },
+            {
                 id: "aftercare", title: "הוראות טיפול לאחר תור", icon: "🩹",
                 templateKey: "aftercare_message",
                 description: "הוראות אפטרקר שנשלחות לאחר סיום תור",

@@ -188,8 +188,17 @@ def list_pending_deposits(ctx: AuthContext = Depends(require_studio_ctx), db: Se
         .order_by(Appointment.starts_at)
         .all()
     )
+    from app.models.message_job import MessageJob
+    from sqlalchemy import select as _sel
+
     result = []
     for appt, client in rows:
+        reminder_job = db.scalar(
+            _sel(MessageJob).where(
+                MessageJob.appointment_id == appt.id,
+                MessageJob.reminder_type == "deposit_24h",
+            )
+        )
         result.append({
             "appointment_id": str(appt.id),
             "client_name": client.full_name,
@@ -199,8 +208,88 @@ def list_pending_deposits(ctx: AuthContext = Depends(require_studio_ctx), db: Se
             "starts_at": appt.starts_at.isoformat() if appt.starts_at else None,
             "deposit_amount_cents": appt.deposit_amount_cents,
             "payment_sent_at": appt.payment_sent_at.isoformat() if appt.payment_sent_at else None,
+            "deposit_reminder_sent": reminder_job is not None,
+            "deposit_reminder_sent_at": reminder_job.sent_at.isoformat() if reminder_job and reminder_job.sent_at else None,
         })
     return result
+
+
+@router.post("/{appointment_id}/send-deposit-reminder")
+def send_deposit_reminder_now(
+    appointment_id: UUID,
+    ctx: AuthContext = Depends(require_studio_ctx),
+    db: Session = Depends(get_db),
+):
+    """Manually send a deposit reminder WhatsApp right now (bypasses 24h window)."""
+    from app.models.appointment import Appointment
+    from app.models.client import Client
+    from app.models.message_job import MessageJob
+    from app.models.studio_settings import StudioSettings
+    from app.crud.automation import format_template
+    from app.services.message_worker import _IL_TZ
+    from datetime import datetime, timezone
+    from sqlalchemy import select as _sel
+    import pytz as _pytz
+
+    appt = db.scalar(
+        _sel(Appointment).where(Appointment.id == appointment_id, Appointment.studio_id == ctx.studio_id)
+    )
+    if not appt:
+        raise HTTPException(status_code=404, detail="תור לא נמצא")
+    if not appt.deposit_amount_cents:
+        raise HTTPException(status_code=400, detail="לתור זה אין מקדמה")
+
+    client = db.get(Client, appt.client_id)
+    if not client or not client.phone:
+        raise HTTPException(status_code=400, detail="לקוח ללא מספר טלפון")
+
+    settings = db.get(StudioSettings, ctx.studio_id)
+    now = datetime.now(timezone.utc)
+
+    il_dt = appt.starts_at.astimezone(_pytz.timezone("Asia/Jerusalem"))
+    date_str = il_dt.strftime("%d/%m/%Y")
+    time_str = il_dt.strftime("%H:%M")
+    deposit_ils = appt.deposit_amount_cents / 100
+
+    template = getattr(settings, "deposit_reminder_wa_template", None) or (
+        "היי {client_name} 👋\n\n"
+        "תזכורת: התור שלך בתאריך {date} בשעה {time} עדיין ממתין לאישור מקדמה.\n\n"
+        "💰 סכום המקדמה: ₪{deposit_amount}\n\n"
+        "לשריון התור יש לשלוח את המקדמה. ללא תשלום המקדמה התור אינו מאושר סופית.\n\n"
+        "לפרטים נוספים צור/י קשר ישירות."
+    )
+
+    body = format_template(template, {
+        "client_name": client.full_name or "",
+        "date": date_str,
+        "time": time_str,
+        "deposit_amount": f"{deposit_ils:.0f}" if deposit_ils == int(deposit_ils) else f"{deposit_ils:.2f}",
+    })
+
+    # Remove any previous pending deposit_24h job (avoid double send)
+    old_job = db.scalar(
+        _sel(MessageJob).where(
+            MessageJob.appointment_id == appt.id,
+            MessageJob.reminder_type == "deposit_24h",
+            MessageJob.status == "pending",
+        )
+    )
+    if old_job:
+        db.delete(old_job)
+
+    db.add(MessageJob(
+        studio_id=ctx.studio_id,
+        client_id=appt.client_id,
+        appointment_id=appt.id,
+        channel="whatsapp",
+        to_phone=client.phone,
+        body=body,
+        scheduled_at=now,
+        status="pending",
+        reminder_type="deposit_24h",
+    ))
+    db.commit()
+    return {"ok": True}
 
 
 @router.get("/{appointment_id}", response_model=AppointmentOut)
