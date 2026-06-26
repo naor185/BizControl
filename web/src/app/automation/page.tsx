@@ -572,6 +572,8 @@ export default function AutomationSettingsPage() {
     const [newTreatmentSendAftercare, setNewTreatmentSendAftercare] = useState(false);
     const [treatmentSaving, setTreatmentSaving] = useState(false);
     const [retroResult, setRetroResult] = useState<{ processed: number; failed: number; clients: { id: string; name: string }[] } | null>(null);
+    const [birthdaySweepLoading, setBirthdaySweepLoading] = useState(false);
+    const [birthdaySweepResult, setBirthdaySweepResult] = useState<{ ok: boolean; messages_enqueued: number } | null>(null);
 
     // 2FA state
     const [totpEnabled, setTotpEnabled] = useState(false);
@@ -848,6 +850,21 @@ export default function AutomationSettingsPage() {
         }
     };
 
+
+    const handleBirthdaySweep = async () => {
+        const month = new Date().getMonth() + 2 > 12 ? 1 : new Date().getMonth() + 2;
+        if (!confirm(`שלח עכשיו הודעות יומולדת לכל חברי המועדון עם יומולדת בחודש ${month}?`)) return;
+        setBirthdaySweepLoading(true);
+        setBirthdaySweepResult(null);
+        try {
+            const res = await apiFetch<{ ok: boolean; messages_enqueued: number }>("/api/studio/automation/birthday-sweep", { method: "POST" });
+            setBirthdaySweepResult(res);
+        } catch (e: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
+            setErr(e?.message || "שגיאה בשליחת הודעות יומולדת");
+        } finally {
+            setBirthdaySweepLoading(false);
+        }
+    };
 
     const handleRetroactiveWelcome = async () => {
         if (!confirm("שלח הודעת ברוכים הבאים לכל חברי המועדון שלא קיבלו הודעה עד עכשיו?")) return;
@@ -1567,6 +1584,31 @@ export default function AutomationSettingsPage() {
                                                 />
                                                 <span className="text-pink-600 font-medium font-bold">אחוז הנחה (%)</span>
                                             </div>
+                                        </div>
+
+                                        <div className="bg-pink-50 p-6 rounded-2xl border border-pink-200 md:col-span-2">
+                                            <label className="block text-base font-bold text-slate-800 mb-2">שליחה ידנית של הודעות יומולדת 🎂</label>
+                                            <p className="text-sm text-slate-500 mb-4">
+                                                שולח עכשיו הודעות יומולדת + קופון לכל חברי המועדון שיומולדתם בחודש הבא.
+                                                המערכת שולחת את זה אוטומטית ב-25 לחודש — לחץ כאן אם רצית לשלוח מוקדם יותר.
+                                            </p>
+                                            <button
+                                                type="button"
+                                                onClick={handleBirthdaySweep}
+                                                disabled={birthdaySweepLoading}
+                                                className="px-5 py-2.5 bg-pink-500 hover:bg-pink-600 disabled:opacity-50 text-white font-semibold rounded-xl transition-colors text-sm"
+                                            >
+                                                {birthdaySweepLoading ? "שולח..." : "🎂 שלח הודעות יומולדת עכשיו"}
+                                            </button>
+                                            {birthdaySweepResult && (
+                                                <p className={`mt-3 text-sm font-semibold ${birthdaySweepResult.ok ? "text-emerald-600" : "text-red-600"}`}>
+                                                    {birthdaySweepResult.ok
+                                                        ? birthdaySweepResult.messages_enqueued > 0
+                                                            ? `✅ נשלחו ${birthdaySweepResult.messages_enqueued} הודעות בהצלחה`
+                                                            : "✅ אין לקוחות חדשים לשלוח — כולם כבר קיבלו הודעה"
+                                                        : "❌ שגיאה בשליחה"}
+                                                </p>
+                                            )}
                                         </div>
 
                                         <div className="bg-amber-50 p-6 rounded-2xl border border-amber-200 md:col-span-2">

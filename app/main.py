@@ -136,7 +136,7 @@ def start_scheduler():
     scheduler.add_job(tick_reminders, "interval", minutes=60, id="reminders_sweep_tick", replace_existing=True)
     scheduler.add_job(tick_same_day_reminders, "cron", hour=8, minute=0, timezone="Asia/Jerusalem", id="same_day_reminders_tick", replace_existing=True)
     scheduler.add_job(tick_plan_alerts, "cron", hour=9, minute=0, id="plan_alerts_tick", replace_existing=True)
-    scheduler.add_job(tick_birthday_messages, "cron", day=25, hour=10, minute=0, id="birthday_messages_tick", replace_existing=True)
+    scheduler.add_job(tick_birthday_messages, "cron", day=25, hour=10, minute=0, timezone="Asia/Jerusalem", misfire_grace_time=86400, id="birthday_messages_tick", replace_existing=True)
     scheduler.add_job(tick_deposit_reminders, "interval", hours=1, id="deposit_reminders_tick", replace_existing=True)
     scheduler.add_job(tick_birthday_automations, "cron", hour=9, minute=5, timezone="Asia/Jerusalem", id="birthday_automations_tick", replace_existing=True)
 

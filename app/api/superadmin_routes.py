@@ -2285,3 +2285,17 @@ def admin_hard_delete_invoice(
         "deleted_payment": str(payment_id) if payment_id else None,
         "points_reversed": points_to_reverse if client_id else 0,
     }
+
+
+# ── Manual Birthday Sweep ─────────────────────────────────────────────────────
+
+@router.post("/sweep-birthday-messages")
+def manual_sweep_birthday_messages(
+    admin: User = Depends(require_superadmin),
+    db: Session = Depends(get_db),
+):
+    """Manually trigger the birthday message sweep (same logic as the 25th-of-month cron).
+    Targets next calendar month — dedup prevents duplicates if already sent."""
+    from app.services.message_worker import sweep_birthday_messages
+    count = sweep_birthday_messages(db)
+    return {"ok": True, "messages_enqueued": count}

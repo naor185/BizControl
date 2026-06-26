@@ -280,3 +280,14 @@ def generate_theme_with_ai(payload: AIGenerateRequest, ctx: AuthContext = Depend
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"AI Error: {str(e)}")
+
+
+@router.post("/birthday-sweep")
+def manual_birthday_sweep(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+    """Manually send birthday messages for next month to all eligible club members of this studio.
+    Dedup prevents duplicates if already sent this month."""
+    if ctx.role not in ("owner", "admin", "manager"):
+        raise HTTPException(status_code=403, detail="Forbidden")
+    from app.services.message_worker import sweep_birthday_messages
+    count = sweep_birthday_messages(db, studio_id=ctx.studio_id)
+    return {"ok": True, "messages_enqueued": count}

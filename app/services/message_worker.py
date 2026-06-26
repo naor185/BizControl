@@ -706,9 +706,10 @@ def sweep_same_day_reminders(db: Session) -> int:
     return count
 
 
-def sweep_birthday_messages(db: Session) -> int:
+def sweep_birthday_messages(db: Session, studio_id=None) -> int:
     """Runs on the 25th of each month — sends birthday WhatsApp + coupon to club members
-    whose birthday falls in the NEXT month, giving them ~5-35 days to book in advance."""
+    whose birthday falls in the NEXT month, giving them ~5-35 days to book in advance.
+    Pass studio_id to limit the sweep to a single studio (for manual triggers by studio owners)."""
     from app.models.client import Client
     from app.models.studio_settings import StudioSettings
     from app.crud.birthday_coupon import get_or_create_birthday_coupon
@@ -726,15 +727,19 @@ def sweep_birthday_messages(db: Session) -> int:
     # Dedup tag — birthday still uses body tag because there's no appointment_id to key on
     tag = f"[birthday-{target_year}-{target_month:02d}]"
 
+    filters = [
+        Client.is_club_member.is_(True),
+        Client.is_active.is_(True),
+        Client.birth_date.isnot(None),
+        extract("month", Client.birth_date) == target_month,
+    ]
+    if studio_id is not None:
+        filters.append(Client.studio_id == studio_id)
+
     stmt = (
         select(Client, StudioSettings)
         .join(StudioSettings, StudioSettings.studio_id == Client.studio_id)
-        .where(
-            Client.is_club_member.is_(True),
-            Client.is_active.is_(True),
-            Client.birth_date.isnot(None),
-            extract("month", Client.birth_date) == target_month,
-        )
+        .where(*filters)
     )
     rows = db.execute(stmt).all()
     count = 0

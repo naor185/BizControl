@@ -199,6 +199,10 @@ export default function AdminPage() {
     const [platformWATestPhone, setPlatformWATestPhone] = useState("");
     const [platformWATestResult, setPlatformWATestResult] = useState<{ok:boolean;msg:string}|null>(null);
 
+    // Manual birthday sweep
+    const [birthdaySweeping, setBirthdaySweeping] = useState(false);
+    const [birthdaySweepResult, setBirthdaySweepResult] = useState<{ ok: boolean; messages_enqueued: number } | null>(null);
+
 
     // Leads Inbox
     type GlobalLead = {
@@ -2050,6 +2054,42 @@ export default function AdminPage() {
                                 🔄 רענן
                             </button>
                         </div>
+                        {/* Manual birthday sweep */}
+                        <div className="bg-white/5 border border-white/10 rounded-2xl px-6 py-4 space-y-3">
+                            <div className="flex items-center justify-between flex-wrap gap-3">
+                                <div>
+                                    <div className="font-bold text-white text-sm">🎂 שליחת הודעות יומולדת ידנית</div>
+                                    <div className="text-xs text-slate-400 mt-0.5">שולח לכל חברי מועדון עם יומולדת בחודש הבא (מונע כפילויות)</div>
+                                </div>
+                                <button
+                                    type="button"
+                                    disabled={birthdaySweeping}
+                                    onClick={async () => {
+                                        setBirthdaySweeping(true);
+                                        setBirthdaySweepResult(null);
+                                        try {
+                                            const res = await apiFetch<{ ok: boolean; messages_enqueued: number }>("/api/admin/sweep-birthday-messages", { method: "POST" });
+                                            setBirthdaySweepResult(res);
+                                        } catch {
+                                            setBirthdaySweepResult({ ok: false, messages_enqueued: 0 });
+                                        } finally {
+                                            setBirthdaySweeping(false);
+                                        }
+                                    }}
+                                    className="px-4 py-2 bg-pink-600 hover:bg-pink-500 disabled:opacity-50 text-white text-sm font-semibold rounded-xl transition-colors"
+                                >
+                                    {birthdaySweeping ? "שולח..." : "שלח עכשיו"}
+                                </button>
+                            </div>
+                            {birthdaySweepResult && (
+                                <div className={`text-sm font-semibold ${birthdaySweepResult.ok ? "text-emerald-400" : "text-red-400"}`}>
+                                    {birthdaySweepResult.ok
+                                        ? `✅ נשלחו ${birthdaySweepResult.messages_enqueued} הודעות בהצלחה`
+                                        : "❌ שגיאה בשליחה"}
+                                </div>
+                            )}
+                        </div>
+
                         {healthLoading && <p className="text-slate-400 text-sm">בודק סטטוס...</p>}
                         {healthData && (
                             <>
