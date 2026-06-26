@@ -724,8 +724,7 @@ def sweep_birthday_messages(db: Session, studio_id=None) -> int:
         target_month = now.month + 1
         target_year = now.year
 
-    # Dedup tag — birthday still uses body tag because there's no appointment_id to key on
-    tag = f"[birthday-{target_year}-{target_month:02d}]"
+    reminder_type_wa = f"birthday-{target_year}-{target_month:02d}"
 
     filters = [
         Client.is_club_member.is_(True),
@@ -754,7 +753,7 @@ def sweep_birthday_messages(db: Session, studio_id=None) -> int:
         existing = db.scalar(
             select(MessageJob).where(
                 MessageJob.client_id == client.id,
-                MessageJob.body.contains(tag),
+                MessageJob.reminder_type == reminder_type_wa,
             )
         )
         if existing:
@@ -782,14 +781,11 @@ def sweep_birthday_messages(db: Session, studio_id=None) -> int:
         wa_template = settings.birthday_wa_template
         if not wa_template:
             wa_template = (
-                f"{tag}\n"
                 "היי {client_name}, מזל טוב! 🎉\n"
                 "יום ההולדת שלך מתקרב 🥳\n"
                 "הנה הטבה מיוחדת של {benefit_percent}% הנחה לחודש ההולדת שלך — במיוחד בשבילך ❤️\n\n"
                 "קוד הקופון שלך: *{coupon_code}*"
             )
-        else:
-            wa_template = f"{tag}\n{wa_template}"
 
         if client.phone:
             wa_body = format_template(wa_template, context)
@@ -801,24 +797,23 @@ def sweep_birthday_messages(db: Session, studio_id=None) -> int:
                 body=wa_body,
                 scheduled_at=now,
                 status="pending",
+                reminder_type=reminder_type_wa,
             ))
             count += 1
 
         # Email birthday message
         from app.services.email_center import studio_email_allowed as _email_ok
+        reminder_type_email = f"birthday_email-{target_year}-{target_month:02d}"
         if client.email and _email_ok(db, client.studio_id, "email_birthday_enabled"):
             already_email = db.scalar(
                 select(MessageJob).where(
                     MessageJob.client_id == client.id,
-                    MessageJob.reminder_type == "birthday_email",
-                    MessageJob.body.contains(f"birthday-email-{target_year}-{target_month:02d}"),
+                    MessageJob.reminder_type == reminder_type_email,
                 )
             )
             if not already_email:
                 from app.utils.email_templates import _email_base
-                email_tag = f"birthday-email-{target_year}-{target_month:02d}"
                 email_html = (
-                    f"<!-- {email_tag} -->"
                     f"<p>היי <strong>{context['client_name']}</strong>, מזל טוב! 🎉</p>"
                     f"<p>יום ההולדת שלך מתקרב 🥳<br>הנה הטבה מיוחדת של <strong>{context['benefit_percent']}% הנחה</strong> לחודש ההולדת שלך — במיוחד בשבילך ❤️</p>"
                     f"<div style='background:#fef9c3;border-radius:12px;padding:16px 20px;margin:20px 0;text-align:center;'>"
@@ -836,7 +831,7 @@ def sweep_birthday_messages(db: Session, studio_id=None) -> int:
                     body=_email_base("מזל טוב! 🎉 הטבה מיוחדת בשבילך", email_html),
                     scheduled_at=now,
                     status="pending",
-                    reminder_type="birthday_email",
+                    reminder_type=reminder_type_email,
                 ))
                 count += 1
 
