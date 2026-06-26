@@ -1028,6 +1028,15 @@ def ensure_schema():
             WHERE public_token IS NULL
         """)
 
+        # One-time cleanup: strip [birthday-YYYY-MM] tag that was incorrectly
+        # prepended to WhatsApp birthday message bodies before the reminder_type fix.
+        cur.execute("""
+            UPDATE message_jobs
+            SET body = regexp_replace(body, '^\[birthday-\d{4}-\d{2}\]\n?', '', 'g')
+            WHERE status IN ('pending', 'failed')
+              AND body ~ '^\[birthday-\d{4}-\d{2}\]'
+        """)
+
         conn.commit()
         cur.close()
         conn.close()
