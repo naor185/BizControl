@@ -89,6 +89,7 @@ export default function CalendarPage() {
     const calendarRef = useRef<FullCalendar>(null);
     const touchStartX = useRef<number | null>(null);
     const touchStartY = useRef<number | null>(null);
+    const isDraggingEvent = useRef(false);
 
     const handleTouchStart = useCallback((e: React.TouchEvent) => {
         touchStartX.current = e.touches[0].clientX;
@@ -97,6 +98,12 @@ export default function CalendarPage() {
 
     const handleTouchEnd = useCallback((e: React.TouchEvent) => {
         if (touchStartX.current === null || touchStartY.current === null) return;
+        // If FullCalendar is handling an event drag, don't also navigate weeks
+        if (isDraggingEvent.current) {
+            touchStartX.current = null;
+            touchStartY.current = null;
+            return;
+        }
         const dx = touchStartX.current - e.changedTouches[0].clientX;
         const dy = touchStartY.current - e.changedTouches[0].clientY;
         // רק אם התנועה היא בעיקרה אופקית (לא גלילה אנכית)
@@ -986,6 +993,8 @@ export default function CalendarPage() {
                             events={[...events, ...holidayEvents, ...taskEvents]}
                             select={handleDateSelect}
                             eventClick={handleEventClick}
+                            eventDragStart={() => { isDraggingEvent.current = true; }}
+                            eventDragStop={() => { setTimeout(() => { isDraggingEvent.current = false; }, 300); }}
                             eventDrop={handleEventDrop}
                             eventResize={handleEventResize}
                             datesSet={handleDatesSet}
