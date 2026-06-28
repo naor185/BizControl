@@ -270,7 +270,11 @@ def send_whatsapp_message(to_phone: str, body: str, settings=None, db: Session |
 
 
 def process_due_jobs(db: Session, limit: int = 20) -> int:
+    import pytz as _pytz
     now = datetime.now(timezone.utc)
+    israel_tz = _pytz.timezone("Asia/Jerusalem")
+    now_israel = datetime.now(israel_tz)
+    is_shabbat = now_israel.weekday() == 5  # Saturday
 
     stmt = (
         select(MessageJob)
@@ -282,9 +286,19 @@ def process_due_jobs(db: Session, limit: int = 20) -> int:
 
     jobs = list(db.scalars(stmt).all())
     count = 0
+    _shabbat_cache: dict = {}  # studio_id -> block_shabbat_messages bool
 
     for job in jobs:
         try:
+            # Skip on Shabbat if studio opted in to shabbat blocking
+            if is_shabbat:
+                sid = str(job.studio_id)
+                if sid not in _shabbat_cache:
+                    _s = db.get(StudioSettings, job.studio_id)
+                    _shabbat_cache[sid] = bool(getattr(_s, "block_shabbat_messages", False))
+                if _shabbat_cache[sid]:
+                    continue  # Leave as pending — will be sent on Sunday
+
             # Club invite: skip if client already joined the club since enqueueing
             if getattr(job, "reminder_type", None) in ("club_invite", "club_invite_email") and job.client_id:
                 _client_check = db.get(Client, job.client_id)

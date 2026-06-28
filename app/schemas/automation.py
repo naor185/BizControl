@@ -52,6 +52,7 @@ class AutomationSettingsOut(BaseModel):
     birthday_email_template: str | None = None
     birthday_benefit_percent: int = 0
     birthday_automation_enabled: bool = True
+    block_shabbat_messages: bool = False
 
     # Email Settings (Resend API)
     resend_api_key: str | None = None
@@ -230,6 +231,7 @@ class AutomationSettingsUpdate(BaseModel):
     birthday_email_template: str | None = None
     birthday_benefit_percent: int | None = Field(default=None, ge=0, le=100)
     birthday_automation_enabled: bool | None = None
+    block_shabbat_messages: bool | None = None
 
     # Email Settings (Resend API)
     resend_api_key: str | None = None

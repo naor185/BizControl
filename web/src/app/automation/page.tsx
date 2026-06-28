@@ -57,6 +57,7 @@ type Settings = {
     birthday_email_template?: string | null;
     birthday_benefit_percent: number;
     birthday_automation_enabled: boolean;
+    block_shabbat_messages: boolean;
 
     whatsapp_provider?: string | null;
     whatsapp_api_key?: string | null;
@@ -605,6 +606,7 @@ export default function AutomationSettingsPage() {
                     social_security_percent: data.social_security_percent ?? 5,
                     birthday_benefit_percent: data.birthday_benefit_percent ?? 0,
                     birthday_automation_enabled: data.birthday_automation_enabled ?? true,
+                    block_shabbat_messages: data.block_shabbat_messages ?? false,
                     birthday_wa_template: data.birthday_wa_template ?? "",
                     birthday_email_template: data.birthday_email_template ?? "",
                     theme_primary_color: data.theme_primary_color ?? "#000000",
@@ -1609,6 +1611,26 @@ export default function AutomationSettingsPage() {
                                                         : "❌ שגיאה בשליחה"}
                                                 </p>
                                             )}
+                                        </div>
+
+                                        <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 md:col-span-2">
+                                            <div className="flex items-center justify-between gap-4">
+                                                <div>
+                                                    <label className="block text-base font-bold text-slate-800 mb-1">🕍 חסום שליחת הודעות בשבת</label>
+                                                    <p className="text-sm text-slate-500">
+                                                        כשמופעל — הודעות WhatsApp, מייל ותפוצות מתוזמנות לא יישלחו בשבת (יום שבת).
+                                                        ההודעות ישלחו אוטומטית ביום ראשון בבוקר.
+                                                    </p>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    title="חסום שליחה בשבת"
+                                                    onClick={() => handleChange("block_shabbat_messages", !settings.block_shabbat_messages)}
+                                                    className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${settings.block_shabbat_messages ? "bg-blue-600" : "bg-slate-200"}`}
+                                                >
+                                                    <span className={`inline-block h-6 w-6 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${settings.block_shabbat_messages ? "translate-x-5" : "translate-x-0"}`} />
+                                                </button>
+                                            </div>
                                         </div>
 
                                         <div className="bg-amber-50 p-6 rounded-2xl border border-amber-200 md:col-span-2">

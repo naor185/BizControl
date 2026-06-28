@@ -1037,6 +1037,11 @@ def ensure_schema():
               AND body ~ '^\[birthday-\d{4}-\d{2}\]'
         """)
 
+        cur.execute("""
+            ALTER TABLE studio_settings
+            ADD COLUMN IF NOT EXISTS block_shabbat_messages BOOLEAN NOT NULL DEFAULT FALSE
+        """)
+
         conn.commit()
         cur.close()
         conn.close()

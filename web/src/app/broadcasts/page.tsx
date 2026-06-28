@@ -41,6 +41,9 @@ export default function BroadcastsPage() {
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
 
+    // Shabbat block setting
+    const [blockShabbat, setBlockShabbat] = useState(false);
+
     // Form state
     const [title, setTitle] = useState("");
     const [body, setBody] = useState("");
@@ -65,7 +68,12 @@ export default function BroadcastsPage() {
         finally { setLoading(false); }
     };
 
-    useEffect(() => { load(); }, []);
+    useEffect(() => {
+        load();
+        apiFetch<{ block_shabbat_messages: boolean }>("/api/studio/automation")
+            .then(d => setBlockShabbat(d.block_shabbat_messages ?? false))
+            .catch(() => {});
+    }, []);
 
     const resetForm = () => {
         setTitle(""); setBody(""); setAudience("all"); setScheduledAt("");
@@ -349,6 +357,16 @@ export default function BroadcastsPage() {
                                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-slate-400"
                                         dir="ltr"
                                     />
+                                    {blockShabbat && scheduledAt && new Date(scheduledAt).getDay() === 6 && (
+                                        <div className="mt-2 flex items-start gap-2 bg-amber-50 border border-amber-300 rounded-xl px-3 py-2.5">
+                                            <span className="text-lg leading-none mt-0.5">🕍</span>
+                                            <div className="text-sm text-amber-800">
+                                                <span className="font-bold">שים לב — התאריך שנבחר חל בשבת.</span>
+                                                <br />
+                                                <span>המערכת שלך מוגדרת לחסום שליחה בשבת — ההודעות <span className="font-semibold">לא יישלחו</span> עד יום ראשון. מומלץ לשנות את תאריך השליחה.</span>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
