@@ -572,23 +572,7 @@ export default function CalendarPage() {
         const eventId = dropInfo.event.id;
         const clientName = dropInfo.event.extendedProps?.client_name || dropInfo.event.title || "התור";
 
-        // Mobile: save directly — no confirmation dialog (touch UX, avoids eventClick conflict)
-        if (isMobile) {
-            try {
-                await apiFetch(`/api/appointments/${eventId}`, {
-                    method: "PATCH",
-                    body: JSON.stringify({ starts_at: newStartStr, ends_at: newEndStr }),
-                });
-                setAppointments(prev => prev.map(a => a.id === eventId ? { ...a, starts_at: newStartStr, ends_at: newEndStr } : a));
-                showToast("התור הוזז בהצלחה ✅");
-            } catch (e: any) {
-                setToast({ message: "שגיאה בהזזת התור: " + (e?.message || ""), type: "error" });
-                dropInfo.revert();
-            }
-            return;
-        }
-
-        // Desktop: revert visually + ask for confirmation
+        // Revert visually first, then ask for confirmation (mobile + desktop)
         dropInfo.revert();
         const newStart = new Date(newStartStr);
         const isPast = newStart < new Date();
