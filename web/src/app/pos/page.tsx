@@ -426,26 +426,26 @@ export default function PosPage() {
                 )}
             </div>
 
-            {/* Cart items — limited height */}
-            <div className="overflow-y-auto px-3 py-2 space-y-1.5 max-h-[28vh]">
+            {/* Cart items — fills available height */}
+            <div className="flex-1 min-h-0 overflow-y-auto px-3 py-2 space-y-2">
                 {cart.length === 0 ? (
-                    <div className="text-center text-slate-300 mt-8">
-                        <div className="text-3xl mb-2">🛒</div>
-                        <div className="text-xs">העגלה ריקה</div>
+                    <div className="flex flex-col items-center justify-center h-full text-slate-300 py-12">
+                        <div className="text-6xl mb-3">🛒</div>
+                        <div className="text-sm font-medium">העגלה ריקה</div>
                     </div>
                 ) : cart.map(item => (
-                    <div key={item.key} className="flex items-center gap-2 bg-white rounded-xl border border-slate-100 px-3 py-2 shadow-sm">
+                    <div key={item.key} className="flex items-center gap-3 bg-white rounded-xl border border-slate-100 px-4 py-3 shadow-sm">
                         <div className="flex-1 min-w-0">
-                            <div className="text-xs font-semibold text-slate-800 truncate">{item.description}</div>
-                            <div className="text-[10px] text-slate-400">₪{(item.unit_price_cents/100).toFixed(2)}</div>
+                            <div className="text-sm font-semibold text-slate-800 truncate">{item.description}</div>
+                            <div className="text-xs text-slate-400 mt-0.5">₪{(item.unit_price_cents/100).toFixed(2)}</div>
                         </div>
-                        <div className="flex items-center gap-1">
-                            <button type="button" onClick={() => updateQty(item.key, -1)} className="w-6 h-6 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 text-sm font-bold">−</button>
-                            <span className="w-5 text-center text-xs font-bold">{item.quantity}</span>
-                            <button type="button" onClick={() => updateQty(item.key, 1)} className="w-6 h-6 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 text-sm font-bold">+</button>
+                        <div className="flex items-center gap-1.5">
+                            <button type="button" onClick={() => updateQty(item.key, -1)} className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 text-base font-bold">−</button>
+                            <span className="w-6 text-center text-sm font-bold">{item.quantity}</span>
+                            <button type="button" onClick={() => updateQty(item.key, 1)} className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 text-base font-bold">+</button>
                         </div>
-                        <div className="text-xs font-bold text-slate-900 min-w-[3.5rem] text-left" dir="ltr">₪{((item.unit_price_cents*item.quantity)/100).toFixed(2)}</div>
-                        <button type="button" onClick={() => removeItem(item.key)} className="text-slate-200 hover:text-rose-400 text-base leading-none">×</button>
+                        <div className="text-sm font-bold text-slate-900 min-w-[4rem] text-left" dir="ltr">₪{((item.unit_price_cents*item.quantity)/100).toFixed(2)}</div>
+                        <button type="button" onClick={() => removeItem(item.key)} className="text-slate-300 hover:text-rose-400 text-lg leading-none">×</button>
                     </div>
                 ))}
             </div>
