@@ -430,6 +430,8 @@ export default function CalendarPage() {
     };
 
     const handleEventClick = (clickInfo: any) => {
+        // Block spurious click that fires right after a touch drag completes
+        if (isDraggingEvent.current) return;
         const app = clickInfo.event.extendedProps;
         if (app.isHoliday) {
             setHolidayPopup({ name: app.holidayName, info: app.holidayInfo });
@@ -570,6 +572,23 @@ export default function CalendarPage() {
         const eventId = dropInfo.event.id;
         const clientName = dropInfo.event.extendedProps?.client_name || dropInfo.event.title || "התור";
 
+        // Mobile: save directly — no confirmation dialog (touch UX, avoids eventClick conflict)
+        if (isMobile) {
+            try {
+                await apiFetch(`/api/appointments/${eventId}`, {
+                    method: "PATCH",
+                    body: JSON.stringify({ starts_at: newStartStr, ends_at: newEndStr }),
+                });
+                setAppointments(prev => prev.map(a => a.id === eventId ? { ...a, starts_at: newStartStr, ends_at: newEndStr } : a));
+                showToast("התור הוזז בהצלחה ✅");
+            } catch (e: any) {
+                setToast({ message: "שגיאה בהזזת התור: " + (e?.message || ""), type: "error" });
+                dropInfo.revert();
+            }
+            return;
+        }
+
+        // Desktop: revert visually + ask for confirmation
         dropInfo.revert();
         const newStart = new Date(newStartStr);
         const isPast = newStart < new Date();
