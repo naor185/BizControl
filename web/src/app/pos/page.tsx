@@ -202,6 +202,11 @@ export default function PosPage() {
     }, [calcDisplay, itemDesc]);
 
     const addProduct = (product: Product) => {
+        const currentQty = cart.find(i => i.product_id === product.id)?.quantity ?? 0;
+        if (product.stock_quantity > 0 && currentQty >= product.stock_quantity) {
+            toast.error(`נגמר המלאי — נותרו ${product.stock_quantity} יחידות בלבד`);
+            return;
+        }
         setCart(prev => {
             const ex = prev.find(i => i.product_id === product.id);
             if (ex) return prev.map(i => i.product_id === product.id ? { ...i, quantity: i.quantity + 1 } : i);
@@ -210,8 +215,19 @@ export default function PosPage() {
         if (window.innerWidth < 768) setMobileTab("cart");
     };
 
-    const updateQty = (key: string, delta: number) =>
+    const updateQty = (key: string, delta: number) => {
+        if (delta > 0) {
+            const item = cart.find(i => i.key === key);
+            if (item?.product_id) {
+                const product = products.find(p => p.id === item.product_id);
+                if (product && product.stock_quantity > 0 && item.quantity >= product.stock_quantity) {
+                    toast.error(`נגמר המלאי — נותרו ${product.stock_quantity} יחידות בלבד`);
+                    return;
+                }
+            }
+        }
         setCart(prev => prev.map(i => i.key === key ? { ...i, quantity: Math.max(0, i.quantity + delta) } : i).filter(i => i.quantity > 0));
+    };
     const removeItem = (key: string) => setCart(prev => prev.filter(i => i.key !== key));
 
     const validateGiftCard = async () => {
