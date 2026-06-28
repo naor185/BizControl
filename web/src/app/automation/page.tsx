@@ -1525,6 +1525,24 @@ export default function AutomationSettingsPage() {
                                     <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-bl-full -z-10"></div>
                                     <h3 className="text-2xl font-bold text-slate-800 mb-6">חוקי מועדון ואוטומציה</h3>
 
+                                    {/* Shabbat block toggle */}
+                                    <div className="flex items-center justify-between gap-4 bg-slate-50 border border-slate-200 rounded-2xl px-6 py-5 mb-6">
+                                        <div>
+                                            <p className="text-base font-bold text-slate-800">🕍 חסום שליחת הודעות בשבת</p>
+                                            <p className="text-sm text-slate-500 mt-0.5">
+                                                הודעות WhatsApp, מייל ותפוצות לא יישלחו בשבת — יישלחו אוטומטית ביום ראשון.
+                                            </p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            title="חסום שליחה בשבת"
+                                            onClick={() => handleChange("block_shabbat_messages", !settings.block_shabbat_messages)}
+                                            className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${settings.block_shabbat_messages ? "bg-blue-600" : "bg-slate-200"}`}
+                                        >
+                                            <span className={`inline-block h-6 w-6 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${settings.block_shabbat_messages ? "translate-x-5" : "translate-x-0"}`} />
+                                        </button>
+                                    </div>
+
                                     <div className="grid md:grid-cols-2 gap-8">
                                         <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
                                             <label className="block text-base font-bold text-slate-800 mb-2">תזמון הודעת Aftercare</label>
@@ -1611,26 +1629,6 @@ export default function AutomationSettingsPage() {
                                                         : "❌ שגיאה בשליחה"}
                                                 </p>
                                             )}
-                                        </div>
-
-                                        <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 md:col-span-2">
-                                            <div className="flex items-center justify-between gap-4">
-                                                <div>
-                                                    <label className="block text-base font-bold text-slate-800 mb-1">🕍 חסום שליחת הודעות בשבת</label>
-                                                    <p className="text-sm text-slate-500">
-                                                        כשמופעל — הודעות WhatsApp, מייל ותפוצות מתוזמנות לא יישלחו בשבת (יום שבת).
-                                                        ההודעות ישלחו אוטומטית ביום ראשון בבוקר.
-                                                    </p>
-                                                </div>
-                                                <button
-                                                    type="button"
-                                                    title="חסום שליחה בשבת"
-                                                    onClick={() => handleChange("block_shabbat_messages", !settings.block_shabbat_messages)}
-                                                    className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${settings.block_shabbat_messages ? "bg-blue-600" : "bg-slate-200"}`}
-                                                >
-                                                    <span className={`inline-block h-6 w-6 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${settings.block_shabbat_messages ? "translate-x-5" : "translate-x-0"}`} />
-                                                </button>
-                                            </div>
                                         </div>
 
                                         <div className="bg-amber-50 p-6 rounded-2xl border border-amber-200 md:col-span-2">
