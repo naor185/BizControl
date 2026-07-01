@@ -176,15 +176,15 @@ export default function PaymentModal({ isOpen, onClose, onSuccess, appointment }
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-2 animate-in fade-in duration-200" dir="rtl">
-            <div className="bg-white rounded-2xl w-full max-w-[360px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="bg-white rounded-2xl w-full max-w-[360px] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
 
                 {/* Header */}
-                <div className="bg-sky-600 px-4 py-3 text-white flex justify-between items-center">
+                <div className="bg-sky-600 px-4 py-3 text-white flex justify-between items-center shrink-0">
                     <h3 className="text-sm font-bold truncate ml-2">💳 תשלום — {appointment.client_name}</h3>
                     <button onClick={onClose} className="text-white/70 hover:text-white text-lg leading-none">✕</button>
                 </div>
 
-                <div className="p-4 space-y-4 text-right">
+                <div className="p-4 space-y-4 text-right overflow-y-auto flex-1">
 
                     {/* Method + Type */}
                     <div className="grid grid-cols-2 gap-3">
@@ -490,7 +490,7 @@ export default function PaymentModal({ isOpen, onClose, onSuccess, appointment }
                 </div>
 
                 {/* Footer */}
-                <div className="px-4 pb-4 flex gap-2">
+                <div className="px-4 pb-4 pt-3 flex gap-2 shrink-0 border-t border-slate-100">
                     <button onClick={onClose} className="flex-1 py-2.5 text-xs font-bold text-slate-500 hover:bg-slate-100 rounded-xl transition-colors">
                         ביטול
                     </button>
