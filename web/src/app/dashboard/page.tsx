@@ -73,6 +73,7 @@ export default function Page() {
     const [waivingDeposit, setWaivingDeposit] = useState<string | null>(null);
     const [depositCashier, setDepositCashier] = useState<{ id: string; amount: number; clientName: string } | null>(null);
     const [depositMethod, setDepositMethod] = useState("bit");
+    const [depositSendReceipt, setDepositSendReceipt] = useState(true);
     const [depositReceipt, setDepositReceipt] = useState<{ invoiceId: string; docNum?: number } | null>(null);
     const [consultationConv, setConsultationConv] = useState<ConsultationConversion | null>(null);
     const [bizfindStats, setBizfindStats] = useState<{
@@ -139,6 +140,7 @@ export default function Page() {
 
     const openDepositCashier = (d: any) => {
         setDepositMethod("bit");
+        setDepositSendReceipt(true);
         setDepositCashier({ id: d.appointment_id, amount: d.deposit_amount_cents, clientName: d.client_name });
     };
 
@@ -146,7 +148,7 @@ export default function Page() {
         if (!depositCashier) return;
         setConfirmingDeposit(depositCashier.id);
         try {
-            const res = await apiFetch<{ invoice_id: string | null }>(`/api/appointments/${depositCashier.id}/verify-payment?method=${depositMethod}`, { method: "POST" });
+            const res = await apiFetch<{ invoice_id: string | null }>(`/api/appointments/${depositCashier.id}/verify-payment?method=${depositMethod}&send_receipt=${depositSendReceipt}`, { method: "POST" });
             setPendingDeposits(prev => prev.filter(d => d.appointment_id !== depositCashier.id));
             setDepositCashier(null);
             if (res.invoice_id) setDepositReceipt({ invoiceId: res.invoice_id });
@@ -665,6 +667,20 @@ export default function Page() {
                                     ))}
                                 </div>
                             </div>
+
+                            {/* Send receipt toggle */}
+                            <button
+                                type="button"
+                                onClick={() => setDepositSendReceipt(v => !v)}
+                                className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl border-2 transition-all mb-4 ${depositSendReceipt ? "bg-sky-50 border-sky-300" : "bg-slate-50 border-slate-200"}`}
+                            >
+                                <div className={`relative w-10 h-6 rounded-full transition-colors ${depositSendReceipt ? "bg-sky-500" : "bg-slate-300"}`}>
+                                    <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all ${depositSendReceipt ? "left-4" : "left-0.5"}`} />
+                                </div>
+                                <span className={`text-sm font-bold ${depositSendReceipt ? "text-sky-700" : "text-slate-500"}`}>
+                                    {depositSendReceipt ? "📨 שלח הודעת אישור ללקוח" : "🔕 אל תשלח הודעה ללקוח"}
+                                </span>
+                            </button>
 
                             <div className="flex gap-3">
                                 <button type="button" onClick={() => setDepositCashier(null)}

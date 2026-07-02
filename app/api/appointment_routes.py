@@ -507,6 +507,7 @@ def waive_deposit(appointment_id: UUID, ctx: AuthContext = Depends(require_studi
 def verify_sent_payment(
     appointment_id: UUID,
     method: str = "bit",
+    send_receipt: bool = True,
     ctx: AuthContext = Depends(require_studio_ctx),
     db: Session = Depends(get_db),
 ):
@@ -583,14 +584,15 @@ def verify_sent_payment(
             log.warning("Deposit points failed: %s", _pe)
 
     # שלח הודעת אישור מקדמה עם פרטים מלאים (כתובת, מפה, תיק עבודות, מדיניות ביטולים)
-    from app.crud.automation import enqueue_deposit_approved_message
-    try:
-        from app.models.user import User as _User
-        _artist = db.get(_User, appt.artist_id) if appt.artist_id else None
-        _artist_name = (_artist.display_name or _artist.email) if _artist else ""
-        enqueue_deposit_approved_message(db, appt, artist_name=_artist_name)
-    except Exception as e:
-        log.error("[deposit_approved_msg] failed: %s", e)
+    if send_receipt:
+        from app.crud.automation import enqueue_deposit_approved_message
+        try:
+            from app.models.user import User as _User
+            _artist = db.get(_User, appt.artist_id) if appt.artist_id else None
+            _artist_name = (_artist.display_name or _artist.email) if _artist else ""
+            enqueue_deposit_approved_message(db, appt, artist_name=_artist_name)
+        except Exception as e:
+            log.error("[deposit_approved_msg] failed: %s", e)
 
     # Fire automation rules for deposit_paid
     try:
