@@ -18,6 +18,16 @@ type Broadcast = {
     created_at: string;
 };
 
+type AutomationSettings = {
+    welcome_wa_template?: string | null;
+    non_member_wa_template?: string | null;
+    birthday_wa_template?: string | null;
+    bit_link?: string | null;
+    paybox_link?: string | null;
+    studio_address?: string | null;
+    studio_name?: string | null;
+};
+
 const AUDIENCE_LABELS: Record<string, string> = {
     all: "כל הלקוחות",
     club: "חברי מועדון בלבד",
@@ -31,6 +41,12 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
     canceled: { label: "בוטל", color: "bg-slate-100 text-slate-500" },
 };
 
+// Templates that are relevant for broadcast use
+const BROADCAST_TEMPLATES = [
+    { key: "non_member_wa_template", label: "הזמנה למועדון לקוחות", icon: "🌟", desc: "שלח ללקוחות שאינם חברים" },
+    { key: "welcome_wa_template", label: "ברוך הבא / עדכון כללי", icon: "👋", desc: "הודעת ברוכים הבאים או כללית" },
+    { key: "birthday_wa_template", label: "הודעת יום הולדת", icon: "🎂", desc: "מבצע / הטבה ליום הולדת" },
+];
 
 export default function BroadcastsPage() {
     const [broadcasts, setBroadcasts] = useState<Broadcast[]>([]);
@@ -44,6 +60,10 @@ export default function BroadcastsPage() {
     // Shabbat block setting
     const [blockShabbat, setBlockShabbat] = useState(false);
 
+    // Automation settings (templates + links)
+    const [autoSettings, setAutoSettings] = useState<AutomationSettings>({});
+    const [studioId, setStudioId] = useState<string>("");
+
     // Form state
     const [title, setTitle] = useState("");
     const [body, setBody] = useState("");
@@ -53,12 +73,16 @@ export default function BroadcastsPage() {
     const [sendingTest, setSendingTest] = useState(false);
     const [testResult, setTestResult] = useState<string | null>(null);
 
+    // Template picker
+    const [showTemplates, setShowTemplates] = useState(false);
+
     // Media state
     const [mediaUrl, setMediaUrl] = useState<string | null>(null);
     const [mediaPreview, setMediaPreview] = useState<string | null>(null);
     const [mediaIsVideo, setMediaIsVideo] = useState(false);
     const [uploading, setUploading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
 
     const load = async () => {
         try {
@@ -70,14 +94,57 @@ export default function BroadcastsPage() {
 
     useEffect(() => {
         load();
-        apiFetch<{ block_shabbat_messages: boolean }>("/api/studio/automation")
-            .then(d => setBlockShabbat(d.block_shabbat_messages ?? false))
-            .catch(() => {});
+        Promise.all([
+            apiFetch<{ block_shabbat_messages: boolean }>("/api/studio/automation"),
+            apiFetch<AutomationSettings>("/api/studio/automation"),
+            apiFetch<{ studio_id: string }>("/api/auth/me"),
+        ]).then(([shabbat, settings, me]) => {
+            setBlockShabbat((shabbat as any).block_shabbat_messages ?? false);
+            setAutoSettings(settings);
+            setStudioId(me.studio_id);
+        }).catch(() => {});
     }, []);
+
+    const clubJoinLink = studioId
+        ? `${typeof window !== "undefined" ? window.location.origin : ""}/join/${studioId}`
+        : "";
+
+    // Insert text at cursor position in textarea
+    const insertAtCursor = (text: string) => {
+        const ta = textareaRef.current;
+        if (!ta) {
+            setBody(prev => prev ? prev + "\n" + text : text);
+            return;
+        }
+        const start = ta.selectionStart;
+        const end = ta.selectionEnd;
+        const before = body.slice(0, start);
+        const after = body.slice(end);
+        const separator = before && !before.endsWith("\n") ? "\n" : "";
+        const newBody = before + separator + text + after;
+        setBody(newBody);
+        // Restore cursor
+        setTimeout(() => {
+            ta.focus();
+            const pos = start + separator.length + text.length;
+            ta.setSelectionRange(pos, pos);
+        }, 0);
+    };
+
+    const applyTemplate = (templateBody: string) => {
+        setBody(templateBody);
+        setShowTemplates(false);
+    };
+
+    const appendTemplate = (templateBody: string) => {
+        setBody(prev => prev ? prev + "\n\n" + templateBody : templateBody);
+        setShowTemplates(false);
+    };
 
     const resetForm = () => {
         setTitle(""); setBody(""); setAudience("all"); setScheduledAt("");
         setMediaUrl(null); setMediaPreview(null); setMediaIsVideo(false);
+        setShowTemplates(false);
         setError(null);
     };
 
@@ -197,7 +264,7 @@ export default function BroadcastsPage() {
     return (
         <RequireAuth>
             <AppShell title="הודעות תפוצה">
-                <div className="space-y-6 max-w-3xl mx-auto">
+                <div className="space-y-6 max-w-3xl mx-auto" dir="rtl">
 
                     {/* Header */}
                     <div className="flex items-center justify-between">
@@ -236,16 +303,107 @@ export default function BroadcastsPage() {
                                 />
                             </div>
 
+                            {/* Message body + toolbar */}
                             <div>
-                                <label className="block text-sm font-semibold text-slate-700 mb-1.5">תוכן ההודעה</label>
+                                <div className="flex items-center justify-between mb-1.5">
+                                    <label className="text-sm font-semibold text-slate-700">תוכן ההודעה</label>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowTemplates(v => !v)}
+                                        className="text-xs font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                                    >
+                                        📋 {showTemplates ? "הסתר טמפלטים" : "בחר מטמפלט"}
+                                    </button>
+                                </div>
+
+                                {/* Template picker panel */}
+                                {showTemplates && (
+                                    <div className="mb-3 bg-blue-50 border border-blue-100 rounded-xl p-3 space-y-2">
+                                        <div className="text-xs font-bold text-blue-700 mb-1">בחר טמפלט — לחץ להחלפה או להוספה בסוף</div>
+                                        {BROADCAST_TEMPLATES.map(t => {
+                                            const tmplBody = (autoSettings as any)[t.key] as string | null | undefined;
+                                            if (!tmplBody) return null;
+                                            return (
+                                                <div key={t.key} className="bg-white rounded-xl border border-blue-100 p-3">
+                                                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                                                        <span className="text-sm font-semibold text-slate-700">{t.icon} {t.label}</span>
+                                                        <div className="flex gap-1.5 shrink-0">
+                                                            <button type="button" onClick={() => appendTemplate(tmplBody)}
+                                                                className="text-xs px-2.5 py-1 rounded-lg border border-blue-200 text-blue-700 hover:bg-blue-50 font-medium">
+                                                                + הוסף
+                                                            </button>
+                                                            <button type="button" onClick={() => applyTemplate(tmplBody)}
+                                                                className="text-xs px-2.5 py-1 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-medium">
+                                                                החלף
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                    <div className="text-xs text-slate-500 bg-slate-50 rounded-lg px-3 py-2 whitespace-pre-wrap line-clamp-3 font-mono">
+                                                        {tmplBody}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                        {BROADCAST_TEMPLATES.every(t => !(autoSettings as any)[t.key]) && (
+                                            <div className="text-xs text-blue-500 text-center py-2">
+                                                לא הוגדרו טמפלטים — הגדר אותם בעמוד <a href="/message-templates" className="underline font-semibold">תבניות הודעות</a>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
                                 <textarea
+                                    ref={textareaRef}
                                     rows={5}
-                                    placeholder="כתוב את ההודעה שתשלח ללקוחות..."
+                                    placeholder="כתוב את ההודעה שתשלח ללקוחות... השתמש ב-{client_name} להתאמה אישית"
                                     value={body}
                                     onChange={e => setBody(e.target.value)}
                                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-slate-400 resize-none"
                                 />
                                 <div className="text-xs text-slate-400 text-left mt-0.5">{body.length} תווים</div>
+
+                                {/* Quick insert toolbar */}
+                                <div className="flex flex-wrap gap-1.5 mt-2">
+                                    <span className="text-xs text-slate-400 font-medium self-center ml-1">הוסף:</span>
+                                    <button type="button"
+                                        onClick={() => insertAtCursor("{client_name}")}
+                                        className="text-xs px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 font-mono">
+                                        {"{client_name}"}
+                                    </button>
+                                    {clubJoinLink && (
+                                        <button type="button"
+                                            onClick={() => insertAtCursor(`🌟 הצטרף למועדון הלקוחות שלנו:\n${clubJoinLink}`)}
+                                            className="text-xs px-2.5 py-1 rounded-lg bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 font-medium">
+                                            🌟 לינק מועדון
+                                        </button>
+                                    )}
+                                    {autoSettings.bit_link && (
+                                        <button type="button"
+                                            onClick={() => insertAtCursor(`לתשלום ב-Bit: ${autoSettings.bit_link}`)}
+                                            className="text-xs px-2.5 py-1 rounded-lg bg-orange-50 text-orange-700 border border-orange-200 hover:bg-orange-100 font-medium">
+                                            💰 Bit
+                                        </button>
+                                    )}
+                                    {autoSettings.paybox_link && (
+                                        <button type="button"
+                                            onClick={() => insertAtCursor(`לתשלום ב-PayBox: ${autoSettings.paybox_link}`)}
+                                            className="text-xs px-2.5 py-1 rounded-lg bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 font-medium">
+                                            💳 PayBox
+                                        </button>
+                                    )}
+                                    {autoSettings.studio_address && (
+                                        <button type="button"
+                                            onClick={() => insertAtCursor(`📍 ${autoSettings.studio_address}`)}
+                                            className="text-xs px-2.5 py-1 rounded-lg bg-sky-50 text-sky-700 border border-sky-200 hover:bg-sky-100 font-medium">
+                                            📍 כתובת
+                                        </button>
+                                    )}
+                                </div>
+
+                                {/* Personalization hint */}
+                                <div className="mt-2 text-xs text-slate-400 bg-slate-50 rounded-lg px-3 py-2 border border-slate-100">
+                                    💡 <span className="font-mono text-slate-500">{"{client_name}"}</span> יוחלף אוטומטית בשם כל לקוח/ה בעת השליחה
+                                </div>
                             </div>
 
                             {/* Media upload */}

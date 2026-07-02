@@ -195,12 +195,14 @@ def start_scheduler():
                     q = q.where(Client.is_club_member == False)
                 clients = db.scalars(q).all()
                 for client in clients:
+                    client_name = getattr(client, "name", None) or getattr(client, "full_name", None) or ""
+                    personalized_body = b.body.replace("{client_name}", client_name) if "{client_name}" in b.body else b.body
                     db.add(MessageJob(
                         studio_id=b.studio_id,
                         client_id=client.id,
                         channel="whatsapp",
                         to_phone=client.phone,
-                        body=b.body,
+                        body=personalized_body,
                         media_url=b.media_url or None,
                         scheduled_at=now,
                         status="pending",

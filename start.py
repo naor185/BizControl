@@ -468,6 +468,15 @@ def ensure_schema():
         cur.execute("UPDATE studio_settings SET calendar_start_hour = '08:00' WHERE calendar_start_hour IS NULL OR calendar_start_hour = '' OR calendar_start_hour = '00:00'")
         cur.execute("UPDATE studio_settings SET calendar_end_hour = '23:00' WHERE calendar_end_hour IS NULL OR calendar_end_hour = '' OR calendar_end_hour = '00:00'")
 
+        # ── Obligations: actual paid amount tracking ──────────────────────────
+        cur.execute("ALTER TABLE financial_obligations ADD COLUMN IF NOT EXISTS amount_paid_cents INTEGER NOT NULL DEFAULT 0")
+        # Backfill existing rows: actual paid = months_paid × monthly_payment_cents (capped at total)
+        cur.execute("""
+            UPDATE financial_obligations
+            SET amount_paid_cents = LEAST(months_paid * monthly_payment_cents, total_amount_cents)
+            WHERE amount_paid_cents = 0 AND months_paid > 0
+        """)
+
         # ── POS / Cash Register ───────────────────────────────────────────────
         cur.execute("""
             CREATE TABLE IF NOT EXISTS pos_transactions (

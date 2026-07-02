@@ -105,8 +105,21 @@ def _check_green_state(instance_id: str, api_key: str) -> str:
     return state
 
 
+def _local_path_for_media(media_url: str) -> str | None:
+    """Return local filesystem path if media_url points to our own uploads directory."""
+    import re
+    if not media_url:
+        return None
+    # Relative URL: /uploads/broadcasts/file.jpg
+    if media_url.startswith("/uploads/"):
+        return media_url.lstrip("/")
+    # Absolute URL pointing to our server: https://xxx/uploads/broadcasts/file.jpg
+    m = re.search(r"uploads/broadcasts/[^?#]+", media_url)
+    return m.group(0) if m else None
+
+
 def _send_via_green(instance_id: str, api_key: str, to_phone: str, body: str, media_url: str | None = None) -> None:
-    import json as _json
+    import json as _json, os as _os, base64 as _b64
 
     state = _check_green_state(instance_id, api_key)
     if state in ("notAuthorized", "blocked"):
@@ -118,20 +131,44 @@ def _send_via_green(instance_id: str, api_key: str, to_phone: str, body: str, me
     clean = _normalize_phone(to_phone)
 
     if media_url:
-        ext = media_url.rsplit(".", 1)[-1].lower() if "." in media_url else "jpg"
-        url = f"https://api.green-api.com/waInstance{instance_id}/sendFileByUrl/{api_key}"
-        payload = _json.dumps({
-            "chatId": clean,
-            "urlFile": media_url,
-            "fileName": f"logo.{ext}",
-            "caption": body,
-        }).encode()
-        try:
-            _green_post(url, payload)
+        ext = (media_url.split("?")[0].rsplit(".", 1)[-1].lower()) if "." in media_url else "jpg"
+        sent_media = False
+
+        # 1. Try base64 if the file is available locally (avoids URL accessibility issues on Railway)
+        local_path = _local_path_for_media(media_url)
+        if local_path and _os.path.isfile(local_path):
+            try:
+                with open(local_path, "rb") as fh:
+                    b64data = _b64.b64encode(fh.read()).decode()
+                url = f"https://api.green-api.com/waInstance{instance_id}/sendFileByBase64/{api_key}"
+                payload = _json.dumps({
+                    "chatId": clean,
+                    "base64File": b64data,
+                    "fileName": f"media.{ext}",
+                    "caption": body,
+                }).encode()
+                _green_post(url, payload)
+                sent_media = True
+            except Exception as b64_err:
+                log.warning("Green API sendFileByBase64 failed (%s) — trying sendFileByUrl", b64_err)
+
+        # 2. Fall back to sendFileByUrl for absolute external URLs
+        if not sent_media and media_url.startswith("http"):
+            url = f"https://api.green-api.com/waInstance{instance_id}/sendFileByUrl/{api_key}"
+            payload = _json.dumps({
+                "chatId": clean,
+                "urlFile": media_url,
+                "fileName": f"media.{ext}",
+                "caption": body,
+            }).encode()
+            try:
+                _green_post(url, payload)
+                sent_media = True
+            except Exception as url_err:
+                log.warning("Green API sendFileByUrl failed (%s) — falling back to text-only", url_err)
+
+        if sent_media:
             return
-        except Exception as media_err:
-            # Fall back to plain text if media fails
-            log.warning("Green API sendFileByUrl failed (%s) — falling back to text-only", media_err)
 
     # Plain text message (primary path, or fallback after media failure)
     url = f"https://api.green-api.com/waInstance{instance_id}/sendMessage/{api_key}"

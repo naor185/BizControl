@@ -32,6 +32,7 @@ class FinancialObligation(Base):
     start_date: Mapped[date] = mapped_column(Date, nullable=False)
 
     months_paid: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    amount_paid_cents: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
 
     # FK to the auto-created recurring task in the calendar
     task_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("tasks.id", ondelete="SET NULL"), nullable=True)

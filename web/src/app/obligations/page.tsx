@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import AppShell from "@/components/AppShell";
 import RequireAuth from "@/components/RequireAuth";
 import { apiFetch } from "@/lib/api";
@@ -227,6 +227,22 @@ function ObligationForm({
     );
 }
 
+type PayPopup = { id: string; defaultAmount: number; title: string };
+
+// Which obligations are due this month and not yet paid
+function calcOverdue(obligations: Obligation[]): Obligation[] {
+    const today = new Date();
+    return obligations.filter(ob => {
+        if (ob.status !== "active") return false;
+        const start = new Date(ob.start_date);
+        let elapsed = (today.getFullYear() - start.getFullYear()) * 12
+            + (today.getMonth() - start.getMonth());
+        if (today.getDate() >= ob.day_of_month) elapsed += 1;
+        elapsed = Math.max(0, Math.min(elapsed, ob.months_total));
+        return ob.months_paid < elapsed;
+    });
+}
+
 export default function ObligationsPage() {
     const [obligations, setObligations] = useState<Obligation[]>([]);
     const [loading, setLoading] = useState(true);
@@ -234,6 +250,9 @@ export default function ObligationsPage() {
     const [editingOb, setEditingOb] = useState<Obligation | null>(null);
     const [markingId, setMarkingId] = useState<string | null>(null);
     const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [payPopup, setPayPopup] = useState<PayPopup | null>(null);
+    const [payAmount, setPayAmount] = useState("");
+    const [dismissedAlerts, setDismissedAlerts] = useState<Set<string>>(new Set());
 
     const load = useCallback(async () => {
         try {
@@ -245,6 +264,22 @@ export default function ObligationsPage() {
     }, []);
 
     useEffect(() => { load(); }, [load]);
+
+    // Load dismissed alerts from sessionStorage
+    useEffect(() => {
+        try {
+            const raw = sessionStorage.getItem("ob_alerts_dismissed");
+            if (raw) setDismissedAlerts(new Set(JSON.parse(raw)));
+        } catch { /* ignore */ }
+    }, []);
+
+    const dismissAlert = (id: string) => {
+        setDismissedAlerts(prev => {
+            const next = new Set(prev).add(id);
+            sessionStorage.setItem("ob_alerts_dismissed", JSON.stringify([...next]));
+            return next;
+        });
+    };
 
     const handleCreate = async (data: any) => {
         await apiFetch<Obligation>("/api/obligations", { method: "POST", body: JSON.stringify(data) });
@@ -261,14 +296,32 @@ export default function ObligationsPage() {
         load();
     };
 
-    const handleMarkPaid = async (id: string) => {
+    const openPayPopup = (ob: Obligation) => {
+        setPayAmount(String(ob.monthly_payment_cents / 100));
+        setPayPopup({ id: ob.id, defaultAmount: ob.monthly_payment_cents / 100, title: ob.title });
+    };
+
+    const handleMarkPaid = async (id: string, amountCents?: number) => {
         setMarkingId(id);
         try {
-            await apiFetch(`/api/obligations/${id}/mark-paid`, { method: "POST" });
+            await apiFetch(`/api/obligations/${id}/mark-paid`, {
+                method: "POST",
+                body: JSON.stringify({ amount_cents: amountCents ?? null }),
+            });
             toast.success("תשלום סומן ✓");
+            setPayPopup(null);
+            // Clear alert for this obligation
+            dismissAlert(id);
             load();
         } catch (e: any) { toast.error(e?.message || "שגיאה"); }
         finally { setMarkingId(null); }
+    };
+
+    const submitPayPopup = () => {
+        if (!payPopup) return;
+        const amount = parseFloat(payAmount);
+        if (!amount || amount <= 0) { toast.error("יש להזין סכום חיובי"); return; }
+        handleMarkPaid(payPopup.id, Math.round(amount * 100));
     };
 
     const handleUnmarkPaid = async (id: string) => {
@@ -291,6 +344,7 @@ export default function ObligationsPage() {
 
     const active = obligations.filter(o => o.status !== "completed");
     const completed = obligations.filter(o => o.status === "completed");
+    const overdueAlerts = calcOverdue(obligations).filter(o => !dismissedAlerts.has(o.id));
 
     // ── Monthly cashflow from all active obligations ──────────────────────────
     const monthlyCashflow = useMemo(() => {
@@ -339,6 +393,38 @@ export default function ObligationsPage() {
         <RequireAuth>
             <AppShell title="התחייבויות">
                 <div className="max-w-3xl mx-auto space-y-6 pb-12" dir="rtl">
+
+                    {/* Due-date alert banner */}
+                    {overdueAlerts.length > 0 && (
+                        <div className="bg-amber-50 border-2 border-amber-400 rounded-2xl p-4 space-y-2 shadow-sm">
+                            <div className="flex items-center gap-2 mb-1">
+                                <span className="text-xl">🔔</span>
+                                <span className="font-bold text-amber-800 text-sm">
+                                    {overdueAlerts.length === 1
+                                        ? "יש לך התחייבות לתשלום החודש שעדיין לא שולמה"
+                                        : `יש לך ${overdueAlerts.length} התחייבויות לתשלום החודש שעדיין לא שולמו`}
+                                </span>
+                            </div>
+                            {overdueAlerts.map(ob => (
+                                <div key={ob.id} className="flex items-center justify-between gap-3 bg-white rounded-xl px-3 py-2 border border-amber-200">
+                                    <div>
+                                        <span className="font-semibold text-slate-800 text-sm">{ob.title}</span>
+                                        <span className="text-xs text-slate-500 mr-2">• יום {ob.day_of_month} לחודש • {fmt(ob.monthly_payment_cents)}</span>
+                                    </div>
+                                    <div className="flex gap-2 shrink-0">
+                                        <button type="button" onClick={() => dismissAlert(ob.id)}
+                                            className="text-xs px-3 py-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50">
+                                            אחר כך
+                                        </button>
+                                        <button type="button" onClick={() => openPayPopup(ob)}
+                                            className="text-xs px-3 py-1.5 rounded-lg bg-amber-500 text-white font-bold hover:bg-amber-600">
+                                            שלם עכשיו
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
 
                     {/* Header */}
                     <div className="flex items-center justify-between">
@@ -403,7 +489,7 @@ export default function ObligationsPage() {
                             <div className="text-xs font-bold text-slate-500 uppercase tracking-wider px-1">פעילות</div>
                             {active.map(ob => (
                                 <ObligationCard key={ob.id} ob={ob}
-                                    onMarkPaid={handleMarkPaid}
+                                    onMarkPaid={openPayPopup}
                                     onUnmark={handleUnmarkPaid}
                                     onEdit={() => setEditingOb(ob)}
                                     onDelete={setDeletingId}
@@ -418,7 +504,7 @@ export default function ObligationsPage() {
                             <div className="text-xs font-bold text-slate-400 uppercase tracking-wider px-1">הושלמו ✓</div>
                             {completed.map(ob => (
                                 <ObligationCard key={ob.id} ob={ob}
-                                    onMarkPaid={handleMarkPaid}
+                                    onMarkPaid={openPayPopup}
                                     onUnmark={handleUnmarkPaid}
                                     onEdit={() => setEditingOb(ob)}
                                     onDelete={setDeletingId}
@@ -433,6 +519,40 @@ export default function ObligationsPage() {
                             <div className="text-5xl mb-3">💳</div>
                             <div className="font-semibold text-slate-500 mb-1">אין התחייבויות עדיין</div>
                             <div className="text-sm">הוסף הלוואה, חוב או גבייה ותראה אותם ביומן</div>
+                        </div>
+                    )}
+
+                    {/* Pay popup */}
+                    {payPopup && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setPayPopup(null)}>
+                            <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full text-right" onClick={e => e.stopPropagation()} dir="rtl">
+                                <div className="text-lg font-bold text-slate-800 mb-1">✓ סמן תשלום</div>
+                                <div className="text-sm text-slate-500 mb-4">{payPopup.title}</div>
+                                <label htmlFor="pay-amount-input" className="text-xs font-semibold text-slate-600 mb-1 block">
+                                    סכום ששולם (₪)
+                                    <span className="text-slate-400 font-normal mr-1">— ברירת מחדל: {payPopup.defaultAmount.toLocaleString("he-IL")}</span>
+                                </label>
+                                <input
+                                    id="pay-amount-input"
+                                    type="number"
+                                    value={payAmount}
+                                    onChange={e => setPayAmount(e.target.value)}
+                                    onKeyDown={e => e.key === "Enter" && submitPayPopup()}
+                                    placeholder={String(payPopup.defaultAmount)}
+                                    autoFocus
+                                    className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-base font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-400 mb-4"
+                                />
+                                <div className="flex gap-2">
+                                    <button type="button" onClick={() => setPayPopup(null)}
+                                        className="flex-1 border border-slate-200 rounded-xl py-2.5 text-sm text-slate-600 hover:bg-slate-50">
+                                        ביטול
+                                    </button>
+                                    <button type="button" onClick={submitPayPopup} disabled={markingId === payPopup.id}
+                                        className="flex-1 bg-slate-900 text-white font-bold py-2.5 rounded-xl text-sm hover:bg-slate-700 disabled:opacity-50">
+                                        {markingId === payPopup.id ? "שומר..." : "✓ אשר תשלום"}
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     )}
 
@@ -551,7 +671,7 @@ function MonthlyCashflow({ rows }: { rows: CashflowRow[] }) {
 
 function ObligationCard({ ob, onMarkPaid, onUnmark, onEdit, onDelete, markingId }: {
     ob: Obligation;
-    onMarkPaid: (id: string) => void;
+    onMarkPaid: (ob: Obligation) => void;
     onUnmark: (id: string) => void;
     onEdit: () => void;
     onDelete: (id: string) => void;
@@ -622,7 +742,7 @@ function ObligationCard({ ob, onMarkPaid, onUnmark, onEdit, onDelete, markingId 
                                 ↩
                             </button>
                         )}
-                        <button type="button" onClick={() => onMarkPaid(ob.id)} disabled={busy}
+                        <button type="button" onClick={() => onMarkPaid(ob)} disabled={busy}
                             className="text-xs px-3 py-1.5 rounded-lg bg-slate-800 text-white font-bold hover:bg-slate-700 disabled:opacity-50 transition-colors">
                             {busy ? "..." : "✓ שולם"}
                         </button>

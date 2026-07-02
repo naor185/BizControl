@@ -37,6 +37,10 @@ class ObligationCreate(BaseModel):
     notes: Optional[str] = None
 
 
+class MarkPaidBody(BaseModel):
+    amount_cents: Optional[int] = Field(default=None, gt=0)
+
+
 class ObligationUpdate(BaseModel):
     title: Optional[str] = Field(default=None, min_length=1, max_length=200)
     counterparty: Optional[str] = None
@@ -75,8 +79,9 @@ def _to_out(ob: FinancialObligation) -> ObligationOut:
     months_total = math.ceil(ob.total_amount_cents / ob.monthly_payment_cents)
     months_paid = ob.months_paid
     months_remaining = max(0, months_total - months_paid)
-    # Cap paid at total — last payment may be a partial amount
-    amount_paid = min(months_paid * ob.monthly_payment_cents, ob.total_amount_cents)
+    # Use actual tracked amount_paid_cents; fall back to computed value for old rows
+    raw_paid = ob.amount_paid_cents if (ob.amount_paid_cents or 0) > 0 else (months_paid * ob.monthly_payment_cents)
+    amount_paid = min(raw_paid, ob.total_amount_cents)
     amount_remaining = max(0, ob.total_amount_cents - amount_paid)
     return ObligationOut(
         id=str(ob.id),
@@ -205,10 +210,13 @@ def update_obligation(
 @router.post("/{ob_id}/mark-paid", response_model=ObligationOut)
 def mark_paid(
     ob_id: uuid.UUID,
+    body: MarkPaidBody = None,
     ctx: AuthContext = Depends(require_studio_ctx),
     db: Session = Depends(get_db),
 ):
-    """Record one monthly payment. Optionally creates an expense record."""
+    """Record one monthly payment with optional custom amount."""
+    if body is None:
+        body = MarkPaidBody()
     ob = db.get(FinancialObligation, ob_id)
     if not ob or ob.studio_id != ctx.studio_id:
         raise HTTPException(status_code=404, detail="לא נמצא")
@@ -219,7 +227,9 @@ def mark_paid(
     if ob.months_paid >= months_total:
         raise HTTPException(status_code=400, detail="כל התשלומים בוצעו")
 
+    actual_amount = body.amount_cents if (body.amount_cents and body.amount_cents > 0) else ob.monthly_payment_cents
     ob.months_paid += 1
+    ob.amount_paid_cents = (ob.amount_paid_cents or 0) + actual_amount
 
     # Auto-create expense for outgoing obligations
     if ob.direction == "outgoing":
@@ -228,7 +238,7 @@ def mark_paid(
             expense = Expense(
                 studio_id=ctx.studio_id,
                 description=f"{ob.title} — תשלום {ob.months_paid}/{months_total}",
-                amount=ob.monthly_payment_cents / 100,
+                amount=actual_amount / 100,
                 category="התחייבות",
                 expense_date=date.today(),
             )
@@ -237,7 +247,7 @@ def mark_paid(
             pass  # expense creation is best-effort
 
     # Auto-complete when fully paid
-    if ob.months_paid >= months_total:
+    if ob.amount_paid_cents >= ob.total_amount_cents or ob.months_paid >= months_total:
         ob.status = "completed"
 
     db.commit()
@@ -259,6 +269,8 @@ def unmark_paid(
         raise HTTPException(status_code=400, detail="אין תשלומים לבטל")
 
     ob.months_paid -= 1
+    # Subtract one month's payment from amount_paid; clamp to 0
+    ob.amount_paid_cents = max(0, (ob.amount_paid_cents or 0) - ob.monthly_payment_cents)
     if ob.status == "completed":
         ob.status = "active"
 

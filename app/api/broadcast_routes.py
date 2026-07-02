@@ -58,9 +58,16 @@ def upload_broadcast_media(
     dest = os.path.join(_UPLOAD_DIR, filename)
     with open(dest, "wb") as buf:
         shutil.copyfileobj(file.file, buf)
-    backend_url = os.getenv("API_BASE_URL", "").rstrip("/")
+    # Build absolute URL — required for Green API sendFileByUrl
+    backend_url = (
+        os.getenv("API_BASE_URL") or
+        (f"https://{os.getenv('RAILWAY_PUBLIC_DOMAIN')}" if os.getenv("RAILWAY_PUBLIC_DOMAIN") else "") or
+        ""
+    ).rstrip("/")
+    # Store local path as fallback key so message_worker can use base64 if URL is unreachable
+    local_path = dest  # e.g. uploads/broadcasts/filename.jpg
     url = f"{backend_url}/uploads/broadcasts/{filename}" if backend_url else f"/uploads/broadcasts/{filename}"
-    return {"url": url, "filename": filename}
+    return {"url": url, "filename": filename, "local_path": local_path}
 
 
 @router.post("", status_code=201)
