@@ -776,9 +776,15 @@ def get_calendar_occupancy(
     settings = db.get(StudioSettings, ctx.studio_id)
     start_str = getattr(settings, "calendar_start_hour", None) or "08:00"
     end_str   = getattr(settings, "calendar_end_hour",   None) or "23:00"
-    sh, sm = map(int, start_str.split(":"))
-    eh, em = map(int, end_str.split(":"))
-    work_min_per_day = max(1, (eh * 60 + em) - (sh * 60 + sm))
+    try:
+        sh, sm = map(int, start_str.split(":"))
+        eh, em = map(int, end_str.split(":"))
+        work_min_per_day = (eh * 60 + em) - (sh * 60 + sm)
+    except Exception:
+        work_min_per_day = 0
+    if work_min_per_day <= 0:
+        # Fallback: 08:00–23:00 = 15 hours
+        work_min_per_day = 15 * 60
 
     def period_data(p_start, p_end):
         days = max(1, (p_end - p_start).days)

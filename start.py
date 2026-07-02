@@ -465,6 +465,8 @@ def ensure_schema():
 
         cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS calendar_start_hour VARCHAR(16) NOT NULL DEFAULT '08:00'")
         cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS calendar_end_hour VARCHAR(16) NOT NULL DEFAULT '23:00'")
+        cur.execute("UPDATE studio_settings SET calendar_start_hour = '08:00' WHERE calendar_start_hour IS NULL OR calendar_start_hour = '' OR calendar_start_hour = '00:00'")
+        cur.execute("UPDATE studio_settings SET calendar_end_hour = '23:00' WHERE calendar_end_hour IS NULL OR calendar_end_hour = '' OR calendar_end_hour = '00:00'")
 
         # ── POS / Cash Register ───────────────────────────────────────────────
         cur.execute("""
