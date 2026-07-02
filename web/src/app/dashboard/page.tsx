@@ -201,84 +201,78 @@ export default function Page() {
                 <div className="space-y-6 animate-in fade-in duration-300">
 
                     {/* ── Calendar Occupancy Card ── */}
-                    {occupancy && (
-                        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5" dir="rtl">
-                            <div className="flex items-center justify-between mb-4">
-                                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">מילוי יומן</span>
-                                <span className="text-lg">📅</span>
-                            </div>
+                    {occupancy && (() => {
+                        const R = 52, STROKE = 10;
+                        const circ = 2 * Math.PI * R;
+                        const arc = (pct: number) => circ * (1 - pct / 100);
 
-                            {/* Week row */}
-                            {(() => {
-                                const wk = occupancy.this_week;
-                                const lw = occupancy.last_week;
-                                const diff = wk.percent - lw.percent;
-                                const color = wk.percent >= 75 ? "bg-emerald-500" : wk.percent >= 40 ? "bg-sky-500" : "bg-slate-300";
-                                const textColor = wk.percent >= 75 ? "text-emerald-600" : wk.percent >= 40 ? "text-sky-600" : "text-slate-500";
-                                return (
-                                    <div className="mb-4">
-                                        <div className="flex items-end justify-between mb-1.5">
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-2xl font-black text-slate-800">{wk.percent}%</span>
-                                                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${diff > 0 ? "bg-emerald-50 text-emerald-700" : diff < 0 ? "bg-rose-50 text-rose-700" : "bg-slate-100 text-slate-500"}`}>
-                                                    {diff > 0 ? `▲ +${diff}%` : diff < 0 ? `▼ ${diff}%` : "= זהה"} משבוע שעבר
-                                                </span>
-                                            </div>
-                                            <span className={`text-xs font-semibold ${textColor}`}>
-                                                {Math.round(wk.booked_minutes / 60)}h / {Math.round(wk.total_minutes / 60)}h · {wk.count} תורים
-                                            </span>
-                                        </div>
-                                        <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
-                                            <div className={`h-full rounded-full transition-all duration-700 ${color}`} style={{ width: `${wk.percent}%` }} />
-                                        </div>
-                                        <div className="flex justify-between mt-1 text-[10px] text-slate-400">
-                                            <span>השבוע</span>
-                                            <span>שבוע שעבר: {lw.percent}% · {lw.count} תורים</span>
+                        const DonutChart = ({ pct, color, label, prev, prevLabel, bookedH, totalH, count }: {
+                            pct: number; color: string; label: string;
+                            prev: number; prevLabel: string;
+                            bookedH: number; totalH: number; count: number;
+                        }) => {
+                            const diff = pct - prev;
+                            return (
+                                <div className="flex flex-col items-center gap-2 flex-1">
+                                    <div className="relative w-32 h-32">
+                                        <svg width="128" height="128" viewBox="0 0 128 128" className="-rotate-90">
+                                            {/* Track */}
+                                            <circle cx="64" cy="64" r={R} fill="none" stroke="#f1f5f9" strokeWidth={STROKE} />
+                                            {/* Arc */}
+                                            <circle cx="64" cy="64" r={R} fill="none" stroke={color}
+                                                strokeWidth={STROKE} strokeLinecap="round"
+                                                strokeDasharray={circ}
+                                                strokeDashoffset={arc(pct)}
+                                                style={{ transition: "stroke-dashoffset 0.8s ease" }}
+                                            />
+                                        </svg>
+                                        <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                            <span className="text-2xl font-black text-slate-800 leading-none">{pct}%</span>
+                                            <span className="text-[10px] text-slate-400 mt-0.5">{label}</span>
                                         </div>
                                     </div>
-                                );
-                            })()}
-
-                            {/* Divider */}
-                            <div className="h-px bg-slate-100 mb-4" />
-
-                            {/* Month row */}
-                            {(() => {
-                                const mo = occupancy.this_month;
-                                const lm = occupancy.last_month;
-                                const diff = mo.percent - lm.percent;
-                                const color = mo.percent >= 75 ? "bg-emerald-500" : mo.percent >= 40 ? "bg-violet-500" : "bg-slate-300";
-                                const textColor = mo.percent >= 75 ? "text-emerald-600" : mo.percent >= 40 ? "text-violet-600" : "text-slate-500";
-                                return (
-                                    <div>
-                                        <div className="flex items-end justify-between mb-1.5">
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-2xl font-black text-slate-800">{mo.percent}%</span>
-                                                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${diff > 0 ? "bg-emerald-50 text-emerald-700" : diff < 0 ? "bg-rose-50 text-rose-700" : "bg-slate-100 text-slate-500"}`}>
-                                                    {diff > 0 ? `▲ +${diff}%` : diff < 0 ? `▼ ${diff}%` : "= זהה"} מחודש שעבר
-                                                </span>
-                                            </div>
-                                            <span className={`text-xs font-semibold ${textColor}`}>
-                                                {Math.round(mo.booked_minutes / 60)}h / {Math.round(mo.total_minutes / 60)}h · {mo.count} תורים
-                                            </span>
-                                        </div>
-                                        <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
-                                            <div className={`h-full rounded-full transition-all duration-700 ${color}`} style={{ width: `${mo.percent}%` }} />
-                                        </div>
-                                        <div className="flex justify-between mt-1 text-[10px] text-slate-400">
-                                            <span>החודש</span>
-                                            <span>חודש שעבר: {lm.percent}% · {lm.count} תורים</span>
-                                        </div>
+                                    {/* Comparison badge */}
+                                    <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${diff > 0 ? "bg-emerald-50 text-emerald-700" : diff < 0 ? "bg-rose-50 text-rose-700" : "bg-slate-100 text-slate-500"}`}>
+                                        {diff > 0 ? `▲ +${diff}%` : diff < 0 ? `▼ ${diff}%` : "= זהה"} {prevLabel}
+                                    </span>
+                                    {/* Detail line */}
+                                    <div className="text-center text-[11px] text-slate-500 leading-snug">
+                                        <div className="font-semibold">{bookedH}h מתוך {totalH}h</div>
+                                        <div className="text-slate-400">{count} תורים · {prevLabel}: {prev}%</div>
                                     </div>
-                                );
-                            })()}
+                                </div>
+                            );
+                        };
 
-                            {/* Footer note */}
-                            <div className="mt-3 text-[10px] text-slate-400 text-center">
-                                מחושב לפי שעות העבודה בהגדרות ({occupancy.work_hours_per_day}h ביום)
+                        const wkColor  = occupancy.this_week.percent  >= 75 ? "#10b981" : occupancy.this_week.percent  >= 40 ? "#0ea5e9" : "#94a3b8";
+                        const moColor  = occupancy.this_month.percent >= 75 ? "#10b981" : occupancy.this_month.percent >= 40 ? "#8b5cf6" : "#94a3b8";
+
+                        return (
+                            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5" dir="rtl">
+                                <div className="flex items-center justify-between mb-5">
+                                    <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">📅 מילוי יומן</span>
+                                    <span className="text-[10px] text-slate-400">{occupancy.work_hours_per_day}h עבודה ביום</span>
+                                </div>
+                                <div className="flex gap-4 justify-around">
+                                    <DonutChart
+                                        pct={occupancy.this_week.percent} color={wkColor} label="השבוע"
+                                        prev={occupancy.last_week.percent} prevLabel="משבוע שעבר"
+                                        bookedH={Math.round(occupancy.this_week.booked_minutes / 60)}
+                                        totalH={Math.round(occupancy.this_week.total_minutes / 60)}
+                                        count={occupancy.this_week.count}
+                                    />
+                                    <div className="w-px bg-slate-100" />
+                                    <DonutChart
+                                        pct={occupancy.this_month.percent} color={moColor} label="החודש"
+                                        prev={occupancy.last_month.percent} prevLabel="מחודש שעבר"
+                                        bookedH={Math.round(occupancy.this_month.booked_minutes / 60)}
+                                        totalH={Math.round(occupancy.this_month.total_minutes / 60)}
+                                        count={occupancy.this_month.count}
+                                    />
+                                </div>
                             </div>
-                        </div>
-                    )}
+                        );
+                    })()}
 
                     {/* KPI row */}
                     {stats && (
