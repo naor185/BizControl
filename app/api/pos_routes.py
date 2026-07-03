@@ -44,6 +44,7 @@ class CheckoutIn(BaseModel):
     points_redeemed: int = 0
     coupon_code: Optional[str] = None
     notes: Optional[str] = None
+    send_receipt: bool = True
 
 
 class TransactionItemOut(BaseModel):
@@ -156,9 +157,9 @@ def pos_checkout(
                 reason=f"מימוש נקודות בקופה",
             ))
 
-    # Award loyalty points from cashback
+    # Award loyalty points from cashback — club members only
     points_earned = 0
-    if client:
+    if client and getattr(client, "is_club_member", False):
         settings = db.scalar(select(StudioSettings).where(StudioSettings.studio_id == ctx.studio_id))
         cashback_pct = getattr(settings, "points_percent_per_payment", 0) if settings else 0
         if cashback_pct and cashback_pct > 0:
@@ -208,8 +209,8 @@ def pos_checkout(
             import logging as _l
             _l.getLogger(__name__).exception("[pos] auto-invoice failed for txn %s", txn.id)
 
-    # WhatsApp thank-you message to client
-    if client and client.phone and not getattr(client, "whatsapp_opted_out", False):
+    # WhatsApp thank-you message to client — only if user requested it
+    if body.send_receipt and client and client.phone and not getattr(client, "whatsapp_opted_out", False):
         try:
             from app.models.studio_settings import StudioSettings as _SS
             from app.services.message_worker import send_whatsapp_message

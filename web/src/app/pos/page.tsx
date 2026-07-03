@@ -161,6 +161,9 @@ export default function PosPage() {
     const [giftCardDiscount, setGiftCardDiscount] = useState(0);
     const [giftCardLoading, setGiftCardLoading] = useState(false);
     const [giftCardError, setGiftCardError] = useState("");
+    // Send WhatsApp receipt toggle
+    const [sendReceipt, setSendReceipt] = useState(true);
+
     // Mobile: which panel is active
     const [mobileTab, setMobileTab] = useState<"pad" | "cart">("pad");
 
@@ -279,6 +282,7 @@ export default function PosPage() {
                     discount_cents: discountCents + pointsDiscountCents + giftCardDiscountCents,
                     points_redeemed: pointsDiscount,
                     coupon_code: couponDiscount > 0 ? couponCode.trim().toUpperCase() : null,
+                    send_receipt: client?.phone ? sendReceipt : false,
                 }),
             });
             setReceipt(txn);
@@ -584,6 +588,18 @@ export default function PosPage() {
                         </button>
                     ))}
                 </div>
+
+                {/* Send receipt toggle — only when client has phone */}
+                {client?.phone && (
+                    <div className={`flex items-center justify-between rounded-xl px-3 py-2 border transition-all ${sendReceipt ? "bg-blue-50 border-blue-200" : "bg-slate-50 border-slate-200"}`}>
+                        <span className="text-xs font-semibold text-slate-700">📲 שלח קבלה בוואטסאפ</span>
+                        <button type="button" title={sendReceipt ? "בטל שליחת קבלה" : "שלח קבלה"}
+                            onClick={() => setSendReceipt(v => !v)}
+                            className={`w-9 h-5 rounded-full transition-colors relative shrink-0 ${sendReceipt ? "bg-blue-500" : "bg-slate-300"}`}>
+                            <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${sendReceipt ? "left-4" : "left-0.5"}`} />
+                        </button>
+                    </div>
+                )}
 
                 {/* Checkout */}
                 <button type="button" onClick={handleCheckout} disabled={loading || cart.length === 0}
