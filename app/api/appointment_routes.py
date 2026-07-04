@@ -542,11 +542,11 @@ def verify_sent_payment(
         db.add(new_payment)
         db.flush()  # get new_payment.id before commit
 
-        # Auto-create receipt/invoice
+        # Auto-create receipt/invoice — pass send_receipt so WhatsApp link is conditional
         try:
             from app.crud.payment import _auto_create_invoice
             client = db.get(Client, appt.client_id)
-            invoice_id = _auto_create_invoice(db, ctx.studio_id, new_payment, appt, client)
+            invoice_id = _auto_create_invoice(db, ctx.studio_id, new_payment, appt, client, send_receipt=send_receipt)
         except Exception:
             log.exception("[verify-payment] auto-invoice failed")
 
@@ -584,15 +584,15 @@ def verify_sent_payment(
             log.warning("Deposit points failed: %s", _pe)
 
     # שלח הודעת אישור מקדמה עם פרטים מלאים (כתובת, מפה, תיק עבודות, מדיניות ביטולים)
-    if send_receipt:
-        from app.crud.automation import enqueue_deposit_approved_message
-        try:
-            from app.models.user import User as _User
-            _artist = db.get(_User, appt.artist_id) if appt.artist_id else None
-            _artist_name = (_artist.display_name or _artist.email) if _artist else ""
-            enqueue_deposit_approved_message(db, appt, artist_name=_artist_name)
-        except Exception as e:
-            log.error("[deposit_approved_msg] failed: %s", e)
+    # הודעה זו נשלחת תמיד — send_receipt שולט רק על קישור הקבלה הפיננסית
+    from app.crud.automation import enqueue_deposit_approved_message
+    try:
+        from app.models.user import User as _User
+        _artist = db.get(_User, appt.artist_id) if appt.artist_id else None
+        _artist_name = (_artist.display_name or _artist.email) if _artist else ""
+        enqueue_deposit_approved_message(db, appt, artist_name=_artist_name)
+    except Exception as e:
+        log.error("[deposit_approved_msg] failed: %s", e)
 
     # Fire automation rules for deposit_paid
     try:

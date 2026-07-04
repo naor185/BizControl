@@ -758,7 +758,7 @@ export default function Page() {
                                     <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all ${depositSendReceipt ? "left-4" : "left-0.5"}`} />
                                 </div>
                                 <span className={`text-sm font-bold ${depositSendReceipt ? "text-sky-700" : "text-slate-500"}`}>
-                                    {depositSendReceipt ? "📨 שלח הודעת אישור ללקוח" : "🔕 אל תשלח הודעה ללקוח"}
+                                    {depositSendReceipt ? "📨 שלח קישור קבלה ללקוח" : "🔕 אל תשלח קישור קבלה"}
                                 </span>
                             </button>
 
