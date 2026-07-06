@@ -197,8 +197,8 @@ class AIInvoiceService:
         processor_id = os.getenv("DOCUMENT_AI_PROCESSOR_ID", "").strip()
         location = os.getenv("DOCUMENT_AI_LOCATION", "us").strip()
         openai_key = os.getenv("OPENAI_API_KEY", "").strip()
+        gemini_key = os.getenv("GEMINI_API_KEY", "").strip()
 
-        real_openai = openai_key if openai_key.startswith("sk-") else ""
         google_creds_json = adc_json or sa_json
 
         if google_creds_json and project_id and processor_id:
@@ -207,19 +207,28 @@ class AIInvoiceService:
             self._project_id = project_id
             self._processor_id = processor_id
             self._location = location
-        elif real_openai:
+        elif openai_key and openai_key.startswith("sk-"):
             self._provider = "openai"
-            self._openai_key = real_openai
+            self._openai_key = openai_key
+        elif gemini_key and gemini_key.startswith("AIza"):
+            self._provider = "gemini"
+            self._gemini_key = gemini_key
+        elif openai_key and openai_key.startswith("AIza"):
+            # GEMINI_API_KEY stored in OPENAI_API_KEY var
+            self._provider = "gemini"
+            self._gemini_key = openai_key
         else:
             raise ValueError(
                 "סריקת חשבוניות דורשת Google Document AI (GOOGLE_ADC_JSON + "
-                "DOCUMENT_AI_PROJECT_ID + DOCUMENT_AI_PROCESSOR_ID) "
-                "או OPENAI_API_KEY (sk-...)."
+                "DOCUMENT_AI_PROJECT_ID + DOCUMENT_AI_PROCESSOR_ID), "
+                "OPENAI_API_KEY (sk-...) או GEMINI_API_KEY (AIza...)."
             )
 
     def parse_invoice_from_bytes(self, image_bytes: bytes, content_type: str = "image/jpeg") -> "InvoiceParseResult":
         if self._provider == "documentai":
             return self._parse_with_documentai(image_bytes, content_type)
+        if self._provider == "gemini":
+            return self._parse_with_gemini(image_bytes, content_type)
         return self._parse_with_openai(image_bytes, content_type)
 
     # ------------------------------------------------------------------
@@ -334,6 +343,14 @@ class AIInvoiceService:
             if not inv_date:
                 inv_date = _parse_date(date_items[0].mention_text)
 
+        # Fallback: scan raw OCR text for date patterns
+        if not inv_date and ocr:
+            for dm in re.findall(r'\b(\d{1,2}[./]\d{1,2}[./]\d{2,4})\b', ocr):
+                candidate = dm.replace(".", "/")
+                inv_date = _parse_date(candidate)
+                if inv_date:
+                    break
+
         # --- Payment method ---
         payment_method = _parse_payment_method(ocr)
 
@@ -389,6 +406,40 @@ Notes:
             max_tokens=512, temperature=0,
         )
         raw_text = response.choices[0].message.content or ""
+        return self._parse_openai_response(raw_text)
+
+    def _parse_with_gemini(self, image_bytes: bytes, content_type: str) -> "InvoiceParseResult":
+        """Use Gemini Vision via OpenAI-compatible REST API (no extra dependency needed)."""
+        import base64
+        import urllib.request
+
+        b64 = base64.b64encode(image_bytes).decode("utf-8")
+        payload = json.dumps({
+            "model": "gemini-2.0-flash",
+            "messages": [
+                {"role": "system", "content": self._OPENAI_PROMPT},
+                {"role": "user", "content": [
+                    {"type": "image_url", "image_url": {"url": f"data:{content_type};base64,{b64}"}},
+                    {"type": "text", "text": "Extract all financial data from this receipt. Return only JSON."},
+                ]},
+            ],
+            "max_tokens": 512,
+            "temperature": 0,
+        }).encode()
+
+        req = urllib.request.Request(
+            "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+            data=payload,
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {self._gemini_key}",
+            },
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            data = json.loads(resp.read().decode())
+
+        raw_text = data["choices"][0]["message"]["content"]
         return self._parse_openai_response(raw_text)
 
     def _parse_openai_response(self, raw_text: str) -> "InvoiceParseResult":

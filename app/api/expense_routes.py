@@ -123,20 +123,19 @@ async def scan_invoice(
 
     adc_json = os.getenv("GOOGLE_ADC_JSON", "").strip()
     openai_key = os.getenv("OPENAI_API_KEY", "").strip()
+    gemini_key = os.getenv("GEMINI_API_KEY", "").strip()
     project_id = os.getenv("DOCUMENT_AI_PROJECT_ID", "").strip()
     processor_id = os.getenv("DOCUMENT_AI_PROCESSOR_ID", "").strip()
-    _log.info("Invoice scan — GOOGLE_ADC_JSON=%s DOCUMENT_AI_PROJECT_ID=%s OPENAI_API_KEY prefix=%s",
-              "SET" if adc_json else "NOT SET",
-              "SET" if project_id else "NOT SET",
-              openai_key[:8] if openai_key else "NOT SET")
     has_vision_key = (
         (adc_json and project_id and processor_id) or
-        (openai_key and openai_key.startswith("sk-"))
+        (openai_key and openai_key.startswith("sk-")) or
+        (gemini_key and gemini_key.startswith("AIza")) or
+        (openai_key and openai_key.startswith("AIza"))
     )
     if not has_vision_key:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="סריקת חשבוניות דורשת Google Document AI (GOOGLE_ADC_JSON + DOCUMENT_AI_PROJECT_ID + DOCUMENT_AI_PROCESSOR_ID) או OPENAI_API_KEY (sk-...).",
+            detail="סריקת חשבוניות דורשת GEMINI_API_KEY, OPENAI_API_KEY (sk-...) או Google Document AI.",
         )
 
     image_bytes = await file.read()

@@ -102,19 +102,18 @@ function InvoiceUploadModal({ onClose, onSaved }: { onClose: () => void; onSaved
         }
         setSaving(true);
         try {
-            const payload: ExpenseCreate = {
+            await createExpense({
                 title,
                 supplier_name: title,
                 invoice_number: invoiceNum || undefined,
-                category: category || undefined,
+                category: category === "אחר" && categoryOther ? `אחר: ${categoryOther}` : category || undefined,
                 amount: parseFloat(amount),
                 vat_amount: vat ? parseFloat(vat) : undefined,
+                pretax_amount: pretax ? parseFloat(pretax) : undefined,
+                payment_method: paymentMethod || undefined,
                 expense_date: invoiceDate,
+                receipt_url: scanResult?.receipt_url || undefined,
                 is_ai_parsed: !!scanResult,
-            };
-            await createExpense({
-                ...payload,
-                category: category === "אחר" && categoryOther ? `אחר: ${categoryOther}` : category || undefined,
             });
             onSaved();
             onClose();
@@ -215,11 +214,17 @@ function InvoiceUploadModal({ onClose, onSaved }: { onClose: () => void; onSaved
                             <label>תאריך חשבונית
                                 <input type="date" value={invoiceDate} onChange={e => setInvoiceDate(e.target.value)} />
                             </label>
-                            {paymentMethod && (
-                                <label>אמצעי תשלום
-                                    <input value={paymentMethod} readOnly style={{ opacity: 0.7 }} />
-                                </label>
-                            )}
+                            <label>אמצעי תשלום
+                                <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}>
+                                    <option value="">-- לא צוין --</option>
+                                    <option value="אשראי">כרטיס אשראי</option>
+                                    <option value="מזומן">מזומן</option>
+                                    <option value="ביט/פייבוקס">Bit / PayBox</option>
+                                    <option value="העברה בנקאית">העברה בנקאית</option>
+                                    <option value="צ'ק">צ&apos;ק</option>
+                                    <option value="אחר">אחר</option>
+                                </select>
+                            </label>
                             <label>קטגוריה
                                 <select value={category} onChange={e => setCategory(e.target.value)}>
                                     <option value="">-- בחר קטגוריה --</option>
@@ -338,6 +343,20 @@ function ExpenseViewerModal({ expense, onClose, onUpdated }: { expense: Expense;
         finally { setSending(false); }
     };
 
+    const shareWhatsApp = (phone?: string) => {
+        const text = [
+            `📄 קבלה/חשבונית — ${expense.supplier_name || expense.title}`,
+            `תאריך: ${new Date(expense.expense_date).toLocaleDateString("he-IL")}`,
+            `סכום: ₪${fmt(expense.amount)}`,
+            expense.payment_method ? `אמצעי תשלום: ${expense.payment_method}` : "",
+            imgUrl ? `\nתמונת קבלה:\n${imgUrl}` : "",
+        ].filter(Boolean).join("\n");
+        const url = phone
+            ? `https://wa.me/972${phone.replace(/^0/, "")}?text=${encodeURIComponent(text)}`
+            : `https://wa.me/?text=${encodeURIComponent(text)}`;
+        window.open(url, "_blank");
+    };
+
     return (
         <div className="modal-overlay" onClick={onClose}>
             <div className="modal-panel" style={{ maxWidth: 700 }} onClick={e => e.stopPropagation()}>
@@ -390,7 +409,25 @@ function ExpenseViewerModal({ expense, onClose, onUpdated }: { expense: Expense;
                         </div>
                     </div>
                 </div>
-                <div className="modal-actions">
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginTop: "1rem" }}>
+                    {imgUrl && (
+                        <>
+                            <button
+                                type="button"
+                                onClick={() => shareWhatsApp()}
+                                style={{ background: "rgba(37,211,102,.15)", border: "1px solid rgba(37,211,102,.4)", color: "#25d366", borderRadius: 10, padding: ".6rem 1rem", cursor: "pointer", fontWeight: 600, fontSize: ".85rem" }}
+                            >
+                                💬 שלח בוואטסאפ
+                            </button>
+                            <a
+                                href={imgUrl}
+                                download
+                                style={{ background: "rgba(99,102,241,.12)", border: "1px solid rgba(99,102,241,.3)", color: "#818cf8", borderRadius: 10, padding: ".6rem 1rem", cursor: "pointer", fontWeight: 600, fontSize: ".85rem", textDecoration: "none" }}
+                            >
+                                ⬇️ הורד תמונה
+                            </a>
+                        </>
+                    )}
                     <button onClick={toggleSent} disabled={sending} style={{
                         background: expense.sent_to_accountant ? "rgba(251,191,36,.15)" : "rgba(74,222,128,.15)",
                         border: `1px solid ${expense.sent_to_accountant ? "rgba(251,191,36,.3)" : "rgba(74,222,128,.3)"}`,
