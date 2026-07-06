@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 
 const DocumentScanner = dynamic(() => import("@/components/DocumentScanner"), { ssr: false });
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
     getExpenses,
     getExpenseSummary,
@@ -53,6 +53,12 @@ const CATEGORIES = [
 
 function fmt(n: number) {
     return n.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function receiptImgUrl(url: string | undefined): string | null {
+    if (!url) return null;
+    if (url.startsWith("http")) return url;
+    return `${API_BASE}${url}`;
 }
 
 // ── Modal: Upload / AI Scan ───────────────────────────────────────────────────
@@ -544,6 +550,32 @@ export default function ExpensesPage() {
         load();
     };
 
+    const [uploadTargetId, setUploadTargetId] = useState<string | null>(null);
+    const [uploadingId, setUploadingId] = useState<string | null>(null);
+    const inlineUploadRef = useRef<HTMLInputElement>(null);
+
+    const handleInlineCameraClick = (expenseId: string, ev: React.MouseEvent) => {
+        ev.stopPropagation();
+        setUploadTargetId(expenseId);
+        inlineUploadRef.current?.click();
+    };
+
+    const handleInlineFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const f = e.target.files?.[0];
+        if (!f || !uploadTargetId) return;
+        setUploadingId(uploadTargetId);
+        try {
+            await uploadExpenseImage(uploadTargetId, f);
+            load();
+        } catch (err: any) {
+            toast.error(err.message || "שגיאה בהעלאת תמונה");
+        } finally {
+            setUploadingId(null);
+            setUploadTargetId(null);
+            e.target.value = "";
+        }
+    };
+
     const MONTHS = ["ינואר","פברואר","מרץ","אפריל","מאי","יוני","יולי","אוגוסט","ספטמבר","אוקטובר","נובמבר","דצמבר"];
 
     // Derived chart data
@@ -787,7 +819,7 @@ export default function ExpensesPage() {
                                     <table style={{ width: "100%", borderCollapse: "collapse" }}>
                                         <thead>
                                             <tr style={{ background: "#f9fafb" }}>
-                                                {["ספק / שם", "קטגוריה", "מספר חשבונית", "תאריך", "סכום", 'מע"מ', "סטטוס", ""].map(h => (
+                                                {["קבלה", "ספק / שם", "קטגוריה", "אמצעי תשלום", "תאריך", "סכום", 'מע"מ', "סטטוס", ""].map(h => (
                                                     <th key={h} style={{ padding: "0.75rem 1.25rem", textAlign: "right", fontSize: "0.72rem", color: "#6b7280", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: "1px solid #e5e7eb", whiteSpace: "nowrap" }}>
                                                         {h}
                                                     </th>
@@ -803,8 +835,29 @@ export default function ExpensesPage() {
                                                     onMouseEnter={ev => (ev.currentTarget.style.background = "#f9fafb")}
                                                     onMouseLeave={ev => (ev.currentTarget.style.background = "#ffffff")}
                                                 >
+                                                    {/* Thumbnail / attach-image column */}
+                                                    <td style={{ padding: "0.5rem 0.75rem 0.5rem 1.25rem", width: 60 }} onClick={ev => ev.stopPropagation()}>
+                                                        {receiptImgUrl(e.receipt_url) ? (
+                                                            <img
+                                                                src={receiptImgUrl(e.receipt_url)!}
+                                                                alt="receipt"
+                                                                onClick={() => setViewExpense(e)}
+                                                                style={{ width: 48, height: 48, objectFit: "cover", borderRadius: 8, border: "1px solid #e5e7eb", cursor: "pointer", display: "block" }}
+                                                            />
+                                                        ) : uploadingId === e.id ? (
+                                                            <div style={{ width: 48, height: 48, borderRadius: 8, background: "#f3f4f6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.1rem" }}>⏳</div>
+                                                        ) : (
+                                                            <button
+                                                                type="button"
+                                                                onClick={ev => handleInlineCameraClick(e.id, ev)}
+                                                                title="צרף תמונת קבלה"
+                                                                style={{ width: 48, height: 48, borderRadius: 8, background: "#f9fafb", border: "1.5px dashed #d1d5db", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.2rem", color: "#9ca3af" }}
+                                                            >
+                                                                📷
+                                                            </button>
+                                                        )}
+                                                    </td>
                                                     <td style={{ padding: "0.9rem 1.25rem", fontWeight: 600, color: "#1a1a2e", fontSize: "0.875rem" }}>
-                                                        {e.receipt_url && <span style={{ marginLeft: 5, color: "#6b7280", fontSize: "0.8rem" }}>📎</span>}
                                                         {e.supplier_name || e.title}
                                                     </td>
                                                     <td style={{ padding: "0.9rem 1.25rem" }}>
@@ -816,8 +869,8 @@ export default function ExpensesPage() {
                                                             <span style={{ color: "#d1d5db" }}>—</span>
                                                         )}
                                                     </td>
-                                                    <td style={{ padding: "0.9rem 1.25rem", color: "#6b7280", fontSize: "0.8rem" }}>
-                                                        {e.invoice_number || "—"}
+                                                    <td style={{ padding: "0.9rem 1.25rem", color: "#6b7280", fontSize: "0.8rem", whiteSpace: "nowrap" }}>
+                                                        {e.payment_method || <span style={{ color: "#d1d5db" }}>—</span>}
                                                     </td>
                                                     <td style={{ padding: "0.9rem 1.25rem", color: "#6b7280", fontSize: "0.8rem", whiteSpace: "nowrap" }}>
                                                         {new Date(e.expense_date).toLocaleDateString("he-IL")}
@@ -857,6 +910,16 @@ export default function ExpensesPage() {
                             )}
                         </div>
                     </div>
+
+                    {/* Hidden input for inline row image upload */}
+                    <input
+                        ref={inlineUploadRef}
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp,image/heic"
+                        aria-label="העלאת תמונת קבלה"
+                        style={{ display: "none" }}
+                        onChange={handleInlineFileChange}
+                    />
 
                     {/* Modals */}
                     {modal === "scan" && <InvoiceUploadModal onClose={() => setModal(null)} onSaved={load} />}
