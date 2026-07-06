@@ -247,6 +247,15 @@ export async function scanInvoice(file: File): Promise<InvoiceScanResult> {
     });
 }
 
+export async function uploadExpenseImage(expenseId: string, file: File): Promise<{ receipt_url: string }> {
+    const formData = new FormData();
+    formData.append("file", file);
+    return apiFetch<{ receipt_url: string }>(`/api/expenses/${expenseId}/upload-image`, {
+        method: "POST",
+        body: formData,
+    });
+}
+
 // ─── Staff & Payroll API Helpers ─────────────────────────────────────────────
 
 export interface WorkSession {

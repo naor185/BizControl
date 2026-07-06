@@ -25,6 +25,30 @@ from datetime import datetime
 router = APIRouter(prefix="/expenses", tags=["Expenses"])
 
 
+def _save_receipt_image(image_bytes: bytes, content_type: str, studio_id: str) -> str | None:
+    """Save receipt image — Cloudinary if configured, otherwise local uploads/."""
+    ext = (content_type or "image/jpeg").split("/")[-1].replace("jpeg", "jpg")
+    public_id = f"receipt_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
+    try:
+        from app.api.upload_routes import _cloudinary_upload
+        cloud_url = _cloudinary_upload(image_bytes, folder=f"receipts/{studio_id}", public_id=public_id)
+        if cloud_url:
+            return cloud_url
+    except Exception as e:
+        _log.debug("Cloudinary not available: %s", e)
+    # Fall back to local filesystem
+    try:
+        upload_dir = os.path.join("uploads", "receipts", studio_id)
+        os.makedirs(upload_dir, exist_ok=True)
+        fname = f"{public_id}.{ext}"
+        with open(os.path.join(upload_dir, fname), "wb") as fh:
+            fh.write(image_bytes)
+        return f"/uploads/receipts/{studio_id}/{fname}"
+    except Exception as e:
+        _log.warning("Could not save receipt image: %s", e)
+        return None
+
+
 def get_expense_repo(db: Session = Depends(get_db)) -> ExpenseRepository:
     return ExpenseRepository(db)
 
@@ -150,19 +174,7 @@ async def scan_invoice(
         )
 
     # Save receipt image to disk
-    receipt_url = None
-    try:
-        import os as _os
-        upload_dir = _os.path.join("uploads", "receipts", str(ctx.studio_id))
-        _os.makedirs(upload_dir, exist_ok=True)
-        ext = content_type.split("/")[-1].replace("jpeg", "jpg")
-        fname = f"{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}.{ext}"
-        fpath = _os.path.join(upload_dir, fname)
-        with open(fpath, "wb") as f:
-            f.write(image_bytes)
-        receipt_url = f"/uploads/receipts/{ctx.studio_id}/{fname}"
-    except Exception as e:
-        _log.warning("Could not save receipt image: %s", e)
+    receipt_url = _save_receipt_image(image_bytes, content_type, str(ctx.studio_id))
 
     # Increment usage counter
     if studio:
@@ -320,3 +332,31 @@ def delete_expense(
     if not ok:
         raise HTTPException(status_code=404, detail="Expense not found")
     return None
+
+
+# ── Attach receipt image (manual upload without OCR) ─────────────────────────
+@router.post("/{expense_id}/upload-image")
+async def upload_expense_image(
+    expense_id: uuid.UUID,
+    file: UploadFile = File(...),
+    ctx: AuthContext = Depends(require_studio_ctx),
+    db: Session = Depends(get_db),
+):
+    from app.models.expense import Expense as ExpenseModel
+    exp = db.query(ExpenseModel).filter_by(id=expense_id, studio_id=ctx.studio_id).first()
+    if not exp:
+        raise HTTPException(status_code=404, detail="Expense not found")
+
+    allowed = {"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"}
+    ct = (file.content_type or "").split(";")[0].strip().lower()
+    if ct not in allowed:
+        raise HTTPException(status_code=400, detail="סוג קובץ לא נתמך. יש להעלות JPG, PNG או WEBP.")
+
+    image_bytes = await file.read()
+    url = _save_receipt_image(image_bytes, ct, str(ctx.studio_id))
+    if not url:
+        raise HTTPException(status_code=500, detail="שגיאה בשמירת התמונה")
+
+    exp.receipt_url = url
+    db.commit()
+    return {"receipt_url": url}

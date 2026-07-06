@@ -14,6 +14,7 @@ import {
     markExpenseSent,
     markMonthSent,
     downloadExpenseExcel,
+    uploadExpenseImage,
     Expense,
     ExpenseSummary,
     InvoiceScanResult,
@@ -264,10 +265,19 @@ function ManualExpenseModal({ onClose, onSaved }: { onClose: () => void; onSaved
         vat_amount: 0,
         expense_date: new Date().toISOString().split("T")[0],
     });
+    const [imageFile, setImageFile] = useState<File | null>(null);
+    const [imagePreview, setImagePreview] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState("");
 
     const set = (k: keyof ExpenseCreate, v: any) => setForm(f => ({ ...f, [k]: v }));
+
+    const handleImagePick = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const f = e.target.files?.[0];
+        if (!f) return;
+        setImageFile(f);
+        setImagePreview(URL.createObjectURL(f));
+    };
 
     const handleSave = async () => {
         if (!form.title || !form.amount || !form.expense_date) {
@@ -276,7 +286,12 @@ function ManualExpenseModal({ onClose, onSaved }: { onClose: () => void; onSaved
         }
         setSaving(true);
         try {
-            await createExpense(form);
+            const saved = await createExpense(form);
+            if (imageFile && (saved as any)?.id) {
+                try {
+                    await uploadExpenseImage((saved as any).id, imageFile);
+                } catch { /* image upload failure doesn't block the save */ }
+            }
             onSaved();
             onClose();
         } catch (e: any) {
@@ -300,10 +315,10 @@ function ManualExpenseModal({ onClose, onSaved }: { onClose: () => void; onSaved
                     <label>מספר חשבונית
                         <input value={form.invoice_number || ""} onChange={e => set("invoice_number", e.target.value)} />
                     </label>
-                    <label>סכום כולל מע"מ (₪) *
+                    <label>סכום כולל מע&quot;מ (₪) *
                         <input type="number" step="0.01" min="0" value={form.amount || ""} onChange={e => set("amount", parseFloat(e.target.value))} />
                     </label>
-                    <label>מע"מ (₪)
+                    <label>מע&quot;מ (₪)
                         <input type="number" step="0.01" min="0" value={form.vat_amount || ""} onChange={e => set("vat_amount", parseFloat(e.target.value))} />
                     </label>
                     <label>תאריך *
@@ -315,7 +330,36 @@ function ManualExpenseModal({ onClose, onSaved }: { onClose: () => void; onSaved
                             {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                         </select>
                     </label>
+                    <label>אמצעי תשלום
+                        <select value={form.payment_method || ""} onChange={e => set("payment_method", e.target.value)}>
+                            <option value="">-- לא צוין --</option>
+                            <option value="אשראי">כרטיס אשראי</option>
+                            <option value="מזומן">מזומן</option>
+                            <option value="ביט/פייבוקס">Bit / PayBox</option>
+                            <option value="העברה בנקאית">העברה בנקאית</option>
+                            <option value="צ'ק">צ&apos;ק</option>
+                            <option value="אחר">אחר</option>
+                        </select>
+                    </label>
+                    <label>צרף תמונת קבלה
+                        <input
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp,image/heic"
+                            capture="environment"
+                            onChange={handleImagePick}
+                            style={{ fontSize: ".82rem", padding: ".4rem 0" }}
+                        />
+                    </label>
                 </div>
+                {imagePreview && (
+                    <div style={{ marginTop: ".75rem", textAlign: "center" }}>
+                        <img src={imagePreview} alt="preview" style={{ maxHeight: 140, borderRadius: 10, border: "1px solid rgba(255,255,255,.15)" }} />
+                        <button type="button" onClick={() => { setImageFile(null); setImagePreview(null); }}
+                            style={{ display: "block", margin: ".3rem auto 0", background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: ".78rem" }}>
+                            הסר תמונה ✕
+                        </button>
+                    </div>
+                )}
                 {error && <p className="error-msg">{error}</p>}
                 <div className="modal-actions">
                     <button className="btn-secondary" onClick={onClose}>ביטול</button>
