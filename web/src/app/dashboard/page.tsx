@@ -294,26 +294,6 @@ export default function Page() {
                                 <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">לקוחות מועדון</div>
                                 <div className="text-4xl font-bold text-slate-800">{stats.total_club_members}</div>
                             </div>
-                            {todayRevenue && (
-                                <div className="col-span-2 rounded-2xl bg-white border border-emerald-200 shadow-sm p-5">
-                                    <div className="text-xs font-bold text-emerald-600 uppercase tracking-widest mb-3">💵 הכנסות היום</div>
-                                    <div className="flex items-end gap-3 mb-3">
-                                        <div className="text-4xl font-black text-slate-800">{fmt(todayRevenue.total_today_cents / 100)}</div>
-                                        <div className="text-sm text-slate-400 mb-1">סה&quot;כ</div>
-                                    </div>
-                                    <div className="flex gap-4 border-t border-slate-100 pt-3">
-                                        <div>
-                                            <div className="text-[11px] text-slate-400 font-semibold">תשלומי תורים</div>
-                                            <div className="text-base font-bold text-slate-700">{fmt(todayRevenue.appointment_payments_cents / 100)}</div>
-                                        </div>
-                                        <div className="w-px bg-slate-100" />
-                                        <div>
-                                            <div className="text-[11px] text-slate-400 font-semibold">קופה (POS)</div>
-                                            <div className="text-base font-bold text-slate-700">{fmt(todayRevenue.pos_revenue_cents / 100)}</div>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
                             {pendingPayments.length > 0 && (
                                 <div className="col-span-2 lg:col-span-3 rounded-2xl border-2 border-amber-400 bg-amber-50 overflow-hidden">
                                     <button
@@ -522,6 +502,20 @@ export default function Page() {
                                 </div>
                                 <span className="px-2 py-1 bg-emerald-100 text-emerald-700 text-xs font-bold rounded-full">סנכרון חי</span>
                             </div>
+                            {todayRevenue && (
+                                <div className="px-6 py-3 bg-emerald-50 border-b border-emerald-100 flex items-center gap-6 flex-wrap" dir="rtl">
+                                    <div>
+                                        <span className="text-xs text-emerald-600 font-semibold">💵 סה״כ נגבה היום</span>
+                                        <span className="text-xl font-black text-emerald-700 mr-2">{fmt(todayRevenue.total_today_cents / 100)}</span>
+                                    </div>
+                                    <div className="w-px bg-emerald-200 h-6 hidden sm:block" />
+                                    <div className="flex gap-4 text-sm text-emerald-800">
+                                        <span>תורים: <strong>{fmt(todayRevenue.appointment_payments_cents / 100)}</strong></span>
+                                        <span>·</span>
+                                        <span>קופה: <strong>{fmt(todayRevenue.pos_revenue_cents / 100)}</strong></span>
+                                    </div>
+                                </div>
+                            )}
                             <div className="overflow-x-auto">
                                 <table className="w-full text-right text-sm">
                                     <thead>
