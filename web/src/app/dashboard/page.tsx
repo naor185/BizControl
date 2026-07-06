@@ -80,6 +80,13 @@ export default function Page() {
     type OccupancyData = { this_week: OccupancyPeriod; last_week: OccupancyPeriod; this_month: OccupancyPeriod; last_month: OccupancyPeriod; work_hours_per_day: number };
     const [occupancy, setOccupancy] = useState<OccupancyData | null>(null);
 
+    const [todayRevenue, setTodayRevenue] = useState<{
+        appointment_payments_cents: number;
+        pos_revenue_cents: number;
+        total_today_cents: number;
+        date: string;
+    } | null>(null);
+
     const [bizfindStats, setBizfindStats] = useState<{
         marketplace_visible: boolean;
         studio_slug: string;
@@ -93,13 +100,14 @@ export default function Page() {
     const fetchData = async () => {
         try {
             setLoading(true);
-            const [statsData, paymentsData, pendingData, depositsData, bfData, occData] = await Promise.all([
+            const [statsData, paymentsData, pendingData, depositsData, bfData, occData, todayRevData] = await Promise.all([
                 apiFetch<DashboardStats>("/api/dashboard/stats"),
                 apiFetch<DailyPayment[]>("/api/dashboard/daily-payments"),
                 apiFetch<PendingPayment[]>("/api/dashboard/pending-payments"),
                 apiFetch<any[]>("/api/appointments/pending-deposits").catch(() => []),
                 apiFetch<any>("/api/marketplace/my/analytics").catch(() => null),
                 apiFetch<OccupancyData>("/api/dashboard/occupancy").catch(() => null),
+                apiFetch<any>("/api/dashboard/today-revenue").catch(() => null),
             ]);
             setStats(statsData);
             setDailyPayments(paymentsData);
@@ -107,6 +115,7 @@ export default function Page() {
             setPendingDeposits(depositsData);
             setBizfindStats(bfData);
             setOccupancy(occData);
+            setTodayRevenue(todayRevData);
         } catch {
             setError("שגיאה בטעינת נתונים");
         } finally {
@@ -273,6 +282,35 @@ export default function Page() {
                             </div>
                         );
                     })()}
+
+                    {/* ── Today's Revenue Banner ── */}
+                    {todayRevenue && (
+                        <div className="rounded-2xl overflow-hidden shadow-sm border border-emerald-200" dir="rtl">
+                            <div className="bg-gradient-to-l from-emerald-600 to-teal-500 px-5 py-4 flex items-center justify-between">
+                                <div>
+                                    <div className="text-xs font-bold text-emerald-100 uppercase tracking-widest mb-1">💵 הכנסות היום</div>
+                                    <div className="text-4xl font-black text-white leading-none">
+                                        {fmt(todayRevenue.total_today_cents / 100)}
+                                    </div>
+                                    <div className="text-xs text-emerald-100 mt-1">
+                                        {new Date(todayRevenue.date).toLocaleDateString("he-IL", { weekday: "long", day: "numeric", month: "long" })}
+                                    </div>
+                                </div>
+                                <div className="text-5xl opacity-20">₪</div>
+                            </div>
+                            <div className="bg-white px-5 py-3 flex gap-6">
+                                <div>
+                                    <div className="text-[11px] text-slate-400 font-semibold">תשלומי תורים</div>
+                                    <div className="text-lg font-bold text-slate-800">{fmt(todayRevenue.appointment_payments_cents / 100)}</div>
+                                </div>
+                                <div className="w-px bg-slate-100" />
+                                <div>
+                                    <div className="text-[11px] text-slate-400 font-semibold">קופה (POS)</div>
+                                    <div className="text-lg font-bold text-slate-800">{fmt(todayRevenue.pos_revenue_cents / 100)}</div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     {/* KPI row */}
                     {stats && (

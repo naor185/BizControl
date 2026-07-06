@@ -927,11 +927,12 @@ export default function CalendarPage() {
                         .fc .fc-button-group { gap: 0.2rem !important; }
                         /* prev/next/today group on the left */
                         .fc .fc-toolbar-chunk { gap: 0.25rem !important; }
-                        /* Events — bigger text, easier to read */
+                        /* Events — full text, wraps inside block */
                         .fc-event { font-size: 0.82rem !important; border-radius: 6px !important; }
-                        .fc-event-title { font-size: 0.82rem !important; font-weight: 700 !important; white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; }
-                        .fc-event-time { font-size: 0.75rem !important; }
-                        .fc-timegrid-event .fc-event-main { padding: 3px 6px !important; }
+                        .fc-event-title { font-size: 0.82rem !important; font-weight: 700 !important; white-space: normal !important; word-break: break-word !important; overflow: hidden !important; text-overflow: unset !important; line-height: 1.25 !important; }
+                        .fc-event-time { font-size: 0.74rem !important; opacity: 0.88; }
+                        .fc-timegrid-event .fc-event-main { padding: 2px 5px !important; }
+                        .fc-timegrid-event .fc-event-main-frame { overflow: hidden !important; }
                         /* Day header */
                         .fc-col-header-cell { font-size: 0.88rem !important; font-weight: 700 !important; }
                         .fc-col-header-cell-cushion { padding: 6px 4px !important; }

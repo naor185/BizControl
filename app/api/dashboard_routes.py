@@ -138,6 +138,60 @@ def get_dashboard_stats(
         }
     }
 
+@router.get("/today-revenue")
+def get_today_revenue(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+    """Return breakdown of money actually received today: appointment payments + POS cash."""
+    settings = db.get(StudioSettings, ctx.studio_id)
+    tz_name = settings.timezone if settings and settings.timezone else "Asia/Jerusalem"
+    tz = pytz.timezone(tz_name)
+    now_local = datetime.now(tz)
+    today_start = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_end   = now_local.replace(hour=23, minute=59, second=59, microsecond=999999)
+
+    # Payments linked to appointments created today
+    appt_cents = db.scalar(
+        select(func.sum(Payment.amount_cents)).where(
+            Payment.studio_id == ctx.studio_id,
+            Payment.status == "paid",
+            Payment.type != "refund",
+            or_(Payment.notes == None, ~Payment.notes.ilike("[מערכת]%")),
+            Payment.created_at >= today_start,
+            Payment.created_at <= today_end,
+        )
+    ) or 0
+
+    # Refunds today (deduct)
+    refund_cents = db.scalar(
+        select(func.sum(Payment.amount_cents)).where(
+            Payment.studio_id == ctx.studio_id,
+            Payment.status == "paid",
+            Payment.type == "refund",
+            Payment.created_at >= today_start,
+            Payment.created_at <= today_end,
+        )
+    ) or 0
+
+    # POS transactions today
+    pos_cents = db.scalar(
+        select(func.sum(PosTransaction.total_cents)).where(
+            PosTransaction.studio_id == ctx.studio_id,
+            PosTransaction.status == "paid",
+            PosTransaction.created_at >= today_start,
+            PosTransaction.created_at <= today_end,
+        )
+    ) or 0
+
+    net_appt = max(0, appt_cents - refund_cents)
+    total    = net_appt + pos_cents
+
+    return {
+        "appointment_payments_cents": net_appt,
+        "pos_revenue_cents": pos_cents,
+        "total_today_cents": total,
+        "date": today_start.date().isoformat(),
+    }
+
+
 @router.get("/daily-payments")
 def get_daily_payments(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
     """Get list of today's appointments with payment status for the financial dashboard."""
