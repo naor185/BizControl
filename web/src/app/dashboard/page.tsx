@@ -84,6 +84,7 @@ export default function Page() {
         appointment_payments_cents: number;
         pos_revenue_cents: number;
         total_today_cents: number;
+        deposits_today: { client_name: string; amount_cents: number; appointment_date: string }[];
         date: string;
     } | null>(null);
 
@@ -509,10 +510,16 @@ export default function Page() {
                                         <span className="text-xl font-black text-emerald-700 mr-2">{fmt(todayRevenue.total_today_cents / 100)}</span>
                                     </div>
                                     <div className="w-px bg-emerald-200 h-6 hidden sm:block" />
-                                    <div className="flex gap-4 text-sm text-emerald-800">
+                                    <div className="flex gap-4 text-sm text-emerald-800 flex-wrap">
                                         <span>תורים: <strong>{fmt(todayRevenue.appointment_payments_cents / 100)}</strong></span>
                                         <span>·</span>
                                         <span>קופה: <strong>{fmt(todayRevenue.pos_revenue_cents / 100)}</strong></span>
+                                        {todayRevenue.deposits_today?.map((d, i) => (
+                                            <span key={i} className="text-violet-700">
+                                                · 💰 מקדמה {d.client_name}: <strong>{fmt(d.amount_cents / 100)}</strong>
+                                                <span className="text-violet-400 font-normal"> (תור {new Date(d.appointment_date).toLocaleDateString("he-IL")})</span>
+                                            </span>
+                                        ))}
                                     </div>
                                 </div>
                             )}
@@ -536,11 +543,6 @@ export default function Page() {
                                                 <td className="px-6 py-4">
                                                     <div className="font-semibold text-slate-800">{p.client_name}</div>
                                                     <div className="text-xs text-slate-400">{p.client_phone}</div>
-                                                    {p.payment_verified_at && new Date(p.starts_at).toDateString() !== new Date().toDateString() && (
-                                                        <div className="text-[11px] text-violet-600 font-semibold mt-0.5">
-                                                            💰 מקדמה · תור: {new Date(p.starts_at).toLocaleDateString("he-IL")}
-                                                        </div>
-                                                    )}
                                                 </td>
                                                 <td className="px-6 py-4 text-slate-600">
                                                     {new Date(p.starts_at).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })}

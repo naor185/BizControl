@@ -184,10 +184,37 @@ def get_today_revenue(ctx: AuthContext = Depends(require_studio_ctx), db: Sessio
     net_appt = max(0, appt_cents - refund_cents)
     total    = net_appt + pos_cents
 
+    # מקדמות שאושרו היום לתורים עתידיים
+    from app.models.client import Client as _Client
+    future_deposits_rows = db.execute(
+        select(Appointment, _Client, Payment)
+        .join(_Client, _Client.id == Appointment.client_id)
+        .join(Payment, Payment.appointment_id == Appointment.id)
+        .where(
+            Appointment.studio_id == ctx.studio_id,
+            Appointment.status != "canceled",
+            Appointment.starts_at > today_end,
+            Payment.status == "paid",
+            Payment.type != "refund",
+            Payment.created_at >= today_start,
+            Payment.created_at <= today_end,
+        )
+    ).all()
+
+    deposits_today = [
+        {
+            "client_name": client.full_name,
+            "amount_cents": payment.amount_cents,
+            "appointment_date": appt.starts_at.date().isoformat(),
+        }
+        for appt, client, payment in future_deposits_rows
+    ]
+
     return {
         "appointment_payments_cents": net_appt,
         "pos_revenue_cents": pos_cents,
         "total_today_cents": total,
+        "deposits_today": deposits_today,
         "date": today_start.date().isoformat(),
     }
 
@@ -205,25 +232,14 @@ def get_daily_payments(ctx: AuthContext = Depends(require_studio_ctx), db: Sessi
     today_start = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
     today_end = now_local.replace(hour=23, minute=59, second=59, microsecond=999999)
 
-    from sqlalchemy import and_ as _and
     stmt = (
         select(Appointment, Client)
         .join(Client, Client.id == Appointment.client_id)
         .where(
             Appointment.studio_id == ctx.studio_id,
-            Appointment.status != "canceled",
-            or_(
-                # תורים שמתחילים היום
-                _and(
-                    Appointment.starts_at >= today_start,
-                    Appointment.starts_at <= today_end,
-                ),
-                # תורים עתידיים שאושרה עבורם מקדמה היום
-                _and(
-                    Appointment.payment_verified_at >= today_start,
-                    Appointment.payment_verified_at <= today_end,
-                )
-            )
+            Appointment.starts_at >= today_start,
+            Appointment.starts_at <= today_end,
+            Appointment.status != "canceled"
         )
         .order_by(Appointment.starts_at.asc())
     )
