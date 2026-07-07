@@ -129,19 +129,21 @@ export default function Page() {
                 apiFetch<PosTransaction[]>("/api/pos/history?days=365").catch(() => [] as PosTransaction[]),
             ]);
 
-            const fromPayments: Entry[] = payments.map(p => ({
-                id: p.id,
-                amount_cents: p.amount_cents,
-                method: p.method,
-                type: p.type,
-                created_at: p.created_at,
-                notes: p.notes,
-                clientId: p.client?.id ?? p.client_id ?? null,
-                clientName: p.client?.full_name ?? null,
-                isWalkIn: p.client?.is_walk_in ?? false,
-                isPos: false,
-                paymentId: p.id,
-            }));
+            const fromPayments: Entry[] = payments
+                .filter(p => !p.notes?.startsWith("[מערכת]"))
+                .map(p => ({
+                    id: p.id,
+                    amount_cents: p.amount_cents,
+                    method: p.method,
+                    type: p.type,
+                    created_at: p.created_at,
+                    notes: p.notes,
+                    clientId: p.client?.id ?? p.client_id ?? null,
+                    clientName: p.client?.full_name ?? null,
+                    isWalkIn: p.client?.is_walk_in ?? false,
+                    isPos: false,
+                    paymentId: p.id,
+                }));
 
             const fromPos: Entry[] = posTxns.map(t => ({
                 id: `pos-${t.id}`,
