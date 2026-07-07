@@ -536,6 +536,11 @@ export default function Page() {
                                                 <td className="px-6 py-4">
                                                     <div className="font-semibold text-slate-800">{p.client_name}</div>
                                                     <div className="text-xs text-slate-400">{p.client_phone}</div>
+                                                    {p.payment_verified_at && new Date(p.starts_at).toDateString() !== new Date().toDateString() && (
+                                                        <div className="text-[11px] text-violet-600 font-semibold mt-0.5">
+                                                            💰 מקדמה · תור: {new Date(p.starts_at).toLocaleDateString("he-IL")}
+                                                        </div>
+                                                    )}
                                                 </td>
                                                 <td className="px-6 py-4 text-slate-600">
                                                     {new Date(p.starts_at).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })}

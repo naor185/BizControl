@@ -205,14 +205,25 @@ def get_daily_payments(ctx: AuthContext = Depends(require_studio_ctx), db: Sessi
     today_start = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
     today_end = now_local.replace(hour=23, minute=59, second=59, microsecond=999999)
 
+    from sqlalchemy import and_ as _and
     stmt = (
         select(Appointment, Client)
         .join(Client, Client.id == Appointment.client_id)
         .where(
             Appointment.studio_id == ctx.studio_id,
-            Appointment.starts_at >= today_start,
-            Appointment.starts_at <= today_end,
-            Appointment.status != "canceled"
+            Appointment.status != "canceled",
+            or_(
+                # תורים שמתחילים היום
+                _and(
+                    Appointment.starts_at >= today_start,
+                    Appointment.starts_at <= today_end,
+                ),
+                # תורים עתידיים שאושרה עבורם מקדמה היום
+                _and(
+                    Appointment.payment_verified_at >= today_start,
+                    Appointment.payment_verified_at <= today_end,
+                )
+            )
         )
         .order_by(Appointment.starts_at.asc())
     )
