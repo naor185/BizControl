@@ -448,6 +448,7 @@ CRITICAL RULES:
     def _parse_with_gemini(self, image_bytes: bytes, content_type: str) -> "InvoiceParseResult":
         """Use Gemini Vision via OpenAI-compatible REST API (no extra dependency needed)."""
         import base64
+        import urllib.error
         import urllib.request
 
         b64 = base64.b64encode(image_bytes).decode("utf-8")
@@ -473,8 +474,12 @@ CRITICAL RULES:
             },
             method="POST",
         )
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            data = json.loads(resp.read().decode())
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                data = json.loads(resp.read().decode())
+        except urllib.error.HTTPError as e:
+            body = e.read().decode(errors="replace")
+            raise RuntimeError(f"Gemini API HTTP {e.code}: {body[:500]}") from e
 
         raw_text = data["choices"][0]["message"]["content"]
         return self._parse_openai_response(raw_text)
