@@ -432,7 +432,7 @@ CRITICAL RULES:
         b64 = base64.b64encode(image_bytes).decode("utf-8")
 
         response = client.chat.completions.create(
-            model="gpt-4o",
+            model=os.getenv("OPENAI_INVOICE_MODEL", "gpt-4o"),
             messages=[
                 {"role": "system", "content": self._OPENAI_PROMPT},
                 {"role": "user", "content": [
@@ -452,8 +452,12 @@ CRITICAL RULES:
         import urllib.request
 
         b64 = base64.b64encode(image_bytes).decode("utf-8")
+        # "gemini-2.0-flash" was retired by Google (confirmed via a live 404 from
+        # the API: "This model ... is no longer available"). Configurable via env
+        # var so a future model retirement doesn't need a code deploy to fix.
+        gemini_model = os.getenv("GEMINI_INVOICE_MODEL", "gemini-2.5-flash")
         payload = json.dumps({
-            "model": "gemini-2.0-flash",
+            "model": gemini_model,
             "messages": [
                 {"role": "system", "content": self._OPENAI_PROMPT},
                 {"role": "user", "content": [
