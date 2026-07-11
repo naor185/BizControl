@@ -452,41 +452,55 @@ CRITICAL RULES:
         import urllib.request
 
         b64 = base64.b64encode(image_bytes).decode("utf-8")
-        # "gemini-2.0-flash" was retired by Google (confirmed via a live 404 from
-        # the API: "This model ... is no longer available"). Configurable via env
-        # var so a future model retirement doesn't need a code deploy to fix.
-        gemini_model = os.getenv("GEMINI_INVOICE_MODEL", "gemini-2.5-flash")
-        payload = json.dumps({
-            "model": gemini_model,
-            "messages": [
-                {"role": "system", "content": self._OPENAI_PROMPT},
-                {"role": "user", "content": [
-                    {"type": "image_url", "image_url": {"url": f"data:{content_type};base64,{b64}"}},
-                    {"type": "text", "text": "Extract all financial data from this receipt. Return only JSON."},
-                ]},
-            ],
-            "max_tokens": 512,
-            "temperature": 0,
-        }).encode()
 
-        req = urllib.request.Request(
-            "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-            data=payload,
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {self._gemini_key}",
-            },
-            method="POST",
-        )
-        try:
-            with urllib.request.urlopen(req, timeout=30) as resp:
-                data = json.loads(resp.read().decode())
-        except urllib.error.HTTPError as e:
-            body = e.read().decode(errors="replace")
-            raise RuntimeError(f"Gemini API HTTP {e.code}: {body[:500]}") from e
+        # Google has retired/restricted several Gemini model names mid-project
+        # (confirmed live: "gemini-2.0-flash" fully retired, "gemini-2.5-flash"
+        # "no longer available to new users"). Try a chain of current candidates
+        # in order and fall through past a model-not-found 404 so a future
+        # retirement doesn't need another deploy. GEMINI_INVOICE_MODEL can
+        # override with a comma-separated list.
+        default_models = "gemini-2.5-flash-lite,gemini-3.1-flash-lite,gemini-3.5-flash,gemini-2.5-pro"
+        candidate_models = [
+            m.strip() for m in os.getenv("GEMINI_INVOICE_MODEL", default_models).split(",") if m.strip()
+        ]
 
-        raw_text = data["choices"][0]["message"]["content"]
-        return self._parse_openai_response(raw_text)
+        last_error: Exception = RuntimeError("No Gemini model candidates configured")
+        for model in candidate_models:
+            payload = json.dumps({
+                "model": model,
+                "messages": [
+                    {"role": "system", "content": self._OPENAI_PROMPT},
+                    {"role": "user", "content": [
+                        {"type": "image_url", "image_url": {"url": f"data:{content_type};base64,{b64}"}},
+                        {"type": "text", "text": "Extract all financial data from this receipt. Return only JSON."},
+                    ]},
+                ],
+                "max_tokens": 512,
+                "temperature": 0,
+            }).encode()
+
+            req = urllib.request.Request(
+                "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+                data=payload,
+                headers={
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {self._gemini_key}",
+                },
+                method="POST",
+            )
+            try:
+                with urllib.request.urlopen(req, timeout=30) as resp:
+                    data = json.loads(resp.read().decode())
+                raw_text = data["choices"][0]["message"]["content"]
+                return self._parse_openai_response(raw_text)
+            except urllib.error.HTTPError as e:
+                body = e.read().decode(errors="replace")
+                last_error = RuntimeError(f"Gemini API HTTP {e.code} for model '{model}': {body[:500]}")
+                if e.code == 404:
+                    continue  # this model is unavailable — try the next candidate
+                raise last_error from e  # auth/quota/etc. won't be fixed by switching models
+
+        raise last_error
 
     def _parse_openai_response(self, raw_text: str) -> "InvoiceParseResult":
         try:
