@@ -204,13 +204,12 @@ class AIInvoiceService:
 
         google_creds_json = adc_json or sa_json
 
-        if google_creds_json and project_id and processor_id:
-            self._provider = "documentai"
-            self._creds_info = json.loads(google_creds_json)
-            self._project_id = project_id
-            self._processor_id = processor_id
-            self._location = location
-        elif openai_key and openai_key.startswith("sk-"):
+        # Vision-LLMs (GPT-4o/Gemini) read the receipt image directly and are
+        # steerable via prompt, so they're tried first. Document AI's OCR text
+        # linearization has been observed to scramble reading order on Israeli
+        # retail receipts (labels and amounts end up far apart in the text,
+        # sometimes hundreds of characters apart) — kept only as a fallback.
+        if openai_key and openai_key.startswith("sk-"):
             self._provider = "openai"
             self._openai_key = openai_key
         elif gemini_key and gemini_key.startswith("AIza"):
@@ -220,6 +219,12 @@ class AIInvoiceService:
             # GEMINI_API_KEY stored in OPENAI_API_KEY var
             self._provider = "gemini"
             self._gemini_key = openai_key
+        elif google_creds_json and project_id and processor_id:
+            self._provider = "documentai"
+            self._creds_info = json.loads(google_creds_json)
+            self._project_id = project_id
+            self._processor_id = processor_id
+            self._location = location
         else:
             raise ValueError(
                 "סריקת חשבוניות דורשת Google Document AI (GOOGLE_ADC_JSON + "
