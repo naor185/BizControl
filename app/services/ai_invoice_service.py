@@ -102,6 +102,7 @@ def _parse_hebrew_total(text: str) -> Optional[Decimal]:
         r'סכום\s+לתשלום',
         r'סה.כ\s+לתשלום',
         r'סה.כ\s+לחיוב',
+        r'לתשלום',
     ]
     return _find_labeled_amount(text, labels)
 
@@ -150,6 +151,7 @@ def _parse_hebrew_pretax(text: str) -> Optional[Decimal]:
     labels = [
         r'סה.כ\s+לפני\s+מע.מ',
         r'סכום\s+החייב\s+מע.מ',
+        r'חייבים?\s+במע.מ',
         r'בסיס\s+מע.מ',
     ]
     return _find_labeled_amount(text, labels)
@@ -366,7 +368,7 @@ class AIInvoiceService:
         )
 
     # ------------------------------------------------------------------
-    _OPENAI_PROMPT = """You are an expert Israeli accounting assistant. Extract structured financial data from invoice images.
+    _OPENAI_PROMPT = """You are an expert Israeli accounting assistant. Extract structured financial data from photos of Israeli receipts and invoices (חשבונית / קבלה) — including retail/supermarket POS receipts printed on thermal paper, which often use terser wording than formal invoices.
 
 Return ONLY valid JSON (no markdown, no explanations):
 {
@@ -379,13 +381,15 @@ Return ONLY valid JSON (no markdown, no explanations):
   "payment_method": "string or null"
 }
 
-Notes:
-- total_amount = final total INCLUDING VAT (סה"כ כולל מע"מ)
-- vat_amount = the actual VAT shekel amount printed (מע"מ ₪), NOT the rate
-- pretax_amount = total BEFORE VAT (סה"כ לפני מע"מ)
-- invoice_date: DD/MM/YYYY → convert to YYYY-MM-DD
-- payment_method: אשראי / מזומן / ביט / העברה בנקאית / null
-- Use null for any value not found"""
+CRITICAL RULES:
+- total_amount = the final amount actually paid, INCLUDING VAT. On retail receipts this may be labeled with just "לתשלום" (not always "סה"כ לתשלום" or "סכום לתשלום") — it is usually the largest/boldest number, often on a highlighted bar near the bottom.
+- vat_amount = the VAT amount IN SHEKELS (₪) — NEVER the VAT rate/percentage. A line like "מע"מ 18.00% 38.27" means the rate is 18% and the shekel amount is 38.27 — vat_amount must be 38.27, never 18. If you can only see a bare percentage with no adjacent shekel figure, leave vat_amount null instead of guessing.
+- pretax_amount = amount BEFORE VAT (סה"כ לפני מע"מ / חייב במע"מ / חייבים במע"מ). Usually total_amount minus vat_amount.
+- These three values are linked (total = pretax + vat) — if you are confident about any two of them, you may derive the third.
+- invoice_number: only fill this if an explicit invoice/document number is printed (e.g. "מספר חשבונית", "מס' קבלה"). Retail POS receipts often don't have one — leave null rather than using a register/cashier/transaction reference number.
+- invoice_date: DD/MM/YYYY → convert to YYYY-MM-DD.
+- payment_method: אשראי / מזומן / ביט / העברה בנקאית / null.
+- Use null for any value you are not confident about — never guess a number."""
 
     def _parse_with_openai(self, image_bytes: bytes, content_type: str) -> "InvoiceParseResult":
         import base64
@@ -459,10 +463,29 @@ Notes:
             vat_amount = to_dec("vat_amount")
             pretax_amount = to_dec("pretax_amount")
 
-            if total_amount and not vat_amount:
-                vat_amount = (total_amount * Decimal("18") / Decimal("118")).quantize(Decimal("0.01"))
+            # Guard: a vat_amount that exactly matches a common Israeli VAT rate
+            # (17/18%), with nothing else to corroborate it, is almost certainly
+            # a misread of the rate label rather than the shekel amount — drop it
+            # rather than surface a confidently-wrong number.
+            if (
+                vat_amount is not None and not total_amount and not pretax_amount
+                and vat_amount in (Decimal("17.00"), Decimal("18.00"))
+            ):
+                vat_amount = None
+
+            # Cross-derive whichever of the three is missing from the other two.
+            if total_amount and pretax_amount and not vat_amount:
+                vat_amount = (total_amount - pretax_amount).quantize(Decimal("0.01"))
             if total_amount and vat_amount and not pretax_amount:
                 pretax_amount = (total_amount - vat_amount).quantize(Decimal("0.01"))
+            if pretax_amount and vat_amount and not total_amount:
+                total_amount = (pretax_amount + vat_amount).quantize(Decimal("0.01"))
+
+            # Last resort: assume standard 18% Israeli VAT if only the total is known.
+            if total_amount and not vat_amount:
+                vat_amount = (total_amount * Decimal("18") / Decimal("118")).quantize(Decimal("0.01"))
+                if not pretax_amount:
+                    pretax_amount = (total_amount - vat_amount).quantize(Decimal("0.01"))
 
             inv_date = None
             if data.get("invoice_date"):
