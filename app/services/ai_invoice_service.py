@@ -212,11 +212,15 @@ class AIInvoiceService:
         if openai_key and openai_key.startswith("sk-"):
             self._provider = "openai"
             self._openai_key = openai_key
-        elif gemini_key and gemini_key.startswith("AIza"):
+        elif gemini_key:
+            # Not all Gemini API keys use the classic "AIzaSy..." format (confirmed
+            # against a real key from Google AI Studio that starts with "AQ." instead) —
+            # trust any non-empty value here rather than gate on an assumed prefix.
             self._provider = "gemini"
             self._gemini_key = gemini_key
-        elif openai_key and openai_key.startswith("AIza"):
-            # GEMINI_API_KEY stored in OPENAI_API_KEY var
+        elif openai_key and not openai_key.startswith("gsk_"):
+            # OPENAI_API_KEY sometimes holds a Gemini key by mistake (but not a Groq
+            # key — "gsk_..." belongs to the separate ויקי assistant integration).
             self._provider = "gemini"
             self._gemini_key = openai_key
         elif google_creds_json and project_id and processor_id:
