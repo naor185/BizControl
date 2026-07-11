@@ -206,6 +206,11 @@ function InvoiceUploadModal({ onClose, onSaved }: { onClose: () => void; onSaved
                 ) : (
                     <div className="scan-result">
                         <p className="scan-success">✅ AI הצליח לחלץ נתונים – אנא אשר / ערוך:</p>
+                        {scanResult?.ai_provider && (
+                            <p style={{ color: "#64748b", fontSize: "0.72rem", marginTop: "-0.6rem", marginBottom: "0.8rem" }}>
+                                מקור זיהוי: {scanResult.ai_provider}
+                            </p>
+                        )}
                         <div className="form-grid">
                             <label>שם עסק / ספק
                                 <input value={title} onChange={e => setTitle(e.target.value)} />

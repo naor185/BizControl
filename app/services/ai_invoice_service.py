@@ -133,10 +133,11 @@ def _parse_hebrew_vat(text: str) -> Optional[Decimal]:
             if val:
                 candidates.append((val, m.start()))
 
-    # Pattern 3: standalone "מע"מ" line followed/preceded by decimal
-    for m in re.finditer(r'(?:^|[\n\r])[^\n\r]*מע.מ[^\n\r]*[\n\r]+[^\n\r]*?([0-9]+\.[0-9]{1,2})', text, re.MULTILINE):
+    # Pattern 3: standalone "מע"מ" line followed/preceded by decimal.
+    # A number immediately followed by "%" is the rate, not a shekel amount — skip it.
+    for m in re.finditer(r'(?:^|[\n\r])[^\n\r]*מע.מ[^\n\r]*[\n\r]+[^\n\r]*?([0-9]+\.[0-9]{1,2})(?!\s*%)', text, re.MULTILINE):
         val = _clean_amount(m.group(1))
-        if val and val < Decimal("1000"):
+        if val and val < Decimal("1000") and val not in (Decimal("17.00"), Decimal("18.00")):
             candidates.append((val, m.start()))
 
     if not candidates:
@@ -313,6 +314,29 @@ class AIInvoiceService:
             pretax_amount = _parse_hebrew_pretax(ocr)
         if not invoice_number:
             invoice_number = _parse_hebrew_invoice_number(ocr)
+
+        # --- Sanity: an "invoice number" sitting right after ח.פ / עוסק מורשה is the
+        # business registration number, not a real document number — discard it.
+        if invoice_number:
+            m = re.search(re.escape(invoice_number), ocr)
+            if m and re.search(r'ח\.?פ\.?|עוסק\s+(מורשה|פטור)', ocr[max(0, m.start() - 20):m.start()]):
+                invoice_number = None
+
+        # --- Sanity: a vat_amount that exactly matches a common Israeli VAT rate
+        # (17/18), with nothing else to corroborate it, is almost certainly a
+        # misread of the rate label rather than a real shekel amount.
+        if vat_amount in (Decimal("17.00"), Decimal("18.00")) and not total_amount and not pretax_amount:
+            vat_amount = None
+
+        # --- Business name sometimes gets truncated at a hyphen (e.g. "סופר-")
+        # by Document AI's entity segmentation — extend it if the OCR text continues.
+        if business_name and business_name.rstrip().endswith("-"):
+            idx = ocr.find(business_name)
+            if idx != -1:
+                tail = ocr[idx + len(business_name): idx + len(business_name) + 20]
+                extra = re.match(r'[א-ת]+', tail)
+                if extra:
+                    business_name = business_name + extra.group(0)
 
         # --- Cross-check: if vat_amount > total_amount, they're swapped ---
         if total_amount and vat_amount and vat_amount > total_amount:

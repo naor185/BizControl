@@ -245,6 +245,7 @@ async def scan_invoice(
         "payment_method": result.payment_method,
         "receipt_url": receipt_url,
         "receipt_size_bytes": len(image_bytes),
+        "ai_provider": service._provider,
     }
 
 

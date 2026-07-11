@@ -188,6 +188,7 @@ export interface InvoiceScanResult {
     payment_method?: string;
     receipt_url?: string;
     receipt_size_bytes?: number;
+    ai_provider?: string;
 }
 
 export interface ExpenseStorageUsage {
