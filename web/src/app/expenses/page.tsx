@@ -15,10 +15,13 @@ import {
     markMonthSent,
     downloadExpenseExcel,
     uploadExpenseImage,
+    getExpenseStorageUsage,
+    deleteExpenseReceiptImage,
     Expense,
     ExpenseSummary,
     InvoiceScanResult,
     ExpenseCreate,
+    ExpenseStorageUsage,
     getDashboardStats,
     DashboardStats,
     API_BASE,
@@ -120,6 +123,7 @@ function InvoiceUploadModal({ onClose, onSaved }: { onClose: () => void; onSaved
                 payment_method: paymentMethod || undefined,
                 expense_date: invoiceDate,
                 receipt_url: scanResult?.receipt_url || undefined,
+                file_size_bytes: scanResult?.receipt_size_bytes || undefined,
                 is_ai_parsed: !!scanResult,
             });
             onSaved();
@@ -378,6 +382,116 @@ function ManualExpenseModal({ onClose, onSaved }: { onClose: () => void; onSaved
     );
 }
 
+// ── Storage Usage Modal ────────────────────────────────────────────────────────
+function formatBytes(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
+
+function StorageUsageModal({ onClose, onChanged }: { onClose: () => void; onChanged: () => void }) {
+    const [usage, setUsage] = useState<ExpenseStorageUsage | null>(null);
+    const [receipts, setReceipts] = useState<Expense[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
+
+    const load = useCallback(async () => {
+        setLoading(true);
+        try {
+            const [u, all] = await Promise.all([
+                getExpenseStorageUsage(),
+                getExpenses({ limit: 500 }),
+            ]);
+            setUsage(u);
+            setReceipts(
+                all
+                    .filter(e => e.receipt_url)
+                    .sort((a, b) => a.expense_date.localeCompare(b.expense_date))
+            );
+        } catch { } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => { load(); }, [load]);
+
+    const handleDeleteImage = async (id: string) => {
+        if (!confirm("למחוק את תמונת הקבלה? רשומת ההוצאה עצמה תישאר.")) return;
+        setDeletingId(id);
+        try {
+            await deleteExpenseReceiptImage(id);
+            await load();
+            onChanged();
+        } catch (e: any) {
+            toast.error(e.message || "שגיאה במחיקת התמונה");
+        } finally {
+            setDeletingId(null);
+        }
+    };
+
+    return (
+        <div className="modal-overlay" onClick={onClose}>
+            <div className="modal-panel" onClick={e => e.stopPropagation()} style={{ maxWidth: 640 }}>
+                <div className="modal-header">
+                    <h2>💾 ניהול אחסון</h2>
+                    <button className="close-btn" onClick={onClose}>✕</button>
+                </div>
+
+                {loading ? (
+                    <p style={{ color: "#94a3b8" }}>טוען...</p>
+                ) : (
+                    <>
+                        <div style={{ background: "rgba(167,139,250,.08)", border: "1px solid rgba(167,139,250,.25)", borderRadius: 12, padding: "1rem 1.25rem", marginBottom: "1.25rem" }}>
+                            <div style={{ color: "#a78bfa", fontSize: "1.4rem", fontWeight: 700 }}>
+                                {usage ? formatBytes(usage.total_bytes) : "—"}
+                            </div>
+                            <div style={{ color: "#94a3b8", fontSize: "0.8rem", marginTop: ".2rem" }}>
+                                בשימוש על ידי {usage?.count ?? 0} תמונות קבלה
+                                {usage && usage.unknown_count > 0 ? ` (מחשב נפח עבור ${usage.unknown_count} קבצים ישנים...)` : ""}
+                            </div>
+                        </div>
+
+                        {receipts.length === 0 ? (
+                            <p style={{ color: "#94a3b8", fontSize: "0.9rem" }}>אין תמונות קבלה שמורות.</p>
+                        ) : (
+                            <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem", maxHeight: "50vh", overflowY: "auto" }}>
+                                {receipts.map(e => (
+                                    <div key={e.id} style={{ display: "flex", alignItems: "center", gap: "0.75rem", background: "rgba(255,255,255,.05)", border: "1px solid rgba(255,255,255,.1)", borderRadius: 10, padding: "0.6rem 0.75rem" }}>
+                                        {receiptImgUrl(e.receipt_url) && (
+                                            <img src={receiptImgUrl(e.receipt_url)!} alt="receipt" style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 6, flexShrink: 0 }} />
+                                        )}
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <div style={{ color: "#fff", fontSize: "0.85rem", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                                {e.supplier_name || e.title}
+                                            </div>
+                                            <div style={{ color: "#94a3b8", fontSize: "0.75rem" }}>
+                                                {new Date(e.expense_date).toLocaleDateString("he-IL")}
+                                                {e.file_size_bytes ? ` · ${formatBytes(e.file_size_bytes)}` : ""}
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={() => handleDeleteImage(e.id)}
+                                            disabled={deletingId === e.id}
+                                            style={{ background: "rgba(239,68,68,.1)", color: "#f87171", border: "none", borderRadius: 8, padding: "0.4rem 0.7rem", fontSize: "0.75rem", cursor: "pointer", fontWeight: 600, flexShrink: 0 }}
+                                        >
+                                            {deletingId === e.id ? "מוחק..." : "🗑️ מחק תמונה"}
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </>
+                )}
+
+                <div className="modal-actions">
+                    <button className="btn-secondary" onClick={onClose}>סגור</button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 // ── Document Viewer Modal ─────────────────────────────────────────────────────
 function ExpenseViewerModal({ expense, onClose, onUpdated }: { expense: Expense; onClose: () => void; onUpdated: () => void }) {
     const [sending, setSending] = useState(false);
@@ -523,7 +637,7 @@ export default function ExpensesPage() {
     const [summary, setSummary] = useState<ExpenseSummary | null>(null);
     const [stats, setStats] = useState<DashboardStats | null>(null);
     const [loading, setLoading] = useState(true);
-    const [modal, setModal] = useState<"scan" | "manual" | null>(null);
+    const [modal, setModal] = useState<"scan" | "manual" | "storage" | null>(null);
     const [viewExpense, setViewExpense] = useState<Expense | null>(null);
 
     const load = useCallback(async () => {
@@ -680,6 +794,12 @@ export default function ExpensesPage() {
                                 style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "#fff", border: "1px solid #e5e7eb", color: "#1a1a2e", padding: "0.45rem 1rem", borderRadius: "8px", fontWeight: 500, fontSize: "0.875rem", cursor: "pointer" }}
                             >
                                 סמן חודש נשלח
+                            </button>
+                            <button
+                                onClick={() => setModal("storage")}
+                                style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "#fff", border: "1px solid #e5e7eb", color: "#1a1a2e", padding: "0.45rem 1rem", borderRadius: "8px", fontWeight: 500, fontSize: "0.875rem", cursor: "pointer" }}
+                            >
+                                💾 ניהול אחסון
                             </button>
                             <button
                                 onClick={() => setModal("manual")}
@@ -924,6 +1044,7 @@ export default function ExpensesPage() {
                     {/* Modals */}
                     {modal === "scan" && <InvoiceUploadModal onClose={() => setModal(null)} onSaved={load} />}
                     {modal === "manual" && <ManualExpenseModal onClose={() => setModal(null)} onSaved={load} />}
+                    {modal === "storage" && <StorageUsageModal onClose={() => setModal(null)} onChanged={load} />}
                     {viewExpense && (
                         <ExpenseViewerModal
                             expense={viewExpense}

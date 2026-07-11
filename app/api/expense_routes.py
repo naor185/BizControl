@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import uuid
 
 _log = logging.getLogger(__name__)
@@ -46,6 +47,59 @@ def _save_receipt_image(image_bytes: bytes, content_type: str, studio_id: str) -
         return f"/uploads/receipts/{studio_id}/{fname}"
     except Exception as e:
         _log.warning("Could not save receipt image: %s", e)
+        return None
+
+
+def _delete_receipt_file(url: str | None) -> None:
+    """Best-effort delete of a receipt image — Cloudinary asset or local file."""
+    if not url:
+        return
+    if url.startswith("http"):
+        cloud_name = os.getenv("CLOUDINARY_CLOUD_NAME", "").strip()
+        if not cloud_name:
+            return
+        m = re.search(r"/upload/(?:v\d+/)?(.+?)\.\w+(?:\?.*)?$", url)
+        if not m:
+            return
+        public_id = m.group(1)
+        try:
+            import cloudinary
+            import cloudinary.uploader
+            cloudinary.config(
+                cloud_name=cloud_name,
+                api_key=os.getenv("CLOUDINARY_API_KEY", ""),
+                api_secret=os.getenv("CLOUDINARY_API_SECRET", ""),
+            )
+            cloudinary.uploader.destroy(public_id, resource_type="image")
+        except Exception as e:
+            _log.warning("Could not delete Cloudinary receipt %s: %s", public_id, e)
+    else:
+        file_path = os.path.normpath(url.lstrip("/"))
+        uploads_root = os.path.normpath("uploads")
+        if os.path.abspath(file_path).startswith(os.path.abspath(uploads_root)) and os.path.exists(file_path):
+            try:
+                os.remove(file_path)
+            except OSError as e:
+                _log.warning("Could not delete local receipt %s: %s", file_path, e)
+
+
+def _measure_receipt_size(url: str | None) -> int | None:
+    """Best-effort byte size lookup for a legacy receipt that predates file_size_bytes tracking."""
+    if not url:
+        return None
+    if url.startswith("http"):
+        try:
+            import urllib.request
+            req = urllib.request.Request(url, method="HEAD")
+            with urllib.request.urlopen(req, timeout=8) as resp:
+                length = resp.headers.get("Content-Length")
+                return int(length) if length else None
+        except Exception:
+            return None
+    file_path = os.path.normpath(url.lstrip("/"))
+    try:
+        return os.path.getsize(file_path)
+    except OSError:
         return None
 
 
@@ -190,6 +244,7 @@ async def scan_invoice(
         "invoice_date": result.invoice_date.isoformat() if result.invoice_date else None,
         "payment_method": result.payment_method,
         "receipt_url": receipt_url,
+        "receipt_size_bytes": len(image_bytes),
     }
 
 
@@ -328,9 +383,11 @@ def delete_expense(
     ctx: AuthContext = Depends(require_studio_ctx),
     repo: ExpenseRepository = Depends(get_expense_repo),
 ):
-    ok = repo.delete(studio_id=ctx.studio_id, expense_id=expense_id)
-    if not ok:
+    exp = repo.get_by_id(studio_id=ctx.studio_id, expense_id=expense_id)
+    if not exp:
         raise HTTPException(status_code=404, detail="Expense not found")
+    _delete_receipt_file(exp.receipt_url)
+    repo.delete(studio_id=ctx.studio_id, expense_id=expense_id)
     return None
 
 
@@ -358,5 +415,58 @@ async def upload_expense_image(
         raise HTTPException(status_code=500, detail="שגיאה בשמירת התמונה")
 
     exp.receipt_url = url
+    exp.file_size_bytes = len(image_bytes)
     db.commit()
     return {"receipt_url": url}
+
+
+# ── Delete just the receipt image (keeps the expense record) ─────────────────
+@router.delete("/{expense_id}/receipt-image")
+def delete_expense_receipt_image(
+    expense_id: uuid.UUID,
+    ctx: AuthContext = Depends(require_studio_ctx),
+    db: Session = Depends(get_db),
+):
+    from app.models.expense import Expense as ExpenseModel
+    exp = db.query(ExpenseModel).filter_by(id=expense_id, studio_id=ctx.studio_id).first()
+    if not exp:
+        raise HTTPException(status_code=404, detail="Expense not found")
+    if not exp.receipt_url:
+        raise HTTPException(status_code=400, detail="אין תמונת קבלה למחיקה")
+
+    _delete_receipt_file(exp.receipt_url)
+    exp.receipt_url = None
+    exp.file_size_bytes = None
+    db.commit()
+    return {"ok": True}
+
+
+# ── Storage usage summary ─────────────────────────────────────────────────────
+@router.get("/storage/usage")
+def get_receipt_storage_usage(
+    ctx: AuthContext = Depends(require_studio_ctx),
+    db: Session = Depends(get_db),
+):
+    from app.models.expense import Expense as ExpenseModel
+    rows = db.query(ExpenseModel).filter(
+        ExpenseModel.studio_id == ctx.studio_id,
+        ExpenseModel.receipt_url.isnot(None),
+    ).all()
+
+    backfilled = 0
+    for exp in rows:
+        if exp.file_size_bytes is None and backfilled < 25:
+            size = _measure_receipt_size(exp.receipt_url)
+            if size:
+                exp.file_size_bytes = size
+                backfilled += 1
+    if backfilled:
+        db.commit()
+
+    total_bytes = sum(exp.file_size_bytes or 0 for exp in rows)
+    unknown_count = sum(1 for exp in rows if exp.file_size_bytes is None)
+    return {
+        "total_bytes": total_bytes,
+        "count": len(rows),
+        "unknown_count": unknown_count,
+    }

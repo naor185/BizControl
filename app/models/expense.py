@@ -32,6 +32,7 @@ class Expense(Base):
     expense_date: Mapped[date] = mapped_column(Date, nullable=False)
 
     receipt_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    file_size_bytes: Mapped[int | None] = mapped_column(nullable=True)
     is_ai_parsed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     sent_to_accountant: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     sent_to_accountant_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

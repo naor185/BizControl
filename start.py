@@ -152,6 +152,7 @@ def ensure_schema():
             "ALTER TABLE expenses ADD COLUMN IF NOT EXISTS notes TEXT",
             "ALTER TABLE expenses ADD COLUMN IF NOT EXISTS sent_to_accountant BOOLEAN NOT NULL DEFAULT false",
             "ALTER TABLE expenses ADD COLUMN IF NOT EXISTS sent_to_accountant_at TIMESTAMPTZ",
+            "ALTER TABLE expenses ADD COLUMN IF NOT EXISTS file_size_bytes INTEGER",
             "ALTER TABLE studios ADD COLUMN IF NOT EXISTS business_type VARCHAR(64) NOT NULL DEFAULT 'other'",
             "ALTER TABLE invoice_settings ADD COLUMN IF NOT EXISTS accountant_email TEXT",
         ]:

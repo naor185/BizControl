@@ -21,6 +21,7 @@ class ExpenseBase(BaseModel):
     expense_date: date
 
     receipt_url: Optional[str] = None
+    file_size_bytes: Optional[int] = None
     is_ai_parsed: bool = False
 
 

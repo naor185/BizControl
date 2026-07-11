@@ -147,6 +147,7 @@ export interface Expense {
     pretax_amount?: number;
     expense_date: string;
     receipt_url?: string;
+    file_size_bytes?: number;
     is_ai_parsed: boolean;
     sent_to_accountant: boolean;
     sent_to_accountant_at?: string;
@@ -173,6 +174,7 @@ export interface ExpenseCreate {
     pretax_amount?: number;
     expense_date: string;
     receipt_url?: string;
+    file_size_bytes?: number;
     is_ai_parsed?: boolean;
 }
 
@@ -185,6 +187,13 @@ export interface InvoiceScanResult {
     invoice_date?: string;
     payment_method?: string;
     receipt_url?: string;
+    receipt_size_bytes?: number;
+}
+
+export interface ExpenseStorageUsage {
+    total_bytes: number;
+    count: number;
+    unknown_count: number;
 }
 
 export function markExpenseSent(id: string, sent: boolean): Promise<Expense> {
@@ -212,7 +221,7 @@ export function downloadExpenseExcel(month: number, year: number): void {
         });
 }
 
-export function getExpenses(params?: { month?: number; year?: number }): Promise<Expense[]> {
+export function getExpenses(params?: { month?: number; year?: number; limit?: number }): Promise<Expense[]> {
     const query = params
         ? "?" + new URLSearchParams(
             Object.entries(params)
@@ -254,6 +263,14 @@ export async function uploadExpenseImage(expenseId: string, file: File): Promise
         method: "POST",
         body: formData,
     });
+}
+
+export function getExpenseStorageUsage(): Promise<ExpenseStorageUsage> {
+    return apiFetch<ExpenseStorageUsage>("/api/expenses/storage/usage");
+}
+
+export function deleteExpenseReceiptImage(id: string): Promise<void> {
+    return apiFetch<void>(`/api/expenses/${id}/receipt-image`, { method: "DELETE" });
 }
 
 // ─── Staff & Payroll API Helpers ─────────────────────────────────────────────
