@@ -3,55 +3,18 @@
  * DocumentScanner — live camera scanner with:
  * - Edge detection overlay (CSS + canvas)
  * - Auto-capture when document is stable (optional)
- * - Image enhancement: grayscale, contrast boost, sharpen
  * - Perspective correction via manual corner drag (future: OpenCV.js)
+ *
+ * Note: captured photos are sent to the AI as-is (color, unfiltered) — a manual
+ * grayscale/contrast/sharpen pass used to run here, but it degrades accuracy for
+ * modern vision-model OCR (GPT-4o/Gemini read a clean color photo better than a
+ * synthetically sharpened one).
  */
 import { useRef, useState, useEffect, useCallback } from "react";
 
 interface Props {
     onCapture: (file: File) => void;
     onClose: () => void;
-}
-
-// ── Image enhancement (runs on Canvas ImageData) ─────────────────────────────
-function enhanceForOCR(ctx: CanvasRenderingContext2D, w: number, h: number) {
-    const imageData = ctx.getImageData(0, 0, w, h);
-    const d = imageData.data;
-
-    // 1. Convert to grayscale
-    for (let i = 0; i < d.length; i += 4) {
-        const g = Math.round(0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]);
-        d[i] = d[i + 1] = d[i + 2] = g;
-    }
-
-    // 2. Adaptive contrast (histogram stretch)
-    let min = 255, max = 0;
-    for (let i = 0; i < d.length; i += 4) { min = Math.min(min, d[i]); max = Math.max(max, d[i]); }
-    const range = max - min || 1;
-    for (let i = 0; i < d.length; i += 4) {
-        const stretched = Math.round(((d[i] - min) / range) * 255);
-        d[i] = d[i + 1] = d[i + 2] = stretched;
-    }
-
-    // 3. Sharpen (3×3 kernel)
-    const copy = new Uint8ClampedArray(d);
-    const kernel = [0, -1, 0, -1, 5, -1, 0, -1, 0];
-    for (let y = 1; y < h - 1; y++) {
-        for (let x = 1; x < w - 1; x++) {
-            let sum = 0;
-            for (let ky = -1; ky <= 1; ky++) {
-                for (let kx = -1; kx <= 1; kx++) {
-                    const idx = ((y + ky) * w + (x + kx)) * 4;
-                    sum += copy[idx] * kernel[(ky + 1) * 3 + (kx + 1)];
-                }
-            }
-            const out = Math.min(255, Math.max(0, sum));
-            const px = (y * w + x) * 4;
-            d[px] = d[px + 1] = d[px + 2] = out;
-        }
-    }
-
-    ctx.putImageData(imageData, 0, 0);
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -108,7 +71,7 @@ export default function DocumentScanner({ onCapture, onClose }: Props) {
         } catch { /* not supported */ }
     }, [torchOn]);
 
-    // Capture + enhance
+    // Capture (matches the orientation actually shown on screen)
     const capture = useCallback(() => {
         const video = videoRef.current;
         const canvas = hiddenCanvas.current;
@@ -116,18 +79,33 @@ export default function DocumentScanner({ onCapture, onClose }: Props) {
 
         setPhase("processing");
         setTimeout(() => {
-            const W = video.videoWidth || 1280;
-            const H = video.videoHeight || 720;
+            const vw = video.videoWidth || 1280;
+            const vh = video.videoHeight || 720;
+            const ctx = canvas.getContext("2d")!;
+
+            // iOS Safari sometimes hands back a raw landscape sensor frame even
+            // though the <video> element is displaying it rotated upright on
+            // screen — canvas.drawImage ignores that display-only rotation, so
+            // without this the saved photo (and the one sent to the AI) comes
+            // out sideways. Detect the mismatch and rotate to match what was seen live.
+            const displayPortrait = video.clientHeight >= video.clientWidth;
+            const needsRotation = displayPortrait && vw > vh;
+
+            const W = needsRotation ? vh : vw;
+            const H = needsRotation ? vw : vh;
             canvas.width = W;
             canvas.height = H;
-            const ctx = canvas.getContext("2d")!;
-            ctx.drawImage(video, 0, 0, W, H);
+            if (needsRotation) {
+                ctx.translate(W / 2, H / 2);
+                ctx.rotate(Math.PI / 2);
+                ctx.drawImage(video, -vw / 2, -vh / 2, vw, vh);
+                ctx.setTransform(1, 0, 0, 1, 0, 0);
+            } else {
+                ctx.drawImage(video, 0, 0, vw, vh);
+            }
 
             // Stop camera
             streamRef.current?.getTracks().forEach(t => t.stop());
-
-            // Enhance for OCR
-            enhanceForOCR(ctx, W, H);
 
             canvas.toBlob(blob => {
                 if (!blob) return;
@@ -165,8 +143,9 @@ export default function DocumentScanner({ onCapture, onClose }: Props) {
     // ── Render ─────────────────────────────────────────────────────────────────
     return (
         <div style={{
-            position: "fixed", inset: 0, zIndex: 9999,
+            position: "fixed", inset: 0, height: "100dvh", zIndex: 9999,
             background: "#000", display: "flex", flexDirection: "column",
+            overflowY: "auto",
         }}>
             {/* Hidden canvas for processing */}
             <canvas ref={hiddenCanvas} style={{ display: "none" }} />
@@ -174,7 +153,7 @@ export default function DocumentScanner({ onCapture, onClose }: Props) {
             {/* Header */}
             <div style={{
                 display: "flex", alignItems: "center", justifyContent: "space-between",
-                padding: "0.75rem 1rem", background: "rgba(0,0,0,.7)",
+                padding: "calc(0.75rem + env(safe-area-inset-top)) 1rem 0.75rem", background: "rgba(0,0,0,.7)",
                 position: "absolute", top: 0, left: 0, right: 0, zIndex: 2,
             }}>
                 <button onClick={onClose} style={btnStyle}>✕ ביטול</button>
@@ -192,7 +171,7 @@ export default function DocumentScanner({ onCapture, onClose }: Props) {
             </div>
 
             {/* Camera / Preview area */}
-            <div style={{ flex: 1, position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ flex: "1 1 auto", minHeight: 0, position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
                 {/* Video feed */}
                 <video
                     ref={videoRef}
@@ -240,8 +219,9 @@ export default function DocumentScanner({ onCapture, onClose }: Props) {
 
             {/* Bottom controls */}
             <div style={{
-                padding: "1.25rem", background: "rgba(0,0,0,.85)",
-                display: "flex", gap: "1rem", justifyContent: "center", alignItems: "center",
+                padding: "1.25rem", paddingBottom: "calc(1.25rem + env(safe-area-inset-bottom))",
+                background: "rgba(0,0,0,.85)", flexShrink: 0,
+                display: "flex", gap: "1rem", justifyContent: "center", alignItems: "center", flexWrap: "wrap",
             }}>
                 {phase === "live" && (
                     <>
