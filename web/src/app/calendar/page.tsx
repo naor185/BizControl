@@ -519,11 +519,17 @@ export default function CalendarPage() {
             onConfirm: async () => {
                 setDragConfirm(null);
                 try {
+                    // Resizing only changes the end time — deliberately not sending
+                    // starts_at here (even though it's logically unchanged) avoids a
+                    // false-positive "reschedule" notification: the backend compares
+                    // it against the stored value with a naive tz-unaware check, and
+                    // FullCalendar's re-serialized local-time string doesn't match the
+                    // UTC-stored value byte-for-byte even when the instant is the same.
                     await apiFetch(`/api/appointments/${eventId}`, {
                         method: "PATCH",
-                        body: JSON.stringify({ starts_at: newStartStr, ends_at: newEndStr }),
+                        body: JSON.stringify({ ends_at: newEndStr }),
                     });
-                    setAppointments(prev => prev.map(a => a.id === eventId ? { ...a, starts_at: newStartStr, ends_at: newEndStr } : a));
+                    setAppointments(prev => prev.map(a => a.id === eventId ? { ...a, ends_at: newEndStr } : a));
                     showToast("משך התור עודכן ✅");
                 } catch (e: any) {
                     setToast({ message: "שגיאה בעדכון משך התור: " + (e?.message || ""), type: "error" });
