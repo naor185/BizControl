@@ -92,16 +92,14 @@ export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promi
                     const retryText = await retry.text();
                     return (retryText ? safeJson(retryText) : {}) as T;
                 }
-                // Retry also returned 401 — only NOW clear and redirect
+                // Retry also returned 401 — the session is genuinely dead below.
             }
-            // Don't redirect on background/non-critical endpoints — only on auth-critical ones
-            const isCritical = url.includes("/api/auth/me") || url.includes("/api/auth/studio-info");
-            if (isCritical) {
-                clearToken();
-                window.location.href = "/login";
-                throw new Error("Session expired");
-            }
-            // For non-critical endpoints, just throw without clearing the token
+            // Refresh failed (or the refreshed retry still 401'd): the session is
+            // truly over, regardless of which endpoint discovered it first. Leaving
+            // the user on a broken page with a raw "Session expired" error and no
+            // way back in is worse than redirecting — always send them to login.
+            clearToken();
+            window.location.href = "/login";
             throw new Error("Session expired");
         }
 
