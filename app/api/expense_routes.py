@@ -356,12 +356,12 @@ def send_expenses_to_accountant(
     ctx: AuthContext = Depends(require_studio_ctx),
     db: Session = Depends(get_db),
 ):
-    """Email expenses in a date range to the studio's accountant — reuses the same
-    accountant_email / Resend settings already used by the invoices module."""
+    """Email expenses in a date range to the studio's accountant via the central
+    Email Center (app/services/email_center.py) — studios no longer configure
+    their own Resend credentials."""
     from sqlalchemy import text as sa_text
-    from app.models.studio_settings import StudioSettings
+    from app.models.studio import Studio
     from app.models.expense import Expense as ExpenseModel
-    from app.utils.email_utils import send_email_sync
 
     date_from = body.get("date_from")
     date_to = body.get("date_to")
@@ -376,11 +376,8 @@ def send_expenses_to_accountant(
     if not accountant_email:
         raise HTTPException(status_code=400, detail="לא הוגדר מייל רואה חשבון. הגדר אותו בטאב ההגדרות בעמוד החשבוניות.")
 
-    studio_settings = db.get(StudioSettings, ctx.studio_id)
-    resend_key = getattr(studio_settings, "resend_api_key", None)
-    from_email = getattr(studio_settings, "resend_from_email", None) or "onboarding@resend.dev"
-    if not resend_key:
-        raise HTTPException(status_code=400, detail="לא הוגדר Resend API Key. הגדר אותו בהגדרות מייל.")
+    studio = db.get(Studio, ctx.studio_id)
+    biz_name = studio.name if studio else ""
 
     expenses = db.query(ExpenseModel).filter(
         ExpenseModel.studio_id == ctx.studio_id,
@@ -421,7 +418,6 @@ def send_expenses_to_accountant(
           <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;text-align:center">{_receipt_link(exp.receipt_url)}</td>
         </tr>"""
 
-    biz_name = getattr(studio_settings, "studio_name", "") or ""
     html = f"""
     <html dir="rtl" lang="he"><head><meta charset="UTF-8">
     <style>body{{font-family:Arial,sans-serif;direction:rtl;color:#1a1a2e}}
@@ -446,17 +442,22 @@ def send_expenses_to_accountant(
       <p style="color:#94a3b8;font-size:11px;margin-top:20px">נשלח ממערכת BizControl</p>
     </div></body></html>"""
 
-    from app.utils.email_utils import EmailSendError
-    try:
-        send_email_sync(
-            api_key=resend_key,
-            from_email=from_email,
-            to_email=accountant_email,
-            subject=f"דוח הוצאות {date_from} עד {date_to} | {biz_name}",
-            html_content=html,
+    from app.services.email_center import send_email as ec_send_email
+    ok = ec_send_email(
+        db,
+        to_email=accountant_email,
+        subject=f"דוח הוצאות {date_from} עד {date_to} | {biz_name}",
+        html_content=html,
+        from_name=biz_name or "BizControl",
+        studio_id=str(ctx.studio_id),
+        template_key="expenses_report",
+        email_type="invoice",
+    )
+    if not ok:
+        raise HTTPException(
+            status_code=502,
+            detail="שליחת המייל נכשלה. בדוק את הגדרות מרכז המייל (סופר-אדמין → מרכז מייל → לוגים).",
         )
-    except EmailSendError as e:
-        raise HTTPException(status_code=502, detail=f"שליחת המייל נכשלה: {e}")
 
     now = datetime.utcnow()
     db.query(ExpenseModel).filter(

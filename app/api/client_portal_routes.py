@@ -148,7 +148,7 @@ def _send_otp(client: Client, studio: Studio, code: str, channel: str, db: Sessi
         ))
 
     # Email fallback / both
-    if channel in ("email", "both") and client.email and settings and settings.resend_api_key:
+    if channel in ("email", "both") and client.email:
         html = f"""
         <div dir="rtl" style="font-family:Arial,sans-serif;padding:24px;max-width:480px">
             <h2 style="color:#1a1a2e">קוד כניסה לפורטל {studio.name}</h2>

@@ -2,7 +2,6 @@ from __future__ import annotations
 from datetime import datetime, timezone, timedelta, date
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-import asyncio
 import pytz
 
 from app.models.message_job import MessageJob
@@ -10,7 +9,6 @@ from app.models.studio_settings import StudioSettings
 from app.models.appointment import Appointment
 from app.models.client import Client
 from app.crud.automation import format_template
-from app.utils.email_utils import send_email
 from app.utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -355,42 +353,26 @@ def process_due_jobs(db: Session, limit: int = 20) -> int:
                     continue
 
             if job.channel == "email":
-                settings = db.get(StudioSettings, job.studio_id)
+                # All emails go through the central Email Center — no per-studio
+                # Resend key path anymore.
                 subject = getattr(job, "subject", None) or "הודעה מהסטודיו"
-                if settings and settings.resend_api_key:
-                    # Use studio's own Resend key
-                    from app.models.studio import Studio as _Studio
-                    _studio = db.get(_Studio, job.studio_id)
-                    studio_name = _studio.name if _studio else "BizControl"
-                    from_email = settings.resend_from_email or f"appointments@biz-control.com"
-                    asyncio.run(
-                        send_email(
-                            api_key=settings.resend_api_key,
-                            from_email=f"{studio_name} <{from_email}>",
-                            to_email=job.to_phone,
-                            subject=subject,
-                            html_content=job.body,
-                        )
-                    )
-                else:
-                    # Fallback: use central Email Center
-                    from app.services.email_center import send_email as _ec_send
-                    from app.models.studio import Studio as _Studio
-                    _studio = db.get(_Studio, job.studio_id)
-                    studio_name = _studio.name if _studio else "BizControl"
-                    ok = _ec_send(
-                        db,
-                        to_email=job.to_phone,
-                        subject=subject,
-                        html_content=job.body,
-                        from_name=studio_name,
-                        studio_id=str(job.studio_id),
-                        client_id=str(job.client_id) if job.client_id else None,
-                        template_key=getattr(job, "reminder_type", None) or "notification",
-                        email_type="appointment",
-                    )
-                    if not ok:
-                        raise ValueError("Email center send failed — check system API key")
+                from app.services.email_center import send_email as _ec_send
+                from app.models.studio import Studio as _Studio
+                _studio = db.get(_Studio, job.studio_id)
+                studio_name = _studio.name if _studio else "BizControl"
+                ok = _ec_send(
+                    db,
+                    to_email=job.to_phone,
+                    subject=subject,
+                    html_content=job.body,
+                    from_name=studio_name,
+                    studio_id=str(job.studio_id),
+                    client_id=str(job.client_id) if job.client_id else None,
+                    template_key=getattr(job, "reminder_type", None) or "notification",
+                    email_type="appointment",
+                )
+                if not ok:
+                    raise ValueError("Email center send failed — check system API key")
             else:
                 settings = db.get(StudioSettings, job.studio_id)
                 send_whatsapp_message(job.to_phone, job.body, settings, db=db,
@@ -511,7 +493,7 @@ def _sweep_reminders_for_window(
             ))
             count += 1
 
-        if email_default and client.email and settings.resend_api_key:
+        if email_default and client.email:
             email_body = format_template(email_default, ctx)
             db.add(MessageJob(
                 studio_id=appt.studio_id,

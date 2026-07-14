@@ -10,7 +10,6 @@ from app.api.automation_routes import router as automation_router
 from app.api.message_routes import router as message_router
 from app.api.upload_routes import router as upload_router
 from app.api.public_routes import router as public_router
-from app.api.email_routes import router as email_router
 from app.api.google_routes import google_router
 from app.api.dashboard_routes import router as dashboard_router
 from app.api.expense_routes import router as expense_router
@@ -67,7 +66,6 @@ api_router.include_router(automation_router)
 api_router.include_router(message_router)
 api_router.include_router(upload_router)
 api_router.include_router(public_router)
-api_router.include_router(email_router)
 api_router.include_router(google_router)
 api_router.include_router(dashboard_router)
 api_router.include_router(expense_router)

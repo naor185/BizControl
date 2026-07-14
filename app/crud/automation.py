@@ -158,7 +158,7 @@ def enqueue_confirmation_message(db: Session, appt: Appointment, artist_name: st
         ))
 
     # --- Email ---
-    if client.email and settings.resend_api_key and settings.confirm_email_template \
+    if client.email and settings.confirm_email_template \
             and _email_ok(db, appt.studio_id, "email_confirmation_enabled"):
         email_body = smart_format(settings.confirm_email_template, context)
         db.add(MessageJob(
@@ -298,7 +298,7 @@ def enqueue_reschedule_message(db: Session, appt: Appointment) -> None:
         </div>
         """
 
-    if client.email and settings.resend_api_key \
+    if client.email \
             and _email_ok(db, appt.studio_id, "email_reschedule_enabled"):
         body = smart_format(email_template, context)
         db.add(MessageJob(
@@ -348,7 +348,7 @@ def enqueue_cancel_message(db: Session, appt: Appointment) -> None:
 
     # Email
     email_template = settings.cancel_email_template or "מצטערים, התור שלך בוטל. נשמח לקבוע תור חדש בהקדם!"
-    if client.email and settings.resend_api_key and client.marketing_consent is not False \
+    if client.email and client.marketing_consent is not False \
             and _email_ok(db, appt.studio_id, "email_cancel_enabled"):
         body = smart_format(email_template, context)
         db.add(MessageJob(
@@ -476,7 +476,7 @@ def enqueue_post_payment_message(db: Session, appt: Appointment, amount_cents: i
   </div>
   <div style="padding:12px 30px;background:#f3f4f6;text-align:center;font-size:11px;color:#9ca3af;border-radius:0 0 12px 12px;">BizControl</div>
 </div>"""
-    if client.email and settings.resend_api_key \
+    if client.email \
             and _email_ok(db, appt.studio_id, "email_post_payment_enabled"):
         email_body = smart_format(email_template, context)
         # Plain-text custom email templates also need aftercare and review appended

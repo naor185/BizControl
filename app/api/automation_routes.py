@@ -63,6 +63,10 @@ def patch_settings(payload: AutomationSettingsUpdate, ctx: AuthContext = Depends
         raise HTTPException(status_code=404, detail="Settings not found")
 
     data = payload.model_dump(exclude_unset=True)
+    # Email sending is centralized (app/services/email_center.py) — studios can no
+    # longer configure their own Resend credentials, even via a direct API call.
+    data.pop("resend_api_key", None)
+    data.pop("resend_from_email", None)
     # Serialize treatment_types list → JSON string before saving
     if "treatment_types" in data and isinstance(data["treatment_types"], list):
         data["treatment_types"] = _json.dumps(data["treatment_types"], ensure_ascii=False)

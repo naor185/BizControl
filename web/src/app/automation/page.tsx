@@ -1893,15 +1893,6 @@ export default function AutomationSettingsPage() {
                                             logo: null,
                                         },
                                         {
-                                            icon: "✉️",
-                                            color: "bg-indigo-100",
-                                            title: "אימייל",
-                                            desc: "שלח אישורי תור, תזכורות ועדכונים ללקוחות באימייל דרך Resend",
-                                            connected: !!(settings.resend_api_key),
-                                            href: "/integrations/email",
-                                            logo: null,
-                                        },
-                                        {
                                             icon: "📸",
                                             color: "bg-gradient-to-br from-purple-100 to-pink-100",
                                             title: "Instagram",
