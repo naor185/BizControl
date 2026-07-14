@@ -349,24 +349,24 @@ def mark_month_sent(
     return {"ok": True}
 
 
-# ── Send month's expenses to accountant by email ──────────────────────────────
+# ── Send a date range of expenses to accountant by email ──────────────────────
 @router.post("/send-to-accountant", status_code=status.HTTP_200_OK)
 def send_expenses_to_accountant(
     body: dict,
     ctx: AuthContext = Depends(require_studio_ctx),
     db: Session = Depends(get_db),
-    repo: ExpenseRepository = Depends(get_expense_repo),
 ):
-    """Email this month's expenses to the studio's accountant — reuses the same
+    """Email expenses in a date range to the studio's accountant — reuses the same
     accountant_email / Resend settings already used by the invoices module."""
     from sqlalchemy import text as sa_text
     from app.models.studio_settings import StudioSettings
+    from app.models.expense import Expense as ExpenseModel
     from app.utils.email_utils import send_email_sync
 
-    month = body.get("month")
-    year = body.get("year")
-    if not month or not year:
-        raise HTTPException(status_code=400, detail="חסרים חודש ושנה")
+    date_from = body.get("date_from")
+    date_to = body.get("date_to")
+    if not date_from or not date_to:
+        raise HTTPException(status_code=400, detail="חסרים תאריכים")
 
     inv_settings = db.execute(
         sa_text("SELECT accountant_email FROM invoice_settings WHERE studio_id = :sid"),
@@ -382,9 +382,13 @@ def send_expenses_to_accountant(
     if not resend_key:
         raise HTTPException(status_code=400, detail="לא הוגדר Resend API Key. הגדר אותו בהגדרות מייל.")
 
-    expenses = repo.get_multi(studio_id=ctx.studio_id, month=month, year=year, limit=1000)
+    expenses = db.query(ExpenseModel).filter(
+        ExpenseModel.studio_id == ctx.studio_id,
+        ExpenseModel.expense_date >= date_from,
+        ExpenseModel.expense_date <= date_to,
+    ).order_by(ExpenseModel.expense_date).all()
     if not expenses:
-        raise HTTPException(status_code=400, detail="אין הוצאות לחודש זה")
+        raise HTTPException(status_code=400, detail="אין הוצאות בטווח התאריכים שנבחר")
 
     api_base = os.getenv("API_BASE_URL", "").rstrip("/")
 
@@ -424,7 +428,7 @@ def send_expenses_to_accountant(
     table{{width:100%;border-collapse:collapse}}th{{background:#1a1a2e;color:#fff;padding:10px 12px;font-size:13px}}</style>
     </head><body>
     <div style="max-width:800px;margin:0 auto;padding:20px">
-      <h2 style="color:#1a1a2e;margin-bottom:4px">דוח הוצאות {month:02d}/{year} — {biz_name}</h2>
+      <h2 style="color:#1a1a2e;margin-bottom:4px">דוח הוצאות {date_from} עד {date_to} — {biz_name}</h2>
       <p style="color:#64748b;font-size:13px;margin-bottom:20px">סה"כ {len(expenses)} הוצאות</p>
       <table>
         <thead><tr>
@@ -446,19 +450,17 @@ def send_expenses_to_accountant(
         api_key=resend_key,
         from_email=from_email,
         to_email=accountant_email,
-        subject=f"דוח הוצאות {month:02d}/{year} | {biz_name}",
+        subject=f"דוח הוצאות {date_from} עד {date_to} | {biz_name}",
         html_content=html,
     )
     if not ok:
         raise HTTPException(status_code=502, detail="שליחת המייל נכשלה. בדוק את הגדרות ה-Resend.")
 
-    from app.models.expense import Expense as ExpenseModel
-    from sqlalchemy import extract
     now = datetime.utcnow()
     db.query(ExpenseModel).filter(
         ExpenseModel.studio_id == ctx.studio_id,
-        extract("month", ExpenseModel.expense_date) == month,
-        extract("year", ExpenseModel.expense_date) == year,
+        ExpenseModel.expense_date >= date_from,
+        ExpenseModel.expense_date <= date_to,
     ).update({"sent_to_accountant": True, "sent_to_accountant_at": now}, synchronize_session=False)
     db.commit()
 

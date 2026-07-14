@@ -520,6 +520,64 @@ function StorageUsageModal({ onClose, onChanged }: { onClose: () => void; onChan
     );
 }
 
+// ── Send to Accountant (date-range email) Modal ────────────────────────────────
+function SendToAccountantModal({
+    onClose, onSent, defaultMonth, defaultYear,
+}: { onClose: () => void; onSent: () => void; defaultMonth: number; defaultYear: number }) {
+    const firstOfMonth = `${defaultYear}-${String(defaultMonth).padStart(2, "0")}-01`;
+    const lastOfMonth = new Date(defaultYear, defaultMonth, 0).toISOString().split("T")[0];
+    const [dateFrom, setDateFrom] = useState(firstOfMonth);
+    const [dateTo, setDateTo] = useState(lastOfMonth);
+    const [sending, setSending] = useState(false);
+    const [error, setError] = useState("");
+
+    const handleSend = async () => {
+        if (!dateFrom || !dateTo) { setError("יש לבחור טווח תאריכים"); return; }
+        if (!confirm(`לשלוח את כל ההוצאות בין ${dateFrom} ל-${dateTo} במייל לרואה החשבון?`)) return;
+        setSending(true);
+        setError("");
+        try {
+            const res = await sendExpensesToAccountant(dateFrom, dateTo);
+            toast.success(`נשלחו ${res.sent_count} הוצאות לרו"ח במייל ✅`);
+            onSent();
+            onClose();
+        } catch (e: any) {
+            setError(e.message || "שגיאה בשליחת המייל");
+        } finally {
+            setSending(false);
+        }
+    };
+
+    return (
+        <div className="modal-overlay" onClick={onClose}>
+            <div className="modal-panel" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
+                <div className="modal-header">
+                    <h2>📧 שלח לרו&quot;ח במייל</h2>
+                    <button className="close-btn" onClick={onClose}>✕</button>
+                </div>
+                <div className="form-grid">
+                    <label>מתאריך
+                        <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
+                    </label>
+                    <label>עד תאריך
+                        <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} />
+                    </label>
+                </div>
+                <p style={{ color: "#94a3b8", fontSize: ".8rem", marginTop: "1rem" }}>
+                    כל ההוצאות בטווח התאריכים יישלחו במייל אחד לרואה החשבון (לפי המייל שמוגדר בעמוד החשבוניות → הגדרות), עם קישור לתמונת קבלה לכל הוצאה.
+                </p>
+                {error && <p className="error-msg">{error}</p>}
+                <div className="modal-actions">
+                    <button className="btn-secondary" onClick={onClose}>ביטול</button>
+                    <button className="btn-primary" onClick={handleSend} disabled={sending}>
+                        {sending ? "שולח..." : "📧 שלח"}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 // ── Document Viewer Modal ─────────────────────────────────────────────────────
 function ExpenseViewerModal({ expense, onClose, onUpdated }: { expense: Expense; onClose: () => void; onUpdated: () => void }) {
     const [sending, setSending] = useState(false);
@@ -665,9 +723,8 @@ export default function ExpensesPage() {
     const [summary, setSummary] = useState<ExpenseSummary | null>(null);
     const [stats, setStats] = useState<DashboardStats | null>(null);
     const [loading, setLoading] = useState(true);
-    const [modal, setModal] = useState<"scan" | "manual" | "storage" | null>(null);
+    const [modal, setModal] = useState<"scan" | "manual" | "storage" | "send-accountant" | null>(null);
     const [viewExpense, setViewExpense] = useState<Expense | null>(null);
-    const [sendingToAccountant, setSendingToAccountant] = useState(false);
     const [downloadingZip, setDownloadingZip] = useState(false);
 
     const load = useCallback(async () => {
@@ -815,23 +872,10 @@ export default function ExpensesPage() {
                                 Excel לרו&quot;ח
                             </button>
                             <button
-                                disabled={sendingToAccountant}
-                                onClick={async () => {
-                                    if (!confirm(`לשלוח את כל הוצאות ${month}/${year} במייל לרואה החשבון?`)) return;
-                                    setSendingToAccountant(true);
-                                    try {
-                                        const res = await sendExpensesToAccountant(month, year);
-                                        toast.success(`נשלחו ${res.sent_count} הוצאות לרו"ח במייל ✅`);
-                                        load();
-                                    } catch (e: any) {
-                                        toast.error(e.message || "שגיאה בשליחת המייל");
-                                    } finally {
-                                        setSendingToAccountant(false);
-                                    }
-                                }}
+                                onClick={() => setModal("send-accountant")}
                                 style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "#fff", border: "1px solid #e5e7eb", color: "#1a1a2e", padding: "0.45rem 1rem", borderRadius: "8px", fontWeight: 500, fontSize: "0.875rem", cursor: "pointer" }}
                             >
-                                {sendingToAccountant ? "שולח..." : "📧 שלח לרו\"ח במייל"}
+                                📧 שלח לרו&quot;ח במייל
                             </button>
                             <button
                                 disabled={downloadingZip}
@@ -1110,6 +1154,7 @@ export default function ExpensesPage() {
                     {modal === "scan" && <InvoiceUploadModal onClose={() => setModal(null)} onSaved={load} />}
                     {modal === "manual" && <ManualExpenseModal onClose={() => setModal(null)} onSaved={load} />}
                     {modal === "storage" && <StorageUsageModal onClose={() => setModal(null)} onChanged={load} />}
+                    {modal === "send-accountant" && <SendToAccountantModal onClose={() => setModal(null)} onSent={load} defaultMonth={month} defaultYear={year} />}
                     {viewExpense && (
                         <ExpenseViewerModal
                             expense={viewExpense}

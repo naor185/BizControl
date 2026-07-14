@@ -207,10 +207,10 @@ export function markMonthSent(month: number, year: number): Promise<void> {
     return apiFetch<void>(`/api/expenses/mark-month-sent?month=${month}&year=${year}`, { method: "POST" });
 }
 
-export function sendExpensesToAccountant(month: number, year: number): Promise<{ ok: boolean; sent_count: number }> {
+export function sendExpensesToAccountant(dateFrom: string, dateTo: string): Promise<{ ok: boolean; sent_count: number }> {
     return apiFetch<{ ok: boolean; sent_count: number }>("/api/expenses/send-to-accountant", {
         method: "POST",
-        body: JSON.stringify({ month, year }),
+        body: JSON.stringify({ date_from: dateFrom, date_to: dateTo }),
     });
 }
 
