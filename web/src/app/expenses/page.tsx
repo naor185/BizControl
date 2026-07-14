@@ -19,6 +19,7 @@ import {
     deleteExpenseReceiptImage,
     sendExpensesToAccountant,
     checkDuplicateExpense,
+    downloadExpenseReceiptsZip,
     Expense,
     ExpenseSummary,
     InvoiceScanResult,
@@ -667,6 +668,7 @@ export default function ExpensesPage() {
     const [modal, setModal] = useState<"scan" | "manual" | "storage" | null>(null);
     const [viewExpense, setViewExpense] = useState<Expense | null>(null);
     const [sendingToAccountant, setSendingToAccountant] = useState(false);
+    const [downloadingZip, setDownloadingZip] = useState(false);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -830,6 +832,22 @@ export default function ExpensesPage() {
                                 style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "#fff", border: "1px solid #e5e7eb", color: "#1a1a2e", padding: "0.45rem 1rem", borderRadius: "8px", fontWeight: 500, fontSize: "0.875rem", cursor: "pointer" }}
                             >
                                 {sendingToAccountant ? "שולח..." : "📧 שלח לרו\"ח במייל"}
+                            </button>
+                            <button
+                                disabled={downloadingZip}
+                                onClick={async () => {
+                                    setDownloadingZip(true);
+                                    try {
+                                        await downloadExpenseReceiptsZip(month, year);
+                                    } catch (e: any) {
+                                        toast.error(e.message || "שגיאה בהורדת הקבלות");
+                                    } finally {
+                                        setDownloadingZip(false);
+                                    }
+                                }}
+                                style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "#fff", border: "1px solid #e5e7eb", color: "#1a1a2e", padding: "0.45rem 1rem", borderRadius: "8px", fontWeight: 500, fontSize: "0.875rem", cursor: "pointer" }}
+                            >
+                                {downloadingZip ? "מוריד..." : "⬇️ הורד קבלות כ-ZIP"}
                             </button>
                             <button
                                 onClick={async () => {

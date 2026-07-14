@@ -465,6 +465,72 @@ def send_expenses_to_accountant(
     return {"ok": True, "sent_count": len(expenses)}
 
 
+# ── Export month's receipt images as a ZIP ────────────────────────────────────
+@router.get("/export/receipts-zip")
+def export_receipts_zip(
+    month: int = Query(..., ge=1, le=12),
+    year: int = Query(..., ge=2000),
+    ctx: AuthContext = Depends(require_studio_ctx),
+    repo: ExpenseRepository = Depends(get_expense_repo),
+):
+    """Bundle this month's receipt images into a single ZIP for manual handling
+    (e.g. attaching to an email yourself) — the automated accountant email only
+    links to images (see /send-to-accountant) since attaching many files risks
+    exceeding email provider size limits."""
+    import io
+    import zipfile
+    import requests
+
+    expenses = repo.get_multi(studio_id=ctx.studio_id, month=month, year=year, limit=1000)
+    expenses_with_receipts = [e for e in expenses if e.receipt_url]
+    if not expenses_with_receipts:
+        raise HTTPException(status_code=400, detail="אין קבלות עם תמונה לחודש זה")
+
+    buf = io.BytesIO()
+    used_names: set[str] = set()
+
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for exp in expenses_with_receipts:
+            url = exp.receipt_url
+            try:
+                if url.startswith("http"):
+                    resp = requests.get(url, timeout=15)
+                    resp.raise_for_status()
+                    content = resp.content
+                    ext = url.split("?")[0].rsplit(".", 1)[-1].lower()
+                    ext = ext if ext in ("jpg", "jpeg", "png", "webp", "heic") else "jpg"
+                else:
+                    file_path = os.path.normpath(url.lstrip("/"))
+                    with open(file_path, "rb") as fh:
+                        content = fh.read()
+                    ext = file_path.rsplit(".", 1)[-1].lower() if "." in file_path else "jpg"
+            except Exception as e:
+                _log.warning("Could not fetch receipt %s for zip export: %s", url, e)
+                continue
+
+            date_str = exp.expense_date.strftime("%Y-%m-%d") if exp.expense_date else "unknown"
+            supplier = re.sub(r"[^\w\-א-ת ]", "", exp.supplier_name or exp.title)[:40].strip() or "קבלה"
+            name = f"{date_str}_{supplier}.{ext}"
+            counter = 2
+            while name in used_names:
+                name = f"{date_str}_{supplier}_{counter}.{ext}"
+                counter += 1
+            used_names.add(name)
+            zf.writestr(name, content)
+
+    if not used_names:
+        raise HTTPException(status_code=502, detail="לא הצלחנו להוריד אף תמונת קבלה")
+
+    buf.seek(0)
+    filename = f"receipts_{year}_{month:02d}.zip"
+    from fastapi.responses import StreamingResponse
+    return StreamingResponse(
+        buf,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 # ── Export month as Excel ────────────────────────────────────────────────────
 @router.get("/export/excel")
 def export_excel(

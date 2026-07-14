@@ -236,6 +236,23 @@ export function downloadExpenseExcel(month: number, year: number): void {
         });
 }
 
+export async function downloadExpenseReceiptsZip(month: number, year: number): Promise<void> {
+    const token = typeof window !== "undefined" ? localStorage.getItem("bizcontrol_token") : null;
+    const url = `${API_BASE}/api/expenses/export/receipts-zip?month=${month}&year=${year}`;
+    const res = await fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+    if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.detail || "שגיאה בהורדת הקבלות");
+    }
+    const blob = await res.blob();
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `receipts_${year}_${String(month).padStart(2, "0")}.zip`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+}
+
 export function getExpenses(params?: { month?: number; year?: number; limit?: number }): Promise<Expense[]> {
     const query = params
         ? "?" + new URLSearchParams(
