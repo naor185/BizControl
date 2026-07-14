@@ -392,7 +392,16 @@ def send_expenses_to_accountant(
     def _receipt_link(url: str | None) -> str:
         if not url:
             return ""
-        full = url if url.startswith("http") else f"{api_base}{url}"
+        if url.startswith("http"):
+            full = url
+        elif api_base:
+            full = f"{api_base}{url}"
+        else:
+            # No backend base URL configured — a bare relative path like
+            # "/uploads/..." has no page to resolve against inside an email
+            # client, and gets mangled into a broken "http:///..." link.
+            # Omit the link rather than send something that can't work.
+            return "—"
         return f'<a href="{full}" style="color:#4f46e5">תמונת קבלה</a>'
 
     method_labels = {
