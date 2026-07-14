@@ -27,13 +27,13 @@ from datetime import datetime
 router = APIRouter(prefix="/expenses", tags=["Expenses"])
 
 
-def _save_receipt_image(image_bytes: bytes, content_type: str, studio_id: str) -> str | None:
+def _save_receipt_image(image_bytes: bytes, content_type: str, studio_id: str, db=None) -> str | None:
     """Save receipt image — Cloudinary if configured, otherwise local uploads/."""
     ext = (content_type or "image/jpeg").split("/")[-1].replace("jpeg", "jpg")
     public_id = f"receipt_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
     try:
         from app.api.upload_routes import _cloudinary_upload
-        cloud_url = _cloudinary_upload(image_bytes, folder=f"receipts/{studio_id}", public_id=public_id)
+        cloud_url = _cloudinary_upload(image_bytes, folder=f"receipts/{studio_id}", public_id=public_id, db=db)
         if cloud_url:
             return cloud_url
     except Exception as e:
@@ -51,7 +51,7 @@ def _save_receipt_image(image_bytes: bytes, content_type: str, studio_id: str) -
         return None
 
 
-def _delete_receipt_file(url: str | None) -> None:
+def _delete_receipt_file(url: str | None, db=None) -> None:
     """Best-effort delete of a receipt image — Cloudinary asset or local file."""
     if not url:
         return
@@ -74,6 +74,9 @@ def _delete_receipt_file(url: str | None) -> None:
             cloudinary.uploader.destroy(public_id, resource_type="image")
         except Exception as e:
             _log.warning("Could not delete Cloudinary receipt %s: %s", public_id, e)
+            if db is not None:
+                from app.services.integration_alerts import alert_integration_failure
+                alert_integration_failure(db, "Cloudinary (מחיקת תמונות)", str(e))
     else:
         file_path = os.path.normpath(url.lstrip("/"))
         uploads_root = os.path.normpath("uploads")
@@ -258,13 +261,15 @@ async def scan_invoice(
         service = AIInvoiceService()
         result = service.parse_invoice_from_bytes(image_bytes, content_type=file.content_type)
     except Exception as e:
+        from app.services.integration_alerts import alert_integration_failure
+        alert_integration_failure(db, "סריקת חשבוניות AI (Gemini/OpenAI/Document AI)", str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"AI parsing failed: {str(e)}",
         )
 
     # Save receipt image to disk
-    receipt_url = _save_receipt_image(image_bytes, content_type, str(ctx.studio_id))
+    receipt_url = _save_receipt_image(image_bytes, content_type, str(ctx.studio_id), db=db)
 
     # Increment usage counter + AI cost/token tracking
     if studio:
@@ -627,7 +632,7 @@ def delete_expense(
     exp = repo.get_by_id(studio_id=ctx.studio_id, expense_id=expense_id)
     if not exp:
         raise HTTPException(status_code=404, detail="Expense not found")
-    _delete_receipt_file(exp.receipt_url)
+    _delete_receipt_file(exp.receipt_url, db=repo.session)
     repo.delete(studio_id=ctx.studio_id, expense_id=expense_id)
     return None
 
@@ -651,7 +656,7 @@ async def upload_expense_image(
         raise HTTPException(status_code=400, detail="סוג קובץ לא נתמך. יש להעלות JPG, PNG או WEBP.")
 
     image_bytes = await file.read()
-    url = _save_receipt_image(image_bytes, ct, str(ctx.studio_id))
+    url = _save_receipt_image(image_bytes, ct, str(ctx.studio_id), db=db)
     if not url:
         raise HTTPException(status_code=500, detail="שגיאה בשמירת התמונה")
 
@@ -675,7 +680,7 @@ def delete_expense_receipt_image(
     if not exp.receipt_url:
         raise HTTPException(status_code=400, detail="אין תמונת קבלה למחיקה")
 
-    _delete_receipt_file(exp.receipt_url)
+    _delete_receipt_file(exp.receipt_url, db=db)
     exp.receipt_url = None
     exp.file_size_bytes = None
     db.commit()

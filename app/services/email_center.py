@@ -231,4 +231,11 @@ def send_email(
         _log(db, recipient=to_email, subject=subject, template_key=template_key,
              status="failed", studio_id=studio_id, client_id=client_id,
              error=str(e))
+        try:
+            # Own try/except: if Resend itself is down, this alert (which also
+            # sends via Resend) must never raise back into the original caller.
+            from app.services.integration_alerts import alert_integration_failure
+            alert_integration_failure(db, "Email Center (Resend)", str(e))
+        except Exception:
+            pass
         return False

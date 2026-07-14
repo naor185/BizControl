@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
-def _cloudinary_upload(file_bytes: bytes, folder: str, public_id: str) -> str | None:
+def _cloudinary_upload(file_bytes: bytes, folder: str, public_id: str, db=None) -> str | None:
     """Upload to Cloudinary if configured. Returns secure URL or None."""
     cloud_name = os.getenv("CLOUDINARY_CLOUD_NAME")
     if not cloud_name:
@@ -34,6 +34,12 @@ def _cloudinary_upload(file_bytes: bytes, folder: str, public_id: str) -> str | 
     except Exception as e:
         import logging
         logging.getLogger(__name__).error("Cloudinary upload failed: %s", e)
+        if db is not None:
+            from app.services.integration_alerts import alert_integration_failure
+            # force=True: ANY failure here means silent fallback to Railway's
+            # ephemeral local disk — the file is at risk of being lost on the
+            # next deploy regardless of why Cloudinary itself failed.
+            alert_integration_failure(db, "Cloudinary (העלאת תמונות)", str(e), force=True)
         return None
 
 from app.core.database import get_db
@@ -85,7 +91,7 @@ def upload_logo(
     if file.content_type not in ALLOWED_IMAGE_TYPES:
         raise HTTPException(status_code=400, detail="Only image files are allowed")
     file_bytes = file.file.read()
-    cloud_url = _cloudinary_upload(file_bytes, f"bizfind/{ctx.studio_id}", "logo")
+    cloud_url = _cloudinary_upload(file_bytes, f"bizfind/{ctx.studio_id}", "logo", db=db)
     if cloud_url:
         from app.models.studio import Studio
         studio = db.get(Studio, ctx.studio_id)
@@ -158,7 +164,7 @@ def upload_cover(
     if file.content_type not in ALLOWED_IMAGE_TYPES:
         raise HTTPException(status_code=400, detail="Only image files are allowed")
     file_bytes = file.file.read()
-    cloud_url = _cloudinary_upload(file_bytes, f"bizfind/{ctx.studio_id}", "cover")
+    cloud_url = _cloudinary_upload(file_bytes, f"bizfind/{ctx.studio_id}", "cover", db=db)
     if cloud_url:
         url = cloud_url
     else:
@@ -203,7 +209,7 @@ def upload_gallery_photo(
     file_bytes = file.file.read()
     ext = (file.filename or "img.jpg").rsplit(".", 1)[-1].lower()
     photo_id = uuid4().hex
-    cloud_url = _cloudinary_upload(file_bytes, f"bizfind/{ctx.studio_id}/gallery", photo_id)
+    cloud_url = _cloudinary_upload(file_bytes, f"bizfind/{ctx.studio_id}/gallery", photo_id, db=db)
     if cloud_url:
         url = cloud_url
     else:

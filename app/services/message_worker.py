@@ -301,6 +301,9 @@ def send_whatsapp_message(to_phone: str, body: str, settings=None, db: Session |
 
     except Exception as exc:
         _log_whatsapp(db, studio_id, to_phone, body, "failed", provider, instance_id_used, str(exc))
+        if db is not None:
+            from app.services.integration_alerts import alert_integration_failure
+            alert_integration_failure(db, f"WhatsApp ({provider})", str(exc))
         raise
 
 

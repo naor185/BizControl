@@ -1016,6 +1016,15 @@ def ensure_schema():
         cur.execute("CREATE INDEX IF NOT EXISTS ix_email_logs_studio ON email_logs (studio_id)")
         cur.execute("CREATE INDEX IF NOT EXISTS ix_email_logs_sent_at ON email_logs (sent_at DESC)")
 
+        # ── Integration billing-failure alerts (cooldown tracking) ───────────
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS integration_alerts (
+                integration_name VARCHAR(100) PRIMARY KEY,
+                last_alerted_at TIMESTAMPTZ NOT NULL,
+                last_error TEXT
+            )
+        """)
+
         # ── Cross-app secure handoff (one-time codes, replaces JWT-in-URL) ────
         cur.execute("""
             CREATE TABLE IF NOT EXISTS auth_handoff_codes (
