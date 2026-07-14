@@ -114,12 +114,34 @@ function InvoiceUploadModal({ onClose, onSaved }: { onClose: () => void; onSaved
             setError("יש למלא: שם עסק/ספק, סכום, תאריך");
             return;
         }
+        let existingId: string | null = null;
         try {
             const dup = await checkDuplicateExpense(title, invoiceDate, parseFloat(amount));
-            if (dup.is_duplicate && !confirm("קבלה עם אותו ספק, תאריך וסכום כבר קיימת במערכת. לשמור בכל זאת?")) {
+            if (dup.is_duplicate) existingId = dup.existing_id;
+        } catch { /* duplicate check is advisory — never block saving if it fails */ }
+
+        if (existingId) {
+            const attachToExisting = confirm(
+                "קבלה עם אותו ספק, תאריך וסכום כבר קיימת במערכת.\nאישור = לצרף את התמונה שסרקת להוצאה הקיימת (מומלץ). ביטול = לבחור אפשרות אחרת."
+            );
+            if (attachToExisting) {
+                if (!file) { setError("לא נמצאה תמונה לצירוף"); return; }
+                setSaving(true);
+                try {
+                    await uploadExpenseImage(existingId, file);
+                    onSaved();
+                    onClose();
+                } catch (e: any) {
+                    setError(e.message || "שגיאה בצירוף התמונה");
+                } finally {
+                    setSaving(false);
+                }
                 return;
             }
-        } catch { /* duplicate check is advisory — never block saving if it fails */ }
+            if (!confirm("ליצור הוצאה חדשה ונפרדת בכל זאת? (יגרום לכפילות בדוחות)")) {
+                return;
+            }
+        }
         setSaving(true);
         try {
             await createExpense({
@@ -309,12 +331,34 @@ function ManualExpenseModal({ onClose, onSaved }: { onClose: () => void; onSaved
             setError("שם/ספק, סכום ותאריך הם שדות חובה");
             return;
         }
+        let existingId: string | null = null;
         try {
             const dup = await checkDuplicateExpense(form.supplier_name || form.title, form.expense_date, form.amount);
-            if (dup.is_duplicate && !confirm("קבלה עם אותו ספק, תאריך וסכום כבר קיימת במערכת. לשמור בכל זאת?")) {
+            if (dup.is_duplicate) existingId = dup.existing_id;
+        } catch { /* duplicate check is advisory — never block saving if it fails */ }
+
+        if (existingId) {
+            const attachToExisting = confirm(
+                "קבלה עם אותו ספק, תאריך וסכום כבר קיימת במערכת.\nאישור = לצרף את התמונה להוצאה הקיימת (מומלץ). ביטול = לבחור אפשרות אחרת."
+            );
+            if (attachToExisting) {
+                if (!imageFile) { setError("לא נבחרה תמונה לצירוף"); return; }
+                setSaving(true);
+                try {
+                    await uploadExpenseImage(existingId, imageFile);
+                    onSaved();
+                    onClose();
+                } catch (e: any) {
+                    setError(e.message || "שגיאה בצירוף התמונה");
+                } finally {
+                    setSaving(false);
+                }
                 return;
             }
-        } catch { /* duplicate check is advisory — never block saving if it fails */ }
+            if (!confirm("ליצור הוצאה חדשה ונפרדת בכל זאת? (יגרום לכפילות בדוחות)")) {
+                return;
+            }
+        }
         setSaving(true);
         try {
             const saved = await createExpense(form);
