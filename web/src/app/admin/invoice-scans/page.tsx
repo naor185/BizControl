@@ -9,6 +9,9 @@ interface StudioScanRow {
     quota: number;
     used: number;
     reset_month: string | null;
+    prompt_tokens: number;
+    completion_tokens: number;
+    estimated_cost_usd: number;
 }
 
 const QUOTA_PRESETS = [0, 30, 100, 500, 1000, 5000];
@@ -16,6 +19,7 @@ const QUOTA_PRESETS = [0, 30, 100, 500, 1000, 5000];
 export default function InvoiceScansAdminPage() {
     const [rows, setRows] = useState<StudioScanRow[]>([]);
     const [totalUsed, setTotalUsed] = useState(0);
+    const [totalCostUsd, setTotalCostUsd] = useState(0);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState<string | null>(null);
     const [err, setErr] = useState("");
@@ -23,9 +27,13 @@ export default function InvoiceScansAdminPage() {
     const load = async () => {
         setLoading(true);
         try {
-            const data = await apiFetch<{ studios: StudioScanRow[]; total_used: number }>("/api/admin/invoice-scans/stats");
+            const data = await apiFetch<{
+                studios: StudioScanRow[]; total_used: number;
+                total_cost_usd: number; total_prompt_tokens: number; total_completion_tokens: number;
+            }>("/api/admin/invoice-scans/stats");
             setRows(data.studios);
             setTotalUsed(data.total_used);
+            setTotalCostUsd(data.total_cost_usd);
         } catch (e: any) {
             setErr(e.message || "שגיאה בטעינת נתונים");
         } finally {
@@ -85,6 +93,7 @@ export default function InvoiceScansAdminPage() {
                     <StatCard title="סה״כ סריקות החודש" value={totalUsed.toString()} icon="🔍" />
                     <StatCard title="סטודיוים פעילים" value={rows.filter(r => r.enabled).length.toString()} icon="✅" />
                     <StatCard title="הניצל הכי הרבה" value={topStudio ? `${topStudio.studio_name} (${topStudio.used})` : "—"} icon="🏆" />
+                    <StatCard title="עלות Gemini משוערת (חודש)" value={`$${totalCostUsd.toFixed(4)}`} icon="💵" />
                     <StatCard title="GCP Credits" value="ראה GCP Console" icon="☁️" sub="console.cloud.google.com" />
                 </div>
 
@@ -103,7 +112,7 @@ export default function InvoiceScansAdminPage() {
                         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.9rem" }}>
                             <thead>
                                 <tr style={{ background: "rgba(255,255,255,.03)" }}>
-                                    {["סטודיו", "סריקה AI", "שימוש חודשי", "מכסה", "קביעת מכסה", "איפוס חודשי"].map(h => (
+                                    {["סטודיו", "סריקה AI", "שימוש חודשי", "מכסה", "טוקנים", "עלות משוערת", "קביעת מכסה", "איפוס חודשי"].map(h => (
                                         <th key={h} style={{ padding: "0.75rem 1rem", textAlign: "right", color: "#94a3b8", fontWeight: 600, fontSize: "0.8rem" }}>{h}</th>
                                     ))}
                                 </tr>
@@ -142,6 +151,12 @@ export default function InvoiceScansAdminPage() {
                                         <td style={{ padding: "0.75rem 1rem", color: row.quota === 0 ? "#4ade80" : "#e2e8f0" }}>
                                             {row.quota === 0 ? "∞ ללא הגבלה" : `${row.quota} / חודש`}
                                         </td>
+                                        <td style={{ padding: "0.75rem 1rem", color: "#94a3b8", fontSize: "0.8rem" }}>
+                                            {(row.prompt_tokens + row.completion_tokens).toLocaleString()}
+                                        </td>
+                                        <td style={{ padding: "0.75rem 1rem", color: "#e2e8f0", fontSize: "0.85rem" }}>
+                                            ${row.estimated_cost_usd.toFixed(4)}
+                                        </td>
                                         <td style={{ padding: "0.75rem 1rem" }}>
                                             <div style={{ display: "flex", gap: "0.3rem", flexWrap: "wrap" }}>
                                                 {QUOTA_PRESETS.map(q => (
@@ -167,7 +182,7 @@ export default function InvoiceScansAdminPage() {
                                     </tr>
                                 ))}
                                 {rows.length === 0 && (
-                                    <tr><td colSpan={6} style={{ padding: "2rem", textAlign: "center", color: "#64748b" }}>אין סטודיוים</td></tr>
+                                    <tr><td colSpan={8} style={{ padding: "2rem", textAlign: "center", color: "#64748b" }}>אין סטודיוים</td></tr>
                                 )}
                             </tbody>
                         </table>

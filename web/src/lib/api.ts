@@ -193,6 +193,10 @@ export interface ExpenseStorageUsage {
     total_bytes: number;
     count: number;
     unknown_count: number;
+    scan_quota: number;
+    scan_used: number;
+    scan_remaining: number | null;
+    scan_reset_month: string | null;
 }
 
 export function markExpenseSent(id: string, sent: boolean): Promise<Expense> {

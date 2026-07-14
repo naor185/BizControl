@@ -11,6 +11,7 @@ import uuid
 
 _log = logging.getLogger(__name__)
 from datetime import date
+from decimal import Decimal
 from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
@@ -103,6 +104,20 @@ def _measure_receipt_size(url: str | None) -> int | None:
         return None
 
 
+def _reset_scan_quota_if_new_month(db: Session, studio) -> None:
+    """Mirror the monthly quota rollover so /scan and /storage/usage never disagree.
+    Commits immediately on rollover, matching the previous /scan-only behavior."""
+    from datetime import datetime
+    current_month = datetime.utcnow().strftime("%Y-%m")
+    if studio.invoice_scan_reset_month != current_month:
+        studio.invoice_scan_used = 0
+        studio.invoice_scan_prompt_tokens = 0
+        studio.invoice_scan_completion_tokens = 0
+        studio.invoice_scan_cost_usd = Decimal("0")
+        studio.invoice_scan_reset_month = current_month
+        db.commit()
+
+
 def get_expense_repo(db: Session = Depends(get_db)) -> ExpenseRepository:
     return ExpenseRepository(db)
 
@@ -165,7 +180,6 @@ async def scan_invoice(
     """
     from app.models.studio import Studio
     from app.models.studio_feature import StudioFeature
-    from datetime import datetime
 
     # Check feature flag
     feature = db.query(StudioFeature).filter_by(
@@ -180,11 +194,7 @@ async def scan_invoice(
     # Check quota + reset monthly
     studio = db.query(Studio).filter_by(id=ctx.studio_id).first()
     if studio:
-        current_month = datetime.utcnow().strftime("%Y-%m")
-        if studio.invoice_scan_reset_month != current_month:
-            studio.invoice_scan_used = 0
-            studio.invoice_scan_reset_month = current_month
-            db.commit()
+        _reset_scan_quota_if_new_month(db, studio)
         if studio.invoice_scan_quota > 0 and studio.invoice_scan_used >= studio.invoice_scan_quota:
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
@@ -230,9 +240,17 @@ async def scan_invoice(
     # Save receipt image to disk
     receipt_url = _save_receipt_image(image_bytes, content_type, str(ctx.studio_id))
 
-    # Increment usage counter
+    # Increment usage counter + AI cost/token tracking
     if studio:
         studio.invoice_scan_used = (studio.invoice_scan_used or 0) + 1
+        if result.prompt_tokens is not None:
+            studio.invoice_scan_prompt_tokens = (studio.invoice_scan_prompt_tokens or 0) + result.prompt_tokens
+        if result.completion_tokens is not None:
+            studio.invoice_scan_completion_tokens = (studio.invoice_scan_completion_tokens or 0) + result.completion_tokens
+        from app.services.ai_invoice_service import _estimate_cost_usd
+        cost = _estimate_cost_usd(result.model_used, result.prompt_tokens, result.completion_tokens)
+        if cost is not None:
+            studio.invoice_scan_cost_usd = (studio.invoice_scan_cost_usd or Decimal("0")) + cost
         db.commit()
 
     return {
@@ -449,6 +467,11 @@ def get_receipt_storage_usage(
     db: Session = Depends(get_db),
 ):
     from app.models.expense import Expense as ExpenseModel
+    from app.models.studio import Studio
+    studio = db.query(Studio).filter_by(id=ctx.studio_id).first()
+    if studio:
+        _reset_scan_quota_if_new_month(db, studio)
+
     rows = db.query(ExpenseModel).filter(
         ExpenseModel.studio_id == ctx.studio_id,
         ExpenseModel.receipt_url.isnot(None),
@@ -470,4 +493,11 @@ def get_receipt_storage_usage(
         "total_bytes": total_bytes,
         "count": len(rows),
         "unknown_count": unknown_count,
+        "scan_quota": studio.invoice_scan_quota if studio else 0,
+        "scan_used": studio.invoice_scan_used if studio else 0,
+        "scan_remaining": (
+            max(0, studio.invoice_scan_quota - studio.invoice_scan_used)
+            if studio and studio.invoice_scan_quota > 0 else None
+        ),
+        "scan_reset_month": studio.invoice_scan_reset_month if studio else None,
     }

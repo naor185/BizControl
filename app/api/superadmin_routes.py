@@ -1718,11 +1718,23 @@ def invoice_scan_stats(_admin: User = Depends(require_superadmin), db: Session =
             "quota": getattr(s, "invoice_scan_quota", 0),
             "used": getattr(s, "invoice_scan_used", 0),
             "reset_month": getattr(s, "invoice_scan_reset_month", None),
+            "prompt_tokens": getattr(s, "invoice_scan_prompt_tokens", 0) or 0,
+            "completion_tokens": getattr(s, "invoice_scan_completion_tokens", 0) or 0,
+            "estimated_cost_usd": float(getattr(s, "invoice_scan_cost_usd", 0) or 0),
         })
     # Sort: most used first
     result.sort(key=lambda x: x["used"], reverse=True)
     total_used = sum(r["used"] for r in result)
-    return {"studios": result, "total_used": total_used}
+    total_cost_usd = sum(r["estimated_cost_usd"] for r in result)
+    total_prompt_tokens = sum(r["prompt_tokens"] for r in result)
+    total_completion_tokens = sum(r["completion_tokens"] for r in result)
+    return {
+        "studios": result,
+        "total_used": total_used,
+        "total_cost_usd": total_cost_usd,
+        "total_prompt_tokens": total_prompt_tokens,
+        "total_completion_tokens": total_completion_tokens,
+    }
 
 
 @router.put("/studios/{studio_id}/invoice-scan-quota", tags=["SuperAdmin"])

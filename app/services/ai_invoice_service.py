@@ -21,6 +21,9 @@ class InvoiceParseResult:
         invoice_date: Optional[date],
         payment_method: Optional[str],
         raw_text: str = "",
+        model_used: Optional[str] = None,
+        prompt_tokens: Optional[int] = None,
+        completion_tokens: Optional[int] = None,
     ):
         self.business_name = business_name
         self.invoice_number = invoice_number
@@ -30,6 +33,9 @@ class InvoiceParseResult:
         self.invoice_date = invoice_date
         self.payment_method = payment_method
         self.raw_text = raw_text
+        self.model_used = model_used
+        self.prompt_tokens = prompt_tokens
+        self.completion_tokens = completion_tokens
 
 
 # ---------- helpers ----------------------------------------------------------
@@ -187,6 +193,34 @@ def _parse_payment_method(text: str) -> Optional[str]:
     if any(w in t for w in ['צ\'ק', "צ'ק", 'cheque', 'check']):
         return "צ'ק"
     return None
+
+
+# ── Cost estimation ────────────────────────────────────────────────────────────
+# Verified at ai.google.dev/gemini-api/docs/pricing (2026-07), USD per 1M tokens,
+# <=200k-token prompt tier (invoice-scan calls are one small image + a short JSON
+# reply, always under that). Only models actually reachable via GEMINI_INVOICE_MODEL
+# are listed — unlisted models (gpt-4o, documentai, a future retired/renamed Gemini
+# model) make _estimate_cost_usd return None rather than guess a number.
+_GEMINI_PRICING_PER_1M: dict[str, tuple[Decimal, Decimal]] = {
+    "gemini-2.5-flash-lite": (Decimal("0.10"), Decimal("0.40")),
+    "gemini-2.5-flash": (Decimal("0.30"), Decimal("2.50")),
+    "gemini-2.5-pro": (Decimal("1.25"), Decimal("10.00")),
+    "gemini-3.1-flash-lite": (Decimal("0.25"), Decimal("1.50")),
+    "gemini-3.5-flash": (Decimal("1.50"), Decimal("9.00")),
+}
+
+
+def _estimate_cost_usd(
+    model: Optional[str], prompt_tokens: Optional[int], completion_tokens: Optional[int]
+) -> Optional[Decimal]:
+    if not model or prompt_tokens is None or completion_tokens is None:
+        return None
+    rates = _GEMINI_PRICING_PER_1M.get(model)
+    if not rates:
+        return None
+    input_rate, output_rate = rates
+    million = Decimal("1000000")
+    return (Decimal(prompt_tokens) / million * input_rate) + (Decimal(completion_tokens) / million * output_rate)
 
 
 # ---------- main service -----------------------------------------------------
@@ -443,7 +477,12 @@ CRITICAL RULES:
             max_tokens=512, temperature=0,
         )
         raw_text = response.choices[0].message.content or ""
-        return self._parse_openai_response(raw_text)
+        result = self._parse_openai_response(raw_text)
+        result.model_used = os.getenv("OPENAI_INVOICE_MODEL", "gpt-4o")
+        if response.usage:
+            result.prompt_tokens = response.usage.prompt_tokens
+            result.completion_tokens = response.usage.completion_tokens
+        return result
 
     def _parse_with_gemini(self, image_bytes: bytes, content_type: str) -> "InvoiceParseResult":
         """Use Gemini Vision via OpenAI-compatible REST API (no extra dependency needed)."""
@@ -492,7 +531,12 @@ CRITICAL RULES:
                 with urllib.request.urlopen(req, timeout=30) as resp:
                     data = json.loads(resp.read().decode())
                 raw_text = data["choices"][0]["message"]["content"]
-                return self._parse_openai_response(raw_text)
+                result = self._parse_openai_response(raw_text)
+                result.model_used = model
+                usage = data.get("usage") or {}
+                result.prompt_tokens = usage.get("prompt_tokens")
+                result.completion_tokens = usage.get("completion_tokens")
+                return result
             except urllib.error.HTTPError as e:
                 body = e.read().decode(errors="replace")
                 last_error = RuntimeError(f"Gemini API HTTP {e.code} for model '{model}': {body[:500]}")

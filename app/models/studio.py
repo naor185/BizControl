@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from decimal import Decimal
 
-from sqlalchemy import Boolean, DateTime, String, Text, func, Integer
+from sqlalchemy import Boolean, DateTime, Numeric, String, Text, func, Integer
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -41,6 +42,9 @@ class Studio(Base):
     invoice_scan_quota: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     invoice_scan_used: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     invoice_scan_reset_month: Mapped[str | None] = mapped_column(String(7), nullable=True)
+    invoice_scan_prompt_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    invoice_scan_completion_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    invoice_scan_cost_usd: Mapped[Decimal] = mapped_column(Numeric(12, 6), nullable=False, default=0)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 

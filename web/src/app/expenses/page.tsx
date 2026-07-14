@@ -457,6 +457,14 @@ function StorageUsageModal({ onClose, onChanged }: { onClose: () => void; onChan
                             </div>
                         </div>
 
+                        <div style={{ background: "rgba(74,222,128,.08)", border: "1px solid rgba(74,222,128,.25)", borderRadius: 12, padding: "1rem 1.25rem", marginBottom: "1.25rem" }}>
+                            <div style={{ color: "#4ade80", fontSize: "1.1rem", fontWeight: 700 }}>
+                                {usage && usage.scan_quota > 0
+                                    ? `נותרו ${usage.scan_remaining ?? 0} מתוך ${usage.scan_quota} סריקות החודש`
+                                    : "סריקות AI ללא הגבלה החודש"}
+                            </div>
+                        </div>
+
                         {receipts.length === 0 ? (
                             <p style={{ color: "#94a3b8", fontSize: "0.9rem" }}>אין תמונות קבלה שמורות.</p>
                         ) : (
