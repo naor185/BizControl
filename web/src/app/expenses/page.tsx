@@ -10,6 +10,7 @@ import {
     getExpenseSummary,
     createExpense,
     deleteExpense,
+    bulkDeleteExpenses,
     scanInvoice,
     markExpenseSent,
     markMonthSent,
@@ -850,11 +851,44 @@ export default function ExpensesPage() {
     }, [month, year]);
 
     useEffect(() => { load(); }, [load]);
+    useEffect(() => { setSelectedIds(new Set()); }, [month, year]);
 
     const handleDelete = async (id: string) => {
         if (!confirm("למחוק הוצאה זו?")) return;
         await deleteExpense(id);
         load();
+    };
+
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [bulkDeleting, setBulkDeleting] = useState(false);
+
+    const toggleSelected = (id: string) => {
+        setSelectedIds(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id); else next.add(id);
+            return next;
+        });
+    };
+
+    const toggleSelectAll = () => {
+        setSelectedIds(prev =>
+            prev.size === expenses.length ? new Set() : new Set(expenses.map(e => e.id))
+        );
+    };
+
+    const handleBulkDelete = async () => {
+        if (selectedIds.size === 0) return;
+        if (!confirm(`למחוק ${selectedIds.size} הוצאות נבחרות? הפעולה תמחק גם את הקבלות המצורפות אליהן ולא ניתנת לביטול.`)) return;
+        setBulkDeleting(true);
+        try {
+            await bulkDeleteExpenses(Array.from(selectedIds));
+            setSelectedIds(new Set());
+            await load();
+        } catch (e: any) {
+            toast.error(e.message || "שגיאה במחיקת ההוצאות");
+        } finally {
+            setBulkDeleting(false);
+        }
     };
 
     const [uploadTargetId, setUploadTargetId] = useState<string | null>(null);
@@ -1133,11 +1167,22 @@ export default function ExpensesPage() {
                             {/* Table header */}
                             <div style={{ padding: "1.25rem 1.5rem", borderBottom: "1px solid #e5e7eb", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                                 <span style={{ fontSize: "0.9rem", fontWeight: 700, color: "#1a1a2e" }}>רשימת הוצאות</span>
-                                {summary && (
-                                    <span style={{ background: "#f8f9fa", border: "1px solid #e5e7eb", color: "#6b7280", borderRadius: "20px", padding: "0.2rem 0.8rem", fontSize: "0.75rem", fontWeight: 600 }}>
-                                        {summary.invoice_count} רשומות
-                                    </span>
-                                )}
+                                <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                                    {selectedIds.size > 0 && (
+                                        <button
+                                            onClick={handleBulkDelete}
+                                            disabled={bulkDeleting}
+                                            style={{ background: "rgba(239,68,68,.1)", color: "#ef4444", border: "1px solid rgba(239,68,68,.3)", borderRadius: "20px", padding: "0.3rem 0.9rem", fontSize: "0.75rem", fontWeight: 700, cursor: "pointer" }}
+                                        >
+                                            {bulkDeleting ? "מוחק..." : `🗑️ מחק ${selectedIds.size} נבחרות`}
+                                        </button>
+                                    )}
+                                    {summary && (
+                                        <span style={{ background: "#f8f9fa", border: "1px solid #e5e7eb", color: "#6b7280", borderRadius: "20px", padding: "0.2rem 0.8rem", fontSize: "0.75rem", fontWeight: 600 }}>
+                                            {summary.invoice_count} רשומות
+                                        </span>
+                                    )}
+                                </div>
                             </div>
 
                             {loading ? (
@@ -1154,6 +1199,14 @@ export default function ExpensesPage() {
                                     <table style={{ width: "100%", borderCollapse: "collapse" }}>
                                         <thead>
                                             <tr style={{ background: "#f9fafb" }}>
+                                                <th style={{ padding: "0.75rem 0 0.75rem 0.5rem", textAlign: "center", borderBottom: "1px solid #e5e7eb", width: 36 }}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={selectedIds.size > 0 && selectedIds.size === expenses.length}
+                                                        onChange={toggleSelectAll}
+                                                        aria-label="בחר הכל"
+                                                    />
+                                                </th>
                                                 {["קבלה", "ספק / שם", "קטגוריה", "אמצעי תשלום", "תאריך", "סכום", 'מע"מ', "סטטוס", ""].map(h => (
                                                     <th key={h} style={{ padding: "0.75rem 1.25rem", textAlign: "right", fontSize: "0.72rem", color: "#6b7280", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: "1px solid #e5e7eb", whiteSpace: "nowrap" }}>
                                                         {h}
@@ -1170,6 +1223,14 @@ export default function ExpensesPage() {
                                                     onMouseEnter={ev => (ev.currentTarget.style.background = "#f9fafb")}
                                                     onMouseLeave={ev => (ev.currentTarget.style.background = "#ffffff")}
                                                 >
+                                                    <td style={{ padding: "0.5rem 0 0.5rem 0.5rem", textAlign: "center" }} onClick={ev => ev.stopPropagation()}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={selectedIds.has(e.id)}
+                                                            onChange={() => toggleSelected(e.id)}
+                                                            aria-label={`בחר הוצאה: ${e.supplier_name || e.title}`}
+                                                        />
+                                                    </td>
                                                     {/* Thumbnail / attach-image column */}
                                                     <td style={{ padding: "0.5rem 0.75rem 0.5rem 1.25rem", width: 60 }} onClick={ev => ev.stopPropagation()}>
                                                         {receiptImgUrl(e.receipt_url) ? (

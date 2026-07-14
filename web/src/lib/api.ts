@@ -279,6 +279,13 @@ export function deleteExpense(id: string): Promise<void> {
     return apiFetch<void>(`/api/expenses/${id}`, { method: "DELETE" });
 }
 
+export function bulkDeleteExpenses(expenseIds: string[]): Promise<{ deleted: number }> {
+    return apiFetch<{ deleted: number }>("/api/expenses/bulk-delete", {
+        method: "POST",
+        body: JSON.stringify({ expense_ids: expenseIds }),
+    });
+}
+
 export async function scanInvoice(file: File): Promise<InvoiceScanResult> {
     const formData = new FormData();
     formData.append("file", file);

@@ -638,6 +638,30 @@ def delete_expense(
     return None
 
 
+class BulkDeleteExpensesRequest(BaseModel):
+    expense_ids: list[uuid.UUID]
+
+
+@router.post("/bulk-delete", status_code=status.HTTP_200_OK)
+def bulk_delete_expenses(
+    payload: BulkDeleteExpensesRequest,
+    ctx: AuthContext = Depends(require_studio_ctx),
+    db: Session = Depends(get_db),
+):
+    from app.models.expense import Expense as ExpenseModel
+    exps = db.query(ExpenseModel).filter(
+        ExpenseModel.studio_id == ctx.studio_id,
+        ExpenseModel.id.in_(payload.expense_ids),
+    ).all()
+    deleted = 0
+    for exp in exps:
+        _delete_receipt_file(exp.receipt_url, db=db)
+        db.delete(exp)
+        deleted += 1
+    db.commit()
+    return {"deleted": deleted}
+
+
 # ── Attach receipt image (manual upload without OCR) ─────────────────────────
 @router.post("/{expense_id}/upload-image")
 async def upload_expense_image(
