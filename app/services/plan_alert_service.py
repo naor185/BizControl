@@ -89,21 +89,21 @@ def _send_alert(studio: Studio, owner_email: str, days: int) -> None:
         logger.warning("Platform SMTP not configured — skipping plan expiry email for %s", studio.slug)
         return
 
-    # Email to studio owner
-    ok = send_email_sync(
-        host=PLATFORM_SMTP_HOST,
-        port=PLATFORM_SMTP_PORT,
-        user=PLATFORM_SMTP_USER,
-        password=PLATFORM_SMTP_PASS,
-        from_email=PLATFORM_SMTP_FROM,
-        to_email=owner_email,
-        subject=f"BizControl — המנוי שלך יפוג בעוד {days} ימים",
-        html_content=_build_studio_html(studio.name, days, studio.subscription_plan),
-    )
-    if ok:
+    # Email to studio owner — best-effort; a failure here shouldn't skip the admin copy below
+    try:
+        send_email_sync(
+            host=PLATFORM_SMTP_HOST,
+            port=PLATFORM_SMTP_PORT,
+            user=PLATFORM_SMTP_USER,
+            password=PLATFORM_SMTP_PASS,
+            from_email=PLATFORM_SMTP_FROM,
+            to_email=owner_email,
+            subject=f"BizControl — המנוי שלך יפוג בעוד {days} ימים",
+            html_content=_build_studio_html(studio.name, days, studio.subscription_plan),
+        )
         logger.info("Expiry alert (%dd) sent to %s", days, owner_email)
-    else:
-        logger.error("Failed to send expiry alert to %s", owner_email)
+    except Exception as e:
+        logger.error("Failed to send expiry alert to %s: %s", owner_email, e)
 
     # Copy to platform admin
     send_email_sync(

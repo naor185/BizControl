@@ -425,15 +425,17 @@ def send_to_accountant(
       <p style="color:#94a3b8;font-size:11px;margin-top:20px">נשלח ממערכת BizControl</p>
     </div></body></html>"""
 
-    ok = send_email_sync(
-        api_key=resend_key,
-        from_email=from_email,
-        to_email=accountant_email,
-        subject=f"דוח מסמכים {date_from[:10]}–{date_to[:10]} | {biz_name}",
-        html_content=html,
-    )
-    if not ok:
-        raise HTTPException(500, "שגיאה בשליחת המייל. בדוק את הגדרות ה-Resend.")
+    from app.utils.email_utils import EmailSendError
+    try:
+        send_email_sync(
+            api_key=resend_key,
+            from_email=from_email,
+            to_email=accountant_email,
+            subject=f"דוח מסמכים {date_from[:10]}–{date_to[:10]} | {biz_name}",
+            html_content=html,
+        )
+    except EmailSendError as e:
+        raise HTTPException(500, f"שגיאה בשליחת המייל: {e}")
     return {"sent": len(rows)}
 
 
