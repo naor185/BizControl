@@ -14,18 +14,19 @@ type FieldErr = "slug" | "email" | "password" | null;
 type Lang = "he" | "en";
 
 const ERR_TEXT: Record<string, Record<Lang, string>> = {
-    studio_not_found:   { he: "מזהה הסטודיו לא קיים במערכת", en: "Studio ID not found" },
-    email_not_found:    { he: "האימייל לא רשום במערכת",       en: "Email not registered" },
-    wrong_password:     { he: "הסיסמה שגויה",                  en: "Incorrect password" },
-    string_too_short:   { he: "יש למלא את כל השדות",           en: "Please fill in all fields" },
-    network:            { he: "לא ניתן להתחבר לשרת",           en: "Cannot connect to server" },
-    default_err:        { he: "שגיאה בהתחברות",                en: "Login failed" },
+    studio_not_found:    { he: "מזהה הסטודיו לא קיים במערכת", en: "Studio ID not found" },
+    invalid_credentials: { he: "האימייל או הסיסמה שגויים",     en: "Incorrect email or password" },
+    string_too_short:    { he: "יש למלא את כל השדות",          en: "Please fill in all fields" },
+    network:             { he: "לא ניתן להתחבר לשרת",          en: "Cannot connect to server" },
+    default_err:         { he: "שגיאה בהתחברות",               en: "Login failed" },
 };
+// Deliberately not field-specific for invalid_credentials — telling the user
+// whether it was the email or the password that's wrong lets an attacker
+// enumerate registered accounts one field at a time.
 const ERR_FIELD: Record<string, FieldErr> = {
-    studio_not_found: "slug",
-    email_not_found:  "email",
-    wrong_password:   "password",
-    string_too_short: null,
+    studio_not_found:    "slug",
+    invalid_credentials: null,
+    string_too_short:    null,
 };
 
 function parseErr(msg: string, locale: string): { text: string; field: FieldErr } {

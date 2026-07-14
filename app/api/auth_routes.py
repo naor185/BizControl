@@ -65,12 +65,14 @@ def login(request: Request, payload: LoginRequest, db: Session = Depends(get_db)
         # Allow superadmin to log in from any studio slug
         user = db.query(User).filter(User.email == email, User.role == "superadmin", User.is_active == True).first()  # noqa: E712
     if not user:
-        raise HTTPException(status_code=401, detail="email_not_found")
+        # Same generic error as a wrong password — don't reveal whether the
+        # email exists (avoids account enumeration).
+        raise HTTPException(status_code=401, detail="invalid_credentials")
 
     try:
         ph.verify(user.password_hash, payload.password)
     except VerifyMismatchError:
-        raise HTTPException(status_code=401, detail="wrong_password")
+        raise HTTPException(status_code=401, detail="invalid_credentials")
 
     if user.totp_secret:
         return {
@@ -128,11 +130,11 @@ def login_by_email(request: Request, payload: EmailLoginIn, db: Session = Depend
         User.role.in_(["owner", "admin", "superadmin"]),
     ).order_by(User.created_at).first()
     if not user:
-        raise HTTPException(status_code=401, detail="email_not_found")
+        raise HTTPException(status_code=401, detail="invalid_credentials")
     try:
         ph.verify(user.password_hash, payload.password)
     except _VE:
-        raise HTTPException(status_code=401, detail="wrong_password")
+        raise HTTPException(status_code=401, detail="invalid_credentials")
     if user.totp_secret:
         return {
             "requires_2fa": True,
