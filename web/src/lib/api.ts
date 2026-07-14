@@ -207,6 +207,18 @@ export function markMonthSent(month: number, year: number): Promise<void> {
     return apiFetch<void>(`/api/expenses/mark-month-sent?month=${month}&year=${year}`, { method: "POST" });
 }
 
+export function sendExpensesToAccountant(month: number, year: number): Promise<{ ok: boolean; sent_count: number }> {
+    return apiFetch<{ ok: boolean; sent_count: number }>("/api/expenses/send-to-accountant", {
+        method: "POST",
+        body: JSON.stringify({ month, year }),
+    });
+}
+
+export function checkDuplicateExpense(supplier: string, date: string, amount: number): Promise<{ is_duplicate: boolean; existing_id: string | null }> {
+    const params = new URLSearchParams({ supplier, date, amount: String(amount) });
+    return apiFetch<{ is_duplicate: boolean; existing_id: string | null }>(`/api/expenses/check-duplicate?${params.toString()}`);
+}
+
 export function downloadExpenseExcel(month: number, year: number): void {
     const token = typeof window !== "undefined" ? localStorage.getItem("bizcontrol_token") : null;
     const url = `${API_BASE}/api/expenses/export/excel?month=${month}&year=${year}`;

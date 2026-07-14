@@ -167,6 +167,32 @@ def create_expense(
     return repo.create(studio_id=ctx.studio_id, expense_in=payload)
 
 
+# ── Duplicate check (warn before saving, never blocks) ────────────────────────
+@router.get("/check-duplicate")
+def check_duplicate_expense(
+    supplier: str = Query(...),
+    date: date = Query(...),
+    amount: Decimal = Query(...),
+    ctx: AuthContext = Depends(require_studio_ctx),
+    db: Session = Depends(get_db),
+):
+    from app.models.expense import Expense as ExpenseModel
+    from sqlalchemy import func
+
+    supplier_norm = supplier.strip().lower()
+    if not supplier_norm:
+        return {"is_duplicate": False, "existing_id": None}
+
+    existing = db.query(ExpenseModel).filter(
+        ExpenseModel.studio_id == ctx.studio_id,
+        ExpenseModel.expense_date == date,
+        ExpenseModel.amount == amount,
+        func.lower(func.trim(func.coalesce(ExpenseModel.supplier_name, ExpenseModel.title))) == supplier_norm,
+    ).first()
+
+    return {"is_duplicate": existing is not None, "existing_id": str(existing.id) if existing else None}
+
+
 # ── AI Invoice Scan ──────────────────────────────────────────────────────────
 @router.post("/scan", status_code=status.HTTP_200_OK)
 async def scan_invoice(
@@ -321,6 +347,122 @@ def mark_month_sent(
     ).update({"sent_to_accountant": True, "sent_to_accountant_at": now}, synchronize_session=False)
     db.commit()
     return {"ok": True}
+
+
+# ── Send month's expenses to accountant by email ──────────────────────────────
+@router.post("/send-to-accountant", status_code=status.HTTP_200_OK)
+def send_expenses_to_accountant(
+    body: dict,
+    ctx: AuthContext = Depends(require_studio_ctx),
+    db: Session = Depends(get_db),
+    repo: ExpenseRepository = Depends(get_expense_repo),
+):
+    """Email this month's expenses to the studio's accountant — reuses the same
+    accountant_email / Resend settings already used by the invoices module."""
+    from sqlalchemy import text as sa_text
+    from app.models.studio_settings import StudioSettings
+    from app.utils.email_utils import send_email_sync
+
+    month = body.get("month")
+    year = body.get("year")
+    if not month or not year:
+        raise HTTPException(status_code=400, detail="חסרים חודש ושנה")
+
+    inv_settings = db.execute(
+        sa_text("SELECT accountant_email FROM invoice_settings WHERE studio_id = :sid"),
+        {"sid": str(ctx.studio_id)},
+    ).fetchone()
+    accountant_email = inv_settings[0] if inv_settings else None
+    if not accountant_email:
+        raise HTTPException(status_code=400, detail="לא הוגדר מייל רואה חשבון. הגדר אותו בטאב ההגדרות בעמוד החשבוניות.")
+
+    studio_settings = db.get(StudioSettings, ctx.studio_id)
+    resend_key = getattr(studio_settings, "resend_api_key", None)
+    from_email = getattr(studio_settings, "resend_from_email", None) or "onboarding@resend.dev"
+    if not resend_key:
+        raise HTTPException(status_code=400, detail="לא הוגדר Resend API Key. הגדר אותו בהגדרות מייל.")
+
+    expenses = repo.get_multi(studio_id=ctx.studio_id, month=month, year=year, limit=1000)
+    if not expenses:
+        raise HTTPException(status_code=400, detail="אין הוצאות לחודש זה")
+
+    api_base = os.getenv("API_BASE_URL", "").rstrip("/")
+
+    def _receipt_link(url: str | None) -> str:
+        if not url:
+            return ""
+        full = url if url.startswith("http") else f"{api_base}{url}"
+        return f'<a href="{full}" style="color:#4f46e5">תמונת קבלה</a>'
+
+    method_labels = {
+        "אשראי": "כרטיס אשראי", "מזומן": "מזומן", "ביט/פייבוקס": "Bit / PayBox",
+        "העברה בנקאית": "העברה בנקאית", "צ'ק": "צ'ק",
+    }
+
+    rows_html = ""
+    total_sum = Decimal("0")
+    vat_sum = Decimal("0")
+    for exp in expenses:
+        total_sum += exp.amount or Decimal("0")
+        vat_sum += exp.vat_amount or Decimal("0")
+        expense_date_str = exp.expense_date.strftime("%d/%m/%Y") if exp.expense_date else ""
+        rows_html += f"""
+        <tr>
+          <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0">{exp.supplier_name or exp.title}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0">{exp.category or '—'}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;text-align:center">{expense_date_str}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;text-align:center">{method_labels.get(exp.payment_method or '', exp.payment_method or '—')}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;text-align:left;font-weight:700">₪{exp.amount:.2f}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;text-align:left">₪{(exp.vat_amount or Decimal('0')):.2f}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;text-align:center">{_receipt_link(exp.receipt_url)}</td>
+        </tr>"""
+
+    biz_name = getattr(studio_settings, "studio_name", "") or ""
+    html = f"""
+    <html dir="rtl" lang="he"><head><meta charset="UTF-8">
+    <style>body{{font-family:Arial,sans-serif;direction:rtl;color:#1a1a2e}}
+    table{{width:100%;border-collapse:collapse}}th{{background:#1a1a2e;color:#fff;padding:10px 12px;font-size:13px}}</style>
+    </head><body>
+    <div style="max-width:800px;margin:0 auto;padding:20px">
+      <h2 style="color:#1a1a2e;margin-bottom:4px">דוח הוצאות {month:02d}/{year} — {biz_name}</h2>
+      <p style="color:#64748b;font-size:13px;margin-bottom:20px">סה"כ {len(expenses)} הוצאות</p>
+      <table>
+        <thead><tr>
+          <th>ספק</th><th>קטגוריה</th><th>תאריך</th><th>אמצעי תשלום</th>
+          <th style="text-align:left">סכום</th><th style="text-align:left">מע"מ</th><th>קבלה</th>
+        </tr></thead>
+        <tbody>{rows_html}</tbody>
+        <tfoot><tr style="background:#f8fafc;font-weight:700">
+          <td colspan="4" style="padding:10px 12px;text-align:right">סה"כ</td>
+          <td style="padding:10px 12px;text-align:left">₪{total_sum:.2f}</td>
+          <td style="padding:10px 12px;text-align:left">₪{vat_sum:.2f}</td>
+          <td></td>
+        </tr></tfoot>
+      </table>
+      <p style="color:#94a3b8;font-size:11px;margin-top:20px">נשלח ממערכת BizControl</p>
+    </div></body></html>"""
+
+    ok = send_email_sync(
+        api_key=resend_key,
+        from_email=from_email,
+        to_email=accountant_email,
+        subject=f"דוח הוצאות {month:02d}/{year} | {biz_name}",
+        html_content=html,
+    )
+    if not ok:
+        raise HTTPException(status_code=502, detail="שליחת המייל נכשלה. בדוק את הגדרות ה-Resend.")
+
+    from app.models.expense import Expense as ExpenseModel
+    from sqlalchemy import extract
+    now = datetime.utcnow()
+    db.query(ExpenseModel).filter(
+        ExpenseModel.studio_id == ctx.studio_id,
+        extract("month", ExpenseModel.expense_date) == month,
+        extract("year", ExpenseModel.expense_date) == year,
+    ).update({"sent_to_accountant": True, "sent_to_accountant_at": now}, synchronize_session=False)
+    db.commit()
+
+    return {"ok": True, "sent_count": len(expenses)}
 
 
 # ── Export month as Excel ────────────────────────────────────────────────────

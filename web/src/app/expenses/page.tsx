@@ -17,6 +17,8 @@ import {
     uploadExpenseImage,
     getExpenseStorageUsage,
     deleteExpenseReceiptImage,
+    sendExpensesToAccountant,
+    checkDuplicateExpense,
     Expense,
     ExpenseSummary,
     InvoiceScanResult,
@@ -110,6 +112,12 @@ function InvoiceUploadModal({ onClose, onSaved }: { onClose: () => void; onSaved
             setError("יש למלא: שם עסק/ספק, סכום, תאריך");
             return;
         }
+        try {
+            const dup = await checkDuplicateExpense(title, invoiceDate, parseFloat(amount));
+            if (dup.is_duplicate && !confirm("קבלה עם אותו ספק, תאריך וסכום כבר קיימת במערכת. לשמור בכל זאת?")) {
+                return;
+            }
+        } catch { /* duplicate check is advisory — never block saving if it fails */ }
         setSaving(true);
         try {
             await createExpense({
@@ -299,6 +307,12 @@ function ManualExpenseModal({ onClose, onSaved }: { onClose: () => void; onSaved
             setError("שם/ספק, סכום ותאריך הם שדות חובה");
             return;
         }
+        try {
+            const dup = await checkDuplicateExpense(form.supplier_name || form.title, form.expense_date, form.amount);
+            if (dup.is_duplicate && !confirm("קבלה עם אותו ספק, תאריך וסכום כבר קיימת במערכת. לשמור בכל זאת?")) {
+                return;
+            }
+        } catch { /* duplicate check is advisory — never block saving if it fails */ }
         setSaving(true);
         try {
             const saved = await createExpense(form);
@@ -652,6 +666,7 @@ export default function ExpensesPage() {
     const [loading, setLoading] = useState(true);
     const [modal, setModal] = useState<"scan" | "manual" | "storage" | null>(null);
     const [viewExpense, setViewExpense] = useState<Expense | null>(null);
+    const [sendingToAccountant, setSendingToAccountant] = useState(false);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -796,6 +811,25 @@ export default function ExpensesPage() {
                                 style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "#fff", border: "1px solid #e5e7eb", color: "#1a1a2e", padding: "0.45rem 1rem", borderRadius: "8px", fontWeight: 500, fontSize: "0.875rem", cursor: "pointer" }}
                             >
                                 Excel לרו&quot;ח
+                            </button>
+                            <button
+                                disabled={sendingToAccountant}
+                                onClick={async () => {
+                                    if (!confirm(`לשלוח את כל הוצאות ${month}/${year} במייל לרואה החשבון?`)) return;
+                                    setSendingToAccountant(true);
+                                    try {
+                                        const res = await sendExpensesToAccountant(month, year);
+                                        toast.success(`נשלחו ${res.sent_count} הוצאות לרו"ח במייל ✅`);
+                                        load();
+                                    } catch (e: any) {
+                                        toast.error(e.message || "שגיאה בשליחת המייל");
+                                    } finally {
+                                        setSendingToAccountant(false);
+                                    }
+                                }}
+                                style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "#fff", border: "1px solid #e5e7eb", color: "#1a1a2e", padding: "0.45rem 1rem", borderRadius: "8px", fontWeight: 500, fontSize: "0.875rem", cursor: "pointer" }}
+                            >
+                                {sendingToAccountant ? "שולח..." : "📧 שלח לרו\"ח במייל"}
                             </button>
                             <button
                                 onClick={async () => {
