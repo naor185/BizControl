@@ -305,6 +305,13 @@ export function deleteExpenseReceiptImage(id: string): Promise<void> {
     return apiFetch<void>(`/api/expenses/${id}/receipt-image`, { method: "DELETE" });
 }
 
+export function bulkDeleteExpenseReceiptImages(expenseIds: string[]): Promise<{ deleted: number }> {
+    return apiFetch<{ deleted: number }>("/api/expenses/receipts/bulk-delete-images", {
+        method: "POST",
+        body: JSON.stringify({ expense_ids: expenseIds }),
+    });
+}
+
 // ─── Staff & Payroll API Helpers ─────────────────────────────────────────────
 
 export interface WorkSession {

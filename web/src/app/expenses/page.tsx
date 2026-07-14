@@ -17,6 +17,7 @@ import {
     uploadExpenseImage,
     getExpenseStorageUsage,
     deleteExpenseReceiptImage,
+    bulkDeleteExpenseReceiptImages,
     sendExpensesToAccountant,
     checkDuplicateExpense,
     downloadExpenseReceiptsZip,
@@ -415,6 +416,8 @@ function StorageUsageModal({ onClose, onChanged }: { onClose: () => void; onChan
     const [receipts, setReceipts] = useState<Expense[]>([]);
     const [loading, setLoading] = useState(true);
     const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [bulkDeleting, setBulkDeleting] = useState(false);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -436,17 +439,48 @@ function StorageUsageModal({ onClose, onChanged }: { onClose: () => void; onChan
 
     useEffect(() => { load(); }, [load]);
 
+    const toggleSelected = (id: string) => {
+        setSelectedIds(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id); else next.add(id);
+            return next;
+        });
+    };
+
+    const toggleSelectAll = () => {
+        setSelectedIds(prev =>
+            prev.size === receipts.length ? new Set() : new Set(receipts.map(e => e.id))
+        );
+    };
+
     const handleDeleteImage = async (id: string) => {
         if (!confirm("למחוק את תמונת הקבלה? רשומת ההוצאה עצמה תישאר.")) return;
         setDeletingId(id);
         try {
             await deleteExpenseReceiptImage(id);
+            setSelectedIds(prev => { const n = new Set(prev); n.delete(id); return n; });
             await load();
             onChanged();
         } catch (e: any) {
             toast.error(e.message || "שגיאה במחיקת התמונה");
         } finally {
             setDeletingId(null);
+        }
+    };
+
+    const handleBulkDelete = async () => {
+        if (selectedIds.size === 0) return;
+        if (!confirm(`למחוק ${selectedIds.size} תמונות קבלה נבחרות? רשומות ההוצאה עצמן יישארו.`)) return;
+        setBulkDeleting(true);
+        try {
+            await bulkDeleteExpenseReceiptImages(Array.from(selectedIds));
+            setSelectedIds(new Set());
+            await load();
+            onChanged();
+        } catch (e: any) {
+            toast.error(e.message || "שגיאה במחיקת התמונות");
+        } finally {
+            setBulkDeleting(false);
         }
     };
 
@@ -483,31 +517,59 @@ function StorageUsageModal({ onClose, onChanged }: { onClose: () => void; onChan
                         {receipts.length === 0 ? (
                             <p style={{ color: "#94a3b8", fontSize: "0.9rem" }}>אין תמונות קבלה שמורות.</p>
                         ) : (
-                            <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem", maxHeight: "50vh", overflowY: "auto" }}>
-                                {receipts.map(e => (
-                                    <div key={e.id} style={{ display: "flex", alignItems: "center", gap: "0.75rem", background: "rgba(255,255,255,.05)", border: "1px solid rgba(255,255,255,.1)", borderRadius: 10, padding: "0.6rem 0.75rem" }}>
-                                        {receiptImgUrl(e.receipt_url) && (
-                                            <img src={receiptImgUrl(e.receipt_url)!} alt="receipt" style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 6, flexShrink: 0 }} />
-                                        )}
-                                        <div style={{ flex: 1, minWidth: 0 }}>
-                                            <div style={{ color: "#fff", fontSize: "0.85rem", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                                                {e.supplier_name || e.title}
-                                            </div>
-                                            <div style={{ color: "#94a3b8", fontSize: "0.75rem" }}>
-                                                {new Date(e.expense_date).toLocaleDateString("he-IL")}
-                                                {e.file_size_bytes ? ` · ${formatBytes(e.file_size_bytes)}` : ""}
-                                            </div>
-                                        </div>
+                            <>
+                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.6rem" }}>
+                                    <label style={{ display: "flex", alignItems: "center", gap: "0.4rem", color: "#94a3b8", fontSize: "0.8rem", cursor: "pointer" }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedIds.size > 0 && selectedIds.size === receipts.length}
+                                            onChange={toggleSelectAll}
+                                        />
+                                        בחר הכל ({receipts.length})
+                                    </label>
+                                    {selectedIds.size > 0 && (
                                         <button
-                                            onClick={() => handleDeleteImage(e.id)}
-                                            disabled={deletingId === e.id}
-                                            style={{ background: "rgba(239,68,68,.1)", color: "#f87171", border: "none", borderRadius: 8, padding: "0.4rem 0.7rem", fontSize: "0.75rem", cursor: "pointer", fontWeight: 600, flexShrink: 0 }}
+                                            onClick={handleBulkDelete}
+                                            disabled={bulkDeleting}
+                                            style={{ background: "rgba(239,68,68,.15)", color: "#f87171", border: "1px solid rgba(239,68,68,.35)", borderRadius: 8, padding: "0.4rem 0.8rem", fontSize: "0.8rem", cursor: "pointer", fontWeight: 700 }}
                                         >
-                                            {deletingId === e.id ? "מוחק..." : "🗑️ מחק תמונה"}
+                                            {bulkDeleting ? "מוחק..." : `🗑️ מחק ${selectedIds.size} נבחרות`}
                                         </button>
-                                    </div>
-                                ))}
-                            </div>
+                                    )}
+                                </div>
+                                <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem", maxHeight: "50vh", overflowY: "auto" }}>
+                                    {receipts.map(e => (
+                                        <div key={e.id} style={{ display: "flex", alignItems: "center", gap: "0.75rem", background: selectedIds.has(e.id) ? "rgba(167,139,250,.12)" : "rgba(255,255,255,.05)", border: selectedIds.has(e.id) ? "1px solid rgba(167,139,250,.4)" : "1px solid rgba(255,255,255,.1)", borderRadius: 10, padding: "0.6rem 0.75rem" }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedIds.has(e.id)}
+                                                onChange={() => toggleSelected(e.id)}
+                                                aria-label={`בחר קבלה: ${e.supplier_name || e.title}`}
+                                                style={{ flexShrink: 0 }}
+                                            />
+                                            {receiptImgUrl(e.receipt_url) && (
+                                                <img src={receiptImgUrl(e.receipt_url)!} alt="receipt" style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 6, flexShrink: 0 }} />
+                                            )}
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ color: "#fff", fontSize: "0.85rem", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                                    {e.supplier_name || e.title}
+                                                </div>
+                                                <div style={{ color: "#94a3b8", fontSize: "0.75rem" }}>
+                                                    {new Date(e.expense_date).toLocaleDateString("he-IL")}
+                                                    {e.file_size_bytes ? ` · ${formatBytes(e.file_size_bytes)}` : ""}
+                                                </div>
+                                            </div>
+                                            <button
+                                                onClick={() => handleDeleteImage(e.id)}
+                                                disabled={deletingId === e.id}
+                                                style={{ background: "rgba(239,68,68,.1)", color: "#f87171", border: "none", borderRadius: 8, padding: "0.4rem 0.7rem", fontSize: "0.75rem", cursor: "pointer", fontWeight: 600, flexShrink: 0 }}
+                                            >
+                                                {deletingId === e.id ? "מוחק..." : "🗑️ מחק תמונה"}
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </>
                         )}
                     </>
                 )}

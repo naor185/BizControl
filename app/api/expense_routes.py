@@ -15,6 +15,7 @@ from decimal import Decimal
 from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.core.deps import require_studio_ctx, AuthContext
@@ -685,6 +686,33 @@ def delete_expense_receipt_image(
     exp.file_size_bytes = None
     db.commit()
     return {"ok": True}
+
+
+# ── Delete multiple receipt images at once (keeps the expense records) ───────
+class BulkDeleteReceiptImagesRequest(BaseModel):
+    expense_ids: list[uuid.UUID]
+
+
+@router.post("/receipts/bulk-delete-images")
+def bulk_delete_receipt_images(
+    payload: BulkDeleteReceiptImagesRequest,
+    ctx: AuthContext = Depends(require_studio_ctx),
+    db: Session = Depends(get_db),
+):
+    from app.models.expense import Expense as ExpenseModel
+    exps = db.query(ExpenseModel).filter(
+        ExpenseModel.studio_id == ctx.studio_id,
+        ExpenseModel.id.in_(payload.expense_ids),
+    ).all()
+    deleted = 0
+    for exp in exps:
+        if exp.receipt_url:
+            _delete_receipt_file(exp.receipt_url, db=db)
+            exp.receipt_url = None
+            exp.file_size_bytes = None
+            deleted += 1
+    db.commit()
+    return {"deleted": deleted}
 
 
 # ── Storage usage summary ─────────────────────────────────────────────────────
