@@ -10,7 +10,11 @@ function AutoLoginInner() {
 
     useEffect(() => {
         const code = params.get("code");
-        const dest = params.get("next") || "/onboarding";
+        const rawNext = params.get("next");
+        // Only allow same-app relative paths — a bare "/x" — never an absolute
+        // or protocol-relative URL, which could redirect off-site after login
+        // (open-redirect phishing vector).
+        const dest = rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/onboarding";
 
         if (!code) {
             router.replace("/login");

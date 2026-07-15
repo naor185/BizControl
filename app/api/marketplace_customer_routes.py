@@ -43,10 +43,19 @@ def _gen_otp() -> str:
     return "".join(random.choices(string.digits, k=5))
 
 
+MARKETPLACE_TOKEN_TTL_DAYS = 30
+
+
 def _make_token(customer_id: str) -> str:
     import jwt as pyjwt
+    now = datetime.now(timezone.utc)
     return pyjwt.encode(
-        {"sub": customer_id, "type": "marketplace_customer", "iat": datetime.now(timezone.utc)},
+        {
+            "sub": customer_id,
+            "type": "marketplace_customer",
+            "iat": now,
+            "exp": now + timedelta(days=MARKETPLACE_TOKEN_TTL_DAYS),
+        },
         JWT_SECRET, algorithm="HS256"
     )
 
@@ -58,6 +67,8 @@ def _verify_token(token: str) -> str:
         if payload.get("type") != "marketplace_customer":
             raise ValueError
         return payload["sub"]
+    except pyjwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="ההתחברות פגה, יש להתחבר שוב")
     except Exception:
         raise HTTPException(status_code=401, detail="טוקן לא תקין")
 
@@ -72,7 +83,7 @@ def _send_sms(phone: str, code: str, db=None):
     """Send OTP via WhatsApp (Green API). Credentials stored in platform_config."""
     import logging
     log = logging.getLogger(__name__)
-    log.info(f"[OTP] {phone} → {code}")
+    log.debug(f"[OTP] requested for {phone}")
 
     # Normalize to international format
     clean = phone.lstrip("+").replace("-", "").replace(" ", "")
@@ -157,7 +168,8 @@ class EmailLoginIn(BaseModel):
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
 @router.post("/request-otp")
-def request_otp(body: RequestOTPIn, db: Session = Depends(get_db)):
+@limiter.limit("3/minute")
+def request_otp(request: Request, body: RequestOTPIn, db: Session = Depends(get_db)):
     phone = body.phone.strip().replace("-", "").replace(" ", "")
     if not phone or len(phone) < 9:
         raise HTTPException(status_code=400, detail="מספר טלפון לא תקין")

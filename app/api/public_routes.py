@@ -769,71 +769,9 @@ def join_waitlist(slug: str, payload: WaitlistJoinIn, db: Session = Depends(get_
 
     return {"id": str(entry.id), "status": "waiting", "already_waiting": False}
 
-
-@router.get("/waitlist/{slug}")
-def my_waitlist_status(slug: str, phone: str = Query(...), db: Session = Depends(get_db)):
-    """Public: customer checks their waitlist status by phone."""
-    from app.models.wait_list import WaitListEntry
-
-    studio = db.scalar(select(Studio).where(Studio.slug == slug, Studio.is_active == True))  # noqa
-    if not studio:
-        raise HTTPException(status_code=404, detail="Studio not found")
-
-    clean = phone.strip().replace("-", "").replace(" ", "")
-    entries = db.scalars(
-        select(WaitListEntry).where(
-            WaitListEntry.studio_id == studio.id,
-            WaitListEntry.client_phone == clean,
-        ).order_by(WaitListEntry.created_at.desc()).limit(5)
-    ).all()
-
-    return [
-        {
-            "id": str(e.id),
-            "status": e.status,
-            "created_at": e.created_at.isoformat(),
-            "notified_at": e.notified_at.isoformat() if e.notified_at else None,
-        }
-        for e in entries
-    ]
-
-
-# ── Customer cross-studio bookings lookup ────────────────────────────────────
-
-@router.get("/my-bookings")
-def get_my_bookings(phone: str = Query(...), db: Session = Depends(get_db)):
-    """Return all booking requests + appointments for a given phone across all studios."""
-    clean = phone.strip().replace("-", "").replace(" ", "")
-
-    requests = db.scalars(
-        select(BookingRequest)
-        .where(BookingRequest.client_phone == clean)
-        .order_by(BookingRequest.requested_at.desc())
-        .limit(50)
-    ).all()
-
-    result = []
-    for r in requests:
-        studio = db.get(Studio, r.studio_id)
-        studio_settings = db.get(StudioSettings, r.studio_id) if studio else None
-        artist = db.get(User, r.artist_id) if r.artist_id else None
-        appt = db.get(Appointment, r.appointment_id) if r.appointment_id else None
-
-        from zoneinfo import ZoneInfo
-        tz = ZoneInfo((studio_settings.timezone if studio_settings else None) or "Asia/Jerusalem")
-        local_time = r.requested_at.astimezone(tz)
-
-        result.append({
-            "id": str(r.id),
-            "studio_name": studio.name if studio else "—",
-            "studio_slug": studio.slug if studio else "",
-            "studio_logo": (studio_settings.logo_url if studio_settings and hasattr(studio_settings, "logo_url") else None),
-            "artist_name": artist.display_name or artist.email if artist else "—",
-            "service": r.service_note or "—",
-            "date": local_time.strftime("%d/%m/%Y"),
-            "time": local_time.strftime("%H:%M"),
-            "status": appt.status if appt else r.status,
-            "created_at": r.created_at.isoformat(),
-        })
-
-    return result
+# Note: waitlist-status-by-phone and cross-studio bookings-by-phone used to be
+# exposed here with no authentication (any phone number, no proof of
+# ownership). Removed — the secure, OTP-authenticated equivalents already
+# exist at GET /api/marketplace/auth/my-waitlist and /my-bookings, which
+# derive the phone from the logged-in customer's JWT instead of trusting a
+# query parameter. Confirmed unused by the frontend before removal.

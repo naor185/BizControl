@@ -54,9 +54,18 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif", "image/gif"}
 
+_EXT_BY_CONTENT_TYPE = {
+    "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp",
+    "image/heic": "heic", "image/heif": "heif", "image/gif": "gif",
+}
 
-def _save_image_bytes(file_bytes: bytes, original_filename: str, prefix: str, studio_id) -> str:
-    ext = (original_filename).rsplit(".", 1)[-1].lower() if "." in original_filename else "jpg"
+
+def _save_image_bytes(file_bytes: bytes, content_type: str, prefix: str, studio_id) -> str:
+    # Extension is derived from the verified content-type, never from the
+    # user-supplied filename — a filename like "x.html" with a spoofed
+    # image/* content-type must never be saved with a .html extension,
+    # since /uploads/ serves saved files statically and .html would execute.
+    ext = _EXT_BY_CONTENT_TYPE.get(content_type, "jpg")
     filename = f"{prefix}_{studio_id}_{uuid4().hex[:10]}.{ext}"
     path = os.path.join(UPLOAD_DIR, filename)
     with open(path, "wb") as f:
@@ -67,7 +76,7 @@ def _save_image_bytes(file_bytes: bytes, original_filename: str, prefix: str, st
 def _save_image(file: UploadFile, prefix: str, studio_id) -> str:
     if file.content_type not in ALLOWED_IMAGE_TYPES:
         raise HTTPException(status_code=400, detail="Only image files are allowed")
-    ext = (file.filename or "img.jpg").rsplit(".", 1)[-1].lower()
+    ext = _EXT_BY_CONTENT_TYPE.get(file.content_type, "jpg")
     filename = f"{prefix}_{studio_id}_{uuid4().hex[:10]}.{ext}"
     path = os.path.join(UPLOAD_DIR, filename)
     with open(path, "wb") as buf:
@@ -103,7 +112,7 @@ def upload_logo(
         )
         db.commit()
         return {"filename": cloud_url, "url": cloud_url}
-    filename = _save_image_bytes(file_bytes, file.filename or "logo.jpg", "logo", ctx.studio_id)
+    filename = _save_image_bytes(file_bytes, file.content_type, "logo", ctx.studio_id)
     settings.logo_filename = filename
     backend_url = os.getenv("API_BASE_URL", "")
     local_url = f"{backend_url}/uploads/{filename}" if backend_url else f"/uploads/{filename}"
@@ -168,7 +177,7 @@ def upload_cover(
     if cloud_url:
         url = cloud_url
     else:
-        filename = _save_image_bytes(file_bytes, file.filename or "cover.jpg", "cover", ctx.studio_id)
+        filename = _save_image_bytes(file_bytes, file.content_type, "cover", ctx.studio_id)
         url = f"/uploads/{filename}"
     settings.marketplace_cover_url = url
     db.commit()
@@ -207,7 +216,7 @@ def upload_gallery_photo(
     if file.content_type not in ALLOWED_IMAGE_TYPES:
         raise HTTPException(status_code=400, detail="Only image files are allowed")
     file_bytes = file.file.read()
-    ext = (file.filename or "img.jpg").rsplit(".", 1)[-1].lower()
+    ext = _EXT_BY_CONTENT_TYPE.get(file.content_type, "jpg")
     photo_id = uuid4().hex
     cloud_url = _cloudinary_upload(file_bytes, f"bizfind/{ctx.studio_id}/gallery", photo_id, db=db)
     if cloud_url:
