@@ -31,6 +31,16 @@ const ERR_FIELD: Record<string, FieldErr> = {
 
 function parseErr(msg: string, locale: string): { text: string; field: FieldErr } {
     const l: Lang = locale.startsWith("en") ? "en" : "he";
+    const lockMatch = msg.match(/account_locked:(\d+)/);
+    if (lockMatch) {
+        const mins = lockMatch[1];
+        return {
+            text: l === "en"
+                ? `Too many failed attempts. Try again in ${mins} minute(s).`
+                : `יותר מדי ניסיונות כושלים. נסה שוב בעוד ${mins} דקות.`,
+            field: null,
+        };
+    }
     for (const [code, field] of Object.entries(ERR_FIELD)) {
         if (msg.includes(code)) return { text: ERR_TEXT[code][l], field };
     }

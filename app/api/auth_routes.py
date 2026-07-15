@@ -35,12 +35,14 @@ PENDING_TOKEN_MINUTES = 5
 LOGIN_FAILURE_THRESHOLD = 5
 LOGIN_FAILURE_WINDOW = timedelta(minutes=30)
 LOGIN_ALERT_COOLDOWN = timedelta(hours=1)
+LOGIN_LOCKOUT_DURATION = timedelta(minutes=15)
 
 
 def _track_login_failure(db: Session, user: User, reason: str) -> None:
-    """Count repeated failed login attempts against a real account and email
-    the studio owner(s) once the count crosses the threshold. Best-effort —
-    must never break the login flow itself."""
+    """Count repeated failed login attempts against a real account, lock the
+    ACCOUNT (not the caller's IP — trivially defeated by switching VPN/proxy)
+    once the threshold is crossed, and email the studio owner(s). Best-effort
+    — must never break the login flow itself."""
     try:
         from sqlalchemy import text as _text
         now = datetime.now(timezone.utc)
@@ -60,14 +62,17 @@ def _track_login_failure(db: Session, user: User, reason: str) -> None:
             first_failure_at = now
         last_alerted_at = row[2] if row else None
 
+        locked_until = now + LOGIN_LOCKOUT_DURATION if new_count >= LOGIN_FAILURE_THRESHOLD else None
+
         db.execute(
             _text("""
-                INSERT INTO login_failure_tracking (studio_id, email, failure_count, first_failure_at, last_failure_at, last_alerted_at)
-                VALUES (:sid, :email, :cnt, :first, :now, :alerted)
+                INSERT INTO login_failure_tracking (studio_id, email, failure_count, first_failure_at, last_failure_at, last_alerted_at, locked_until)
+                VALUES (:sid, :email, :cnt, :first, :now, :alerted, :locked)
                 ON CONFLICT (studio_id, email)
-                DO UPDATE SET failure_count = :cnt, first_failure_at = :first, last_failure_at = :now
+                DO UPDATE SET failure_count = :cnt, first_failure_at = :first, last_failure_at = :now,
+                    locked_until = COALESCE(:locked, login_failure_tracking.locked_until)
             """),
-            {"sid": studio_id, "email": email, "cnt": new_count, "first": first_failure_at, "now": now, "alerted": last_alerted_at},
+            {"sid": studio_id, "email": email, "cnt": new_count, "first": first_failure_at, "now": now, "alerted": last_alerted_at, "locked": locked_until},
         )
         db.commit()
 
@@ -82,6 +87,34 @@ def _track_login_failure(db: Session, user: User, reason: str) -> None:
         log.exception("[login-alert] failed to track/alert on login failure")
 
 
+def _get_lockout(db: Session, user: User) -> datetime | None:
+    """Returns the lockout expiry if this account is currently locked, else None."""
+    try:
+        from sqlalchemy import text as _text
+        row = db.execute(
+            _text("SELECT locked_until FROM login_failure_tracking WHERE studio_id = :sid AND email = :email"),
+            {"sid": str(user.studio_id), "email": user.email},
+        ).fetchone()
+        if row and row[0] and row[0] > datetime.now(timezone.utc):
+            return row[0]
+    except Exception:
+        log.exception("[login-alert] failed to check lockout status")
+    return None
+
+
+def _raise_if_locked(db: Session, user: User) -> None:
+    """Call once credentials (password and/or 2FA) have already verified
+    correct — only at that point does distinguishing 'locked' from 'invalid
+    credentials' not leak anything an attacker doesn't already know."""
+    locked_until = _get_lockout(db, user)
+    if locked_until:
+        minutes_left = max(1, int((locked_until - datetime.now(timezone.utc)).total_seconds() // 60) + 1)
+        raise HTTPException(
+            status_code=423,
+            detail=f"account_locked:{minutes_left}",
+        )
+
+
 def _send_login_alert(db: Session, user: User, failure_count: int, reason: str) -> None:
     owners = db.query(User).filter(
         User.studio_id == user.studio_id, User.role == "owner", User.is_active == True,  # noqa: E712
@@ -89,10 +122,12 @@ def _send_login_alert(db: Session, user: User, failure_count: int, reason: str) 
     if not owners:
         return
     from app.services.email_center import send_email as _ec_send_email
+    lockout_minutes = int(LOGIN_LOCKOUT_DURATION.total_seconds() // 60)
     html = f"""
     <div dir="rtl" style="font-family:Arial,sans-serif;padding:20px">
-        <h2 style="color:#dc2626">🔒 ניסיונות התחברות כושלים חוזרים</h2>
+        <h2 style="color:#dc2626">🔒 ניסיונות התחברות כושלים חוזרים — החשבון ננעל זמנית</h2>
         <p>זוהו <b>{failure_count}</b> ניסיונות התחברות כושלים ({reason}) עבור החשבון <b>{user.email}</b> ב-30 הדקות האחרונות.</p>
+        <p>החשבון ננעל אוטומטית ל-{lockout_minutes} דקות — גם אם הסיסמה הנכונה תוזן, ההתחברות תיחסם עד שהנעילה תפוג. הנעילה חלה על החשבון עצמו ולא תלויה בכתובת ה-IP או ה-VPN של מי שמנסה, כך שלא ניתן לעקוף אותה במעבר לרשת אחרת.</p>
         <p style="color:#64748b;font-size:12px">אם זה לא היית אתה — כדאי לשקול לאפס סיסמה לחשבון זה. התראה זו לא תישלח שוב על אותו חשבון למשך שעה.</p>
     </div>
     """
@@ -160,6 +195,8 @@ def login(request: Request, payload: LoginRequest, db: Session = Depends(get_db)
         _track_login_failure(db, user, "סיסמה שגויה")
         raise HTTPException(status_code=401, detail="invalid_credentials")
 
+    _raise_if_locked(db, user)
+
     if user.totp_secret:
         return {
             "requires_2fa": True,
@@ -196,6 +233,7 @@ def verify_2fa(request: Request, payload: TwoFAVerifyIn, db: Session = Depends(g
         _track_login_failure(db, user, "קוד אימות דו-שלבי שגוי — הסיסמה כבר הוזנה נכון")
         raise HTTPException(status_code=401, detail="קוד שגוי — נסה שנית")
 
+    _raise_if_locked(db, user)
     _reset_login_failures(db, user)
     return _issue_full_tokens(user, db)
 
@@ -225,6 +263,9 @@ def login_by_email(request: Request, payload: EmailLoginIn, db: Session = Depend
     except _VE:
         _track_login_failure(db, user, "סיסמה שגויה")
         raise HTTPException(status_code=401, detail="invalid_credentials")
+
+    _raise_if_locked(db, user)
+
     if user.totp_secret:
         return {
             "requires_2fa": True,

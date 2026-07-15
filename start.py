@@ -1044,6 +1044,7 @@ def ensure_schema():
                 PRIMARY KEY (studio_id, email)
             )
         """)
+        cur.execute("ALTER TABLE login_failure_tracking ADD COLUMN IF NOT EXISTS locked_until TIMESTAMPTZ")
 
         # ── Cross-app secure handoff (one-time codes, replaces JWT-in-URL) ────
         cur.execute("""
