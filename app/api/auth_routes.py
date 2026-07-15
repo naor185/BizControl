@@ -32,6 +32,91 @@ ph = PasswordHasher()
 TOTP_ISSUER = "BizControl"
 PENDING_TOKEN_MINUTES = 5
 
+LOGIN_FAILURE_THRESHOLD = 5
+LOGIN_FAILURE_WINDOW = timedelta(minutes=30)
+LOGIN_ALERT_COOLDOWN = timedelta(hours=1)
+
+
+def _track_login_failure(db: Session, user: User, reason: str) -> None:
+    """Count repeated failed login attempts against a real account and email
+    the studio owner(s) once the count crosses the threshold. Best-effort —
+    must never break the login flow itself."""
+    try:
+        from sqlalchemy import text as _text
+        now = datetime.now(timezone.utc)
+        studio_id = str(user.studio_id)
+        email = user.email
+
+        row = db.execute(
+            _text("SELECT failure_count, first_failure_at, last_alerted_at FROM login_failure_tracking WHERE studio_id = :sid AND email = :email"),
+            {"sid": studio_id, "email": email},
+        ).fetchone()
+
+        if row and row[1] and (now - row[1]) < LOGIN_FAILURE_WINDOW:
+            new_count = row[0] + 1
+            first_failure_at = row[1]
+        else:
+            new_count = 1
+            first_failure_at = now
+        last_alerted_at = row[2] if row else None
+
+        db.execute(
+            _text("""
+                INSERT INTO login_failure_tracking (studio_id, email, failure_count, first_failure_at, last_failure_at, last_alerted_at)
+                VALUES (:sid, :email, :cnt, :first, :now, :alerted)
+                ON CONFLICT (studio_id, email)
+                DO UPDATE SET failure_count = :cnt, first_failure_at = :first, last_failure_at = :now
+            """),
+            {"sid": studio_id, "email": email, "cnt": new_count, "first": first_failure_at, "now": now, "alerted": last_alerted_at},
+        )
+        db.commit()
+
+        if new_count >= LOGIN_FAILURE_THRESHOLD and (not last_alerted_at or (now - last_alerted_at) >= LOGIN_ALERT_COOLDOWN):
+            db.execute(
+                _text("UPDATE login_failure_tracking SET last_alerted_at = :now WHERE studio_id = :sid AND email = :email"),
+                {"now": now, "sid": studio_id, "email": email},
+            )
+            db.commit()
+            _send_login_alert(db, user, new_count, reason)
+    except Exception:
+        log.exception("[login-alert] failed to track/alert on login failure")
+
+
+def _send_login_alert(db: Session, user: User, failure_count: int, reason: str) -> None:
+    owners = db.query(User).filter(
+        User.studio_id == user.studio_id, User.role == "owner", User.is_active == True,  # noqa: E712
+    ).all()
+    if not owners:
+        return
+    from app.services.email_center import send_email as _ec_send_email
+    html = f"""
+    <div dir="rtl" style="font-family:Arial,sans-serif;padding:20px">
+        <h2 style="color:#dc2626">🔒 ניסיונות התחברות כושלים חוזרים</h2>
+        <p>זוהו <b>{failure_count}</b> ניסיונות התחברות כושלים ({reason}) עבור החשבון <b>{user.email}</b> ב-30 הדקות האחרונות.</p>
+        <p style="color:#64748b;font-size:12px">אם זה לא היית אתה — כדאי לשקול לאפס סיסמה לחשבון זה. התראה זו לא תישלח שוב על אותו חשבון למשך שעה.</p>
+    </div>
+    """
+    for owner in owners:
+        try:
+            _ec_send_email(
+                db, to_email=owner.email, subject=f"🔒 BizControl: ניסיונות התחברות כושלים חוזרים — {user.email}",
+                html_content=html, from_name="BizControl Security", email_type="system",
+            )
+        except Exception:
+            log.exception("[login-alert] failed to send alert email to owner")
+
+
+def _reset_login_failures(db: Session, user: User) -> None:
+    try:
+        from sqlalchemy import text as _text
+        db.execute(
+            _text("DELETE FROM login_failure_tracking WHERE studio_id = :sid AND email = :email"),
+            {"sid": str(user.studio_id), "email": user.email},
+        )
+        db.commit()
+    except Exception:
+        log.exception("[login-alert] failed to reset login failure tracking")
+
 
 def _create_pending_token(user_id: str, studio_id: str) -> str:
     exp = datetime.now(timezone.utc) + timedelta(minutes=PENDING_TOKEN_MINUTES)
@@ -72,6 +157,7 @@ def login(request: Request, payload: LoginRequest, db: Session = Depends(get_db)
     try:
         ph.verify(user.password_hash, payload.password)
     except VerifyMismatchError:
+        _track_login_failure(db, user, "סיסמה שגויה")
         raise HTTPException(status_code=401, detail="invalid_credentials")
 
     if user.totp_secret:
@@ -80,6 +166,7 @@ def login(request: Request, payload: LoginRequest, db: Session = Depends(get_db)
             "pending_token": _create_pending_token(str(user.id), str(studio.id)),
         }
 
+    _reset_login_failures(db, user)
     return _issue_full_tokens(user, db)
 
 
@@ -106,8 +193,10 @@ def verify_2fa(request: Request, payload: TwoFAVerifyIn, db: Session = Depends(g
 
     totp = pyotp.TOTP(user.totp_secret)
     if not totp.verify(payload.code.strip(), valid_window=1):
+        _track_login_failure(db, user, "קוד אימות דו-שלבי שגוי — הסיסמה כבר הוזנה נכון")
         raise HTTPException(status_code=401, detail="קוד שגוי — נסה שנית")
 
+    _reset_login_failures(db, user)
     return _issue_full_tokens(user, db)
 
 
@@ -134,12 +223,14 @@ def login_by_email(request: Request, payload: EmailLoginIn, db: Session = Depend
     try:
         ph.verify(user.password_hash, payload.password)
     except _VE:
+        _track_login_failure(db, user, "סיסמה שגויה")
         raise HTTPException(status_code=401, detail="invalid_credentials")
     if user.totp_secret:
         return {
             "requires_2fa": True,
             "pending_token": _create_pending_token(str(user.id), str(user.studio_id)),
         }
+    _reset_login_failures(db, user)
     return _issue_full_tokens(user, db)
 
 

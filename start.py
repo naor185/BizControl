@@ -1032,6 +1032,19 @@ def ensure_schema():
             )
         """)
 
+        # ── Repeated failed-login tracking (alert studio owner on possible brute force) ──
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS login_failure_tracking (
+                studio_id UUID NOT NULL,
+                email VARCHAR(255) NOT NULL,
+                failure_count INTEGER NOT NULL DEFAULT 0,
+                first_failure_at TIMESTAMPTZ,
+                last_failure_at TIMESTAMPTZ,
+                last_alerted_at TIMESTAMPTZ,
+                PRIMARY KEY (studio_id, email)
+            )
+        """)
+
         # ── Cross-app secure handoff (one-time codes, replaces JWT-in-URL) ────
         cur.execute("""
             CREATE TABLE IF NOT EXISTS auth_handoff_codes (
