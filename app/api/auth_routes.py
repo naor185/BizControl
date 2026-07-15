@@ -177,7 +177,10 @@ def login(request: Request, payload: LoginRequest, db: Session = Depends(get_db)
     slug = payload.studio_slug.lower().strip()
     studio = db.query(Studio).filter(Studio.slug == slug, Studio.is_active == True).first()  # noqa: E712
     if not studio:
-        raise HTTPException(status_code=401, detail="studio_not_found")
+        # Same generic error as wrong email/password — don't reveal which
+        # field was wrong, or even which field exists (avoids enumeration of
+        # valid studio slugs).
+        raise HTTPException(status_code=401, detail="invalid_credentials")
 
     email = str(payload.email).lower().strip()
     user = db.query(User).filter(User.studio_id == studio.id, User.email == email, User.is_active == True).first()  # noqa: E712

@@ -14,17 +14,17 @@ type FieldErr = "slug" | "email" | "password" | null;
 type Lang = "he" | "en";
 
 const ERR_TEXT: Record<string, Record<Lang, string>> = {
-    studio_not_found:    { he: "מזהה הסטודיו לא קיים במערכת", en: "Studio ID not found" },
-    invalid_credentials: { he: "האימייל או הסיסמה שגויים",     en: "Incorrect email or password" },
+    invalid_credentials: { he: "אחד מהפרטים שהזנת שגוי",       en: "One of the details you entered is incorrect" },
     string_too_short:    { he: "יש למלא את כל השדות",          en: "Please fill in all fields" },
     network:             { he: "לא ניתן להתחבר לשרת",          en: "Cannot connect to server" },
     default_err:         { he: "שגיאה בהתחברות",               en: "Login failed" },
 };
 // Deliberately not field-specific for invalid_credentials — telling the user
-// whether it was the email or the password that's wrong lets an attacker
-// enumerate registered accounts one field at a time.
+// whether it was the studio ID, email, or password that's wrong lets an
+// attacker enumerate valid studio slugs / registered accounts one field at a
+// time. Every one of those three failure reasons returns this exact same
+// generic code from the backend, on purpose.
 const ERR_FIELD: Record<string, FieldErr> = {
-    studio_not_found:    "slug",
     invalid_credentials: null,
     string_too_short:    null,
 };
