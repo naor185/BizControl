@@ -524,6 +524,13 @@ def ensure_schema():
                     CHECK (method IN ('cash','bit','credit','credit_card','paybox','bank_transfer','apple_pay','google_pay','other'));
             END $$;
         """)
+        cur.execute("ALTER TABLE pos_transactions ADD COLUMN IF NOT EXISTS idempotency_key VARCHAR(64)")
+        # Prevents a stalled/lost checkout response + resubmit from creating a true duplicate sale
+        cur.execute("""
+            CREATE UNIQUE INDEX IF NOT EXISTS ux_pos_transactions_idempotency
+            ON pos_transactions (studio_id, idempotency_key)
+            WHERE idempotency_key IS NOT NULL
+        """)
 
         # ── BizFind Marketplace Customer Auth ────────────────────────────────
         cur.execute("""

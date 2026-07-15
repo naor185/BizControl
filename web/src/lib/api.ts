@@ -509,6 +509,14 @@ export function downloadReceipt(paymentId: string) {
     return _downloadFile(`${API_BASE}/api/payments/${paymentId}/receipt`, `receipt_${paymentId.slice(0, 8).toUpperCase()}.pdf`);
 }
 
+export function downloadPosReceipt(txnId: string) {
+    return _downloadFile(`${API_BASE}/api/pos/${txnId}/receipt`, `receipt_${txnId.slice(0, 8).toUpperCase()}.pdf`);
+}
+
+export function voidPosTransaction(txnId: string): Promise<{ ok: boolean }> {
+    return apiFetch<{ ok: boolean }>(`/api/pos/void/${txnId}`, { method: "POST" });
+}
+
 export function downloadInvoice(paymentId: string) {
     return _downloadFile(`${API_BASE}/api/payments/${paymentId}/invoice`, `invoice_${paymentId.slice(0, 8).toUpperCase()}.pdf`);
 }

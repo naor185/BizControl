@@ -295,7 +295,9 @@ def _auto_create_invoice(db: Session, studio_id: UUID, payment: Payment, appt, c
         """),
         {
             "id": invoice_id, "sid": str(studio_id), "dt": doc_type, "dn": doc_number,
-            "cid": str(client.id), "cname": client.full_name, "cphone": client.phone,
+            "cid": str(client.id) if client else None,
+            "cname": client.full_name if client else "אנונימי",
+            "cphone": client.phone if client else None,
             "bname": settings.get("business_name") or studio_name,
             "btype": biz_type,
             "bnum": settings.get("business_number"),

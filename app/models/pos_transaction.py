@@ -30,6 +30,7 @@ class PosTransaction(Base):
     method: Mapped[str] = mapped_column(String(20), nullable=False, default="cash")
     status: Mapped[str] = mapped_column(String(10), nullable=False, default="paid", server_default="'paid'")
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    idempotency_key: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 

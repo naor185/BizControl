@@ -141,6 +141,10 @@ export default function PosPage() {
     const [searchLoading, setSearchLoading] = useState(false);
     const [loading, setLoading] = useState(false);
     const [receipt, setReceipt] = useState<TransactionOut | null>(null);
+    // Identifies this specific cart+checkout attempt so a stalled/lost response
+    // followed by a resubmit reuses the server's existing transaction instead
+    // of creating a duplicate sale. Regenerated whenever the cart is cleared.
+    const checkoutKeyRef = useRef<string>(crypto.randomUUID());
     const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
     const [calcDisplay, setCalcDisplay] = useState("0");
     const [itemDesc, setItemDesc] = useState("");
@@ -283,8 +287,10 @@ export default function PosPage() {
                     points_redeemed: pointsDiscount,
                     coupon_code: couponDiscount > 0 ? couponCode.trim().toUpperCase() : null,
                     send_receipt: client?.phone ? sendReceipt : false,
+                    idempotency_key: checkoutKeyRef.current,
                 }),
             });
+            checkoutKeyRef.current = crypto.randomUUID();
             setReceipt(txn);
             // Redeem gift card if used
             if (giftCardInfo && giftCardDiscountCents > 0) {

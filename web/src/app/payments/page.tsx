@@ -4,7 +4,7 @@ import { toast } from "@/lib/toast";
 import { useEffect, useMemo, useState } from "react";
 import RequireAuth from "@/components/RequireAuth";
 import AppShell from "@/components/AppShell";
-import { apiFetch, downloadReceipt, getCurrentUserRole } from "@/lib/api";
+import { apiFetch, downloadReceipt, downloadPosReceipt, voidPosTransaction, getCurrentUserRole } from "@/lib/api";
 
 import Link from "next/link";
 
@@ -50,6 +50,7 @@ type Entry = {
     isWalkIn?: boolean;
     isPos?: boolean;
     paymentId?: string; // only for regular payments (for receipt/invoice download)
+    posTxnId?: string; // only for POS entries (for receipt download / void)
 };
 
 const METHODS = [
@@ -97,6 +98,8 @@ export default function Page() {
     const [isDeleting, setIsDeleting] = useState(false);
     const [creditingId, setCreditingId] = useState<string | null>(null);
     const [isCrediting, setIsCrediting] = useState(false);
+    const [voidingPosId, setVoidingPosId] = useState<string | null>(null);
+    const [isVoidingPos, setIsVoidingPos] = useState(false);
     const [expandedMonths, setExpandedMonths] = useState<Set<string>>(new Set([currentMonthKey]));
 
     const toggleMonth = (key: string) => {
@@ -159,6 +162,7 @@ export default function Page() {
                 isWalkIn: false,
                 isPos: true,
                 paymentId: undefined,
+                posTxnId: t.id,
             }));
 
             const merged = [...fromPayments, ...fromPos].sort(
@@ -202,6 +206,21 @@ export default function Page() {
             toast.error(e?.message || "שגיאה בהפקת זיכוי");
         } finally {
             setIsCrediting(false);
+        }
+    };
+
+    const handleVoidPos = async () => {
+        if (!voidingPosId) return;
+        try {
+            setIsVoidingPos(true);
+            await voidPosTransaction(voidingPosId);
+            toast.success("העסקה בוטלה");
+            setVoidingPosId(null);
+            loadPayments();
+        } catch (e: any) {
+            toast.error(e?.message || "שגיאה בביטול העסקה");
+        } finally {
+            setIsVoidingPos(false);
         }
     };
 
@@ -436,6 +455,34 @@ export default function Page() {
                                                                     )}
                                                                 </>
                                                             )}
+                                                            {e.posTxnId && (
+                                                                <>
+                                                                    {/* Download receipt PDF */}
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => downloadPosReceipt(e.posTxnId!)}
+                                                                        className="text-slate-700 hover:text-blue-600 transition-colors p-1.5 rounded-lg hover:bg-blue-50"
+                                                                        title="הורד קבלה PDF"
+                                                                    >
+                                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                                                        </svg>
+                                                                    </button>
+                                                                    {/* Void POS transaction — owner/admin/superadmin */}
+                                                                    {canCredit && (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => setVoidingPosId(e.posTxnId!)}
+                                                                            className="text-slate-700 hover:text-red-600 transition-colors p-1.5 rounded-lg hover:bg-red-50"
+                                                                            title="בטל עסקת קופה"
+                                                                        >
+                                                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                                            </svg>
+                                                                        </button>
+                                                                    )}
+                                                                </>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 ))}
@@ -481,6 +528,45 @@ export default function Page() {
                                     className="px-5 py-2.5 text-sm font-semibold text-white bg-amber-500 hover:bg-amber-600 rounded-xl shadow-lg ring-1 ring-amber-600 transition-colors disabled:opacity-50"
                                 >
                                     {isCrediting ? "מפיק זיכוי..." : "כן, הוצא זיכוי"}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Void POS Transaction Confirmation Modal — owner/admin/superadmin */}
+                {voidingPosId && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                        <div className="bg-white rounded-3xl w-full max-w-sm shadow-xl overflow-hidden p-6 text-center animate-in zoom-in-95 duration-200">
+                            <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </div>
+                            <h3 className="text-xl font-bold text-slate-800 mb-2">ביטול עסקת קופה</h3>
+                            <p className="text-sm text-slate-500 mb-6">
+                                העסקה תבוטל והמלאי שנוכה יוחזר אוטומטית.
+                                <br />
+                                <span className="text-red-500 font-bold mt-2 block">
+                                    לא ניתן לבטל פעולה זו.
+                                </span>
+                            </p>
+                            <div className="flex justify-center gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => setVoidingPosId(null)}
+                                    disabled={isVoidingPos}
+                                    className="px-5 py-2.5 text-sm font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
+                                >
+                                    ביטול
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleVoidPos}
+                                    disabled={isVoidingPos}
+                                    className="px-5 py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl shadow-lg ring-1 ring-red-700 transition-colors disabled:opacity-50"
+                                >
+                                    {isVoidingPos ? "מבטל..." : "כן, בטל עסקה"}
                                 </button>
                             </div>
                         </div>

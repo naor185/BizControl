@@ -45,6 +45,7 @@ class CheckoutIn(BaseModel):
     coupon_code: Optional[str] = None
     notes: Optional[str] = None
     send_receipt: bool = True
+    idempotency_key: Optional[str] = None
 
 
 class TransactionItemOut(BaseModel):
@@ -71,6 +72,38 @@ class TransactionOut(BaseModel):
     created_at: str
 
 
+def _build_transaction_out(db: Session, txn: PosTransaction) -> TransactionOut:
+    from app.models.user import User
+    client = db.get(Client, txn.client_id) if txn.client_id else None
+    cashier = db.get(User, txn.cashier_id) if txn.cashier_id else None
+    items = db.scalars(
+        select(PosTransactionItem).where(PosTransactionItem.transaction_id == txn.id)
+    ).all()
+    return TransactionOut(
+        id=str(txn.id),
+        client_id=str(txn.client_id) if txn.client_id else None,
+        client_name=client.full_name if client else None,
+        cashier_name=cashier.display_name or cashier.email if cashier else None,
+        total_cents=txn.total_cents,
+        discount_cents=txn.discount_cents,
+        method=txn.method,
+        status=txn.status,
+        notes=txn.notes,
+        items=[
+            TransactionItemOut(
+                id=str(i.id),
+                product_id=str(i.product_id) if i.product_id else None,
+                description=i.description,
+                quantity=i.quantity,
+                unit_price_cents=i.unit_price_cents,
+                total_price_cents=i.total_price_cents,
+            ) for i in items
+        ],
+        points_earned=0,
+        created_at=txn.created_at.isoformat(),
+    )
+
+
 # ── Checkout ──────────────────────────────────────────────────────────────────
 
 @router.post("/checkout", response_model=TransactionOut)
@@ -81,6 +114,19 @@ def pos_checkout(
 ):
     if not body.items:
         raise HTTPException(status_code=400, detail="העגלה ריקה")
+
+    # Idempotent replay: a stalled/lost response can make the client resubmit
+    # the exact same checkout — return the already-created transaction instead
+    # of creating a duplicate sale.
+    if body.idempotency_key:
+        existing = db.scalar(
+            select(PosTransaction).where(
+                PosTransaction.studio_id == ctx.studio_id,
+                PosTransaction.idempotency_key == body.idempotency_key,
+            )
+        )
+        if existing:
+            return _build_transaction_out(db, existing)
 
     valid_methods = {"cash", "bit", "credit", "credit_card", "paybox", "bank_transfer", "apple_pay", "google_pay", "other"}
     if body.method not in valid_methods:
@@ -136,6 +182,7 @@ def pos_checkout(
         method=body.method,
         status="paid",
         notes=body.notes,
+        idempotency_key=body.idempotency_key,
     )
     db.add(txn)
     db.flush()  # get txn.id
@@ -188,11 +235,27 @@ def pos_checkout(
             coupon.status = "redeemed"
             coupon.redeemed_at = now_utc
 
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        # Concurrent duplicate submit with the same idempotency_key raced past
+        # the earlier check-and-return — roll back and return the row the
+        # other request already committed instead of surfacing a 500.
+        db.rollback()
+        if body.idempotency_key:
+            existing = db.scalar(
+                select(PosTransaction).where(
+                    PosTransaction.studio_id == ctx.studio_id,
+                    PosTransaction.idempotency_key == body.idempotency_key,
+                )
+            )
+            if existing:
+                return _build_transaction_out(db, existing)
+        raise
     db.refresh(txn)
 
-    # Auto-create receipt for POS sale
-    if client and txn.total_cents > 0:
+    # Auto-create receipt for POS sale — including anonymous walk-in sales
+    if txn.total_cents > 0:
         try:
             import types as _types
             from app.crud.payment import _auto_create_invoice
@@ -400,3 +463,44 @@ def void_transaction(
     txn.status = "void"
     db.commit()
     return {"ok": True}
+
+
+@router.get("/{txn_id}/receipt")
+def download_pos_receipt(
+    txn_id: uuid.UUID,
+    ctx: AuthContext = Depends(require_studio_ctx),
+    db: Session = Depends(get_db),
+):
+    import io
+    from fastapi.responses import StreamingResponse
+    from sqlalchemy import text as _t
+    from app.api.invoice_routes import _build_pdf, DOC_TYPES
+    from app.api.payment_routes import _attach_points
+
+    txn = db.get(PosTransaction, txn_id)
+    if not txn or txn.studio_id != ctx.studio_id:
+        raise HTTPException(status_code=404, detail="עסקה לא נמצאה")
+
+    inv_row = db.execute(
+        _t("SELECT * FROM invoices WHERE source_id = :sid AND studio_id = :stid AND doc_type != 'credit' LIMIT 1"),
+        {"sid": str(txn_id), "stid": str(ctx.studio_id)},
+    ).fetchone()
+    if not inv_row:
+        raise HTTPException(status_code=404, detail="לא נמצאה קבלה עבור עסקה זו")
+
+    inv = dict(inv_row._mapping)
+    items = db.execute(
+        _t("SELECT * FROM invoice_items WHERE invoice_id = :id ORDER BY sort_order"),
+        {"id": inv["id"]},
+    ).fetchall()
+    item_list = [dict(r._mapping) for r in items]
+    _attach_points(db, inv)
+    pdf_bytes = _build_pdf(inv, item_list)
+    doc_label = DOC_TYPES.get(inv["doc_type"], "קבלה")
+    filename = f"{doc_label}_{inv['doc_number']}.pdf"
+
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
