@@ -89,6 +89,21 @@ function InvoiceUploadModal({ onClose, onSaved }: { onClose: () => void; onSaved
     const [categoryOther, setCategoryOther] = useState("");
     const [paymentMethod, setPaymentMethod] = useState("");
 
+    const resetForNextScan = () => {
+        setFile(null);
+        setScanResult(null);
+        setError("");
+        setTitle("");
+        setAmount("");
+        setVat("");
+        setPretax("");
+        setInvoiceDate("");
+        setInvoiceNum("");
+        setCategory("");
+        setCategoryOther("");
+        setPaymentMethod("");
+    };
+
     const handleScan = async () => {
         if (!file) return;
         setScanning(true);
@@ -130,8 +145,9 @@ function InvoiceUploadModal({ onClose, onSaved }: { onClose: () => void; onSaved
                 setSaving(true);
                 try {
                     await uploadExpenseImage(existingId, file);
+                    toast.success("התמונה צורפה להוצאה הקיימת ✅");
                     onSaved();
-                    onClose();
+                    resetForNextScan();
                 } catch (e: any) {
                     setError(e.message || "שגיאה בצירוף התמונה");
                 } finally {
@@ -159,8 +175,9 @@ function InvoiceUploadModal({ onClose, onSaved }: { onClose: () => void; onSaved
                 file_size_bytes: scanResult?.receipt_size_bytes || undefined,
                 is_ai_parsed: !!scanResult,
             });
+            toast.success("ההוצאה נשמרה ✅");
             onSaved();
-            onClose();
+            resetForNextScan();
         } catch (e: any) {
             setError(e.message || "שגיאה בשמירה");
         } finally {
