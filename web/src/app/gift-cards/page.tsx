@@ -23,6 +23,7 @@ interface GiftCard {
     buyer_email?: string;
     buyer_phone?: string;
     deliver_to?: string;
+    bonus_ils?: number;
 }
 
 const STATUS: Record<string, { label: string; cls: string }> = {
@@ -332,6 +333,9 @@ function DetailModal({ card, onClose, onCancel, onApprove }: { card: GiftCard; o
                         {card.recipient_email && <Row label="אימייל" value={card.recipient_email} />}
                         {card.recipient_phone && <Row label="טלפון" value={card.recipient_phone} />}
                         <Row label="סכום מקורי" value={`₪${card.amount_ils.toFixed(0)}`} />
+                        {!!card.bonus_ils && card.bonus_ils > 0 && (
+                            <Row label="כולל בונוס" value={`₪${card.bonus_ils.toFixed(0)} 🎉`} />
+                        )}
                         <Row label="יתרה" value={`₪${card.balance_ils.toFixed(0)}`} bold />
                         <Row label="נוצל" value={`₪${card.used_ils.toFixed(0)}`} />
                         {card.expires_at && <Row label="תוקף" value={new Date(card.expires_at).toLocaleDateString("he-IL")} />}

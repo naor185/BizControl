@@ -126,6 +126,7 @@ def _build_gift_card_voucher_png(
     code: str,
     personal_message: Optional[str],
     expires_at: Optional[date],
+    bonus_ils: float = 0,
 ) -> bytes:
     """Draw a portrait-free landscape gift-card voucher as a PNG (not a PDF) so
     it previews inline as a photo on WhatsApp instead of a document icon."""
@@ -174,7 +175,10 @@ def _build_gift_card_voucher_png(
 
     center_text(panel_top + 40, f"עבור: {recipient_name}", font(34, bold=True), (30, 41, 59))
     center_text(panel_top + 100, f"₪{amount_ils:.0f}", font(84, bold=True), (124, 58, 237))
-    center_text(panel_top + 210, "שווי הכרטיס", font(22), (109, 40, 217))
+    if bonus_ils > 0:
+        center_text(panel_top + 210, f"כולל בונוס של ₪{bonus_ils:.0f}!", font(20, bold=True), (16, 163, 74))
+    else:
+        center_text(panel_top + 210, "שווי הכרטיס", font(22), (109, 40, 217))
 
     if personal_message:
         # Simple word-wrap for the personal message
@@ -447,6 +451,7 @@ def approve_gift_card_payment(
             code=card["code"],
             personal_message=card.get("personal_message"),
             expires_at=card.get("expires_at"),
+            bonus_ils=(card.get("bonus_cents") or 0) / 100,
         )
         voucher_url = _save_voucher_image(png_bytes, str(ctx.studio_id), db=db)
     except Exception:
@@ -494,9 +499,10 @@ def approve_gift_card_payment(
                 db.add(client)
                 db.flush()
 
+            bonus_line = f"\n🎉 כולל בונוס של ₪{card['bonus_cents'] / 100:.0f}!" if card.get("bonus_cents") else ""
             wa_body = (
                 f"🎁 כרטיס המתנה שלך ל-{studio_name} מוכן!\n"
-                f"שווי: ₪{card['amount_cents'] / 100:.0f}\n"
+                f"שווי: ₪{card['amount_cents'] / 100:.0f}{bonus_line}\n"
                 f"קוד המימוש: {card['code']}"
             )
             db.add(MessageJob(
@@ -680,6 +686,19 @@ def public_create_gift_card_order(studio_id: str, body: PublicGiftCardOrderIn, d
     if dup:
         return {"ok": True, "amount_ils": round(body.amount_cents / 100, 2)}
 
+    # Studio-configured bonus: e.g. "orders over ₪500 get 10% extra value"
+    bonus_cents = 0
+    settings_row = db.execute(
+        text("""
+            SELECT gift_card_bonus_enabled, gift_card_bonus_threshold_cents, gift_card_bonus_percent
+            FROM studio_settings WHERE studio_id = :sid
+        """),
+        {"sid": studio_id}
+    ).fetchone()
+    if settings_row and settings_row[0] and body.amount_cents >= (settings_row[1] or 0):
+        bonus_cents = round(body.amount_cents * (settings_row[2] or 0) / 100)
+    face_value_cents = body.amount_cents + bonus_cents
+
     code = _gen_code()
     for _ in range(5):
         existing = db.execute(text("SELECT id FROM gift_cards WHERE code = :c"), {"c": code}).fetchone()
@@ -692,19 +711,19 @@ def public_create_gift_card_order(studio_id: str, body: PublicGiftCardOrderIn, d
     db.execute(
         text("""
             INSERT INTO gift_cards
-                (id, studio_id, code, amount_cents, balance_cents,
+                (id, studio_id, code, amount_cents, balance_cents, bonus_cents,
                  recipient_name, recipient_phone,
                  sender_name, personal_message, status, expires_at,
                  buyer_name, buyer_email, buyer_phone, deliver_to)
             VALUES
-                (:id, :sid, :code, :amount, :balance,
+                (:id, :sid, :code, :amount, :balance, :bonus,
                  :rname, :rphone,
                  :sname, :msg, 'pending_payment', :exp,
                  :bname, :bemail, :bphone, :deliver)
         """),
         {
             "id": card_id, "sid": studio_id, "code": code,
-            "amount": body.amount_cents, "balance": body.amount_cents,
+            "amount": face_value_cents, "balance": face_value_cents, "bonus": bonus_cents,
             "rname": body.recipient_name.strip(), "rphone": body.recipient_phone,
             "sname": studio_name, "msg": body.personal_message, "exp": expires,
             "bname": body.buyer_name.strip(), "bemail": body.buyer_email,
@@ -712,7 +731,11 @@ def public_create_gift_card_order(studio_id: str, body: PublicGiftCardOrderIn, d
         }
     )
     db.commit()
-    return {"ok": True, "amount_ils": round(body.amount_cents / 100, 2)}
+    return {
+        "ok": True,
+        "amount_ils": round(body.amount_cents / 100, 2),
+        "bonus_ils": round(bonus_cents / 100, 2),
+    }
 
 
 # ── Helper ────────────────────────────────────────────────────────────────────
@@ -721,6 +744,7 @@ def _card_to_dict(row) -> dict:
     d = dict(row._mapping)
     d["amount_ils"] = round((d.get("amount_cents") or 0) / 100, 2)
     d["balance_ils"] = round((d.get("balance_cents") or 0) / 100, 2)
+    d["bonus_ils"] = round((d.get("bonus_cents") or 0) / 100, 2)
     d["used_ils"] = round(((d.get("amount_cents") or 0) - (d.get("balance_cents") or 0)) / 100, 2)
     d["pct_used"] = round(d["used_ils"] / d["amount_ils"] * 100) if d["amount_ils"] > 0 else 0
     expires = d.get("expires_at")

@@ -54,6 +54,11 @@ class AutomationSettingsOut(BaseModel):
     birthday_automation_enabled: bool = True
     block_shabbat_messages: bool = False
 
+    # Gift card purchase bonus
+    gift_card_bonus_enabled: bool = False
+    gift_card_bonus_threshold_cents: int = 50000
+    gift_card_bonus_percent: int = 10
+
     # Email Settings (Resend API)
     resend_api_key: str | None = None
     resend_from_email: str | None = None
@@ -232,6 +237,11 @@ class AutomationSettingsUpdate(BaseModel):
     birthday_benefit_percent: int | None = Field(default=None, ge=0, le=100)
     birthday_automation_enabled: bool | None = None
     block_shabbat_messages: bool | None = None
+
+    # Gift card purchase bonus
+    gift_card_bonus_enabled: bool | None = None
+    gift_card_bonus_threshold_cents: int | None = Field(default=None, ge=0)
+    gift_card_bonus_percent: int | None = Field(default=None, ge=0, le=100)
 
     # Email Settings (Resend API)
     resend_api_key: str | None = None

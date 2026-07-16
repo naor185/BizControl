@@ -772,6 +772,12 @@ def ensure_schema():
         cur.execute("ALTER TABLE gift_cards ADD COLUMN IF NOT EXISTS buyer_email VARCHAR(255)")
         cur.execute("ALTER TABLE gift_cards ADD COLUMN IF NOT EXISTS buyer_phone VARCHAR(32)")
         cur.execute("ALTER TABLE gift_cards ADD COLUMN IF NOT EXISTS deliver_to VARCHAR(12) DEFAULT 'buyer'")
+        cur.execute("ALTER TABLE gift_cards ADD COLUMN IF NOT EXISTS bonus_cents INTEGER NOT NULL DEFAULT 0")
+
+        # ── Gift card purchase bonus (studio-configurable threshold + %) ───────
+        cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS gift_card_bonus_enabled BOOLEAN NOT NULL DEFAULT false")
+        cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS gift_card_bonus_threshold_cents INTEGER NOT NULL DEFAULT 50000")
+        cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS gift_card_bonus_percent INTEGER NOT NULL DEFAULT 10")
 
         cur.execute("""
             CREATE TABLE IF NOT EXISTS gift_card_transactions (

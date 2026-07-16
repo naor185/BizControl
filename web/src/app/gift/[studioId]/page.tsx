@@ -34,6 +34,7 @@ export default function GiftCardShopPage() {
     const [submitting, setSubmitting] = useState(false);
     const [submitErr, setSubmitErr] = useState<string | null>(null);
     const [orderedAmountIls, setOrderedAmountIls] = useState<number | null>(null);
+    const [orderedBonusIls, setOrderedBonusIls] = useState<number>(0);
 
     useEffect(() => {
         if (!studioId) return;
@@ -74,6 +75,7 @@ export default function GiftCardShopPage() {
             }
             const data = await res.json();
             setOrderedAmountIls(data.amount_ils ?? effectiveAmount);
+            setOrderedBonusIls(data.bonus_ils ?? 0);
         } catch (e: unknown) {
             setSubmitErr((e as Error).message || "שגיאה בשליחת ההזמנה");
         } finally {
@@ -94,6 +96,11 @@ export default function GiftCardShopPage() {
                 <div style={cardStyle}>
                     <div style={{ fontSize: 48, marginBottom: 12, textAlign: "center" }}>🎉</div>
                     <h2 style={{ ...headingStyle, textAlign: "center" }}>ההזמנה נקלטה!</h2>
+                    {orderedBonusIls > 0 && (
+                        <p style={{ color: "#4ade80", textAlign: "center", fontWeight: 900, fontSize: 15, margin: "8px 0 0" }}>
+                            🎉 קיבלת בונוס של ₪{orderedBonusIls.toFixed(0)} — השובר יהיה בשווי ₪{(orderedAmountIls + orderedBonusIls).toFixed(0)}!
+                        </p>
+                    )}
                     <p style={{ color: "#94a3b8", textAlign: "center", lineHeight: 1.7, margin: "12px 0 24px" }}>
                         נשאר רק לשלם ₪{orderedAmountIls.toFixed(0)} דרך ביט, ונשלח לך אישור עם קוד השובר לאחר אימות התשלום.
                     </p>

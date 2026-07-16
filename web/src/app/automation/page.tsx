@@ -59,6 +59,10 @@ type Settings = {
     birthday_automation_enabled: boolean;
     block_shabbat_messages: boolean;
 
+    gift_card_bonus_enabled: boolean;
+    gift_card_bonus_threshold_cents: number;
+    gift_card_bonus_percent: number;
+
     whatsapp_provider?: string | null;
     whatsapp_api_key?: string | null;
     whatsapp_phone_id?: string | null;
@@ -607,6 +611,9 @@ export default function AutomationSettingsPage() {
                     birthday_benefit_percent: data.birthday_benefit_percent ?? 0,
                     birthday_automation_enabled: data.birthday_automation_enabled ?? true,
                     block_shabbat_messages: data.block_shabbat_messages ?? false,
+                    gift_card_bonus_enabled: data.gift_card_bonus_enabled ?? false,
+                    gift_card_bonus_threshold_cents: data.gift_card_bonus_threshold_cents ?? 50000,
+                    gift_card_bonus_percent: data.gift_card_bonus_percent ?? 10,
                     birthday_wa_template: data.birthday_wa_template ?? "",
                     birthday_email_template: data.birthday_email_template ?? "",
                     theme_primary_color: data.theme_primary_color ?? "#000000",
@@ -1604,6 +1611,55 @@ export default function AutomationSettingsPage() {
                                                 />
                                                 <span className="text-pink-600 font-medium font-bold">אחוז הנחה (%)</span>
                                             </div>
+                                        </div>
+
+                                        <div className="bg-violet-50 p-6 rounded-2xl border border-violet-200 md:col-span-2">
+                                            <div className="flex items-center justify-between gap-4 mb-3">
+                                                <div>
+                                                    <label className="block text-base font-bold text-slate-800">🎁 בונוס לרכישת כרטיס מתנה</label>
+                                                    <p className="text-sm text-slate-500 mt-0.5">
+                                                        מעל סכום מסוים, הכרטיס שיוצא ללקוח יהיה שווה יותר ממה ששילם — למשל &quot;מעל ₪500, מקבלים 10% בונוס&quot;.
+                                                    </p>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    title="הפעל בונוס לכרטיסי מתנה"
+                                                    onClick={() => handleChange("gift_card_bonus_enabled", !settings.gift_card_bonus_enabled)}
+                                                    className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${settings.gift_card_bonus_enabled ? "bg-violet-600" : "bg-slate-200"}`}
+                                                >
+                                                    <span className={`inline-block h-6 w-6 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${settings.gift_card_bonus_enabled ? "translate-x-5" : "translate-x-0"}`} />
+                                                </button>
+                                            </div>
+                                            {settings.gift_card_bonus_enabled && (
+                                                <div className="flex flex-wrap items-center gap-6 mt-4">
+                                                    <div className="flex items-center gap-3">
+                                                        <span className="text-slate-600 font-medium text-sm">מעל סכום של</span>
+                                                        <div className="flex items-center gap-1">
+                                                            <span className="text-slate-500">₪</span>
+                                                            <input
+                                                                type="number"
+                                                                value={settings.gift_card_bonus_threshold_cents ? settings.gift_card_bonus_threshold_cents / 100 : ""}
+                                                                placeholder="500"
+                                                                onChange={e => handleChange("gift_card_bonus_threshold_cents", e.target.value === "" ? 0 : Math.round((parseFloat(e.target.value) || 0) * 100))}
+                                                                className="w-24 text-center bg-white border border-violet-200 rounded-xl px-4 py-3 font-semibold text-lg outline-none focus:ring-2 focus:ring-violet-500"
+                                                                min="0"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-3">
+                                                        <span className="text-slate-600 font-medium text-sm">הלקוח מקבל</span>
+                                                        <input
+                                                            type="number"
+                                                            value={settings.gift_card_bonus_percent || ""}
+                                                            placeholder="10"
+                                                            onChange={e => handleChange("gift_card_bonus_percent", e.target.value === "" ? 0 : parseInt(e.target.value) || 0)}
+                                                            className="w-20 text-center bg-white border border-violet-200 rounded-xl px-4 py-3 font-semibold text-lg outline-none focus:ring-2 focus:ring-violet-500"
+                                                            min="0" max="100"
+                                                        />
+                                                        <span className="text-violet-600 font-bold text-sm">% בונוס לערך הכרטיס</span>
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
 
                                         <div className="bg-pink-50 p-6 rounded-2xl border border-pink-200 md:col-span-2">

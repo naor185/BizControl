@@ -58,6 +58,11 @@ class StudioSettings(Base):
     birthday_benefit_percent: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     birthday_automation_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
 
+    # Gift card purchase bonus — e.g. "orders over ₪500 get 10% extra value"
+    gift_card_bonus_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    gift_card_bonus_threshold_cents: Mapped[int] = mapped_column(Integer, nullable=False, default=50000, server_default="50000")
+    gift_card_bonus_percent: Mapped[int] = mapped_column(Integer, nullable=False, default=10, server_default="10")
+
     block_shabbat_messages: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
 
     aftercare_delay_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=30, server_default="30")
