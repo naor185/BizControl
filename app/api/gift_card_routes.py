@@ -6,7 +6,7 @@ from __future__ import annotations
 import secrets
 import string
 import uuid
-from datetime import datetime, timezone, date
+from datetime import datetime, timezone, date, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -31,6 +31,7 @@ def _gen_code() -> str:
 
 
 def _send_gift_card_email(
+    db: Session,
     recipient_email: str,
     recipient_name: str,
     sender_name: str,
@@ -39,16 +40,18 @@ def _send_gift_card_email(
     code: str,
     message: Optional[str],
     expires_at: Optional[date],
+    voucher_url: Optional[str] = None,
 ) -> None:
-    """Send a beautiful HTML gift card email."""
-    import os, logging
+    """Send a beautiful HTML gift card email via the centralized Email Center."""
+    import logging
     log = logging.getLogger(__name__)
-
-    sendgrid_key = os.getenv("SENDGRID_API_KEY")
-    smtp_host = os.getenv("SMTP_HOST")
 
     expiry_str = expires_at.strftime("%d/%m/%Y") if expires_at else "ללא תפוגה"
     msg_block = f"<p style='color:#64748b;font-size:15px;line-height:1.6;margin:16px 0;'>\"{message}\"</p>" if message else ""
+    voucher_block = (
+        f"<div style='text-align:center;margin:24px 0;'><img src='{voucher_url}' alt='שובר מתנה' style='max-width:100%;border-radius:16px;'/></div>"
+        if voucher_url and voucher_url.startswith("http") else ""
+    )
 
     html = f"""
 <!DOCTYPE html>
@@ -69,6 +72,7 @@ def _send_gift_card_email(
         {sender_name} שלח/ה לך כרטיס מתנה ל-{studio_name}!
       </p>
       {msg_block}
+      {voucher_block}
       <!-- Amount -->
       <div style="background:linear-gradient(135deg,#f5f3ff,#ede9fe);border:2px solid #7c3aed;border-radius:16px;padding:24px;text-align:center;margin:24px 0;">
         <div style="font-size:42px;font-weight:900;color:#7c3aed;">₪{amount_ils:.0f}</div>
@@ -92,44 +96,146 @@ def _send_gift_card_email(
 
     subject = f"🎁 קיבלת כרטיס מתנה ל-{studio_name} בשווי ₪{amount_ils:.0f}"
 
-    if sendgrid_key:
-        try:
-            import sendgrid as sg_lib
-            from sendgrid.helpers.mail import Mail, Email, To, Content
-            sg = sg_lib.SendGridAPIClient(api_key=sendgrid_key)
-            mail = Mail(
-                from_email=Email(os.getenv("SENDGRID_FROM_EMAIL", "noreply@bizcontrol.io"), studio_name),
-                to_emails=To(recipient_email, recipient_name),
-                subject=subject,
-                html_content=Content("text/html", html),
-            )
-            sg.send(mail)
-            return
-        except Exception as e:
-            log.warning(f"SendGrid failed: {e}")
+    try:
+        from app.services.email_center import send_email as _ec_send_email
+        _ec_send_email(
+            db, to_email=recipient_email, subject=subject, html_content=html,
+            from_name=studio_name, email_type="system", template_key="gift_card",
+        )
+    except Exception as e:
+        log.warning(f"[GiftCard] Email Center send failed: {e}")
 
-    if smtp_host:
-        try:
-            import smtplib
-            from email.mime.multipart import MIMEMultipart
-            from email.mime.text import MIMEText
-            msg = MIMEMultipart("alternative")
-            msg["Subject"] = subject
-            msg["From"] = os.getenv("SMTP_FROM", "noreply@bizcontrol.io")
-            msg["To"] = recipient_email
-            msg.attach(MIMEText(html, "html", "utf-8"))
-            port = int(os.getenv("SMTP_PORT", "587"))
-            with smtplib.SMTP(smtp_host, port) as srv:
-                srv.starttls()
-                user = os.getenv("SMTP_USER", "")
-                pwd = os.getenv("SMTP_PASS", "")
-                if user: srv.login(user, pwd)
-                srv.send_message(msg)
-            return
-        except Exception as e:
-            log.warning(f"SMTP failed: {e}")
 
-    log.info(f"[GiftCard] Code {code} → {recipient_email} (no mailer configured)")
+# ── Voucher image ─────────────────────────────────────────────────────────────
+
+def _h(text: str) -> str:
+    """Reshape Hebrew (RTL) text for correct left-to-right glyph drawing order."""
+    if not text:
+        return ""
+    try:
+        from bidi.algorithm import get_display
+        return get_display(str(text))
+    except Exception:
+        return str(text)
+
+
+def _build_gift_card_voucher_png(
+    studio_name: str,
+    recipient_name: str,
+    amount_ils: float,
+    code: str,
+    personal_message: Optional[str],
+    expires_at: Optional[date],
+) -> bytes:
+    """Draw a portrait-free landscape gift-card voucher as a PNG (not a PDF) so
+    it previews inline as a photo on WhatsApp instead of a document icon."""
+    import io
+    from PIL import Image, ImageDraw, ImageFont
+    from app.api.invoice_routes import _find_font_path
+
+    W, H = 1200, 750
+    top = (124, 58, 237)     # #7c3aed
+    bottom = (76, 29, 149)   # #4c1d95
+
+    img = Image.new("RGB", (W, H), top)
+    draw = ImageDraw.Draw(img)
+    for y in range(H):
+        ratio = y / H
+        r = int(top[0] + (bottom[0] - top[0]) * ratio)
+        g = int(top[1] + (bottom[1] - top[1]) * ratio)
+        b = int(top[2] + (bottom[2] - top[2]) * ratio)
+        draw.line([(0, y), (W, y)], fill=(r, g, b))
+
+    reg_path = _find_font_path(bold=False)
+    bold_path = _find_font_path(bold=True) or reg_path
+
+    def font(size: int, bold: bool = False):
+        path = bold_path if bold else reg_path
+        if path:
+            try:
+                return ImageFont.truetype(path, size)
+            except Exception:
+                pass
+        return ImageFont.load_default()
+
+    def center_text(y: int, text: str, f, fill):
+        t = _h(text)
+        bbox = draw.textbbox((0, 0), t, font=f)
+        w = bbox[2] - bbox[0]
+        draw.text(((W - w) / 2, y), t, font=f, fill=fill)
+
+    center_text(60, "כרטיס מתנה", font(56, bold=True), (255, 255, 255))
+    center_text(140, studio_name, font(30), (196, 181, 253))
+
+    # White card panel
+    pad = 60
+    panel_top = 220
+    draw.rounded_rectangle([pad, panel_top, W - pad, H - pad], radius=28, fill=(255, 255, 255))
+
+    center_text(panel_top + 40, f"עבור: {recipient_name}", font(34, bold=True), (30, 41, 59))
+    center_text(panel_top + 100, f"₪{amount_ils:.0f}", font(84, bold=True), (124, 58, 237))
+    center_text(panel_top + 210, "שווי הכרטיס", font(22), (109, 40, 217))
+
+    if personal_message:
+        # Simple word-wrap for the personal message
+        f_msg = font(24)
+        words = _h(personal_message).split(" ")
+        lines, line = [], ""
+        for w in words:
+            trial = f"{line} {w}".strip()
+            if draw.textbbox((0, 0), trial, font=f_msg)[2] > W - 2 * pad - 80:
+                lines.append(line)
+                line = w
+            else:
+                line = trial
+        if line:
+            lines.append(line)
+        y = panel_top + 250
+        for ln in lines[:3]:
+            bbox = draw.textbbox((0, 0), ln, font=f_msg)
+            draw.text(((W - (bbox[2] - bbox[0])) / 2, y), ln, font=f_msg, fill=(100, 116, 139))
+            y += 32
+
+    # Code box
+    code_top = H - pad - 130
+    draw.rounded_rectangle([pad + 40, code_top, W - pad - 40, code_top + 90], radius=16, fill=(30, 27, 75))
+    code_display = code  # left-to-right by design, no bidi reshape needed
+    f_code = font(38, bold=True)
+    bbox = draw.textbbox((0, 0), code_display, font=f_code)
+    draw.text(((W - (bbox[2] - bbox[0])) / 2, code_top + 25), code_display, font=f_code, fill=(255, 255, 255))
+
+    expiry_str = expires_at.strftime("%d/%m/%Y") if expires_at else "ללא תפוגה"
+    center_text(H - pad - 25, f"בתוקף עד {expiry_str}", font(20), (148, 163, 184))
+
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def _save_voucher_image(image_bytes: bytes, studio_id: str, db=None) -> Optional[str]:
+    """Save the voucher PNG — Cloudinary if configured, otherwise local uploads/.
+    Mirrors app/api/expense_routes.py's _save_receipt_image fallback pattern."""
+    import logging
+    log = logging.getLogger(__name__)
+    public_id = f"voucher_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
+    try:
+        from app.api.upload_routes import _cloudinary_upload
+        cloud_url = _cloudinary_upload(image_bytes, folder=f"gift-vouchers/{studio_id}", public_id=public_id, db=db)
+        if cloud_url:
+            return cloud_url
+    except Exception as e:
+        log.debug("Cloudinary not available: %s", e)
+    try:
+        import os
+        upload_dir = os.path.join("uploads", "gift-vouchers", studio_id)
+        os.makedirs(upload_dir, exist_ok=True)
+        fname = f"{public_id}.png"
+        with open(os.path.join(upload_dir, fname), "wb") as fh:
+            fh.write(image_bytes)
+        return f"/uploads/gift-vouchers/{studio_id}/{fname}"
+    except Exception as e:
+        log.warning("Could not save voucher image: %s", e)
+        return None
 
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
@@ -148,6 +254,16 @@ class RedeemIn(BaseModel):
     client_id: Optional[str] = None
     pos_transaction_id: Optional[str] = None
     notes: Optional[str] = None
+
+class PublicGiftCardOrderIn(BaseModel):
+    amount_cents: int
+    recipient_name: str
+    recipient_phone: Optional[str] = None
+    personal_message: Optional[str] = None
+    buyer_name: str
+    buyer_email: Optional[str] = None
+    buyer_phone: str
+    deliver_to: str = "buyer"  # "buyer" | "recipient"
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
@@ -203,6 +319,7 @@ def create_gift_card(
     if body.recipient_email:
         try:
             _send_gift_card_email(
+                db,
                 recipient_email=body.recipient_email,
                 recipient_name=body.recipient_name,
                 sender_name=studio_name,
@@ -284,6 +401,122 @@ def cancel_gift_card(
     return {"ok": True}
 
 
+@router.post("/{card_id}/approve-payment")
+def approve_gift_card_payment(
+    card_id: str,
+    ctx: AuthContext = Depends(require_studio_ctx),
+    db: Session = Depends(get_db),
+):
+    """Staff confirms a Bit payment was received for a public gift-card order
+    — activates the card and delivers the code + voucher image by email and
+    WhatsApp to the buyer or the recipient (per the order's deliver_to)."""
+    import logging
+    log = logging.getLogger(__name__)
+
+    row = db.execute(
+        text("SELECT * FROM gift_cards WHERE id = :id AND studio_id = :sid"),
+        {"id": card_id, "sid": str(ctx.studio_id)}
+    ).fetchone()
+    if not row:
+        raise HTTPException(404, "כרטיס לא נמצא")
+    card = dict(row._mapping)
+    if card["status"] != "pending_payment":
+        raise HTTPException(400, "כרטיס זה אינו ממתין לאישור תשלום")
+
+    db.execute(text("UPDATE gift_cards SET status='active' WHERE id=:id"), {"id": card_id})
+    db.commit()
+
+    if card.get("deliver_to") == "recipient":
+        target_name = card.get("recipient_name")
+        target_email = card.get("recipient_email")
+        target_phone = card.get("recipient_phone")
+    else:
+        target_name = card.get("buyer_name")
+        target_email = card.get("buyer_email")
+        target_phone = card.get("buyer_phone")
+
+    studio_row = db.execute(text("SELECT name FROM studios WHERE id = :sid"), {"sid": str(ctx.studio_id)}).fetchone()
+    studio_name = studio_row[0] if studio_row else "הסטודיו"
+
+    voucher_url = None
+    try:
+        png_bytes = _build_gift_card_voucher_png(
+            studio_name=studio_name,
+            recipient_name=card.get("recipient_name") or "",
+            amount_ils=card["amount_cents"] / 100,
+            code=card["code"],
+            personal_message=card.get("personal_message"),
+            expires_at=card.get("expires_at"),
+        )
+        voucher_url = _save_voucher_image(png_bytes, str(ctx.studio_id), db=db)
+    except Exception:
+        log.exception("[GiftCard] voucher image build/save failed for %s", card_id)
+
+    if target_email:
+        try:
+            _send_gift_card_email(
+                db,
+                recipient_email=target_email,
+                recipient_name=target_name or "",
+                sender_name=studio_name,
+                studio_name=studio_name,
+                amount_ils=card["amount_cents"] / 100,
+                code=card["code"],
+                message=card.get("personal_message"),
+                expires_at=card.get("expires_at"),
+                voucher_url=voucher_url,
+            )
+        except Exception:
+            log.exception("[GiftCard] confirmation email failed for %s", card_id)
+
+    if target_phone:
+        try:
+            from sqlalchemy import select as _select
+            from app.models.client import Client
+            from app.models.message_job import MessageJob
+
+            client = db.scalar(_select(Client).where(
+                Client.studio_id == ctx.studio_id, Client.phone == target_phone,
+            ))
+            if not client and target_email:
+                client = db.scalar(_select(Client).where(
+                    Client.studio_id == ctx.studio_id, Client.email == target_email,
+                ))
+            if not client:
+                client = Client(
+                    id=uuid.uuid4(),
+                    studio_id=ctx.studio_id,
+                    full_name=target_name or "לקוח",
+                    phone=target_phone,
+                    email=target_email,
+                    notes="נרשם דרך רכישת כרטיס מתנה",
+                )
+                db.add(client)
+                db.flush()
+
+            wa_body = (
+                f"🎁 כרטיס המתנה שלך ל-{studio_name} מוכן!\n"
+                f"שווי: ₪{card['amount_cents'] / 100:.0f}\n"
+                f"קוד המימוש: {card['code']}"
+            )
+            db.add(MessageJob(
+                studio_id=ctx.studio_id,
+                client_id=client.id,
+                channel="whatsapp",
+                to_phone=target_phone,
+                body=wa_body,
+                media_url=voucher_url,
+                scheduled_at=datetime.now(timezone.utc),
+                status="pending",
+                reminder_type="gift_card_voucher",
+            ))
+            db.commit()
+        except Exception:
+            log.exception("[GiftCard] failed to queue WhatsApp voucher for %s", card_id)
+
+    return {"ok": True}
+
+
 @router.post("/redeem")
 def redeem_gift_card(
     body: RedeemIn,
@@ -302,10 +535,8 @@ def redeem_gift_card(
 
     card = dict(row._mapping)
 
-    if card["status"] == "canceled":
-        raise HTTPException(400, "כרטיס זה בוטל")
-    if card["status"] == "used":
-        raise HTTPException(400, "כרטיס זה כבר נוצל במלואו")
+    if card["status"] != "active":
+        raise HTTPException(400, "כרטיס זה אינו זמין למימוש")
     if card["expires_at"] and date.today() > card["expires_at"]:
         raise HTTPException(400, "תוקף כרטיס זה פג")
 
@@ -385,6 +616,103 @@ def public_check_balance(code: str, db: Session = Depends(get_db)):
         "recipient_name": row[5],
         "studio_name": row[6],
     }
+
+
+# ── Public: gift-card shop (self-service purchase page) ───────────────────────
+
+@public_router.get("/shop/{studio_id}")
+def public_gift_card_shop_info(studio_id: str, db: Session = Depends(get_db)):
+    """Public — branding + payment instructions for the purchase landing page."""
+    row = db.execute(
+        text("""
+            SELECT s.name, s.logo_url, ss.bit_link, ss.paybox_link
+            FROM studios s
+            LEFT JOIN studio_settings ss ON ss.studio_id = s.id
+            WHERE s.id = :sid AND s.is_active = true
+        """),
+        {"sid": studio_id}
+    ).fetchone()
+    if not row:
+        raise HTTPException(404, "עסק לא נמצא")
+    return {
+        "studio_name": row[0],
+        "logo_url": row[1],
+        "bit_link": row[2],
+        "paybox_link": row[3],
+    }
+
+
+@public_router.post("/order/{studio_id}", status_code=201)
+def public_create_gift_card_order(studio_id: str, body: PublicGiftCardOrderIn, db: Session = Depends(get_db)):
+    """Public — customer places a gift-card order. Card is created as
+    'pending_payment' and is NOT redeemable until staff confirms the Bit
+    payment via POST /gift-cards/{id}/approve-payment."""
+    if body.amount_cents < 100:
+        raise HTTPException(400, "סכום מינימלי: ₪1")
+    if body.deliver_to not in ("buyer", "recipient"):
+        raise HTTPException(400, "ערך לא חוקי ל-deliver_to")
+    if not body.recipient_name.strip():
+        raise HTTPException(400, "שם הנמען נדרש")
+    if not body.buyer_name.strip() or not body.buyer_phone.strip():
+        raise HTTPException(400, "שם וטלפון הקונה נדרשים")
+
+    studio = db.execute(
+        text("SELECT name FROM studios WHERE id = :sid AND is_active = true"),
+        {"sid": studio_id}
+    ).fetchone()
+    if not studio:
+        raise HTTPException(404, "עסק לא נמצא")
+    studio_name = studio[0]
+
+    buyer_phone = body.buyer_phone.strip()
+
+    # Duplicate-submit guard — same buyer, still-pending order in the last 10 minutes
+    ten_min_ago = datetime.now(timezone.utc) - timedelta(minutes=10)
+    dup = db.execute(
+        text("""
+            SELECT id FROM gift_cards
+            WHERE studio_id = :sid AND buyer_phone = :phone AND status = 'pending_payment'
+              AND created_at >= :since
+            ORDER BY created_at DESC LIMIT 1
+        """),
+        {"sid": studio_id, "phone": buyer_phone, "since": ten_min_ago}
+    ).fetchone()
+    if dup:
+        return {"ok": True, "amount_ils": round(body.amount_cents / 100, 2)}
+
+    code = _gen_code()
+    for _ in range(5):
+        existing = db.execute(text("SELECT id FROM gift_cards WHERE code = :c"), {"c": code}).fetchone()
+        if not existing:
+            break
+        code = _gen_code()
+
+    expires = date.today() + timedelta(days=365)
+    card_id = str(uuid.uuid4())
+    db.execute(
+        text("""
+            INSERT INTO gift_cards
+                (id, studio_id, code, amount_cents, balance_cents,
+                 recipient_name, recipient_phone,
+                 sender_name, personal_message, status, expires_at,
+                 buyer_name, buyer_email, buyer_phone, deliver_to)
+            VALUES
+                (:id, :sid, :code, :amount, :balance,
+                 :rname, :rphone,
+                 :sname, :msg, 'pending_payment', :exp,
+                 :bname, :bemail, :bphone, :deliver)
+        """),
+        {
+            "id": card_id, "sid": studio_id, "code": code,
+            "amount": body.amount_cents, "balance": body.amount_cents,
+            "rname": body.recipient_name.strip(), "rphone": body.recipient_phone,
+            "sname": studio_name, "msg": body.personal_message, "exp": expires,
+            "bname": body.buyer_name.strip(), "bemail": body.buyer_email,
+            "bphone": buyer_phone, "deliver": body.deliver_to,
+        }
+    )
+    db.commit()
+    return {"ok": True, "amount_ils": round(body.amount_cents / 100, 2)}
 
 
 # ── Helper ────────────────────────────────────────────────────────────────────

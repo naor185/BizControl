@@ -19,13 +19,18 @@ interface GiftCard {
     expires_at?: string;
     is_expired: boolean;
     created_at: string;
+    buyer_name?: string;
+    buyer_email?: string;
+    buyer_phone?: string;
+    deliver_to?: string;
 }
 
 const STATUS: Record<string, { label: string; cls: string }> = {
-    active:   { label: "פעיל",    cls: "bg-emerald-100 text-emerald-700" },
-    used:     { label: "נוצל",    cls: "bg-slate-100 text-slate-500" },
-    canceled: { label: "בוטל",   cls: "bg-rose-100 text-rose-600" },
-    expired:  { label: "פג תוקף", cls: "bg-amber-100 text-amber-700" },
+    active:          { label: "פעיל",           cls: "bg-emerald-100 text-emerald-700" },
+    used:            { label: "נוצל",           cls: "bg-slate-100 text-slate-500" },
+    canceled:        { label: "בוטל",          cls: "bg-rose-100 text-rose-600" },
+    expired:         { label: "פג תוקף",        cls: "bg-amber-100 text-amber-700" },
+    pending_payment: { label: "ממתין לתשלום",  cls: "bg-amber-100 text-amber-700" },
 };
 
 export default function GiftCardsPage() {
@@ -56,10 +61,20 @@ export default function GiftCardsPage() {
         } catch (e: unknown) { alert((e as Error).message); }
     };
 
+    const approvePayment = async (id: string) => {
+        if (!confirm("לאשר שהתשלום התקבל ולשלוח את השובר?")) return;
+        try {
+            await apiFetch(`/api/gift-cards/${id}/approve-payment`, { method: "POST" });
+            load();
+            setSelected(null);
+        } catch (e: unknown) { alert((e as Error).message); }
+    };
+
     const totals = {
         issued: cards.reduce((s, c) => s + c.amount_ils, 0),
         balance: cards.filter(c => c.status === "active").reduce((s, c) => s + c.balance_ils, 0),
         used: cards.reduce((s, c) => s + c.used_ils, 0),
+        pending: cards.filter(c => c.status === "pending_payment").length,
         active: cards.filter(c => c.status === "active").length,
     };
 
@@ -69,14 +84,15 @@ export default function GiftCardsPage() {
                 <div className="space-y-5 pb-12">
 
                     {/* Summary strip */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
                         {[
+                            { label: "ממתינות לאישור", value: totals.pending, icon: "⏳", highlight: totals.pending > 0 },
                             { label: "כרטיסים פעילים", value: totals.active, icon: "🎁" },
                             { label: "יתרה פתוחה", value: `₪${totals.balance.toFixed(0)}`, icon: "💳" },
                             { label: "סה״כ נוצל", value: `₪${totals.used.toFixed(0)}`, icon: "✅" },
                             { label: "סה״כ הונפק", value: `₪${totals.issued.toFixed(0)}`, icon: "📊" },
-                        ].map(({ label, value, icon }) => (
-                            <div key={label} className="bg-white rounded-xl border border-slate-100 shadow-sm p-4">
+                        ].map(({ label, value, icon, highlight }) => (
+                            <div key={label} className={`bg-white rounded-xl border shadow-sm p-4 ${highlight ? "border-amber-300 ring-1 ring-amber-200" : "border-slate-100"}`}>
                                 <div className="text-xl mb-1">{icon}</div>
                                 <div className="text-xl font-black text-slate-800">{value}</div>
                                 <div className="text-xs text-slate-400 mt-0.5">{label}</div>
@@ -93,6 +109,7 @@ export default function GiftCardsPage() {
                         <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
                             className="text-sm border border-slate-200 rounded-xl px-3 py-2 outline-none">
                             <option value="">כל הסטטוסים</option>
+                            <option value="pending_payment">ממתין לתשלום</option>
                             <option value="active">פעיל</option>
                             <option value="used">נוצל</option>
                             <option value="canceled">בוטל</option>
@@ -166,7 +183,12 @@ export default function GiftCardsPage() {
                     <CreateModal onClose={() => setShowCreate(false)} onCreated={() => { setShowCreate(false); load(); }} />
                 )}
                 {selected && (
-                    <DetailModal card={selected} onClose={() => setSelected(null)} onCancel={() => cancel(selected.id)} />
+                    <DetailModal
+                        card={selected}
+                        onClose={() => setSelected(null)}
+                        onCancel={() => cancel(selected.id)}
+                        onApprove={() => approvePayment(selected.id)}
+                    />
                 )}
             </AppShell>
         </RequireAuth>
@@ -284,9 +306,10 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
 
 // ── Detail Modal ──────────────────────────────────────────────────────────────
 
-function DetailModal({ card, onClose, onCancel }: { card: GiftCard; onClose: () => void; onCancel: () => void }) {
+function DetailModal({ card, onClose, onCancel, onApprove }: { card: GiftCard; onClose: () => void; onCancel: () => void; onApprove: () => void }) {
     const st = card.is_expired ? STATUS.expired : STATUS[card.status] || STATUS.active;
-    const canCancel = card.status === "active" && !card.is_expired;
+    const isPending = card.status === "pending_payment";
+    const canCancel = (card.status === "active" && !card.is_expired) || isPending;
 
     return (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-4">
@@ -321,10 +344,27 @@ function DetailModal({ card, onClose, onCancel }: { card: GiftCard; onClose: () 
                         </div>
                     )}
 
+                    {isPending && (
+                        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4 space-y-2 text-sm">
+                            <div className="font-bold text-amber-700 mb-1">פרטי הקונה — הזמנה מהחנות הציבורית</div>
+                            {card.buyer_name && <Row label="שם הקונה" value={card.buyer_name} />}
+                            {card.buyer_phone && <Row label="טלפון הקונה" value={card.buyer_phone} />}
+                            {card.buyer_email && <Row label="אימייל הקונה" value={card.buyer_email} />}
+                            <Row label="השובר יישלח אל" value={card.deliver_to === "recipient" ? "הנמען/ת ישירות" : "הקונה"} bold />
+                        </div>
+                    )}
+
+                    {isPending && (
+                        <button type="button" onClick={onApprove}
+                            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl text-sm transition-colors mb-2">
+                            ✅ אשר תשלום ושלח שובר
+                        </button>
+                    )}
+
                     {canCancel && (
                         <button type="button" onClick={onCancel}
                             className="w-full bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold py-2.5 rounded-xl text-sm transition-colors">
-                            ביטול כרטיס
+                            {isPending ? "דחה/בטל הזמנה" : "ביטול כרטיס"}
                         </button>
                     )}
                 </div>

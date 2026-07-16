@@ -109,6 +109,10 @@ export default function BroadcastsPage() {
         ? `${typeof window !== "undefined" ? window.location.origin : ""}/join/${studioId}`
         : "";
 
+    const giftCardShopLink = studioId
+        ? `${typeof window !== "undefined" ? window.location.origin : ""}/gift/${studioId}`
+        : "";
+
     // Insert text at cursor position in textarea
     const insertAtCursor = (text: string) => {
         const ta = textareaRef.current;
@@ -375,6 +379,13 @@ export default function BroadcastsPage() {
                                             onClick={() => insertAtCursor(`🌟 הצטרף למועדון הלקוחות שלנו:\n${clubJoinLink}`)}
                                             className="text-xs px-2.5 py-1 rounded-lg bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 font-medium">
                                             🌟 לינק מועדון
+                                        </button>
+                                    )}
+                                    {giftCardShopLink && (
+                                        <button type="button"
+                                            onClick={() => insertAtCursor(`🎁 כרטיס מתנה לך או למישהו שאתה אוהב:\n${giftCardShopLink}`)}
+                                            className="text-xs px-2.5 py-1 rounded-lg bg-violet-50 text-violet-700 border border-violet-200 hover:bg-violet-100 font-medium">
+                                            🎁 לינק כרטיס מתנה
                                         </button>
                                     )}
                                     {autoSettings.bit_link && (

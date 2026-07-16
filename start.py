@@ -766,6 +766,13 @@ def ensure_schema():
         cur.execute("CREATE INDEX IF NOT EXISTS ix_gift_cards_studio ON gift_cards (studio_id)")
         cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS ix_gift_cards_code ON gift_cards (code)")
 
+        # ── Public gift-card shop: buyer info + pending-payment approval flow ──
+        cur.execute("ALTER TABLE gift_cards ALTER COLUMN status TYPE VARCHAR(20)")
+        cur.execute("ALTER TABLE gift_cards ADD COLUMN IF NOT EXISTS buyer_name VARCHAR(120)")
+        cur.execute("ALTER TABLE gift_cards ADD COLUMN IF NOT EXISTS buyer_email VARCHAR(255)")
+        cur.execute("ALTER TABLE gift_cards ADD COLUMN IF NOT EXISTS buyer_phone VARCHAR(32)")
+        cur.execute("ALTER TABLE gift_cards ADD COLUMN IF NOT EXISTS deliver_to VARCHAR(12) DEFAULT 'buyer'")
+
         cur.execute("""
             CREATE TABLE IF NOT EXISTS gift_card_transactions (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
