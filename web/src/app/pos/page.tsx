@@ -12,7 +12,7 @@ type ClientResult = { id: string; full_name: string; name?: string; phone: strin
 type TransactionOut = {
     id: string; client_name: string | null; total_cents: number; discount_cents: number; method: string;
     items: { description: string; quantity: number; unit_price_cents: number; total_price_cents: number }[];
-    points_earned: number; created_at: string;
+    points_earned: number; created_at: string; receipt_message_job_id?: string | null;
 };
 
 const PAYMENT_METHODS = [
@@ -28,6 +28,29 @@ const METHOD_LABELS: Record<string, string> = { cash:"מזומן", credit:"אש�
 function ReceiptModal({ txn, clientId, onClose }: { txn: TransactionOut; clientId: string | null; onClose: () => void }) {
     const [invoiceId, setInvoiceId] = useState<string | null>(null);
     const [creating, setCreating] = useState(false);
+    const [receiptCanceled, setReceiptCanceled] = useState(false);
+    const [cancelingReceipt, setCancelingReceipt] = useState(false);
+
+    const cancelReceiptSend = async () => {
+        if (!txn.receipt_message_job_id) return;
+        setCancelingReceipt(true);
+        try {
+            const res = await apiFetch<{ ok: boolean; already_sent: boolean }>(
+                `/api/pos/cancel-receipt/${txn.receipt_message_job_id}`,
+                { method: "POST" }
+            );
+            if (res.already_sent) {
+                toast.error("הקבלה כבר נשלחה — לא ניתן לבטל");
+            } else {
+                setReceiptCanceled(true);
+                toast.success("שליחת הקבלה בוואטסאפ בוטלה");
+            }
+        } catch (e: unknown) {
+            toast.error((e as Error).message || "שגיאה בביטול השליחה");
+        } finally {
+            setCancelingReceipt(false);
+        }
+    };
 
     const createInvoice = async () => {
         setCreating(true);
@@ -106,6 +129,20 @@ function ReceiptModal({ txn, clientId, onClose }: { txn: TransactionOut; clientI
                     {txn.points_earned > 0 && (
                         <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5 text-center text-xs text-amber-700 font-bold">
                             +{txn.points_earned} נקודות נוספו
+                        </div>
+                    )}
+                    {txn.receipt_message_job_id && !receiptCanceled && (
+                        <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5 text-xs">
+                            <span className="text-blue-700 font-semibold">📲 קבלה נשלחת בוואטסאפ ללקוח...</span>
+                            <button type="button" onClick={cancelReceiptSend} disabled={cancelingReceipt}
+                                className="text-rose-600 font-bold underline disabled:opacity-50 shrink-0 mr-2">
+                                {cancelingReceipt ? "מבטל..." : "בטל שליחה"}
+                            </button>
+                        </div>
+                    )}
+                    {receiptCanceled && (
+                        <div className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-center text-xs text-slate-500 font-semibold">
+                            שליחת הקבלה בוואטסאפ בוטלה
                         </div>
                     )}
                 </div>

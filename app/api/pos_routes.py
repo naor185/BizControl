@@ -70,6 +70,7 @@ class TransactionOut(BaseModel):
     items: list[TransactionItemOut]
     points_earned: int
     created_at: str
+    receipt_message_job_id: Optional[str] = None
 
 
 def _build_transaction_out(db: Session, txn: PosTransaction) -> TransactionOut:
@@ -273,6 +274,7 @@ def pos_checkout(
             _l.getLogger(__name__).exception("[pos] auto-invoice failed for txn %s", txn.id)
 
     # WhatsApp thank-you message to client — only if user requested it
+    receipt_message_job_id: Optional[str] = None
     if body.send_receipt and client and client.phone and not getattr(client, "whatsapp_opted_out", False):
         try:
             from app.models.studio_settings import StudioSettings as _SS
@@ -304,7 +306,7 @@ def pos_checkout(
                     f"{_pts_block}{_review}"
                 )
             now_utc = datetime.now(timezone.utc)
-            db.add(MessageJob(
+            _job = MessageJob(
                 studio_id=ctx.studio_id,
                 client_id=client.id,
                 channel="whatsapp",
@@ -313,8 +315,11 @@ def pos_checkout(
                 scheduled_at=now_utc,
                 status="pending",
                 reminder_type="pos_receipt",
-            ))
+            )
+            db.add(_job)
             db.commit()
+            db.refresh(_job)
+            receipt_message_job_id = str(_job.id)
         except Exception:
             import logging as _l
             _l.getLogger(__name__).exception("Failed to queue POS receipt message")
@@ -353,7 +358,41 @@ def pos_checkout(
         ],
         points_earned=points_earned,
         created_at=txn.created_at.isoformat(),
+        receipt_message_job_id=receipt_message_job_id,
     )
+
+
+@router.post("/cancel-receipt/{job_id}")
+def cancel_pos_receipt(
+    job_id: uuid.UUID,
+    ctx: AuthContext = Depends(require_studio_ctx),
+    db: Session = Depends(get_db),
+):
+    """Cancel a just-queued WhatsApp receipt before the background worker
+    (which polls every ~20s) picks it up and sends it. No-ops with a clear
+    result if it's already been sent by the time this is called."""
+    from app.models.message_job import MessageJob
+    exists = db.scalar(
+        select(MessageJob.id).where(
+            MessageJob.id == job_id,
+            MessageJob.studio_id == ctx.studio_id,
+            MessageJob.reminder_type == "pos_receipt",
+        )
+    )
+    if not exists:
+        raise HTTPException(status_code=404, detail="הודעה לא נמצאה")
+
+    # Atomic conditional update — avoids a lost-update race against the
+    # background worker, which also only touches rows still "pending".
+    result = db.execute(
+        MessageJob.__table__.update()
+        .where(MessageJob.id == job_id, MessageJob.status == "pending")
+        .values(status="canceled")
+    )
+    db.commit()
+    if result.rowcount == 0:
+        return {"ok": False, "already_sent": True}
+    return {"ok": True, "already_sent": False}
 
 
 # ── History ───────────────────────────────────────────────────────────────────
