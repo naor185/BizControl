@@ -120,10 +120,17 @@ def _send_via_green(instance_id: str, api_key: str, to_phone: str, body: str, me
     import json as _json, os as _os, base64 as _b64
 
     state = _check_green_state(instance_id, api_key)
-    if state in ("notAuthorized", "blocked"):
+    if state != "authorized":
+        # Green API's own send call returns HTTP 200 the instant it accepts
+        # the request onto its queue — that is NOT the same as the linked
+        # phone actually being connected and delivering it. Any state other
+        # than "authorized" (disconnected, still starting up, sleep mode,
+        # flagged, or the status check itself failing) means we can't
+        # honestly promise delivery, so fail loudly here instead of reporting
+        # a false "sent" success.
         raise RuntimeError(
-            f"WhatsApp מנותק (מצב: {state}). "
-            "יש לסרוק מחדש QR בהגדרות WhatsApp → אינטגרציות."
+            f"WhatsApp לא מחובר כראוי (מצב: {state}). "
+            "יש לבדוק/לסרוק מחדש QR בהגדרות WhatsApp → אינטגרציות."
         )
 
     clean = _normalize_phone(to_phone)
