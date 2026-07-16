@@ -1,6 +1,5 @@
 from __future__ import annotations
 import os
-import shutil
 from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID, uuid4
@@ -49,22 +48,38 @@ def list_broadcasts(
 def upload_broadcast_media(
     file: UploadFile = File(...),
     ctx: AuthContext = Depends(require_studio_ctx),
+    db: Session = Depends(get_db),
 ):
+    """Cloudinary first (permanent, reliably fetchable by Green API), local
+    disk only as a fallback. Railway's local disk is ephemeral — it's wiped
+    on every deploy, so a broadcast saved locally and sent even a few
+    deploys later would point Green API at a 404 and silently never
+    deliver the media (this exact pattern already bit receipts/logos/
+    vouchers earlier — same fix applies here)."""
     if file.content_type not in ALLOWED_MEDIA_TYPES:
         raise HTTPException(400, "סוג קובץ לא נתמך. מותרים: תמונות ווידאו בלבד")
-    os.makedirs(_UPLOAD_DIR, exist_ok=True)
     ext = (file.filename or "file").rsplit(".", 1)[-1].lower() if "." in (file.filename or "") else "jpg"
+    file_bytes = file.file.read()
+
+    try:
+        from app.api.upload_routes import _cloudinary_upload
+        public_id = f"broadcast_{uuid4().hex[:10]}"
+        cloud_url = _cloudinary_upload(file_bytes, folder=f"broadcasts/{ctx.studio_id}", public_id=public_id, db=db)
+        if cloud_url:
+            return {"url": cloud_url, "filename": public_id, "local_path": None}
+    except Exception:
+        pass
+
+    os.makedirs(_UPLOAD_DIR, exist_ok=True)
     filename = f"broadcast_{ctx.studio_id}_{uuid4().hex[:10]}.{ext}"
     dest = os.path.join(_UPLOAD_DIR, filename)
     with open(dest, "wb") as buf:
-        shutil.copyfileobj(file.file, buf)
-    # Build absolute URL — required for Green API sendFileByUrl
+        buf.write(file_bytes)
     backend_url = (
         os.getenv("API_BASE_URL") or
         (f"https://{os.getenv('RAILWAY_PUBLIC_DOMAIN')}" if os.getenv("RAILWAY_PUBLIC_DOMAIN") else "") or
         ""
     ).rstrip("/")
-    # Store local path as fallback key so message_worker can use base64 if URL is unreachable
     local_path = dest  # e.g. uploads/broadcasts/filename.jpg
     url = f"{backend_url}/uploads/broadcasts/{filename}" if backend_url else f"/uploads/broadcasts/{filename}"
     return {"url": url, "filename": filename, "local_path": local_path}
