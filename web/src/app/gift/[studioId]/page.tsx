@@ -9,9 +9,11 @@ type ShopInfo = {
     logo_url: string | null;
     bit_link: string | null;
     paybox_link: string | null;
+    min_amount_cents: number;
+    max_amount_cents: number;
 };
 
-const PRESET_AMOUNTS = [100, 200, 300, 500];
+const ALL_PRESETS = [100, 200, 300, 500];
 
 export default function GiftCardShopPage() {
     const params = useParams();
@@ -21,7 +23,7 @@ export default function GiftCardShopPage() {
     const [loading, setLoading] = useState(true);
     const [loadErr, setLoadErr] = useState<string | null>(null);
 
-    const [amount, setAmount] = useState<number | null>(200);
+    const [amount, setAmount] = useState<number | null>(null);
     const [customAmount, setCustomAmount] = useState("");
     const [recipientName, setRecipientName] = useState("");
     const [recipientPhone, setRecipientPhone] = useState("");
@@ -40,16 +42,32 @@ export default function GiftCardShopPage() {
         if (!studioId) return;
         fetch(`${API}/api/public/gift-cards/shop/${studioId}`)
             .then(r => r.ok ? r.json() : Promise.reject())
-            .then(setInfo)
+            .then((data: ShopInfo) => {
+                setInfo(data);
+                const minIls = (data.min_amount_cents || 100) / 100;
+                const maxIls = data.max_amount_cents ? data.max_amount_cents / 100 : Infinity;
+                const valid = ALL_PRESETS.filter(a => a >= minIls && a <= maxIls);
+                setAmount(valid.length > 0 ? valid[0] : minIls);
+            })
             .catch(() => setLoadErr("העסק לא נמצא"))
             .finally(() => setLoading(false));
     }, [studioId]);
 
+    const minIls = info ? (info.min_amount_cents || 100) / 100 : 1;
+    const maxIls = info && info.max_amount_cents ? info.max_amount_cents / 100 : Infinity;
+    const presets = ALL_PRESETS.filter(a => a >= minIls && a <= maxIls);
+    const effectivePresets = presets.length > 0 ? presets : [minIls, ...(maxIls !== Infinity ? [maxIls] : [])];
+
     const effectiveAmount = amount ?? (parseFloat(customAmount) || 0);
+    const amountOutOfRange = effectiveAmount > 0 && (effectiveAmount < minIls || (maxIls !== Infinity && effectiveAmount > maxIls));
 
     const submit = async () => {
         setSubmitErr(null);
         if (!effectiveAmount || effectiveAmount < 1) { setSubmitErr("יש לבחור סכום"); return; }
+        if (amountOutOfRange) {
+            setSubmitErr(`הסכום חייב להיות בין ₪${minIls.toFixed(0)}${maxIls !== Infinity ? ` ל-₪${maxIls.toFixed(0)}` : ""}`);
+            return;
+        }
         if (!recipientName.trim()) { setSubmitErr("שם הנמען נדרש"); return; }
         if (!buyerName.trim() || !buyerPhone.trim()) { setSubmitErr("שם וטלפון שלך נדרשים"); return; }
 
@@ -84,32 +102,33 @@ export default function GiftCardShopPage() {
     };
 
     if (loading) {
-        return <div style={pageStyle}><div style={{ color: "#c4b5fd" }}>טוען...</div></div>;
+        return <div style={pageStyle}><FontImport /><div style={{ color: "#d4af37" }}>טוען...</div></div>;
     }
     if (loadErr || !info) {
-        return <div style={pageStyle}><div style={{ color: "#f87171" }}>{loadErr || "העסק לא נמצא"}</div></div>;
+        return <div style={pageStyle}><FontImport /><div style={{ color: "#e5484d" }}>{loadErr || "העסק לא נמצא"}</div></div>;
     }
 
     if (orderedAmountIls !== null) {
         return (
             <div style={pageStyle}>
+                <FontImport />
                 <div style={cardStyle}>
-                    <div style={{ fontSize: 48, marginBottom: 12, textAlign: "center" }}>🎉</div>
-                    <h2 style={{ ...headingStyle, textAlign: "center" }}>ההזמנה נקלטה!</h2>
+                    <div style={{ fontSize: 44, marginBottom: 12, textAlign: "center" }}>🎉</div>
+                    <h2 style={{ ...headingStyle, textAlign: "center" }}>ההזמנה נקלטה</h2>
                     {orderedBonusIls > 0 && (
-                        <p style={{ color: "#4ade80", textAlign: "center", fontWeight: 900, fontSize: 15, margin: "8px 0 0" }}>
-                            🎉 קיבלת בונוס של ₪{orderedBonusIls.toFixed(0)} — השובר יהיה בשווי ₪{(orderedAmountIls + orderedBonusIls).toFixed(0)}!
+                        <p style={{ color: "#d4af37", textAlign: "center", fontWeight: 700, fontSize: 15, margin: "10px 0 0", fontFamily: SERIF }}>
+                            כולל בונוס של ₪{orderedBonusIls.toFixed(0)} — השובר יהיה בשווי ₪{(orderedAmountIls + orderedBonusIls).toFixed(0)}
                         </p>
                     )}
-                    <p style={{ color: "#94a3b8", textAlign: "center", lineHeight: 1.7, margin: "12px 0 24px" }}>
+                    <p style={{ color: "#a89968", textAlign: "center", lineHeight: 1.8, margin: "14px 0 26px", fontSize: 15 }}>
                         נשאר רק לשלם ₪{orderedAmountIls.toFixed(0)} דרך ביט, ונשלח לך אישור עם קוד השובר לאחר אימות התשלום.
                     </p>
                     {info.bit_link ? (
-                        <a href={info.bit_link} target="_blank" rel="noopener noreferrer" style={bitButtonStyle}>
-                            💳 שלם ₪{orderedAmountIls.toFixed(0)} דרך ביט
+                        <a href={info.bit_link} target="_blank" rel="noopener noreferrer" style={goldButtonStyle}>
+                            שלם ₪{orderedAmountIls.toFixed(0)} דרך ביט
                         </a>
                     ) : (
-                        <p style={{ color: "#f59e0b", textAlign: "center" }}>ניתן לתאם תשלום ישירות מול {info.studio_name}</p>
+                        <p style={{ color: "#d4af37", textAlign: "center" }}>ניתן לתאם תשלום ישירות מול {info.studio_name}</p>
                     )}
                 </div>
             </div>
@@ -118,31 +137,19 @@ export default function GiftCardShopPage() {
 
     return (
         <div style={pageStyle}>
+            <FontImport />
             <div style={cardStyle}>
-                <div style={{ textAlign: "center", marginBottom: 24 }}>
-                    <div style={{ fontSize: 40 }}>🎁</div>
-                    <h1 style={headingStyle}>כרטיס מתנה — {info.studio_name}</h1>
-                    <p style={{ color: "#94a3b8", fontSize: 14 }}>תן/י מתנה שתמיד מתאימה</p>
+                <div style={{ textAlign: "center", marginBottom: 28 }}>
+                    {info.logo_url ? (
+                        <img src={info.logo_url} alt={info.studio_name} style={{ width: 68, height: 68, borderRadius: "50%", objectFit: "cover", border: "2px solid #d4af37", marginBottom: 10 }} />
+                    ) : (
+                        <div style={{ fontSize: 38, marginBottom: 6 }}>🎁</div>
+                    )}
+                    <h1 style={headingStyle}>{info.studio_name} — כרטיס מתנה</h1>
+                    <p style={{ color: "#a89968", fontSize: 13.5, letterSpacing: "0.03em" }}>תן/י מתנה שתמיד מתאימה</p>
                 </div>
 
-                <label style={labelStyle}>סכום הכרטיס</label>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
-                    {PRESET_AMOUNTS.map(a => (
-                        <button key={a} type="button" onClick={() => { setAmount(a); setCustomAmount(""); }}
-                            style={{ ...pillButtonStyle, ...(amount === a ? pillButtonActiveStyle : {}) }}>
-                            ₪{a}
-                        </button>
-                    ))}
-                    <input
-                        value={customAmount}
-                        onChange={e => { setCustomAmount(e.target.value); setAmount(null); }}
-                        type="number" min="1" placeholder="סכום אחר"
-                        style={{ ...inputStyle, width: 110, textAlign: "center" }}
-                        dir="ltr"
-                    />
-                </div>
-
-                <label style={labelStyle}>שם הנמען/ת *</label>
+                <label style={labelStyle}>שם הנמען — למי המתנה? *</label>
                 <input value={recipientName} onChange={e => setRecipientName(e.target.value)} placeholder="למי המתנה?" style={inputStyle} />
 
                 <label style={labelStyle}>טלפון הנמען/ת (אופציונלי)</label>
@@ -151,7 +158,7 @@ export default function GiftCardShopPage() {
                 <label style={labelStyle}>ברכה אישית (אופציונלי)</label>
                 <textarea value={personalMessage} onChange={e => setPersonalMessage(e.target.value)} rows={2} placeholder="כתוב/י כמה מילים..." style={{ ...inputStyle, resize: "none" }} />
 
-                <div style={{ borderTop: "1px solid rgba(255,255,255,.1)", margin: "20px 0 16px" }} />
+                <div style={dividerStyle} />
 
                 <label style={labelStyle}>שם מלא שלך *</label>
                 <input value={buyerName} onChange={e => setBuyerName(e.target.value)} placeholder="השם שלך" style={inputStyle} />
@@ -174,9 +181,31 @@ export default function GiftCardShopPage() {
                     </button>
                 </div>
 
-                {submitErr && <p style={{ color: "#f87171", fontSize: 14, marginTop: 12 }}>{submitErr}</p>}
+                <div style={dividerStyle} />
 
-                <button type="button" onClick={submit} disabled={submitting} style={submitButtonStyle}>
+                <label style={labelStyle}>סכום הכרטיס</label>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+                    {effectivePresets.map(a => (
+                        <button key={a} type="button" onClick={() => { setAmount(a); setCustomAmount(""); }}
+                            style={{ ...pillButtonStyle, ...(amount === a ? pillButtonActiveStyle : {}) }}>
+                            ₪{a.toFixed(0)}
+                        </button>
+                    ))}
+                    <input
+                        value={customAmount}
+                        onChange={e => { setCustomAmount(e.target.value); setAmount(null); }}
+                        type="number" min={minIls} max={maxIls !== Infinity ? maxIls : undefined} placeholder="סכום אחר"
+                        style={{ ...inputStyle, width: 110, textAlign: "center", marginBottom: 0 }}
+                        dir="ltr"
+                    />
+                </div>
+                <p style={{ color: "#7a6d47", fontSize: 12, margin: "0 0 4px" }}>
+                    טווח: ₪{minIls.toFixed(0)}{maxIls !== Infinity ? ` – ₪${maxIls.toFixed(0)}` : " ומעלה"}
+                </p>
+
+                {submitErr && <p style={{ color: "#e5484d", fontSize: 14, marginTop: 12 }}>{submitErr}</p>}
+
+                <button type="button" onClick={submit} disabled={submitting} style={{ ...goldButtonStyle, width: "100%", marginTop: 20, opacity: submitting ? 0.6 : 1 }}>
                     {submitting ? "שולח..." : `המשך לתשלום — ₪${effectiveAmount || 0}`}
                 </button>
             </div>
@@ -184,42 +213,54 @@ export default function GiftCardShopPage() {
     );
 }
 
+const SERIF = "'Frank Ruhl Libre', Georgia, serif";
+
+function FontImport() {
+    return <style>{`@import url('https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&display=swap');`}</style>;
+}
+
 const pageStyle: React.CSSProperties = {
     minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center",
-    background: "linear-gradient(135deg,#1e1b4b,#4c1d95)", padding: "24px",
+    background: "radial-gradient(circle at 50% 0%, #1a1a1a 0%, #050505 70%)", padding: "24px",
     fontFamily: "system-ui,-apple-system,sans-serif", direction: "rtl",
 };
 
 const cardStyle: React.CSSProperties = {
-    width: "100%", maxWidth: 440, background: "rgba(30,27,75,.6)",
-    border: "1px solid rgba(167,139,250,.25)", borderRadius: 24, padding: "28px 24px",
-    backdropFilter: "blur(8px)",
+    width: "100%", maxWidth: 440, background: "linear-gradient(160deg,#141414,#0a0a0a)",
+    border: "1px solid #d4af37", borderRadius: 20, padding: "30px 26px",
+    boxShadow: "0 0 40px rgba(212,175,55,.08), 0 10px 40px rgba(0,0,0,.6)",
 };
 
-const headingStyle: React.CSSProperties = { color: "#fff", fontSize: 22, fontWeight: 900, margin: "8px 0 4px" };
+const headingStyle: React.CSSProperties = {
+    color: "#f2dfa0", fontSize: 23, fontWeight: 700, margin: "10px 0 4px",
+    fontFamily: SERIF, letterSpacing: "0.01em",
+};
 
-const labelStyle: React.CSSProperties = { display: "block", color: "#c4b5fd", fontSize: 13, fontWeight: 600, margin: "14px 0 6px" };
+const labelStyle: React.CSSProperties = {
+    display: "block", color: "#d4af37", fontSize: 13, fontWeight: 600, margin: "14px 0 6px",
+    fontFamily: SERIF,
+};
+
+const dividerStyle: React.CSSProperties = { borderTop: "1px solid rgba(212,175,55,.25)", margin: "20px 0 4px" };
 
 const inputStyle: React.CSSProperties = {
-    width: "100%", background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.15)",
-    borderRadius: 12, padding: "10px 14px", color: "#fff", fontSize: 15, outline: "none",
+    width: "100%", background: "rgba(255,255,255,.03)", border: "1px solid rgba(212,175,55,.3)",
+    borderRadius: 10, padding: "10px 14px", color: "#f2e9d0", fontSize: 15, outline: "none",
+    marginBottom: 2,
 };
 
 const pillButtonStyle: React.CSSProperties = {
-    background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.15)", color: "#e2e8f0",
-    borderRadius: 12, padding: "10px 16px", fontSize: 14, fontWeight: 700, cursor: "pointer",
+    background: "rgba(255,255,255,.03)", border: "1px solid rgba(212,175,55,.35)", color: "#d4af37",
+    borderRadius: 10, padding: "10px 16px", fontSize: 14, fontWeight: 700, cursor: "pointer",
+    fontFamily: SERIF,
 };
 
 const pillButtonActiveStyle: React.CSSProperties = {
-    background: "#7c3aed", borderColor: "#7c3aed", color: "#fff",
+    background: "linear-gradient(135deg,#e9c766,#b8892f)", borderColor: "#e9c766", color: "#141414",
 };
 
-const submitButtonStyle: React.CSSProperties = {
-    width: "100%", marginTop: 22, background: "linear-gradient(135deg,#7c3aed,#4c1d95)", color: "#fff",
-    border: "none", borderRadius: 14, padding: "14px", fontSize: 16, fontWeight: 900, cursor: "pointer",
-};
-
-const bitButtonStyle: React.CSSProperties = {
-    display: "block", textAlign: "center", background: "#7c3aed", color: "#fff", textDecoration: "none",
-    borderRadius: 14, padding: "14px", fontSize: 16, fontWeight: 900,
+const goldButtonStyle: React.CSSProperties = {
+    display: "block", textAlign: "center", background: "linear-gradient(135deg,#f2dfa0,#c9a227)", color: "#141414",
+    textDecoration: "none", borderRadius: 12, padding: "14px", fontSize: 16, fontWeight: 700,
+    fontFamily: SERIF, border: "none", cursor: "pointer",
 };

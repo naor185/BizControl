@@ -62,6 +62,8 @@ type Settings = {
     gift_card_bonus_enabled: boolean;
     gift_card_bonus_threshold_cents: number;
     gift_card_bonus_percent: number;
+    gift_card_min_amount_cents: number;
+    gift_card_max_amount_cents: number;
 
     whatsapp_provider?: string | null;
     whatsapp_api_key?: string | null;
@@ -614,6 +616,8 @@ export default function AutomationSettingsPage() {
                     gift_card_bonus_enabled: data.gift_card_bonus_enabled ?? false,
                     gift_card_bonus_threshold_cents: data.gift_card_bonus_threshold_cents ?? 50000,
                     gift_card_bonus_percent: data.gift_card_bonus_percent ?? 10,
+                    gift_card_min_amount_cents: data.gift_card_min_amount_cents ?? 100,
+                    gift_card_max_amount_cents: data.gift_card_max_amount_cents ?? 0,
                     birthday_wa_template: data.birthday_wa_template ?? "",
                     birthday_email_template: data.birthday_email_template ?? "",
                     theme_primary_color: data.theme_primary_color ?? "#000000",
@@ -1610,6 +1614,43 @@ export default function AutomationSettingsPage() {
                                                     min="0" max="100"
                                                 />
                                                 <span className="text-pink-600 font-medium font-bold">אחוז הנחה (%)</span>
+                                            </div>
+                                        </div>
+
+                                        <div className="bg-violet-50 p-6 rounded-2xl border border-violet-200 md:col-span-2">
+                                            <label className="block text-base font-bold text-slate-800 mb-2">💳 טווח סכומים לרכישת כרטיס מתנה</label>
+                                            <p className="text-sm text-slate-500 mb-4">
+                                                הסכום המינימלי והמקסימלי שלקוח יכול לבחור בדף הרכישה הציבורי. השאר את המקסימום ריק לאין הגבלה.
+                                            </p>
+                                            <div className="flex flex-wrap items-center gap-6">
+                                                <div className="flex items-center gap-3">
+                                                    <span className="text-slate-600 font-medium text-sm">מינימום</span>
+                                                    <div className="flex items-center gap-1">
+                                                        <span className="text-slate-500">₪</span>
+                                                        <input
+                                                            type="number"
+                                                            value={settings.gift_card_min_amount_cents ? settings.gift_card_min_amount_cents / 100 : ""}
+                                                            placeholder="1"
+                                                            onChange={e => handleChange("gift_card_min_amount_cents", e.target.value === "" ? 0 : Math.round((parseFloat(e.target.value) || 0) * 100))}
+                                                            className="w-24 text-center bg-white border border-violet-200 rounded-xl px-4 py-3 font-semibold text-lg outline-none focus:ring-2 focus:ring-violet-500"
+                                                            min="0"
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-3">
+                                                    <span className="text-slate-600 font-medium text-sm">מקסימום</span>
+                                                    <div className="flex items-center gap-1">
+                                                        <span className="text-slate-500">₪</span>
+                                                        <input
+                                                            type="number"
+                                                            value={settings.gift_card_max_amount_cents ? settings.gift_card_max_amount_cents / 100 : ""}
+                                                            placeholder="ללא הגבלה"
+                                                            onChange={e => handleChange("gift_card_max_amount_cents", e.target.value === "" ? 0 : Math.round((parseFloat(e.target.value) || 0) * 100))}
+                                                            className="w-28 text-center bg-white border border-violet-200 rounded-xl px-4 py-3 font-semibold text-lg outline-none focus:ring-2 focus:ring-violet-500"
+                                                            min="0"
+                                                        />
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
 

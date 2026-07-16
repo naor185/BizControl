@@ -58,6 +58,8 @@ class AutomationSettingsOut(BaseModel):
     gift_card_bonus_enabled: bool = False
     gift_card_bonus_threshold_cents: int = 50000
     gift_card_bonus_percent: int = 10
+    gift_card_min_amount_cents: int = 100
+    gift_card_max_amount_cents: int = 0
 
     # Email Settings (Resend API)
     resend_api_key: str | None = None
@@ -242,6 +244,8 @@ class AutomationSettingsUpdate(BaseModel):
     gift_card_bonus_enabled: bool | None = None
     gift_card_bonus_threshold_cents: int | None = Field(default=None, ge=0)
     gift_card_bonus_percent: int | None = Field(default=None, ge=0, le=100)
+    gift_card_min_amount_cents: int | None = Field(default=None, ge=0)
+    gift_card_max_amount_cents: int | None = Field(default=None, ge=0)
 
     # Email Settings (Resend API)
     resend_api_key: str | None = None

@@ -631,7 +631,8 @@ def public_gift_card_shop_info(studio_id: str, db: Session = Depends(get_db)):
     """Public — branding + payment instructions for the purchase landing page."""
     row = db.execute(
         text("""
-            SELECT s.name, s.logo_url, ss.bit_link, ss.paybox_link
+            SELECT s.name, s.logo_url, ss.bit_link, ss.paybox_link,
+                   ss.gift_card_min_amount_cents, ss.gift_card_max_amount_cents
             FROM studios s
             LEFT JOIN studio_settings ss ON ss.studio_id = s.id
             WHERE s.id = :sid AND s.is_active = true
@@ -645,6 +646,8 @@ def public_gift_card_shop_info(studio_id: str, db: Session = Depends(get_db)):
         "logo_url": row[1],
         "bit_link": row[2],
         "paybox_link": row[3],
+        "min_amount_cents": row[4] if row[4] is not None else 100,
+        "max_amount_cents": row[5] if row[5] is not None else 0,
     }
 
 
@@ -653,8 +656,6 @@ def public_create_gift_card_order(studio_id: str, body: PublicGiftCardOrderIn, d
     """Public — customer places a gift-card order. Card is created as
     'pending_payment' and is NOT redeemable until staff confirms the Bit
     payment via POST /gift-cards/{id}/approve-payment."""
-    if body.amount_cents < 100:
-        raise HTTPException(400, "סכום מינימלי: ₪1")
     if body.deliver_to not in ("buyer", "recipient"):
         raise HTTPException(400, "ערך לא חוקי ל-deliver_to")
     if not body.recipient_name.strip():
@@ -669,6 +670,22 @@ def public_create_gift_card_order(studio_id: str, body: PublicGiftCardOrderIn, d
     if not studio:
         raise HTTPException(404, "עסק לא נמצא")
     studio_name = studio[0]
+
+    settings_row = db.execute(
+        text("""
+            SELECT gift_card_bonus_enabled, gift_card_bonus_threshold_cents, gift_card_bonus_percent,
+                   gift_card_min_amount_cents, gift_card_max_amount_cents
+            FROM studio_settings WHERE studio_id = :sid
+        """),
+        {"sid": studio_id}
+    ).fetchone()
+    min_cents = (settings_row[3] if settings_row and settings_row[3] is not None else 100)
+    max_cents = (settings_row[4] if settings_row and settings_row[4] is not None else 0)
+
+    if body.amount_cents < min_cents:
+        raise HTTPException(400, f"סכום מינימלי לכרטיס מתנה אצל {studio_name}: ₪{min_cents/100:.0f}")
+    if max_cents > 0 and body.amount_cents > max_cents:
+        raise HTTPException(400, f"סכום מקסימלי לכרטיס מתנה אצל {studio_name}: ₪{max_cents/100:.0f}")
 
     buyer_phone = body.buyer_phone.strip()
 
@@ -688,13 +705,6 @@ def public_create_gift_card_order(studio_id: str, body: PublicGiftCardOrderIn, d
 
     # Studio-configured bonus: e.g. "orders over ₪500 get 10% extra value"
     bonus_cents = 0
-    settings_row = db.execute(
-        text("""
-            SELECT gift_card_bonus_enabled, gift_card_bonus_threshold_cents, gift_card_bonus_percent
-            FROM studio_settings WHERE studio_id = :sid
-        """),
-        {"sid": studio_id}
-    ).fetchone()
     if settings_row and settings_row[0] and body.amount_cents >= (settings_row[1] or 0):
         bonus_cents = round(body.amount_cents * (settings_row[2] or 0) / 100)
     face_value_cents = body.amount_cents + bonus_cents

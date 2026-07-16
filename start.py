@@ -778,6 +778,8 @@ def ensure_schema():
         cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS gift_card_bonus_enabled BOOLEAN NOT NULL DEFAULT false")
         cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS gift_card_bonus_threshold_cents INTEGER NOT NULL DEFAULT 50000")
         cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS gift_card_bonus_percent INTEGER NOT NULL DEFAULT 10")
+        cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS gift_card_min_amount_cents INTEGER NOT NULL DEFAULT 100")
+        cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS gift_card_max_amount_cents INTEGER NOT NULL DEFAULT 0")
 
         cur.execute("""
             CREATE TABLE IF NOT EXISTS gift_card_transactions (
