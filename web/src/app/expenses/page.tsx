@@ -705,7 +705,7 @@ function SendToAccountantModal({
 // ── Document Viewer Modal ─────────────────────────────────────────────────────
 function ExpenseViewerModal({ expense, onClose, onUpdated }: { expense: Expense; onClose: () => void; onUpdated: () => void }) {
     const [sending, setSending] = useState(false);
-    const imgUrl = expense.receipt_url ? `${API_BASE}${expense.receipt_url}` : null;
+    const imgUrl = receiptImgUrl(expense.receipt_url);
 
     const toggleSent = async () => {
         setSending(true);
