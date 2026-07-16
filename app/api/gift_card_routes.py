@@ -628,13 +628,20 @@ def public_check_balance(code: str, db: Session = Depends(get_db)):
 
 @public_router.get("/shop/{studio_id}")
 def public_gift_card_shop_info(studio_id: str, db: Session = Depends(get_db)):
-    """Public — branding + payment instructions for the purchase landing page."""
+    """Public — branding + payment instructions for the purchase landing page.
+    Logo can live in one of three places depending on which upload path was
+    used historically (Cloudinary vs local-disk fallback) — studios.logo_url
+    and marketplace_profiles.logo_url are both absolute URLs when set;
+    studio_settings.logo_filename is a bare filename under /uploads/ that the
+    frontend must prefix itself. Try them in that priority order."""
     row = db.execute(
         text("""
-            SELECT s.name, s.logo_url, ss.bit_link, ss.paybox_link,
+            SELECT s.name, COALESCE(s.logo_url, mp.logo_url) AS logo_url, ss.logo_filename,
+                   ss.bit_link, ss.paybox_link,
                    ss.gift_card_min_amount_cents, ss.gift_card_max_amount_cents
             FROM studios s
             LEFT JOIN studio_settings ss ON ss.studio_id = s.id
+            LEFT JOIN marketplace_profiles mp ON mp.studio_id = s.id
             WHERE s.id = :sid AND s.is_active = true
         """),
         {"sid": studio_id}
@@ -644,10 +651,11 @@ def public_gift_card_shop_info(studio_id: str, db: Session = Depends(get_db)):
     return {
         "studio_name": row[0],
         "logo_url": row[1],
-        "bit_link": row[2],
-        "paybox_link": row[3],
-        "min_amount_cents": row[4] if row[4] is not None else 100,
-        "max_amount_cents": row[5] if row[5] is not None else 0,
+        "logo_filename": row[2],
+        "bit_link": row[3],
+        "paybox_link": row[4],
+        "min_amount_cents": row[5] if row[5] is not None else 100,
+        "max_amount_cents": row[6] if row[6] is not None else 0,
     }
 
 

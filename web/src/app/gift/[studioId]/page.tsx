@@ -7,6 +7,7 @@ const API = (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_BASE
 type ShopInfo = {
     studio_name: string;
     logo_url: string | null;
+    logo_filename: string | null;
     bit_link: string | null;
     paybox_link: string | null;
     min_amount_cents: number;
@@ -52,6 +53,8 @@ export default function GiftCardShopPage() {
             .catch(() => setLoadErr("העסק לא נמצא"))
             .finally(() => setLoading(false));
     }, [studioId]);
+
+    const resolvedLogo = info?.logo_url || (info?.logo_filename ? `${API}/uploads/${info.logo_filename}` : null);
 
     const minIls = info ? (info.min_amount_cents || 100) / 100 : 1;
     const maxIls = info && info.max_amount_cents ? info.max_amount_cents / 100 : Infinity;
@@ -102,7 +105,7 @@ export default function GiftCardShopPage() {
     };
 
     if (loading) {
-        return <div style={pageStyle}><FontImport /><div style={{ color: "#d4af37" }}>טוען...</div></div>;
+        return <div style={pageStyle}><FontImport /><div style={{ color: "#c9a227" }}>טוען...</div></div>;
     }
     if (loadErr || !info) {
         return <div style={pageStyle}><FontImport /><div style={{ color: "#e5484d" }}>{loadErr || "העסק לא נמצא"}</div></div>;
@@ -116,11 +119,11 @@ export default function GiftCardShopPage() {
                     <div style={{ fontSize: 44, marginBottom: 12, textAlign: "center" }}>🎉</div>
                     <h2 style={{ ...headingStyle, textAlign: "center" }}>ההזמנה נקלטה</h2>
                     {orderedBonusIls > 0 && (
-                        <p style={{ color: "#d4af37", textAlign: "center", fontWeight: 700, fontSize: 15, margin: "10px 0 0", fontFamily: SERIF }}>
+                        <p style={{ color: "#c9a227", textAlign: "center", fontWeight: 700, fontSize: 15, margin: "10px 0 0", fontFamily: SERIF }}>
                             כולל בונוס של ₪{orderedBonusIls.toFixed(0)} — השובר יהיה בשווי ₪{(orderedAmountIls + orderedBonusIls).toFixed(0)}
                         </p>
                     )}
-                    <p style={{ color: "#a89968", textAlign: "center", lineHeight: 1.8, margin: "14px 0 26px", fontSize: 15 }}>
+                    <p style={{ color: "#8f8570", textAlign: "center", lineHeight: 1.8, margin: "14px 0 26px", fontSize: 15 }}>
                         נשאר רק לשלם ₪{orderedAmountIls.toFixed(0)} דרך ביט, ונשלח לך אישור עם קוד השובר לאחר אימות התשלום.
                     </p>
                     {info.bit_link ? (
@@ -128,7 +131,7 @@ export default function GiftCardShopPage() {
                             שלם ₪{orderedAmountIls.toFixed(0)} דרך ביט
                         </a>
                     ) : (
-                        <p style={{ color: "#d4af37", textAlign: "center" }}>ניתן לתאם תשלום ישירות מול {info.studio_name}</p>
+                        <p style={{ color: "#c9a227", textAlign: "center" }}>ניתן לתאם תשלום ישירות מול {info.studio_name}</p>
                     )}
                 </div>
             </div>
@@ -140,13 +143,13 @@ export default function GiftCardShopPage() {
             <FontImport />
             <div style={cardStyle}>
                 <div style={{ textAlign: "center", marginBottom: 28 }}>
-                    {info.logo_url ? (
-                        <img src={info.logo_url} alt={info.studio_name} style={{ width: 68, height: 68, borderRadius: "50%", objectFit: "cover", border: "2px solid #d4af37", marginBottom: 10 }} />
+                    {resolvedLogo ? (
+                        <img src={resolvedLogo} alt={info.studio_name} style={{ width: 72, height: 72, borderRadius: "50%", objectFit: "cover", border: "2px solid #c9a227", marginBottom: 10 }} />
                     ) : (
                         <div style={{ fontSize: 38, marginBottom: 6 }}>🎁</div>
                     )}
                     <h1 style={headingStyle}>{info.studio_name} — כרטיס מתנה</h1>
-                    <p style={{ color: "#a89968", fontSize: 13.5, letterSpacing: "0.03em" }}>תן/י מתנה שתמיד מתאימה</p>
+                    <p style={{ color: "#8f8570", fontSize: 13.5, letterSpacing: "0.03em" }}>תן/י מתנה שתמיד מתאימה</p>
                 </div>
 
                 <label style={labelStyle}>שם הנמען — למי המתנה? *</label>
@@ -199,7 +202,7 @@ export default function GiftCardShopPage() {
                         dir="ltr"
                     />
                 </div>
-                <p style={{ color: "#7a6d47", fontSize: 12, margin: "0 0 4px" }}>
+                <p style={{ color: "#6b6252", fontSize: 12, margin: "0 0 4px" }}>
                     טווח: ₪{minIls.toFixed(0)}{maxIls !== Infinity ? ` – ₪${maxIls.toFixed(0)}` : " ומעלה"}
                 </p>
 
@@ -226,41 +229,44 @@ const pageStyle: React.CSSProperties = {
 };
 
 const cardStyle: React.CSSProperties = {
-    width: "100%", maxWidth: 440, background: "linear-gradient(160deg,#141414,#0a0a0a)",
-    border: "1px solid #d4af37", borderRadius: 20, padding: "30px 26px",
-    boxShadow: "0 0 40px rgba(212,175,55,.08), 0 10px 40px rgba(0,0,0,.6)",
+    width: "100%", maxWidth: 440, background: "linear-gradient(160deg,#161616,#0a0a0a)",
+    border: "1px solid #c9a227", borderRadius: 20, padding: "30px 26px",
+    boxShadow: "0 0 40px rgba(201,162,39,.06), 0 10px 40px rgba(0,0,0,.6)",
 };
 
+// Headings/body read as warm cream white — gold is reserved as an accent
+// (border, dividers, primary button, selected state), not for running text,
+// which otherwise reads as flat yellow on black.
 const headingStyle: React.CSSProperties = {
-    color: "#f2dfa0", fontSize: 23, fontWeight: 700, margin: "10px 0 4px",
-    fontFamily: SERIF, letterSpacing: "0.01em",
+    color: "#f3ede0", fontSize: 23, fontWeight: 700, margin: "10px 0 4px",
+    fontFamily: SERIF, letterSpacing: "0.015em",
 };
 
 const labelStyle: React.CSSProperties = {
-    display: "block", color: "#d4af37", fontSize: 13, fontWeight: 600, margin: "14px 0 6px",
+    display: "block", color: "#c7bfa8", fontSize: 13, fontWeight: 600, margin: "14px 0 6px",
     fontFamily: SERIF,
 };
 
-const dividerStyle: React.CSSProperties = { borderTop: "1px solid rgba(212,175,55,.25)", margin: "20px 0 4px" };
+const dividerStyle: React.CSSProperties = { borderTop: "1px solid rgba(201,162,39,.2)", margin: "20px 0 4px" };
 
 const inputStyle: React.CSSProperties = {
-    width: "100%", background: "rgba(255,255,255,.03)", border: "1px solid rgba(212,175,55,.3)",
-    borderRadius: 10, padding: "10px 14px", color: "#f2e9d0", fontSize: 15, outline: "none",
+    width: "100%", background: "rgba(255,255,255,.03)", border: "1px solid rgba(201,162,39,.25)",
+    borderRadius: 10, padding: "10px 14px", color: "#f0ebe0", fontSize: 15, outline: "none",
     marginBottom: 2,
 };
 
 const pillButtonStyle: React.CSSProperties = {
-    background: "rgba(255,255,255,.03)", border: "1px solid rgba(212,175,55,.35)", color: "#d4af37",
+    background: "rgba(255,255,255,.03)", border: "1px solid rgba(201,162,39,.3)", color: "#d8d2c2",
     borderRadius: 10, padding: "10px 16px", fontSize: 14, fontWeight: 700, cursor: "pointer",
     fontFamily: SERIF,
 };
 
 const pillButtonActiveStyle: React.CSSProperties = {
-    background: "linear-gradient(135deg,#e9c766,#b8892f)", borderColor: "#e9c766", color: "#141414",
+    background: "linear-gradient(135deg,#e9c766,#a3791f)", borderColor: "#e9c766", color: "#141414",
 };
 
 const goldButtonStyle: React.CSSProperties = {
-    display: "block", textAlign: "center", background: "linear-gradient(135deg,#f2dfa0,#c9a227)", color: "#141414",
+    display: "block", textAlign: "center", background: "linear-gradient(135deg,#e9c766,#a3791f)", color: "#141414",
     textDecoration: "none", borderRadius: 12, padding: "14px", fontSize: 16, fontWeight: 700,
     fontFamily: SERIF, border: "none", cursor: "pointer",
 };
