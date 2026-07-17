@@ -5,7 +5,8 @@
       "mcp__filesystem__read_text_file",
       "Bash(npm run *)",
       "Bash(python -c ' *)",
-      "Bash(mkdir -p \"/c/Users/naor1/OneDrive/Desktop/BizControl/web/src/app/services\")"
+      "Bash(mkdir -p \"/c/Users/naor1/OneDrive/Desktop/BizControl/web/src/app/services\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://web-production-68695.up.railway.app/api/auth/me\")"
     ],
     "additionalDirectories": [
       "C:\\Users\\naor1\\OneDrive\\Desktop\\BizControl\\web\\src\\app"
