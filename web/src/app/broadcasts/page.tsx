@@ -249,6 +249,25 @@ export default function BroadcastsPage() {
         }
     };
 
+    const handleDuplicate = (b: Broadcast) => {
+        setTitle(b.title);
+        setBody(b.body);
+        setAudience(b.audience);
+        setScheduledAt("");
+        if (b.media_url) {
+            setMediaUrl(b.media_url);
+            setMediaPreview(b.media_url);
+            setMediaIsVideo(/\.(mp4|mov|avi|3gp|webm)(\?|$)/i.test(b.media_url));
+        } else {
+            setMediaUrl(null); setMediaPreview(null); setMediaIsVideo(false);
+        }
+        setShowTemplates(false);
+        setError(null);
+        setSuccess(null);
+        setShowForm(true);
+        if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+    };
+
     const handleCancel = async (id: string) => {
         if (!confirm("לבטל את התפוצה הזו?")) return;
         setCanceling(id);
@@ -409,11 +428,17 @@ export default function BroadcastsPage() {
                                             📍 כתובת
                                         </button>
                                     )}
+                                    <button type="button"
+                                        onClick={() => insertAtCursor("{optout_link}")}
+                                        className="text-xs px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 font-mono">
+                                        {"{optout_link}"}
+                                    </button>
                                 </div>
 
                                 {/* Personalization hint */}
-                                <div className="mt-2 text-xs text-slate-400 bg-slate-50 rounded-lg px-3 py-2 border border-slate-100">
-                                    💡 <span className="font-mono text-slate-500">{"{client_name}"}</span> יוחלף אוטומטית בשם כל לקוח/ה בעת השליחה
+                                <div className="mt-2 text-xs text-slate-400 bg-slate-50 rounded-lg px-3 py-2 border border-slate-100 space-y-1">
+                                    <div>💡 <span className="font-mono text-slate-500">{"{client_name}"}</span> יוחלף אוטומטית בשם כל לקוח/ה בעת השליחה</div>
+                                    <div>🔗 קישור הסרה אישי מתווסף אוטומטית בסוף כל הודעה — אפשר להשתמש ב-<span className="font-mono text-slate-500">{"{optout_link}"}</span> כדי לקבוע איפה הוא יופיע בטקסט</div>
                                 </div>
                             </div>
 
@@ -602,7 +627,7 @@ export default function BroadcastsPage() {
                                     </div>
                                     <div className="divide-y divide-slate-50">
                                         {past.map(b => (
-                                            <BroadcastRow key={b.id} b={b} onCancel={handleCancel} canceling={false} />
+                                            <BroadcastRow key={b.id} b={b} onCancel={handleCancel} canceling={false} onDuplicate={handleDuplicate} />
                                         ))}
                                     </div>
                                 </div>
@@ -615,7 +640,7 @@ export default function BroadcastsPage() {
     );
 }
 
-function BroadcastRow({ b, onCancel, canceling }: { b: Broadcast; onCancel: (id: string) => void; canceling: boolean }) {
+function BroadcastRow({ b, onCancel, canceling, onDuplicate }: { b: Broadcast; onCancel: (id: string) => void; canceling: boolean; onDuplicate?: (b: Broadcast) => void }) {
     const [expanded, setExpanded] = useState(false);
     const s = STATUS_LABELS[b.status] || { label: b.status, color: "bg-slate-100 text-slate-500" };
     const dt = new Date(b.scheduled_at);
@@ -661,6 +686,15 @@ function BroadcastRow({ b, onCancel, canceling }: { b: Broadcast; onCancel: (id:
                             className="text-xs text-red-500 hover:text-red-700 px-2 py-1 rounded-lg hover:bg-red-50 transition disabled:opacity-50"
                         >
                             {canceling ? "..." : "בטל"}
+                        </button>
+                    )}
+                    {b.status !== "scheduled" && onDuplicate && (
+                        <button
+                            type="button"
+                            onClick={() => onDuplicate(b)}
+                            className="text-xs text-blue-600 hover:text-blue-800 px-2 py-1 rounded-lg hover:bg-blue-50 transition font-medium"
+                        >
+                            🔁 שכפל ושלח שוב
                         </button>
                     )}
                 </div>

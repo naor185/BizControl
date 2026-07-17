@@ -167,11 +167,15 @@ def send_test(
     if not payload.body.strip():
         raise HTTPException(400, "יש להזין תוכן הודעה")
 
+    # Preview only — no real client to build a token for, so just show where
+    # the real opt-out link will land once the broadcast actually sends.
+    preview_body = payload.body.strip().replace("{optout_link}", "[קישור הסרה אישי יופיע כאן]")
+
     settings = db.get(StudioSettings, ctx.studio_id)
     try:
         send_whatsapp_message(
             payload.phone.strip(),
-            payload.body.strip(),
+            preview_body,
             settings,
             db,
             media_url=payload.media_url or None,
