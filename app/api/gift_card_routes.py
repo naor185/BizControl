@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.deps import require_studio_ctx, AuthContext
+from app.core.permissions import require_roles, Perms
 
 router = APIRouter(prefix="/gift-cards", tags=["GiftCards"])
 public_router = APIRouter(prefix="/public/gift-cards", tags=["GiftCardsPublic"])
@@ -58,34 +59,34 @@ def _send_gift_card_email(
 <html dir="rtl" lang="he">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
 <body style="margin:0;padding:0;background:#f8fafc;font-family:system-ui,-apple-system,sans-serif;">
-  <div style="max-width:520px;margin:32px auto;background:#fff;border-radius:24px;overflow:hidden;box-shadow:0 4px 32px rgba(0,0,0,0.08);">
+  <div style="max-width:520px;margin:32px auto;background:linear-gradient(160deg,#161616,#0a0a0a);border:1px solid #c9a227;border-radius:24px;overflow:hidden;box-shadow:0 4px 32px rgba(0,0,0,0.4);">
     <!-- Header -->
-    <div style="background:linear-gradient(135deg,#7c3aed,#4c1d95);padding:40px 32px;text-align:center;">
+    <div style="padding:40px 32px 24px;text-align:center;border-bottom:1px solid rgba(201,162,39,.25);">
       <div style="font-size:48px;margin-bottom:8px;">🎁</div>
-      <h1 style="color:#fff;margin:0;font-size:26px;font-weight:900;">כרטיס מתנה</h1>
-      <p style="color:#c4b5fd;margin:8px 0 0;font-size:15px;">{studio_name}</p>
+      <h1 style="color:#e9c766;margin:0;font-size:26px;font-weight:900;">כרטיס מתנה</h1>
+      <p style="color:#c7bfa8;margin:8px 0 0;font-size:15px;">{studio_name}</p>
     </div>
     <!-- Body -->
     <div style="padding:32px;">
-      <p style="font-size:16px;color:#334155;margin:0 0 8px;">שלום {recipient_name},</p>
-      <p style="font-size:15px;color:#64748b;line-height:1.6;margin:0 0 24px;">
+      <p style="font-size:16px;color:#f3ede0;margin:0 0 8px;">איזה כיף, {recipient_name}! קיבלת מתנה 🎁</p>
+      <p style="font-size:15px;color:#c7bfa8;line-height:1.6;margin:0 0 24px;">
         {sender_name} שלח/ה לך כרטיס מתנה ל-{studio_name}!
       </p>
       {msg_block}
       {voucher_block}
       <!-- Amount -->
-      <div style="background:linear-gradient(135deg,#f5f3ff,#ede9fe);border:2px solid #7c3aed;border-radius:16px;padding:24px;text-align:center;margin:24px 0;">
-        <div style="font-size:42px;font-weight:900;color:#7c3aed;">₪{amount_ils:.0f}</div>
-        <div style="color:#6d28d9;font-size:14px;margin-top:4px;">שווי הכרטיס</div>
+      <div style="background:rgba(233,199,102,.06);border:2px solid #c9a227;border-radius:16px;padding:24px;text-align:center;margin:24px 0;">
+        <div style="font-size:42px;font-weight:900;color:#e9c766;">₪{amount_ils:.0f}</div>
+        <div style="color:#c7bfa8;font-size:14px;margin-top:4px;">שווי הכרטיס</div>
       </div>
       <!-- Code -->
-      <div style="background:#1e1b4b;border-radius:14px;padding:20px;text-align:center;margin:24px 0;">
-        <div style="color:#a78bfa;font-size:12px;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;">קוד המימוש שלך</div>
-        <div style="color:#fff;font-size:28px;font-weight:900;letter-spacing:4px;font-family:monospace;">{code}</div>
+      <div style="background:linear-gradient(135deg,#e9c766,#a3791f);border-radius:14px;padding:20px;text-align:center;margin:24px 0;">
+        <div style="color:#3a2e0a;font-size:12px;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;">קוד המימוש שלך</div>
+        <div style="color:#141414;font-size:28px;font-weight:900;letter-spacing:4px;font-family:monospace;">{code}</div>
       </div>
-      <p style="font-size:13px;color:#94a3b8;text-align:center;">תוקף: {expiry_str}</p>
-      <hr style="border:none;border-top:1px solid #f1f5f9;margin:24px 0;">
-      <p style="font-size:13px;color:#64748b;text-align:center;">
+      <p style="font-size:13px;color:#8a8270;text-align:center;">תוקף: {expiry_str}</p>
+      <hr style="border:none;border-top:1px solid rgba(201,162,39,.2);margin:24px 0;">
+      <p style="font-size:13px;color:#8a8270;text-align:center;">
         הצג/י את הקוד בעסק בזמן התשלום לניכוי האוטומטי מהסכום.
       </p>
     </div>
@@ -119,6 +120,68 @@ def _h(text: str) -> str:
         return str(text)
 
 
+def _fetch_studio_logo(logo_url: Optional[str], logo_filename: Optional[str]):
+    """Load the studio's logo as a PIL RGBA image, trying the absolute-URL
+    column first and falling back to the local /uploads/ file. Returns None
+    (never raises) if no logo is configured or it can't be loaded."""
+    import io
+    import os
+    import urllib.request
+    from PIL import Image
+
+    try:
+        if logo_url and logo_url.startswith("http"):
+            with urllib.request.urlopen(logo_url, timeout=4) as resp:
+                return Image.open(io.BytesIO(resp.read())).convert("RGBA")
+        if logo_filename:
+            path = os.path.join("uploads", logo_filename)
+            if os.path.exists(path):
+                return Image.open(path).convert("RGBA")
+    except Exception:
+        pass
+    return None
+
+
+_VOUCHER_THEMES = {
+    "black_gold": {
+        "bg_top": (26, 26, 26), "bg_bottom": (5, 5, 5),
+        "outer_border": (201, 162, 39),
+        "banner_title": (233, 199, 102), "banner_sub": (243, 237, 224),
+        "panel_fill": (22, 22, 22), "panel_border": (201, 162, 39),
+        "panel_text": (243, 237, 224), "panel_muted": (199, 191, 168),
+        "accent": (233, 199, 102),
+        "code_fill": (233, 199, 102), "code_text": (20, 20, 20),
+        "bonus_text": (110, 209, 158),
+    },
+    "purple_classic": {
+        "bg_top": (124, 58, 237), "bg_bottom": (76, 29, 149),
+        "outer_border": None,
+        "banner_title": (255, 255, 255), "banner_sub": (196, 181, 253),
+        "panel_fill": (255, 255, 255), "panel_border": None,
+        "panel_text": (30, 41, 59), "panel_muted": (100, 116, 139),
+        "accent": (124, 58, 237),
+        "code_fill": (30, 27, 75), "code_text": (255, 255, 255),
+        "bonus_text": (16, 163, 74),
+    },
+    "cream_rose": {
+        "bg_top": (250, 240, 236), "bg_bottom": (235, 214, 206),
+        "outer_border": (183, 110, 121),
+        "banner_title": (120, 70, 75), "banner_sub": (150, 110, 105),
+        "panel_fill": (255, 251, 249), "panel_border": (216, 180, 172),
+        "panel_text": (74, 58, 55), "panel_muted": (150, 125, 118),
+        "accent": (183, 110, 121),
+        "code_fill": (183, 110, 121), "code_text": (255, 255, 255),
+        "bonus_text": (150, 120, 40),
+    },
+}
+
+VOUCHER_THEME_LABELS = {
+    "black_gold": "שחור-זהב (VIP)",
+    "purple_classic": "סגול קלאסי",
+    "cream_rose": "שמנת-רוזגולד",
+}
+
+
 def _build_gift_card_voucher_png(
     studio_name: str,
     recipient_name: str,
@@ -127,25 +190,30 @@ def _build_gift_card_voucher_png(
     personal_message: Optional[str],
     expires_at: Optional[date],
     bonus_ils: float = 0,
+    logo_image=None,
+    theme: str = "black_gold",
 ) -> bytes:
     """Draw a portrait-free landscape gift-card voucher as a PNG (not a PDF) so
-    it previews inline as a photo on WhatsApp instead of a document icon."""
+    it previews inline as a photo on WhatsApp instead of a document icon.
+    `theme` picks one of _VOUCHER_THEMES — studio-configurable in settings."""
     import io
     from PIL import Image, ImageDraw, ImageFont
     from app.api.invoice_routes import _find_font_path
 
+    th = _VOUCHER_THEMES.get(theme) or _VOUCHER_THEMES["black_gold"]
     W, H = 1200, 750
-    top = (124, 58, 237)     # #7c3aed
-    bottom = (76, 29, 149)   # #4c1d95
 
-    img = Image.new("RGB", (W, H), top)
+    img = Image.new("RGB", (W, H), th["bg_top"])
     draw = ImageDraw.Draw(img)
     for y in range(H):
         ratio = y / H
-        r = int(top[0] + (bottom[0] - top[0]) * ratio)
-        g = int(top[1] + (bottom[1] - top[1]) * ratio)
-        b = int(top[2] + (bottom[2] - top[2]) * ratio)
+        r = int(th["bg_top"][0] + (th["bg_bottom"][0] - th["bg_top"][0]) * ratio)
+        g = int(th["bg_top"][1] + (th["bg_bottom"][1] - th["bg_top"][1]) * ratio)
+        b = int(th["bg_top"][2] + (th["bg_bottom"][2] - th["bg_top"][2]) * ratio)
         draw.line([(0, y), (W, y)], fill=(r, g, b))
+
+    if th["outer_border"]:
+        draw.rounded_rectangle([10, 10, W - 10, H - 10], radius=24, outline=th["outer_border"], width=4)
 
     reg_path = _find_font_path(bold=False)
     bold_path = _find_font_path(bold=True) or reg_path
@@ -165,20 +233,35 @@ def _build_gift_card_voucher_png(
         w = bbox[2] - bbox[0]
         draw.text(((W - w) / 2, y), t, font=f, fill=fill)
 
-    center_text(60, "כרטיס מתנה", font(56, bold=True), (255, 255, 255))
-    center_text(140, studio_name, font(30), (196, 181, 253))
+    title_y = 44
+    if logo_image is not None:
+        try:
+            logo_h = 90
+            ratio = logo_h / logo_image.height
+            logo_w = int(logo_image.width * ratio)
+            logo_resized = logo_image.resize((logo_w, logo_h))
+            img.paste(logo_resized, ((W - logo_w) // 2, title_y), logo_resized)
+            title_y += logo_h + 24
+        except Exception:
+            pass
 
-    # White card panel
+    center_text(title_y, "כרטיס מתנה", font(50, bold=True), th["banner_title"])
+    center_text(title_y + 68, studio_name, font(26), th["banner_sub"])
+
+    # Inner content panel
     pad = 60
-    panel_top = 220
-    draw.rounded_rectangle([pad, panel_top, W - pad, H - pad], radius=28, fill=(255, 255, 255))
-
-    center_text(panel_top + 40, f"עבור: {recipient_name}", font(34, bold=True), (30, 41, 59))
-    center_text(panel_top + 100, f"₪{amount_ils:.0f}", font(84, bold=True), (124, 58, 237))
-    if bonus_ils > 0:
-        center_text(panel_top + 210, f"כולל בונוס של ₪{bonus_ils:.0f}!", font(20, bold=True), (16, 163, 74))
+    panel_top = title_y + 128
+    if th["panel_border"]:
+        draw.rounded_rectangle([pad, panel_top, W - pad, H - pad], radius=24, fill=th["panel_fill"], outline=th["panel_border"], width=2)
     else:
-        center_text(panel_top + 210, "שווי הכרטיס", font(22), (109, 40, 217))
+        draw.rounded_rectangle([pad, panel_top, W - pad, H - pad], radius=24, fill=th["panel_fill"])
+
+    center_text(panel_top + 36, f"איזה כיף, {recipient_name}! קיבלת מתנה 🎁", font(32, bold=True), th["panel_text"])
+    center_text(panel_top + 96, f"₪{amount_ils:.0f}", font(80, bold=True), th["accent"])
+    if bonus_ils > 0:
+        center_text(panel_top + 200, f"כולל בונוס של ₪{bonus_ils:.0f}!", font(20, bold=True), th["bonus_text"])
+    else:
+        center_text(panel_top + 200, "שווי הכרטיס", font(22), th["panel_muted"])
 
     if personal_message:
         # Simple word-wrap for the personal message
@@ -194,22 +277,22 @@ def _build_gift_card_voucher_png(
                 line = trial
         if line:
             lines.append(line)
-        y = panel_top + 250
+        y = panel_top + 240
         for ln in lines[:3]:
             bbox = draw.textbbox((0, 0), ln, font=f_msg)
-            draw.text(((W - (bbox[2] - bbox[0])) / 2, y), ln, font=f_msg, fill=(100, 116, 139))
+            draw.text(((W - (bbox[2] - bbox[0])) / 2, y), ln, font=f_msg, fill=th["panel_muted"])
             y += 32
 
     # Code box
     code_top = H - pad - 130
-    draw.rounded_rectangle([pad + 40, code_top, W - pad - 40, code_top + 90], radius=16, fill=(30, 27, 75))
+    draw.rounded_rectangle([pad + 40, code_top, W - pad - 40, code_top + 90], radius=16, fill=th["code_fill"])
     code_display = code  # left-to-right by design, no bidi reshape needed
     f_code = font(38, bold=True)
     bbox = draw.textbbox((0, 0), code_display, font=f_code)
-    draw.text(((W - (bbox[2] - bbox[0])) / 2, code_top + 25), code_display, font=f_code, fill=(255, 255, 255))
+    draw.text(((W - (bbox[2] - bbox[0])) / 2, code_top + 25), code_display, font=f_code, fill=th["code_text"])
 
     expiry_str = expires_at.strftime("%d/%m/%Y") if expires_at else "ללא תפוגה"
-    center_text(H - pad - 25, f"בתוקף עד {expiry_str}", font(20), (148, 163, 184))
+    center_text(H - pad - 25, f"בתוקף עד {expiry_str}", font(20), th["panel_muted"])
 
     buf = io.BytesIO()
     img.save(buf, format="PNG")
@@ -242,6 +325,164 @@ def _save_voucher_image(image_bytes: bytes, studio_id: str, db=None) -> Optional
         return None
 
 
+def _create_gift_card_invoice(db: Session, studio_id, card_id: str, code: str, client, paid_cents: int) -> str:
+    """Create a receipt/tax-invoice for the amount a customer actually paid for
+    a gift card (excluding any studio-funded bonus — that part isn't real
+    revenue). Mirrors app.crud.payment._auto_create_invoice, adapted for gift
+    cards which have no appointment."""
+    settings_row = db.execute(
+        text("SELECT * FROM invoice_settings WHERE studio_id = :sid"),
+        {"sid": str(studio_id)},
+    ).fetchone()
+    settings = dict(settings_row._mapping) if settings_row else {}
+    biz_type = settings.get("business_type", "osek_patur")
+
+    studio_row = db.execute(
+        text("SELECT name, logo_url FROM studios WHERE id = :sid"),
+        {"sid": str(studio_id)},
+    ).fetchone()
+    studio_name = studio_row[0] if studio_row else ""
+    studio_logo = studio_row[1] if studio_row else None
+
+    # osek_patur → receipt; murshe/chevra_baam → invoice_tax_receipt
+    doc_type = "receipt" if biz_type == "osek_patur" else "invoice_tax_receipt"
+
+    result = db.execute(
+        text("""
+            INSERT INTO invoice_series (studio_id, doc_type, next_number)
+            VALUES (:sid, :dt, 1001)
+            ON CONFLICT (studio_id, doc_type)
+            DO UPDATE SET next_number = invoice_series.next_number + 1
+            RETURNING next_number - 1
+        """),
+        {"sid": str(studio_id), "dt": doc_type},
+    ).fetchone()
+    db.commit()
+    doc_number = result[0]
+
+    vat_rate = float(settings.get("vat_rate") or 18.0)
+    if biz_type == "osek_patur":
+        subtotal_cents = paid_cents
+        vat_amount_cents = 0
+        total_cents = paid_cents
+    else:
+        subtotal_cents = int(round(paid_cents / (1 + vat_rate / 100)))
+        vat_amount_cents = paid_cents - subtotal_cents
+        total_cents = paid_cents
+
+    invoice_id = str(uuid.uuid4())
+    db.execute(
+        text("""
+            INSERT INTO invoices (
+                id, studio_id, doc_type, doc_number, status,
+                client_id, client_name, client_phone,
+                business_name, business_type, business_number,
+                business_address, business_city, business_phone, business_email, business_logo_url,
+                subtotal_cents, vat_rate, vat_amount_cents, total_cents, tip_cents,
+                payment_method, source, source_id, appointment_id,
+                issued_by_id, issued_at
+            ) VALUES (
+                :id, :sid, :dt, :dn, 'issued',
+                :cid, :cname, :cphone,
+                :bname, :btype, :bnum,
+                :baddr, :bcity, :bphone, :bemail, :blogo,
+                :sub, :vr, :vat, :total, 0,
+                'other', 'gift_card', :src_id, NULL,
+                NULL, NOW()
+            )
+        """),
+        {
+            "id": invoice_id, "sid": str(studio_id), "dt": doc_type, "dn": doc_number,
+            "cid": str(client.id), "cname": client.full_name, "cphone": client.phone,
+            "bname": settings.get("business_name") or studio_name,
+            "btype": biz_type,
+            "bnum": settings.get("business_number"),
+            "baddr": settings.get("business_address"),
+            "bcity": settings.get("business_city"),
+            "bphone": settings.get("business_phone"),
+            "bemail": settings.get("business_email"),
+            "blogo": settings.get("logo_url") or studio_logo,
+            "sub": subtotal_cents, "vr": vat_rate, "vat": vat_amount_cents, "total": total_cents,
+            "src_id": card_id,
+        },
+    )
+    db.execute(
+        text("""
+            INSERT INTO invoice_items
+                (id, invoice_id, description, quantity, unit_price_cents, total_price_cents, sort_order)
+            VALUES (:id, :inv, :desc, 1, :up, :tp, 0)
+        """),
+        {
+            "id": str(uuid.uuid4()), "inv": invoice_id,
+            "desc": f"כרטיס מתנה - {code}",
+            "up": subtotal_cents, "tp": subtotal_cents,
+        },
+    )
+    db.commit()
+    return invoice_id
+
+
+def _enqueue_gift_card_receipt_link(db: Session, studio_id, invoice_id: str, client) -> None:
+    """Enqueue a WhatsApp/email message with the public receipt link for a
+    gift-card purchase. Mirrors app.crud.payment._enqueue_receipt_link."""
+    import os as _os
+    from sqlalchemy import select as _select
+    from app.models.message_job import MessageJob
+
+    if getattr(client, "whatsapp_opted_out", False):
+        return
+
+    already = db.scalar(
+        _select(MessageJob).where(
+            MessageJob.reminder_type == "gift_card_receipt_link",
+            MessageJob.body.like(f"%{invoice_id}%"),
+        )
+    )
+    if already:
+        return
+
+    frontend_url = _os.getenv("FRONTEND_URL", "https://bizcontrol-seven.vercel.app").rstrip("/")
+    receipt_url = f"{frontend_url}/receipt/{invoice_id}"
+    now = datetime.now(timezone.utc)
+
+    if client.phone:
+        db.add(MessageJob(
+            studio_id=studio_id,
+            client_id=client.id,
+            channel="whatsapp",
+            to_phone=client.phone,
+            body=f"🧾 הקבלה שלך עבור כרטיס המתנה:\n{receipt_url}",
+            scheduled_at=now,
+            status="pending",
+            reminder_type="gift_card_receipt_link",
+        ))
+
+    if getattr(client, "email", None):
+        from app.services.email_center import studio_email_allowed as _email_ok
+        if _email_ok(db, studio_id, "email_receipt_enabled"):
+            from app.utils.email_templates import _email_base
+            email_html = (
+                f"<p>שלום <strong>{client.full_name or ''}</strong>,</p>"
+                f"<p>תודה על הרכישה! 🙏<br>הקבלה שלך עבור כרטיס המתנה מוכנה.</p>"
+                f"<p style='margin:24px 0;'>"
+                f"<a href='{receipt_url}' style='display:inline-block;background:#141414;color:#e9c766;padding:14px 28px;border-radius:10px;text-decoration:none;font-weight:bold;font-size:15px;'>🧾 צפה בקבלה</a>"
+                f"</p>"
+            )
+            db.add(MessageJob(
+                studio_id=studio_id,
+                client_id=client.id,
+                channel="email",
+                to_phone=client.email,
+                subject="🧾 הקבלה שלך עבור כרטיס המתנה",
+                body=_email_base("הקבלה שלך מוכנה 🧾", email_html),
+                scheduled_at=now,
+                status="pending",
+                reminder_type="gift_card_receipt_link_email",
+            ))
+
+    db.commit()
+
+
 # ── Schemas ───────────────────────────────────────────────────────────────────
 
 class CreateGiftCardIn(BaseModel):
@@ -258,6 +499,9 @@ class RedeemIn(BaseModel):
     client_id: Optional[str] = None
     pos_transaction_id: Optional[str] = None
     notes: Optional[str] = None
+
+class ApprovePaymentIn(BaseModel):
+    send_receipt: bool = True
 
 class PublicGiftCardOrderIn(BaseModel):
     amount_cents: int
@@ -278,8 +522,20 @@ def create_gift_card(
     ctx: AuthContext = Depends(require_studio_ctx),
     db: Session = Depends(get_db),
 ):
-    if body.amount_cents < 100:
-        raise HTTPException(400, "סכום מינימלי: ₪1")
+    settings_row = db.execute(
+        text("""
+            SELECT gift_card_min_amount_cents, gift_card_max_amount_cents
+            FROM studio_settings WHERE studio_id = :sid
+        """),
+        {"sid": str(ctx.studio_id)}
+    ).fetchone()
+    min_cents = (settings_row[0] if settings_row and settings_row[0] is not None else 100)
+    max_cents = (settings_row[1] if settings_row and settings_row[1] is not None else 0)
+
+    if body.amount_cents < min_cents:
+        raise HTTPException(400, f"סכום מינימלי לכרטיס מתנה: ₪{min_cents/100:.0f}")
+    if max_cents > 0 and body.amount_cents > max_cents:
+        raise HTTPException(400, f"סכום מקסימלי לכרטיס מתנה: ₪{max_cents/100:.0f}")
 
     # Get studio name
     studio = db.execute(
@@ -359,6 +615,47 @@ def list_gift_cards(
     return [_card_to_dict(r) for r in rows]
 
 
+@router.get("/preview-voucher")
+def preview_gift_card_voucher(
+    theme: Optional[str] = None,
+    ctx: AuthContext = Depends(require_studio_ctx),
+    db: Session = Depends(get_db),
+):
+    """Render a sample voucher with dummy data so a studio owner can see what
+    a theme looks like (with their own logo) before choosing it in settings."""
+    import base64
+
+    if theme and theme not in _VOUCHER_THEMES:
+        raise HTTPException(400, "עיצוב לא תקין")
+
+    studio_row = db.execute(
+        text("""
+            SELECT s.name, COALESCE(s.logo_url, mp.logo_url) AS logo_url, ss.logo_filename, ss.gift_voucher_theme
+            FROM studios s
+            LEFT JOIN studio_settings ss ON ss.studio_id = s.id
+            LEFT JOIN marketplace_profiles mp ON mp.studio_id = s.id
+            WHERE s.id = :sid
+        """),
+        {"sid": str(ctx.studio_id)}
+    ).fetchone()
+    studio_name = studio_row[0] if studio_row else "הסטודיו שלי"
+    logo_image = _fetch_studio_logo(studio_row[1] if studio_row else None, studio_row[2] if studio_row else None)
+    chosen_theme = theme or (studio_row[3] if studio_row else None) or "black_gold"
+
+    png_bytes = _build_gift_card_voucher_png(
+        studio_name=studio_name,
+        recipient_name="ישראל ישראלי",
+        amount_ils=250,
+        code="SAMP-LE12-3456",
+        personal_message="מזל טוב ותודה שאת/ה חלק מהמשפחה שלנו!",
+        expires_at=date.today() + timedelta(days=365),
+        bonus_ils=25,
+        logo_image=logo_image,
+        theme=chosen_theme,
+    )
+    return {"image_b64": base64.b64encode(png_bytes).decode("ascii")}
+
+
 @router.get("/{card_id}")
 def get_gift_card(
     card_id: str,
@@ -405,15 +702,40 @@ def cancel_gift_card(
     return {"ok": True}
 
 
-@router.post("/{card_id}/approve-payment")
-def approve_gift_card_payment(
+@router.delete("/{card_id}", status_code=204, dependencies=[Depends(require_roles(Perms.OWNER, Perms.ADMIN))])
+def delete_gift_card(
     card_id: str,
     ctx: AuthContext = Depends(require_studio_ctx),
     db: Session = Depends(get_db),
 ):
+    """Permanently remove a gift card and its redemption history — e.g. to
+    clean up a test purchase. Unlike /cancel (a soft status flip that keeps
+    the row forever), this is a hard delete."""
+    row = db.execute(
+        text("SELECT id FROM gift_cards WHERE id = :id AND studio_id = :sid"),
+        {"id": card_id, "sid": str(ctx.studio_id)}
+    ).fetchone()
+    if not row:
+        raise HTTPException(404, "כרטיס לא נמצא")
+
+    db.execute(text("DELETE FROM gift_card_transactions WHERE gift_card_id = :id"), {"id": card_id})
+    db.execute(text("DELETE FROM gift_cards WHERE id = :id"), {"id": card_id})
+    db.commit()
+    return None
+
+
+@router.post("/{card_id}/approve-payment")
+def approve_gift_card_payment(
+    card_id: str,
+    body: ApprovePaymentIn = ApprovePaymentIn(),
+    ctx: AuthContext = Depends(require_studio_ctx),
+    db: Session = Depends(get_db),
+):
     """Staff confirms a Bit payment was received for a public gift-card order
-    — activates the card and delivers the code + voucher image by email and
-    WhatsApp to the buyer or the recipient (per the order's deliver_to)."""
+    — activates the card, records the actual amount paid as revenue (in the
+    register and as a receipt/tax-invoice), and delivers the code + voucher
+    image by email and WhatsApp to the buyer or the recipient (per the
+    order's deliver_to)."""
     import logging
     log = logging.getLogger(__name__)
 
@@ -430,6 +752,67 @@ def approve_gift_card_payment(
     db.execute(text("UPDATE gift_cards SET status='active' WHERE id=:id"), {"id": card_id})
     db.commit()
 
+    # Resolve/create the buyer as a client — the receipt is issued to whoever
+    # actually paid, regardless of who the gift card is delivered to.
+    from sqlalchemy import select as _select
+    from app.models.client import Client
+
+    buyer_phone = card.get("buyer_phone")
+    buyer_email = card.get("buyer_email")
+    buyer_name = card.get("buyer_name") or "לקוח"
+
+    buyer_client = None
+    if buyer_phone:
+        buyer_client = db.scalar(_select(Client).where(Client.studio_id == ctx.studio_id, Client.phone == buyer_phone))
+    if not buyer_client and buyer_email:
+        buyer_client = db.scalar(_select(Client).where(Client.studio_id == ctx.studio_id, Client.email == buyer_email))
+    if not buyer_client:
+        buyer_client = Client(
+            id=uuid.uuid4(),
+            studio_id=ctx.studio_id,
+            full_name=buyer_name,
+            phone=buyer_phone,
+            email=buyer_email,
+            notes="נרשם דרך רכישת כרטיס מתנה",
+        )
+        db.add(buyer_client)
+        db.flush()
+
+    # Revenue — the actual cash received, excluding any studio-funded bonus.
+    paid_cents = card["amount_cents"] - (card.get("bonus_cents") or 0)
+    try:
+        pos_txn_id = uuid.uuid4()
+        db.execute(
+            text("""
+                INSERT INTO pos_transactions (id, studio_id, client_id, total_cents, method, status, notes)
+                VALUES (:id, :sid, :cid, :total, 'other', 'paid', :notes)
+            """),
+            {
+                "id": str(pos_txn_id), "sid": str(ctx.studio_id), "cid": str(buyer_client.id),
+                "total": paid_cents, "notes": f"מכירת כרטיס מתנה {card['code']}",
+            }
+        )
+        db.execute(
+            text("""
+                INSERT INTO pos_transaction_items (id, transaction_id, description, quantity, unit_price_cents, total_price_cents)
+                VALUES (:id, :tid, :desc, 1, :price, :price)
+            """),
+            {
+                "id": str(uuid.uuid4()), "tid": str(pos_txn_id),
+                "desc": f"כרטיס מתנה - {card['code']}", "price": paid_cents,
+            }
+        )
+        db.commit()
+    except Exception:
+        log.exception("[GiftCard] pos-transaction revenue record failed for %s", card_id)
+
+    try:
+        invoice_id = _create_gift_card_invoice(db, ctx.studio_id, card_id, card["code"], buyer_client, paid_cents)
+        if body.send_receipt:
+            _enqueue_gift_card_receipt_link(db, ctx.studio_id, invoice_id, buyer_client)
+    except Exception:
+        log.exception("[GiftCard] invoice/receipt creation failed for %s", card_id)
+
     if card.get("deliver_to") == "recipient":
         target_name = card.get("recipient_name")
         target_email = card.get("recipient_email")
@@ -439,8 +822,19 @@ def approve_gift_card_payment(
         target_email = card.get("buyer_email")
         target_phone = card.get("buyer_phone")
 
-    studio_row = db.execute(text("SELECT name FROM studios WHERE id = :sid"), {"sid": str(ctx.studio_id)}).fetchone()
+    studio_row = db.execute(
+        text("""
+            SELECT s.name, COALESCE(s.logo_url, mp.logo_url) AS logo_url, ss.logo_filename, ss.gift_voucher_theme
+            FROM studios s
+            LEFT JOIN studio_settings ss ON ss.studio_id = s.id
+            LEFT JOIN marketplace_profiles mp ON mp.studio_id = s.id
+            WHERE s.id = :sid
+        """),
+        {"sid": str(ctx.studio_id)}
+    ).fetchone()
     studio_name = studio_row[0] if studio_row else "הסטודיו"
+    logo_image = _fetch_studio_logo(studio_row[1] if studio_row else None, studio_row[2] if studio_row else None)
+    voucher_theme = (studio_row[3] if studio_row else None) or "black_gold"
 
     voucher_url = None
     try:
@@ -452,6 +846,8 @@ def approve_gift_card_payment(
             personal_message=card.get("personal_message"),
             expires_at=card.get("expires_at"),
             bonus_ils=(card.get("bonus_cents") or 0) / 100,
+            logo_image=logo_image,
+            theme=voucher_theme,
         )
         voucher_url = _save_voucher_image(png_bytes, str(ctx.studio_id), db=db)
     except Exception:
@@ -519,6 +915,50 @@ def approve_gift_card_payment(
             db.commit()
         except Exception:
             log.exception("[GiftCard] failed to queue WhatsApp voucher for %s", card_id)
+
+    # When the gift itself goes straight to the recipient, the buyer never
+    # sees the voucher — send them a separate thank-you confirmation instead.
+    if card.get("deliver_to") == "recipient":
+        try:
+            from app.models.message_job import MessageJob
+            recipient_display = card.get("recipient_name") or "הנמען/ת"
+            thank_you_body = (
+                f"🎁 תודה על הרכישה!\n"
+                f"כרטיס המתנה שלך ל-{studio_name} בשווי ₪{card['amount_cents'] / 100:.0f} "
+                f"נשלח בהצלחה ל-{recipient_display}."
+            )
+            if buyer_client.phone:
+                db.add(MessageJob(
+                    studio_id=ctx.studio_id,
+                    client_id=buyer_client.id,
+                    channel="whatsapp",
+                    to_phone=buyer_client.phone,
+                    body=thank_you_body,
+                    scheduled_at=datetime.now(timezone.utc),
+                    status="pending",
+                    reminder_type="gift_card_buyer_thanks",
+                ))
+            if buyer_client.email:
+                from app.utils.email_templates import _email_base
+                email_html = (
+                    f"<p>שלום <strong>{buyer_client.full_name or ''}</strong>,</p>"
+                    f"<p>תודה על הרכישה! 🙏<br>כרטיס המתנה שלך ל-{studio_name} בשווי ₪{card['amount_cents'] / 100:.0f} "
+                    f"נשלח בהצלחה ל-<strong>{recipient_display}</strong>.</p>"
+                )
+                db.add(MessageJob(
+                    studio_id=ctx.studio_id,
+                    client_id=buyer_client.id,
+                    channel="email",
+                    to_phone=buyer_client.email,
+                    subject=f"🎁 תודה על הרכישה — כרטיס המתנה נשלח ל-{recipient_display}",
+                    body=_email_base("תודה על הרכישה! 🙏", email_html),
+                    scheduled_at=datetime.now(timezone.utc),
+                    status="pending",
+                    reminder_type="gift_card_buyer_thanks_email",
+                ))
+            db.commit()
+        except Exception:
+            log.exception("[GiftCard] buyer thank-you notification failed for %s", card_id)
 
     return {"ok": True}
 

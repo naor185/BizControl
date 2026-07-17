@@ -60,6 +60,7 @@ class AutomationSettingsOut(BaseModel):
     gift_card_bonus_percent: int = 10
     gift_card_min_amount_cents: int = 100
     gift_card_max_amount_cents: int = 0
+    gift_voucher_theme: str = "black_gold"
 
     # Email Settings (Resend API)
     resend_api_key: str | None = None
@@ -246,6 +247,14 @@ class AutomationSettingsUpdate(BaseModel):
     gift_card_bonus_percent: int | None = Field(default=None, ge=0, le=100)
     gift_card_min_amount_cents: int | None = Field(default=None, ge=0)
     gift_card_max_amount_cents: int | None = Field(default=None, ge=0)
+    gift_voucher_theme: str | None = None
+
+    @field_validator("gift_voucher_theme")
+    @classmethod
+    def _validate_gift_voucher_theme(cls, v):
+        if v is not None and v not in ("black_gold", "purple_classic", "cream_rose"):
+            raise ValueError("ערך עיצוב שובר לא תקין")
+        return v
 
     # Email Settings (Resend API)
     resend_api_key: str | None = None

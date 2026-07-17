@@ -62,10 +62,22 @@ export default function GiftCardsPage() {
         } catch (e: unknown) { alert((e as Error).message); }
     };
 
-    const approvePayment = async (id: string) => {
+    const deleteCard = async (id: string) => {
+        if (!confirm("למחוק את הכרטיס לצמיתות? הפעולה בלתי הפיכה ותמחק גם את היסטוריית המימושים שלו.")) return;
+        try {
+            await apiFetch(`/api/gift-cards/${id}`, { method: "DELETE" });
+            load();
+            setSelected(null);
+        } catch (e: unknown) { alert((e as Error).message); }
+    };
+
+    const approvePayment = async (id: string, sendReceipt: boolean) => {
         if (!confirm("לאשר שהתשלום התקבל ולשלוח את השובר?")) return;
         try {
-            await apiFetch(`/api/gift-cards/${id}/approve-payment`, { method: "POST" });
+            await apiFetch(`/api/gift-cards/${id}/approve-payment`, {
+                method: "POST",
+                body: JSON.stringify({ send_receipt: sendReceipt }),
+            });
             load();
             setSelected(null);
         } catch (e: unknown) { alert((e as Error).message); }
@@ -188,7 +200,8 @@ export default function GiftCardsPage() {
                         card={selected}
                         onClose={() => setSelected(null)}
                         onCancel={() => cancel(selected.id)}
-                        onApprove={() => approvePayment(selected.id)}
+                        onApprove={(sendReceipt) => approvePayment(selected.id, sendReceipt)}
+                        onDelete={() => deleteCard(selected.id)}
                     />
                 )}
             </AppShell>
@@ -307,14 +320,15 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
 
 // ── Detail Modal ──────────────────────────────────────────────────────────────
 
-function DetailModal({ card, onClose, onCancel, onApprove }: { card: GiftCard; onClose: () => void; onCancel: () => void; onApprove: () => void }) {
+function DetailModal({ card, onClose, onCancel, onApprove, onDelete }: { card: GiftCard; onClose: () => void; onCancel: () => void; onApprove: (sendReceipt: boolean) => void; onDelete: () => void }) {
     const st = card.is_expired ? STATUS.expired : STATUS[card.status] || STATUS.active;
     const isPending = card.status === "pending_payment";
     const canCancel = (card.status === "active" && !card.is_expired) || isPending;
+    const [sendReceipt, setSendReceipt] = useState(true);
 
     return (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-4">
-            <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl">
+            <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-auto max-h-[92vh]">
                 <div className="p-6">
                     <div className="flex justify-between items-center mb-4">
                         <h2 className="text-base font-black">פרטי כרטיס</h2>
@@ -359,18 +373,37 @@ function DetailModal({ card, onClose, onCancel, onApprove }: { card: GiftCard; o
                     )}
 
                     {isPending && (
-                        <button type="button" onClick={onApprove}
-                            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl text-sm transition-colors mb-2">
-                            ✅ אשר תשלום ושלח שובר
-                        </button>
+                        <>
+                            <button
+                                type="button"
+                                onClick={() => setSendReceipt(v => !v)}
+                                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl border transition-colors mb-2 ${sendReceipt ? "bg-sky-50 border-sky-200" : "bg-slate-50 border-slate-200"}`}
+                            >
+                                <span className={`text-xs font-bold ${sendReceipt ? "text-sky-700" : "text-slate-500"}`}>
+                                    {sendReceipt ? "📨 שלח קבלה ללקוח" : "🔕 לא לשלוח קבלה ללקוח"}
+                                </span>
+                                <div className={`relative w-9 h-5 rounded-full transition-colors ${sendReceipt ? "bg-sky-500" : "bg-slate-300"}`}>
+                                    <div className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${sendReceipt ? "right-0.5" : "left-0.5"}`} />
+                                </div>
+                            </button>
+                            <button type="button" onClick={() => onApprove(sendReceipt)}
+                                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl text-sm transition-colors mb-2">
+                                ✅ אשר תשלום ושלח שובר
+                            </button>
+                        </>
                     )}
 
                     {canCancel && (
                         <button type="button" onClick={onCancel}
-                            className="w-full bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold py-2.5 rounded-xl text-sm transition-colors">
+                            className="w-full bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold py-2.5 rounded-xl text-sm transition-colors mb-2">
                             {isPending ? "דחה/בטל הזמנה" : "ביטול כרטיס"}
                         </button>
                     )}
+
+                    <button type="button" onClick={onDelete}
+                        className="w-full text-rose-400 hover:text-rose-600 font-semibold py-2 rounded-xl text-xs transition-colors">
+                        🗑️ מחק לצמיתות (לניקוי בדיקות)
+                    </button>
                 </div>
             </div>
         </div>

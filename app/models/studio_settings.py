@@ -67,6 +67,9 @@ class StudioSettings(Base):
     gift_card_min_amount_cents: Mapped[int] = mapped_column(Integer, nullable=False, default=100, server_default="100")
     gift_card_max_amount_cents: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
 
+    # Gift card voucher appearance — one of "black_gold" | "purple_classic" | "cream_rose"
+    gift_voucher_theme: Mapped[str] = mapped_column(String(30), nullable=False, default="black_gold", server_default="'black_gold'")
+
     block_shabbat_messages: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
 
     aftercare_delay_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=30, server_default="30")

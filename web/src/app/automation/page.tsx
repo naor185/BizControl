@@ -64,6 +64,7 @@ type Settings = {
     gift_card_bonus_percent: number;
     gift_card_min_amount_cents: number;
     gift_card_max_amount_cents: number;
+    gift_voucher_theme: string;
 
     whatsapp_provider?: string | null;
     whatsapp_api_key?: string | null;
@@ -570,6 +571,10 @@ export default function AutomationSettingsPage() {
     const [msg, setMsg] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<"branding" | "policy" | "finance" | "integrations" | "public">("branding");
 
+    const [voucherPreviewLoading, setVoucherPreviewLoading] = useState(false);
+    const [voucherPreviewImage, setVoucherPreviewImage] = useState<string | null>(null);
+    const [voucherPreviewErr, setVoucherPreviewErr] = useState<string | null>(null);
+
     const [aiPrompt, setAiPrompt] = useState("");
     const [isAiLoading, setIsAiLoading] = useState(false);
     const [retroLoading, setRetroLoading] = useState(false);
@@ -618,6 +623,7 @@ export default function AutomationSettingsPage() {
                     gift_card_bonus_percent: data.gift_card_bonus_percent ?? 10,
                     gift_card_min_amount_cents: data.gift_card_min_amount_cents ?? 100,
                     gift_card_max_amount_cents: data.gift_card_max_amount_cents ?? 0,
+                    gift_voucher_theme: data.gift_voucher_theme ?? "black_gold",
                     birthday_wa_template: data.birthday_wa_template ?? "",
                     birthday_email_template: data.birthday_email_template ?? "",
                     theme_primary_color: data.theme_primary_color ?? "#000000",
@@ -876,6 +882,19 @@ export default function AutomationSettingsPage() {
             setErr(e?.message || "שגיאה בשליחת הודעות יומולדת");
         } finally {
             setBirthdaySweepLoading(false);
+        }
+    };
+
+    const handlePreviewVoucher = async (theme: string) => {
+        setVoucherPreviewLoading(true);
+        setVoucherPreviewErr(null);
+        try {
+            const res = await apiFetch<{ image_b64: string }>(`/api/gift-cards/preview-voucher?theme=${theme}`);
+            setVoucherPreviewImage(`data:image/png;base64,${res.image_b64}`);
+        } catch (e: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
+            setVoucherPreviewErr(e?.message || "שגיאה בהצגת תצוגה מקדימה");
+        } finally {
+            setVoucherPreviewLoading(false);
         }
     };
 
@@ -1699,6 +1718,45 @@ export default function AutomationSettingsPage() {
                                                         />
                                                         <span className="text-violet-600 font-bold text-sm">% בונוס לערך הכרטיס</span>
                                                     </div>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="bg-violet-50 p-6 rounded-2xl border border-violet-200 md:col-span-2">
+                                            <label className="block text-base font-bold text-slate-800 mb-2">🎨 עיצוב שובר כרטיס המתנה</label>
+                                            <p className="text-sm text-slate-500 mb-4">
+                                                העיצוב שהלקוח יקבל בוואטסאפ ובמייל אחרי שהתשלום אושר — כולל הלוגו שלך.
+                                            </p>
+                                            <div className="flex flex-wrap gap-2 mb-3">
+                                                {[
+                                                    { key: "black_gold", label: "שחור-זהב (VIP)" },
+                                                    { key: "purple_classic", label: "סגול קלאסי" },
+                                                    { key: "cream_rose", label: "שמנת-רוזגולד" },
+                                                ].map(t => (
+                                                    <button
+                                                        key={t.key}
+                                                        type="button"
+                                                        onClick={() => handleChange("gift_voucher_theme", t.key)}
+                                                        className={`px-4 py-2 rounded-xl text-sm font-bold border-2 transition-colors ${settings.gift_voucher_theme === t.key ? "bg-violet-600 border-violet-600 text-white" : "bg-white border-violet-200 text-slate-600 hover:border-violet-400"}`}
+                                                    >
+                                                        {t.label}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => handlePreviewVoucher(settings.gift_voucher_theme || "black_gold")}
+                                                disabled={voucherPreviewLoading}
+                                                className="text-sm font-semibold text-violet-700 bg-white border border-violet-200 rounded-xl px-4 py-2 hover:bg-violet-100 transition-colors disabled:opacity-50"
+                                            >
+                                                {voucherPreviewLoading ? "טוען תצוגה מקדימה..." : "👁️ הצג דוגמה איך זה ייראה"}
+                                            </button>
+                                            {voucherPreviewErr && (
+                                                <p className="text-sm text-rose-600 mt-2">{voucherPreviewErr}</p>
+                                            )}
+                                            {voucherPreviewImage && (
+                                                <div className="mt-4">
+                                                    <img src={voucherPreviewImage} alt="תצוגה מקדימה של שובר כרטיס מתנה" className="w-full max-w-md rounded-2xl border border-violet-200 shadow-sm" />
                                                 </div>
                                             )}
                                         </div>
