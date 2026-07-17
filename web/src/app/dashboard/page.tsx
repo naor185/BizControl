@@ -10,6 +10,17 @@ import {
     ResponsiveContainer,
 } from "recharts";
 
+type PendingGiftCard = {
+    id: string;
+    code: string;
+    amount_ils: number;
+    bonus_ils: number;
+    recipient_name: string;
+    buyer_name: string;
+    buyer_phone: string;
+    created_at: string;
+};
+
 type PendingPayment = {
     appointment_id: string;
     client_id: string;
@@ -62,6 +73,8 @@ export default function Page() {
     const [dailyPayments, setDailyPayments] = useState<DailyPayment[]>([]);
     const [pendingPayments, setPendingPayments] = useState<PendingPayment[]>([]);
     const [pendingExpanded, setPendingExpanded] = useState(false);
+    const [pendingGiftCards, setPendingGiftCards] = useState<PendingGiftCard[]>([]);
+    const [pendingGiftCardsExpanded, setPendingGiftCardsExpanded] = useState(false);
     const [analytics, setAnalytics] = useState<Analytics | null>(null);
     const [loading, setLoading] = useState(true);
     const [tab, setTab] = useState<"today" | "analytics">("today");
@@ -101,7 +114,7 @@ export default function Page() {
     const fetchData = async () => {
         try {
             setLoading(true);
-            const [statsData, paymentsData, pendingData, depositsData, bfData, occData, todayRevData] = await Promise.all([
+            const [statsData, paymentsData, pendingData, depositsData, bfData, occData, todayRevData, pendingGiftCardsData] = await Promise.all([
                 apiFetch<DashboardStats>("/api/dashboard/stats"),
                 apiFetch<DailyPayment[]>("/api/dashboard/daily-payments"),
                 apiFetch<PendingPayment[]>("/api/dashboard/pending-payments"),
@@ -109,6 +122,7 @@ export default function Page() {
                 apiFetch<any>("/api/marketplace/my/analytics").catch(() => null),
                 apiFetch<OccupancyData>("/api/dashboard/occupancy").catch(() => null),
                 apiFetch<any>("/api/dashboard/today-revenue").catch(() => null),
+                apiFetch<PendingGiftCard[]>("/api/dashboard/pending-gift-cards").catch(() => []),
             ]);
             setStats(statsData);
             setDailyPayments(paymentsData);
@@ -117,6 +131,7 @@ export default function Page() {
             setBizfindStats(bfData);
             setOccupancy(occData);
             setTodayRevenue(todayRevData);
+            setPendingGiftCards(pendingGiftCardsData);
         } catch {
             setError("שגיאה בטעינת נתונים");
         } finally {
@@ -343,6 +358,45 @@ export default function Page() {
                                             ))}
                                         </div>
                                     )}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* ── PENDING GIFT CARD APPROVALS ── */}
+                    {pendingGiftCards.length > 0 && (
+                        <div className="rounded-2xl border-2 border-amber-400 bg-amber-50 overflow-hidden">
+                            <button
+                                onClick={() => setPendingGiftCardsExpanded(o => !o)}
+                                className="w-full p-5 flex items-center gap-4 text-right hover:bg-amber-100/60 transition-colors"
+                            >
+                                <span className="text-3xl">🎁</span>
+                                <div className="flex-1">
+                                    <div className="font-bold text-amber-900">{pendingGiftCards.length} כרטיסי מתנה ממתינים לאישור תשלום</div>
+                                    <div className="text-sm text-amber-700">הזמנות מהחנות הציבורית — לחץ לפירוט</div>
+                                </div>
+                                <span className="text-amber-600 text-sm font-semibold">{pendingGiftCardsExpanded ? "▲ סגור" : "▼ פרוס"}</span>
+                            </button>
+                            {pendingGiftCardsExpanded && (
+                                <div className="border-t border-amber-300 divide-y divide-amber-200">
+                                    {pendingGiftCards.map(g => (
+                                        <div key={g.id} className="px-5 py-3 flex items-center gap-4 bg-white/60">
+                                            <div className="flex-1 min-w-0">
+                                                <div className="font-semibold text-slate-800">{g.buyer_name}</div>
+                                                <div className="text-xs text-slate-500">{g.buyer_phone} · לנמען: {g.recipient_name}</div>
+                                            </div>
+                                            <div className="text-right shrink-0">
+                                                <div className="font-bold text-emerald-700" dir="ltr">{fmt(g.amount_ils)}</div>
+                                                {g.bonus_ils > 0 && <div className="text-xs text-slate-400">כולל בונוס ₪{g.bonus_ils.toFixed(0)}</div>}
+                                            </div>
+                                            <a
+                                                href="/gift-cards"
+                                                className="px-3 py-1.5 bg-slate-800 text-white text-xs font-semibold rounded-lg hover:bg-slate-700 transition shrink-0"
+                                            >
+                                                לאישור
+                                            </a>
+                                        </div>
+                                    ))}
                                 </div>
                             )}
                         </div>

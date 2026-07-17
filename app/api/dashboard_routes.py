@@ -328,6 +328,35 @@ def get_pending_payments(ctx: AuthContext = Depends(require_studio_ctx), db: Ses
     return data
 
 
+@router.get("/pending-gift-cards")
+def get_pending_gift_cards(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+    """Gift-card orders from the public purchase page awaiting staff confirmation of payment."""
+    from sqlalchemy import text
+    rows = db.execute(
+        text("""
+            SELECT id, code, amount_cents, bonus_cents, recipient_name,
+                   buyer_name, buyer_phone, created_at
+            FROM gift_cards
+            WHERE studio_id = :sid AND status = 'pending_payment'
+            ORDER BY created_at DESC
+        """),
+        {"sid": str(ctx.studio_id)}
+    ).fetchall()
+    return [
+        {
+            "id": str(r[0]),
+            "code": r[1],
+            "amount_ils": round(r[2] / 100, 2),
+            "bonus_ils": round((r[3] or 0) / 100, 2),
+            "recipient_name": r[4],
+            "buyer_name": r[5],
+            "buyer_phone": r[6],
+            "created_at": r[7].isoformat() if r[7] else None,
+        }
+        for r in rows
+    ]
+
+
 @router.get("/pending-visits")
 def get_pending_visits(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
     """Appointments that already passed but are still 'scheduled' — studio needs to confirm the visit happened."""
