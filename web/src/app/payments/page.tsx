@@ -60,6 +60,7 @@ const METHODS = [
     { key: "bit", label: "ביט", icon: "📱" },
     { key: "paybox", label: "פייבוקס", icon: "📲" },
     { key: "bank_transfer", label: "העברה בנקאית", icon: "🏦" },
+    { key: "other", label: "אחר", icon: "🧩" },
 ];
 
 const METHOD_LABELS: Record<string, string> = {
@@ -78,6 +79,7 @@ const METHOD_COLORS: Record<string, string> = {
     bit: "bg-purple-100 text-purple-800",
     paybox: "bg-pink-100 text-pink-800",
     bank_transfer: "bg-amber-100 text-amber-800",
+    other: "bg-slate-100 text-slate-700",
 };
 
 const currentMonthKey = (() => {
