@@ -781,6 +781,11 @@ def ensure_schema():
         cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS gift_card_min_amount_cents INTEGER NOT NULL DEFAULT 100")
         cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS gift_card_max_amount_cents INTEGER NOT NULL DEFAULT 0")
         cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS gift_voucher_theme VARCHAR(30) NOT NULL DEFAULT 'black_gold'")
+        cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS optout_page_message TEXT")
+
+        # ── Points-redemption celebration card — sent when a client redeems a lot ──
+        cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS points_celebration_enabled BOOLEAN NOT NULL DEFAULT true")
+        cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS points_celebration_threshold_cents INTEGER NOT NULL DEFAULT 30000")
 
         cur.execute("""
             CREATE TABLE IF NOT EXISTS gift_card_transactions (

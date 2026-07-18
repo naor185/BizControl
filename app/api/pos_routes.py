@@ -194,6 +194,7 @@ def pos_checkout(
 
     # Deduct redeemed points from client balance
     points_redeemed = max(0, int(body.points_redeemed or 0))
+    actual_redeem = 0
     if client and points_redeemed > 0:
         actual_redeem = min(points_redeemed, int(client.loyalty_points or 0))
         if actual_redeem > 0:
@@ -254,6 +255,15 @@ def pos_checkout(
                 return _build_transaction_out(db, existing)
         raise
     db.refresh(txn)
+
+    # Big redemption → festive shareable card + club-join invite (best-effort)
+    if client and actual_redeem > 0:
+        try:
+            from app.crud.automation import maybe_enqueue_points_celebration
+            maybe_enqueue_points_celebration(db, ctx.studio_id, client, actual_redeem * 100)
+        except Exception:
+            import logging as _l
+            _l.getLogger(__name__).exception("[pos] points celebration failed for txn %s", txn.id)
 
     # Auto-create receipt for POS sale — including anonymous walk-in sales
     if txn.total_cents > 0:

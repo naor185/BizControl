@@ -70,6 +70,13 @@ class StudioSettings(Base):
     # Gift card voucher appearance — one of "black_gold" | "purple_classic" | "cream_rose"
     gift_voucher_theme: Mapped[str] = mapped_column(String(30), nullable=False, default="black_gold", server_default="'black_gold'")
 
+    # Customizable wording on the public opt-out landing page — supports {studio_name}
+    optout_page_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Confetti celebration card sent to a client who redeems a lot of loyalty points at once
+    points_celebration_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+    points_celebration_threshold_cents: Mapped[int] = mapped_column(Integer, nullable=False, default=30000, server_default="30000")
+
     block_shabbat_messages: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
 
     aftercare_delay_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=30, server_default="30")

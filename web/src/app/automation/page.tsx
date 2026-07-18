@@ -65,6 +65,9 @@ type Settings = {
     gift_card_min_amount_cents: number;
     gift_card_max_amount_cents: number;
     gift_voucher_theme: string;
+    optout_page_message?: string | null;
+    points_celebration_enabled: boolean;
+    points_celebration_threshold_cents: number;
 
     whatsapp_provider?: string | null;
     whatsapp_api_key?: string | null;
@@ -624,6 +627,9 @@ export default function AutomationSettingsPage() {
                     gift_card_min_amount_cents: data.gift_card_min_amount_cents ?? 100,
                     gift_card_max_amount_cents: data.gift_card_max_amount_cents ?? 0,
                     gift_voucher_theme: data.gift_voucher_theme ?? "black_gold",
+                    optout_page_message: data.optout_page_message ?? "",
+                    points_celebration_enabled: data.points_celebration_enabled ?? true,
+                    points_celebration_threshold_cents: data.points_celebration_threshold_cents ?? 30000,
                     birthday_wa_template: data.birthday_wa_template ?? "",
                     birthday_email_template: data.birthday_email_template ?? "",
                     theme_primary_color: data.theme_primary_color ?? "#000000",
@@ -1571,6 +1577,61 @@ export default function AutomationSettingsPage() {
                                         >
                                             <span className={`inline-block h-6 w-6 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${settings.block_shabbat_messages ? "translate-x-5" : "translate-x-0"}`} />
                                         </button>
+                                    </div>
+
+                                    {/* Opt-out landing page wording */}
+                                    <div className="bg-slate-50 border border-slate-200 rounded-2xl px-6 py-5 mb-6">
+                                        <p className="text-base font-bold text-slate-800 mb-1">🔕 נוסח דף הסרה מהודעות</p>
+                                        <p className="text-sm text-slate-500 mb-4">
+                                            הטקסט שהלקוח רואה בדף הציבורי אחרי שהוא לוחץ על קישור הסרה (בתפוצות ובהזמנה למועדון). הלוגו ושם העסק שלך מוצגים שם אוטומטית.
+                                        </p>
+                                        <textarea
+                                            value={settings.optout_page_message ?? ""}
+                                            onChange={e => handleChange("optout_page_message", e.target.value)}
+                                            rows={2}
+                                            placeholder="לחיצה על הכפתור תסיר אותך מקבלת הודעות שיווקיות מ-{studio_name}."
+                                            className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-slate-400 resize-none"
+                                        />
+                                        <p className="text-xs text-slate-400 mt-1.5">
+                                            💡 אפשר להשתמש ב-<span className="font-mono">{"{studio_name}"}</span> — יוחלף אוטומטית בשם העסק שלך.
+                                        </p>
+                                    </div>
+
+                                    {/* Points redemption celebration card */}
+                                    <div className="bg-orange-50 border border-orange-200 rounded-2xl px-6 py-5 mb-6">
+                                        <div className="flex items-center justify-between gap-4 mb-3">
+                                            <div>
+                                                <p className="text-base font-bold text-slate-800">🎉 כרטיס חגיגה למימוש נקודות גדול</p>
+                                                <p className="text-sm text-slate-500 mt-0.5">
+                                                    מעל סכום מסוים שהלקוח מממש בנקודות/קאשבק, נשלח אליו כרטיס חגיגי עם קונפטי (״חסכת ₪X היום!״) — משתף בסטורי ומזמין חברים למועדון.
+                                                </p>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                title="הפעל כרטיס חגיגה"
+                                                onClick={() => handleChange("points_celebration_enabled", !settings.points_celebration_enabled)}
+                                                className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${settings.points_celebration_enabled ? "bg-orange-500" : "bg-slate-200"}`}
+                                            >
+                                                <span className={`inline-block h-6 w-6 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${settings.points_celebration_enabled ? "translate-x-5" : "translate-x-0"}`} />
+                                            </button>
+                                        </div>
+                                        {settings.points_celebration_enabled && (
+                                            <div className="flex items-center gap-3 mt-4">
+                                                <span className="text-slate-600 font-medium text-sm">מעל מימוש של</span>
+                                                <div className="flex items-center gap-1">
+                                                    <span className="text-slate-500">₪</span>
+                                                    <input
+                                                        type="number"
+                                                        value={settings.points_celebration_threshold_cents ? settings.points_celebration_threshold_cents / 100 : ""}
+                                                        placeholder="300"
+                                                        onChange={e => handleChange("points_celebration_threshold_cents", e.target.value === "" ? 0 : Math.round((parseFloat(e.target.value) || 0) * 100))}
+                                                        className="w-24 text-center bg-white border border-orange-200 rounded-xl px-4 py-3 font-semibold text-lg outline-none focus:ring-2 focus:ring-orange-500"
+                                                        min="0"
+                                                    />
+                                                </div>
+                                                <span className="text-orange-600 font-bold text-sm">בתשלום אחד</span>
+                                            </div>
+                                        )}
                                     </div>
 
                                     <div className="grid md:grid-cols-2 gap-8">

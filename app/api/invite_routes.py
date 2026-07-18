@@ -44,6 +44,39 @@ def _decode(token: str) -> tuple[str, str] | None:
         return None
 
 
+_DEFAULT_OPTOUT_MESSAGE = "לחיצה על הכפתור תסיר אותך מקבלת הודעות שיווקיות מ-{studio_name}."
+
+
+@router.get("/{token}/info")
+def optout_page_info(token: str, db: Session = Depends(get_db)):
+    """Public — branding + customizable wording for the opt-out landing page."""
+    decoded = _decode(token)
+    if not decoded:
+        raise HTTPException(status_code=404, detail="קישור לא תקין")
+    studio_id, _client_id = decoded
+
+    from sqlalchemy import text
+    row = db.execute(
+        text("""
+            SELECT s.name, COALESCE(s.logo_url, mp.logo_url) AS logo_url, ss.logo_filename, ss.optout_page_message
+            FROM studios s
+            LEFT JOIN studio_settings ss ON ss.studio_id = s.id
+            LEFT JOIN marketplace_profiles mp ON mp.studio_id = s.id
+            WHERE s.id = :sid
+        """),
+        {"sid": studio_id}
+    ).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="לא נמצא")
+
+    studio_name = row[0] or "העסק"
+    logo_url = row[1] or (f"/uploads/{row[2]}" if row[2] else None)
+    template = row[3] or _DEFAULT_OPTOUT_MESSAGE
+    message = template.replace("{studio_name}", studio_name)
+
+    return {"studio_name": studio_name, "logo_url": logo_url, "message": message}
+
+
 @router.post("/{token}/optout")
 def optout_via_invite(token: str, db: Session = Depends(get_db)):
     """Opt the client out of all automated WhatsApp messages."""

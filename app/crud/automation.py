@@ -601,6 +601,82 @@ def maybe_enqueue_club_invite(db: Session, studio_id, client, appointment_id=Non
     return True
 
 
+def maybe_enqueue_points_celebration(db: Session, studio_id, client, amount_redeemed_cents: int) -> bool:
+    """
+    שולח ללקוח כרטיס חגיגי (עם קונפטי) כשהוא ממש הרבה נקודות/קאשבק בתשלום אחד —
+    מיועד לשיתוף בסטורי, וגם מזמין להצטרף למועדון.
+    מחזיר True אם נוסף ל-queue, False אחרת.
+    """
+    if not client or not client.phone:
+        return False
+    if getattr(client, "whatsapp_opted_out", False):
+        return False
+
+    settings = db.get(StudioSettings, studio_id)
+    if not settings or not getattr(settings, "points_celebration_enabled", True):
+        return False
+
+    threshold = int(getattr(settings, "points_celebration_threshold_cents", 30000) or 30000)
+    if amount_redeemed_cents < threshold:
+        return False
+
+    from app.models.studio import Studio
+    from app.services.celebration_card import build_points_celebration_png, save_celebration_image
+    import logging
+    log = logging.getLogger(__name__)
+
+    studio = db.get(Studio, studio_id)
+    studio_name = studio.name if studio else "המועדון שלנו"
+    frontend_url = os.getenv("FRONTEND_URL", "https://bizcontrol-seven.vercel.app").rstrip("/")
+    join_link = f"{frontend_url}/s/{studio.slug}" if studio and studio.slug else None
+
+    logo_image = None
+    try:
+        from sqlalchemy import text as _text
+        from app.api.gift_card_routes import _fetch_studio_logo
+        row = db.execute(
+            _text("""
+                SELECT COALESCE(s.logo_url, mp.logo_url) AS logo_url, ss.logo_filename
+                FROM studios s
+                LEFT JOIN studio_settings ss ON ss.studio_id = s.id
+                LEFT JOIN marketplace_profiles mp ON mp.studio_id = s.id
+                WHERE s.id = :sid
+            """),
+            {"sid": str(studio_id)}
+        ).fetchone()
+        if row:
+            logo_image = _fetch_studio_logo(row[0], row[1])
+    except Exception:
+        log.exception("celebration card logo lookup failed for studio %s", studio_id)
+
+    image_url = None
+    try:
+        png_bytes = build_points_celebration_png(
+            studio_name=studio_name,
+            client_name=client.full_name or "",
+            amount_saved_ils=amount_redeemed_cents / 100,
+            join_link=join_link,
+            logo_image=logo_image,
+        )
+        image_url = save_celebration_image(png_bytes, str(studio_id), db=db)
+    except Exception:
+        log.exception("celebration card build/save failed for client %s", client.id)
+
+    db.add(MessageJob(
+        studio_id=studio_id,
+        client_id=client.id,
+        channel="whatsapp",
+        to_phone=client.phone,
+        body=f"🎉 חסכת ₪{amount_redeemed_cents / 100:.0f} היום בזכות המועדון! תודה שאת/ה חלק מהמשפחה של {studio_name} 💫",
+        media_url=image_url,
+        scheduled_at=datetime.now(timezone.utc),
+        status="pending",
+        reminder_type="points_celebration",
+    ))
+    db.commit()
+    return True
+
+
 def build_aftercare_message(settings: StudioSettings, client: Client, points_added: int, points_total: int) -> str:
     parts: list[str] = []
     if settings.aftercare_message:

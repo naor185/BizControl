@@ -94,6 +94,14 @@ def create_payment(db: Session, studio_id: UUID, data) -> Payment:
         db.add(points_payment)
         db.commit()
 
+        # Big redemption → festive shareable card + club-join invite (best-effort)
+        try:
+            from app.crud.automation import maybe_enqueue_points_celebration
+            maybe_enqueue_points_celebration(db, studio_id, client, points_val_cents)
+        except Exception:
+            import logging as _log
+            _log.getLogger(__name__).exception("points celebration failed for payment %s", obj.id)
+
     # Award Cashback if the payment is "paid" and represents positive revenue
     points_earned = 0
     if obj.status == "paid" and obj.type in ("payment", "deposit"):
