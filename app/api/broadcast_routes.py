@@ -168,14 +168,21 @@ def send_test(
         raise HTTPException(400, "יש להזין תוכן הודעה")
 
     preview_body = payload.body.strip()
-    if "{optout_link}" in preview_body:
-        # If the test number belongs to a real client, generate a genuine,
-        # working opt-out link so the test is a true end-to-end check —
-        # otherwise fall back to a placeholder (no client to build a token for).
+
+    client = None
+    if "{client_name}" in preview_body or "{optout_link}" in preview_body:
+        # If the test number belongs to a real client, use their real name/
+        # link so the test is a true end-to-end check of what recipients see.
         from app.models.client import Client
         client = db.scalar(
             select(Client).where(Client.studio_id == ctx.studio_id, Client.phone == payload.phone.strip())
         )
+
+    if "{client_name}" in preview_body:
+        client_name = (client.full_name if client else None) or "לקוח/ה יקר/ה"
+        preview_body = preview_body.replace("{client_name}", client_name)
+
+    if "{optout_link}" in preview_body:
         if client:
             import os as _os
             from app.api.invite_routes import create_invite_token

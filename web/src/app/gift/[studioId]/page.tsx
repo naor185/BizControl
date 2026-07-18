@@ -133,6 +133,9 @@ export default function GiftCardShopPage() {
                     ) : (
                         <p style={{ color: "#c9a227", textAlign: "center" }}>ניתן לתאם תשלום ישירות מול {info.studio_name}</p>
                     )}
+                    <p style={{ color: "#5c5344", fontSize: 10.5, textAlign: "center", marginTop: 22 }}>
+                        נוצר באמצעות מערכת BizControl
+                    </p>
                 </div>
             </div>
         );
@@ -144,7 +147,7 @@ export default function GiftCardShopPage() {
             <div style={cardStyle}>
                 <div style={{ textAlign: "center", marginBottom: 28 }}>
                     {resolvedLogo ? (
-                        <img src={resolvedLogo} alt={info.studio_name} style={{ width: 72, height: 72, borderRadius: "50%", objectFit: "cover", border: "2px solid #c9a227", marginBottom: 10 }} />
+                        <img src={resolvedLogo} alt={info.studio_name} style={{ width: 76, height: 76, borderRadius: 14, objectFit: "contain", background: "#141414", border: "2px solid #c9a227", padding: 6, marginBottom: 10, display: "block", marginInline: "auto" }} />
                     ) : (
                         <div style={{ fontSize: 38, marginBottom: 6 }}>🎁</div>
                     )}
@@ -205,12 +208,19 @@ export default function GiftCardShopPage() {
                 <p style={{ color: "#6b6252", fontSize: 12, margin: "0 0 4px" }}>
                     טווח: ₪{minIls.toFixed(0)}{maxIls !== Infinity ? ` – ₪${maxIls.toFixed(0)}` : " ומעלה"}
                 </p>
+                <p style={{ color: "#9a8f77", fontSize: 12.5, margin: "6px 0 0" }}>
+                    💳 התשלום מתבצע באמצעות Bit
+                </p>
 
                 {submitErr && <p style={{ color: "#e5484d", fontSize: 14, marginTop: 12 }}>{submitErr}</p>}
 
                 <button type="button" onClick={submit} disabled={submitting} style={{ ...goldButtonStyle, width: "100%", marginTop: 20, opacity: submitting ? 0.6 : 1 }}>
                     {submitting ? "שולח..." : `המשך לתשלום — ₪${effectiveAmount || 0}`}
                 </button>
+
+                <p style={{ color: "#5c5344", fontSize: 10.5, textAlign: "center", marginTop: 22 }}>
+                    נוצר באמצעות מערכת BizControl
+                </p>
             </div>
         </div>
     );
