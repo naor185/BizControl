@@ -70,6 +70,9 @@ class StudioSettings(Base):
     # Gift card voucher appearance — one of "black_gold" | "purple_classic" | "cream_rose"
     gift_voucher_theme: Mapped[str] = mapped_column(String(30), nullable=False, default="black_gold", server_default="'black_gold'")
 
+    # How many months a purchased gift card stays valid for (public purchase flow)
+    gift_card_validity_months: Mapped[int] = mapped_column(Integer, nullable=False, default=12, server_default="12")
+
     # Customizable wording on the public opt-out landing page — supports {studio_name}
     optout_page_message: Mapped[str | None] = mapped_column(Text, nullable=True)
 

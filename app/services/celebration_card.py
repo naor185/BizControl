@@ -105,7 +105,7 @@ def build_points_celebration_png(
 
     center_text(panel_top + 44, "היום חסכת", font(28), MUTED)
     center_text(panel_top + 88, f"₪{amount_saved_ils:.0f}", font(88, bold=True), AMOUNT_COLOR)
-    center_text(panel_top + 200, f"בזכות מועדון הלקוחות של {studio_name} 🎉", font(24, bold=True), TEXT_DARK)
+    center_text(panel_top + 200, f"בזכות מועדון הלקוחות של {studio_name}", font(24, bold=True), TEXT_DARK)
 
     if join_link:
         box_top = H - pad - 110

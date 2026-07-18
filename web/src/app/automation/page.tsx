@@ -65,6 +65,7 @@ type Settings = {
     gift_card_min_amount_cents: number;
     gift_card_max_amount_cents: number;
     gift_voucher_theme: string;
+    gift_card_validity_months: number;
     optout_page_message?: string | null;
     points_celebration_enabled: boolean;
     points_celebration_threshold_cents: number;
@@ -627,6 +628,7 @@ export default function AutomationSettingsPage() {
                     gift_card_min_amount_cents: data.gift_card_min_amount_cents ?? 100,
                     gift_card_max_amount_cents: data.gift_card_max_amount_cents ?? 0,
                     gift_voucher_theme: data.gift_voucher_theme ?? "black_gold",
+                    gift_card_validity_months: data.gift_card_validity_months ?? 12,
                     optout_page_message: data.optout_page_message ?? "",
                     points_celebration_enabled: data.points_celebration_enabled ?? true,
                     points_celebration_threshold_cents: data.points_celebration_threshold_cents ?? 30000,
@@ -1729,6 +1731,20 @@ export default function AutomationSettingsPage() {
                                                             className="w-28 text-center bg-white border border-violet-200 rounded-xl px-4 py-3 font-semibold text-lg outline-none focus:ring-2 focus:ring-violet-500"
                                                             min="0"
                                                         />
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-3">
+                                                    <span className="text-slate-600 font-medium text-sm">תוקף הכרטיס</span>
+                                                    <div className="flex items-center gap-1">
+                                                        <input
+                                                            type="number"
+                                                            value={settings.gift_card_validity_months || ""}
+                                                            placeholder="12"
+                                                            onChange={e => handleChange("gift_card_validity_months", e.target.value === "" ? 12 : parseInt(e.target.value) || 12)}
+                                                            className="w-20 text-center bg-white border border-violet-200 rounded-xl px-4 py-3 font-semibold text-lg outline-none focus:ring-2 focus:ring-violet-500"
+                                                            min="1" max="60"
+                                                        />
+                                                        <span className="text-slate-500">חודשים</span>
                                                     </div>
                                                 </div>
                                             </div>

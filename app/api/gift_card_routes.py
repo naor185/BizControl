@@ -256,7 +256,7 @@ def _build_gift_card_voucher_png(
     else:
         draw.rounded_rectangle([pad, panel_top, W - pad, H - pad], radius=24, fill=th["panel_fill"])
 
-    center_text(panel_top + 36, f"איזה כיף, {recipient_name}! קיבלת מתנה 🎁", font(32, bold=True), th["panel_text"])
+    center_text(panel_top + 36, f"איזה כיף, {recipient_name}! קיבלת מתנה", font(32, bold=True), th["panel_text"])
     center_text(panel_top + 96, f"₪{amount_ils:.0f}", font(80, bold=True), th["accent"])
     if bonus_ils > 0:
         center_text(panel_top + 200, f"כולל בונוס של ₪{bonus_ils:.0f}!", font(20, bold=True), th["bonus_text"])
@@ -1122,13 +1122,14 @@ def public_create_gift_card_order(studio_id: str, body: PublicGiftCardOrderIn, d
     settings_row = db.execute(
         text("""
             SELECT gift_card_bonus_enabled, gift_card_bonus_threshold_cents, gift_card_bonus_percent,
-                   gift_card_min_amount_cents, gift_card_max_amount_cents
+                   gift_card_min_amount_cents, gift_card_max_amount_cents, gift_card_validity_months
             FROM studio_settings WHERE studio_id = :sid
         """),
         {"sid": studio_id}
     ).fetchone()
     min_cents = (settings_row[3] if settings_row and settings_row[3] is not None else 100)
     max_cents = (settings_row[4] if settings_row and settings_row[4] is not None else 0)
+    validity_months = (settings_row[5] if settings_row and settings_row[5] is not None else 12)
 
     if body.amount_cents < min_cents:
         raise HTTPException(400, f"סכום מינימלי לכרטיס מתנה אצל {studio_name}: ₪{min_cents/100:.0f}")
@@ -1164,7 +1165,8 @@ def public_create_gift_card_order(studio_id: str, body: PublicGiftCardOrderIn, d
             break
         code = _gen_code()
 
-    expires = date.today() + timedelta(days=365)
+    from dateutil.relativedelta import relativedelta
+    expires = date.today() + relativedelta(months=validity_months)
     card_id = str(uuid.uuid4())
     db.execute(
         text("""
