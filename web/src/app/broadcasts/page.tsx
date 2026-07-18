@@ -438,7 +438,7 @@ export default function BroadcastsPage() {
                                 {/* Personalization hint */}
                                 <div className="mt-2 text-xs text-slate-400 bg-slate-50 rounded-lg px-3 py-2 border border-slate-100 space-y-1">
                                     <div>💡 <span className="font-mono text-slate-500">{"{client_name}"}</span> יוחלף אוטומטית בשם כל לקוח/ה בעת השליחה</div>
-                                    <div>🔗 קישור הסרה אישי מתווסף אוטומטית בסוף כל הודעה — אפשר להשתמש ב-<span className="font-mono text-slate-500">{"{optout_link}"}</span> כדי לקבוע איפה הוא יופיע בטקסט</div>
+                                    <div>🔗 שורת &quot;להסרה מרשימת התפוצה: [קישור]&quot; מתווספת אוטומטית בסוף כל הודעה — אפשר להשתמש ב-<span className="font-mono text-slate-500">{"{optout_link}"}</span> כדי לקבוע איפה היא תופיע בטקסט במקום זה</div>
                                 </div>
                             </div>
 

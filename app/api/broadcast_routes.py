@@ -182,11 +182,11 @@ def send_test(
             frontend_url = _os.getenv("FRONTEND_URL", "https://bizcontrol-seven.vercel.app").rstrip("/")
             token = create_invite_token(db, str(ctx.studio_id), str(client.id))
             real_link = f"{frontend_url}/optout/{token}"
-            preview_body = preview_body.replace("{optout_link}", real_link)
+            preview_body = preview_body.replace("{optout_link}", f"להסרה מרשימת התפוצה: {real_link}")
         else:
             preview_body = preview_body.replace(
                 "{optout_link}",
-                "[קישור הסרה אישי יופיע כאן — הוסף/י את המספר הזה כלקוח כדי לראות קישור אמיתי בבדיקה]",
+                "להסרה מרשימת התפוצה: [קישור הסרה אישי יופיע כאן — הוסף/י את המספר הזה כלקוח כדי לראות קישור אמיתי בבדיקה]",
             )
 
     settings = db.get(StudioSettings, ctx.studio_id)

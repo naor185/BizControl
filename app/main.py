@@ -208,7 +208,7 @@ def start_scheduler():
                     optout_token = create_invite_token(db, str(b.studio_id), str(client.id))
                     optout_link = f"{frontend_url}/optout/{optout_token}"
                     if "{optout_link}" in personalized_body:
-                        personalized_body = personalized_body.replace("{optout_link}", optout_link)
+                        personalized_body = personalized_body.replace("{optout_link}", f"להסרה מרשימת התפוצה: {optout_link}")
                     else:
                         personalized_body = f"{personalized_body}\n\nלהסרה מרשימת התפוצה: {optout_link}"
 
