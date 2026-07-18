@@ -78,6 +78,18 @@ export default function GiftCardsPage() {
         } catch (e: unknown) { alert((e as Error).message); }
     };
 
+    const [cleaning, setCleaning] = useState(false);
+    const cleanupOrphaned = async () => {
+        setCleaning(true);
+        try {
+            const res = await apiFetch<{ deleted_invoices: number; deleted_pos_transactions: number }>(
+                "/api/gift-cards/cleanup-orphaned-records", { method: "POST" }
+            );
+            alert(`נוקו: ${res.deleted_invoices} קבלות, ${res.deleted_pos_transactions} רשומות הכנסה יתומות`);
+        } catch (e: unknown) { alert((e as Error).message); }
+        finally { setCleaning(false); }
+    };
+
     const approvePayment = async (id: string, sendReceipt: boolean) => {
         if (!confirm("לאשר שהתשלום התקבל ולשלוח את השובר?")) return;
         try {
@@ -144,6 +156,11 @@ export default function GiftCardsPage() {
                             <option value="canceled">בוטל</option>
                         </select>
                         <span className="text-xs text-slate-400 mr-auto">{cards.length} כרטיסים</span>
+                        <button type="button" onClick={cleanupOrphaned} disabled={cleaning}
+                            title="מסיר קבלות/רשומות הכנסה שנשארו מכרטיסים שכבר נמחקו"
+                            className="text-xs text-slate-400 hover:text-slate-600 disabled:opacity-50 underline">
+                            {cleaning ? "מנקה..." : "🧹 נקה רשומות יתומות"}
+                        </button>
                     </div>
 
                     {/* List */}

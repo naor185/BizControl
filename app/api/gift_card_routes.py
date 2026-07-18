@@ -761,6 +761,50 @@ def delete_gift_card(
     return None
 
 
+@router.post("/cleanup-orphaned-records", dependencies=[Depends(require_roles(Perms.OWNER, Perms.ADMIN))])
+def cleanup_orphaned_gift_card_records(
+    ctx: AuthContext = Depends(require_studio_ctx),
+    db: Session = Depends(get_db),
+):
+    """One-time maintenance: cards deleted before the delete endpoint also
+    cleaned up their linked receipt/revenue record left those records
+    behind. Finds and removes any such leftovers for this studio."""
+    deleted_invoices = 0
+    deleted_pos = 0
+
+    orphaned_invoices = db.execute(
+        text("""
+            SELECT i.id FROM invoices i
+            WHERE i.studio_id = :sid AND i.source = 'gift_card'
+              AND NOT EXISTS (SELECT 1 FROM gift_cards gc WHERE gc.id = i.source_id)
+        """),
+        {"sid": str(ctx.studio_id)}
+    ).fetchall()
+    for row in orphaned_invoices:
+        db.execute(text("DELETE FROM invoices WHERE id = :id"), {"id": str(row[0])})
+        deleted_invoices += 1
+
+    pos_rows = db.execute(
+        text("""
+            SELECT id, notes FROM pos_transactions
+            WHERE studio_id = :sid AND notes LIKE 'מכירת כרטיס מתנה %'
+        """),
+        {"sid": str(ctx.studio_id)}
+    ).fetchall()
+    for row in pos_rows:
+        code = (row[1] or "").replace("מכירת כרטיס מתנה", "").strip()
+        exists = db.execute(
+            text("SELECT 1 FROM gift_cards WHERE code = :code AND studio_id = :sid"),
+            {"code": code, "sid": str(ctx.studio_id)}
+        ).fetchone()
+        if not exists:
+            db.execute(text("DELETE FROM pos_transactions WHERE id = :id"), {"id": str(row[0])})
+            deleted_pos += 1
+
+    db.commit()
+    return {"deleted_invoices": deleted_invoices, "deleted_pos_transactions": deleted_pos}
+
+
 @router.post("/{card_id}/approve-payment")
 def approve_gift_card_payment(
     card_id: str,
