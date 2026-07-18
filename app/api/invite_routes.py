@@ -108,6 +108,16 @@ def optout_via_invite(token: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="לא נמצא")
 
     client.whatsapp_opted_out = True
+
+    from app.models.notification import Notification
+    db.add(Notification(
+        studio_id=UUID(studio_id),
+        type="client_optout",
+        title=f"{client.full_name} הוסר/ה מרשימת ההודעות",
+        body=f"{client.phone or client.email or ''} ביקש/ה להסיר את עצמו/ה מהודעות שיווקיות אוטומטיות",
+        action_url=f"/clients/{client_id}",
+    ))
+
     db.commit()
     log.info("Client %s opted out via link (studio %s)", client_id, studio_id)
     return {"ok": True}

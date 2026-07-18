@@ -815,6 +815,18 @@ def ensure_schema():
         """)
         cur.execute("CREATE INDEX IF NOT EXISTS ix_gct_card ON gift_card_transactions (gift_card_id)")
 
+        # ── Gift card purchase-page view tracking ──────────────────────────────
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS gift_card_page_views (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                view_date DATE NOT NULL DEFAULT CURRENT_DATE,
+                count INTEGER NOT NULL DEFAULT 1,
+                UNIQUE (studio_id, view_date)
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_gcpv_studio_date ON gift_card_page_views (studio_id, view_date)")
+
         # ── Marketplace Analytics ─────────────────────────────────────────────
         cur.execute("""
             CREATE TABLE IF NOT EXISTS marketplace_page_views (

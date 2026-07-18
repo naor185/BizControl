@@ -52,6 +52,9 @@ export default function GiftCardShopPage() {
             })
             .catch(() => setLoadErr("העסק לא נמצא"))
             .finally(() => setLoading(false));
+
+        // Fire-and-forget page-view counter — doesn't affect the page either way
+        fetch(`${API}/api/public/gift-cards/shop/${studioId}/view`, { method: "POST" }).catch(() => {});
     }, [studioId]);
 
     const resolvedLogo = info?.logo_url || (info?.logo_filename ? `${API}/uploads/${info.logo_filename}` : null);

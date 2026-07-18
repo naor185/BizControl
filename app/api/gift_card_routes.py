@@ -656,6 +656,30 @@ def preview_gift_card_voucher(
     return {"image_b64": base64.b64encode(png_bytes).decode("ascii")}
 
 
+@router.get("/page-views")
+def gift_card_page_views(
+    ctx: AuthContext = Depends(require_studio_ctx),
+    db: Session = Depends(get_db),
+):
+    """How many times the studio's public gift-card purchase page was viewed."""
+    row = db.execute(
+        text("""
+            SELECT
+                COALESCE(SUM(count) FILTER (WHERE view_date >= CURRENT_DATE - INTERVAL '7 days'), 0),
+                COALESCE(SUM(count) FILTER (WHERE view_date >= CURRENT_DATE - INTERVAL '30 days'), 0),
+                COALESCE(SUM(count), 0)
+            FROM gift_card_page_views
+            WHERE studio_id = :sid
+        """),
+        {"sid": str(ctx.studio_id)}
+    ).fetchone()
+    return {
+        "last_7_days": int(row[0]),
+        "last_30_days": int(row[1]),
+        "total": int(row[2]),
+    }
+
+
 @router.get("/{card_id}")
 def get_gift_card(
     card_id: str,
@@ -708,15 +732,28 @@ def delete_gift_card(
     ctx: AuthContext = Depends(require_studio_ctx),
     db: Session = Depends(get_db),
 ):
-    """Permanently remove a gift card and its redemption history — e.g. to
-    clean up a test purchase. Unlike /cancel (a soft status flip that keeps
-    the row forever), this is a hard delete."""
+    """Permanently remove a gift card, its redemption history, and — if the
+    purchase was already approved — the revenue record and receipt that were
+    created for it, so a deleted test card leaves no trace in the books.
+    Unlike /cancel (a soft status flip that keeps the row forever), this is
+    a hard delete."""
     row = db.execute(
-        text("SELECT id FROM gift_cards WHERE id = :id AND studio_id = :sid"),
+        text("SELECT id, code FROM gift_cards WHERE id = :id AND studio_id = :sid"),
         {"id": card_id, "sid": str(ctx.studio_id)}
     ).fetchone()
     if not row:
         raise HTTPException(404, "כרטיס לא נמצא")
+    code = row[1]
+
+    # Receipt/tax-invoice created on approval (source='gift_card' → this card)
+    db.execute(text("DELETE FROM invoices WHERE source = 'gift_card' AND source_id = :id"), {"id": card_id})
+
+    # Revenue record created on approval — matched by the notes we tag it
+    # with, since pos_transactions has no direct gift_card_id column.
+    db.execute(
+        text("DELETE FROM pos_transactions WHERE studio_id = :sid AND notes = :notes"),
+        {"sid": str(ctx.studio_id), "notes": f"מכירת כרטיס מתנה {code}"}
+    )
 
     db.execute(text("DELETE FROM gift_card_transactions WHERE gift_card_id = :id"), {"id": card_id})
     db.execute(text("DELETE FROM gift_cards WHERE id = :id"), {"id": card_id})
@@ -1097,6 +1134,22 @@ def public_gift_card_shop_info(studio_id: str, db: Session = Depends(get_db)):
         "min_amount_cents": row[5] if row[5] is not None else 100,
         "max_amount_cents": row[6] if row[6] is not None else 0,
     }
+
+
+@public_router.post("/shop/{studio_id}/view", status_code=204)
+def track_gift_card_page_view(studio_id: str, db: Session = Depends(get_db)):
+    """Increment today's view counter for this studio's gift-card purchase
+    page — called once by the public page on load. No auth (public page)."""
+    db.execute(
+        text("""
+            INSERT INTO gift_card_page_views (id, studio_id, view_date, count)
+            VALUES (gen_random_uuid(), :sid, CURRENT_DATE, 1)
+            ON CONFLICT (studio_id, view_date)
+            DO UPDATE SET count = gift_card_page_views.count + 1
+        """),
+        {"sid": studio_id}
+    )
+    db.commit()
 
 
 @public_router.post("/order/{studio_id}", status_code=201)

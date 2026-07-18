@@ -40,6 +40,7 @@ export default function GiftCardsPage() {
     const [showCreate, setShowCreate] = useState(false);
     const [filterStatus, setFilterStatus] = useState("");
     const [selected, setSelected] = useState<GiftCard | null>(null);
+    const [pageViews, setPageViews] = useState<{ last_7_days: number; last_30_days: number; total: number } | null>(null);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -52,6 +53,12 @@ export default function GiftCardsPage() {
     }, [filterStatus]);
 
     useEffect(() => { load(); }, [load]);
+
+    useEffect(() => {
+        apiFetch<{ last_7_days: number; last_30_days: number; total: number }>("/api/gift-cards/page-views")
+            .then(setPageViews)
+            .catch(() => {});
+    }, []);
 
     const cancel = async (id: string) => {
         if (!confirm("לבטל כרטיס זה?")) return;
@@ -112,6 +119,15 @@ export default function GiftCardsPage() {
                             </div>
                         ))}
                     </div>
+
+                    {pageViews && (
+                        <div className="text-xs text-slate-400 bg-white rounded-xl border border-slate-100 px-4 py-2.5 flex flex-wrap gap-x-4 gap-y-1">
+                            <span>👁️ ביקורים בדף הרכישה:</span>
+                            <span className="font-bold text-slate-600">{pageViews.last_7_days} ב-7 ימים</span>
+                            <span className="font-bold text-slate-600">{pageViews.last_30_days} ב-30 יום</span>
+                            <span className="font-bold text-slate-600">{pageViews.total} סה״כ</span>
+                        </div>
+                    )}
 
                     {/* Toolbar */}
                     <div className="flex gap-2 flex-wrap items-center">
