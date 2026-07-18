@@ -180,7 +180,7 @@ def send_test(
             import os as _os
             from app.api.invite_routes import create_invite_token
             frontend_url = _os.getenv("FRONTEND_URL", "https://bizcontrol-seven.vercel.app").rstrip("/")
-            token = create_invite_token(str(ctx.studio_id), str(client.id))
+            token = create_invite_token(db, str(ctx.studio_id), str(client.id))
             real_link = f"{frontend_url}/optout/{token}"
             preview_body = preview_body.replace("{optout_link}", real_link)
         else:

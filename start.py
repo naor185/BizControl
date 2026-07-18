@@ -788,6 +788,17 @@ def ensure_schema():
         cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS points_celebration_enabled BOOLEAN NOT NULL DEFAULT true")
         cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS points_celebration_threshold_cents INTEGER NOT NULL DEFAULT 30000")
 
+        # ── Short opt-out links — a short code instead of a long JWT in the URL ──
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS client_optout_links (
+                code VARCHAR(12) PRIMARY KEY,
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                UNIQUE (studio_id, client_id)
+            )
+        """)
+
         cur.execute("""
             CREATE TABLE IF NOT EXISTS gift_card_transactions (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

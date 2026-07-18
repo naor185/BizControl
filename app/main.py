@@ -205,7 +205,7 @@ def start_scheduler():
                     # never goes out without a way to unsubscribe. If the studio
                     # placed {optout_link} in the text, fill it in there; otherwise
                     # append a default footer.
-                    optout_token = create_invite_token(str(b.studio_id), str(client.id))
+                    optout_token = create_invite_token(db, str(b.studio_id), str(client.id))
                     optout_link = f"{frontend_url}/optout/{optout_token}"
                     if "{optout_link}" in personalized_body:
                         personalized_body = personalized_body.replace("{optout_link}", optout_link)

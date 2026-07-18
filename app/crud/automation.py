@@ -538,7 +538,7 @@ def maybe_enqueue_club_invite(db: Session, studio_id, client, appointment_id=Non
     studio = db.get(Studio, studio_id)
     slug = studio.slug if studio else None
     join_link = f"{frontend_url}/s/{slug}" if slug else ""
-    optout_token = create_invite_token(str(studio_id), str(client.id))
+    optout_token = create_invite_token(db, str(studio_id), str(client.id))
     optout_link = f"{frontend_url}/optout/{optout_token}"
     points_on_signup = int(getattr(settings, "points_on_signup", 50) or 50)
 

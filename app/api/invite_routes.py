@@ -1,17 +1,22 @@
 """
 Opt-out links for automated WhatsApp messages.
 
-Token: JWT (no expiry) encoding studio_id + client_id — same secret as the rest of the app.
+Short code (8 chars, stored in client_optout_links) instead of a JWT — same
+studio_id+client_id a JWT would encode, just a lot shorter in the URL. The
+same client always gets the same code back (idempotent — no link rot).
 Endpoint (public, no auth):
-  POST /public/invite/{token}/optout  → set client.whatsapp_opted_out = True
+  POST /public/invite/{code}/optout  → set client.whatsapp_opted_out = True
 """
 from __future__ import annotations
 
 import logging
-import os
+import secrets
+import string
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -20,28 +25,41 @@ log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/public/invite", tags=["Invite"])
 
-_JWT_SECRET = os.getenv("JWT_SECRET", "dev-secret-change-me")
-_JWT_ALG = "HS256"
+_CODE_CHARS = string.ascii_letters + string.digits
 
 
-def create_invite_token(studio_id: str, client_id: str) -> str:
-    from jose import jwt
-    return jwt.encode(
-        {"type": "invite", "studio_id": str(studio_id), "client_id": str(client_id)},
-        _JWT_SECRET,
-        algorithm=_JWT_ALG,
-    )
+def create_invite_token(db: Session, studio_id: str, client_id: str) -> str:
+    """Return this client's opt-out code, creating one if they don't have it yet."""
+    existing = db.execute(
+        text("SELECT code FROM client_optout_links WHERE studio_id = :sid AND client_id = :cid"),
+        {"sid": str(studio_id), "cid": str(client_id)}
+    ).fetchone()
+    if existing:
+        return existing[0]
+
+    for _ in range(5):
+        code = "".join(secrets.choice(_CODE_CHARS) for _ in range(8))
+        try:
+            db.execute(
+                text("INSERT INTO client_optout_links (code, studio_id, client_id) VALUES (:code, :sid, :cid)"),
+                {"code": code, "sid": str(studio_id), "cid": str(client_id)}
+            )
+            db.commit()
+            return code
+        except IntegrityError:
+            db.rollback()
+            continue
+    raise RuntimeError("Could not generate a unique opt-out code")
 
 
-def _decode(token: str) -> tuple[str, str] | None:
-    from jose import jwt, JWTError
-    try:
-        payload = jwt.decode(token, _JWT_SECRET, algorithms=[_JWT_ALG])
-        if payload.get("type") != "invite":
-            return None
-        return payload["studio_id"], payload["client_id"]
-    except (JWTError, KeyError):
+def _resolve_code(db: Session, code: str) -> tuple[str, str] | None:
+    row = db.execute(
+        text("SELECT studio_id, client_id FROM client_optout_links WHERE code = :code"),
+        {"code": code}
+    ).fetchone()
+    if not row:
         return None
+    return str(row[0]), str(row[1])
 
 
 _DEFAULT_OPTOUT_MESSAGE = "לחיצה על הכפתור תסיר אותך מקבלת הודעות שיווקיות מ-{studio_name}."
@@ -50,12 +68,11 @@ _DEFAULT_OPTOUT_MESSAGE = "לחיצה על הכפתור תסיר אותך מקב
 @router.get("/{token}/info")
 def optout_page_info(token: str, db: Session = Depends(get_db)):
     """Public — branding + customizable wording for the opt-out landing page."""
-    decoded = _decode(token)
+    decoded = _resolve_code(db, token)
     if not decoded:
         raise HTTPException(status_code=404, detail="קישור לא תקין")
     studio_id, _client_id = decoded
 
-    from sqlalchemy import text
     row = db.execute(
         text("""
             SELECT s.name, COALESCE(s.logo_url, mp.logo_url) AS logo_url, ss.logo_filename, ss.optout_page_message
@@ -80,7 +97,7 @@ def optout_page_info(token: str, db: Session = Depends(get_db)):
 @router.post("/{token}/optout")
 def optout_via_invite(token: str, db: Session = Depends(get_db)):
     """Opt the client out of all automated WhatsApp messages."""
-    decoded = _decode(token)
+    decoded = _resolve_code(db, token)
     if not decoded:
         raise HTTPException(status_code=404, detail="קישור לא תקין")
     studio_id, client_id = decoded
