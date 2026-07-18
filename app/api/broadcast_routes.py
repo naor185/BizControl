@@ -167,9 +167,27 @@ def send_test(
     if not payload.body.strip():
         raise HTTPException(400, "יש להזין תוכן הודעה")
 
-    # Preview only — no real client to build a token for, so just show where
-    # the real opt-out link will land once the broadcast actually sends.
-    preview_body = payload.body.strip().replace("{optout_link}", "[קישור הסרה אישי יופיע כאן]")
+    preview_body = payload.body.strip()
+    if "{optout_link}" in preview_body:
+        # If the test number belongs to a real client, generate a genuine,
+        # working opt-out link so the test is a true end-to-end check —
+        # otherwise fall back to a placeholder (no client to build a token for).
+        from app.models.client import Client
+        client = db.scalar(
+            select(Client).where(Client.studio_id == ctx.studio_id, Client.phone == payload.phone.strip())
+        )
+        if client:
+            import os as _os
+            from app.api.invite_routes import create_invite_token
+            frontend_url = _os.getenv("FRONTEND_URL", "https://bizcontrol-seven.vercel.app").rstrip("/")
+            token = create_invite_token(str(ctx.studio_id), str(client.id))
+            real_link = f"{frontend_url}/optout/{token}"
+            preview_body = preview_body.replace("{optout_link}", real_link)
+        else:
+            preview_body = preview_body.replace(
+                "{optout_link}",
+                "[קישור הסרה אישי יופיע כאן — הוסף/י את המספר הזה כלקוח כדי לראות קישור אמיתי בבדיקה]",
+            )
 
     settings = db.get(StudioSettings, ctx.studio_id)
     try:
