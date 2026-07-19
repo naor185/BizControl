@@ -132,9 +132,14 @@ def delete_rule(rule_id: uuid.UUID, ctx: AuthContext = Depends(require_studio_ct
 
 @router.get("/{rule_id}/executions")
 def get_executions(rule_id: uuid.UUID, ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+    rule = db.scalar(select(AutomationRule).where(
+        AutomationRule.id == rule_id, AutomationRule.studio_id == ctx.studio_id
+    ))
+    if not rule:
+        raise HTTPException(404, "Rule not found")
     execs = db.scalars(
         select(AutomationExecution)
-        .where(AutomationExecution.rule_id == rule_id)
+        .where(AutomationExecution.rule_id == rule_id, AutomationExecution.studio_id == ctx.studio_id)
         .order_by(AutomationExecution.executed_at.desc())
         .limit(50)
     ).all()
