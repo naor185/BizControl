@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from jose import JWTError
 
 from app.core.database import get_db
@@ -417,7 +417,7 @@ def forgot_password(request: Request, payload: ForgotPasswordIn, db: Session = D
 
 class SetPasswordRequest(BaseModel):
     token: str
-    new_password: str
+    new_password: str = Field(min_length=6)
 
 
 @router.post("/set-password")
@@ -440,7 +440,7 @@ def set_password(payload: SetPasswordRequest, db: Session = Depends(get_db)):
 
 class ChangePasswordRequest(BaseModel):
     current_password: str
-    new_password: str
+    new_password: str = Field(min_length=6)
 
 
 @router.post("/change-password")

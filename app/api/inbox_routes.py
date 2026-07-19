@@ -192,13 +192,17 @@ def reply_to_message(
         try:
             resp = httpx.post(
                 "https://graph.facebook.com/v19.0/me/messages",
-                params={"access_token": token},
+                headers={"Authorization": f"Bearer {token}"},
                 json={"recipient": {"id": recipient_id}, "message": {"text": payload.body}},
                 timeout=10,
             )
             resp.raise_for_status()
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Meta API error: {str(e)}")
+            # Never echo the raw exception — httpx errors embed the request
+            # URL/headers, which could include the access token.
+            import logging as _log
+            _log.getLogger(__name__).exception("[inbox] Meta send failed")
+            raise HTTPException(status_code=500, detail="שליחת ההודעה ל-Meta נכשלה")
 
         db.add(MessageJob(
             studio_id=ctx.studio_id,

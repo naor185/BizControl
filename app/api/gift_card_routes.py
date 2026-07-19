@@ -45,7 +45,16 @@ def _send_gift_card_email(
 ) -> None:
     """Send a beautiful HTML gift card email via the centralized Email Center."""
     import logging
+    from html import escape as _esc
     log = logging.getLogger(__name__)
+
+    # These strings can originate from the public (unauthenticated) order
+    # form — recipient_name/message are customer-typed free text — so they
+    # must be escaped before landing in an HTML email body.
+    recipient_name = _esc(recipient_name or "")
+    sender_name = _esc(sender_name or "")
+    studio_name = _esc(studio_name or "")
+    message = _esc(message) if message else None
 
     expiry_str = expires_at.strftime("%d/%m/%Y") if expires_at else "ללא תפוגה"
     msg_block = f"<p style='color:#64748b;font-size:15px;line-height:1.6;margin:16px 0;'>\"{message}\"</p>" if message else ""
@@ -1021,10 +1030,11 @@ def approve_gift_card_payment(
                 ))
             if buyer_client.email:
                 from app.utils.email_templates import _email_base
+                from html import escape as _esc
                 email_html = (
-                    f"<p>שלום <strong>{buyer_client.full_name or ''}</strong>,</p>"
-                    f"<p>תודה על הרכישה! 🙏<br>כרטיס המתנה שלך ל-{studio_name} בשווי ₪{card['amount_cents'] / 100:.0f} "
-                    f"נשלח בהצלחה ל-<strong>{recipient_display}</strong>.</p>"
+                    f"<p>שלום <strong>{_esc(buyer_client.full_name or '')}</strong>,</p>"
+                    f"<p>תודה על הרכישה! 🙏<br>כרטיס המתנה שלך ל-{_esc(studio_name)} בשווי ₪{card['amount_cents'] / 100:.0f} "
+                    f"נשלח בהצלחה ל-<strong>{_esc(recipient_display)}</strong>.</p>"
                 )
                 db.add(MessageJob(
                     studio_id=ctx.studio_id,

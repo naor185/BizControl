@@ -69,8 +69,8 @@ def sync_ad_insights(
     try:
         resp = httpx.get(
             f"{META_BASE}/act_{account_id}/insights",
+            headers={"Authorization": f"Bearer {token}"},
             params={
-                "access_token": token,
                 "fields": INSIGHT_FIELDS,
                 "level": "ad",
                 "time_range": f'{{"since":"{date_since}","until":"{date_until}"}}',
@@ -81,9 +81,11 @@ def sync_ad_insights(
         )
         resp.raise_for_status()
         data = resp.json()
-    except Exception as e:
-        log.error("[meta_ads_sync] API error: %s", e)
-        return {"ok": False, "error": str(e)}
+    except Exception:
+        # Never echo the raw exception client-side — httpx errors embed the
+        # request URL, which could include query params in other call sites.
+        log.exception("[meta_ads_sync] API error")
+        return {"ok": False, "error": "סנכרון הנתונים מ-Meta נכשל"}
 
     rows: list[dict[str, Any]] = data.get("data", [])
     synced_count = 0

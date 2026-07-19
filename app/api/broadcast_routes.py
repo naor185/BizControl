@@ -1,5 +1,6 @@
 from __future__ import annotations
 import os
+import re
 from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID, uuid4
@@ -58,7 +59,10 @@ def upload_broadcast_media(
     vouchers earlier — same fix applies here)."""
     if file.content_type not in ALLOWED_MEDIA_TYPES:
         raise HTTPException(400, "סוג קובץ לא נתמך. מותרים: תמונות ווידאו בלבד")
-    ext = (file.filename or "file").rsplit(".", 1)[-1].lower() if "." in (file.filename or "") else "jpg"
+    raw_ext = (file.filename or "file").rsplit(".", 1)[-1].lower() if "." in (file.filename or "") else "jpg"
+    # Whitelist only — the client-supplied filename must never reach a
+    # filesystem path unsanitized (path traversal via a crafted extension).
+    ext = raw_ext if re.fullmatch(r"[a-z0-9]{1,5}", raw_ext) else "jpg"
     file_bytes = file.file.read()
 
     try:

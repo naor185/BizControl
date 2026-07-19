@@ -461,7 +461,8 @@ def enqueue_post_payment_message(db: Session, appt: Appointment, amount_cents: i
                 f'<p><a href="{settings.review_link_google.strip()}" style="color:#111;">'
                 f'{settings.review_link_google.strip()}</a></p>'
             )
-        aftercare_html = f'<h3 style="color:#333;">💊 הוראות טיפול</h3><p style="color:#555;">{settings.aftercare_message}</p>' if settings.aftercare_message else ""
+        from html import escape as _esc_ac
+        aftercare_html = f'<h3 style="color:#333;">💊 הוראות טיפול</h3><p style="color:#555;">{_esc_ac(settings.aftercare_message)}</p>' if settings.aftercare_message else ""
         points_html = f'<div style="background:#f0fdf4;border-radius:8px;padding:12px 16px;margin:16px 0;"><strong style="color:#166534;">🎁 צברת {points_earned} נקודות!</strong><br><span style="color:#555;">סה"כ: {points_total} נקודות.</span></div>' if points_earned > 0 else ""
         email_template = f"""<div dir="rtl" style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#111;">
   <div style="background:#111;padding:24px 30px;border-radius:12px 12px 0 0;">
@@ -478,7 +479,11 @@ def enqueue_post_payment_message(db: Session, appt: Appointment, amount_cents: i
 </div>"""
     if client.email \
             and _email_ok(db, appt.studio_id, "email_post_payment_enabled"):
-        email_body = smart_format(email_template, context)
+        from html import escape as _esc
+        email_context = dict(context)
+        email_context["client_name"] = _esc(context["client_name"] or "")
+        email_context["appointment_title"] = _esc(context["appointment_title"] or "")
+        email_body = smart_format(email_template, email_context)
         # Plain-text custom email templates also need aftercare and review appended
         if "{" not in email_template:
             if aftercare_block:
@@ -576,9 +581,10 @@ def maybe_enqueue_club_invite(db: Session, studio_id, client, appointment_id=Non
     # Email club invite
     if client.email and _email_ok(db, studio_id, "email_club_invite_enabled"):
         from app.utils.email_templates import _email_base
+        from html import escape as _esc
         _join_btn = ('<p><a href="' + join_link + '" style="display:inline-block;background:#1a1a2e;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;">הצטרף/י עכשיו</a></p>') if join_link else ""
         email_html = (
-            f"<p>היי <strong>{client.full_name or ''}</strong>! 👋</p>"
+            f"<p>היי <strong>{_esc(client.full_name or '')}</strong>! 👋</p>"
             f"<p>שמחים שביקרת אצלנו!</p>"
             f"<p>הצטרף/י למועדון הלקוחות שלנו וקבל/י <strong>{points_on_signup} נקודות מתנה</strong> לביקור הבא 🎉</p>"
             f"{_join_btn}"
