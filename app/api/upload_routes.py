@@ -1,13 +1,31 @@
+import ipaddress
 import os
 import shutil
+import socket
 import urllib.request
 import urllib.error
+from urllib.parse import urlparse
 from uuid import uuid4
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from pydantic import BaseModel
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
+
+
+def _assert_public_url(url: str) -> None:
+    """Reject URLs that resolve to loopback/private/link-local/reserved addresses (SSRF guard)."""
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https") or not parsed.hostname:
+        raise HTTPException(status_code=400, detail="קישור לא תקין")
+    try:
+        addrs = {info[4][0] for info in socket.getaddrinfo(parsed.hostname, None)}
+    except socket.gaierror:
+        raise HTTPException(status_code=400, detail="לא ניתן לפענח את הכתובת")
+    for addr in addrs:
+        ip = ipaddress.ip_address(addr)
+        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast:
+            raise HTTPException(status_code=400, detail="קישור לא תקין")
 
 def _cloudinary_upload(file_bytes: bytes, folder: str, public_id: str, db=None) -> str | None:
     """Upload to Cloudinary if configured. Returns secure URL or None."""
@@ -265,8 +283,7 @@ def import_gallery_from_url(
         raise HTTPException(status_code=400, detail="מקסימום 20 תמונות בגלריה")
 
     url = payload.url.strip()
-    if not url.startswith("http"):
-        raise HTTPException(status_code=400, detail="קישור לא תקין")
+    _assert_public_url(url)
 
     gallery_dir = os.path.join(UPLOAD_DIR, "gallery", str(ctx.studio_id))
     os.makedirs(gallery_dir, exist_ok=True)

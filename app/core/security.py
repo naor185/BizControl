@@ -1,8 +1,10 @@
 import os
+import re
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
 from jose import jwt
+from fastapi import HTTPException
 
 JWT_SECRET = os.getenv("JWT_SECRET", "dev-secret-change-me")
 JWT_ALG = os.getenv("JWT_ALG", "HS256")
@@ -43,3 +45,11 @@ def create_business_unlock_token(user_id: str, studio_id: str) -> str:
         "exp": expire,
         "type": "business_unlock",
     }, JWT_SECRET, algorithm=JWT_ALG)
+
+def validate_password_strength(password: str) -> None:
+    """Raise HTTPException if password is too weak (min 8 chars, letter + digit)."""
+    if len(password) < 8 or not re.search(r"[A-Za-z]", password) or not re.search(r"\d", password):
+        raise HTTPException(
+            status_code=400,
+            detail="הסיסמה חייבת להכיל לפחות 8 תווים, אות אחת וספרה אחת",
+        )

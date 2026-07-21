@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 from app.core.database import get_db
 from app.core.deps import require_studio_ctx, AuthContext
+from app.core.limiter import limiter
 from app.db.deps import get_db as _get_db
 
 router = APIRouter(prefix="/marketplace", tags=["Marketplace"])
@@ -658,7 +659,9 @@ class ReviewCreate(BaseModel):
 
 
 @router.post("/{slug}/reviews", status_code=201)
-def submit_review(slug: str, payload: ReviewCreate, db: Session = Depends(get_db)):
+@limiter.limit("3/hour")
+def submit_review(request: Request, slug: str, payload: ReviewCreate, db: Session = Depends(get_db)):
+    from html import escape as _esc
     from app.models.studio import Studio
     from app.models.studio_review import StudioReview
 
@@ -668,9 +671,9 @@ def submit_review(slug: str, payload: ReviewCreate, db: Session = Depends(get_db
 
     review = StudioReview(
         studio_id=studio.id,
-        client_name=payload.client_name,
+        client_name=_esc(payload.client_name),
         rating=payload.rating,
-        comment=payload.comment,
+        comment=_esc(payload.comment) if payload.comment else payload.comment,
         is_approved=False,  # requires approval
     )
     db.add(review)

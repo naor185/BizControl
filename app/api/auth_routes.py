@@ -16,7 +16,7 @@ from jose import JWTError
 
 from app.core.database import get_db
 from app.core.limiter import limiter
-from app.core.security import create_access_token, create_refresh_token, decode_token, create_set_password_token, JWT_SECRET, JWT_ALG
+from app.core.security import create_access_token, create_refresh_token, decode_token, create_set_password_token, validate_password_strength, JWT_SECRET, JWT_ALG
 from app.core.auth_deps import get_current_user
 from app.models.studio import Studio
 from app.models.user import User
@@ -431,6 +431,7 @@ def set_password(payload: SetPasswordRequest, db: Session = Depends(get_db)):
     user = db.get(User, data["sub"])
     if not user or not user.is_active:
         raise HTTPException(status_code=404, detail="משתמש לא נמצא")
+    validate_password_strength(payload.new_password)
     user.password_hash = ph.hash(payload.new_password)
     db.commit()
     return {"status": "ok"}
@@ -449,6 +450,7 @@ def change_password(payload: ChangePasswordRequest, current_user: User = Depends
         ph.verify(current_user.password_hash, payload.current_password)
     except VerifyMismatchError:
         raise HTTPException(status_code=400, detail="הסיסמה הנוכחית שגויה")
+    validate_password_strength(payload.new_password)
     current_user.password_hash = ph.hash(payload.new_password)
     db.commit()
     return {"status": "ok"}

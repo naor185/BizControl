@@ -29,7 +29,7 @@ from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.security import JWT_SECRET
+from app.core.security import JWT_SECRET, validate_password_strength
 from app.core.limiter import limiter
 
 router = APIRouter(prefix="/marketplace/auth", tags=["MarketplaceAuth"])
@@ -274,8 +274,7 @@ def register_email(body: EmailRegisterIn, db: Session = Depends(get_db)):
     email = body.email.strip().lower()
     if "@" not in email or "." not in email.split("@")[-1]:
         raise HTTPException(status_code=400, detail="כתובת אימייל לא תקינה")
-    if len(body.password) < 6:
-        raise HTTPException(status_code=400, detail="הסיסמה חייבת להכיל לפחות 6 תווים")
+    validate_password_strength(body.password)
     if not body.first_name.strip() or not body.last_name.strip():
         raise HTTPException(status_code=400, detail="שם פרטי ושם משפחה נדרשים")
 
