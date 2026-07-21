@@ -388,7 +388,9 @@ def forgot_password(request: Request, payload: ForgotPasswordIn, db: Session = D
         User.is_active == True,  # noqa: E712
     ))
     if not user:
-        raise HTTPException(status_code=404, detail="email_not_found")
+        # Same response as the success path — don't reveal whether this
+        # email is registered (avoids account enumeration).
+        return {"status": "sent"}
 
     token = create_set_password_token(str(user.id))
     frontend_url = os.getenv("FRONTEND_URL", "https://bizcontrol-seven.vercel.app")
