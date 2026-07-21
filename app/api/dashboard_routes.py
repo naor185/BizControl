@@ -239,13 +239,13 @@ def get_daily_payments(ctx: AuthContext = Depends(require_studio_ctx), db: Sessi
             Appointment.studio_id == ctx.studio_id,
             Appointment.starts_at >= today_start,
             Appointment.starts_at <= today_end,
-            Appointment.status != "canceled"
+            Appointment.status.notin_(["canceled", "no_show"])
         )
         .order_by(Appointment.starts_at.asc())
     )
-    
+
     results = db.execute(stmt).all()
-    
+
     data = []
     for appt, client in results:
         # Calculate paid amount for this appointment
