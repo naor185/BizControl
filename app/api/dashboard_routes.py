@@ -43,7 +43,7 @@ def get_dashboard_stats(
             Appointment.studio_id == ctx.studio_id,
             Appointment.starts_at >= today_start,
             Appointment.starts_at <= today_end,
-            Appointment.status != "canceled"
+            Appointment.status.notin_(["canceled", "no_show"])
         )
     ) or 0
 
@@ -192,7 +192,7 @@ def get_today_revenue(ctx: AuthContext = Depends(require_studio_ctx), db: Sessio
         .join(Payment, Payment.appointment_id == Appointment.id)
         .where(
             Appointment.studio_id == ctx.studio_id,
-            Appointment.status != "canceled",
+            Appointment.status.notin_(["canceled", "no_show"]),
             Appointment.starts_at > today_end,
             Payment.status == "paid",
             Payment.type != "refund",
@@ -299,7 +299,7 @@ def get_pending_payments(ctx: AuthContext = Depends(require_studio_ctx), db: Ses
             Appointment.studio_id == ctx.studio_id,
             Appointment.payment_sent_at.is_not(None),
             Appointment.payment_verified_at.is_(None),
-            Appointment.status != "canceled",
+            Appointment.status.notin_(["canceled", "no_show"]),
         )
         .order_by(Appointment.payment_sent_at.desc())
     )
@@ -437,7 +437,7 @@ def get_analytics(ctx: AuthContext = Depends(require_studio_ctx), db: Session = 
         cnt = db.scalar(
             select(func.count(Appointment.id)).where(
                 Appointment.studio_id == ctx.studio_id,
-                Appointment.status != "canceled",
+                Appointment.status.notin_(["canceled", "no_show"]),
                 Appointment.starts_at >= month_start,
                 Appointment.starts_at < month_end,
             )
@@ -459,7 +459,7 @@ def get_analytics(ctx: AuthContext = Depends(require_studio_ctx), db: Session = 
             select(func.count(Appointment.id)).where(
                 Appointment.studio_id == ctx.studio_id,
                 Appointment.artist_id == artist.id,
-                Appointment.status != "canceled",
+                Appointment.status.notin_(["canceled", "no_show"]),
             )
         ) or 0
         rev_cents = db.scalar(
@@ -491,7 +491,7 @@ def get_analytics(ctx: AuthContext = Depends(require_studio_ctx), db: Session = 
             func.count(Appointment.id).label("cnt"),
         ).where(
             Appointment.studio_id == ctx.studio_id,
-            Appointment.status != "canceled",
+            Appointment.status.notin_(["canceled", "no_show"]),
             Appointment.starts_at >= since,
         ).group_by("dow")
     ).all()
@@ -597,7 +597,7 @@ def consultation_conversion(ctx: AuthContext = Depends(require_studio_ctx), db: 
         .where(
             Appointment.studio_id == ctx.studio_id,
             consult_filter,
-            Appointment.status != "canceled",
+            Appointment.status.notin_(["canceled", "no_show"]),
         )
         .group_by(Appointment.client_id)
     ).all()
@@ -612,7 +612,7 @@ def consultation_conversion(ctx: AuthContext = Depends(require_studio_ctx), db: 
                 Appointment.client_id == row.client_id,
                 ~consult_filter,
                 Appointment.starts_at > row.first_consult,
-                Appointment.status != "canceled",
+                Appointment.status.notin_(["canceled", "no_show"]),
             )
         ) or 0
         if follow_up > 0:
@@ -678,13 +678,13 @@ def advanced_analytics(ctx: AuthContext = Depends(require_studio_ctx), db: Sessi
 
     appts_this = db.scalar(
         select(func.count(Appointment.id)).where(
-            Appointment.studio_id == ctx.studio_id, Appointment.status != "canceled",
+            Appointment.studio_id == ctx.studio_id, Appointment.status.notin_(["canceled", "no_show"]),
             Appointment.starts_at >= mo_start, Appointment.starts_at < mo_end,
         )
     ) or 0
     appts_prev = db.scalar(
         select(func.count(Appointment.id)).where(
-            Appointment.studio_id == ctx.studio_id, Appointment.status != "canceled",
+            Appointment.studio_id == ctx.studio_id, Appointment.status.notin_(["canceled", "no_show"]),
             Appointment.starts_at >= prev_mo_start, Appointment.starts_at < mo_start,
         )
     ) or 0
