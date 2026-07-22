@@ -13,7 +13,7 @@ _env = os.getenv("ENVIRONMENT", "development").lower()
 if _env == "production" and JWT_SECRET == "dev-secret-change-me":
     raise RuntimeError("FATAL: JWT_SECRET env var must be set in production")
 
-ACCESS_TOKEN_MINUTES = int(os.getenv("ACCESS_TOKEN_MINUTES", "480"))  # 8 hours — full work day
+ACCESS_TOKEN_MINUTES = int(os.getenv("ACCESS_TOKEN_MINUTES", "10080"))  # 7 days — mobile-friendly
 REFRESH_TOKEN_DAYS = int(os.getenv("REFRESH_TOKEN_DAYS", "60"))  # 60 days — stay logged in
 
 def create_access_token(data: Dict[str, Any]) -> str:

@@ -99,7 +99,8 @@ export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promi
             // the user on a broken page with a raw "Session expired" error and no
             // way back in is worse than redirecting — always send them to login.
             clearToken();
-            window.location.href = "/login";
+            const next = encodeURIComponent(window.location.pathname + window.location.search);
+            window.location.href = `/login?next=${next}`;
             throw new Error("Session expired");
         }
 
