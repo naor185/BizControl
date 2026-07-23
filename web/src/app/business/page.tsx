@@ -10,42 +10,61 @@ import { apiFetch } from "@/lib/api";
 
 type PinStatus = { has_pin: boolean; is_locked: boolean; locked_until: string | null };
 
-const SECTION_GROUPS = [
+const SECTION_GROUPS: { groupLabel: string; icon: string; items: { href: string; label: string; description: string; icon: string; gradient: string; module?: string }[] }[] = [
     {
         groupLabel: "כספים",
         icon: "💰",
         items: [
-            { href: "/payments",  label: "תשלומים",       description: "היסטוריית תשלומים ואישורים",            icon: "💳", gradient: "from-violet-500 to-violet-700" },
-            { href: "/expenses",  label: "הוצאות עסקיות", description: "הוצאות, קטגוריות ודוחות",               icon: "📊", gradient: "from-orange-500 to-orange-700" },
-            { href: "/billing",   label: "מנוי וחיוב",    description: "תוכנית מנוי ופרטי חיוב",                icon: "🏦", gradient: "from-indigo-500 to-indigo-700" },
-            { href: "/invoices",  label: "חשבוניות",      description: "חשבוניות, קבלות ומסמכים כספיים",        icon: "🧾", gradient: "from-emerald-500 to-emerald-700" },
+            { href: "/payments",    label: "תשלומים",         description: "היסטוריית תשלומים ואישורים",                   icon: "💳", gradient: "from-violet-500 to-violet-700" },
+            { href: "/expenses",    label: "הוצאות עסקיות",   description: "הוצאות, קטגוריות ודוחות",                      icon: "📊", gradient: "from-orange-500 to-orange-700" },
+            { href: "/billing",     label: "מנוי וחיוב",      description: "תוכנית מנוי ופרטי חיוב",                       icon: "🏦", gradient: "from-indigo-500 to-indigo-700" },
+            { href: "/invoices",    label: "חשבוניות",        description: "חשבוניות, קבלות ומסמכים כספיים",               icon: "🧾", gradient: "from-emerald-500 to-emerald-700" },
+            { href: "/obligations", label: "התחייבויות",      description: "התחייבויות ותשלומים עתידיים",                  icon: "💸", gradient: "from-red-500 to-red-700", module: "obligations" },
+            { href: "/deposits",    label: "רשימת פיקדונות",  description: "פיקדונות שממתינים לגבייה או וויתור",           icon: "🏷️", gradient: "from-lime-600 to-emerald-700" },
+        ],
+    },
+    {
+        groupLabel: "צוות ושכר",
+        icon: "👥",
+        items: [
+            { href: "/team",         label: "ניהול צוות", description: "אמנים, תפקידים ושיטת תשלום",                     icon: "🧑‍🎨", gradient: "from-cyan-500 to-cyan-700" },
+            { href: "/team/payroll", label: "דוח שכר",     description: "מי, כמה ומתי — חישוב שכר חודשי לכל אמן + PDF",   icon: "💰", gradient: "from-blue-500 to-blue-700" },
+        ],
+    },
+    {
+        groupLabel: "אנליטיקה ותובנות",
+        icon: "📈",
+        items: [
+            { href: "/analytics",          label: "אנליטיקות",       description: "מגמות, ביצועים ודוחות",         icon: "📈", gradient: "from-fuchsia-500 to-fuchsia-700", module: "analytics" },
+            { href: "/analytics/business", label: "אנליטיקה עסקית", description: "תובנות עסקיות מתקדמות",         icon: "📊", gradient: "from-violet-600 to-fuchsia-700",   module: "analytics" },
         ],
     },
     {
         groupLabel: "תקשורת ולידים",
         icon: "📣",
         items: [
-            { href: "/inbox",            label: "תיבת הודעות",  description: "הודעות נכנסות מלקוחות",                    icon: "📬", gradient: "from-teal-500 to-teal-700" },
-            { href: "/message-log",      label: "יומן הודעות",  description: "כל ההודעות שנשלחו",                        icon: "💬", gradient: "from-pink-500 to-pink-700" },
-            { href: "/booking-requests", label: "בקשות תורים",  description: "בקשות ממתינות לאישור",                     icon: "🔔", gradient: "from-amber-500 to-amber-700" },
-            { href: "/leads",            label: "לידים",        description: "מעקב פניות ולקוחות פוטנציאליים",           icon: "🎯", gradient: "from-rose-500 to-rose-700" },
+            { href: "/message-log",      label: "יומן הודעות",  description: "כל ההודעות שנשלחו",                icon: "💬", gradient: "from-pink-500 to-pink-700" },
+            { href: "/booking-requests", label: "בקשות תורים",  description: "בקשות ממתינות לאישור",             icon: "🔔", gradient: "from-amber-500 to-amber-700" },
+            { href: "/leads",            label: "לידים",        description: "מעקב פניות ולקוחות פוטנציאליים",   icon: "🎯", gradient: "from-rose-500 to-rose-700" },
         ],
     },
     {
         groupLabel: "מוצרים ומועדון",
         icon: "🎁",
         items: [
-            { href: "/products", label: "מוצרים ומלאי",   description: "קטלוג מוצרים, מחירים ומלאי",               icon: "📦", gradient: "from-sky-500 to-sky-700" },
-            { href: "/stamps",   label: "כרטיסי מועדון",  description: "כרטיסיות חותמות ותוכנית נאמנות",          icon: "🎁", gradient: "from-purple-500 to-purple-700" },
-            { href: "/tiers",    label: "רמות VIP",        description: "דרגות נאמנות, סף ניקוד והטבות",          icon: "👑", gradient: "from-yellow-500 to-amber-700" },
+            { href: "/products", label: "מוצרים ומלאי",     description: "קטלוג מוצרים, מחירים ומלאי",             icon: "📦", gradient: "from-sky-500 to-sky-700" },
+            { href: "/stamps",   label: "כרטיסי מועדון",    description: "כרטיסיות חותמות ותוכנית נאמנות",         icon: "🎁", gradient: "from-purple-500 to-purple-700" },
+            { href: "/tiers",    label: "רמות VIP",          description: "דרגות נאמנות, סף ניקוד והטבות",          icon: "👑", gradient: "from-yellow-500 to-amber-700" },
+            { href: "/wallet",   label: "ארנק דיגיטלי",      description: "עיצוב כרטיס נאמנות ל-Apple/Google Wallet", icon: "📲", gradient: "from-teal-500 to-teal-700" },
         ],
     },
     {
         groupLabel: "הגדרות מערכת",
         icon: "⚙️",
         items: [
-            { href: "/automation", label: "הגדרות",     description: "מיתוג, אוטומציות, תשלומים ואינטגרציות",  icon: "⚙️", gradient: "from-slate-500 to-slate-700" },
-            { href: "/help",       label: "מרכז עזרה",  description: "מדריכים, תמיכה ויצירת קשר",             icon: "🆘", gradient: "from-gray-500 to-gray-700" },
+            { href: "/automation",  label: "הגדרות",           description: "מיתוג, אוטומציות, תשלומים ואינטגרציות",     icon: "⚙️", gradient: "from-slate-500 to-slate-700" },
+            { href: "/automations", label: "בונה אוטומציות",   description: "חוקי אוטומציה מותאמים אישית (טריגרים ופעולות)", icon: "🔧", gradient: "from-zinc-500 to-zinc-700" },
+            { href: "/help",        label: "מרכז עזרה",        description: "מדריכים, תמיכה ויצירת קשר",                 icon: "🆘", gradient: "from-gray-500 to-gray-700" },
         ],
     },
 ];
@@ -57,6 +76,7 @@ export default function BusinessPage() {
     const [showPinModal, setShowPinModal] = useState(false);
     const [pinMode, setPinMode] = useState<"verify" | "set">("verify");
     const [showSetPin, setShowSetPin] = useState(false);
+    const [enabledModules, setEnabledModules] = useState<Record<string, boolean> | null>(null);
 
     const checkSession = useCallback(() => {
         if (isBusinessSessionValid()) setUnlocked(true);
@@ -67,6 +87,9 @@ export default function BusinessPage() {
         apiFetch<PinStatus>("/api/studio/pin/status")
             .then(setPinStatus)
             .catch(() => setPinStatus({ has_pin: false, is_locked: false, locked_until: null }));
+        apiFetch<Record<string, boolean>>("/api/modules/me")
+            .then(setEnabledModules)
+            .catch(() => setEnabledModules(null));
     }, [checkSession]);
 
     const handleUnlockClick = () => {
@@ -177,7 +200,12 @@ export default function BusinessPage() {
                     {unlocked && (
                         <div className="bg-gradient-to-b from-slate-50 to-white min-h-screen p-6 space-y-8">
 
-                            {SECTION_GROUPS.map(group => (
+                            {SECTION_GROUPS.map(group => {
+                                const visibleItems = group.items.filter(
+                                    item => !item.module || !enabledModules || enabledModules[item.module] !== false
+                                );
+                                if (visibleItems.length === 0) return null;
+                                return (
                                 <div key={group.groupLabel}>
                                     {/* Group header */}
                                     <div className="flex items-center gap-2 mb-4">
@@ -187,7 +215,7 @@ export default function BusinessPage() {
                                     </div>
 
                                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                                        {group.items.map(section => (
+                                        {visibleItems.map(section => (
                                             <button
                                                 key={section.href}
                                                 onClick={() => router.push(section.href)}
@@ -210,7 +238,8 @@ export default function BusinessPage() {
                                         ))}
                                     </div>
                                 </div>
-                            ))}
+                                );
+                            })}
 
                             {/* Change PIN footer */}
                             <div className="pt-2 border-t border-slate-100">

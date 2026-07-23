@@ -27,24 +27,21 @@ type Me = {
 type PinStatus = { has_pin: boolean; is_locked: boolean };
 
 const MAIN_NAV: { href: string; label: string; icon: string; module?: string }[] = [
-    { href: "/calendar",           label: "יומן תורים",       icon: "📅", module: "calendar" },
-    { href: "/pos",                label: "קופה",              icon: "🛒", module: "pos" },
-    { href: "/dashboard",          label: "לוח בקרה",         icon: "📊" },
-    { href: "/clients",            label: "לקוחות",            icon: "👥", module: "crm" },
-    { href: "/analytics",          label: "אנליטיקות",         icon: "📈", module: "analytics" },
-    { href: "/analytics/business", label: "אנליטיקה עסקית",   icon: "📊", module: "analytics" },
+    { href: "/calendar",  label: "יומן תורים",  icon: "📅", module: "calendar" },
+    { href: "/pos",       label: "קופה",         icon: "🛒", module: "pos" },
+    { href: "/dashboard", label: "לוח בקרה",    icon: "📊" },
+    { href: "/clients",   label: "לקוחות",       icon: "👥", module: "crm" },
+    { href: "/inbox",     label: "תיבת הודעות", icon: "💬" },
 ];
 
 const MANAGE_NAV: { href: string; label: string; icon: string; module?: string }[] = [
-    { href: "/invoices",          label: "חשבוניות",        icon: "🧾", module: "pos" },
-    { href: "/settings/email",    label: "הגדרות מייל",     icon: "📧", module: "pos" },
-    { href: "/gift-cards",        label: "כרטיסי מתנה",    icon: "🎁", module: "pos" },
-    { href: "/broadcasts",        label: "תפוצות",          icon: "📢", module: "broadcasts" },
-    { href: "/services",          label: "שירותים",         icon: "🛎️", module: "services" },
-    { href: "/wait-list",         label: "רשימת המתנה",    icon: "⏳",  module: "wait_list" },
     { href: "/products",          label: "מוצרים",          icon: "📦",  module: "products" },
-    { href: "/obligations",       label: "התחייבויות",       icon: "💳",  module: "obligations" },
+    { href: "/services",          label: "שירותים",         icon: "🛎️", module: "services" },
     { href: "/message-templates", label: "תבניות הודעות",   icon: "💬" },
+    { href: "/broadcasts",        label: "תפוצות",          icon: "📢", module: "broadcasts" },
+    { href: "/gift-cards",        label: "כרטיסי מתנה",    icon: "🎁", module: "pos" },
+    { href: "/wait-list",         label: "רשימת המתנה",    icon: "⏳",  module: "wait_list" },
+    { href: "/settings/email",    label: "הגדרות מייל",     icon: "📧", module: "pos" },
     { href: "/automation",        label: "הגדרות",          icon: "⚙️" },
 ];
 
@@ -254,16 +251,6 @@ export default function AppShell({
                             );
                         })}
 
-                        {/* Quick WhatsApp send */}
-                        <button
-                            type="button"
-                            onClick={() => setShowWaModal(true)}
-                            className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium transition-all text-emerald-700 hover:bg-emerald-50 hover:text-emerald-900 border border-emerald-100 mt-1"
-                        >
-                            <span className="text-base leading-none">📱</span>
-                            <span className="flex-1">שלח וואטסאפ</span>
-                        </button>
-
                         <div className="pt-2 pb-1 px-3">
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">ניהול</span>
                         </div>
@@ -417,6 +404,15 @@ export default function AppShell({
                             </div>
 
                             <div className="flex items-center gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowWaModal(true)}
+                                    aria-label="שלח וואטסאפ"
+                                    title="שלח וואטסאפ"
+                                    className="flex items-center justify-center w-8 h-8 rounded-full text-emerald-700 hover:bg-emerald-50 border border-emerald-100 transition-colors"
+                                >
+                                    <span className="text-base leading-none">📱</span>
+                                </button>
                                 <ClockWidget />
                                 <NotificationBell />
                                 <div className="hidden sm:flex items-center gap-2.5">
