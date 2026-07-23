@@ -34,17 +34,6 @@ const MAIN_NAV: { href: string; label: string; icon: string; module?: string }[]
     { href: "/inbox",     label: "תיבת הודעות", icon: "💬" },
 ];
 
-const MANAGE_NAV: { href: string; label: string; icon: string; module?: string }[] = [
-    { href: "/products",          label: "מוצרים",          icon: "📦",  module: "products" },
-    { href: "/services",          label: "שירותים",         icon: "🛎️", module: "services" },
-    { href: "/message-templates", label: "תבניות הודעות",   icon: "💬" },
-    { href: "/broadcasts",        label: "תפוצות",          icon: "📢", module: "broadcasts" },
-    { href: "/gift-cards",        label: "כרטיסי מתנה",    icon: "🎁", module: "pos" },
-    { href: "/wait-list",         label: "רשימת המתנה",    icon: "⏳",  module: "wait_list" },
-    { href: "/settings/email",    label: "הגדרות מייל",     icon: "📧", module: "pos" },
-    { href: "/automation",        label: "הגדרות",          icon: "⚙️" },
-];
-
 export default function AppShell({
     title,
     titleAction,
@@ -247,29 +236,6 @@ export default function AppShell({
                                             {badge}
                                         </span>
                                     )}
-                                </Link>
-                            );
-                        })}
-
-                        <div className="pt-2 pb-1 px-3">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">ניהול</span>
-                        </div>
-
-                        {MANAGE_NAV.filter(item => !item.module || !enabledModules || enabledModules[item.module] !== false).map(item => {
-                            const active = pathname === item.href || pathname.startsWith(item.href + "/");
-                            return (
-                                <Link
-                                    key={item.href}
-                                    href={item.href}
-                                    className={[
-                                        "flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium transition-all",
-                                        active
-                                            ? "bg-slate-900 text-white shadow-sm"
-                                            : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
-                                    ].join(" ")}
-                                >
-                                    <span className="text-base leading-none">{item.icon}</span>
-                                    <span className="flex-1">{item.label}</span>
                                 </Link>
                             );
                         })}
