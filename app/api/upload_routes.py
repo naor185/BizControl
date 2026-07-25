@@ -124,6 +124,7 @@ def upload_logo(
         studio = db.get(Studio, ctx.studio_id)
         if studio:
             studio.logo_url = cloud_url
+        settings.logo_filename = cloud_url
         db.execute(
             text("UPDATE marketplace_profiles SET logo_url=:url, updated_at=NOW() WHERE studio_id=:sid"),
             {"url": cloud_url, "sid": str(ctx.studio_id)},

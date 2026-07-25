@@ -9,6 +9,14 @@ import { apiFetch } from "@/lib/api";
 import confetti from "canvas-confetti";
 import LandingPageTemplate from "@/components/LandingPageTemplate";
 
+// logo_filename may be a bare local filename or a full Cloudinary URL —
+// only prefix with /uploads/ for the former.
+function logoSrc(filename: string | null | undefined): string | null {
+    if (!filename) return null;
+    if (filename.startsWith("http")) return filename;
+    return `${process.env.NEXT_PUBLIC_API_BASE || ""}/uploads/${filename}`;
+}
+
 type Settings = {
     aftercare_message?: string | null;
     review_link_google?: string | null;
@@ -1015,7 +1023,7 @@ export default function AutomationSettingsPage() {
                                                     {logoPreview || settings.logo_filename ? (
                                                         // eslint-disable-next-line @next/next/no-img-element
                                                         <img
-                                                            src={logoPreview || `${process.env.NEXT_PUBLIC_API_BASE || ""}/uploads/${settings.logo_filename}`}
+                                                            src={logoPreview || logoSrc(settings.logo_filename) || ""}
                                                             alt="לוגו"
                                                             className="w-full h-full object-cover"
                                                             onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
@@ -1410,7 +1418,7 @@ export default function AutomationSettingsPage() {
                                                     <LandingPageTemplate
                                                         themePrimary={settings.theme_primary_color}
                                                         themeSecondary={settings.theme_secondary_color}
-                                                        logoUrl={settings.logo_filename ? `${process.env.NEXT_PUBLIC_API_BASE || ""}/uploads/${settings.logo_filename}` : null}
+                                                        logoUrl={logoSrc(settings.logo_filename)}
                                                         title={settings.landing_page_title || ""}
                                                         description={settings.landing_page_description || ""}
                                                         templateId={settings.landing_page_active_template}

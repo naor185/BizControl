@@ -92,7 +92,9 @@ export default function JoinStudioPage() {
     if (loading) return <div className="min-h-screen flex items-center justify-center">טוען נתונים...</div>;
     if (err || !info) return <div className="min-h-screen flex items-center justify-center text-red-500">העסק לא נמצא</div>;
 
-    const logoUrl = info.logo_filename ? `${API_BASE}/uploads/${info.logo_filename}` : null;
+    const logoUrl = info.logo_filename
+        ? (info.logo_filename.startsWith("http") ? info.logo_filename : `${API_BASE}/uploads/${info.logo_filename}`)
+        : null;
 
     return (
         <LandingPageTemplate

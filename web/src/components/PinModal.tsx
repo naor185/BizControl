@@ -123,7 +123,7 @@ export default function PinModal({ mode, onSuccess, onClose }: Props) {
         } catch (e: unknown) {
             const err = e as ApiError;
             const msg = err.message || "שגיאה";
-            if (msg.includes("נעול") || msg.includes("ניסיונות")) {
+            if (msg.includes("נעול")) {
                 setLocked(true);
                 setLockMessage(msg);
             } else {
