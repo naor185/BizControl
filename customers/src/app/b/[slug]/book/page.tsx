@@ -1,8 +1,10 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { API } from "@/lib/api";
+import { API, apiFetch } from "@/lib/api";
+import { getCustomer, type Customer } from "@/lib/auth";
+import AuthModal from "@/components/AuthModal";
 
 interface Service { id: string; name: string; duration_minutes: number; price_ils: number; color: string; is_bookable_online: boolean; }
 interface Artist { id: string; name: string; }
@@ -24,16 +26,29 @@ export default function BookPage() {
     const [time, setTime] = useState("");
     const [slots, setSlots] = useState<string[]>([]);
     const [slotsLoading, setSlotsLoading] = useState(false);
-    const [name, setName] = useState("");
-    const [phone, setPhone] = useState("");
     const [notes, setNotes] = useState("");
     const [submitting, setSubmitting] = useState(false);
     const [done, setDone] = useState(false);
     const [err, setErr] = useState<string | null>(null);
     const [showWaitlist, setShowWaitlist] = useState(false);
     const [waitlistDone, setWaitlistDone] = useState(false);
-    const [wlName, setWlName] = useState("");
-    const [wlPhone, setWlPhone] = useState("");
+    const [waitlistSubmitting, setWaitlistSubmitting] = useState(false);
+
+    // Booking/waitlist requires a logged-in BizFind customer — resolved once
+    // right before submission so browsing stays friction-free.
+    const [customer, setCustomer] = useState<Customer | null>(null);
+    const [showAuth, setShowAuth] = useState(false);
+    const pendingActionRef = useRef<(() => void) | null>(null);
+
+    useEffect(() => {
+        setCustomer(getCustomer());
+    }, []);
+
+    const requireAuth = (action: () => void) => {
+        if (customer) { action(); return; }
+        pendingActionRef.current = action;
+        setShowAuth(true);
+    };
 
     useEffect(() => {
         fetch(`${API}/api/marketplace/${slug}`)
@@ -61,15 +76,15 @@ export default function BookPage() {
     }, [step, date, artist, slug]);
 
     const submit = async () => {
-        if (!name || !phone || !artist || !date || !time) return;
+        if (!artist || !date || !time) return;
+        if (!customer) { requireAuth(submit); return; }
         setSubmitting(true);
         try {
             const serviceLabel = service ? `[שירות: ${service.name}] ` : "";
-            const res = await fetch(`${API}/api/public/book/${slug}`, {
-                method: "POST", headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ artist_id: artist.id, date, time, name, phone, notes: `${serviceLabel}${notes}`.trim() }),
+            await apiFetch(`/api/public/book/${slug}`, {
+                method: "POST",
+                body: JSON.stringify({ artist_id: artist.id, date, time, notes: `${serviceLabel}${notes}`.trim() }),
             });
-            if (!res.ok) { const e = await res.json(); throw new Error(e.detail || "שגיאה"); }
             setDone(true);
         } catch (e: any) { setErr(e.message); }
         finally { setSubmitting(false); }
@@ -186,27 +201,32 @@ export default function BookPage() {
                                 <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>😕</div>
                                 <div style={{ marginBottom: "1.25rem" }}>אין שעות פנויות לתאריך זה.</div>
                                 {!waitlistDone && !showWaitlist && (
-                                    <button type="button" onClick={() => setShowWaitlist(true)}
+                                    <button type="button" onClick={() => requireAuth(() => setShowWaitlist(true))}
                                         style={{ background: "rgba(124,58,237,.15)", border: "1px solid #7c3aed", color: "#a78bfa", borderRadius: 14, padding: "0.7rem 1.5rem", cursor: "pointer", fontWeight: 700, fontSize: "0.9rem" }}>
                                         📋 הצטרף לרשימת המתנה
                                     </button>
                                 )}
                                 {showWaitlist && !waitlistDone && (
                                     <div style={{ textAlign: "right", marginTop: "1rem", display: "flex", flexDirection: "column", gap: "0.6rem" }}>
-                                        <input value={wlName} onChange={e => setWlName(e.target.value)} placeholder="שם מלא *"
-                                            style={{ background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.15)", borderRadius: 12, padding: "0.75rem", color: "#fff", fontSize: "0.95rem", outline: "none" }} />
-                                        <input value={wlPhone} onChange={e => setWlPhone(e.target.value)} placeholder="טלפון *" type="tel"
-                                            style={{ background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.15)", borderRadius: 12, padding: "0.75rem", color: "#fff", fontSize: "0.95rem", outline: "none" }} />
-                                        <button type="button" disabled={!wlName || !wlPhone}
+                                        {customer && (
+                                            <div style={{ color: "#94a3b8", fontSize: "0.82rem" }}>
+                                                נרשם/ת בתור {customer.full_name} · {customer.phone}
+                                            </div>
+                                        )}
+                                        <button type="button" disabled={waitlistSubmitting}
                                             onClick={async () => {
-                                                const res = await fetch(`${API}/api/public/waitlist/${slug}`, {
-                                                    method: "POST", headers: { "Content-Type": "application/json" },
-                                                    body: JSON.stringify({ name: wlName, phone: wlPhone, artist_id: artist?.id, service_note: service?.name }),
-                                                });
-                                                if (res.ok) setWaitlistDone(true);
+                                                setWaitlistSubmitting(true);
+                                                try {
+                                                    await apiFetch(`/api/public/waitlist/${slug}`, {
+                                                        method: "POST",
+                                                        body: JSON.stringify({ artist_id: artist?.id, service_note: service?.name }),
+                                                    });
+                                                    setWaitlistDone(true);
+                                                } catch { /* silent — keep form open to retry */ }
+                                                finally { setWaitlistSubmitting(false); }
                                             }}
-                                            style={{ background: primary, color: "#fff", borderRadius: 12, padding: "0.75rem", cursor: "pointer", fontWeight: 700, border: "none", opacity: (!wlName || !wlPhone) ? 0.5 : 1 }}>
-                                            אשר רישום לרשימת המתנה
+                                            style={{ background: primary, color: "#fff", borderRadius: 12, padding: "0.75rem", cursor: "pointer", fontWeight: 700, border: "none", opacity: waitlistSubmitting ? 0.5 : 1 }}>
+                                            {waitlistSubmitting ? "שולח..." : "אשר רישום לרשימת המתנה"}
                                         </button>
                                     </div>
                                 )}
@@ -240,28 +260,41 @@ export default function BookPage() {
                             </div>
                         </div>
 
-                        {[
-                            { label: "שם מלא *", val: name, set: setName, type: "text", ph: "ישראל ישראלי" },
-                            { label: "טלפון *", val: phone, set: setPhone, type: "tel", ph: "050-0000000" },
-                        ].map(f => (
-                            <div key={f.label} style={{ marginBottom: "0.75rem" }}>
-                                <div style={{ color: "#94a3b8", fontSize: "0.78rem", marginBottom: "0.3rem" }}>{f.label}</div>
-                                <input type={f.type} value={f.val} onChange={e => f.set(e.target.value)} placeholder={f.ph}
-                                    style={{ width: "100%", background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.15)", borderRadius: 12, padding: "0.7rem 0.9rem", color: "#fff", fontSize: "0.95rem", outline: "none" }} />
+                        {customer && (
+                            <div style={{ background: "rgba(124,58,237,.08)", border: "1px solid rgba(124,58,237,.25)", borderRadius: 12, padding: "0.75rem 1rem", marginBottom: "1rem", color: "#c4b5fd", fontSize: "0.85rem" }}>
+                                👤 מזמין/ה: {customer.full_name} · {customer.phone}
                             </div>
-                        ))}
+                        )}
+
                         <div style={{ marginBottom: "1.25rem" }}>
                             <div style={{ color: "#94a3b8", fontSize: "0.78rem", marginBottom: "0.3rem" }}>הערות (אופציונלי)</div>
                             <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} placeholder="רצון מיוחד, סגנון..."
                                 style={{ width: "100%", background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.15)", borderRadius: 12, padding: "0.7rem 0.9rem", color: "#fff", fontSize: "0.95rem", outline: "none", resize: "vertical" }} />
                         </div>
-                        <PrimaryBtn disabled={submitting || !name || !phone} onClick={submit} label={submitting ? "שולח..." : "✅ שלח בקשת תור"} primary={primary} />
+                        {customer ? (
+                            <PrimaryBtn disabled={submitting} onClick={submit} label={submitting ? "שולח..." : "✅ שלח בקשת תור"} primary={primary} />
+                        ) : (
+                            <PrimaryBtn disabled={false} onClick={() => requireAuth(submit)} label="🔐 התחבר כדי לשלוח בקשה" primary={primary} />
+                        )}
                         <p style={{ color: "#475569", fontSize: "0.75rem", textAlign: "center", marginTop: "0.75rem" }}>
                             הבקשה תאושר ע"י העסק ותקבל אישור
                         </p>
                     </Card>
                 )}
             </div>
+
+            {showAuth && (
+                <AuthModal
+                    onClose={() => { setShowAuth(false); pendingActionRef.current = null; }}
+                    onSuccess={(c) => {
+                        setCustomer(c);
+                        setShowAuth(false);
+                        const action = pendingActionRef.current;
+                        pendingActionRef.current = null;
+                        if (action) action();
+                    }}
+                />
+            )}
         </div>
     );
 }

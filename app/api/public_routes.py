@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 log = logging.getLogger(__name__)
-from sqlalchemy import or_, func, select
+from sqlalchemy import or_, func, select, text
 from datetime import datetime, date, timedelta, timezone
 from typing import Optional
 
@@ -18,6 +18,7 @@ from app.models.appointment import Appointment
 from app.models.studio_settings import StudioSettings
 from app.models.booking_request import BookingRequest
 from app.models.lead import Lead
+from app.api.marketplace_customer_routes import _get_customer_id
 from pydantic import BaseModel, EmailStr
 
 router = APIRouter(prefix="/public", tags=["Public"])
@@ -314,8 +315,6 @@ class BookingCreateRequest(BaseModel):
     artist_id: str
     date: date          # YYYY-MM-DD
     time: str           # HH:MM
-    name: str
-    phone: str
     email: Optional[EmailStr] = None
     notes: Optional[str] = None
 
@@ -421,15 +420,31 @@ def booking_slots(
 
 
 @router.post("/book/{slug}", status_code=201)
-def create_booking(slug: str, payload: BookingCreateRequest, db: Session = Depends(get_db)):
+def create_booking(
+    slug: str,
+    payload: BookingCreateRequest,
+    db: Session = Depends(get_db),
+    customer_id: str = Depends(_get_customer_id),
+):
     """
     Creates a BookingRequest (pending approval).
     The studio staff approves/rejects via the internal booking-requests API.
+    Requires a logged-in BizFind customer (OTP/email) — name and phone are
+    taken from the verified account, never trusted from the request body.
     """
     studio, settings = _get_booking_studio(slug, db)
 
     if not settings.self_booking_enabled:
         raise HTTPException(status_code=403, detail="Self-booking not enabled")
+
+    customer = db.execute(
+        text("SELECT phone, first_name, last_name FROM marketplace_customers WHERE id = :id"),
+        {"id": customer_id},
+    ).fetchone()
+    if not customer:
+        raise HTTPException(status_code=401, detail="לא מחובר")
+    client_phone = customer[0]
+    client_name = f"{customer[1]} {customer[2]}".strip() or client_phone
 
     artist = db.scalar(
         select(User).where(User.id == payload.artist_id, User.studio_id == studio.id, User.is_active == True)  # noqa: E712
@@ -473,8 +488,8 @@ def create_booking(slug: str, payload: BookingCreateRequest, db: Session = Depen
         id=uuid.uuid4(),
         studio_id=studio.id,
         artist_id=uuid.UUID(payload.artist_id),
-        client_name=payload.name.strip(),
-        client_phone=payload.phone.strip(),
+        client_name=client_name,
+        client_phone=client_phone,
         client_email=str(payload.email) if payload.email else None,
         service_note=payload.notes or None,
         requested_at=requested_at,
@@ -697,15 +712,19 @@ def get_public_booking(token: str, db: Session = Depends(get_db)):
 # ── Public Waitlist (customer joins from BizFind booking page) ───────────────
 
 class WaitlistJoinIn(BaseModel):
-    name: str
-    phone: str
     artist_id: Optional[str] = None
     service_note: Optional[str] = None
 
 
 @router.post("/waitlist/{slug}", status_code=201)
-def join_waitlist(slug: str, payload: WaitlistJoinIn, db: Session = Depends(get_db)):
-    """Public: customer joins the waitlist for a studio without auth."""
+def join_waitlist(
+    slug: str,
+    payload: WaitlistJoinIn,
+    db: Session = Depends(get_db),
+    customer_id: str = Depends(_get_customer_id),
+):
+    """Public: a logged-in BizFind customer joins the studio's waitlist.
+    Name and phone come from the verified account, not the request body."""
     from app.models.wait_list import WaitListEntry
     from app.models.message_job import MessageJob
 
@@ -713,9 +732,14 @@ def join_waitlist(slug: str, payload: WaitlistJoinIn, db: Session = Depends(get_
     if not studio:
         raise HTTPException(status_code=404, detail="Studio not found")
 
-    phone = payload.phone.strip().replace("-", "").replace(" ", "")
-    if not phone:
-        raise HTTPException(status_code=400, detail="נדרש מספר טלפון")
+    customer = db.execute(
+        text("SELECT phone, first_name, last_name FROM marketplace_customers WHERE id = :id"),
+        {"id": customer_id},
+    ).fetchone()
+    if not customer:
+        raise HTTPException(status_code=401, detail="לא מחובר")
+    phone = customer[0]
+    name = f"{customer[1]} {customer[2]}".strip() or phone
 
     # Prevent duplicate active entries
     existing = db.scalar(
@@ -738,7 +762,7 @@ def join_waitlist(slug: str, payload: WaitlistJoinIn, db: Session = Depends(get_
 
     entry = WaitListEntry(
         studio_id=studio.id,
-        client_name=payload.name.strip(),
+        client_name=name,
         client_phone=phone,
         preferred_artist_id=artist_id,
         notes=payload.service_note,
@@ -751,7 +775,7 @@ def join_waitlist(slug: str, payload: WaitlistJoinIn, db: Session = Depends(get_
     settings = db.get(StudioSettings, studio.id)
     bizfind_url = os.getenv("BIZFIND_URL", "https://find-biz.com")
     confirm_msg = (
-        f"שלום {payload.name.strip()}! 📋\n\n"
+        f"שלום {name}! 📋\n\n"
         f"נרשמת לרשימת המתנה של {studio.name}.\n"
         f"ברגע שיתפנה מקום, תקבל הודעה מיידית.\n\n"
         f"לביטול הרישום שלח/י 'ביטול' בתשובה להודעה זו."
