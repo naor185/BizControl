@@ -396,6 +396,13 @@ def ensure_schema():
         # ── Seed plan → module defaults (idempotent) ──────────────────────────
         _NAV_MODULES = ["pos", "products", "expenses", "obligations", "services", "broadcasts"]
         PLAN_MODULES = {
+            # "trial" (14-day free trial at signup) is meant to get full access —
+            # was previously missing from this dict, which resolved every
+            # gateable module to disabled for brand-new studios.
+            "trial":      ["crm", "calendar", "payments", "whatsapp", "email", "sms",
+                           "customer_club", "wallet", "ocr", "ai_assistant",
+                           "online_booking", "marketplace", "wait_list", "gift_cards",
+                           "analytics", "multi_location", "employee_mgmt", "automation_builder"] + _NAV_MODULES,
             "free":       ["crm", "calendar"] + _NAV_MODULES,
             "starter":    ["crm", "calendar", "payments", "whatsapp", "email"] + _NAV_MODULES,
             "pro":        ["crm", "calendar", "payments", "whatsapp", "email",

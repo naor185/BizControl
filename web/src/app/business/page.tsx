@@ -262,7 +262,7 @@ export default function BusinessPage() {
                     )}
                 </div>
 
-                {showPinModal && <PinModal mode={pinMode} onSuccess={handlePinSuccess} onClose={() => setShowPinModal(false)} />}
+                {showPinModal && <PinModal key={pinMode} mode={pinMode} onSuccess={handlePinSuccess} onClose={() => setShowPinModal(false)} />}
                 {showSetPin && <PinModal mode="change" onSuccess={() => setShowSetPin(false)} onClose={() => setShowSetPin(false)} />}
             </AppShell>
         </RequireAuth>

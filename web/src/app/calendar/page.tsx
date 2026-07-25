@@ -134,6 +134,18 @@ export default function CalendarPage() {
     const [selectedServiceId, setSelectedServiceId] = useState<string>("");
 
     const [showCalSettings, setShowCalSettings] = useState(false);
+    const calSettingsRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (!showCalSettings) return;
+        function handleClickOutside(e: MouseEvent) {
+            if (calSettingsRef.current && !calSettingsRef.current.contains(e.target as Node)) {
+                setShowCalSettings(false);
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, [showCalSettings]);
     const [selfBookingEnabled, setSelfBookingEnabled] = useState<boolean | null>(null);
     const [dismissedBookingBanner, setDismissedBookingBanner] = useState(false);
     const [creatingApptInvoice, setCreatingApptInvoice] = useState(false);
@@ -773,7 +785,7 @@ export default function CalendarPage() {
                 fullBleed={isMobile}
                 title="יומן תורים"
                 titleAction={
-                    <div className="flex items-center gap-2 relative">
+                    <div className="flex items-center gap-2 relative" ref={calSettingsRef}>
                         <button
                             type="button"
                             onClick={() => router.push("/clients?create=1")}

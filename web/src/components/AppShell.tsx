@@ -413,6 +413,7 @@ export default function AppShell({
 
             {showPin && (
                 <PinModal
+                    key={pinMode}
                     mode={pinMode}
                     onSuccess={handlePinSuccess}
                     onClose={() => setShowPin(false)}
