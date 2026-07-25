@@ -90,7 +90,7 @@ export default function BusinessPage() {
 
     useEffect(() => {
         checkSession();
-        apiFetch<PinStatus>("/api/studio/pin/status")
+        apiFetch<PinStatus>("/api/security/pin/status")
             .then(setPinStatus)
             .catch(() => setPinStatus({ has_pin: false, is_locked: false, locked_until: null }));
         apiFetch<Record<string, boolean>>("/api/modules/me")
