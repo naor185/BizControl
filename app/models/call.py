@@ -41,5 +41,8 @@ class Call(Base):
     ai_summary: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     quoted_price_cents: Mapped[int | None] = mapped_column(Integer, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Provider's own call id (e.g. Voicenter's ivruniqueid) — used to dedupe
+    # webhook retries so the same call never gets logged twice.
+    external_call_id: Mapped[str | None] = mapped_column(String(120), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

@@ -55,6 +55,7 @@ from app.api.whatsapp_mgmt_routes import router as whatsapp_mgmt_router
 from app.api.email_center_routes import router as email_center_router
 from app.api.studio_features_me_routes import router as studio_features_me_router
 from app.api.call_routes import router as call_router
+from app.api.call_webhook_routes import router as call_webhook_router
 
 api_router = APIRouter()
 api_router.include_router(studio_router)
@@ -115,3 +116,4 @@ api_router.include_router(whatsapp_mgmt_router)
 api_router.include_router(email_center_router)
 api_router.include_router(studio_features_me_router)
 api_router.include_router(call_router)
+api_router.include_router(call_webhook_router)

@@ -627,11 +627,14 @@ def ensure_schema():
                 ai_summary JSONB,
                 quoted_price_cents INTEGER,
                 notes TEXT,
+                external_call_id VARCHAR(120),
                 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
             )
         """)
         cur.execute("CREATE INDEX IF NOT EXISTS ix_calls_studio ON calls (studio_id, started_at DESC)")
         cur.execute("CREATE INDEX IF NOT EXISTS ix_calls_client ON calls (client_id)")
+        cur.execute("ALTER TABLE calls ADD COLUMN IF NOT EXISTS external_call_id VARCHAR(120)")
+        cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS ux_calls_studio_external_id ON calls (studio_id, external_call_id) WHERE external_call_id IS NOT NULL")
 
         # ── Invoice / Document System ─────────────────────────────────────────
         cur.execute("""
