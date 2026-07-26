@@ -608,6 +608,31 @@ def ensure_schema():
         """)
         cur.execute("CREATE INDEX IF NOT EXISTS ix_financial_obligations_studio ON financial_obligations (studio_id)")
 
+        # ── BizControl Voice — call log (Phase 1: manual entry, no live telephony yet) ──
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS calls (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                direction VARCHAR(10) NOT NULL CHECK (direction IN ('inbound','outbound')),
+                from_number VARCHAR(32) NOT NULL,
+                to_number VARCHAR(32) NOT NULL,
+                client_id UUID REFERENCES clients(id) ON DELETE SET NULL,
+                user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+                started_at TIMESTAMPTZ NOT NULL,
+                ended_at TIMESTAMPTZ,
+                duration_seconds INTEGER,
+                status VARCHAR(12) NOT NULL DEFAULT 'answered' CHECK (status IN ('answered','missed','voicemail')),
+                recording_url TEXT,
+                transcript TEXT,
+                ai_summary JSONB,
+                quoted_price_cents INTEGER,
+                notes TEXT,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_calls_studio ON calls (studio_id, started_at DESC)")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_calls_client ON calls (client_id)")
+
         # ── Invoice / Document System ─────────────────────────────────────────
         cur.execute("""
             CREATE TABLE IF NOT EXISTS invoice_settings (

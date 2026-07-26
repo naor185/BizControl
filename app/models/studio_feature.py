@@ -16,6 +16,7 @@ FEATURES = frozenset([
     "lead_attribution",
     "realtime_inbox",
     "quick_replies",
+    "voice",
 ])
 
 

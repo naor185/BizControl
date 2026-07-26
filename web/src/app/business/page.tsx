@@ -10,7 +10,7 @@ import { apiFetch } from "@/lib/api";
 
 type PinStatus = { has_pin: boolean; is_locked: boolean; locked_until: string | null };
 
-const SECTION_GROUPS: { groupLabel: string; icon: string; items: { href: string; label: string; description: string; icon: string; gradient: string; module?: string }[] }[] = [
+const SECTION_GROUPS: { groupLabel: string; icon: string; items: { href: string; label: string; description: string; icon: string; gradient: string; module?: string; feature?: string }[] }[] = [
     {
         groupLabel: "כספים",
         icon: "💰",
@@ -37,6 +37,13 @@ const SECTION_GROUPS: { groupLabel: string; icon: string; items: { href: string;
         items: [
             { href: "/analytics",          label: "אנליטיקות",       description: "מגמות, ביצועים ודוחות",         icon: "📈", gradient: "from-fuchsia-500 to-fuchsia-700", module: "analytics" },
             { href: "/analytics/business", label: "אנליטיקה עסקית", description: "תובנות עסקיות מתקדמות",         icon: "📊", gradient: "from-violet-600 to-fuchsia-700",   module: "analytics" },
+        ],
+    },
+    {
+        groupLabel: "שירות לקוחות",
+        icon: "📞",
+        items: [
+            { href: "/calls", label: "שיחות", description: "לוג שיחות, שיוך ללקוחות ויצירת תורים", icon: "📞", gradient: "from-teal-600 to-cyan-700", feature: "voice" },
         ],
     },
     {
@@ -83,6 +90,7 @@ export default function BusinessPage() {
     const [pinMode, setPinMode] = useState<"verify" | "set">("verify");
     const [showSetPin, setShowSetPin] = useState(false);
     const [enabledModules, setEnabledModules] = useState<Record<string, boolean> | null>(null);
+    const [enabledFeatures, setEnabledFeatures] = useState<Record<string, boolean> | null>(null);
 
     const checkSession = useCallback(() => {
         if (isBusinessSessionValid()) setUnlocked(true);
@@ -96,6 +104,9 @@ export default function BusinessPage() {
         apiFetch<Record<string, boolean>>("/api/modules/me")
             .then(setEnabledModules)
             .catch(() => setEnabledModules(null));
+        apiFetch<Record<string, boolean>>("/api/studio/features/me")
+            .then(setEnabledFeatures)
+            .catch(() => setEnabledFeatures({}));
     }, [checkSession]);
 
     const handleUnlockClick = () => {
@@ -207,9 +218,11 @@ export default function BusinessPage() {
                         <div className="bg-gradient-to-b from-slate-50 to-white min-h-screen p-6 space-y-8">
 
                             {SECTION_GROUPS.map(group => {
-                                const visibleItems = group.items.filter(
-                                    item => !item.module || !enabledModules || enabledModules[item.module] !== false
-                                );
+                                const visibleItems = group.items.filter(item => {
+                                    const moduleOk = !item.module || !enabledModules || enabledModules[item.module] !== false;
+                                    const featureOk = !item.feature || !!enabledFeatures?.[item.feature];
+                                    return moduleOk && featureOk;
+                                });
                                 if (visibleItems.length === 0) return null;
                                 return (
                                 <div key={group.groupLabel}>
