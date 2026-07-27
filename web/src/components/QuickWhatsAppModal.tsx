@@ -19,23 +19,29 @@ export default function QuickWhatsAppModal({ onClose }: { onClose: () => void })
     const [sending, setSending] = useState(false);
     const [sent, setSent] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [searching, setSearching] = useState(false);
     const searchRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
-        apiFetch<Client[]>("/api/clients").then(setClients).catch(() => {});
         setTimeout(() => searchRef.current?.focus(), 100);
     }, []);
 
-    const filtered = clients
-        .filter(c => !c.is_walk_in && c.phone)
-        .filter(c => {
-            const q = search.toLowerCase();
-            return (
-                c.full_name?.toLowerCase().includes(q) ||
-                c.phone?.includes(q)
-            );
-        })
-        .slice(0, 8);
+    // Search server-side (debounced) — GET /api/clients defaults to the 50
+    // most-recently-created clients, so filtering that capped list client-side
+    // silently missed anyone outside the first 50 (e.g. older clients).
+    useEffect(() => {
+        if (!search.trim()) { setClients([]); setSearching(false); return; }
+        setSearching(true);
+        const t = setTimeout(() => {
+            apiFetch<Client[]>(`/api/clients?q=${encodeURIComponent(search.trim())}&limit=20`)
+                .then(setClients)
+                .catch(() => setClients([]))
+                .finally(() => setSearching(false));
+        }, 250);
+        return () => clearTimeout(t);
+    }, [search]);
+
+    const filtered = clients.filter(c => !c.is_walk_in && c.phone).slice(0, 8);
 
     const handleSend = async () => {
         if (!selected || !body.trim()) return;
@@ -105,7 +111,9 @@ export default function QuickWhatsAppModal({ onClose }: { onClose: () => void })
                                     />
                                     {dropdownOpen && search.length > 0 && (
                                         <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto">
-                                            {filtered.length > 0 ? filtered.map(c => (
+                                            {searching ? (
+                                                <div className="px-4 py-3 text-sm text-slate-400 text-center">מחפש...</div>
+                                            ) : filtered.length > 0 ? filtered.map(c => (
                                                 <div
                                                     key={c.id}
                                                     onMouseDown={() => { setSelected(c); setSearch(""); setDropdownOpen(false); }}
