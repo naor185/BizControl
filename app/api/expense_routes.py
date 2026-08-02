@@ -207,30 +207,24 @@ async def scan_invoice(
     """
     Upload an invoice image and extract structured data via Document AI.
     Requires the 'invoice_ai_scan' module (nested under 'ocr') enabled and
-    quota not exceeded.
+    quota not exceeded — both resolved through the generic Plans Engine
+    (app/core/features.py), the only place quota state is computed.
     """
     from app.models.studio import Studio
-    from app.core.features import is_module_enabled
+    from app.core.features import is_module_enabled, check_quota
 
     studio = db.query(Studio).filter_by(id=ctx.studio_id).first()
+    plan = studio.subscription_plan if studio else "free"
+    quota_result = None
 
-    # Check module (also requires the parent "ocr" module to be enabled)
     if ctx.role != "superadmin":
-        plan = studio.subscription_plan if studio else "free"
+        # Check module (also requires the parent "ocr" module to be enabled)
         if not is_module_enabled(db, ctx.studio_id, plan, "invoice_ai_scan"):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="סריקת חשבוניות AI אינה מופעלת לסטודיו זה. צרו קשר עם התמיכה.",
             )
-
-    # Check quota + reset monthly
-    if studio:
-        _reset_scan_quota_if_new_month(db, studio)
-        if studio.invoice_scan_quota > 0 and studio.invoice_scan_used >= studio.invoice_scan_quota:
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail=f"חרגתם ממכסת הסריקות החודשית ({studio.invoice_scan_quota} סריקות). פנו לתמיכה להגדלת המכסה.",
-            )
+        quota_result = check_quota(db, ctx.studio_id, plan, "invoice_ai_scan")  # raises 429 on block
 
     allowed_types = {"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"}
     content_type = (file.content_type or "").split(";")[0].strip().lower()
@@ -273,9 +267,14 @@ async def scan_invoice(
     # Save receipt image to disk
     receipt_url = _save_receipt_image(image_bytes, content_type, str(ctx.studio_id), db=db)
 
-    # Increment usage counter + AI cost/token tracking
+    # Increment usage counter (generic engine) + AI cost/token tracking
+    # (cost/token accounting stays on the old Studio columns — a $-cost
+    # ledger, not a quota dimension, so it's outside the Plans Engine).
+    if quota_result:
+        from app.core.features import increment_usage
+        increment_usage(db, ctx.studio_id, "invoice_ai_scan", quota_result["period_key"])
     if studio:
-        studio.invoice_scan_used = (studio.invoice_scan_used or 0) + 1
+        _reset_scan_quota_if_new_month(db, studio)
         if result.prompt_tokens is not None:
             studio.invoice_scan_prompt_tokens = (studio.invoice_scan_prompt_tokens or 0) + result.prompt_tokens
         if result.completion_tokens is not None:
@@ -769,15 +768,21 @@ def get_receipt_storage_usage(
 
     total_bytes = sum(exp.file_size_bytes or 0 for exp in rows)
     unknown_count = sum(1 for exp in rows if exp.file_size_bytes is None)
+
+    # Scan quota/usage now sourced from the generic Plans Engine (single
+    # source of truth) instead of Studio.invoice_scan_quota/used directly.
+    from app.core.features import get_usage_dashboard
+    scan_usage = None
+    if studio:
+        dash = get_usage_dashboard(db, ctx.studio_id, studio.subscription_plan, quota_key="invoice_ai_scan")
+        scan_usage = dash[0] if dash else None
+
     return {
         "total_bytes": total_bytes,
         "count": len(rows),
         "unknown_count": unknown_count,
-        "scan_quota": studio.invoice_scan_quota if studio else 0,
-        "scan_used": studio.invoice_scan_used if studio else 0,
-        "scan_remaining": (
-            max(0, studio.invoice_scan_quota - studio.invoice_scan_used)
-            if studio and studio.invoice_scan_quota > 0 else None
-        ),
-        "scan_reset_month": studio.invoice_scan_reset_month if studio else None,
+        "scan_quota": scan_usage["limit"] if scan_usage else 0,
+        "scan_used": scan_usage["used"] if scan_usage else 0,
+        "scan_remaining": scan_usage["remaining"] if scan_usage else None,
+        "scan_reset_month": scan_usage["period_key"] if scan_usage else None,
     }

@@ -3,7 +3,6 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 import os
 import json
-from datetime import date
 from google import genai
 from dotenv import load_dotenv
 
@@ -226,14 +225,11 @@ def generate_theme_with_ai(payload: AIGenerateRequest, ctx: AuthContext = Depend
     if not settings:
         raise HTTPException(status_code=404, detail="Settings not found")
 
-    today = date.today()
-    # Reset limit if new month
-    if not settings.ai_generations_reset_date or settings.ai_generations_reset_date.month != today.month or settings.ai_generations_reset_date.year != today.year:
-        settings.ai_generations_count = 0
-        settings.ai_generations_reset_date = today
-
-    if settings.ai_generations_count >= 3:
-        raise HTTPException(status_code=429, detail="הגעת למכסת ה-AI החודשית שלך (3 בחודש). נסה שוב בחודש הבא או צור קשר לשדרוג התוכנית.")
+    from app.core.features import check_quota
+    from app.models.studio import Studio
+    studio = db.get(Studio, ctx.studio_id)
+    plan = studio.subscription_plan if studio else "free"
+    quota_result = check_quota(db, ctx.studio_id, plan, "ai_theme_generate")  # raises 429 on block
 
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
@@ -276,8 +272,9 @@ def generate_theme_with_ai(payload: AIGenerateRequest, ctx: AuthContext = Depend
             
         result = json.loads(text.strip())
 
-        # Increment counter on success
-        settings.ai_generations_count += 1
+        # Increment counter on success (generic Plans Engine)
+        from app.core.features import increment_usage
+        increment_usage(db, ctx.studio_id, "ai_theme_generate", quota_result["period_key"])
         db.commit()
 
         return AIGenerateResponse(**result)

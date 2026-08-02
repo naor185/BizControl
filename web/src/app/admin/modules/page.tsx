@@ -5,6 +5,18 @@ import { apiFetch } from "@/lib/api";
 interface ModuleDef { id: string; name: string; category: string; sort_order: number; parent_module_id?: string | null; }
 interface StudioRow { id: string; name: string; subscription_plan: string; business_type: string; }
 type ModuleMap = Record<string, boolean>;
+interface QuotaOverride {
+    limit_value_override: number | null; limit_value_delta: number | null;
+    period_type_override: string | null; on_exceed_action_override: string | null;
+}
+const EMPTY_QUOTA_OVERRIDE: QuotaOverride = { limit_value_override: null, limit_value_delta: null, period_type_override: null, on_exceed_action_override: null };
+const PERIOD_TYPE_LABELS: Record<string, string> = {
+    unlimited: "ללא הגבלה", daily: "יומי", weekly: "שבועי", monthly: "חודשי", yearly: "שנתי", lifetime: "לכל החיים",
+};
+const ON_EXCEED_LABELS: Record<string, string> = {
+    block: "חסום לחלוטין", warn_only: "התרעה בלבד", allow_overage: "המשך עם חריגה",
+    paid_overage: "חריגה בתשלום", auto_increase: "הגדלה אוטומטית", custom: "אחר (עתידי)",
+};
 
 const CATEGORY_LABELS: Record<string, string> = {
     core: "🏗️ ליבה",
@@ -27,6 +39,9 @@ export default function ModulesAdminPage() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState<string | null>(null);
     const [err, setErr] = useState("");
+    const [expandedQuotaModId, setExpandedQuotaModId] = useState<string | null>(null);
+    const [quotaOverrides, setQuotaOverrides] = useState<Record<string, QuotaOverride>>({});
+    const [savingQuota, setSavingQuota] = useState<string | null>(null);
 
     const loadBase = useCallback(async () => {
         setLoading(true);
@@ -50,8 +65,12 @@ export default function ModulesAdminPage() {
 
     const loadStudioModules = useCallback(async (studioId: string) => {
         try {
-            const map = await apiFetch<ModuleMap>(`/api/admin/studios/${studioId}/modules`);
+            const [map, quotas] = await Promise.all([
+                apiFetch<ModuleMap>(`/api/admin/studios/${studioId}/modules`),
+                apiFetch<Record<string, QuotaOverride>>(`/api/admin/studios/${studioId}/modules/quota-overrides`),
+            ]);
             setModuleMap(map);
+            setQuotaOverrides(quotas);
         } catch (e: any) { setErr(e.message); }
     }, []);
 
@@ -59,6 +78,22 @@ export default function ModulesAdminPage() {
     useEffect(() => {
         if (selectedStudio) loadStudioModules(selectedStudio);
     }, [selectedStudio, loadStudioModules]);
+
+    const quotaFor = (modId: string): QuotaOverride => quotaOverrides[modId] || EMPTY_QUOTA_OVERRIDE;
+    const setQuotaField = (modId: string, field: keyof QuotaOverride, value: string | number | null) => {
+        setQuotaOverrides(prev => ({ ...prev, [modId]: { ...(prev[modId] || EMPTY_QUOTA_OVERRIDE), [field]: value } }));
+    };
+    const saveQuotaOverride = async (modId: string) => {
+        if (!selectedStudio) return;
+        setSavingQuota(modId);
+        try {
+            await apiFetch(`/api/admin/studios/${selectedStudio}/modules/${modId}/quota`, {
+                method: "PUT",
+                body: JSON.stringify(quotaFor(modId)),
+            });
+        } catch (e: any) { setErr(e.message); }
+        finally { setSavingQuota(null); }
+    };
 
     const toggle = async (moduleId: string) => {
         if (!selectedStudio) return;
@@ -192,8 +227,11 @@ export default function ModulesAdminPage() {
                                             {mods.map(m => {
                                                 const enabled = moduleMap[m.id] ?? false;
                                                 const fromPlan = planModsList.includes(m.id);
+                                                const q = quotaFor(m.id);
+                                                const qKey = m.id;
                                                 return (
-                                                    <div key={m.id} style={{ ...s.moduleRow, paddingRight: m.depth ? "1.5rem" : 0 }}>
+                                                    <div key={m.id}>
+                                                    <div style={{ ...s.moduleRow, paddingRight: m.depth ? "1.5rem" : 0 }}>
                                                         <div>
                                                             <span style={{ ...s.moduleName, color: m.depth ? "#94a3b8" : s.moduleName.color, fontSize: m.depth ? "0.82rem" : s.moduleName.fontSize }}>
                                                                 {m.depth ? `↳ ${m.name}` : m.name}
@@ -204,6 +242,11 @@ export default function ModulesAdminPage() {
                                                             {moduleMap.hasOwnProperty(m.id) && (
                                                                 <span style={{ ...s.badge, background: "rgba(167,139,250,.15)", color: "#a78bfa", marginRight: 8 }}>override</span>
                                                             )}
+                                                            <button
+                                                                onClick={() => setExpandedQuotaModId(expandedQuotaModId === qKey ? null : qKey)}
+                                                                title="הגדרת מכסה (Limits) לעסק זה"
+                                                                style={{ marginRight: 8, background: "none", border: "none", cursor: "pointer", opacity: 0.6, fontSize: "0.75rem" }}
+                                                            >⚙️</button>
                                                         </div>
                                                         <button
                                                             onClick={() => toggle(m.id)}
@@ -218,6 +261,44 @@ export default function ModulesAdminPage() {
                                                         >
                                                             {saving === m.id ? "..." : enabled ? "✅ פעיל" : "❌ כבוי"}
                                                         </button>
+                                                    </div>
+                                                    {expandedQuotaModId === qKey && (
+                                                        <div style={{ background: "rgba(167,139,250,.05)", borderRadius: 10, padding: "0.75rem", marginBottom: "0.5rem" }}>
+                                                            <div style={{ color: "#94a3b8", fontSize: "0.72rem", marginBottom: "0.5rem" }}>
+                                                                Override תוספתי/מוחלט לעסק זה — ריק = ירושה מהפלאן
+                                                            </div>
+                                                            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginBottom: "0.5rem" }}>
+                                                                <select value={q.period_type_override ?? ""} onChange={e => setQuotaField(qKey, "period_type_override", e.target.value || null)}
+                                                                    style={{ ...s.select, width: "auto", fontSize: "0.75rem", padding: "0.3rem 0.5rem" }}>
+                                                                    <option value="">(ירושה מהפלאן)</option>
+                                                                    {Object.entries(PERIOD_TYPE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                                                                </select>
+                                                                <select value={q.on_exceed_action_override ?? ""} onChange={e => setQuotaField(qKey, "on_exceed_action_override", e.target.value || null)}
+                                                                    style={{ ...s.select, width: "auto", fontSize: "0.75rem", padding: "0.3rem 0.5rem" }}>
+                                                                    <option value="">(ירושה מהפלאן)</option>
+                                                                    {Object.entries(ON_EXCEED_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                                                                </select>
+                                                            </div>
+                                                            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginBottom: "0.5rem" }}>
+                                                                <label style={{ fontSize: "0.72rem", color: "#94a3b8" }}>
+                                                                    מכסה מוחלטת (override):
+                                                                    <input type="number" value={q.limit_value_override ?? ""}
+                                                                        onChange={e => setQuotaField(qKey, "limit_value_override", e.target.value === "" ? null : Number(e.target.value))}
+                                                                        style={{ ...s.select, width: 90, fontSize: "0.75rem", padding: "0.25rem 0.5rem", marginRight: 6 }} />
+                                                                </label>
+                                                                <label style={{ fontSize: "0.72rem", color: "#94a3b8" }}>
+                                                                    תוספת (+delta):
+                                                                    <input type="number" value={q.limit_value_delta ?? ""}
+                                                                        onChange={e => setQuotaField(qKey, "limit_value_delta", e.target.value === "" ? null : Number(e.target.value))}
+                                                                        style={{ ...s.select, width: 90, fontSize: "0.75rem", padding: "0.25rem 0.5rem", marginRight: 6 }} />
+                                                                </label>
+                                                            </div>
+                                                            <button onClick={() => saveQuotaOverride(qKey)} disabled={savingQuota === qKey}
+                                                                style={{ fontSize: "0.75rem", background: "#a78bfa", border: "none", borderRadius: 8, color: "#1e1b4b", padding: "0.35rem 0.9rem", cursor: "pointer", fontWeight: 700, opacity: savingQuota === qKey ? 0.6 : 1 }}>
+                                                                {savingQuota === qKey ? "..." : "💾 שמור Override"}
+                                                            </button>
+                                                        </div>
+                                                    )}
                                                     </div>
                                                 );
                                             })}

@@ -4,7 +4,20 @@ import { apiFetch } from "@/lib/api";
 import { toast } from "@/lib/toast";
 
 interface Module { id: string; name: string; category: string; parent_module_id?: string | null; }
-interface PackageData { plans: string[]; modules: Module[]; plan_modules: Record<string, string[]>; }
+interface PlanQuota { limit_value: number | null; period_type: string; on_exceed_action: string; auto_increase_by: number | null; }
+interface PackageData {
+    plans: string[]; modules: Module[]; plan_modules: Record<string, string[]>;
+    plan_quotas: Record<string, Record<string, PlanQuota>>;
+}
+
+const DEFAULT_QUOTA: PlanQuota = { limit_value: null, period_type: "unlimited", on_exceed_action: "block", auto_increase_by: null };
+const PERIOD_TYPE_LABELS: Record<string, string> = {
+    unlimited: "ללא הגבלה", daily: "יומי", weekly: "שבועי", monthly: "חודשי", yearly: "שנתי", lifetime: "לכל החיים",
+};
+const ON_EXCEED_LABELS: Record<string, string> = {
+    block: "חסום לחלוטין", warn_only: "התרעה בלבד", allow_overage: "המשך עם חריגה",
+    paid_overage: "חריגה בתשלום", auto_increase: "הגדלה אוטומטית", custom: "אחר (עתידי)",
+};
 
 const PLAN_LABELS: Record<string, { label: string; color: string; icon: string }> = {
     trial:         { label: "Trial",       color: "#22c55e", icon: "🎁" },
@@ -29,13 +42,44 @@ export default function PackagesPage() {
     const [edits, setEdits] = useState<Record<string, string[]>>({});
     const [saving, setSaving] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
+    const [expandedQuotaModId, setExpandedQuotaModId] = useState<string | null>(null);
+    const [quotaEdits, setQuotaEdits] = useState<Record<string, PlanQuota>>({});
+    const [savingQuota, setSavingQuota] = useState<string | null>(null);
 
     useEffect(() => {
         apiFetch<PackageData>("/api/admin/packages")
-            .then(d => { setData(d); setEdits(d.plan_modules); })
+            .then(d => {
+                setData(d); setEdits(d.plan_modules);
+                const qe: Record<string, PlanQuota> = {};
+                Object.entries(d.plan_quotas || {}).forEach(([plan, byMod]) => {
+                    Object.entries(byMod).forEach(([modId, q]) => { qe[`${plan}:${modId}`] = q; });
+                });
+                setQuotaEdits(qe);
+            })
             .catch(() => {})
             .finally(() => setLoading(false));
     }, []);
+
+    const quotaFor = (plan: string, modId: string): PlanQuota => quotaEdits[`${plan}:${modId}`] || DEFAULT_QUOTA;
+
+    const setQuotaField = (plan: string, modId: string, field: keyof PlanQuota, value: string | number | null) => {
+        const key = `${plan}:${modId}`;
+        setQuotaEdits(prev => ({ ...prev, [key]: { ...(prev[key] || DEFAULT_QUOTA), [field]: value } }));
+    };
+
+    const saveQuota = async (plan: string, modId: string) => {
+        const key = `${plan}:${modId}`;
+        setSavingQuota(key);
+        try {
+            const q = quotaFor(plan, modId);
+            await apiFetch("/api/admin/packages/quota", {
+                method: "PUT",
+                body: JSON.stringify({ plan, module_id: modId, ...q }),
+            });
+            toast.success("מכסה עודכנה!");
+        } catch (e: any) { toast.error(e.message); }
+        finally { setSavingQuota(null); }
+    };
 
     const toggle = (plan: string, modId: string) => {
         setEdits(prev => {
@@ -114,9 +158,15 @@ export default function PackagesPage() {
                                             </td>
                                         </tr>
                                         {mods.map(mod => (
+                                            <>
                                             <tr key={mod.id} style={{ borderBottom: "1px solid rgba(255,255,255,.04)" }}>
                                                 <td style={{ padding: "0.65rem 1rem", color: mod.depth ? "#94a3b8" : "#e2e8f0", fontSize: mod.depth ? "0.8rem" : undefined }}>
                                                     {mod.depth ? `↳ ${mod.name}` : mod.name}
+                                                    <button
+                                                        onClick={() => setExpandedQuotaModId(expandedQuotaModId === mod.id ? null : mod.id)}
+                                                        title="הגדרת מכסה (Limits)"
+                                                        style={{ marginRight: 8, background: "none", border: "none", cursor: "pointer", opacity: 0.6, fontSize: "0.8rem" }}
+                                                    >⚙️</button>
                                                 </td>
                                                 {data?.plans.map(plan => {
                                                     const enabled = (edits[plan] || []).includes(mod.id);
@@ -137,6 +187,44 @@ export default function PackagesPage() {
                                                     );
                                                 })}
                                             </tr>
+                                            {expandedQuotaModId === mod.id && (
+                                                <tr key={`${mod.id}-quota`} style={{ background: "rgba(167,139,250,.04)" }}>
+                                                    <td colSpan={(data?.plans.length || 0) + 1} style={{ padding: "0.75rem 1rem" }}>
+                                                        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem" }}>
+                                                            {(data?.plans || []).filter(plan => (edits[plan] || []).includes(mod.id)).map(plan => {
+                                                                const q = quotaFor(plan, mod.id);
+                                                                const key = `${plan}:${mod.id}`;
+                                                                const p = PLAN_LABELS[plan] || { label: plan, color: "#7c3aed", icon: "📦" };
+                                                                return (
+                                                                    <div key={plan} style={{ background: "rgba(255,255,255,.04)", borderRadius: 10, padding: "0.6rem 0.75rem", minWidth: 220 }}>
+                                                                        <div style={{ color: p.color, fontSize: "0.75rem", fontWeight: 700, marginBottom: "0.4rem" }}>{p.icon} {p.label}</div>
+                                                                        <div style={{ display: "flex", gap: "0.4rem", marginBottom: "0.4rem" }}>
+                                                                            <select value={q.period_type} onChange={e => setQuotaField(plan, mod.id, "period_type", e.target.value)}
+                                                                                style={{ flex: 1, fontSize: "0.75rem", background: "#1e1b4b", color: "#e2e8f0", border: "1px solid rgba(255,255,255,.15)", borderRadius: 6, padding: "0.25rem" }}>
+                                                                                {Object.entries(PERIOD_TYPE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                                                                            </select>
+                                                                            <input type="number" placeholder="מכסה" value={q.limit_value ?? ""}
+                                                                                onChange={e => setQuotaField(plan, mod.id, "limit_value", e.target.value === "" ? null : Number(e.target.value))}
+                                                                                disabled={q.period_type === "unlimited"}
+                                                                                style={{ width: 70, fontSize: "0.75rem", background: "#1e1b4b", color: "#e2e8f0", border: "1px solid rgba(255,255,255,.15)", borderRadius: 6, padding: "0.25rem" }} />
+                                                                        </div>
+                                                                        <select value={q.on_exceed_action} onChange={e => setQuotaField(plan, mod.id, "on_exceed_action", e.target.value)}
+                                                                            disabled={q.period_type === "unlimited"}
+                                                                            style={{ width: "100%", fontSize: "0.75rem", background: "#1e1b4b", color: "#e2e8f0", border: "1px solid rgba(255,255,255,.15)", borderRadius: 6, padding: "0.25rem", marginBottom: "0.4rem" }}>
+                                                                            {Object.entries(ON_EXCEED_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                                                                        </select>
+                                                                        <button onClick={() => saveQuota(plan, mod.id)} disabled={savingQuota === key}
+                                                                            style={{ width: "100%", fontSize: "0.75rem", background: p.color, border: "none", borderRadius: 6, color: "#fff", padding: "0.3rem", cursor: "pointer", opacity: savingQuota === key ? 0.6 : 1 }}>
+                                                                            {savingQuota === key ? "..." : "💾 שמור מכסה"}
+                                                                        </button>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            )}
+                                            </>
                                         ))}
                                     </>
                                 ))}

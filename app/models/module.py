@@ -55,6 +55,15 @@ class StudioModule(Base):
     enabled_by_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
+    # Quota overrides for this studio×module. NULL everywhere = inherit the
+    # plan's quota config entirely. limit_value_override replaces the plan's
+    # limit_value outright; limit_value_delta ADDS to it instead (the "Basic
+    # plan + 500 messages" case, without duplicating the plan's own number).
+    # See app/core/features.py's effective_quota() for the resolution order.
+    limit_value_override: Mapped[int | None] = mapped_column(nullable=True)
+    limit_value_delta: Mapped[int | None] = mapped_column(nullable=True)
+    period_type_override: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    on_exceed_action_override: Mapped[str | None] = mapped_column(String(16), nullable=True)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
@@ -65,7 +74,8 @@ class StudioModule(Base):
 
 
 class PlanModule(Base):
-    """Defines which modules are included in each subscription plan by default."""
+    """Defines which modules are included in each subscription plan by default,
+    and (optionally) the quota that applies to that module for the plan."""
     __tablename__ = "plan_modules"
 
     plan: Mapped[str] = mapped_column(String(32), nullable=False, primary_key=True)
@@ -73,6 +83,15 @@ class PlanModule(Base):
         String(64), ForeignKey("modules.id", ondelete="CASCADE"),
         nullable=False, primary_key=True
     )
+    # Quota for this plan×module. period_type='unlimited' (default) means no
+    # quota dimension at all — limit_value/on_exceed_action/auto_increase_by
+    # are only meaningful once period_type is set to something else.
+    limit_value: Mapped[int | None] = mapped_column(nullable=True)
+    period_type: Mapped[str] = mapped_column(String(16), nullable=False, default="unlimited")
+    # daily | weekly | monthly | yearly | lifetime | unlimited
+    on_exceed_action: Mapped[str] = mapped_column(String(16), nullable=False, default="block")
+    # block | warn_only | allow_overage | paid_overage | auto_increase | custom
+    auto_increase_by: Mapped[int | None] = mapped_column(nullable=True)
 
 
 class Plan(Base):
@@ -99,6 +118,33 @@ class Plan(Base):
     sort_order: Mapped[int] = mapped_column(nullable=False, default=0)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class StudioUsageCounter(Base):
+    """
+    How much a studio has used a given quota_key (= a module/permission id)
+    within a given period. Old rows are never overwritten on reset — a new
+    period_key just gets a new row — so this table doubles as usage history
+    (see get_usage_dashboard() in app/core/features.py). Generalizes the two
+    ad-hoc counters this replaces: Studio.invoice_scan_used/reset_month and
+    StudioSettings.ai_generations_count/reset_date (both left in place,
+    unused, per the deprecate-before-delete pattern).
+    """
+    __tablename__ = "studio_usage_counters"
+
+    studio_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("studios.id", ondelete="CASCADE"),
+        nullable=False, primary_key=True
+    )
+    quota_key: Mapped[str] = mapped_column(String(64), nullable=False, primary_key=True)
+    # period_key format depends on period_type: "YYYY-MM-DD" (daily),
+    # "YYYY-Www" (weekly), "YYYY-MM" (monthly), "YYYY" (yearly), "lifetime"
+    # (constant — used for both 'lifetime' and 'unlimited' period types).
+    period_key: Mapped[str] = mapped_column(String(16), nullable=False, primary_key=True)
+    used_count: Mapped[int] = mapped_column(nullable=False, default=0)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
 
 
 class BusinessTypeTemplate(Base):

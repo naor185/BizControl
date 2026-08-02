@@ -21,6 +21,7 @@ from argon2 import PasswordHasher
 from app.core.database import get_db
 from app.core.auth_deps import get_current_user
 from app.core.security import create_access_token, create_set_password_token
+from app.core.features import PERIOD_TYPES, ON_EXCEED_ACTIONS
 from app.utils.email_utils import send_email_sync
 from app.models.user import User
 from app.models.studio import Studio
@@ -1844,6 +1845,91 @@ def set_studio_module(
     return {"studio_id": studio_id, "module_id": module_id, "is_enabled": payload.is_enabled}
 
 
+class StudioQuotaOverride(BaseModel):
+    limit_value_override: int | None = None
+    limit_value_delta: int | None = None
+    period_type_override: str | None = None       # None = inherit the plan's period_type
+    on_exceed_action_override: str | None = None   # None = inherit the plan's on_exceed_action
+
+
+@router.get("/studios/{studio_id}/modules/quota-overrides", tags=["SuperAdmin"])
+def get_studio_quota_overrides(
+    studio_id: str,
+    _admin: User = Depends(require_superadmin),
+    db: Session = Depends(get_db),
+):
+    """Quota override fields for every studio_modules row that has one set."""
+    from app.models.module import StudioModule
+    rows = db.query(StudioModule).filter(
+        StudioModule.studio_id == studio_id,
+        (StudioModule.limit_value_override.isnot(None)) |
+        (StudioModule.limit_value_delta.isnot(None)) |
+        (StudioModule.period_type_override.isnot(None)) |
+        (StudioModule.on_exceed_action_override.isnot(None)),
+    ).all()
+    return {
+        r.module_id: {
+            "limit_value_override": r.limit_value_override,
+            "limit_value_delta": r.limit_value_delta,
+            "period_type_override": r.period_type_override,
+            "on_exceed_action_override": r.on_exceed_action_override,
+        } for r in rows
+    }
+
+
+@router.put("/studios/{studio_id}/modules/{module_id}/quota", tags=["SuperAdmin"])
+def set_studio_quota_override(
+    studio_id: str,
+    module_id: str,
+    payload: StudioQuotaOverride,
+    admin: User = Depends(require_superadmin),
+    db: Session = Depends(get_db),
+):
+    """Set (or clear, by passing nulls) this studio's quota override for a
+    module — additive to the plan's quota (limit_value_delta) or an outright
+    replacement (limit_value_override), without creating a new plan."""
+    from app.models.module import StudioModule
+    from app.core.features import is_module_enabled, PERIOD_TYPES, ON_EXCEED_ACTIONS
+    if payload.period_type_override is not None and payload.period_type_override not in PERIOD_TYPES:
+        raise HTTPException(status_code=400, detail=f"Invalid period_type_override. Valid: {PERIOD_TYPES}")
+    if payload.on_exceed_action_override is not None and payload.on_exceed_action_override not in ON_EXCEED_ACTIONS:
+        raise HTTPException(status_code=400, detail=f"Invalid on_exceed_action_override. Valid: {ON_EXCEED_ACTIONS}")
+    studio = db.query(Studio).filter_by(id=studio_id).first()
+    if not studio:
+        raise HTTPException(status_code=404, detail="Studio not found")
+
+    row = db.query(StudioModule).filter_by(studio_id=studio_id, module_id=module_id).first()
+    if not row:
+        # No existing override row — create one, but pin is_enabled to what it
+        # already resolves to (plan default) so setting a quota doesn't
+        # silently grant/revoke module access as a side effect.
+        currently_enabled = is_module_enabled(db, studio_id, studio.subscription_plan, module_id)
+        row = StudioModule(studio_id=studio_id, module_id=module_id, is_enabled=currently_enabled)
+        db.add(row)
+    row.limit_value_override = payload.limit_value_override
+    row.limit_value_delta = payload.limit_value_delta
+    row.period_type_override = payload.period_type_override
+    row.on_exceed_action_override = payload.on_exceed_action_override
+    _audit(db, admin, "set_studio_quota_override", studio, {"module": module_id, **payload.model_dump()})
+    db.commit()
+    return {"studio_id": studio_id, "module_id": module_id, **payload.model_dump()}
+
+
+@router.get("/studios/{studio_id}/usage", tags=["SuperAdmin"])
+def get_studio_usage(
+    studio_id: str,
+    _admin: User = Depends(require_superadmin),
+    db: Session = Depends(get_db),
+):
+    """Usage dashboard for a single studio — used/limit/remaining/percent/
+    reset/history per quota-configured module, from the generic engine."""
+    from app.core.features import get_usage_dashboard
+    studio = db.query(Studio).filter_by(id=studio_id).first()
+    if not studio:
+        raise HTTPException(status_code=404, detail="Studio not found")
+    return get_usage_dashboard(db, studio_id, studio.subscription_plan)
+
+
 @router.get("/plan-modules", tags=["SuperAdmin"])
 def get_plan_modules(_admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
     """Get module list per plan."""
@@ -1918,34 +2004,77 @@ class PlanModuleUpdate(BaseModel):
     module_ids: list[str]
 
 
+class PlanQuotaUpdate(BaseModel):
+    plan: str
+    module_id: str
+    limit_value: int | None = None
+    period_type: str = "unlimited"
+    on_exceed_action: str = "block"
+    auto_increase_by: int | None = None
+
+
 @router.get("/packages", tags=["SuperAdmin"])
 def get_packages(admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
-    """Get current module list for all plans."""
+    """Get current module list for all plans, plus per-plan quota config."""
     from app.models.module import PlanModule, Module, Plan
     all_modules = db.scalars(select(Module).where(Module.is_available == True).order_by(Module.sort_order)).all()
     plan_rows = db.query(PlanModule).all()
     plan_map: dict = {}
+    quota_map: dict = {}
     for row in plan_rows:
         plan_map.setdefault(row.plan, []).append(row.module_id)
+        quota_map.setdefault(row.plan, {})[row.module_id] = {
+            "limit_value": row.limit_value, "period_type": row.period_type,
+            "on_exceed_action": row.on_exceed_action, "auto_increase_by": row.auto_increase_by,
+        }
     plans = db.scalars(select(Plan).where(Plan.is_active == True).order_by(Plan.sort_order)).all()
     return {
         "plans": [p.id for p in plans],
         "modules": [{"id": m.id, "name": m.name, "category": m.category,
                      "parent_module_id": m.parent_module_id} for m in all_modules],
         "plan_modules": plan_map,
+        "plan_quotas": quota_map,
     }
 
 
 @router.put("/packages", tags=["SuperAdmin"])
 def update_package(payload: PlanModuleUpdate, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
-    """Replace the module list for a plan."""
+    """Replace the module list for a plan. Preserves each retained module's
+    existing quota config (only inclusion changes, not limit_value/period_type/
+    on_exceed_action) — quota is edited separately via PUT /packages/quota."""
     from app.models.module import PlanModule
-    db.query(PlanModule).filter(PlanModule.plan == payload.plan).delete()
+    existing = {r.module_id: r for r in db.query(PlanModule).filter(PlanModule.plan == payload.plan).all()}
+    keep = set(payload.module_ids)
+    for mid, row in existing.items():
+        if mid not in keep:
+            db.delete(row)
     for mid in payload.module_ids:
-        db.add(PlanModule(plan=payload.plan, module_id=mid))
+        if mid not in existing:
+            db.add(PlanModule(plan=payload.plan, module_id=mid))
     _audit(db, admin, "update_package", details={"plan": payload.plan, "modules": payload.module_ids})
     db.commit()
     return {"plan": payload.plan, "modules": payload.module_ids}
+
+
+@router.put("/packages/quota", tags=["SuperAdmin"])
+def update_package_quota(payload: PlanQuotaUpdate, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    """Set quota config (limit/period/on-exceed-action) for a plan×module.
+    The module must already be included in the plan (via PUT /packages)."""
+    from app.models.module import PlanModule
+    if payload.period_type not in PERIOD_TYPES:
+        raise HTTPException(status_code=400, detail=f"Invalid period_type. Valid: {PERIOD_TYPES}")
+    if payload.on_exceed_action not in ON_EXCEED_ACTIONS:
+        raise HTTPException(status_code=400, detail=f"Invalid on_exceed_action. Valid: {ON_EXCEED_ACTIONS}")
+    row = db.query(PlanModule).filter_by(plan=payload.plan, module_id=payload.module_id).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Module is not included in this plan")
+    row.limit_value = payload.limit_value
+    row.period_type = payload.period_type
+    row.on_exceed_action = payload.on_exceed_action
+    row.auto_increase_by = payload.auto_increase_by
+    _audit(db, admin, "update_package_quota", details=payload.model_dump())
+    db.commit()
+    return {"plan": payload.plan, "module_id": payload.module_id, "quota": payload.model_dump(exclude={"plan", "module_id"})}
 
 
 # ── Global Platform Analytics ─────────────────────────────────────────────────

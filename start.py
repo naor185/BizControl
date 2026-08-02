@@ -374,6 +374,36 @@ def ensure_schema():
             )
         """)
 
+        # ── Generic quota engine (Plans Engine step 3) ─────────────────────────
+        # Additive only — period_type defaults to 'unlimited' (no quota
+        # dimension at all) so every existing plan_modules row is unaffected
+        # until a Super Admin explicitly sets a quota via admin/packages.
+        cur.execute("""
+            ALTER TABLE plan_modules
+            ADD COLUMN IF NOT EXISTS limit_value INTEGER,
+            ADD COLUMN IF NOT EXISTS period_type VARCHAR(16) NOT NULL DEFAULT 'unlimited',
+            ADD COLUMN IF NOT EXISTS on_exceed_action VARCHAR(16) NOT NULL DEFAULT 'block',
+            ADD COLUMN IF NOT EXISTS auto_increase_by INTEGER
+        """)
+        cur.execute("""
+            ALTER TABLE studio_modules
+            ADD COLUMN IF NOT EXISTS limit_value_override INTEGER,
+            ADD COLUMN IF NOT EXISTS limit_value_delta INTEGER,
+            ADD COLUMN IF NOT EXISTS period_type_override VARCHAR(16),
+            ADD COLUMN IF NOT EXISTS on_exceed_action_override VARCHAR(16)
+        """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS studio_usage_counters (
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                quota_key VARCHAR(64) NOT NULL,
+                period_key VARCHAR(16) NOT NULL,
+                used_count INTEGER NOT NULL DEFAULT 0,
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                PRIMARY KEY (studio_id, quota_key, period_key)
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_usage_counters_studio_key ON studio_usage_counters (studio_id, quota_key)")
+
         # parent_module_id: NULL = standalone module; set = a fine-grained
         # "permission" nested under a parent module. Additive only — existing
         # rows keep parent_module_id NULL (still standalone modules), so this
@@ -437,6 +467,11 @@ def ensure_schema():
             ("ai_insights",          "analytics", "advanced",      "AI Insights",                       1),
             ("lead_attribution",     "analytics", "advanced",      "מעקב לידים (Attribution)",         2),
             ("ai_auto_tag",          "ai_assistant", "ai",         "תיוג AI אוטומטי ללידים",           0),
+            # Was previously an ungated endpoint (only a role check, no
+            # module/feature gate at all) with a hardcoded ">= 3/month" cap —
+            # now a real module so the cap can be configured via
+            # admin/packages instead of a number buried in automation_routes.py.
+            ("ai_theme_generate",    "ai_assistant", "ai",         "יצירת ערכת נושא ב-AI",             1),
             # Was previously its own free-floating studio_features flag with
             # its own quota columns on Studio, fully independent of the "ocr"
             # module even though it's the exact same functional area — folding
@@ -524,12 +559,62 @@ def ensure_schema():
                            "online_booking", "marketplace", "wait_list", "gift_cards",
                            "analytics", "multi_location", "employee_mgmt", "automation_builder"] + _NAV_MODULES,
         }
+        # ai_theme_generate had no plan gate at all before (any owner/admin/
+        # manager could call it) — added to every plan so the new module row
+        # doesn't restrict access anyone already had; only the quota (set
+        # below) is new, migrated from the old hardcoded ">= 3" check.
+        for plan in PLAN_MODULES:
+            PLAN_MODULES[plan] = PLAN_MODULES[plan] + ["ai_theme_generate"]
         for plan, mods in PLAN_MODULES.items():
             for mod in mods:
                 cur.execute("""
                     INSERT INTO plan_modules (plan, module_id) VALUES (%s, %s)
                     ON CONFLICT DO NOTHING
                 """, (plan, mod))
+
+        # Quota config for ai_theme_generate — same 3/month cap for every
+        # plan, matching the old global hardcoded check in automation_routes.py.
+        cur.execute("""
+            UPDATE plan_modules
+            SET limit_value = 3, period_type = 'monthly', on_exceed_action = 'block'
+            WHERE module_id = 'ai_theme_generate'
+        """)
+
+        # Carry over each studio's current-cycle AI-generation usage so
+        # nobody's count silently resets to 0 (which would hand out extra
+        # generations for the rest of their current month) or loses a
+        # near-limit warning.
+        cur.execute("""
+            INSERT INTO studio_usage_counters (studio_id, quota_key, period_key, used_count)
+            SELECT ss.studio_id, 'ai_theme_generate', to_char(ss.ai_generations_reset_date, 'YYYY-MM'), ss.ai_generations_count
+            FROM studio_settings ss
+            WHERE ss.ai_generations_count > 0 AND ss.ai_generations_reset_date IS NOT NULL
+            ON CONFLICT (studio_id, quota_key, period_key) DO UPDATE SET used_count = EXCLUDED.used_count
+        """)
+
+        # Carry over invoice-scan quota/usage onto the invoice_ai_scan module
+        # (only for studios where it's already an active override — created
+        # either by step 2's studio_features migration or enable_invoice_scan()
+        # — never invented for a studio that isn't actually enabled).
+        cur.execute("""
+            UPDATE studio_modules sm
+            SET limit_value_override = s.invoice_scan_quota,
+                period_type_override = 'monthly',
+                on_exceed_action_override = 'block'
+            FROM studios s
+            WHERE sm.studio_id = s.id
+              AND sm.module_id = 'invoice_ai_scan'
+              AND sm.is_enabled = true
+              AND s.invoice_scan_quota > 0
+        """)
+        cur.execute("""
+            INSERT INTO studio_usage_counters (studio_id, quota_key, period_key, used_count)
+            SELECT s.id, 'invoice_ai_scan', s.invoice_scan_reset_month, s.invoice_scan_used
+            FROM studios s
+            JOIN studio_modules sm ON sm.studio_id = s.id AND sm.module_id = 'invoice_ai_scan' AND sm.is_enabled = true
+            WHERE s.invoice_scan_quota > 0 AND s.invoice_scan_used > 0 AND s.invoice_scan_reset_month IS NOT NULL
+            ON CONFLICT (studio_id, quota_key, period_key) DO UPDATE SET used_count = EXCLUDED.used_count
+        """)
 
         # ── Seed plans registry (idempotent) ───────────────────────────────────
         # One-time migration of plan identity out of scattered dicts (BIZFIND_PLANS
