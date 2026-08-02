@@ -350,6 +350,22 @@ def ensure_schema():
             )
         """)
         cur.execute("""
+            CREATE TABLE IF NOT EXISTS plans (
+                id VARCHAR(32) PRIMARY KEY,
+                display_name VARCHAR(128) NOT NULL,
+                price_cents INTEGER NOT NULL DEFAULT 0,
+                currency VARCHAR(8) NOT NULL DEFAULT 'ILS',
+                billing_period_days INTEGER NOT NULL DEFAULT 30,
+                trial_days INTEGER NOT NULL DEFAULT 0,
+                stripe_price_id VARCHAR(120),
+                scope_bizcontrol BOOLEAN NOT NULL DEFAULT true,
+                is_purchasable BOOLEAN NOT NULL DEFAULT true,
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                is_active BOOLEAN NOT NULL DEFAULT true,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+        cur.execute("""
             CREATE TABLE IF NOT EXISTS business_type_templates (
                 business_type VARCHAR(64) PRIMARY KEY,
                 display_name VARCHAR(128) NOT NULL,
@@ -436,6 +452,58 @@ def ensure_schema():
                     INSERT INTO plan_modules (plan, module_id) VALUES (%s, %s)
                     ON CONFLICT DO NOTHING
                 """, (plan, mod))
+
+        # ── Seed plans registry (idempotent) ───────────────────────────────────
+        # One-time migration of plan identity out of scattered dicts (BIZFIND_PLANS
+        # in marketplace_routes.py, PRICE_IDS/PLAN_NAMES/PLAN_DAYS in
+        # billing_routes.py) into a real, admin-editable table. Nothing reads from
+        # this table yet except admin/packages' plan list — zero behavior change
+        # for existing studios. stripe_price_id is left NULL; it's pasted in by
+        # Super Admin after creating the Price in Stripe (no way to avoid that
+        # manual Stripe-side step). id/columns match app/models/module.py's Plan.
+        # (plan_id, display_name, price_cents, billing_period_days, trial_days, scope_bizcontrol, is_purchasable, sort_order)
+        PLANS_SEED = [
+            ("trial",         "ניסיון חינמי",              0,     30, 14, True,  False, 0),
+            ("free",          "Free",                       0,     30, 0,  True,  False, 1),
+            ("bizfind_basic", "Basic — BizFind בלבד",       9900,  30, 0,  False, False, 2),
+            ("bizfind_pro",   "Pro — BizFind בלבד",         17900, 30, 0,  False, False, 3),
+            ("starter",       "Starter — BizFind + BizControl", 19900, 30, 0, True, True, 4),
+            ("pro",           "Pro — BizFind + BizControl", 34900, 30, 0,  True,  True,  5),
+            ("studio",        "Studio — BizFind + BizControl", 49900, 30, 0, True, True, 6),
+            ("enterprise",    "Enterprise",                 0,     30, 0,  True,  False, 7),
+            ("platform",      "Platform",                   0,     30, 0,  True,  False, 8),
+        ]
+        for pid, display_name, price_cents, period_days, trial_days, scope_bc, purchasable, sort in PLANS_SEED:
+            cur.execute("""
+                INSERT INTO plans (id, display_name, price_cents, billing_period_days, trial_days,
+                                    scope_bizcontrol, is_purchasable, sort_order)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (id) DO NOTHING
+            """, (pid, display_name, price_cents, period_days, trial_days, scope_bc, purchasable, sort))
+
+        # plan_modules.plan becomes a real FK now that plans is seeded with every
+        # key PLAN_MODULES ever used. Checked first (rather than a blind ALTER)
+        # because ensure_schema() commits once at the very end — a failed ALTER
+        # here would abort the whole migration batch for this deploy, not just
+        # this one statement. Skips cleanly (keeps plan as a plain column) if any
+        # orphan value shows up that wasn't anticipated, instead of risking that.
+        cur.execute("""
+            SELECT 1 FROM pg_constraint WHERE conname = 'fk_plan_modules_plan'
+        """)
+        if not cur.fetchone():
+            cur.execute("""
+                SELECT DISTINCT plan FROM plan_modules
+                WHERE plan NOT IN (SELECT id FROM plans)
+            """)
+            orphans = [r[0] for r in cur.fetchall()]
+            if orphans:
+                print(f"[start] Skipping plan_modules.plan FK — orphan plan keys not in plans table: {orphans}")
+            else:
+                cur.execute("""
+                    ALTER TABLE plan_modules
+                        ADD CONSTRAINT fk_plan_modules_plan
+                        FOREIGN KEY (plan) REFERENCES plans(id) ON DELETE CASCADE
+                """)
 
         # ── Seed business type templates (idempotent) ─────────────────────────
         import json as _json

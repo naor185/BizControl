@@ -7,11 +7,15 @@ interface Module { id: string; name: string; category: string; }
 interface PackageData { plans: string[]; modules: Module[]; plan_modules: Record<string, string[]>; }
 
 const PLAN_LABELS: Record<string, { label: string; color: string; icon: string }> = {
-    free:       { label: "Free",       color: "#64748b", icon: "🆓" },
-    starter:    { label: "Starter",    color: "#0ea5e9", icon: "🚀" },
-    pro:        { label: "Pro",        color: "#7c3aed", icon: "⚡" },
-    enterprise: { label: "Enterprise", color: "#f59e0b", icon: "🏆" },
-    platform:   { label: "Platform",  color: "#ef4444", icon: "🛡️" },
+    trial:         { label: "Trial",       color: "#22c55e", icon: "🎁" },
+    free:          { label: "Free",        color: "#64748b", icon: "🆓" },
+    bizfind_basic: { label: "BizFind Basic (retired)", color: "#94a3b8", icon: "🗄️" },
+    bizfind_pro:   { label: "BizFind Pro (retired)",   color: "#94a3b8", icon: "🗄️" },
+    starter:       { label: "Starter",     color: "#0ea5e9", icon: "🚀" },
+    pro:           { label: "Pro",         color: "#7c3aed", icon: "⚡" },
+    studio:        { label: "Studio",      color: "#db2777", icon: "🎨" },
+    enterprise:    { label: "Enterprise",  color: "#f59e0b", icon: "🏆" },
+    platform:      { label: "Platform",    color: "#ef4444", icon: "🛡️" },
 };
 
 const CAT_ORDER = ["core","communication","ai","marketplace","advanced","finance"];

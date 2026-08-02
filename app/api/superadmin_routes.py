@@ -1920,14 +1920,15 @@ class PlanModuleUpdate(BaseModel):
 @router.get("/packages", tags=["SuperAdmin"])
 def get_packages(admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
     """Get current module list for all plans."""
-    from app.models.module import PlanModule, Module
+    from app.models.module import PlanModule, Module, Plan
     all_modules = db.scalars(select(Module).where(Module.is_available == True).order_by(Module.sort_order)).all()
     plan_rows = db.query(PlanModule).all()
     plan_map: dict = {}
     for row in plan_rows:
         plan_map.setdefault(row.plan, []).append(row.module_id)
+    plans = db.scalars(select(Plan).where(Plan.is_active == True).order_by(Plan.sort_order)).all()
     return {
-        "plans": ["free", "starter", "pro", "enterprise", "platform"],
+        "plans": [p.id for p in plans],
         "modules": [{"id": m.id, "name": m.name, "category": m.category} for m in all_modules],
         "plan_modules": plan_map,
     }

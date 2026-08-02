@@ -68,6 +68,32 @@ class PlanModule(Base):
     )
 
 
+class Plan(Base):
+    """A real, admin-editable subscription plan — the entity that used to only
+    exist as free-text strings scattered across BIZFIND_PLANS
+    (marketplace_routes.py), PRICE_IDS/PLAN_NAMES (billing_routes.py), and
+    PLAN_MODULES (start.py). Those three haven't been retired yet (see
+    project_bizfind_bizcontrol_unification memory / Generic Plans Engine
+    plan) — this table is the first step: a single source of truth for
+    "which plans exist," starting with admin/packages reading its plan list
+    from here instead of a hardcoded array.
+    """
+    __tablename__ = "plans"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)  # e.g. "pro"
+    display_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    price_cents: Mapped[int] = mapped_column(nullable=False, default=0)
+    currency: Mapped[str] = mapped_column(String(8), nullable=False, default="ILS")
+    billing_period_days: Mapped[int] = mapped_column(nullable=False, default=30)
+    trial_days: Mapped[int] = mapped_column(nullable=False, default=0)
+    stripe_price_id: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    scope_bizcontrol: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    is_purchasable: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    sort_order: Mapped[int] = mapped_column(nullable=False, default=0)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class BusinessTypeTemplate(Base):
     """Default configuration (modules + sample services) per business type."""
     __tablename__ = "business_type_templates"
