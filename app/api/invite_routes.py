@@ -75,10 +75,9 @@ def optout_page_info(token: str, db: Session = Depends(get_db)):
 
     row = db.execute(
         text("""
-            SELECT s.name, COALESCE(s.logo_url, mp.logo_url) AS logo_url, ss.logo_filename, ss.optout_page_message
+            SELECT s.name, s.logo_url, ss.logo_filename, ss.optout_page_message
             FROM studios s
             LEFT JOIN studio_settings ss ON ss.studio_id = s.id
-            LEFT JOIN marketplace_profiles mp ON mp.studio_id = s.id
             WHERE s.id = :sid
         """),
         {"sid": studio_id}

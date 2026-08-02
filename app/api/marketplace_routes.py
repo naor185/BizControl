@@ -66,6 +66,11 @@ BIZFIND_PLANS = {
     },
 }
 
+# BizFind-only plans (no BizControl access) are no longer sold — kept in
+# BIZFIND_PLANS above only because existing studios may still be on them
+# (see PLAN_MODULES safety net in start.py). Not offered for new signups.
+_RETIRED_PLAN_KEYS = {"bizfind_basic", "bizfind_pro"}
+
 
 # ── Studio owner login (no slug required) ─────────────────────────────────────
 
@@ -141,6 +146,12 @@ def bizfind_register(payload: BizFindRegisterIn, db: Session = Depends(get_db)):
     from app.core.security import create_access_token, create_refresh_token
     from argon2 import PasswordHasher
 
+    if payload.plan_key in _RETIRED_PLAN_KEYS:
+        # Retired: BizFind-only plans (no BizControl access) are no longer sold —
+        # every business owner is managed through BizControl. Existing studios
+        # already on these plans keep working (see PLAN_MODULES in start.py).
+        raise HTTPException(status_code=400, detail="תכנית זו הופסקה. כל בעלי העסקים מנוהלים כעת דרך BizControl.")
+
     plan = BIZFIND_PLANS.get(payload.plan_key)
     if not plan:
         raise HTTPException(status_code=400, detail=f"תכנית לא חוקית: {payload.plan_key}")
@@ -168,6 +179,7 @@ def bizfind_register(payload: BizFindRegisterIn, db: Session = Depends(get_db)):
         name=payload.business_name.strip(),
         slug=slug,
         subscription_plan=plan["subscription_plan"],
+        business_type=payload.category.strip(),
         is_active=True,
         plan_expires_at=expires,
         is_platform=False,
@@ -175,39 +187,18 @@ def bizfind_register(payload: BizFindRegisterIn, db: Session = Depends(get_db)):
     db.add(studio)
     db.flush()
 
-    # Studio settings — tag with category and city; enable marketplace visibility immediately
+    # Studio settings — tag with category and city; enable marketplace visibility immediately.
+    # studios + studio_settings are the single source of truth for profile data
+    # (get_studio_profile / get_my_studio_profile already read only from here) —
+    # no separate marketplace_profiles row is created anymore.
     settings = StudioSettings(
         studio_id=studio.id,
         studio_address=payload.city.strip(),
+        marketplace_city=payload.city.strip(),
+        marketplace_phone=payload.phone.strip() if payload.phone else None,
         marketplace_visible=True,
     )
     db.add(settings)
-
-    # Create marketplace profile with all business details
-    db.execute(
-        text("""
-            INSERT INTO marketplace_profiles
-                (id, studio_id, business_name, category, city, phone, whatsapp,
-                 plan_code, is_active, is_published, created_at, updated_at)
-            VALUES
-                (:id, :sid, :bname, :cat, :city, :phone, :phone,
-                 :plan, true, true, NOW(), NOW())
-            ON CONFLICT (studio_id) DO UPDATE SET
-                business_name = EXCLUDED.business_name,
-                category      = EXCLUDED.category,
-                city          = EXCLUDED.city,
-                plan_code     = EXCLUDED.plan_code,
-                updated_at    = NOW()
-        """),
-        {
-            "id": str(uuid.uuid4()), "sid": str(studio.id),
-            "bname": payload.business_name.strip(),
-            "cat": payload.category.strip(),
-            "city": payload.city.strip(),
-            "phone": payload.phone.strip() if payload.phone else None,
-            "plan": plan["subscription_plan"],
-        },
-    )
 
     owner = User(
         id=uuid.uuid4(),
@@ -242,9 +233,13 @@ def bizfind_register(payload: BizFindRegisterIn, db: Session = Depends(get_db)):
 
 @router.get("/plans")
 def get_plans(db: Session = Depends(get_db)):
-    """Public endpoint — returns available BizFind plans with their feature flags."""
+    """Public endpoint — returns available BizFind plans with their feature flags.
+    Excludes retired BizFind-only plans (no longer sold) — every plan offered
+    going forward includes BizControl."""
     plans = []
     for k, v in BIZFIND_PLANS.items():
+        if k in _RETIRED_PLAN_KEYS:
+            continue
         features = db.execute(
             text("""
                 SELECT feature_key, feature_label, is_enabled, limit_value
@@ -334,23 +329,8 @@ def patch_my_studio_profile(
         settings.marketplace_phone = payload.phone.strip() or None
     if payload.whatsapp is not None:
         settings.marketplace_whatsapp = payload.whatsapp.strip() or None
-
-    # Update marketplace_profiles too (created during registration)
-    update_fields: dict = {}
-    if payload.business_name: update_fields["business_name"] = payload.business_name.strip()
-    if payload.description:   update_fields["description"]   = payload.description.strip()
-    if payload.city:          update_fields["city"]          = payload.city.strip()
-    if payload.address:       update_fields["address"]       = payload.address.strip() if hasattr(payload, "address") else None
-    if payload.phone:         update_fields["phone"]         = payload.phone.strip()
-    if payload.category:      update_fields["category"]      = payload.category.strip()
-
-    if update_fields:
-        set_clause = ", ".join(f"{k} = :{k}" for k in update_fields)
-        update_fields["sid"] = str(ctx.studio_id)
-        db.execute(
-            text(f"UPDATE marketplace_profiles SET {set_clause}, updated_at=NOW() WHERE studio_id = :sid"),
-            update_fields,
-        )
+    if payload.category is not None:
+        studio.business_type = payload.category.strip() or None
 
     db.commit()
     return {"ok": True}

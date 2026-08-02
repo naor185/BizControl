@@ -15,35 +15,6 @@ const PLANS = [
     },
 ];
 
-const BIZFIND_TIERS = [
-    {
-        key: "bizfind_basic",
-        label: "Basic",
-        price: 99,
-        badge: null,
-        features: [
-            "כרטיס עסק בפלטפורמה",
-            "הופעה בחיפוש",
-            "קבלת לידים ותורים",
-            "גלריית תמונות",
-            "עד 50 תורים/חודש",
-        ],
-    },
-    {
-        key: "bizfind_pro",
-        label: "Pro",
-        price: 179,
-        badge: "הכי פופולרי",
-        features: [
-            "כל הפיצ׳רים של Basic",
-            "תורים ללא הגבלה",
-            "ביקורות ודירוג",
-            "סטטיסטיקות מתקדמות",
-            "תמיכה מועדפת",
-        ],
-    },
-];
-
 const BIZCONTROL_TIERS = [
     {
         key: "starter",
@@ -182,37 +153,18 @@ export default function PricingPage() {
                     <p style={{ color: "#94a3b8", fontSize: "0.8rem", marginTop: "0.6rem" }}>✅ ללא כרטיס אשראי &nbsp;·&nbsp; ✅ מבטלים מתי שרוצים</p>
                 </div>
 
-                {/* ── Scope tabs ── */}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2.5rem", marginBottom: "4rem" }}>
-
-                    {/* BizFind only */}
-                    <div>
-                        <div style={{ background: "#f5f3ff", border: "1.5px solid #ede9fe", borderRadius: 16, padding: "1.25rem 1.5rem", marginBottom: "1.25rem" }}>
-                            <div style={{ fontWeight: 900, fontSize: "1.1rem", color: "#7c3aed", marginBottom: "0.3rem" }}>📍 BizFind בלבד</div>
-                            <div style={{ fontSize: "0.88rem", color: "#64748b" }}>
-                                כרטיס עסק, הופעה בחיפוש, קבלת תורים ולידים — ללא מערכת ניהול.
-                            </div>
-                        </div>
-                        <div style={{ display: "grid", gap: "1rem" }}>
-                            {BIZFIND_TIERS.map(t => (
-                                <PlanCard key={t.key} tier={t} scope="bizfind" featured={t.badge !== null} />
-                            ))}
+                {/* ── Plans ── */}
+                <div style={{ marginBottom: "4rem" }}>
+                    <div style={{ background: "#f0fdf4", border: "1.5px solid #bbf7d0", borderRadius: 16, padding: "1.25rem 1.5rem", marginBottom: "1.25rem", maxWidth: 640, marginInline: "auto" }}>
+                        <div style={{ fontWeight: 900, fontSize: "1.1rem", color: "#16a34a", marginBottom: "0.3rem" }}>⚡ BizFind + BizControl</div>
+                        <div style={{ fontSize: "0.88rem", color: "#64748b" }}>
+                            כל תוכנית כוללת הופעה בחיפוש BizFind + מערכת ניהול מלאה: יומן, CRM, קופה, חשבוניות ואוטומציות.
                         </div>
                     </div>
-
-                    {/* BizFind + BizControl */}
-                    <div>
-                        <div style={{ background: "#f0fdf4", border: "1.5px solid #bbf7d0", borderRadius: 16, padding: "1.25rem 1.5rem", marginBottom: "1.25rem" }}>
-                            <div style={{ fontWeight: 900, fontSize: "1.1rem", color: "#16a34a", marginBottom: "0.3rem" }}>⚡ BizFind + BizControl</div>
-                            <div style={{ fontSize: "0.88rem", color: "#64748b" }}>
-                                כל יכולות BizFind + מערכת ניהול מלאה: יומן, CRM, קופה, חשבוניות ואוטומציות.
-                            </div>
-                        </div>
-                        <div style={{ display: "grid", gap: "1rem" }}>
-                            {BIZCONTROL_TIERS.map(t => (
-                                <PlanCard key={t.key} tier={t} scope="bizcontrol" featured={t.badge !== null} />
-                            ))}
-                        </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "1.25rem", maxWidth: 1000, marginInline: "auto" }}>
+                        {BIZCONTROL_TIERS.map(t => (
+                            <PlanCard key={t.key} tier={t} scope="bizcontrol" featured={t.badge !== null} />
+                        ))}
                     </div>
                 </div>
 

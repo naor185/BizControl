@@ -642,10 +642,9 @@ def maybe_enqueue_points_celebration(db: Session, studio_id, client, amount_rede
         from app.api.gift_card_routes import _fetch_studio_logo
         row = db.execute(
             _text("""
-                SELECT COALESCE(s.logo_url, mp.logo_url) AS logo_url, ss.logo_filename
+                SELECT s.logo_url, ss.logo_filename
                 FROM studios s
                 LEFT JOIN studio_settings ss ON ss.studio_id = s.id
-                LEFT JOIN marketplace_profiles mp ON mp.studio_id = s.id
                 WHERE s.id = :sid
             """),
             {"sid": str(studio_id)}

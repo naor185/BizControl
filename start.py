@@ -404,6 +404,12 @@ def ensure_schema():
                            "online_booking", "marketplace", "wait_list", "gift_cards",
                            "analytics", "multi_location", "employee_mgmt", "automation_builder"] + _NAV_MODULES,
             "free":       ["crm", "calendar"] + _NAV_MODULES,
+            # bizfind_basic/bizfind_pro are retired (BizFind no longer sells a
+            # BizControl-less plan) — kept here only as a safety net so any
+            # studio still on one of these plans in production isn't locked
+            # out of every module.
+            "bizfind_basic": ["crm", "calendar", "payments", "whatsapp", "email"] + _NAV_MODULES,
+            "bizfind_pro":   ["crm", "calendar", "payments", "whatsapp", "email"] + _NAV_MODULES,
             "starter":    ["crm", "calendar", "payments", "whatsapp", "email"] + _NAV_MODULES,
             "pro":        ["crm", "calendar", "payments", "whatsapp", "email",
                            "customer_club", "ocr", "ai_assistant", "employee_mgmt"] + _NAV_MODULES,

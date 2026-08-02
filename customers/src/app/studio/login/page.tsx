@@ -1,15 +1,24 @@
 "use client";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { API, setToken } from "@/lib/api";
+import { API } from "@/lib/api";
+import { getStudioToken, setStudioToken, goToBizControl } from "@/lib/handoff";
 
 export default function StudioLoginPage() {
-    const router = useRouter();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
     const [err, setErr] = useState<string | null>(null);
+    const [checkingSession, setCheckingSession] = useState(true);
+
+    // Already logged in? Skip the form entirely and go straight to BizControl.
+    useEffect(() => {
+        if (getStudioToken()) {
+            goToBizControl("/dashboard");
+        } else {
+            setCheckingSession(false);
+        }
+    }, []);
 
     const login = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -23,14 +32,12 @@ export default function StudioLoginPage() {
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.detail || "מייל או סיסמה שגויים");
-            setToken(data.access_token);
-            localStorage.setItem("biz_studio_token", data.access_token);
-            // Same JWT works for BizControl — store it so no re-login needed
-            localStorage.setItem("bizcontrol_token", data.access_token);
-            router.push("/studio/dashboard");
-        } catch (e: any) { setErr(e.message); }
-        finally { setLoading(false); }
+            setStudioToken(data.access_token);
+            await goToBizControl("/dashboard");
+        } catch (e: any) { setErr(e.message); setLoading(false); }
     };
+
+    if (checkingSession) return null;
 
     return (
         <div dir="rtl" style={{ minHeight: "100vh", background: "linear-gradient(135deg,#f5f3ff,#ede9fe,#e0e7ff)", display: "flex", alignItems: "center", justifyContent: "center", padding: "2rem 1rem", fontFamily: "system-ui,sans-serif" }}>

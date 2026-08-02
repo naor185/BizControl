@@ -1,15 +1,14 @@
 "use client";
 import { useState, useEffect, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { API, setToken } from "@/lib/api";
+import { API } from "@/lib/api";
+import { setStudioToken, goToBizControl } from "@/lib/handoff";
 
 // ── Plan display config ───────────────────────────────────────────────────────
 
 const PLAN_META: Record<string, { label: string; price: string; scope: string; color: string; icon: string }> = {
     trial:          { label: "ניסיון חינמי 14 יום", price: "חינם",    scope: "BizFind + BizControl",  color: "#7c3aed", icon: "🚀" },
-    bizfind_basic:  { label: "BizFind Basic",        price: "₪99/חודש", scope: "BizFind בלבד",          color: "#0ea5e9", icon: "📍" },
-    bizfind_pro:    { label: "BizFind Pro",           price: "₪179/חודש",scope: "BizFind בלבד",          color: "#0ea5e9", icon: "📍" },
     starter:        { label: "BizControl Starter",   price: "₪199/חודש",scope: "BizFind + BizControl", color: "#16a34a", icon: "⚡" },
     pro:            { label: "BizControl Pro",        price: "₪349/חודש",scope: "BizFind + BizControl", color: "#16a34a", icon: "⚡" },
     studio:         { label: "BizControl Studio",     price: "₪499/חודש",scope: "BizFind + BizControl", color: "#16a34a", icon: "⚡" },
@@ -42,7 +41,6 @@ function Steps({ current, total }: { current: number; total: number }) {
 // ── Main component ────────────────────────────────────────────────────────────
 
 function RegisterInner() {
-    const router = useRouter();
     const params = useSearchParams();
     const planFromUrl = params.get("plan") || "trial";
 
@@ -60,7 +58,6 @@ function RegisterInner() {
     const [loading, setLoading] = useState(false);
     const [err, setErr] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
-    const [registeredData, setRegisteredData] = useState<{ scope_bizcontrol: boolean; handoffCode: string | null } | null>(null);
 
     const plan = PLAN_META[planKey] || PLAN_META["trial"];
     const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
@@ -92,21 +89,7 @@ function RegisterInner() {
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.detail || "שגיאה ברישום");
-            setToken(data.access_token);
-            localStorage.setItem("biz_studio_token", data.access_token);
-            localStorage.setItem("bizcontrol_token", data.access_token);
-
-            // Create a one-time handoff code so we never expose the JWT in the URL
-            let handoffCode: string | null = null;
-            try {
-                const hRes = await fetch(`${API}/api/auth/create-handoff`, {
-                    method: "POST",
-                    headers: { Authorization: `Bearer ${data.access_token}` },
-                });
-                if (hRes.ok) handoffCode = (await hRes.json()).code;
-            } catch {}
-
-            setRegisteredData({ scope_bizcontrol: data.scope_bizcontrol, handoffCode });
+            setStudioToken(data.access_token);
             setSuccess(true);
         } catch (e: any) {
             setErr(e.message);
@@ -123,11 +106,7 @@ function RegisterInner() {
     };
     const labelStyle = { display: "block", fontSize: "0.85rem", fontWeight: 700, color: "#374151", marginBottom: "0.45rem" };
 
-    if (success && registeredData) {
-        const bizControlUrl = registeredData.handoffCode
-            ? `https://biz-control.com/auto-login?code=${registeredData.handoffCode}&next=/onboarding`
-            : `https://biz-control.com/onboarding`;
-
+    if (success) {
         return (
             <div style={{ textAlign: "center", padding: "2rem 0.5rem" }}>
                 <div style={{ fontSize: "3.5rem", marginBottom: "0.75rem" }}>🎉</div>
@@ -136,41 +115,20 @@ function RegisterInner() {
                     העסק שלכם נרשם בהצלחה.
                 </p>
 
-                {registeredData.scope_bizcontrol ? (
-                    // BizControl plan — guide to BizControl onboarding
-                    <div>
-                        <div style={{ background: "#f5f3ff", border: "1.5px solid #ede9fe", borderRadius: 16, padding: "1.25rem", marginBottom: "1.25rem", textAlign: "right" }}>
-                            <div style={{ fontWeight: 800, color: "#7c3aed", marginBottom: "0.35rem" }}>⚡ הצעד הבא — הגדרת BizControl</div>
-                            <div style={{ fontSize: "0.85rem", color: "#64748b", lineHeight: 1.6 }}>
-                                כדי לפתוח את היומן, CRM, תשלומים ואוטומציות — כנסו ל-BizControl והשלימו את הגדרות העסק.
-                            </div>
-                        </div>
-                        <a href={bizControlUrl} style={{
-                            display: "block", background: "linear-gradient(135deg,#7c3aed,#4f46e5)",
-                            color: "#fff", textDecoration: "none", padding: "0.9rem",
-                            borderRadius: 14, fontWeight: 800, fontSize: "1rem",
-                            boxShadow: "0 4px 16px rgba(124,58,237,.35)", marginBottom: "0.75rem",
-                        }}>
-                            פתח BizControl ← הגדר את העסק שלי
-                        </a>
-                        <button type="button" onClick={() => router.push("/studio/dashboard")} style={{
-                            background: "transparent", border: "1.5px solid #e2e8f0", borderRadius: 14,
-                            padding: "0.75rem", width: "100%", color: "#64748b", fontWeight: 600,
-                            fontSize: "0.88rem", cursor: "pointer",
-                        }}>
-                            המשך ל-BizFind בינתיים
-                        </button>
+                <div style={{ background: "#f5f3ff", border: "1.5px solid #ede9fe", borderRadius: 16, padding: "1.25rem", marginBottom: "1.25rem", textAlign: "right" }}>
+                    <div style={{ fontWeight: 800, color: "#7c3aed", marginBottom: "0.35rem" }}>⚡ הצעד הבא — הגדרת BizControl</div>
+                    <div style={{ fontSize: "0.85rem", color: "#64748b", lineHeight: 1.6 }}>
+                        כדי לפתוח את היומן, CRM, תשלומים ואוטומציות — כנסו ל-BizControl והשלימו את הגדרות העסק.
                     </div>
-                ) : (
-                    // BizFind-only plan
-                    <button onClick={() => router.push("/studio/dashboard")} style={{
-                        background: "linear-gradient(135deg,#7c3aed,#4f46e5)",
-                        color: "#fff", border: "none", borderRadius: 14, padding: "0.9rem",
-                        width: "100%", fontWeight: 800, fontSize: "1rem", cursor: "pointer",
-                    }}>
-                        כנסו לפרופיל שלכם ←
-                    </button>
-                )}
+                </div>
+                <button type="button" onClick={() => goToBizControl("/onboarding")} style={{
+                    display: "block", width: "100%", background: "linear-gradient(135deg,#7c3aed,#4f46e5)",
+                    color: "#fff", border: "none", textDecoration: "none", padding: "0.9rem",
+                    borderRadius: 14, fontWeight: 800, fontSize: "1rem", cursor: "pointer",
+                    boxShadow: "0 4px 16px rgba(124,58,237,.35)",
+                }}>
+                    פתח BizControl ← הגדר את העסק שלי
+                </button>
             </div>
         );
     }
@@ -217,7 +175,7 @@ function RegisterInner() {
                         <div style={{ textAlign: "center", fontSize: "0.8rem", color: "#94a3b8", margin: "0.25rem 0" }}>— או בחרו תוכנית בתשלום —</div>
 
                         {/* Paid plans */}
-                        {(["bizfind_basic", "bizfind_pro", "starter", "pro", "studio"] as const).map(key => {
+                        {(["starter", "pro", "studio"] as const).map(key => {
                             const p = PLAN_META[key];
                             const sel = planKey === key;
                             const isBizControl = p.scope.includes("BizControl");
