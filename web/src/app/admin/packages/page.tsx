@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { toast } from "@/lib/toast";
 
-interface Module { id: string; name: string; category: string; }
+interface Module { id: string; name: string; category: string; parent_module_id?: string | null; }
 interface PackageData { plans: string[]; modules: Module[]; plan_modules: Record<string, string[]>; }
 
 const PLAN_LABELS: Record<string, { label: string; color: string; icon: string }> = {
@@ -61,10 +61,23 @@ export default function PackagesPage() {
         finally { setSaving(null); }
     };
 
-    const grouped = CAT_ORDER.map(cat => ({
-        cat, label: CAT_LABELS[cat] || cat,
-        mods: (data?.modules || []).filter(m => m.category === cat),
-    })).filter(g => g.mods.length > 0);
+    // Tree order within each category: each top-level module immediately
+    // followed by its own sub-capabilities (parent_module_id), so the table
+    // reads as a tree without needing a separate rendering component.
+    const grouped = CAT_ORDER.map(cat => {
+        const catMods = (data?.modules || []).filter(m => m.category === cat);
+        const topLevel = catMods.filter(m => !m.parent_module_id);
+        const ordered: (Module & { depth: number })[] = [];
+        topLevel.forEach(m => {
+            ordered.push({ ...m, depth: 0 });
+            catMods.filter(c => c.parent_module_id === m.id).forEach(child => {
+                ordered.push({ ...child, depth: 1 });
+            });
+        });
+        const seen = new Set(ordered.map(m => m.id));
+        catMods.forEach(m => { if (!seen.has(m.id)) ordered.push({ ...m, depth: 0 }); }); // orphans, shouldn't happen
+        return { cat, label: CAT_LABELS[cat] || cat, mods: ordered };
+    }).filter(g => g.mods.length > 0);
 
     return (
         <div style={{ minHeight: "100vh", background: "linear-gradient(135deg,#0f172a,#1e1b4b)", padding: "2rem", fontFamily: "sans-serif", direction: "rtl" }}>
@@ -102,7 +115,9 @@ export default function PackagesPage() {
                                         </tr>
                                         {mods.map(mod => (
                                             <tr key={mod.id} style={{ borderBottom: "1px solid rgba(255,255,255,.04)" }}>
-                                                <td style={{ padding: "0.65rem 1rem", color: "#e2e8f0" }}>{mod.name}</td>
+                                                <td style={{ padding: "0.65rem 1rem", color: mod.depth ? "#94a3b8" : "#e2e8f0", fontSize: mod.depth ? "0.8rem" : undefined }}>
+                                                    {mod.depth ? `↳ ${mod.name}` : mod.name}
+                                                </td>
                                                 {data?.plans.map(plan => {
                                                     const enabled = (edits[plan] || []).includes(mod.id);
                                                     return (

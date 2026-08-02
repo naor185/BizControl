@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import require_studio_ctx, AuthContext
 from app.core.database import get_db
-from app.core.features import require_feature
+from app.core.features import require_module
 from app.models.quick_reply import QuickReply
 
 router = APIRouter(prefix="/quick-replies", tags=["QuickReplies"])
@@ -31,7 +31,7 @@ class QuickReplyOut(BaseModel):
 
 @router.get("", response_model=list[QuickReplyOut])
 def list_quick_replies(
-    _: None = Depends(require_feature("quick_replies")),
+    _: None = Depends(require_module("quick_replies")),
     ctx: AuthContext = Depends(require_studio_ctx),
     db: Session = Depends(get_db),
 ):
@@ -44,7 +44,7 @@ def list_quick_replies(
 @router.post("", response_model=QuickReplyOut, status_code=status.HTTP_201_CREATED)
 def create_quick_reply(
     payload: QuickReplyIn,
-    _: None = Depends(require_feature("quick_replies")),
+    _: None = Depends(require_module("quick_replies")),
     ctx: AuthContext = Depends(require_studio_ctx),
     db: Session = Depends(get_db),
 ):
@@ -66,7 +66,7 @@ def create_quick_reply(
 def update_quick_reply(
     qr_id: uuid.UUID,
     payload: QuickReplyIn,
-    _: None = Depends(require_feature("quick_replies")),
+    _: None = Depends(require_module("quick_replies")),
     ctx: AuthContext = Depends(require_studio_ctx),
     db: Session = Depends(get_db),
 ):
@@ -83,7 +83,7 @@ def update_quick_reply(
 @router.delete("/{qr_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_quick_reply(
     qr_id: uuid.UUID,
-    _: None = Depends(require_feature("quick_replies")),
+    _: None = Depends(require_module("quick_replies")),
     ctx: AuthContext = Depends(require_studio_ctx),
     db: Session = Depends(get_db),
 ):

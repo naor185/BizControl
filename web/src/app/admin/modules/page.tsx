@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { apiFetch } from "@/lib/api";
 
-interface ModuleDef { id: string; name: string; category: string; sort_order: number; }
+interface ModuleDef { id: string; name: string; category: string; sort_order: number; parent_module_id?: string | null; }
 interface StudioRow { id: string; name: string; subscription_plan: string; business_type: string; }
 type ModuleMap = Record<string, boolean>;
 
@@ -88,11 +88,22 @@ export default function ModulesAdminPage() {
         finally { setSaving(null); }
     };
 
-    const grouped = CATEGORY_ORDER.map(cat => ({
-        cat,
-        label: CATEGORY_LABELS[cat] || cat,
-        mods: modules.filter(m => m.category === cat).sort((a, b) => a.sort_order - b.sort_order),
-    })).filter(g => g.mods.length > 0);
+    // Tree order within each category: top-level module immediately followed
+    // by its own sub-capabilities (parent_module_id), same pattern as admin/packages.
+    const grouped = CATEGORY_ORDER.map(cat => {
+        const catMods = modules.filter(m => m.category === cat).sort((a, b) => a.sort_order - b.sort_order);
+        const topLevel = catMods.filter(m => !m.parent_module_id);
+        const ordered: (ModuleDef & { depth: number })[] = [];
+        topLevel.forEach(m => {
+            ordered.push({ ...m, depth: 0 });
+            catMods.filter(c => c.parent_module_id === m.id).forEach(child => {
+                ordered.push({ ...child, depth: 1 });
+            });
+        });
+        const seen = new Set(ordered.map(m => m.id));
+        catMods.forEach(m => { if (!seen.has(m.id)) ordered.push({ ...m, depth: 0 }); }); // orphans, shouldn't happen
+        return { cat, label: CATEGORY_LABELS[cat] || cat, mods: ordered };
+    }).filter(g => g.mods.length > 0);
 
     const selectedStudioObj = studios.find(s => s.id === selectedStudio);
     const planForStudio = selectedStudioObj?.subscription_plan || "free";
@@ -182,9 +193,11 @@ export default function ModulesAdminPage() {
                                                 const enabled = moduleMap[m.id] ?? false;
                                                 const fromPlan = planModsList.includes(m.id);
                                                 return (
-                                                    <div key={m.id} style={s.moduleRow}>
+                                                    <div key={m.id} style={{ ...s.moduleRow, paddingRight: m.depth ? "1.5rem" : 0 }}>
                                                         <div>
-                                                            <span style={s.moduleName}>{m.name}</span>
+                                                            <span style={{ ...s.moduleName, color: m.depth ? "#94a3b8" : s.moduleName.color, fontSize: m.depth ? "0.82rem" : s.moduleName.fontSize }}>
+                                                                {m.depth ? `↳ ${m.name}` : m.name}
+                                                            </span>
                                                             {fromPlan && !moduleMap.hasOwnProperty(m.id) && (
                                                                 <span style={{ ...s.badge, background: "rgba(96,165,250,.15)", color: "#60a5fa", marginRight: 8 }}>plan</span>
                                                             )}

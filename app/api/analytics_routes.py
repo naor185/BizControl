@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import require_studio_ctx, AuthContext
 from app.core.database import get_db
-from app.core.features import require_feature
+from app.core.features import require_module
 from app.models.ad_insight import AdInsight
 from app.models.ai_insight import AiInsight
 from app.models.lead import Lead
@@ -28,7 +28,7 @@ router = APIRouter(prefix="/analytics", tags=["Analytics"])
 def trigger_sync(
     days_back: int = 30,
     background_tasks: BackgroundTasks = None,
-    _: None = Depends(require_feature("marketing_analytics")),
+    _: None = Depends(require_module("marketing_analytics")),
     ctx: AuthContext = Depends(require_studio_ctx),
     db: Session = Depends(get_db),
 ):
@@ -49,7 +49,7 @@ def trigger_sync(
 @router.get("/ads/campaigns")
 def ads_campaigns(
     days_back: int = 30,
-    _: None = Depends(require_feature("marketing_analytics")),
+    _: None = Depends(require_module("marketing_analytics")),
     ctx: AuthContext = Depends(require_studio_ctx),
     db: Session = Depends(get_db),
 ):
@@ -59,7 +59,7 @@ def ads_campaigns(
 @router.get("/ads/daily")
 def ads_daily(
     days_back: int = 30,
-    _: None = Depends(require_feature("marketing_analytics")),
+    _: None = Depends(require_module("marketing_analytics")),
     ctx: AuthContext = Depends(require_studio_ctx),
     db: Session = Depends(get_db),
 ):
@@ -69,7 +69,7 @@ def ads_daily(
 @router.get("/ads/summary")
 def ads_summary(
     days_back: int = 30,
-    _: None = Depends(require_feature("marketing_analytics")),
+    _: None = Depends(require_module("marketing_analytics")),
     ctx: AuthContext = Depends(require_studio_ctx),
     db: Session = Depends(get_db),
 ):
@@ -186,7 +186,7 @@ class InsightOut(BaseModel):
 
 @router.get("/insights", response_model=list[InsightOut])
 def list_insights(
-    _: None = Depends(require_feature("ai_insights")),
+    _: None = Depends(require_module("ai_insights")),
     ctx: AuthContext = Depends(require_studio_ctx),
     db: Session = Depends(get_db),
 ):
@@ -217,7 +217,7 @@ def list_insights(
 
 @router.post("/insights/generate")
 async def generate_insights(
-    _: None = Depends(require_feature("ai_insights")),
+    _: None = Depends(require_module("ai_insights")),
     ctx: AuthContext = Depends(require_studio_ctx),
     db: Session = Depends(get_db),
 ):
@@ -233,7 +233,7 @@ async def generate_insights(
 @router.delete("/insights/{insight_id}", status_code=204)
 def dismiss_insight(
     insight_id: uuid.UUID,
-    _: None = Depends(require_feature("ai_insights")),
+    _: None = Depends(require_module("ai_insights")),
     ctx: AuthContext = Depends(require_studio_ctx),
     db: Session = Depends(get_db),
 ):

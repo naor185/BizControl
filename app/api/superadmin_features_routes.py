@@ -17,8 +17,20 @@ from app.models.studio_feature import StudioFeature, FEATURES
 from app.models.studio_credential import StudioCredential
 from app.models.webhook_log import WebhookLog
 from app.services.credential_service import set_credential, delete_credential, list_credentials_meta
+from app.utils.logger import get_logger
+
+log = get_logger(__name__)
 
 router = APIRouter(prefix="/superadmin/features", tags=["SuperAdmin:Features"])
+
+# NOTE: the /{studio_id}, /toggle, /enable-all endpoints below are deprecated —
+# all 10 flags that used to live only in studio_features now also exist as
+# modules (with parent_module_id nesting under whatsapp/analytics/ai_assistant/
+# ocr, or as the standalone "voice" module), editable via the admin/packages
+# (plan defaults) + admin/modules (per-studio override) tree UI instead. Kept
+# functional and logged, not removed, until a verified deploy cycle confirms
+# the old admin/studios/[id] panel is no longer needed (see
+# project_generic_plans_engine memory).
 
 
 def _require_superadmin(ctx: AuthContext = Depends(require_studio_ctx)) -> AuthContext:
@@ -89,6 +101,8 @@ def toggle_feature(
 ):
     if payload.feature not in FEATURES:
         raise HTTPException(status_code=400, detail=f"Unknown feature: {payload.feature}. Valid: {sorted(FEATURES)}")
+
+    log.warning("[deprecated-endpoint] POST /superadmin/features/toggle feature=%s studio_id=%s — use admin/modules instead", payload.feature, studio_id)
 
     row = db.scalar(
         select(StudioFeature).where(

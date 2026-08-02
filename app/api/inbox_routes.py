@@ -13,7 +13,7 @@ from pydantic import BaseModel
 
 from app.core.database import get_db
 from app.core.deps import require_studio_ctx, AuthContext
-from app.core.features import require_feature
+from app.core.features import require_module
 from app.models.incoming_message import IncomingMessage
 from app.models.client import Client
 from app.models.message_job import MessageJob
@@ -155,7 +155,7 @@ def get_conversation(
 @router.post("/reply")
 def reply_to_message(
     payload: ReplyIn,
-    _: None = Depends(require_feature("meta_inbox")),
+    _: None = Depends(require_module("meta_inbox")),
     ctx: AuthContext = Depends(require_studio_ctx),
     db: Session = Depends(get_db),
 ):

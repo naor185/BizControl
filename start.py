@@ -374,6 +374,16 @@ def ensure_schema():
             )
         """)
 
+        # parent_module_id: NULL = standalone module; set = a fine-grained
+        # "permission" nested under a parent module. Additive only — existing
+        # rows keep parent_module_id NULL (still standalone modules), so this
+        # is zero behavior change until sub-capability rows are seeded below.
+        cur.execute("""
+            ALTER TABLE modules
+            ADD COLUMN IF NOT EXISTS parent_module_id VARCHAR(64)
+                REFERENCES modules(id) ON DELETE CASCADE
+        """)
+
         # ── Seed module registry (idempotent) ─────────────────────────────────
         MODULES = [
             ("crm",                "core",          "CRM & לקוחות",              0),
@@ -401,6 +411,10 @@ def ensure_schema():
             ("obligations",  "core",    "התחייבויות",      21),
             ("services",     "core",    "שירותים",         22),
             ("broadcasts",   "core",    "תפוצות",          23),
+            # Was previously gated only via the legacy studio_features table
+            # (require_feature("voice"), router-level) with no module/plan
+            # concept at all — now a real top-level module like any other.
+            ("voice",        "communication", "BizControl Voice (שיחות)", 24),
         ]
         for mid, cat, name, sort in MODULES:
             cur.execute("""
@@ -408,6 +422,70 @@ def ensure_schema():
                 VALUES (%s, %s, %s, %s)
                 ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name, category=EXCLUDED.category
             """, (mid, name, cat, sort))
+
+        # ── Seed fine-grained "permissions" (sub-capabilities nested under a
+        # parent module) — the one-time migration target for the legacy
+        # studio_features table. Always shares its parent's category so the
+        # admin tree UI renders each child under the right group.
+        # (id, parent_id, category, name, sort_order)
+        SUB_MODULES = [
+            ("meta_inbox",           "whatsapp",  "communication", "Meta Inbox (תיבה מאוחדת)",        0),
+            ("whatsapp_cloud",       "whatsapp",  "communication", "WhatsApp Cloud API (Meta)",        1),
+            ("realtime_inbox",       "whatsapp",  "communication", "עדכון תיבה בזמן אמת (SSE)",       2),
+            ("quick_replies",        "whatsapp",  "communication", "תגובות מהירות",                    3),
+            ("marketing_analytics",  "analytics", "advanced",      "Analytics שיווקי",                 0),
+            ("ai_insights",          "analytics", "advanced",      "AI Insights",                       1),
+            ("lead_attribution",     "analytics", "advanced",      "מעקב לידים (Attribution)",         2),
+            ("ai_auto_tag",          "ai_assistant", "ai",         "תיוג AI אוטומטי ללידים",           0),
+            # Was previously its own free-floating studio_features flag with
+            # its own quota columns on Studio, fully independent of the "ocr"
+            # module even though it's the exact same functional area — folding
+            # it in here closes that overlap.
+            ("invoice_ai_scan",      "ocr",       "ai",            "סריקת חשבוניות AI",                1),
+        ]
+        for mid, parent_id, cat, name, sort in SUB_MODULES:
+            cur.execute("""
+                INSERT INTO modules (id, name, category, sort_order, parent_module_id)
+                VALUES (%s, %s, %s, %s, %s)
+                ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name, category=EXCLUDED.category,
+                    parent_module_id=EXCLUDED.parent_module_id
+            """, (mid, name, cat, sort, parent_id))
+
+        # One-time data migration: every studio_features row that was enabled
+        # gets an equivalent studio_modules override, so no studio loses an
+        # entitlement it already had. Idempotent (ON CONFLICT DO NOTHING) —
+        # safe to run on every startup. studio_features itself is left intact
+        # and still read by the legacy require_feature() path until every
+        # call site has moved to require_module() and a deploy cycle has
+        # verified it (same deprecate-before-delete pattern as Phase 1).
+        cur.execute("""
+            INSERT INTO studio_modules (id, studio_id, module_id, is_enabled)
+            SELECT gen_random_uuid(), sf.studio_id, sf.feature, true
+            FROM studio_features sf
+            WHERE sf.is_enabled = true
+              AND EXISTS (SELECT 1 FROM modules m WHERE m.id = sf.feature)
+              AND NOT EXISTS (
+                  SELECT 1 FROM studio_modules sm
+                  WHERE sm.studio_id = sf.studio_id AND sm.module_id = sf.feature
+              )
+        """)
+
+        # invoice_ai_scan is now nested under "ocr" (parent_module_id), and
+        # require_module() requires every ancestor to also resolve enabled.
+        # Under the old studio_features system, invoice_ai_scan was fully
+        # independent of "ocr" — a studio on a plan without "ocr" could still
+        # have it manually enabled (that was the whole point of
+        # enable_invoice_scan() in superadmin_routes.py: grant it regardless
+        # of plan). Force an explicit "ocr" override on for exactly those
+        # studios so none of them lose invoice-scan access as a side effect
+        # of the new parent-chain rule.
+        cur.execute("""
+            INSERT INTO studio_modules (id, studio_id, module_id, is_enabled)
+            SELECT gen_random_uuid(), sf.studio_id, 'ocr', true
+            FROM studio_features sf
+            WHERE sf.feature = 'invoice_ai_scan' AND sf.is_enabled = true
+            ON CONFLICT (studio_id, module_id) DO UPDATE SET is_enabled = true
+        """)
 
         # ── Seed plan → module defaults (idempotent) ──────────────────────────
         _NAV_MODULES = ["pos", "products", "expenses", "obligations", "services", "broadcasts"]

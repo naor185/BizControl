@@ -206,23 +206,24 @@ async def scan_invoice(
 ):
     """
     Upload an invoice image and extract structured data via Document AI.
-    Requires feature flag 'invoice_ai_scan' enabled and quota not exceeded.
+    Requires the 'invoice_ai_scan' module (nested under 'ocr') enabled and
+    quota not exceeded.
     """
     from app.models.studio import Studio
-    from app.models.studio_feature import StudioFeature
+    from app.core.features import is_module_enabled
 
-    # Check feature flag
-    feature = db.query(StudioFeature).filter_by(
-        studio_id=ctx.studio_id, feature="invoice_ai_scan"
-    ).first()
-    if not feature or not feature.is_enabled:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="סריקת חשבוניות AI אינה מופעלת לסטודיו זה. צרו קשר עם התמיכה.",
-        )
+    studio = db.query(Studio).filter_by(id=ctx.studio_id).first()
+
+    # Check module (also requires the parent "ocr" module to be enabled)
+    if ctx.role != "superadmin":
+        plan = studio.subscription_plan if studio else "free"
+        if not is_module_enabled(db, ctx.studio_id, plan, "invoice_ai_scan"):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="סריקת חשבוניות AI אינה מופעלת לסטודיו זה. צרו קשר עם התמיכה.",
+            )
 
     # Check quota + reset monthly
-    studio = db.query(Studio).filter_by(id=ctx.studio_id).first()
     if studio:
         _reset_scan_quota_if_new_month(db, studio)
         if studio.invoice_scan_quota > 0 and studio.invoice_scan_used >= studio.invoice_scan_quota:

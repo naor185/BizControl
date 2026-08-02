@@ -1798,7 +1798,8 @@ def list_modules(_admin: User = Depends(require_superadmin), db: Session = Depen
     from app.models.module import Module as ModuleModel
     mods = db.scalars(select(ModuleModel).order_by(ModuleModel.sort_order)).all()
     return [{"id": m.id, "name": m.name, "category": m.category,
-             "is_available": m.is_available, "sort_order": m.sort_order} for m in mods]
+             "is_available": m.is_available, "sort_order": m.sort_order,
+             "parent_module_id": m.parent_module_id} for m in mods]
 
 
 @router.get("/studios/{studio_id}/modules", tags=["SuperAdmin"])
@@ -1929,7 +1930,8 @@ def get_packages(admin: User = Depends(require_superadmin), db: Session = Depend
     plans = db.scalars(select(Plan).where(Plan.is_active == True).order_by(Plan.sort_order)).all()
     return {
         "plans": [p.id for p in plans],
-        "modules": [{"id": m.id, "name": m.name, "category": m.category} for m in all_modules],
+        "modules": [{"id": m.id, "name": m.name, "category": m.category,
+                     "parent_module_id": m.parent_module_id} for m in all_modules],
         "plan_modules": plan_map,
     }
 

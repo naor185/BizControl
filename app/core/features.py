@@ -1,22 +1,24 @@
 """
-Module & Feature gate — Phase 0 modular platform architecture.
+Module & Feature gate — Generic Plans Engine (modules table also carries
+fine-grained "permissions" via parent_module_id — see app/models/module.py).
 
-Resolution order for any module/feature:
+Resolution order for any module_id (including a nested sub-capability):
   1. studio_modules explicit override (is_enabled true/false) → use it
   2. plan_modules for studio.subscription_plan → use plan default
-  3. studio_features legacy table (backward compat) → use it
-  4. Default: DISABLED
+  3. Default: DISABLED
+  ...then repeat for every ancestor via parent_module_id — a sub-capability
+  is only enabled if it AND all its ancestors resolve to enabled.
 
 Usage:
-    # New module system
     @router.get("/ocr")
     def ocr_endpoint(_: None = Depends(require_module("ocr")), ...):
         ...
 
-    # Legacy feature flag (unchanged)
-    @router.get("/old")
-    def old_endpoint(_: None = Depends(require_feature("some_flag")), ...):
-        ...
+require_feature()/StudioFeature below are deprecated — every backend call
+site has moved to require_module() (see project_generic_plans_engine memory).
+Kept only until a verified deploy cycle confirms nothing still depends on
+them, then StudioFeature/FEATURES/the admin/studios/[id] toggle panel are
+removed outright.
 """
 from __future__ import annotations
 from typing import Callable
@@ -28,13 +30,16 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.deps import require_studio_ctx, AuthContext
 from app.models.studio_feature import StudioFeature
+from app.utils.logger import get_logger
+
+log = get_logger(__name__)
 
 
 # ── Module system ─────────────────────────────────────────────────────────────
 
-def is_module_enabled(db: Session, studio_id, subscription_plan: str, module_id: str) -> bool:
+def _is_module_enabled_own(db: Session, studio_id, subscription_plan: str, module_id: str) -> bool:
     """
-    Check if module_id is enabled for a studio.
+    Check if module_id itself (ignoring any parent) is enabled for a studio.
     Priority: studio_modules override > plan_modules default > disabled.
     """
     from app.models.module import StudioModule, PlanModule
@@ -57,6 +62,27 @@ def is_module_enabled(db: Session, studio_id, subscription_plan: str, module_id:
         )
     )
     return plan_row is not None
+
+
+def is_module_enabled(db: Session, studio_id, subscription_plan: str, module_id: str) -> bool:
+    """
+    Check if module_id is enabled for a studio, honoring parent_module_id
+    chains: a sub-capability (e.g. "invoice_ai_scan" nested under "ocr") is
+    only truly enabled if it AND every ancestor module resolve to enabled —
+    a studio whose "ocr" module is off can't have a sub-capability of it on.
+    """
+    from app.models.module import Module
+
+    mid: str | None = module_id
+    seen: set[str] = set()
+    while mid is not None:
+        if mid in seen:
+            break  # defensive cycle guard — parent chains should never cycle
+        seen.add(mid)
+        if not _is_module_enabled_own(db, studio_id, subscription_plan, mid):
+            return False
+        mid = db.scalar(select(Module.parent_module_id).where(Module.id == mid))
+    return True
 
 
 def require_module(module_id: str) -> Callable:
@@ -82,20 +108,40 @@ def require_module(module_id: str) -> Callable:
 
 
 def get_studio_modules(db: Session, studio_id, subscription_plan: str) -> dict[str, bool]:
-    """Return all modules with enabled status for a studio."""
+    """
+    Return all available modules with effective enabled status for a studio.
+    Honors parent_module_id chains the same way is_module_enabled() does — a
+    sub-capability shows disabled if its parent module is disabled, even if
+    it has its own enabled override/plan default.
+    """
     from app.models.module import Module, StudioModule, PlanModule
 
-    all_modules = db.scalars(select(Module).where(Module.is_available == True)).all()  # noqa
+    all_modules = db.scalars(select(Module)).all()  # incl. unavailable, for parent lookups
     overrides = {r.module_id: r.is_enabled for r in db.scalars(
         select(StudioModule).where(StudioModule.studio_id == studio_id)
     ).all()}
     plan_defaults = {r.module_id for r in db.scalars(
         select(PlanModule).where(PlanModule.plan == (subscription_plan or "free"))
     ).all()}
+    parent_of = {m.id: m.parent_module_id for m in all_modules}
+
+    def own_enabled(mid: str) -> bool:
+        return overrides[mid] if mid in overrides else (mid in plan_defaults)
+
+    def effective_enabled(mid: str | None) -> bool:
+        seen: set[str] = set()
+        while mid is not None:
+            if mid in seen:
+                break
+            seen.add(mid)
+            if not own_enabled(mid):
+                return False
+            mid = parent_of.get(mid)
+        return True
 
     return {
-        m.id: overrides[m.id] if m.id in overrides else (m.id in plan_defaults)
-        for m in all_modules
+        m.id: effective_enabled(m.id)
+        for m in all_modules if m.is_available
     }
 
 
@@ -113,11 +159,16 @@ def _is_feature_enabled(db: Session, studio_id, feature: str) -> bool:
 
 
 def require_feature(feature: str) -> Callable:
-    """Legacy feature flag dependency. Kept for backward compatibility."""
+    """
+    Deprecated — every backend route has moved to require_module(). Kept only
+    so a forgotten call site doesn't hard-crash; logs so any remaining usage
+    surfaces before StudioFeature/FEATURES are removed outright.
+    """
     def _check(
         ctx: AuthContext = Depends(require_studio_ctx),
         db: Session = Depends(get_db),
     ) -> None:
+        log.warning("[deprecated-require_feature] feature=%s studio_id=%s", feature, getattr(ctx, "studio_id", None))
         if getattr(ctx, "role", None) == "superadmin":
             return
         if not _is_feature_enabled(db, ctx.studio_id, feature):

@@ -7,6 +7,13 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.models.base import Base
 
 
+# Deprecated — all 10 flags below now also exist as rows in `modules`
+# (nested under whatsapp/analytics/ai_assistant/ocr via parent_module_id, or
+# standalone for "voice"), resolved through require_module()/is_module_enabled()
+# instead. This table/FEATURES/require_feature() are kept only until a
+# verified deploy cycle confirms nothing still depends on them — see
+# project_generic_plans_engine memory. Do not add new flags here; add a
+# `modules` row instead.
 FEATURES = frozenset([
     "meta_inbox",
     "whatsapp_cloud",

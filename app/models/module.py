@@ -29,6 +29,13 @@ class Module(Base):
     # categories: core | communication | ai | marketplace | finance | advanced
     is_available: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     sort_order: Mapped[int] = mapped_column(nullable=False, default=0)
+    # NULL = standalone module. Set = a fine-grained "permission" nested under a
+    # parent module (e.g. "mass broadcast" under "whatsapp") — resolved through
+    # the exact same plan_modules/studio_modules mechanism as any module, just
+    # rendered as a tree in admin UIs. Always shares its parent's `category`.
+    parent_module_id: Mapped[str | None] = mapped_column(
+        String(64), ForeignKey("modules.id", ondelete="CASCADE"), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

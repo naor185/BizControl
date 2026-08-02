@@ -969,6 +969,7 @@ export default function StudioDetailPage() {
                     <div className="px-4 py-3 border-b border-gray-50 flex items-center gap-2">
                         <span className="text-base">🚩</span>
                         <h2 className="text-sm font-semibold text-gray-700">Feature Flags — שליטה בתכונות</h2>
+                        <span className="text-xs text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full font-medium">מיושן — עבור ל&quot;ניהול מודולים&quot;</span>
                         <span className="text-xs text-red-600 bg-red-50 px-2 py-0.5 rounded-full font-medium mr-auto">סופר-אדמין בלבד</span>
                         <button
                             onClick={handleEnableAllFeatures}

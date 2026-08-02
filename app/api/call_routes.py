@@ -6,8 +6,9 @@ staff after the fact (phone number, direction, duration, notes); the record
 shape already includes recording_url/transcript/ai_summary (all null for now)
 so Phase 2 (a real provider webhook) can fill them in without a schema change.
 
-Every route requires the "voice" studio feature flag, toggled per studio by
-superadmin only (app/api/superadmin_features_routes.py).
+Every route requires the "voice" module, toggled per studio by superadmin
+only (admin/modules) — not included in any plan's defaults, same opt-in-only
+behavior as when this was a studio_features flag.
 """
 from __future__ import annotations
 
@@ -22,12 +23,12 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.deps import require_studio_ctx, AuthContext
-from app.core.features import require_feature
+from app.core.features import require_module
 from app.models.call import Call
 from app.models.client import Client
 from app.models.user import User
 
-router = APIRouter(prefix="/calls", tags=["Voice"], dependencies=[Depends(require_feature("voice"))])
+router = APIRouter(prefix="/calls", tags=["Voice"], dependencies=[Depends(require_module("voice"))])
 
 
 def _call_out(c: Call, client: Client | None, answered_by: User | None) -> dict:
