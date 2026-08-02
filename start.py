@@ -413,6 +413,14 @@ def ensure_schema():
             "starter":    ["crm", "calendar", "payments", "whatsapp", "email"] + _NAV_MODULES,
             "pro":        ["crm", "calendar", "payments", "whatsapp", "email",
                            "customer_club", "ocr", "ai_assistant", "employee_mgmt"] + _NAV_MODULES,
+            # "studio" is a real, actively-sold top-tier plan (₪499/month via
+            # billing_routes.py's Stripe checkout) — was missing here entirely,
+            # same bug class as the trial/bizfind_basic/bizfind_pro gaps fixed
+            # earlier: real paying customers on this plan got zero modules.
+            "studio":     ["crm", "calendar", "payments", "whatsapp", "email", "sms",
+                           "customer_club", "wallet", "ocr", "ai_assistant",
+                           "online_booking", "marketplace", "wait_list", "gift_cards",
+                           "analytics", "multi_location", "employee_mgmt", "automation_builder"] + _NAV_MODULES,
             "enterprise": ["crm", "calendar", "payments", "whatsapp", "email", "sms",
                            "customer_club", "wallet", "ocr", "ai_assistant",
                            "online_booking", "marketplace", "wait_list", "gift_cards",
