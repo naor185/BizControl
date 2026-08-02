@@ -16,6 +16,9 @@ from app.core.database import get_db
 from app.core.deps import require_studio_ctx, AuthContext
 from app.core.limiter import limiter
 from app.db.deps import get_db as _get_db
+from app.utils.logger import get_logger
+
+log = get_logger(__name__)
 
 router = APIRouter(prefix="/marketplace", tags=["Marketplace"])
 
@@ -271,7 +274,14 @@ def get_plans(db: Session = Depends(get_db)):
 
 @router.get("/plans/{plan_code}/features")
 def get_plan_features(plan_code: str, db: Session = Depends(get_db)):
-    """Returns feature flags for a specific plan."""
+    """Returns feature flags for a specific plan.
+
+    DEPRECATED (2026-08-03): no known frontend caller found in the
+    BizFind/BizControl unification audit — only the base GET /plans is
+    called (web/onboarding). Pre-existing, unrelated to that refactor.
+    Logging real usage before considering removal.
+    """
+    log.warning("[deprecated-endpoint] GET /marketplace/plans/%s/features called", plan_code)
     if plan_code not in BIZFIND_PLANS:
         raise HTTPException(status_code=404, detail=f"תכנית לא קיימת: {plan_code}")
     rows = db.execute(
@@ -340,7 +350,15 @@ def patch_my_studio_profile(
 
 @router.get("/studio/me")
 def get_my_studio_profile(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
-    """Returns full studio profile for BizFind dashboard — merges marketplace + BizControl data."""
+    """Returns full studio profile for BizFind dashboard — merges marketplace + BizControl data.
+
+    DEPRECATED (2026-08-03): no known frontend caller as of the BizFind/
+    BizControl unification audit — the old studio/dashboard was its only
+    caller and is now a redirect stub; the PATCH variant of this same path
+    is still used (web/onboarding) and is unaffected. Logging real usage
+    before considering removal.
+    """
+    log.warning("[deprecated-endpoint] GET /marketplace/studio/me called by studio %s", ctx.studio_id)
     from app.models.studio import Studio
     from app.models.studio_settings import StudioSettings
     from app.models.service import Service

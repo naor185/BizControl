@@ -12,6 +12,10 @@ from pydantic import BaseModel
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
+from app.utils.logger import get_logger
+
+log = get_logger(__name__)
+
 
 def _assert_public_url(url: str) -> None:
     """Reject URLs that resolve to loopback/private/link-local/reserved addresses (SSRF guard)."""
@@ -137,6 +141,12 @@ def upload_logo(
 
 @router.delete("/logo")
 def remove_logo(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+    # DEPRECATED (2026-08-03): no known frontend caller as of the BizFind/
+    # BizControl unification audit (automation.tsx's "remove logo" button
+    # only clears local state, persisted via PATCH /studio/automation).
+    # Logging real usage before considering removal — see
+    # project_bizfind_bizcontrol_unification memory.
+    log.warning("[deprecated-endpoint] DELETE /studio/upload/logo called by studio %s", ctx.studio_id)
     if ctx.role not in ("owner", "admin", "manager"):
         raise HTTPException(status_code=403, detail="Forbidden")
     studio = db.get(Studio, ctx.studio_id)
@@ -148,6 +158,8 @@ def remove_logo(ctx: AuthContext = Depends(require_studio_ctx), db: Session = De
 
 @router.delete("/cover")
 def remove_cover(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+    # DEPRECATED (2026-08-03): no known frontend caller found — see remove_logo above.
+    log.warning("[deprecated-endpoint] DELETE /studio/upload/cover called by studio %s", ctx.studio_id)
     if ctx.role not in ("owner", "admin", "manager"):
         raise HTTPException(status_code=403, detail="Forbidden")
     settings = db.get(StudioSettings, ctx.studio_id)
@@ -265,7 +277,14 @@ def import_gallery_from_url(
     ctx: AuthContext = Depends(require_studio_ctx),
     db: Session = Depends(get_db)
 ):
-    """Download an image from a public URL and add it to the studio gallery."""
+    """Download an image from a public URL and add it to the studio gallery.
+
+    DEPRECATED (2026-08-03): no known frontend caller as of the BizFind/
+    BizControl unification audit (this was the old BizFind studio/dashboard's
+    "import from Instagram" feature, which was replaced by a redirect stub).
+    Logging real usage before considering removal.
+    """
+    log.warning("[deprecated-endpoint] POST /studio/upload/gallery-from-url called by studio %s", ctx.studio_id)
     if ctx.role not in ("owner", "admin", "manager"):
         raise HTTPException(status_code=403, detail="Forbidden")
     count = db.execute(
