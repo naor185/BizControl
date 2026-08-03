@@ -271,7 +271,8 @@ def check_quota(db: Session, studio_id, subscription_plan: str, quota_key: str) 
     if action == "auto_increase" and config["auto_increase_by"]:
         _bump_limit_override(db, studio_id, quota_key, config["auto_increase_by"])
     if action == "paid_overage":
-        log.warning("[quota-overage-billable] studio_id=%s quota_key=%s used=%s limit=%s", studio_id, quota_key, used, config["limit"])
+        from app.core.billing import record_billable_overage
+        record_billable_overage(db, studio_id, quota_key, used, config["limit"])
     # warn_only / allow_overage / paid_overage / auto_increase all let the action through
     return QuotaCheck(allowed=True, warning=True, config=config, used=used, period_key=period_key)
 

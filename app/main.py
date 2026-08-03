@@ -34,7 +34,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 
 from app.db.session import SessionLocal
 from app.services.message_worker import process_due_jobs, sweep_upcoming_reminders, sweep_7day_reminders, sweep_3day_reminders, sweep_birthday_messages, sweep_same_day_reminders, sweep_deposit_reminders
-from app.services.plan_alert_service import sweep_plan_expiry_alerts
+from app.services.plan_alert_service import sweep_plan_expiry_alerts, sweep_subscription_transitions
 from app.api.router import api_router
 from app.services.automation_service import AutomationService
 from app.middleware.plan_enforcement import PlanEnforcementMiddleware
@@ -73,6 +73,13 @@ def start_scheduler():
         db = SessionLocal()
         try:
             sweep_plan_expiry_alerts(db)
+        finally:
+            db.close()
+
+    def tick_subscription_transitions():
+        db = SessionLocal()
+        try:
+            sweep_subscription_transitions(db)
         finally:
             db.close()
 
@@ -136,6 +143,7 @@ def start_scheduler():
     scheduler.add_job(tick_reminders, "interval", minutes=60, id="reminders_sweep_tick", replace_existing=True)
     scheduler.add_job(tick_same_day_reminders, "cron", hour=8, minute=0, timezone="Asia/Jerusalem", id="same_day_reminders_tick", replace_existing=True)
     scheduler.add_job(tick_plan_alerts, "cron", hour=9, minute=0, id="plan_alerts_tick", replace_existing=True)
+    scheduler.add_job(tick_subscription_transitions, "cron", hour=9, minute=15, id="subscription_transitions_tick", replace_existing=True)
     scheduler.add_job(tick_birthday_messages, "cron", day=25, hour=10, minute=0, timezone="Asia/Jerusalem", misfire_grace_time=86400, id="birthday_messages_tick", replace_existing=True)
     scheduler.add_job(tick_deposit_reminders, "interval", hours=1, id="deposit_reminders_tick", replace_existing=True)
     scheduler.add_job(tick_birthday_automations, "cron", hour=9, minute=5, timezone="Asia/Jerusalem", id="birthday_automations_tick", replace_existing=True)

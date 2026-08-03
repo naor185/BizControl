@@ -374,6 +374,52 @@ def ensure_schema():
             )
         """)
 
+        # ── Subscription state engine (Plans Engine step 4) ────────────────────
+        # Source of truth for "is this studio's access active right now" —
+        # replaces reading Studio.is_active/plan_expires_at directly. Those
+        # columns are left in place (deprecated) per the established pattern.
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS subscriptions (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                studio_id UUID NOT NULL UNIQUE REFERENCES studios(id) ON DELETE CASCADE,
+                plan_id VARCHAR(32) NOT NULL REFERENCES plans(id),
+                status VARCHAR(20) NOT NULL DEFAULT 'trial',
+                current_period_start TIMESTAMPTZ,
+                current_period_end TIMESTAMPTZ,
+                trial_ends_at TIMESTAMPTZ,
+                cancel_at_period_end BOOLEAN NOT NULL DEFAULT false,
+                canceled_at TIMESTAMPTZ,
+                auto_renew BOOLEAN NOT NULL DEFAULT true,
+                payment_provider VARCHAR(20) NOT NULL DEFAULT 'stripe',
+                provider_customer_id VARCHAR(128),
+                provider_subscription_id VARCHAR(128),
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS subscription_events (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                subscription_id UUID REFERENCES subscriptions(id) ON DELETE SET NULL,
+                event_type VARCHAR(32) NOT NULL,
+                from_status VARCHAR(20),
+                to_status VARCHAR(20),
+                from_plan VARCHAR(32),
+                to_plan VARCHAR(32),
+                source VARCHAR(16) NOT NULL,
+                provider_event_id VARCHAR(128),
+                metadata JSONB,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_subscription_events_studio ON subscription_events (studio_id, created_at)")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_subscription_events_provider_event ON subscription_events (provider_event_id)")
+        # NOTE: the one-time data migration that fills these tables from
+        # Studio's legacy columns runs later in this function, after `plans`
+        # is seeded (subscriptions.plan_id is FK'd to plans.id — seeding
+        # plans happens well below this point, not here).
+
         # ── Generic quota engine (Plans Engine step 3) ─────────────────────────
         # Additive only — period_type defaults to 'unlimited' (no quota
         # dimension at all) so every existing plan_modules row is unaffected
@@ -667,6 +713,56 @@ def ensure_schema():
                         ADD CONSTRAINT fk_plan_modules_plan
                         FOREIGN KEY (plan) REFERENCES plans(id) ON DELETE CASCADE
                 """)
+
+        # Backfill plans.stripe_price_id from the Stripe Price ID env vars
+        # billing_routes.py used directly before step 4 (STRIPE_PRICE_STARTER
+        # etc.) — completes what step 1 anticipated ("pasted in by Super Admin
+        # after creating the Price in Stripe") without requiring a manual
+        # re-entry of IDs that already exist in Railway env vars. Only fills
+        # in NULL — never overwrites a value Super Admin may have set since.
+        PRICE_ID_ENV = {
+            "starter": os.environ.get("STRIPE_PRICE_STARTER", ""),
+            "pro":     os.environ.get("STRIPE_PRICE_PRO", ""),
+            "studio":  os.environ.get("STRIPE_PRICE_STUDIO", ""),
+        }
+        for pid, price_id in PRICE_ID_ENV.items():
+            if price_id:
+                cur.execute(
+                    "UPDATE plans SET stripe_price_id = %s WHERE id = %s AND stripe_price_id IS NULL",
+                    (price_id, pid),
+                )
+
+        # One-time data migration: every studio without a subscriptions row
+        # yet gets one derived from its current Studio columns — a studio
+        # that's is_active with a future (or no) expiry becomes 'active'
+        # (or 'trial' if its plan is literally "trial"); anything inactive
+        # or past its expiry becomes 'expired'. Idempotent — only fills in
+        # studios that don't have a row yet, never overwrites one that does
+        # (so once billing_routes.py starts writing here, this stays a
+        # no-op). Runs here (not right after CREATE TABLE above) because
+        # subscriptions.plan_id is FK'd to plans.id, and plans is only
+        # seeded by this point in the function.
+        cur.execute("""
+            INSERT INTO subscriptions (studio_id, plan_id, status, current_period_start, current_period_end,
+                                        trial_ends_at, provider_customer_id, provider_subscription_id)
+            SELECT s.id,
+                   CASE WHEN EXISTS (SELECT 1 FROM plans p WHERE p.id = s.subscription_plan)
+                        THEN s.subscription_plan ELSE 'free' END,
+                   CASE
+                       WHEN NOT s.is_active OR (s.plan_expires_at IS NOT NULL AND s.plan_expires_at < NOW()) THEN 'expired'
+                       WHEN s.subscription_plan = 'trial' THEN 'trial'
+                       ELSE 'active'
+                   END,
+                   CASE WHEN s.is_active THEN COALESCE(s.plan_expires_at, NOW()) - INTERVAL '30 days' END,
+                   s.plan_expires_at,
+                   CASE WHEN s.subscription_plan = 'trial' THEN s.plan_expires_at END,
+                   s.stripe_customer_id,
+                   s.stripe_subscription_id
+            FROM studios s
+            WHERE NOT EXISTS (SELECT 1 FROM subscriptions sub WHERE sub.studio_id = s.id)
+              AND s.is_platform = false
+            ON CONFLICT (studio_id) DO NOTHING
+        """)
 
         # ── Seed business type templates (idempotent) ─────────────────────────
         import json as _json

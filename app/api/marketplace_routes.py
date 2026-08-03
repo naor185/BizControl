@@ -214,7 +214,23 @@ def bizfind_register(payload: BizFindRegisterIn, db: Session = Depends(get_db)):
         is_active=True,
     )
     db.add(owner)
-    db.commit()
+    db.flush()
+
+    # Create the studio's subscription row — Subscription.status (not
+    # Studio.is_active) is what plan_enforcement.py actually gates access
+    # on, see app/core/billing.py. Called last (after studio/settings/owner
+    # are all flushed) since it commits — everything above lands atomically
+    # with it, nothing partial if this raises.
+    from app.core.billing import apply_subscription_event
+    apply_subscription_event(
+        db, studio.id,
+        "trial_started" if payload.plan_key == "trial" else "activated",
+        source="customer",
+        plan_id=plan["subscription_plan"],
+        current_period_start=datetime.now(timezone.utc),
+        current_period_end=expires,
+        trial_ends_at=expires if payload.plan_key == "trial" else None,
+    )
 
     access = create_access_token({"user_id": str(owner.id), "studio_id": str(studio.id), "role": "owner"})
     refresh = create_refresh_token({"user_id": str(owner.id), "studio_id": str(studio.id)})

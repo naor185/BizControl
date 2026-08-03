@@ -13,10 +13,18 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.studio import Studio
+from app.models.subscription import Subscription
 from app.models.user import User
 from app.utils.email_utils import send_email_sync
 
 logger = logging.getLogger(__name__)
+
+# Days past current_period_end before each automatic transition fires.
+# past_due→grace_period: still no payment a week after the failed renewal.
+# grace_period→suspended: two weeks total with no payment — access blocked.
+# canceled→expired / trial→expired: access ends right at period_end, no grace.
+GRACE_PERIOD_AFTER_DAYS = 7
+SUSPEND_AFTER_DAYS = 14
 
 PLATFORM_SMTP_HOST  = os.getenv("PLATFORM_SMTP_HOST", "")
 PLATFORM_SMTP_PORT  = int(os.getenv("PLATFORM_SMTP_PORT", "587"))
@@ -150,3 +158,67 @@ def sweep_plan_expiry_alerts(db: Session) -> None:
                 _send_alert(studio, owner.email, warn_days)
             except Exception as exc:
                 logger.error("_send_alert failed for %s: %s", studio.slug, exc)
+
+
+def sweep_subscription_transitions(db: Session) -> None:
+    """
+    Called daily by APScheduler, alongside sweep_plan_expiry_alerts(). The
+    only place that advances a subscription automatically with the passage
+    of time (as opposed to a webhook/admin action): canceled→expired,
+    trial→expired, past_due→grace_period, grace_period→suspended. Routes
+    every transition through apply_subscription_event() (source='system')
+    so it's logged the same way as any other status change.
+    """
+    from app.core.billing import apply_subscription_event
+
+    now = datetime.now(timezone.utc)
+
+    # canceled (cancel_at_period_end already passed) → expired
+    canceled = db.scalars(
+        select(Subscription).where(
+            Subscription.status == "canceled",
+            Subscription.current_period_end.isnot(None),
+            Subscription.current_period_end < now,
+        )
+    ).all()
+    for sub in canceled:
+        apply_subscription_event(db, sub.studio_id, "expired", source="system")
+
+    # trial past trial_ends_at with no payment → expired
+    trials = db.scalars(
+        select(Subscription).where(
+            Subscription.status == "trial",
+            Subscription.trial_ends_at.isnot(None),
+            Subscription.trial_ends_at < now,
+        )
+    ).all()
+    for sub in trials:
+        apply_subscription_event(db, sub.studio_id, "expired", source="system")
+
+    # past_due for too long → grace_period
+    stuck_past_due = db.scalars(
+        select(Subscription).where(
+            Subscription.status == "past_due",
+            Subscription.current_period_end.isnot(None),
+            Subscription.current_period_end < now - timedelta(days=GRACE_PERIOD_AFTER_DAYS),
+        )
+    ).all()
+    for sub in stuck_past_due:
+        apply_subscription_event(db, sub.studio_id, "grace_period_started", source="system")
+
+    # grace_period for too long → suspended
+    stuck_grace = db.scalars(
+        select(Subscription).where(
+            Subscription.status == "grace_period",
+            Subscription.current_period_end.isnot(None),
+            Subscription.current_period_end < now - timedelta(days=SUSPEND_AFTER_DAYS),
+        )
+    ).all()
+    for sub in stuck_grace:
+        apply_subscription_event(db, sub.studio_id, "suspended", source="system")
+
+    if canceled or trials or stuck_past_due or stuck_grace:
+        logger.info(
+            "sweep_subscription_transitions: expired=%d(canceled)+%d(trial) grace_period=%d suspended=%d",
+            len(canceled), len(trials), len(stuck_past_due), len(stuck_grace),
+        )

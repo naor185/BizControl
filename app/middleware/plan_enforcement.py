@@ -1,12 +1,16 @@
 """
 Plan enforcement middleware.
 Checks studio plan validity on every authenticated API request.
-Returns 402 if the studio is inactive or its plan has expired.
+Returns 402 if the studio's subscription status doesn't allow access.
+
+Gates on Subscription.status (app/models/subscription.py) — the Generic
+Plans Engine's source of truth — not Studio.is_active/plan_expires_at
+directly. Those Studio columns are still dual-written by app/core/billing.py
+for other code that reads them for display, but are no longer read here.
 """
 
 import json
 import time
-from datetime import datetime, timezone
 from typing import Dict, Tuple
 
 from jose import JWTError
@@ -17,10 +21,17 @@ from starlette.responses import Response
 from app.core.security import decode_token
 from app.db.session import SessionLocal
 from app.models.studio import Studio
+from app.models.subscription import Subscription
 
 # Simple in-memory cache: studio_id → (is_ok: bool, expires_at_cache: float)
 _CACHE: Dict[str, Tuple[bool, float]] = {}
 _CACHE_TTL = 300  # 5 minutes
+
+# Statuses that keep full access. past_due/grace_period are intentionally
+# included — a failed renewal charge degrades to a warning, not an instant
+# lockout; the grace_period→suspended transition (handled by the expiry
+# sweep cron) is what eventually blocks access if nothing is resolved.
+_ACCESS_OK_STATUSES = {"trial", "active", "past_due", "grace_period"}
 
 # Prefixes that bypass plan enforcement completely
 _BYPASS_PREFIXES = (
@@ -52,15 +63,15 @@ def _check_studio(studio_id: str) -> str | None:
         studio = db.query(Studio).filter(Studio.id == studio_id).first()
         if not studio:
             result = "STUDIO_SUSPENDED"
-        elif not studio.is_active:
-            result = "STUDIO_SUSPENDED"
-        elif studio.plan_expires_at is not None:
-            expires = studio.plan_expires_at
-            if expires.tzinfo is None:
-                expires = expires.replace(tzinfo=timezone.utc)
-            result = None if expires > datetime.now(timezone.utc) else "plan_expired"
         else:
-            result = None  # no expiry → unlimited
+            sub = db.query(Subscription).filter(Subscription.studio_id == studio_id).first()
+            if sub is not None:
+                result = None if sub.status in _ACCESS_OK_STATUSES else "plan_expired"
+            else:
+                # No subscriptions row yet (shouldn't happen post-migration —
+                # every write path creates one) — fall back to the legacy
+                # columns rather than blocking a studio outright on a gap.
+                result = None if studio.is_active else "STUDIO_SUSPENDED"
         _CACHE[studio_id] = (result, now + _CACHE_TTL)
         return result
     finally:

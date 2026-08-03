@@ -335,7 +335,19 @@ def create_studio(payload: CreateStudioIn, admin: User = Depends(require_superad
     )
 
     _audit(db, admin, "create_studio", studio, {"owner_email": owner.email, "plan": studio.subscription_plan})
-    db.commit()
+
+    from app.core.billing import apply_subscription_event
+    from app.models.module import Plan as _Plan
+    if db.get(_Plan, payload.subscription_plan):
+        apply_subscription_event(
+            db, studio.id, "activated", source="admin",
+            plan_id=payload.subscription_plan,
+            current_period_start=datetime.now(timezone.utc),
+            current_period_end=expires,
+        )
+    else:
+        log.warning("[billing] create_studio: '%s' is not a known plan id, skipping subscriptions row", payload.subscription_plan)
+        db.commit()
 
     # Send welcome email in background so it doesn't block the response
     frontend_url = os.getenv("FRONTEND_URL", "https://bizcontrol-seven.vercel.app")
@@ -405,7 +417,29 @@ def update_studio(studio_id: uuid.UUID, payload: UpdateStudioIn, admin: User = D
         changes["plan_days_added"] = payload.plan_days
 
     _audit(db, admin, "update_studio", studio, changes)
-    db.commit()
+
+    # Mirror the change onto Subscription.status — plan_enforcement.py gates
+    # on that, not Studio.is_active, so an admin suspend/reactivate here has
+    # to reach it too. 'is_active' toggles status directly; a plan/day-only
+    # edit doesn't change status (event_type not in the transitions map).
+    if payload.is_active is not None:
+        event_type = "activated" if payload.is_active else "suspended"
+    elif payload.subscription_plan is not None or payload.plan_days is not None:
+        event_type = "upgraded"
+    else:
+        event_type = None
+
+    if event_type:
+        from app.core.billing import apply_subscription_event
+        from app.models.module import Plan as _Plan
+        plan_id = payload.subscription_plan if (payload.subscription_plan and db.get(_Plan, payload.subscription_plan)) else None
+        apply_subscription_event(
+            db, studio.id, event_type, source="admin",
+            plan_id=plan_id,
+            current_period_end=studio.plan_expires_at if payload.plan_days is not None else None,
+        )
+    else:
+        db.commit()
     return {"status": "updated"}
 
 
