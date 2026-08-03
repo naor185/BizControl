@@ -117,6 +117,18 @@ class Plan(Base):
     is_purchasable: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     sort_order: Mapped[int] = mapped_column(nullable=False, default=0)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    # Shown in any listing (admin or public) vs tucked away — covers both
+    # "hide"/"unhide" and "publish"/"unpublish" from the Plan Management
+    # Center spec (same underlying toggle, described with two verb pairs).
+    is_visible: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    # Advanced pricing options — editable and displayed from day one, but NOT
+    # yet wired into billing_routes.py's checkout flow (that still reads
+    # price_cents/billing_period_days). Wiring monthly/annual/sale selection
+    # into checkout is a future extension of Step 4, not part of Step 5.
+    price_monthly_cents: Mapped[int | None] = mapped_column(nullable=True)
+    price_annual_cents: Mapped[int | None] = mapped_column(nullable=True)
+    sale_price_cents: Mapped[int | None] = mapped_column(nullable=True)
+    sale_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

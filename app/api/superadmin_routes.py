@@ -4,6 +4,7 @@ Provides full control over all studios in the platform.
 """
 from __future__ import annotations
 import os
+import re
 import threading
 import uuid
 from datetime import datetime, timezone, timedelta
@@ -878,6 +879,15 @@ ACTION_LABELS = {
     "delete_studio": "מחיקת סטודיו",
     "update_settings": "עדכון הגדרות",
     "impersonate": "התחברות כסטודיו",
+    "create_plan": "יצירת מסלול",
+    "update_plan": "עדכון מסלול",
+    "delete_plan": "מחיקת מסלול",
+    "duplicate_plan": "שכפול מסלול",
+    "publish_plan": "פרסום מסלול",
+    "unpublish_plan": "ביטול פרסום מסלול",
+    "update_package": "עדכון מודולים במסלול",
+    "update_package_quota": "עדכון מכסה במסלול",
+    "set_studio_quota_override": "עדכון override מכסה לעסק",
 }
 
 
@@ -904,6 +914,8 @@ def test_plan_alert(
 @router.get("/audit-log", response_model=list[AuditLogOut])
 def get_audit_log(
     studio_id: Optional[str] = None,
+    action: Optional[str] = None,   # comma-separated exact action names, e.g. "create_plan,update_plan"
+    plan_id: Optional[str] = None,  # filters details.plan_id or details.plan (naming differs by action)
     limit: int = 100,
     offset: int = 0,
     admin: User = Depends(require_superadmin),
@@ -912,6 +924,12 @@ def get_audit_log(
     q = select(AuditLog).order_by(AuditLog.created_at.desc()).limit(limit).offset(offset)
     if studio_id:
         q = q.where(AuditLog.studio_id == studio_id)
+    if action:
+        q = q.where(AuditLog.action.in_([a.strip() for a in action.split(",") if a.strip()]))
+    if plan_id:
+        q = q.where(
+            (AuditLog.details["plan_id"].astext == plan_id) | (AuditLog.details["plan"].astext == plan_id)
+        )
     rows = db.scalars(q).all()
     return [
         AuditLogOut(
@@ -2051,6 +2069,7 @@ class PlanQuotaUpdate(BaseModel):
 def get_packages(admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
     """Get current module list for all plans, plus per-plan quota config."""
     from app.models.module import PlanModule, Module, Plan
+    from app.models.subscription import Subscription
     all_modules = db.scalars(select(Module).where(Module.is_available == True).order_by(Module.sort_order)).all()
     plan_rows = db.query(PlanModule).all()
     plan_map: dict = {}
@@ -2062,8 +2081,18 @@ def get_packages(admin: User = Depends(require_superadmin), db: Session = Depend
             "on_exceed_action": row.on_exceed_action, "auto_increase_by": row.auto_increase_by,
         }
     plans = db.scalars(select(Plan).where(Plan.is_active == True).order_by(Plan.sort_order)).all()
+    sub_counts = dict(db.execute(
+        select(Subscription.plan_id, func.count(Subscription.id))
+        .where(Subscription.status.in_(["trial", "active", "past_due", "grace_period"]))
+        .group_by(Subscription.plan_id)
+    ).all())
     return {
         "plans": [p.id for p in plans],
+        "plan_details": {
+            p.id: {"display_name": p.display_name, "is_visible": p.is_visible,
+                   "is_purchasable": p.is_purchasable, "active_subscriptions_count": sub_counts.get(p.id, 0)}
+            for p in plans
+        },
         "modules": [{"id": m.id, "name": m.name, "category": m.category,
                      "parent_module_id": m.parent_module_id} for m in all_modules],
         "plan_modules": plan_map,
@@ -2109,6 +2138,293 @@ def update_package_quota(payload: PlanQuotaUpdate, admin: User = Depends(require
     _audit(db, admin, "update_package_quota", details=payload.model_dump())
     db.commit()
     return {"plan": payload.plan, "module_id": payload.module_id, "quota": payload.model_dump(exclude={"plan", "module_id"})}
+
+
+# ── Plan Management Center (Generic Plans Engine step 5) ──────────────────────
+# CRUD over the plans table itself (steps 1-4 only ever read/seeded it).
+# Module/quota assignment stays on PUT /packages, /packages/quota above —
+# these endpoints only manage the Plan row's own fields and lifecycle.
+
+_PLAN_ID_RE = re.compile(r"^[a-z0-9_]+$")
+
+
+def _validate_plan_id(plan_id: str) -> str:
+    plan_id = plan_id.strip().lower()
+    if not plan_id or not _PLAN_ID_RE.match(plan_id):
+        raise HTTPException(status_code=400, detail="Plan ID must contain only lowercase letters, digits, and underscores")
+    return plan_id
+
+
+class PlanFields(BaseModel):
+    display_name: str
+    price_cents: int = 0
+    currency: str = "ILS"
+    billing_period_days: int = 30
+    trial_days: int = 0
+    stripe_price_id: str | None = None
+    scope_bizcontrol: bool = True
+    is_purchasable: bool = True
+    is_visible: bool = True
+    sort_order: int = 0
+    price_monthly_cents: int | None = None
+    price_annual_cents: int | None = None
+    sale_price_cents: int | None = None
+    sale_expires_at: datetime | None = None
+
+
+class PlanCreateIn(PlanFields):
+    id: str
+
+
+class PlanUpdateIn(BaseModel):
+    display_name: Optional[str] = None
+    price_cents: Optional[int] = None
+    currency: Optional[str] = None
+    billing_period_days: Optional[int] = None
+    trial_days: Optional[int] = None
+    stripe_price_id: Optional[str] = None
+    scope_bizcontrol: Optional[bool] = None
+    is_purchasable: Optional[bool] = None
+    is_visible: Optional[bool] = None
+    sort_order: Optional[int] = None
+    is_active: Optional[bool] = None
+    price_monthly_cents: Optional[int] = None
+    price_annual_cents: Optional[int] = None
+    sale_price_cents: Optional[int] = None
+    sale_expires_at: Optional[datetime] = None
+
+
+class PlanDuplicateIn(BaseModel):
+    new_id: str
+    display_name: Optional[str] = None
+
+
+_ACTIVE_SUB_STATUSES = ["trial", "active", "past_due", "grace_period"]
+
+
+def _plan_out(plan, active_subscriptions_count: int) -> dict:
+    return {
+        "id": plan.id, "display_name": plan.display_name, "price_cents": plan.price_cents,
+        "currency": plan.currency, "billing_period_days": plan.billing_period_days,
+        "trial_days": plan.trial_days, "stripe_price_id": plan.stripe_price_id,
+        "scope_bizcontrol": plan.scope_bizcontrol, "is_purchasable": plan.is_purchasable,
+        "is_visible": plan.is_visible, "sort_order": plan.sort_order, "is_active": plan.is_active,
+        "price_monthly_cents": plan.price_monthly_cents, "price_annual_cents": plan.price_annual_cents,
+        "sale_price_cents": plan.sale_price_cents,
+        "sale_expires_at": plan.sale_expires_at.isoformat() if plan.sale_expires_at else None,
+        "active_subscriptions_count": active_subscriptions_count,
+    }
+
+
+def _active_sub_count(db: Session, plan_id: str) -> int:
+    from app.models.subscription import Subscription
+    return db.scalar(
+        select(func.count(Subscription.id)).where(
+            Subscription.plan_id == plan_id, Subscription.status.in_(_ACTIVE_SUB_STATUSES)
+        )
+    ) or 0
+
+
+@router.get("/plans", tags=["SuperAdmin"])
+def list_plans(admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    """Full plan records for the Plan Management Center — richer than
+    GET /packages, which only lists plan IDs for the module/quota grid."""
+    from app.models.module import Plan
+    from app.models.subscription import Subscription
+    plans = db.scalars(select(Plan).order_by(Plan.sort_order)).all()
+    counts = dict(db.execute(
+        select(Subscription.plan_id, func.count(Subscription.id))
+        .where(Subscription.status.in_(_ACTIVE_SUB_STATUSES))
+        .group_by(Subscription.plan_id)
+    ).all())
+    return [_plan_out(p, counts.get(p.id, 0)) for p in plans]
+
+
+@router.post("/plans", tags=["SuperAdmin"])
+def create_plan(payload: PlanCreateIn, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    from app.models.module import Plan
+    plan_id = _validate_plan_id(payload.id)
+    if db.get(Plan, plan_id):
+        raise HTTPException(status_code=409, detail="Plan ID already exists")
+    fields = payload.model_dump(exclude={"id"})
+    plan = Plan(id=plan_id, **fields)
+    db.add(plan)
+    _audit(db, admin, "create_plan", details={"plan_id": plan_id, **fields})
+    db.commit()
+    return _plan_out(plan, 0)
+
+
+@router.put("/plans/{plan_id}", tags=["SuperAdmin"])
+def update_plan(plan_id: str, payload: PlanUpdateIn, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    from app.models.module import Plan
+    plan = db.get(Plan, plan_id)
+    if not plan:
+        raise HTTPException(status_code=404, detail="Plan not found")
+    changes = payload.model_dump(exclude_unset=True)
+    for field, value in changes.items():
+        setattr(plan, field, value)
+    _audit(db, admin, "update_plan", details={"plan_id": plan_id, "changes": changes})
+    db.commit()
+    return _plan_out(plan, _active_sub_count(db, plan_id))
+
+
+@router.delete("/plans/{plan_id}", tags=["SuperAdmin"])
+def delete_plan(plan_id: str, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    """Blocked if any subscription (active or not — even a canceled/expired
+    one keeps its historical plan_id) still references this plan, so
+    deleting never orphans a foreign key or loses history."""
+    from app.models.module import Plan, PlanModule
+    from app.models.subscription import Subscription
+    plan = db.get(Plan, plan_id)
+    if not plan:
+        raise HTTPException(status_code=404, detail="Plan not found")
+    in_use = db.scalar(select(func.count(Subscription.id)).where(Subscription.plan_id == plan_id)) or 0
+    if in_use > 0:
+        raise HTTPException(status_code=409, detail=f"Cannot delete — {in_use} subscription(s) reference this plan")
+    db.query(PlanModule).filter(PlanModule.plan == plan_id).delete()
+    db.delete(plan)
+    _audit(db, admin, "delete_plan", details={"plan_id": plan_id})
+    db.commit()
+    return {"deleted": plan_id}
+
+
+@router.post("/plans/{plan_id}/duplicate", tags=["SuperAdmin"])
+def duplicate_plan(plan_id: str, payload: PlanDuplicateIn, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    """Copies pricing + every plan_modules row (module inclusion + quota
+    config). Never copies stripe_price_id (two plans must not silently share
+    a Stripe Price) and starts unpublished/not-purchasable so it can be
+    reviewed before going live — same reasoning as a new plan being a draft."""
+    from app.models.module import Plan, PlanModule
+    src = db.get(Plan, plan_id)
+    if not src:
+        raise HTTPException(status_code=404, detail="Plan not found")
+    new_id = _validate_plan_id(payload.new_id)
+    if db.get(Plan, new_id):
+        raise HTTPException(status_code=409, detail="Plan ID already exists")
+
+    new_plan = Plan(
+        id=new_id,
+        display_name=payload.display_name or f"{src.display_name} (עותק)",
+        price_cents=src.price_cents, currency=src.currency, billing_period_days=src.billing_period_days,
+        trial_days=src.trial_days, stripe_price_id=None,
+        scope_bizcontrol=src.scope_bizcontrol, is_purchasable=False, is_visible=False,
+        sort_order=src.sort_order + 1,
+        price_monthly_cents=src.price_monthly_cents, price_annual_cents=src.price_annual_cents,
+        sale_price_cents=None, sale_expires_at=None,
+    )
+    db.add(new_plan)
+    db.flush()
+    for row in db.query(PlanModule).filter(PlanModule.plan == plan_id).all():
+        db.add(PlanModule(
+            plan=new_id, module_id=row.module_id, limit_value=row.limit_value,
+            period_type=row.period_type, on_exceed_action=row.on_exceed_action,
+            auto_increase_by=row.auto_increase_by,
+        ))
+    _audit(db, admin, "duplicate_plan", details={"from": plan_id, "to": new_id})
+    db.commit()
+    return _plan_out(new_plan, 0)
+
+
+@router.post("/plans/{plan_id}/publish", tags=["SuperAdmin"])
+def publish_plan(plan_id: str, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    from app.models.module import Plan
+    plan = db.get(Plan, plan_id)
+    if not plan:
+        raise HTTPException(status_code=404, detail="Plan not found")
+    plan.is_visible = True
+    _audit(db, admin, "publish_plan", details={"plan_id": plan_id})
+    db.commit()
+    return _plan_out(plan, _active_sub_count(db, plan_id))
+
+
+@router.post("/plans/{plan_id}/unpublish", tags=["SuperAdmin"])
+def unpublish_plan(plan_id: str, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    from app.models.module import Plan
+    plan = db.get(Plan, plan_id)
+    if not plan:
+        raise HTTPException(status_code=404, detail="Plan not found")
+    plan.is_visible = False
+    _audit(db, admin, "unpublish_plan", details={"plan_id": plan_id})
+    db.commit()
+    return _plan_out(plan, _active_sub_count(db, plan_id))
+
+
+@router.get("/plans/{plan_id}/preview", tags=["SuperAdmin"])
+def preview_plan_for_studio(plan_id: str, studio_id: str, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    """
+    Read-only "what if this studio were on plan_id" — reuses
+    get_studio_modules()/get_usage_dashboard() (app/core/features.py) with
+    plan_id passed in place of the studio's actual subscription_plan. Never
+    writes anything; the studio's real plan/modules/quotas are untouched.
+    """
+    from app.models.module import Plan
+    from app.core.features import get_studio_modules, get_usage_dashboard
+    plan = db.get(Plan, plan_id)
+    if not plan:
+        raise HTTPException(status_code=404, detail="Plan not found")
+    studio = db.query(Studio).filter_by(id=studio_id).first()
+    if not studio:
+        raise HTTPException(status_code=404, detail="Studio not found")
+    return {
+        "studio_id": studio_id,
+        "studio_name": studio.name,
+        "current_plan_id": studio.subscription_plan,
+        "preview_plan_id": plan_id,
+        "modules": get_studio_modules(db, studio_id, plan_id),
+        "quotas": get_usage_dashboard(db, studio_id, plan_id),
+    }
+
+
+@router.get("/plans/dashboard", tags=["SuperAdmin"])
+def plans_dashboard(admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    """
+    Per-plan rollup for the Plan Management Center's overview strip: studio
+    counts by subscription status, estimated MRR, and how many studios are
+    near/over a quota. Sourced from Subscription (step 4) — not Payment,
+    which is client-of-the-studio revenue, not studio-subscribes-to-
+    BizControl revenue (see GET /platform-analytics for that, a different
+    metric entirely, kept separate on purpose).
+    """
+    from app.models.module import Plan
+    from app.models.subscription import Subscription
+    from app.core.features import get_usage_dashboard
+
+    plans = db.scalars(select(Plan).order_by(Plan.sort_order)).all()
+    result = []
+    for plan in plans:
+        status_counts = dict(db.execute(
+            select(Subscription.status, func.count(Subscription.id))
+            .where(Subscription.plan_id == plan.id)
+            .group_by(Subscription.status)
+        ).all())
+        active_count = sum(status_counts.get(s, 0) for s in _ACTIVE_SUB_STATUSES)
+        mrr_cents = plan.price_cents * status_counts.get("active", 0)
+
+        near_quota = over_quota = 0
+        studio_ids = [r[0] for r in db.execute(
+            select(Subscription.studio_id).where(
+                Subscription.plan_id == plan.id, Subscription.status.in_(_ACTIVE_SUB_STATUSES)
+            )
+        ).all()]
+        for sid in studio_ids:
+            for entry in get_usage_dashboard(db, sid, plan.id):
+                if entry["limit"] is None:
+                    continue
+                if entry["used"] >= entry["limit"]:
+                    over_quota += 1
+                elif entry["percent"] is not None and entry["percent"] >= 80:
+                    near_quota += 1
+
+        result.append({
+            "plan_id": plan.id,
+            "display_name": plan.display_name,
+            "status_counts": status_counts,
+            "active_count": active_count,
+            "mrr_cents": mrr_cents,
+            "near_quota_count": near_quota,
+            "over_quota_count": over_quota,
+        })
+    return result
 
 
 # ── Global Platform Analytics ─────────────────────────────────────────────────

@@ -365,6 +365,15 @@ def ensure_schema():
                 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
             )
         """)
+        # Plan Management Center (Plans Engine step 5) — additive columns only.
+        cur.execute("""
+            ALTER TABLE plans
+            ADD COLUMN IF NOT EXISTS is_visible BOOLEAN NOT NULL DEFAULT true,
+            ADD COLUMN IF NOT EXISTS price_monthly_cents INTEGER,
+            ADD COLUMN IF NOT EXISTS price_annual_cents INTEGER,
+            ADD COLUMN IF NOT EXISTS sale_price_cents INTEGER,
+            ADD COLUMN IF NOT EXISTS sale_expires_at TIMESTAMPTZ
+        """)
         cur.execute("""
             CREATE TABLE IF NOT EXISTS business_type_templates (
                 business_type VARCHAR(64) PRIMARY KEY,
