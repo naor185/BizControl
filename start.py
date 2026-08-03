@@ -445,8 +445,59 @@ def ensure_schema():
             ADD COLUMN IF NOT EXISTS limit_value_override INTEGER,
             ADD COLUMN IF NOT EXISTS limit_value_delta INTEGER,
             ADD COLUMN IF NOT EXISTS period_type_override VARCHAR(16),
-            ADD COLUMN IF NOT EXISTS on_exceed_action_override VARCHAR(16)
+            ADD COLUMN IF NOT EXISTS on_exceed_action_override VARCHAR(16),
+            ADD COLUMN IF NOT EXISTS is_locked BOOLEAN NOT NULL DEFAULT false
         """)
+
+        # ── Add-ons (Plans Engine step 6) ───────────────────────────────────────
+        # Standalone, priced entities that grant extra modules/quota on top of
+        # a studio's plan — never tied to one plan. See app/models/addon.py.
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS addons (
+                id VARCHAR(32) PRIMARY KEY,
+                display_name VARCHAR(128) NOT NULL,
+                description TEXT,
+                price_cents INTEGER NOT NULL DEFAULT 0,
+                currency VARCHAR(8) NOT NULL DEFAULT 'ILS',
+                billing_type VARCHAR(16) NOT NULL DEFAULT 'monthly',
+                applies_to_all_plans BOOLEAN NOT NULL DEFAULT false,
+                is_visible BOOLEAN NOT NULL DEFAULT true,
+                is_purchasable BOOLEAN NOT NULL DEFAULT true,
+                is_active BOOLEAN NOT NULL DEFAULT true,
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS plan_addons (
+                plan_id VARCHAR(32) NOT NULL REFERENCES plans(id) ON DELETE CASCADE,
+                addon_id VARCHAR(32) NOT NULL REFERENCES addons(id) ON DELETE CASCADE,
+                PRIMARY KEY (plan_id, addon_id)
+            )
+        """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS addon_modules (
+                addon_id VARCHAR(32) NOT NULL REFERENCES addons(id) ON DELETE CASCADE,
+                module_id VARCHAR(64) NOT NULL REFERENCES modules(id) ON DELETE CASCADE,
+                limit_delta INTEGER,
+                PRIMARY KEY (addon_id, module_id)
+            )
+        """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS studio_addons (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                addon_id VARCHAR(32) NOT NULL REFERENCES addons(id),
+                status VARCHAR(20) NOT NULL DEFAULT 'active',
+                source VARCHAR(20) NOT NULL DEFAULT 'admin_assigned',
+                purchased_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                current_period_end TIMESTAMPTZ,
+                canceled_at TIMESTAMPTZ,
+                price_cents_at_purchase INTEGER NOT NULL DEFAULT 0
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_studio_addons_studio ON studio_addons (studio_id, status)")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_studio_addons_addon ON studio_addons (addon_id, status)")
         cur.execute("""
             CREATE TABLE IF NOT EXISTS studio_usage_counters (
                 studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,

@@ -22,8 +22,19 @@ interface PreviewResult {
     studio_id: string; studio_name: string; current_plan_id: string; preview_plan_id: string;
     modules: Record<string, boolean>;
     quotas: { quota_key: string; used: number; limit: number | null; remaining: number | null; percent: number | null; period_type: string; on_exceed_action: string }[];
+    available_addons: { id: string; display_name: string }[];
 }
 interface AuditEntry { id: string; admin_email: string; action: string; studio_id: string | null; studio_name: string | null; details: any; created_at: string; }
+interface AddonRecord {
+    id: string; display_name: string; description: string | null; price_cents: number; currency: string;
+    billing_type: string; applies_to_all_plans: boolean; is_visible: boolean; is_purchasable: boolean;
+    is_active: boolean; sort_order: number; active_studio_count: number; plan_ids: string[];
+}
+interface AddonDashboardEntry {
+    addon_id: string; display_name: string; active_studio_count: number; revenue_cents: number;
+    billing_type: string; usage_rate_percent: number | null;
+}
+const BILLING_TYPE_LABELS: Record<string, string> = { one_time: "חד-פעמי", monthly: "חודשי", yearly: "שנתי" };
 
 // "Modules" and "Quotas" are one tab, not two — a quota is set by expanding
 // a module row (⚙️) in the exact same tree, so showing that tree under two
@@ -46,6 +57,7 @@ function cents(v: number | null | undefined, currency = "ILS") {
 export default function PlansCenterPage() {
     const [plans, setPlans] = useState<PlanRecord[] | null>(null);
     const [dashboard, setDashboard] = useState<DashboardEntry[] | null>(null);
+    const [addonDashboard, setAddonDashboard] = useState<AddonDashboardEntry[] | null>(null);
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [tab, setTab] = useState<Tab>("overview");
     const [loading, setLoading] = useState(true);
@@ -55,12 +67,14 @@ export default function PlansCenterPage() {
 
     const loadPlans = useCallback(async () => {
         try {
-            const [p, d] = await Promise.all([
+            const [p, d, ad] = await Promise.all([
                 apiFetch<PlanRecord[]>("/api/admin/plans"),
                 apiFetch<DashboardEntry[]>("/api/admin/plans/dashboard"),
+                apiFetch<AddonDashboardEntry[]>("/api/admin/addons/dashboard"),
             ]);
             setPlans(p);
             setDashboard(d);
+            setAddonDashboard(ad);
         } catch (e: any) { toast.error(e.message); }
         finally { setLoading(false); }
     }, []);
@@ -154,6 +168,24 @@ export default function PlansCenterPage() {
                             })}
                         </div>
 
+                        {addonDashboard && addonDashboard.length > 0 && (
+                            <div style={{ marginBottom: "1.5rem" }}>
+                                <div style={{ fontSize: "0.8rem", color: "#94a3b8", fontWeight: 700, marginBottom: "0.5rem" }}>➕ Add-ons</div>
+                                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "0.6rem" }}>
+                                    {addonDashboard.map(a => (
+                                        <div key={a.addon_id} style={{ ...s.card, padding: "0.85rem" }}>
+                                            <div style={{ fontWeight: 700, fontSize: "0.82rem", marginBottom: "0.4rem" }}>{a.display_name}</div>
+                                            <div style={{ fontSize: "1.1rem", fontWeight: 800 }}>{a.active_studio_count} <span style={{ fontSize: "0.68rem", color: "#94a3b8", fontWeight: 400 }}>עסקים</span></div>
+                                            <div style={{ fontSize: "0.72rem", color: "#4ade80", marginTop: "0.2rem" }}>הכנסה: {cents(a.revenue_cents)}</div>
+                                            {a.usage_rate_percent !== null && (
+                                                <div style={{ fontSize: "0.7rem", color: "#94a3b8", marginTop: "0.2rem" }}>שיעור שימוש: {a.usage_rate_percent}%</div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
                         <div style={{ display: "grid", gridTemplateColumns: "260px 1fr", gap: "1.25rem", alignItems: "start" }}>
                             {/* ── Plan list ── */}
                             <div style={s.card}>
@@ -202,7 +234,7 @@ export default function PlansCenterPage() {
                                     <div style={s.card}>
                                         {tab === "overview" && <OverviewTab plan={selected} onSaved={loadPlans} onDuplicate={() => duplicatePlan(selected.id)} onDelete={() => deletePlan(selected.id)} onTogglePublish={() => togglePublish(selected)} />}
                                         {tab === "modules" && <ModuleTreeEditor planFilter={[selected.id]} />}
-                                        {tab === "addons" && <AddonsTab />}
+                                        {tab === "addons" && <AddonsTab plan={selected} />}
                                         {tab === "preview" && <PreviewTab plan={selected} />}
                                         {tab === "compare" && <CompareTab plans={plans || []} defaultOther={selected.id} />}
                                         {tab === "audit" && <AuditTab key={selected.id} planId={selected.id} />}
@@ -312,14 +344,216 @@ function OverviewTab({ plan, onSaved, onDuplicate, onDelete, onTogglePublish }: 
     );
 }
 
-// ── Add-ons tab (placeholder — Step 6 not built yet) ─────────────────────────
+// ── Add-ons tab — full management (Generic Plans Engine step 6) ─────────────
+// Add-ons are standalone entities, not scoped to one plan — this tab lists
+// ALL of them (creatable/editable/duplicable/publishable from here), with a
+// per-addon checkbox for whether it's offered on the currently-selected plan.
 
-function AddonsTab() {
+function AddonsTab({ plan }: { plan: PlanRecord }) {
+    const [addons, setAddons] = useState<AddonRecord[] | null>(null);
+    const [expandedId, setExpandedId] = useState<string | null>(null);
+    const [creating, setCreating] = useState(false);
+    const [newId, setNewId] = useState("");
+    const [newName, setNewName] = useState("");
+
+    const load = useCallback(() => {
+        apiFetch<AddonRecord[]>("/api/admin/addons").then(setAddons).catch(() => setAddons([]));
+    }, []);
+    useEffect(() => { load(); }, [load]);
+
+    const createAddon = async () => {
+        if (!newId.trim() || !newName.trim()) return;
+        try {
+            await apiFetch("/api/admin/addons", {
+                method: "POST",
+                body: JSON.stringify({ id: newId.trim(), display_name: newName.trim(), is_visible: false, is_purchasable: false }),
+            });
+            toast.success("Add-on נוצר (כטיוטה)!");
+            setCreating(false); setNewId(""); setNewName("");
+            load();
+        } catch (e: any) { toast.error(e.message); }
+    };
+
+    const toggleForPlan = async (addon: AddonRecord) => {
+        const has = addon.plan_ids.includes(plan.id);
+        const nextIds = has ? addon.plan_ids.filter(p => p !== plan.id) : [...addon.plan_ids, plan.id];
+        try {
+            await apiFetch(`/api/admin/addons/${addon.id}/plans`, { method: "PUT", body: JSON.stringify({ plan_ids: nextIds }) });
+            load();
+        } catch (e: any) { toast.error(e.message); }
+    };
+
+    if (!addons) return <div style={{ color: "#64748b" }}>טוען...</div>;
+
     return (
-        <div style={{ textAlign: "center", padding: "2.5rem", color: "#64748b" }}>
-            <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>➕</div>
-            <div style={{ fontWeight: 700, marginBottom: "0.3rem" }}>Add-ons — בקרוב</div>
-            <div style={{ fontSize: "0.85rem" }}>יתאפשר בשלב 6 של מנוע הפלאנים — הוספת יכולות/מכסות בתשלום נוסף לכל פלאן, ללא שינוי ארכיטקטורה.</div>
+        <div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+                <div style={{ fontSize: "0.85rem", color: "#94a3b8" }}>
+                    כל ה-Add-ons במערכת — הצ'קבוקס קובע האם זמין למסלול <strong>{plan.display_name}</strong>
+                </div>
+                <button onClick={() => setCreating(v => !v)} style={{ background: "rgba(167,139,250,.2)", color: "#a78bfa", border: "none", borderRadius: 8, padding: "0.35rem 0.8rem", fontSize: "0.75rem", cursor: "pointer" }}>+ Add-on חדש</button>
+            </div>
+            {creating && (
+                <div style={{ marginBottom: "1rem", padding: "0.75rem", background: "rgba(255,255,255,.04)", borderRadius: 10, display: "flex", gap: "0.5rem" }}>
+                    <input value={newId} onChange={e => setNewId(e.target.value)} placeholder="addon_id" dir="ltr"
+                        style={{ flex: 1, background: "#1e1b4b", border: "1px solid rgba(255,255,255,.15)", borderRadius: 6, padding: "0.4rem 0.6rem", color: "#fff", fontSize: "0.8rem" }} />
+                    <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="שם תצוגה"
+                        style={{ flex: 1, background: "#1e1b4b", border: "1px solid rgba(255,255,255,.15)", borderRadius: 6, padding: "0.4rem 0.6rem", color: "#fff", fontSize: "0.8rem" }} />
+                    <button onClick={createAddon} style={{ background: "#a78bfa", border: "none", borderRadius: 6, padding: "0.4rem 1rem", color: "#1e1b4b", fontWeight: 700, fontSize: "0.8rem", cursor: "pointer" }}>צור</button>
+                </div>
+            )}
+            {addons.length === 0 && <div style={{ color: "#64748b", textAlign: "center", padding: "1.5rem" }}>אין עדיין Add-ons</div>}
+            {addons.map(addon => (
+                <div key={addon.id} style={{ marginBottom: "0.5rem" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.6rem 0.75rem", background: "rgba(255,255,255,.03)", borderRadius: 10 }}>
+                        <input type="checkbox" checked={addon.applies_to_all_plans || addon.plan_ids.includes(plan.id)}
+                            disabled={addon.applies_to_all_plans}
+                            onChange={() => toggleForPlan(addon)}
+                            title={addon.applies_to_all_plans ? "זמין לכל המסלולים" : ""} />
+                        <div style={{ flex: 1 }}>
+                            <div style={{ fontWeight: 600, fontSize: "0.85rem" }}>{addon.display_name} <span style={{ color: "#64748b", fontSize: "0.7rem" }}>({addon.id})</span></div>
+                            <div style={{ fontSize: "0.7rem", color: "#94a3b8" }}>
+                                {cents(addon.price_cents, addon.currency)} · {BILLING_TYPE_LABELS[addon.billing_type] || addon.billing_type} · {addon.active_studio_count} עסקים פעילים
+                                {addon.applies_to_all_plans && " · כל המסלולים"}
+                                {!addon.is_visible && " · 🙈 מוסתר"}
+                            </div>
+                        </div>
+                        <button onClick={() => setExpandedId(expandedId === addon.id ? null : addon.id)}
+                            style={{ background: "rgba(255,255,255,.08)", color: "#cbd5e1", border: "none", borderRadius: 8, padding: "0.3rem 0.7rem", fontSize: "0.75rem", cursor: "pointer" }}>
+                            {expandedId === addon.id ? "סגור" : "ערוך"}
+                        </button>
+                    </div>
+                    {expandedId === addon.id && <AddonEditor addon={addon} onChanged={load} />}
+                </div>
+            ))}
+        </div>
+    );
+}
+
+function AddonEditor({ addon, onChanged }: { addon: AddonRecord; onChanged: () => void }) {
+    const [form, setForm] = useState(addon);
+    const [saving, setSaving] = useState(false);
+    const [moduleIds, setModuleIds] = useState<string[]>([]);
+    const [allModules, setAllModules] = useState<{ id: string; name: string }[]>([]);
+    const [deltas, setDeltas] = useState<Record<string, number | null>>({});
+
+    useEffect(() => { setForm(addon); }, [addon]);
+    useEffect(() => {
+        apiFetch<{ module_ids: string[]; deltas: Record<string, number | null> }>(`/api/admin/addons/${addon.id}/modules`)
+            .then(r => { setModuleIds(r.module_ids); setDeltas(r.deltas || {}); }).catch(() => {});
+        apiFetch<{ id: string; name: string; category: string }[]>("/api/admin/modules")
+            .then(mods => setAllModules(mods.map(m => ({ id: m.id, name: m.name })))).catch(() => {});
+    }, [addon.id]);
+
+    const save = async () => {
+        setSaving(true);
+        try {
+            await apiFetch(`/api/admin/addons/${addon.id}`, {
+                method: "PUT",
+                body: JSON.stringify({
+                    display_name: form.display_name, description: form.description, price_cents: form.price_cents,
+                    currency: form.currency, billing_type: form.billing_type, applies_to_all_plans: form.applies_to_all_plans,
+                    is_purchasable: form.is_purchasable, sort_order: form.sort_order,
+                }),
+            });
+            toast.success("נשמר!");
+            onChanged();
+        } catch (e: any) { toast.error(e.message); }
+        finally { setSaving(false); }
+    };
+
+    const toggleModule = async (moduleId: string) => {
+        const next = moduleIds.includes(moduleId) ? moduleIds.filter(m => m !== moduleId) : [...moduleIds, moduleId];
+        try {
+            await apiFetch(`/api/admin/addons/${addon.id}/modules`, { method: "PUT", body: JSON.stringify({ module_ids: next }) });
+            setModuleIds(next);
+        } catch (e: any) { toast.error(e.message); }
+    };
+
+    const saveDelta = async (moduleId: string, value: number | null) => {
+        try {
+            await apiFetch(`/api/admin/addons/${addon.id}/modules/${moduleId}/delta`, { method: "PUT", body: JSON.stringify({ limit_delta: value }) });
+            setDeltas(d => ({ ...d, [moduleId]: value }));
+        } catch (e: any) { toast.error(e.message); }
+    };
+
+    const togglePublish = async () => {
+        try {
+            await apiFetch(`/api/admin/addons/${addon.id}/${form.is_visible ? "unpublish" : "publish"}`, { method: "POST" });
+            onChanged();
+        } catch (e: any) { toast.error(e.message); }
+    };
+
+    const duplicate = async () => {
+        const newId = window.prompt("מזהה ל-Add-on החדש:", `${addon.id}_copy`);
+        if (!newId) return;
+        try {
+            await apiFetch(`/api/admin/addons/${addon.id}/duplicate`, { method: "POST", body: JSON.stringify({ new_id: newId }) });
+            toast.success("שוכפל!");
+            onChanged();
+        } catch (e: any) { toast.error(e.message); }
+    };
+
+    const remove = async () => {
+        if (!window.confirm(`למחוק את "${addon.id}"?`)) return;
+        try {
+            await apiFetch(`/api/admin/addons/${addon.id}`, { method: "DELETE" });
+            toast.success("נמחק");
+            onChanged();
+        } catch (e: any) { toast.error(e.message); }
+    };
+
+    const inputStyle = { width: "100%", background: "#1e1b4b", border: "1px solid rgba(255,255,255,.15)", borderRadius: 8, padding: "0.4rem 0.6rem", color: "#fff", fontSize: "0.8rem", boxSizing: "border-box" as const };
+
+    return (
+        <div style={{ background: "rgba(255,255,255,.02)", borderRadius: 10, padding: "1rem", marginTop: "0.4rem" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1rem" }}>
+                <div>
+                    <label style={{ fontSize: "0.72rem", color: "#94a3b8" }}>שם תצוגה</label>
+                    <input style={inputStyle} value={form.display_name} onChange={e => setForm(f => ({ ...f, display_name: e.target.value }))} />
+                </div>
+                <div>
+                    <label style={{ fontSize: "0.72rem", color: "#94a3b8" }}>מחיר (אגורות)</label>
+                    <input type="number" style={inputStyle} value={form.price_cents} onChange={e => setForm(f => ({ ...f, price_cents: Number(e.target.value) }))} />
+                </div>
+                <div>
+                    <label style={{ fontSize: "0.72rem", color: "#94a3b8" }}>סוג חיוב</label>
+                    <select style={inputStyle} value={form.billing_type} onChange={e => setForm(f => ({ ...f, billing_type: e.target.value }))}>
+                        {Object.entries(BILLING_TYPE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                    </select>
+                </div>
+                <div style={{ display: "flex", alignItems: "flex-end" }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: "0.8rem" }}>
+                        <input type="checkbox" checked={form.applies_to_all_plans} onChange={e => setForm(f => ({ ...f, applies_to_all_plans: e.target.checked }))} />
+                        זמין לכל המסלולים
+                    </label>
+                </div>
+            </div>
+
+            <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
+                <button onClick={save} disabled={saving} style={{ background: "#a78bfa", border: "none", borderRadius: 8, padding: "0.4rem 1rem", color: "#1e1b4b", fontWeight: 700, fontSize: "0.8rem", cursor: "pointer" }}>💾 שמור</button>
+                <button onClick={togglePublish} style={{ background: "rgba(255,255,255,.08)", color: "#cbd5e1", border: "none", borderRadius: 8, padding: "0.4rem 1rem", fontSize: "0.8rem", cursor: "pointer" }}>{form.is_visible ? "🙈 הסתר" : "📢 פרסם"}</button>
+                <button onClick={duplicate} style={{ background: "rgba(255,255,255,.08)", color: "#cbd5e1", border: "none", borderRadius: 8, padding: "0.4rem 1rem", fontSize: "0.8rem", cursor: "pointer" }}>⧉ שכפל</button>
+                <button onClick={remove} disabled={addon.active_studio_count > 0} style={{ background: "rgba(239,68,68,.15)", color: "#f87171", border: "none", borderRadius: 8, padding: "0.4rem 1rem", fontSize: "0.8rem", cursor: addon.active_studio_count > 0 ? "not-allowed" : "pointer", opacity: addon.active_studio_count > 0 ? 0.5 : 1 }}>🗑️ מחק</button>
+            </div>
+
+            <div style={{ fontSize: "0.78rem", fontWeight: 700, color: "#a78bfa", marginBottom: "0.5rem" }}>מה ה-Add-on מעניק</div>
+            <div style={{ maxHeight: 260, overflowY: "auto" }}>
+                {allModules.map(m => {
+                    const granted = moduleIds.includes(m.id);
+                    return (
+                        <div key={m.id} style={{ display: "flex", alignItems: "center", gap: "0.6rem", padding: "0.3rem 0", borderBottom: "1px solid rgba(255,255,255,.04)" }}>
+                            <input type="checkbox" checked={granted} onChange={() => toggleModule(m.id)} />
+                            <span style={{ flex: 1, fontSize: "0.8rem" }}>{m.name}</span>
+                            {granted && (
+                                <input type="number" placeholder="+ מכסה" value={deltas[m.id] ?? ""}
+                                    onChange={e => saveDelta(m.id, e.target.value === "" ? null : Number(e.target.value))}
+                                    style={{ width: 90, fontSize: "0.75rem", background: "#1e1b4b", color: "#e2e8f0", border: "1px solid rgba(255,255,255,.15)", borderRadius: 6, padding: "0.25rem" }} />
+                            )}
+                        </div>
+                    );
+                })}
+            </div>
         </div>
     );
 }
@@ -331,17 +565,26 @@ function PreviewTab({ plan }: { plan: PlanRecord }) {
     const [studioId, setStudioId] = useState("");
     const [result, setResult] = useState<PreviewResult | null>(null);
     const [loading, setLoading] = useState(false);
+    const [selectedAddonIds, setSelectedAddonIds] = useState<string[] | null>(null); // null = "use studio's real add-ons"
 
     useEffect(() => { apiFetch<StudioRow[]>("/api/admin/studios").then(setStudios).catch(() => {}); }, []);
 
-    const run = async () => {
+    const run = async (addonIds: string[] | null) => {
         if (!studioId) return;
         setLoading(true);
         try {
-            const res = await apiFetch<PreviewResult>(`/api/admin/plans/${plan.id}/preview?studio_id=${studioId}`);
+            const qs = addonIds !== null ? `&addon_ids=${addonIds.join(",")}` : "";
+            const res = await apiFetch<PreviewResult>(`/api/admin/plans/${plan.id}/preview?studio_id=${studioId}${qs}`);
             setResult(res);
         } catch (e: any) { toast.error(e.message); }
         finally { setLoading(false); }
+    };
+
+    const toggleAddon = (addonId: string) => {
+        const current = selectedAddonIds ?? [];
+        const next = current.includes(addonId) ? current.filter(a => a !== addonId) : [...current, addonId];
+        setSelectedAddonIds(next);
+        run(next);
     };
 
     return (
@@ -350,12 +593,12 @@ function PreviewTab({ plan }: { plan: PlanRecord }) {
                 ״איך העסק הזה ייראה על מסלול {plan.display_name}?״ — קריאה בלבד, לא משנה שום דבר בפועל.
             </div>
             <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
-                <select value={studioId} onChange={e => setStudioId(e.target.value)}
+                <select value={studioId} onChange={e => { setStudioId(e.target.value); setSelectedAddonIds(null); }}
                     style={{ flex: 1, background: "#1e1b4b", border: "1px solid rgba(255,255,255,.15)", borderRadius: 8, padding: "0.5rem", color: "#fff", fontSize: "0.85rem" }}>
                     <option value="">-- בחר עסק --</option>
                     {studios.map(st => <option key={st.id} value={st.id}>{st.name} ({st.subscription_plan})</option>)}
                 </select>
-                <button onClick={run} disabled={!studioId || loading} style={{ background: "#a78bfa", border: "none", borderRadius: 8, padding: "0.5rem 1.2rem", color: "#1e1b4b", fontWeight: 700, cursor: "pointer", opacity: loading ? 0.6 : 1 }}>
+                <button onClick={() => run(null)} disabled={!studioId || loading} style={{ background: "#a78bfa", border: "none", borderRadius: 8, padding: "0.5rem 1.2rem", color: "#1e1b4b", fontWeight: 700, cursor: "pointer", opacity: loading ? 0.6 : 1 }}>
                     {loading ? "..." : "👁️ תצוגה מקדימה"}
                 </button>
             </div>
@@ -365,6 +608,21 @@ function PreviewTab({ plan }: { plan: PlanRecord }) {
                     <div style={{ fontSize: "0.85rem", marginBottom: "0.75rem" }}>
                         <strong>{result.studio_name}</strong> — פלאן נוכחי: <code>{result.current_plan_id}</code> ← בתצוגה מקדימה על: <code>{result.preview_plan_id}</code>
                     </div>
+
+                    {result.available_addons.length > 0 && (
+                        <div style={{ marginBottom: "1rem", padding: "0.6rem 0.75rem", background: "rgba(167,139,250,.06)", borderRadius: 10 }}>
+                            <div style={{ fontSize: "0.75rem", color: "#a78bfa", fontWeight: 700, marginBottom: "0.4rem" }}>Add-ons זמינים למסלול זה — הפעל/כבה לצפייה מיידית בהשפעה</div>
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem" }}>
+                                {result.available_addons.map(a => (
+                                    <label key={a.id} style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: "0.8rem", cursor: "pointer" }}>
+                                        <input type="checkbox" checked={(selectedAddonIds ?? []).includes(a.id)} onChange={() => toggleAddon(a.id)} />
+                                        {a.display_name}
+                                    </label>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
                         <div>
                             <div style={{ fontWeight: 700, fontSize: "0.8rem", marginBottom: "0.5rem", color: "#a78bfa" }}>מודולים</div>

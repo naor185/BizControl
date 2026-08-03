@@ -8,8 +8,11 @@ type ModuleMap = Record<string, boolean>;
 interface QuotaOverride {
     limit_value_override: number | null; limit_value_delta: number | null;
     period_type_override: string | null; on_exceed_action_override: string | null;
+    is_locked?: boolean;
 }
-const EMPTY_QUOTA_OVERRIDE: QuotaOverride = { limit_value_override: null, limit_value_delta: null, period_type_override: null, on_exceed_action_override: null };
+const EMPTY_QUOTA_OVERRIDE: QuotaOverride = { limit_value_override: null, limit_value_delta: null, period_type_override: null, on_exceed_action_override: null, is_locked: false };
+interface AddonOption { id: string; display_name: string; price_cents: number; currency: string; billing_type: string; }
+interface StudioAddonRow { id: string; addon_id: string; addon_name: string; status: string; source: string; purchased_at: string; current_period_end: string | null; price_cents_at_purchase: number; }
 const PERIOD_TYPE_LABELS: Record<string, string> = {
     unlimited: "ללא הגבלה", daily: "יומי", weekly: "שבועי", monthly: "חודשי", yearly: "שנתי", lifetime: "לכל החיים",
 };
@@ -29,6 +32,10 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 const CATEGORY_ORDER = ["core", "communication", "ai", "marketplace", "advanced", "finance"];
 
+function cents(v: number, currency = "ILS") {
+    return `${(v / 100).toLocaleString("he-IL", { maximumFractionDigits: 2 })} ${currency}`;
+}
+
 export default function ModulesAdminPage() {
     const [modules, setModules] = useState<ModuleDef[]>([]);
     const [studios, setStudios] = useState<StudioRow[]>([]);
@@ -42,20 +49,26 @@ export default function ModulesAdminPage() {
     const [expandedQuotaModId, setExpandedQuotaModId] = useState<string | null>(null);
     const [quotaOverrides, setQuotaOverrides] = useState<Record<string, QuotaOverride>>({});
     const [savingQuota, setSavingQuota] = useState<string | null>(null);
+    const [allAddons, setAllAddons] = useState<AddonOption[]>([]);
+    const [studioAddons, setStudioAddons] = useState<StudioAddonRow[]>([]);
+    const [addonToAdd, setAddonToAdd] = useState("");
+    const [savingAddon, setSavingAddon] = useState(false);
 
     const loadBase = useCallback(async () => {
         setLoading(true);
         try {
-            const [mods, studiosData, planMods, bts] = await Promise.all([
+            const [mods, studiosData, planMods, bts, addons] = await Promise.all([
                 apiFetch<ModuleDef[]>("/api/admin/modules"),
                 apiFetch<StudioRow[]>("/api/admin/studios"),
                 apiFetch<Record<string, string[]>>("/api/admin/plan-modules"),
                 apiFetch<{ business_type: string; display_name: string }[]>("/api/admin/business-types"),
+                apiFetch<AddonOption[]>("/api/admin/addons"),
             ]);
             setModules(mods);
             setStudios(studiosData);
             setPlanModules(planMods);
             setBusinessTypes(bts);
+            setAllAddons(addons);
         } catch (e: any) {
             setErr(e.message);
         } finally {
@@ -65,14 +78,37 @@ export default function ModulesAdminPage() {
 
     const loadStudioModules = useCallback(async (studioId: string) => {
         try {
-            const [map, quotas] = await Promise.all([
+            const [map, quotas, addons] = await Promise.all([
                 apiFetch<ModuleMap>(`/api/admin/studios/${studioId}/modules`),
                 apiFetch<Record<string, QuotaOverride>>(`/api/admin/studios/${studioId}/modules/quota-overrides`),
+                apiFetch<StudioAddonRow[]>(`/api/admin/studios/${studioId}/addons`),
             ]);
             setModuleMap(map);
             setQuotaOverrides(quotas);
+            setStudioAddons(addons);
         } catch (e: any) { setErr(e.message); }
     }, []);
+
+    const addAddon = async () => {
+        if (!selectedStudio || !addonToAdd) return;
+        setSavingAddon(true);
+        try {
+            await apiFetch(`/api/admin/studios/${selectedStudio}/addons/${addonToAdd}`, { method: "POST" });
+            setAddonToAdd("");
+            await loadStudioModules(selectedStudio);
+        } catch (e: any) { setErr(e.message); }
+        finally { setSavingAddon(false); }
+    };
+
+    const removeAddon = async (addonId: string) => {
+        if (!selectedStudio) return;
+        setSavingAddon(true);
+        try {
+            await apiFetch(`/api/admin/studios/${selectedStudio}/addons/${addonId}`, { method: "DELETE" });
+            await loadStudioModules(selectedStudio);
+        } catch (e: any) { setErr(e.message); }
+        finally { setSavingAddon(false); }
+    };
 
     useEffect(() => { loadBase(); }, [loadBase]);
     useEffect(() => {
@@ -107,6 +143,20 @@ export default function ModulesAdminPage() {
             setModuleMap(prev => ({ ...prev, [moduleId]: newVal }));
         } catch (e: any) { setErr(e.message); }
         finally { setSaving(null); }
+    };
+
+    const saveLock = async (moduleId: string, isLocked: boolean) => {
+        if (!selectedStudio) return;
+        setSavingQuota(moduleId);
+        try {
+            const enabled = moduleMap[moduleId] ?? false;
+            await apiFetch(`/api/admin/studios/${selectedStudio}/modules/${moduleId}`, {
+                method: "PUT",
+                body: JSON.stringify({ is_enabled: enabled, is_locked: isLocked }),
+            });
+            setQuotaOverrides(prev => ({ ...prev, [moduleId]: { ...(prev[moduleId] || EMPTY_QUOTA_OVERRIDE), is_locked: isLocked } }));
+        } catch (e: any) { setErr(e.message); }
+        finally { setSavingQuota(null); }
     };
 
     const setBusinessType = async (bt: string, loadDefaults: boolean) => {
@@ -212,6 +262,42 @@ export default function ModulesAdminPage() {
                                     </div>
                                 </div>
 
+                                {/* Add-ons */}
+                                <div style={s.card}>
+                                    <div style={s.label}>➕ Add-ons פעילים</div>
+                                    {studioAddons.length === 0 && (
+                                        <div style={{ color: "#64748b", fontSize: "0.82rem", marginBottom: "0.75rem" }}>אין Add-ons פעילים לעסק זה</div>
+                                    )}
+                                    {studioAddons.map(sa => (
+                                        <div key={sa.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.5rem 0", borderBottom: "1px solid rgba(255,255,255,.05)" }}>
+                                            <div>
+                                                <span style={{ fontSize: "0.85rem" }}>{sa.addon_name}</span>
+                                                <span style={{ fontSize: "0.7rem", color: "#64748b", marginRight: 8 }}>
+                                                    {sa.source === "admin_assigned" ? "הוצמד ידנית" : "רכישה עצמאית"}
+                                                    {sa.current_period_end && ` · מתחדש עד ${new Date(sa.current_period_end).toLocaleDateString("he-IL")}`}
+                                                </span>
+                                            </div>
+                                            <button onClick={() => removeAddon(sa.addon_id)} disabled={savingAddon}
+                                                style={{ background: "rgba(239,68,68,.15)", color: "#f87171", border: "none", borderRadius: 8, padding: "0.25rem 0.7rem", fontSize: "0.72rem", cursor: "pointer" }}>
+                                                הסר
+                                            </button>
+                                        </div>
+                                    ))}
+                                    <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.75rem" }}>
+                                        <select value={addonToAdd} onChange={e => setAddonToAdd(e.target.value)}
+                                            style={{ ...s.select, width: "auto", flex: 1, fontSize: "0.82rem" }}>
+                                            <option value="">-- בחר Add-on להצמדה --</option>
+                                            {allAddons.filter(a => !studioAddons.some(sa => sa.addon_id === a.id)).map(a => (
+                                                <option key={a.id} value={a.id}>{a.display_name} ({cents(a.price_cents, a.currency)})</option>
+                                            ))}
+                                        </select>
+                                        <button onClick={addAddon} disabled={!addonToAdd || savingAddon}
+                                            style={{ background: "#a78bfa", border: "none", borderRadius: 8, padding: "0.4rem 1rem", color: "#1e1b4b", fontWeight: 700, fontSize: "0.8rem", cursor: "pointer", opacity: (!addonToAdd || savingAddon) ? 0.6 : 1 }}>
+                                            + הצמד
+                                        </button>
+                                    </div>
+                                </div>
+
                                 {/* Modules grid */}
                                 <div style={s.card}>
                                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
@@ -293,10 +379,18 @@ export default function ModulesAdminPage() {
                                                                         style={{ ...s.select, width: 90, fontSize: "0.75rem", padding: "0.25rem 0.5rem", marginRight: 6 }} />
                                                                 </label>
                                                             </div>
-                                                            <button onClick={() => saveQuotaOverride(qKey)} disabled={savingQuota === qKey}
-                                                                style={{ fontSize: "0.75rem", background: "#a78bfa", border: "none", borderRadius: 8, color: "#1e1b4b", padding: "0.35rem 0.9rem", cursor: "pointer", fontWeight: 700, opacity: savingQuota === qKey ? 0.6 : 1 }}>
-                                                                {savingQuota === qKey ? "..." : "💾 שמור Override"}
-                                                            </button>
+                                                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "0.5rem" }}>
+                                                                <button onClick={() => saveQuotaOverride(qKey)} disabled={savingQuota === qKey}
+                                                                    style={{ fontSize: "0.75rem", background: "#a78bfa", border: "none", borderRadius: 8, color: "#1e1b4b", padding: "0.35rem 0.9rem", cursor: "pointer", fontWeight: 700, opacity: savingQuota === qKey ? 0.6 : 1 }}>
+                                                                    {savingQuota === qKey ? "..." : "💾 שמור Override"}
+                                                                </button>
+                                                                <label style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: "0.72rem", color: q.is_locked ? "#f87171" : "#94a3b8", cursor: "pointer" }}
+                                                                    title="נעילה = החלטת Super Admin סופית — שום Add-on לא יוכל לעקוף אותה">
+                                                                    <input type="checkbox" checked={!!q.is_locked} disabled={savingQuota === qKey}
+                                                                        onChange={e => saveLock(qKey, e.target.checked)} />
+                                                                    🔒 נעול (חוסם גם Add-ons)
+                                                                </label>
+                                                            </div>
                                                         </div>
                                                     )}
                                                     </div>

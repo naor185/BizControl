@@ -1843,6 +1843,11 @@ def disable_invoice_scan(
 
 class ModuleToggle(BaseModel):
     is_enabled: bool
+    # Add-ons precedence policy (Generic Plans Engine step 6) — when true,
+    # this override is a final Super Admin decision that no active add-on
+    # can override. Optional so existing callers that only send is_enabled
+    # don't accidentally reset an existing lock.
+    is_locked: Optional[bool] = None
 
 
 @router.get("/modules", tags=["SuperAdmin"])
@@ -1886,15 +1891,18 @@ def set_studio_module(
     if override:
         override.is_enabled = payload.is_enabled
         override.enabled_by_id = admin.id
+        if payload.is_locked is not None:
+            override.is_locked = payload.is_locked
     else:
         db.add(StudioModule(
             studio_id=studio_id, module_id=module_id,
             is_enabled=payload.is_enabled, enabled_by_id=admin.id,
+            is_locked=payload.is_locked or False,
         ))
     action = f"{'enable' if payload.is_enabled else 'disable'}_module_{module_id}"
-    _audit(db, admin, action, studio, {"module": module_id, "enabled": payload.is_enabled})
+    _audit(db, admin, action, studio, {"module": module_id, "enabled": payload.is_enabled, "is_locked": payload.is_locked})
     db.commit()
-    return {"studio_id": studio_id, "module_id": module_id, "is_enabled": payload.is_enabled}
+    return {"studio_id": studio_id, "module_id": module_id, "is_enabled": payload.is_enabled, "is_locked": override.is_locked if override else (payload.is_locked or False)}
 
 
 class StudioQuotaOverride(BaseModel):
@@ -1910,14 +1918,16 @@ def get_studio_quota_overrides(
     _admin: User = Depends(require_superadmin),
     db: Session = Depends(get_db),
 ):
-    """Quota override fields for every studio_modules row that has one set."""
+    """Quota override fields (+ is_locked) for every studio_modules row that
+    has any of them set."""
     from app.models.module import StudioModule
     rows = db.query(StudioModule).filter(
         StudioModule.studio_id == studio_id,
         (StudioModule.limit_value_override.isnot(None)) |
         (StudioModule.limit_value_delta.isnot(None)) |
         (StudioModule.period_type_override.isnot(None)) |
-        (StudioModule.on_exceed_action_override.isnot(None)),
+        (StudioModule.on_exceed_action_override.isnot(None)) |
+        (StudioModule.is_locked == True),  # noqa: E712
     ).all()
     return {
         r.module_id: {
@@ -1925,6 +1935,7 @@ def get_studio_quota_overrides(
             "limit_value_delta": r.limit_value_delta,
             "period_type_override": r.period_type_override,
             "on_exceed_action_override": r.on_exceed_action_override,
+            "is_locked": r.is_locked,
         } for r in rows
     }
 
@@ -2350,14 +2361,24 @@ def unpublish_plan(plan_id: str, admin: User = Depends(require_superadmin), db: 
 
 
 @router.get("/plans/{plan_id}/preview", tags=["SuperAdmin"])
-def preview_plan_for_studio(plan_id: str, studio_id: str, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+def preview_plan_for_studio(
+    plan_id: str, studio_id: str, addon_ids: Optional[str] = None,
+    admin: User = Depends(require_superadmin), db: Session = Depends(get_db),
+):
     """
     Read-only "what if this studio were on plan_id" — reuses
     get_studio_modules()/get_usage_dashboard() (app/core/features.py) with
     plan_id passed in place of the studio's actual subscription_plan. Never
     writes anything; the studio's real plan/modules/quotas are untouched.
+
+    addon_ids (comma-separated, optional): simulates "what if exactly these
+    add-ons were active" instead of the studio's real ones — lets the Preview
+    UI toggle add-ons on/off and see the effect in real time. Omit the param
+    entirely to preview with the studio's actual active add-ons; pass an
+    empty string to simulate "no add-ons at all".
     """
     from app.models.module import Plan
+    from app.models.addon import Addon
     from app.core.features import get_studio_modules, get_usage_dashboard
     plan = db.get(Plan, plan_id)
     if not plan:
@@ -2365,13 +2386,26 @@ def preview_plan_for_studio(plan_id: str, studio_id: str, admin: User = Depends(
     studio = db.query(Studio).filter_by(id=studio_id).first()
     if not studio:
         raise HTTPException(status_code=404, detail="Studio not found")
+
+    addon_ids_override = None
+    if addon_ids is not None:
+        addon_ids_override = [a for a in addon_ids.split(",") if a.strip()]
+
+    available_addons = db.scalars(
+        select(Addon).where(Addon.is_active == True)  # noqa: E712
+    ).all()
+    from app.models.addon import PlanAddon
+    plan_addon_ids = {r.addon_id for r in db.query(PlanAddon).filter(PlanAddon.plan_id == plan_id).all()}
+    available_addons = [a for a in available_addons if a.applies_to_all_plans or a.id in plan_addon_ids]
+
     return {
         "studio_id": studio_id,
         "studio_name": studio.name,
         "current_plan_id": studio.subscription_plan,
         "preview_plan_id": plan_id,
-        "modules": get_studio_modules(db, studio_id, plan_id),
-        "quotas": get_usage_dashboard(db, studio_id, plan_id),
+        "modules": get_studio_modules(db, studio_id, plan_id, addon_ids_override),
+        "quotas": get_usage_dashboard(db, studio_id, plan_id, addon_ids_override=addon_ids_override),
+        "available_addons": [{"id": a.id, "display_name": a.display_name} for a in available_addons],
     }
 
 
@@ -2423,6 +2457,400 @@ def plans_dashboard(admin: User = Depends(require_superadmin), db: Session = Dep
             "mrr_cents": mrr_cents,
             "near_quota_count": near_quota,
             "over_quota_count": over_quota,
+        })
+    return result
+
+
+# ── Add-ons (Generic Plans Engine step 6) ──────────────────────────────────────
+# Standalone entities, not tied to one plan — see app/models/addon.py and
+# app/core/features.py's Add-ons precedence policy (is_locked). CRUD here
+# mirrors the Plan CRUD above almost exactly on purpose (same lifecycle
+# shape: draft on create/duplicate, publish/unpublish, delete only if unused).
+
+_ACTIVE_ADDON_STATUSES = ["active"]
+
+
+class AddonFields(BaseModel):
+    display_name: str
+    description: Optional[str] = None
+    price_cents: int = 0
+    currency: str = "ILS"
+    billing_type: str = "monthly"  # one_time | monthly | yearly
+    applies_to_all_plans: bool = False
+    is_visible: bool = True
+    is_purchasable: bool = True
+    sort_order: int = 0
+
+
+class AddonCreateIn(AddonFields):
+    id: str
+
+
+class AddonUpdateIn(BaseModel):
+    display_name: Optional[str] = None
+    description: Optional[str] = None
+    price_cents: Optional[int] = None
+    currency: Optional[str] = None
+    billing_type: Optional[str] = None
+    applies_to_all_plans: Optional[bool] = None
+    is_visible: Optional[bool] = None
+    is_purchasable: Optional[bool] = None
+    is_active: Optional[bool] = None
+    sort_order: Optional[int] = None
+
+
+class AddonDuplicateIn(BaseModel):
+    new_id: str
+    display_name: Optional[str] = None
+
+
+_BILLING_TYPES = ("one_time", "monthly", "yearly")
+
+
+def _validate_billing_type(billing_type: str) -> None:
+    if billing_type not in _BILLING_TYPES:
+        raise HTTPException(status_code=400, detail=f"Invalid billing_type. Valid: {_BILLING_TYPES}")
+
+
+def _active_studio_addon_count(db: Session, addon_id: str) -> int:
+    from app.models.addon import StudioAddon
+    return db.scalar(
+        select(func.count(StudioAddon.id)).where(
+            StudioAddon.addon_id == addon_id, StudioAddon.status.in_(_ACTIVE_ADDON_STATUSES)
+        )
+    ) or 0
+
+
+def _addon_out(addon, active_count: int, plan_ids: list[str] | None = None) -> dict:
+    return {
+        "id": addon.id, "display_name": addon.display_name, "description": addon.description,
+        "price_cents": addon.price_cents, "currency": addon.currency, "billing_type": addon.billing_type,
+        "applies_to_all_plans": addon.applies_to_all_plans, "is_visible": addon.is_visible,
+        "is_purchasable": addon.is_purchasable, "is_active": addon.is_active, "sort_order": addon.sort_order,
+        "active_studio_count": active_count,
+        "plan_ids": plan_ids if plan_ids is not None else [],
+    }
+
+
+@router.get("/addons", tags=["SuperAdmin"])
+def list_addons(plan_id: Optional[str] = None, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    """All add-ons, or (with ?plan_id=) only those available on that plan —
+    applies_to_all_plans=true ones, plus anything listed in plan_addons."""
+    from app.models.addon import Addon, PlanAddon
+    addons = db.scalars(select(Addon).order_by(Addon.sort_order)).all()
+    plan_map: dict[str, list[str]] = {}
+    for row in db.query(PlanAddon).all():
+        plan_map.setdefault(row.addon_id, []).append(row.plan_id)
+
+    if plan_id:
+        addons = [a for a in addons if a.applies_to_all_plans or plan_id in plan_map.get(a.id, [])]
+
+    return [_addon_out(a, _active_studio_addon_count(db, a.id), plan_map.get(a.id, [])) for a in addons]
+
+
+@router.post("/addons", tags=["SuperAdmin"])
+def create_addon(payload: AddonCreateIn, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    from app.models.addon import Addon
+    _validate_billing_type(payload.billing_type)
+    addon_id = _validate_plan_id(payload.id)  # same slug rule as plans
+    if db.get(Addon, addon_id):
+        raise HTTPException(status_code=409, detail="Addon ID already exists")
+    fields = payload.model_dump(exclude={"id"})
+    addon = Addon(id=addon_id, **fields)
+    db.add(addon)
+    _audit(db, admin, "create_addon", details={"addon_id": addon_id, **fields})
+    db.commit()
+    return _addon_out(addon, 0)
+
+
+@router.put("/addons/{addon_id}", tags=["SuperAdmin"])
+def update_addon(addon_id: str, payload: AddonUpdateIn, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    from app.models.addon import Addon
+    addon = db.get(Addon, addon_id)
+    if not addon:
+        raise HTTPException(status_code=404, detail="Addon not found")
+    changes = payload.model_dump(exclude_unset=True)
+    if "billing_type" in changes:
+        _validate_billing_type(changes["billing_type"])
+    for field, value in changes.items():
+        setattr(addon, field, value)
+    _audit(db, admin, "update_addon", details={"addon_id": addon_id, "changes": changes})
+    db.commit()
+    return _addon_out(addon, _active_studio_addon_count(db, addon_id))
+
+
+@router.delete("/addons/{addon_id}", tags=["SuperAdmin"])
+def delete_addon(addon_id: str, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    """Blocked if any studio_addons row (any status — keeps history intact)
+    still references this addon, same guard style as delete_plan."""
+    from app.models.addon import Addon, PlanAddon, AddonModule
+    from app.models.addon import StudioAddon
+    addon = db.get(Addon, addon_id)
+    if not addon:
+        raise HTTPException(status_code=404, detail="Addon not found")
+    in_use = db.scalar(select(func.count(StudioAddon.id)).where(StudioAddon.addon_id == addon_id)) or 0
+    if in_use > 0:
+        raise HTTPException(status_code=409, detail=f"Cannot delete — {in_use} studio(s) reference this add-on")
+    db.query(PlanAddon).filter(PlanAddon.addon_id == addon_id).delete()
+    db.query(AddonModule).filter(AddonModule.addon_id == addon_id).delete()
+    db.delete(addon)
+    _audit(db, admin, "delete_addon", details={"addon_id": addon_id})
+    db.commit()
+    return {"deleted": addon_id}
+
+
+@router.post("/addons/{addon_id}/duplicate", tags=["SuperAdmin"])
+def duplicate_addon(addon_id: str, payload: AddonDuplicateIn, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    from app.models.addon import Addon, AddonModule, PlanAddon
+    src = db.get(Addon, addon_id)
+    if not src:
+        raise HTTPException(status_code=404, detail="Addon not found")
+    new_id = _validate_plan_id(payload.new_id)
+    if db.get(Addon, new_id):
+        raise HTTPException(status_code=409, detail="Addon ID already exists")
+
+    new_addon = Addon(
+        id=new_id, display_name=payload.display_name or f"{src.display_name} (עותק)",
+        description=src.description, price_cents=src.price_cents, currency=src.currency,
+        billing_type=src.billing_type, applies_to_all_plans=src.applies_to_all_plans,
+        is_visible=False, is_purchasable=False, sort_order=src.sort_order + 1,
+    )
+    db.add(new_addon)
+    db.flush()
+    for row in db.query(AddonModule).filter(AddonModule.addon_id == addon_id).all():
+        db.add(AddonModule(addon_id=new_id, module_id=row.module_id, limit_delta=row.limit_delta))
+    for row in db.query(PlanAddon).filter(PlanAddon.addon_id == addon_id).all():
+        db.add(PlanAddon(addon_id=new_id, plan_id=row.plan_id))
+    _audit(db, admin, "duplicate_addon", details={"from": addon_id, "to": new_id})
+    db.commit()
+    return _addon_out(new_addon, 0)
+
+
+@router.post("/addons/{addon_id}/publish", tags=["SuperAdmin"])
+def publish_addon(addon_id: str, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    from app.models.addon import Addon
+    addon = db.get(Addon, addon_id)
+    if not addon:
+        raise HTTPException(status_code=404, detail="Addon not found")
+    addon.is_visible = True
+    _audit(db, admin, "publish_addon", details={"addon_id": addon_id})
+    db.commit()
+    return _addon_out(addon, _active_studio_addon_count(db, addon_id))
+
+
+@router.post("/addons/{addon_id}/unpublish", tags=["SuperAdmin"])
+def unpublish_addon(addon_id: str, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    from app.models.addon import Addon
+    addon = db.get(Addon, addon_id)
+    if not addon:
+        raise HTTPException(status_code=404, detail="Addon not found")
+    addon.is_visible = False
+    _audit(db, admin, "unpublish_addon", details={"addon_id": addon_id})
+    db.commit()
+    return _addon_out(addon, _active_studio_addon_count(db, addon_id))
+
+
+class AddonPlansIn(BaseModel):
+    plan_ids: list[str]
+
+
+@router.put("/addons/{addon_id}/plans", tags=["SuperAdmin"])
+def set_addon_plans(addon_id: str, payload: AddonPlansIn, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    """Replace which plans this add-on is offered on (ignored entirely if
+    applies_to_all_plans=true — set that via PUT /addons/{id} instead)."""
+    from app.models.addon import Addon, PlanAddon
+    if not db.get(Addon, addon_id):
+        raise HTTPException(status_code=404, detail="Addon not found")
+    db.query(PlanAddon).filter(PlanAddon.addon_id == addon_id).delete()
+    for plan_id in payload.plan_ids:
+        db.add(PlanAddon(addon_id=addon_id, plan_id=plan_id))
+    _audit(db, admin, "update_addon", details={"addon_id": addon_id, "plan_ids": payload.plan_ids})
+    db.commit()
+    return {"addon_id": addon_id, "plan_ids": payload.plan_ids}
+
+
+class AddonModulesIn(BaseModel):
+    module_ids: list[str]
+
+
+@router.get("/addons/{addon_id}/modules", tags=["SuperAdmin"])
+def get_addon_modules(addon_id: str, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    from app.models.addon import Addon, AddonModule
+    if not db.get(Addon, addon_id):
+        raise HTTPException(status_code=404, detail="Addon not found")
+    rows = db.query(AddonModule).filter(AddonModule.addon_id == addon_id).all()
+    return {"module_ids": [r.module_id for r in rows], "deltas": {r.module_id: r.limit_delta for r in rows if r.limit_delta is not None}}
+
+
+@router.put("/addons/{addon_id}/modules", tags=["SuperAdmin"])
+def set_addon_modules(addon_id: str, payload: AddonModulesIn, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    """Replace which modules this add-on grants. Preserves each retained
+    module's limit_delta — same pattern as PUT /packages for plans."""
+    from app.models.addon import Addon, AddonModule
+    if not db.get(Addon, addon_id):
+        raise HTTPException(status_code=404, detail="Addon not found")
+    existing = {r.module_id: r for r in db.query(AddonModule).filter(AddonModule.addon_id == addon_id).all()}
+    keep = set(payload.module_ids)
+    for mid, row in existing.items():
+        if mid not in keep:
+            db.delete(row)
+    for mid in payload.module_ids:
+        if mid not in existing:
+            db.add(AddonModule(addon_id=addon_id, module_id=mid))
+    _audit(db, admin, "update_addon", details={"addon_id": addon_id, "modules": payload.module_ids})
+    db.commit()
+    return {"addon_id": addon_id, "module_ids": payload.module_ids}
+
+
+class AddonModuleDeltaIn(BaseModel):
+    limit_delta: Optional[int] = None
+
+
+@router.put("/addons/{addon_id}/modules/{module_id}/delta", tags=["SuperAdmin"])
+def set_addon_module_delta(addon_id: str, module_id: str, payload: AddonModuleDeltaIn, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    """The module must already be granted by the add-on (PUT .../modules first)."""
+    from app.models.addon import AddonModule
+    row = db.query(AddonModule).filter_by(addon_id=addon_id, module_id=module_id).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Module is not granted by this add-on")
+    row.limit_delta = payload.limit_delta
+    _audit(db, admin, "update_addon", details={"addon_id": addon_id, "module_id": module_id, "limit_delta": payload.limit_delta})
+    db.commit()
+    return {"addon_id": addon_id, "module_id": module_id, "limit_delta": payload.limit_delta}
+
+
+@router.get("/studios/{studio_id}/addons", tags=["SuperAdmin"])
+def get_studio_addons(studio_id: str, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    from app.models.addon import Addon, StudioAddon
+    rows = db.scalars(
+        select(StudioAddon).where(StudioAddon.studio_id == studio_id, StudioAddon.status.in_(_ACTIVE_ADDON_STATUSES))
+    ).all()
+    addons_by_id = {a.id: a for a in db.query(Addon).all()}
+    return [
+        {
+            "id": str(r.id), "addon_id": r.addon_id,
+            "addon_name": addons_by_id[r.addon_id].display_name if r.addon_id in addons_by_id else r.addon_id,
+            "status": r.status, "source": r.source, "purchased_at": r.purchased_at.isoformat(),
+            "current_period_end": r.current_period_end.isoformat() if r.current_period_end else None,
+            "price_cents_at_purchase": r.price_cents_at_purchase,
+        }
+        for r in rows
+    ]
+
+
+@router.post("/studios/{studio_id}/addons/{addon_id}", tags=["SuperAdmin"])
+def assign_studio_addon(studio_id: str, addon_id: str, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    """Manually activate an add-on for a studio (source='admin_assigned') —
+    e.g. after a phone/manual sale. Self-service purchase is a future
+    extension that would create the exact same row shape with
+    source='self_service' via app/core/billing.py's PaymentProvider — see
+    project_generic_plans_engine memory."""
+    from app.models.addon import Addon, StudioAddon
+    addon = db.get(Addon, addon_id)
+    if not addon:
+        raise HTTPException(status_code=404, detail="Addon not found")
+    studio = db.query(Studio).filter_by(id=studio_id).first()
+    if not studio:
+        raise HTTPException(status_code=404, detail="Studio not found")
+    existing = db.scalar(
+        select(StudioAddon).where(
+            StudioAddon.studio_id == studio_id, StudioAddon.addon_id == addon_id,
+            StudioAddon.status.in_(_ACTIVE_ADDON_STATUSES),
+        )
+    )
+    if existing:
+        raise HTTPException(status_code=409, detail="This add-on is already active for this studio")
+
+    period_end = None
+    if addon.billing_type == "monthly":
+        period_end = datetime.now(timezone.utc) + timedelta(days=30)
+    elif addon.billing_type == "yearly":
+        period_end = datetime.now(timezone.utc) + timedelta(days=365)
+
+    row = StudioAddon(
+        studio_id=studio_id, addon_id=addon_id, status="active", source="admin_assigned",
+        current_period_end=period_end, price_cents_at_purchase=addon.price_cents,
+    )
+    db.add(row)
+    _audit(db, admin, "assign_studio_addon", studio, {"addon_id": addon_id})
+    db.commit()
+    return {"studio_id": studio_id, "addon_id": addon_id, "status": "active"}
+
+
+@router.delete("/studios/{studio_id}/addons/{addon_id}", tags=["SuperAdmin"])
+def remove_studio_addon(studio_id: str, addon_id: str, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    """Cancels (soft) rather than deletes — keeps purchase history intact,
+    same reasoning as Subscription's cancel flow (step 4)."""
+    from app.models.addon import StudioAddon
+    studio = db.query(Studio).filter_by(id=studio_id).first()
+    if not studio:
+        raise HTTPException(status_code=404, detail="Studio not found")
+    rows = db.scalars(
+        select(StudioAddon).where(
+            StudioAddon.studio_id == studio_id, StudioAddon.addon_id == addon_id,
+            StudioAddon.status.in_(_ACTIVE_ADDON_STATUSES),
+        )
+    ).all()
+    if not rows:
+        raise HTTPException(status_code=404, detail="No active instance of this add-on for this studio")
+    for row in rows:
+        row.status = "canceled"
+        row.canceled_at = datetime.now(timezone.utc)
+    _audit(db, admin, "remove_studio_addon", studio, {"addon_id": addon_id})
+    db.commit()
+    return {"studio_id": studio_id, "addon_id": addon_id, "status": "canceled"}
+
+
+@router.get("/addons/dashboard", tags=["SuperAdmin"])
+def addons_dashboard(admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    """
+    Per-add-on rollup: how many studios have it active, estimated revenue,
+    and usage rate — same shape/reasoning as GET /plans/dashboard. "Usage
+    rate" is the average utilization (get_usage_dashboard()'s percent)
+    across the quota-granting modules this add-on adds a delta for, among
+    studios that have it active; module-only add-ons (no limit_delta
+    anywhere) report usage_rate=None — there's no quota number to measure.
+    """
+    from app.models.addon import Addon, AddonModule, StudioAddon
+    from app.core.features import get_usage_dashboard
+
+    addons = db.scalars(select(Addon).order_by(Addon.sort_order)).all()
+    result = []
+    for addon in addons:
+        active_rows = db.scalars(
+            select(StudioAddon).where(StudioAddon.addon_id == addon.id, StudioAddon.status.in_(_ACTIVE_ADDON_STATUSES))
+        ).all()
+        active_count = len(active_rows)
+
+        if addon.billing_type == "one_time":
+            revenue_cents = sum(r.price_cents_at_purchase for r in active_rows)
+        else:
+            revenue_cents = addon.price_cents * active_count
+
+        quota_module_ids = [r.module_id for r in db.query(AddonModule).filter(
+            AddonModule.addon_id == addon.id, AddonModule.limit_delta.isnot(None)
+        ).all()]
+
+        usage_rate = None
+        if quota_module_ids and active_rows:
+            percents = []
+            for row in active_rows:
+                studio = db.get(Studio, row.studio_id)
+                if not studio:
+                    continue
+                for entry in get_usage_dashboard(db, row.studio_id, studio.subscription_plan):
+                    if entry["quota_key"] in quota_module_ids and entry["percent"] is not None:
+                        percents.append(entry["percent"])
+            if percents:
+                usage_rate = round(sum(percents) / len(percents), 1)
+
+        result.append({
+            "addon_id": addon.id,
+            "display_name": addon.display_name,
+            "active_studio_count": active_count,
+            "revenue_cents": revenue_cents,
+            "billing_type": addon.billing_type,
+            "usage_rate_percent": usage_rate,
         })
     return result
 

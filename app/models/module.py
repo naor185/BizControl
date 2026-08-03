@@ -64,6 +64,13 @@ class StudioModule(Base):
     limit_value_delta: Mapped[int | None] = mapped_column(nullable=True)
     period_type_override: Mapped[str | None] = mapped_column(String(16), nullable=True)
     on_exceed_action_override: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    # The Add-ons precedence policy (Generic Plans Engine step 6): when true,
+    # this override is a final Super Admin decision that wins over EVERY
+    # active add-on (they can't turn this module back on or add to its
+    # quota). When false (default — matches all pre-step-6 behavior), an
+    # active add-on can still add on top of this override. See
+    # app/core/features.py's is_module_enabled()/effective_quota().
+    is_locked: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )

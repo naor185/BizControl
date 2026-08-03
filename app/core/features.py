@@ -43,24 +43,69 @@ ON_EXCEED_ACTIONS = ("block", "warn_only", "allow_overage", "paid_overage", "aut
 
 # ── Module system ─────────────────────────────────────────────────────────────
 
-def _is_module_enabled_own(db: Session, studio_id, subscription_plan: str, module_id: str) -> bool:
+def _active_addon_grants(db: Session, studio_id, addon_ids_override: list[str] | None = None) -> dict[str, int]:
+    """
+    {module_id: summed limit_delta} for every module granted by the studio's
+    currently-active add-ons (app/models/addon.py). Key presence means at
+    least one active add-on grants that module — callers checking
+    enablement just check `in`; callers computing quota sum the values
+    (0 if no delta was set, still meaning "granted").
+
+    addon_ids_override lets a caller ask "what if these add-ons were active"
+    instead of querying the studio's real studio_addons — used by the Plan
+    Preview ("toggle add-ons on/off and see the effect"), never by real
+    enforcement paths (those always pass None and get the studio's actual
+    active add-ons).
+    """
+    from app.models.addon import AddonModule, StudioAddon
+
+    if addon_ids_override is not None:
+        addon_ids = set(addon_ids_override)
+    else:
+        addon_ids = set(db.scalars(
+            select(StudioAddon.addon_id).where(StudioAddon.studio_id == studio_id, StudioAddon.status == "active")
+        ).all())
+    if not addon_ids:
+        return {}
+
+    grants: dict[str, int] = {}
+    for row in db.scalars(select(AddonModule).where(AddonModule.addon_id.in_(addon_ids))).all():
+        grants[row.module_id] = grants.get(row.module_id, 0) + (row.limit_delta or 0)
+    return grants
+
+
+def _is_module_enabled_own(
+    db: Session, studio_id, subscription_plan: str, module_id: str,
+    addon_ids_override: list[str] | None = None,
+) -> bool:
     """
     Check if module_id itself (ignoring any parent) is enabled for a studio.
-    Priority: studio_modules override > plan_modules default > disabled.
+    Precedence (Add-ons policy, Generic Plans Engine step 6):
+      1. studio_modules override with is_locked=true — a final Super Admin
+         decision, wins over everything including active add-ons.
+      2. An active add-on granting module_id — add-ons sit ABOVE the plan
+         default and an unlocked override (they only ever add capability).
+      3. studio_modules override (unlocked) — the studio's own default.
+      4. plan_modules — the plan's default.
+      5. disabled.
     """
     from app.models.module import StudioModule, PlanModule
 
-    # 1. Explicit studio override
     override = db.scalar(
         select(StudioModule).where(
             StudioModule.studio_id == studio_id,
             StudioModule.module_id == module_id,
         )
     )
+    if override is not None and override.is_locked:
+        return override.is_enabled
+
+    if module_id in _active_addon_grants(db, studio_id, addon_ids_override):
+        return True
+
     if override is not None:
         return override.is_enabled
 
-    # 2. Plan default
     plan_row = db.scalar(
         select(PlanModule).where(
             PlanModule.plan == (subscription_plan or "free"),
@@ -70,12 +115,17 @@ def _is_module_enabled_own(db: Session, studio_id, subscription_plan: str, modul
     return plan_row is not None
 
 
-def is_module_enabled(db: Session, studio_id, subscription_plan: str, module_id: str) -> bool:
+def is_module_enabled(
+    db: Session, studio_id, subscription_plan: str, module_id: str,
+    addon_ids_override: list[str] | None = None,
+) -> bool:
     """
     Check if module_id is enabled for a studio, honoring parent_module_id
     chains: a sub-capability (e.g. "invoice_ai_scan" nested under "ocr") is
     only truly enabled if it AND every ancestor module resolve to enabled —
-    a studio whose "ocr" module is off can't have a sub-capability of it on.
+    a studio whose "ocr" module is off can't have a sub-capability of it on
+    (an add-on granting the sub-capability must also grant the parent, or
+    the parent must already be enabled some other way).
     """
     from app.models.module import Module
 
@@ -85,7 +135,7 @@ def is_module_enabled(db: Session, studio_id, subscription_plan: str, module_id:
         if mid in seen:
             break  # defensive cycle guard — parent chains should never cycle
         seen.add(mid)
-        if not _is_module_enabled_own(db, studio_id, subscription_plan, mid):
+        if not _is_module_enabled_own(db, studio_id, subscription_plan, mid, addon_ids_override):
             return False
         mid = db.scalar(select(Module.parent_module_id).where(Module.id == mid))
     return True
@@ -113,26 +163,40 @@ def require_module(module_id: str) -> Callable:
     return _check
 
 
-def get_studio_modules(db: Session, studio_id, subscription_plan: str) -> dict[str, bool]:
+def get_studio_modules(
+    db: Session, studio_id, subscription_plan: str,
+    addon_ids_override: list[str] | None = None,
+) -> dict[str, bool]:
     """
     Return all available modules with effective enabled status for a studio.
     Honors parent_module_id chains the same way is_module_enabled() does — a
     sub-capability shows disabled if its parent module is disabled, even if
-    it has its own enabled override/plan default.
+    it has its own enabled override/plan default. Same Add-ons precedence
+    policy as _is_module_enabled_own() (locked override > active add-on >
+    unlocked override > plan default), computed once here instead of via
+    repeated per-module calls for efficiency.
     """
     from app.models.module import Module, StudioModule, PlanModule
 
     all_modules = db.scalars(select(Module)).all()  # incl. unavailable, for parent lookups
-    overrides = {r.module_id: r.is_enabled for r in db.scalars(
+    overrides = {r.module_id: r for r in db.scalars(
         select(StudioModule).where(StudioModule.studio_id == studio_id)
     ).all()}
     plan_defaults = {r.module_id for r in db.scalars(
         select(PlanModule).where(PlanModule.plan == (subscription_plan or "free"))
     ).all()}
+    addon_grants = _active_addon_grants(db, studio_id, addon_ids_override)
     parent_of = {m.id: m.parent_module_id for m in all_modules}
 
     def own_enabled(mid: str) -> bool:
-        return overrides[mid] if mid in overrides else (mid in plan_defaults)
+        override = overrides.get(mid)
+        if override is not None and override.is_locked:
+            return override.is_enabled
+        if mid in addon_grants:
+            return True
+        if override is not None:
+            return override.is_enabled
+        return mid in plan_defaults
 
     def effective_enabled(mid: str | None) -> bool:
         seen: set[str] = set()
@@ -165,13 +229,23 @@ class QuotaConfig(TypedDict):
     auto_increase_by: int | None
 
 
-def effective_quota(db: Session, studio_id, subscription_plan: str, quota_key: str) -> QuotaConfig:
+def effective_quota(
+    db: Session, studio_id, subscription_plan: str, quota_key: str,
+    addon_ids_override: list[str] | None = None,
+) -> QuotaConfig:
     """
     Resolve the effective quota config for a studio×quota_key, honoring
     studio-level overrides over the plan's defaults:
       - period_type / on_exceed_action: studio override replaces the plan's value outright
       - limit: limit_value_override replaces the plan's limit_value outright;
                limit_value_delta ADDS to it instead (e.g. "Basic plan + 500 messages")
+      - active add-ons ADD their own limit_delta on top (Generic Plans Engine
+        step 6) — UNLESS the override is_locked, in which case it's a final
+        Super Admin decision and add-on deltas don't apply. An add-on can't
+        create a cap from nothing: if the plan has no numeric limit for this
+        quota_key (period_type='unlimited' or no plan_modules row), the
+        result stays uncapped regardless of any add-on delta — add-ons only
+        extend an existing cap, never establish one.
     """
     from app.models.module import PlanModule, StudioModule
 
@@ -196,12 +270,21 @@ def effective_quota(db: Session, studio_id, subscription_plan: str, quota_key: s
         return QuotaConfig(period_type="unlimited", on_exceed_action=on_exceed_action, limit=None, auto_increase_by=auto_increase_by)
 
     base = plan_row.limit_value if plan_row else None
-    if override is not None and override.limit_value_override is not None:
+    locked = override is not None and override.is_locked
+
+    if locked:
+        limit = override.limit_value_override if override.limit_value_override is not None else base
+    elif override is not None and override.limit_value_override is not None:
         limit = override.limit_value_override
     elif base is not None:
         limit = base + (override.limit_value_delta if override and override.limit_value_delta else 0)
     else:
         limit = None  # period_type set but plan defines no number — treat as uncapped
+
+    if not locked and limit is not None:
+        addon_delta = _active_addon_grants(db, studio_id, addon_ids_override).get(quota_key, 0)
+        if addon_delta:
+            limit += addon_delta
 
     return QuotaConfig(period_type=period_type, on_exceed_action=on_exceed_action, limit=limit, auto_increase_by=auto_increase_by)
 
@@ -319,7 +402,10 @@ def require_quota(quota_key: str) -> Callable:
     return _check
 
 
-def get_usage_dashboard(db: Session, studio_id, subscription_plan: str, quota_key: str | None = None) -> list[dict]:
+def get_usage_dashboard(
+    db: Session, studio_id, subscription_plan: str, quota_key: str | None = None,
+    addon_ids_override: list[str] | None = None,
+) -> list[dict]:
     """
     Single source of truth for usage UI: used/limit/remaining/percent/reset_at
     per quota_key, plus history (every past period_key row — rows are never
@@ -343,7 +429,7 @@ def get_usage_dashboard(db: Session, studio_id, subscription_plan: str, quota_ke
 
     result = []
     for key in keys:
-        config = effective_quota(db, studio_id, subscription_plan, key)
+        config = effective_quota(db, studio_id, subscription_plan, key, addon_ids_override)
         period_key = _period_key(config["period_type"])
         used = _get_usage(db, studio_id, key, period_key)
         history = db.scalars(
