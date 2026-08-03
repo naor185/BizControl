@@ -84,36 +84,44 @@ class MarketplaceLoginIn(BaseModel):
 
 @router.post("/auth/login")
 def marketplace_login(payload: MarketplaceLoginIn, db: Session = Depends(get_db)):
-    """Login for studio owners/admins via BizFind portal (email + password only)."""
+    """
+    Login for business owners/staff via the BizFind portal — email+password
+    only, same shared logic as BizControl's own /api/auth/login-by-email
+    (app/services/auth_service.py), so the two never drift apart again (this
+    endpoint used to have no 2FA support at all and a narrower role filter,
+    purely from being a separate copy of the same logic).
+    """
     from app.models.user import User
-    from app.models.refresh_token import RefreshToken
-    from app.core.security import create_access_token, create_refresh_token
-    from argon2 import PasswordHasher
-    from argon2.exceptions import VerifyMismatchError
-
-    ph = PasswordHasher()
-    email = payload.email.lower().strip()
-
-    user = db.scalar(
-        select(User).where(
-            User.email == email,
-            User.is_active == True,  # noqa
-            User.role.in_(["owner", "admin", "superadmin"]),
-        ).order_by(User.created_at)
+    from app.services.auth_service import (
+        find_login_candidates, track_login_failure, raise_if_locked, reset_login_failures,
+        create_pending_token, create_studio_selection_token, issue_full_tokens, studio_label,
     )
-    if not user:
+
+    candidates = find_login_candidates(db, payload.email, payload.password)
+
+    if not candidates:
+        email = str(payload.email).lower().strip()
+        for u in db.query(User).filter(User.email == email, User.is_active == True).all():  # noqa: E712
+            track_login_failure(db, u, "סיסמה שגויה")
         raise HTTPException(status_code=401, detail="מייל או סיסמה שגויים")
 
-    try:
-        ph.verify(user.password_hash, payload.password)
-    except VerifyMismatchError:
-        raise HTTPException(status_code=401, detail="מייל או סיסמה שגויים")
+    if len(candidates) > 1:
+        return {
+            "requires_studio_selection": True,
+            "selection_token": create_studio_selection_token([str(u.id) for u in candidates]),
+            "studios": [studio_label(u) for u in candidates],
+        }
 
-    access = create_access_token({"user_id": str(user.id), "studio_id": str(user.studio_id), "role": user.role})
-    refresh = create_refresh_token({"user_id": str(user.id), "studio_id": str(user.studio_id)})
-    db.add(RefreshToken(id=uuid.uuid4(), studio_id=user.studio_id, user_id=user.id, token=refresh, is_revoked=False))
-    db.commit()
-    return {"access_token": access, "refresh_token": refresh, "token_type": "bearer"}
+    user = candidates[0]
+    raise_if_locked(db, user)
+
+    if user.totp_secret:
+        return {
+            "requires_2fa": True,
+            "pending_token": create_pending_token(str(user.id), str(user.studio_id)),
+        }
+    reset_login_failures(db, user)
+    return issue_full_tokens(user, db)
 
 
 # ── Self-registration for business owners via BizFind ────────────────────────

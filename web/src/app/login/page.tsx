@@ -9,9 +9,12 @@ import { LOCALES } from "@/lib/i18n";
 const OceanBackground = lazy(() => import("@/components/OceanBackground"));
 
 const LS_KEY = "biz_remember";
+const BIZFIND_URL = process.env.NEXT_PUBLIC_BIZFIND_URL || "https://bizfind.co.il";
 
-type FieldErr = "slug" | "email" | "password" | null;
+type FieldErr = "email" | "password" | null;
 type Lang = "he" | "en";
+
+interface StudioOption { studio_id: string; studio_name: string | null; role: string; }
 
 const ERR_TEXT: Record<string, Record<Lang, string>> = {
     invalid_credentials: { he: "אחד מהפרטים שהזנת שגוי",       en: "One of the details you entered is incorrect" },
@@ -20,10 +23,9 @@ const ERR_TEXT: Record<string, Record<Lang, string>> = {
     default_err:         { he: "שגיאה בהתחברות",               en: "Login failed" },
 };
 // Deliberately not field-specific for invalid_credentials — telling the user
-// whether it was the studio ID, email, or password that's wrong lets an
-// attacker enumerate valid studio slugs / registered accounts one field at a
-// time. Every one of those three failure reasons returns this exact same
-// generic code from the backend, on purpose.
+// whether it was the email or password that's wrong lets an attacker
+// enumerate registered accounts one field at a time. Both failure reasons
+// return this exact same generic code from the backend, on purpose.
 const ERR_FIELD: Record<string, FieldErr> = {
     invalid_credentials: null,
     string_too_short:    null,
@@ -58,7 +60,6 @@ function LoginContent() {
     const nextUrl = useMemo(() => sp.get("next") || "/dashboard", [sp]);
 
     const { t, locale, setLocale, dir } = useLang();
-    const [studioSlug, setStudioSlug] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [rememberMe, setRememberMe] = useState(false);
@@ -66,75 +67,94 @@ function LoginContent() {
     const [loading, setLoading] = useState(false);
     const [err, setErr] = useState<string | null>(null);
     const [fieldErr, setFieldErr] = useState<FieldErr>(null);
-    const [step, setStep] = useState<"credentials" | "2fa">("credentials");
+    const [step, setStep] = useState<"credentials" | "2fa" | "select-studio">("credentials");
     const [pendingToken, setPendingToken] = useState("");
     const [totpCode, setTotpCode] = useState("");
     const [supportsBiometric, setSupportsBiometric] = useState(false);
+    const [selectionToken, setSelectionToken] = useState("");
+    const [studioOptions, setStudioOptions] = useState<StudioOption[]>([]);
 
     useEffect(() => {
         if (typeof window !== "undefined" && "credentials" in navigator && "PasswordCredential" in window) {
             setSupportsBiometric(true);
         }
+        const emailFromUrl = sp.get("email");
+        if (emailFromUrl) {
+            setEmail(emailFromUrl);
+            return;
+        }
         try {
             const saved = JSON.parse(localStorage.getItem(LS_KEY) || "null");
             if (saved) {
-                setStudioSlug(saved.studioSlug || "");
                 setEmail(saved.email || "");
                 setRememberMe(true);
             }
         } catch {}
-    }, []);
+    }, [sp]);
 
-    async function performLogin(slug: string, emailVal: string, pwd: string) {
+    type LoginResponse = {
+        access_token?: string;
+        refresh_token?: string;
+        requires_2fa?: boolean;
+        pending_token?: string;
+        requires_studio_selection?: boolean;
+        selection_token?: string;
+        studios?: StudioOption[];
+    };
+
+    async function finishLogin(res: LoginResponse, emailVal: string) {
+        if (res.requires_2fa && res.pending_token) {
+            setPendingToken(res.pending_token);
+            setStep("2fa");
+            return;
+        }
+        if (res.requires_studio_selection && res.selection_token) {
+            setSelectionToken(res.selection_token);
+            setStudioOptions(res.studios || []);
+            setStep("select-studio");
+            return;
+        }
+
+        if (rememberMe) {
+            localStorage.setItem(LS_KEY, JSON.stringify({ email: emailVal }));
+        } else {
+            localStorage.removeItem(LS_KEY);
+        }
+
+        setToken(res.access_token!, res.refresh_token);
+        const me = await apiFetch<{ role: string }>("/api/auth/me");
+        router.replace(me.role === "superadmin" ? "/admin" : nextUrl);
+    }
+
+    async function performLogin(emailVal: string, pwd: string) {
         setErr(null);
         setFieldErr(null);
         const l: Lang = locale.startsWith("en") ? "en" : "he";
         if (!emailVal.trim()) { setErr(l === "he" ? "יש להזין אימייל" : "Email is required"); setFieldErr("email"); return; }
         if (pwd.length < 6) { setErr(l === "he" ? "הסיסמה חייבת להכיל לפחות 6 תווים" : "Password must be at least 6 characters"); setFieldErr("password"); return; }
         setLoading(true);
-        // If slug omitted → use email-only login (finds owner by email alone)
-        const endpoint = slug.trim() ? "/api/auth/login" : "/api/auth/login-by-email";
-        const body = slug.trim()
-            ? { studio_slug: slug.toLowerCase().trim(), email: emailVal.toLowerCase().trim(), password: pwd }
-            : { email: emailVal.toLowerCase().trim(), password: pwd };
         try {
-            const res = await apiFetch<{
-                access_token?: string;
-                refresh_token?: string;
-                requires_2fa?: boolean;
-                pending_token?: string;
-            }>(
-                endpoint,
-                { method: "POST", auth: false, body: JSON.stringify(body) },
+            const res = await apiFetch<LoginResponse>(
+                "/api/auth/login-by-email",
+                { method: "POST", auth: false, body: JSON.stringify({ email: emailVal.toLowerCase().trim(), password: pwd }) },
             );
 
-            if (res.requires_2fa && res.pending_token) {
-                setPendingToken(res.pending_token);
-                setStep("2fa");
-                return;
+            // Store credentials for biometric auto-fill (Chrome / Android) —
+            // only once we know this wasn't a dead-end (2FA/studio-picker
+            // still pending), same as before.
+            if (!res.requires_2fa && !res.requires_studio_selection) {
+                try {
+                    if ("PasswordCredential" in window) {
+                        const cred = new (window as any).PasswordCredential({
+                            id: emailVal.toLowerCase().trim(),
+                            password: pwd,
+                        });
+                        await navigator.credentials.store(cred);
+                    }
+                } catch {}
             }
 
-            if (rememberMe) {
-                localStorage.setItem(LS_KEY, JSON.stringify({ studioSlug: slug, email: emailVal }));
-            } else {
-                localStorage.removeItem(LS_KEY);
-            }
-
-            // Store credentials for biometric auto-fill (Chrome / Android)
-            try {
-                if ("PasswordCredential" in window) {
-                    const cred = new (window as any).PasswordCredential({
-                        id: emailVal.toLowerCase().trim(),
-                        password: pwd,
-                        name: slug.toLowerCase().trim(),
-                    });
-                    await navigator.credentials.store(cred);
-                }
-            } catch {}
-
-            setToken(res.access_token!, res.refresh_token);
-            const me = await apiFetch<{ role: string }>("/api/auth/me");
-            router.replace(me.role === "superadmin" ? "/admin" : nextUrl);
+            await finishLogin(res, emailVal);
         } catch (e: unknown) {
             const msg = String((e as Error)?.message || "");
             const { text, field } = parseErr(msg, locale);
@@ -145,22 +165,37 @@ function LoginContent() {
         }
     }
 
+    async function onSelectStudio(studioId: string) {
+        setErr(null);
+        setLoading(true);
+        try {
+            const res = await apiFetch<LoginResponse>(
+                "/api/auth/select-studio",
+                { method: "POST", auth: false, body: JSON.stringify({ selection_token: selectionToken, studio_id: studioId }) },
+            );
+            await finishLogin(res, email);
+        } catch (e: unknown) {
+            const { text } = parseErr(String((e as Error)?.message || ""), locale);
+            setErr(text);
+        } finally {
+            setLoading(false);
+        }
+    }
+
     async function onSubmit(e: React.FormEvent) {
         e.preventDefault();
-        await performLogin(studioSlug, email, password);
+        await performLogin(email, password);
     }
 
     async function loginWithBiometrics() {
         try {
             const cred = await (navigator.credentials as any).get({ password: true, mediation: "optional" });
             if (!cred) return;
-            const slug     = (cred.name as string) || studioSlug;
             const emailVal = cred.id as string;
             const pwd      = (cred as any).password as string;
-            if (!slug || !emailVal || !pwd) return;
-            setStudioSlug(slug);
+            if (!emailVal || !pwd) return;
             setEmail(emailVal);
-            await performLogin(slug, emailVal, pwd);
+            await performLogin(emailVal, pwd);
         } catch {
             // cancelled or not supported — silent
         }
@@ -185,7 +220,6 @@ function LoginContent() {
         }
     }
 
-    const slugBorder  = fieldErr === "slug"     ? "border-red-400/70 bg-red-500/10"  : "border-white/20 focus:border-white/50 bg-white/10 focus:bg-white/15";
     const emailBorder = fieldErr === "email"    ? "border-red-400/70 bg-red-500/10"  : "border-white/20 focus:border-white/50 bg-white/10 focus:bg-white/15";
     const passBorder  = fieldErr === "password" ? "border-red-400/70 bg-red-500/10"  : "border-white/20 focus:border-white/50 bg-white/10 focus:bg-white/15";
 
@@ -226,6 +260,47 @@ function LoginContent() {
                             {t("login_2fa_back")}
                         </button>
                     </form>
+                </div>
+            </div>
+        </div>
+    );
+
+    /* ── Studio selection step (same email+password matched >1 business) ── */
+    if (step === "select-studio") return (
+        <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-gradient-to-br from-slate-50 to-slate-100" dir={dir}>
+            <div className="w-full max-w-sm">
+                <div className="bg-white rounded-3xl shadow-xl border border-slate-100 p-8">
+                    <div className="flex flex-col items-center mb-6">
+                        <div className="w-14 h-14 bg-slate-900 rounded-2xl flex items-center justify-center text-2xl mb-4">🏢</div>
+                        <h1 className="text-xl font-bold text-slate-900">
+                            {locale.startsWith("en") ? "Choose a business" : "לאיזה עסק להיכנס?"}
+                        </h1>
+                        <p className="text-sm text-slate-500 mt-1 text-center leading-relaxed">
+                            {locale.startsWith("en") ? "This account is linked to more than one business" : "החשבון הזה משויך ליותר מעסק אחד"}
+                        </p>
+                    </div>
+                    {err && <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl p-3 mb-4">{err}</div>}
+                    <div className="space-y-2">
+                        {studioOptions.map(s => (
+                            <button
+                                key={s.studio_id}
+                                type="button"
+                                disabled={loading}
+                                onClick={() => onSelectStudio(s.studio_id)}
+                                className="w-full text-right rounded-2xl border border-slate-200 hover:border-slate-400 hover:bg-slate-50 px-4 py-3 transition-colors disabled:opacity-50"
+                            >
+                                <div className="font-semibold text-slate-900">{s.studio_name || s.studio_id}</div>
+                                <div className="text-xs text-slate-400 mt-0.5">{s.role}</div>
+                            </button>
+                        ))}
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => { setStep("credentials"); setErr(null); }}
+                        className="w-full text-sm text-slate-400 hover:text-slate-600 transition-colors py-1 mt-4"
+                    >
+                        {t("login_2fa_back")}
+                    </button>
                 </div>
             </div>
         </div>
@@ -276,19 +351,6 @@ function LoginContent() {
                         </div>
 
                         <form onSubmit={onSubmit} className="space-y-4" autoComplete="on">
-                            <div>
-                                <label className="text-xs font-semibold text-blue-100/80 block mb-1.5">{t("login_slug")}</label>
-                                <input
-                                    name="username"
-                                    className={`w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none text-left text-white placeholder-white/30 transition-all ${slugBorder}`}
-                                    value={studioSlug}
-                                    onChange={e => setStudioSlug(e.target.value)}
-                                    autoComplete="username"
-                                    dir="ltr"
-                                    placeholder="my-studio  (השאר ריק אם אתה בעל עסק)"
-                                />
-                            </div>
-
                             <div>
                                 <label className="text-xs font-semibold text-blue-100/80 block mb-1.5">{t("login_email")}</label>
                                 <input
@@ -384,9 +446,13 @@ function LoginContent() {
                                 </button>
                             )}
 
-                            <div className="text-center pt-1">
+                            <div className="text-center pt-1 flex items-center justify-center gap-3">
                                 <a href="/forgot-password" className="text-xs text-blue-200/50 hover:text-blue-200/80 transition-colors">
                                     {locale.startsWith("en") ? "Forgot password?" : "שכחתי סיסמה"}
+                                </a>
+                                <span className="text-blue-200/30 text-xs">•</span>
+                                <a href={`${BIZFIND_URL}/for-business/register`} className="text-xs text-blue-200/50 hover:text-blue-200/80 transition-colors">
+                                    {locale.startsWith("en") ? "No account? Sign up" : "אין לך חשבון? הירשם"}
                                 </a>
                             </div>
                         </form>

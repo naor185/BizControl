@@ -32,6 +32,13 @@ export default function StudioLoginPage() {
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.detail || "מייל או סיסמה שגויים");
+            // 2FA / multi-business accounts need a fuller flow than this
+            // simple form has — hand off to BizControl's own login, which
+            // has both, instead of duplicating that UI here.
+            if (data.requires_2fa || data.requires_studio_selection) {
+                window.location.href = `https://www.biz-control.com/login?email=${encodeURIComponent(email.trim())}`;
+                return;
+            }
             setStudioToken(data.access_token);
             await goToBizControl("/dashboard");
         } catch (e: any) { setErr(e.message); setLoading(false); }
