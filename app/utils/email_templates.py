@@ -162,3 +162,66 @@ def invite_user_email_html(name: str, studio_name: str, role_he: str, set_pw_lin
       </p>
     """
     return _email_base(f"הוזמנת ל-{studio_name}! 🎉", body)
+
+
+def verify_email_html(name: str, verify_link: str) -> str:
+    body = f"""
+      <p style="color:#475569;font-size:15px;margin:0 0 20px;">שלום <strong>{name}</strong>,</p>
+      <p style="color:#475569;font-size:15px;margin:0 0 24px;">
+        תודה שנרשמת ל-BizControl! 🎉<br>
+        כדי להשלים את ההרשמה ולוודא שנוכל לשלוח לך עדכונים, נא לאמת את כתובת המייל שלך:
+      </p>
+
+      <div style="text-align:center;margin:28px 0;">
+        <a href="{verify_link}" style="display:inline-block;background:#0f172a;color:#ffffff;padding:14px 32px;border-radius:10px;text-decoration:none;font-weight:bold;font-size:15px;">
+          ✅ אמת את כתובת המייל
+        </a>
+      </div>
+
+      <p style="font-size:13px;color:#64748b;text-align:center;margin:16px 0;">
+        הקישור תקף ל-7 ימים.
+      </p>
+      <p style="font-size:12px;color:#94a3b8;text-align:center;margin:0;">
+        אם לא נרשמת ל-BizControl — ניתן להתעלם מהודעה זו.
+      </p>
+    """
+    return _email_base("אימות כתובת המייל — BizControl", body)
+
+
+def new_business_admin_email_html(business_name: str, owner_name: str, email: str,
+                                  phone: str, plan_label: str, city: str) -> str:
+    body = f"""
+      <p style="color:#475569;font-size:15px;margin:0 0 24px;">נרשם עסק חדש למערכת דרך BizFind: 🎉</p>
+
+      <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;margin-bottom:24px;">
+        <tr><td style="padding:20px 24px;">
+          <table width="100%" cellpadding="6" cellspacing="0">
+            <tr>
+              <td style="font-size:13px;color:#64748b;width:40%;padding:8px 0;border-bottom:1px solid #e2e8f0;">🏢 שם העסק</td>
+              <td style="font-size:14px;color:#0f172a;font-weight:bold;border-bottom:1px solid #e2e8f0;">{business_name}</td>
+            </tr>
+            <tr>
+              <td style="font-size:13px;color:#64748b;padding:8px 0;border-bottom:1px solid #e2e8f0;">👤 בעל העסק</td>
+              <td style="font-size:14px;color:#0f172a;font-weight:bold;border-bottom:1px solid #e2e8f0;">{owner_name}</td>
+            </tr>
+            <tr>
+              <td style="font-size:13px;color:#64748b;padding:8px 0;border-bottom:1px solid #e2e8f0;">📧 מייל</td>
+              <td style="font-size:13px;color:#0f172a;font-weight:bold;border-bottom:1px solid #e2e8f0;">{email}</td>
+            </tr>
+            <tr>
+              <td style="font-size:13px;color:#64748b;padding:8px 0;border-bottom:1px solid #e2e8f0;">📱 טלפון</td>
+              <td style="font-size:13px;color:#0f172a;font-weight:bold;border-bottom:1px solid #e2e8f0;" dir="ltr">{phone}</td>
+            </tr>
+            <tr>
+              <td style="font-size:13px;color:#64748b;padding:8px 0;border-bottom:1px solid #e2e8f0;">📍 עיר</td>
+              <td style="font-size:13px;color:#0f172a;font-weight:bold;border-bottom:1px solid #e2e8f0;">{city}</td>
+            </tr>
+            <tr>
+              <td style="font-size:13px;color:#64748b;padding:8px 0;">💼 תכנית</td>
+              <td style="font-size:14px;color:#0f172a;font-weight:bold;">{plan_label}</td>
+            </tr>
+          </table>
+        </td></tr>
+      </table>
+    """
+    return _email_base("עסק חדש נרשם למערכת 🚀", body)

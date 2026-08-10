@@ -391,7 +391,45 @@ def me(current_user: User = Depends(get_current_user)):
         "role": current_user.role,
         "studio_id": str(current_user.studio_id),
         "totp_enabled": bool(current_user.totp_secret),
+        "email_verified": bool(current_user.email_verified),
     }
+
+
+@router.post("/resend-verification")
+@limiter.limit("3/minute")
+def resend_verification(request: Request, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Re-send the email-verification link to the logged-in user. No-op (still
+    returns ok) if already verified, so the UI can call it safely."""
+    import secrets
+    from app.services.email_center import send_email
+    from app.utils.email_templates import verify_email_html
+
+    if current_user.email_verified:
+        return {"ok": True, "already_verified": True}
+
+    token = secrets.token_urlsafe(32)
+    current_user.email_verify_token = token
+    current_user.email_verify_sent_at = datetime.now(timezone.utc)
+    db.commit()
+
+    bizfind_url = os.getenv("BIZFIND_URL", "https://find.biz-control.com").rstrip("/")
+    verify_link = f"{bizfind_url}/verify-email?token={token}"
+    try:
+        send_email(
+            db,
+            to_email=current_user.email,
+            subject="אימות כתובת המייל — BizControl",
+            html_content=verify_email_html(current_user.display_name or current_user.email, verify_link),
+            from_name="BizControl",
+            studio_id=str(current_user.studio_id),
+            template_key="verify_email",
+            email_type="system",
+        )
+    except Exception as e:
+        log.error("[resend_verification] email failed: %s", e)
+        raise HTTPException(status_code=502, detail="שליחת מייל האימות נכשלה, נסה שוב מאוחר יותר")
+
+    return {"ok": True}
 
 
 @router.get("/studio-info")

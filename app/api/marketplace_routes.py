@@ -211,6 +211,8 @@ def bizfind_register(payload: BizFindRegisterIn, db: Session = Depends(get_db)):
     )
     db.add(settings)
 
+    import secrets
+    verify_token = secrets.token_urlsafe(32)
     owner = User(
         id=uuid.uuid4(),
         studio_id=studio.id,
@@ -220,6 +222,10 @@ def bizfind_register(payload: BizFindRegisterIn, db: Session = Depends(get_db)):
         display_name=payload.owner_name.strip(),
         phone=payload.phone.strip() if payload.phone else None,
         is_active=True,
+        # Self-signup owners start unverified — a verification email is sent below.
+        email_verified=False,
+        email_verify_token=verify_token,
+        email_verify_sent_at=datetime.now(timezone.utc),
     )
     db.add(owner)
     db.flush()
@@ -245,6 +251,48 @@ def bizfind_register(payload: BizFindRegisterIn, db: Session = Depends(get_db)):
     db.add(RefreshToken(id=uuid.uuid4(), studio_id=studio.id, user_id=owner.id, token=refresh, is_revoked=False))
     db.commit()
 
+    # Post-registration emails (best-effort — never fail the registration if email
+    # sending has a hiccup; the studio + owner are already committed above).
+    import os
+    from app.services.email_center import send_email
+    from app.utils.email_templates import verify_email_html, new_business_admin_email_html
+
+    bizfind_url = os.getenv("BIZFIND_URL", "https://find.biz-control.com").rstrip("/")
+    verify_link = f"{bizfind_url}/verify-email?token={verify_token}"
+    try:
+        send_email(
+            db,
+            to_email=email,
+            subject="אימות כתובת המייל — BizControl",
+            html_content=verify_email_html(payload.owner_name.strip(), verify_link),
+            from_name="BizControl",
+            studio_id=str(studio.id),
+            template_key="verify_email",
+            email_type="system",
+        )
+    except Exception as e:
+        log.warning("[bizfind_register] verification email failed: %s", e)
+
+    try:
+        send_email(
+            db,
+            to_email="bizcontrol.system@gmail.com",
+            subject=f"עסק חדש נרשם: {studio.name}",
+            html_content=new_business_admin_email_html(
+                business_name=studio.name,
+                owner_name=payload.owner_name.strip(),
+                email=email,
+                phone=payload.phone.strip() if payload.phone else "—",
+                plan_label=plan["label"],
+                city=payload.city.strip(),
+            ),
+            from_name="BizControl",
+            template_key="new_business_admin",
+            email_type="system",
+        )
+    except Exception as e:
+        log.warning("[bizfind_register] admin notification email failed: %s", e)
+
     return {
         "access_token": access,
         "refresh_token": refresh,
@@ -256,6 +304,40 @@ def bizfind_register(payload: BizFindRegisterIn, db: Session = Depends(get_db)):
         "trial_days": plan["days"] if payload.plan_key == "trial" else None,
         "plan_expires_at": expires.isoformat(),
     }
+
+
+class VerifyEmailIn(BaseModel):
+    token: str
+
+
+@router.post("/auth/verify-email")
+def verify_email(payload: VerifyEmailIn, db: Session = Depends(get_db)):
+    """Public — confirm a business owner's email from the link in the
+    verification email. Token lives in users.email_verify_token; valid 7 days."""
+    from datetime import datetime, timezone, timedelta
+    from app.models.user import User
+
+    token = (payload.token or "").strip()
+    if not token:
+        raise HTTPException(status_code=400, detail="חסר טוקן אימות")
+
+    user = db.scalar(select(User).where(User.email_verify_token == token))
+    if not user:
+        # Either invalid, or already verified (token cleared) — treat as done so a
+        # second click on the link still shows success rather than an error.
+        raise HTTPException(status_code=400, detail="קישור האימות אינו תקף או שכבר נעשה בו שימוש")
+
+    if user.email_verify_sent_at:
+        sent = user.email_verify_sent_at
+        if sent.tzinfo is None:
+            sent = sent.replace(tzinfo=timezone.utc)
+        if datetime.now(timezone.utc) - sent > timedelta(days=7):
+            raise HTTPException(status_code=400, detail="קישור האימות פג תוקף — יש לבקש שליחה חוזרת")
+
+    user.email_verified = True
+    user.email_verify_token = None
+    db.commit()
+    return {"ok": True, "email": user.email}
 
 
 @router.get("/plans")

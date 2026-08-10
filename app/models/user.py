@@ -49,6 +49,13 @@ class User(Base):
     phone: Mapped[str | None] = mapped_column(String(32), nullable=True)
     totp_secret: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
+    # Email verification — default true so existing users and all non-self-signup
+    # creation paths are pre-verified; only BizFind self-registration sets it false
+    # and issues a token + verification email.
+    email_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true", default=True)
+    email_verify_token: Mapped[str | None] = mapped_column(Text, nullable=True)
+    email_verify_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     studio: Mapped["Studio"] = relationship(back_populates="users")

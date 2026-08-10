@@ -22,6 +22,7 @@ type Me = {
     role: string;
     email?: string | null;
     display_name?: string | null;
+    email_verified?: boolean;
 };
 
 type PinStatus = { has_pin: boolean; is_locked: boolean };
@@ -63,6 +64,17 @@ export default function AppShell({
     const [enabledModules, setEnabledModules] = useState<Record<string, boolean> | null>(null);
     const [showWaModal, setShowWaModal] = useState(false);
     const [waDisconnected, setWaDisconnected] = useState(false);
+    const [verifyState, setVerifyState] = useState<"idle" | "sending" | "sent" | "error">("idle");
+
+    const resendVerification = async () => {
+        setVerifyState("sending");
+        try {
+            await apiFetch("/api/auth/resend-verification", { method: "POST" });
+            setVerifyState("sent");
+        } catch {
+            setVerifyState("error");
+        }
+    };
 
     useEffect(() => {
         if (typeof window !== "undefined") {
@@ -171,6 +183,27 @@ export default function AppShell({
                     <Link href="/billing" className="bg-white text-violet-700 px-3 py-1 rounded-lg text-xs font-bold hover:bg-violet-50 transition-colors no-underline">
                         שדרגו עכשיו ←
                     </Link>
+                </div>
+            )}
+
+            {/* Email verification banner (soft — does not block usage) */}
+            {me?.email_verified === false && (
+                <div className="bg-amber-500 text-white text-sm font-semibold px-4 py-2.5 flex items-center justify-between gap-2 z-50 relative">
+                    <span className="flex items-center gap-2">
+                        <span>📧</span>
+                        <span>אמת את כתובת המייל שלך ({me.email}) כדי לקבל עדכונים ותזכורות.</span>
+                    </span>
+                    {verifyState === "sent" ? (
+                        <span className="bg-white/20 px-3 py-1 rounded-lg text-xs font-bold shrink-0">✓ נשלח מייל אימות</span>
+                    ) : (
+                        <button
+                            onClick={resendVerification}
+                            disabled={verifyState === "sending"}
+                            className="bg-white text-amber-700 px-3 py-1 rounded-lg text-xs font-bold hover:bg-amber-50 transition-colors shrink-0 disabled:opacity-60"
+                        >
+                            {verifyState === "sending" ? "שולח…" : verifyState === "error" ? "נסה שוב" : "שלח מייל אימות ←"}
+                        </button>
+                    )}
                 </div>
             )}
 
