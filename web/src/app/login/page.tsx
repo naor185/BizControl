@@ -5,11 +5,11 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { apiFetch, setToken } from "@/lib/api";
 import { useLang } from "@/components/LanguageProvider";
 import { LOCALES } from "@/lib/i18n";
+import { BIZFIND_URL } from "@/lib/config";
 
 const OceanBackground = lazy(() => import("@/components/OceanBackground"));
 
 const LS_KEY = "biz_remember";
-const BIZFIND_URL = process.env.NEXT_PUBLIC_BIZFIND_URL || "https://bizfind.co.il";
 
 type FieldErr = "email" | "password" | null;
 type Lang = "he" | "en";

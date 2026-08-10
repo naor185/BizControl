@@ -5,6 +5,7 @@ import RequireAuth from "@/components/RequireAuth";
 import AppShell from "@/components/AppShell";
 import { apiFetch, DashboardStats } from "@/lib/api";
 import PaymentModal from "@/components/PaymentModal";
+import { BIZFIND_URL } from "@/lib/config";
 import {
     BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip,
     ResponsiveContainer,
@@ -488,7 +489,7 @@ export default function Page() {
                                         {bizfindStats.marketplace_visible ? "🟢 גלוי" : "⚪ מוסתר"}
                                     </span>
                                     {bizfindStats.studio_slug && (
-                                        <a href={`${process.env.NEXT_PUBLIC_BIZFIND_URL || "https://bizfind.co.il"}/b/${bizfindStats.studio_slug}`}
+                                        <a href={`${BIZFIND_URL}/b/${bizfindStats.studio_slug}`}
                                             target="_blank" rel="noopener"
                                             className="text-xs text-violet-600 font-semibold hover:underline">
                                             צפה ←
