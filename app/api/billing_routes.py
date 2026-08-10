@@ -32,7 +32,42 @@ router = APIRouter(prefix="/billing", tags=["Billing"])
 
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "")
 WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
-FRONTEND_URL = os.getenv("FRONTEND_URL", "https://bizcontrol-seven.vercel.app")
+FRONTEND_URL = os.getenv("FRONTEND_URL", "https://biz-control.com")
+
+# Origins we trust to redirect back to after Stripe. Must be an app origin the
+# user actually browses on — see _return_base for why this matters.
+_ALLOWED_RETURN_ORIGINS = {
+    "https://biz-control.com",
+    "https://www.biz-control.com",
+    "https://bizcontrol-seven.vercel.app",
+    "http://localhost:3000",
+    "http://localhost:3001",
+}
+
+
+def _return_base(request: Request) -> str:
+    """The origin the user is actually browsing, so Stripe redirects them back to
+    the SAME domain.
+
+    Critical: localStorage (where the auth token lives) is origin-scoped. If
+    Stripe returns the user to a *different* origin than the one they logged in
+    on — e.g. a stale FRONTEND_URL, or www vs non-www — there is no token there
+    and the app bounces them to /login. Reading the request Origin makes the
+    return self-correcting regardless of env config. Falls back to FRONTEND_URL
+    only for non-browser callers or an unrecognized origin (anti-open-redirect).
+    """
+    origin = (request.headers.get("origin") or "").rstrip("/")
+    if origin in _ALLOWED_RETURN_ORIGINS:
+        return origin
+    try:
+        from urllib.parse import urlparse
+        host = urlparse(origin).hostname or ""
+        if host == "biz-control.com" or host.endswith(".biz-control.com"):
+            return origin
+    except Exception:
+        pass
+    return FRONTEND_URL
+
 
 PLAN_DAYS_FALLBACK = 31  # used only if a plan row is somehow missing billing_period_days
 
@@ -69,6 +104,7 @@ def billing_status(ctx: AuthContext = Depends(require_studio_ctx), db: Session =
 @router.post("/checkout")
 def create_checkout(
     payload: CheckoutIn,
+    request: Request,
     ctx: AuthContext = Depends(require_studio_ctx),
     db: Session = Depends(get_db),
 ):
@@ -83,18 +119,19 @@ def create_checkout(
     if not studio:
         raise HTTPException(status_code=404, detail="Studio not found")
 
+    base = _return_base(request)
     provider = get_payment_provider()  # single provider today, see PaymentProvider
 
     # If already has a subscription → send to the portal instead of a second checkout
     if studio.stripe_subscription_id:
-        url = provider.create_portal_session(studio, return_url=f"{FRONTEND_URL}/billing")
+        url = provider.create_portal_session(studio, return_url=f"{base}/billing")
         return {"url": url, "mode": "portal"}
 
     try:
         url = provider.create_checkout(
             studio, plan,
-            success_url=f"{FRONTEND_URL}/billing?success=1&plan={payload.plan}",
-            cancel_url=f"{FRONTEND_URL}/billing?canceled=1",
+            success_url=f"{base}/billing?success=1&plan={payload.plan}",
+            cancel_url=f"{base}/billing?canceled=1",
         )
     finally:
         db.commit()  # provider.create_checkout may have set studio.stripe_customer_id
@@ -104,7 +141,7 @@ def create_checkout(
 # ── Customer Portal ───────────────────────────────────────────────────────────
 
 @router.post("/portal")
-def customer_portal(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+def customer_portal(request: Request, ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
     if not stripe.api_key:
         raise HTTPException(status_code=503, detail="Stripe not configured")
 
@@ -112,7 +149,7 @@ def customer_portal(ctx: AuthContext = Depends(require_studio_ctx), db: Session 
     if not studio or not studio.stripe_customer_id:
         raise HTTPException(status_code=400, detail="No billing account found")
 
-    url = get_payment_provider().create_portal_session(studio, return_url=f"{FRONTEND_URL}/billing")
+    url = get_payment_provider().create_portal_session(studio, return_url=f"{_return_base(request)}/billing")
     return {"url": url}
 
 
