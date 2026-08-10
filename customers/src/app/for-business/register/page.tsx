@@ -4,6 +4,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { API } from "@/lib/api";
 import { setStudioToken, goToBizControl } from "@/lib/handoff";
+import PasswordInput from "@/components/PasswordInput";
 
 // ── Plan display config ───────────────────────────────────────────────────────
 
@@ -295,7 +296,7 @@ function RegisterInner() {
                         </div>
                         <div>
                             <label style={labelStyle}>סיסמה * (לפחות 6 תווים)</label>
-                            <input style={inputStyle} type="password" placeholder="••••••••" dir="ltr" value={form.password} onChange={e => set("password", e.target.value)} />
+                            <PasswordInput style={inputStyle} placeholder="••••••••" dir="ltr" value={form.password} onChange={e => set("password", e.target.value)} />
                         </div>
                         <div>
                             <label style={labelStyle}>טלפון (אופציונלי)</label>

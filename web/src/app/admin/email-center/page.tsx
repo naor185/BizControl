@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import { apiFetch } from "@/lib/api";
+import PasswordInput from "@/components/PasswordInput";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -202,8 +203,7 @@ export default function EmailCenterPage() {
                                         </button>
                                     </div>
                                 ) : (
-                                    <input value={newApiKey} onChange={e => setNewApiKey(e.target.value)}
-                                        type="password"
+                                    <PasswordInput value={newApiKey} onChange={e => setNewApiKey(e.target.value)}
                                         placeholder={`re_...  (${form.provider})`}
                                         className={inp} dir="ltr" />
                                 )}

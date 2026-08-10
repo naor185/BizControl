@@ -162,7 +162,7 @@ export default function MetaWizardPage() {
                                             <label className="block text-sm font-semibold text-slate-700">Access Token (System User)</label>
                                             <div className="relative">
                                                 <input type={showToken ? "text" : "password"} dir="ltr" value={accessToken} onChange={e => setAccessToken(e.target.value)} placeholder="EAAxxxxxxxx..." className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 pr-10 text-sm font-mono outline-none focus:ring-2 focus:ring-blue-400" />
-                                                <button type="button" onClick={() => setShowToken(v => !v)} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700" tabIndex={-1}>
+                                                <button type="button" onClick={() => setShowToken(v => !v)} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-600 hover:text-slate-900" tabIndex={-1}>
                                                     <EyeIcon open={showToken} />
                                                 </button>
                                             </div>

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import AppShell from "@/components/AppShell";
 import RequireAuth from "@/components/RequireAuth";
 import { apiFetch } from "@/lib/api";
+import PasswordInput from "@/components/PasswordInput";
 
 type Artist = {
     id: string;
@@ -433,8 +434,7 @@ export default function TeamPage() {
 
                                 <div>
                                     <label className="block text-sm font-semibold text-slate-700 mb-1">סיסמה {editingUserId ? '(השאר ריק כדי לא לשנות)' : ''}</label>
-                                    <input
-                                        type="password"
+                                    <PasswordInput
                                         value={password}
                                         onChange={e => setPassword(e.target.value)}
                                         dir="ltr"

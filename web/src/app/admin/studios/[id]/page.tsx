@@ -4,6 +4,7 @@ import { toast } from "@/lib/toast";
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { apiFetch, getToken, setToken } from "@/lib/api";
+import PasswordInput from "@/components/PasswordInput";
 
 type StudioDetail = {
     id: string;
@@ -616,8 +617,7 @@ export default function StudioDetailPage() {
                             </div>
                             <div>
                                 <label className="block text-xs font-semibold text-gray-500 mb-1.5">🔐 API Token {settings.whatsapp_provider === "green_api" && settings.whatsapp_api_key && <span className="text-emerald-600 font-normal">(שמור)</span>}</label>
-                                <input
-                                    type="password"
+                                <PasswordInput
                                     value={waGreenToken}
                                     onChange={e => setWaGreenToken(e.target.value)}
                                     placeholder={settings.whatsapp_provider === "green_api" && settings.whatsapp_api_key ? "השאר ריק לשמור Token קיים" : "הדבק API Token מ-Green API"}
@@ -715,8 +715,7 @@ export default function StudioDetailPage() {
                             {/* Access Token */}
                             <div>
                                 <label className="block text-xs font-semibold text-gray-500 mb-1.5">Access Token</label>
-                                <input
-                                    type="password"
+                                <PasswordInput
                                     value={waApiKey}
                                     onChange={e => setWaApiKey(e.target.value)}
                                     placeholder="EAAxxxx..."
@@ -836,10 +835,9 @@ export default function StudioDetailPage() {
                                                     onChange={e => setIntCredentials(prev => ({ ...prev, [platform]: { ...prev[platform], phone_number_id: e.target.value }}))}
                                                     className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-black/10"
                                                 />
-                                                <input
+                                                <PasswordInput
                                                     placeholder="Access Token (EAAxxxx...)"
                                                     dir="ltr"
-                                                    type="password"
                                                     value={creds.access_token || ""}
                                                     onChange={e => setIntCredentials(prev => ({ ...prev, [platform]: { ...prev[platform], access_token: e.target.value }}))}
                                                     className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-black/10"
@@ -855,10 +853,9 @@ export default function StudioDetailPage() {
                                                     onChange={e => setIntCredentials(prev => ({ ...prev, [platform]: { ...prev[platform], instagram_account_id: e.target.value }}))}
                                                     className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-black/10"
                                                 />
-                                                <input
+                                                <PasswordInput
                                                     placeholder="Access Token"
                                                     dir="ltr"
-                                                    type="password"
                                                     value={creds.access_token || ""}
                                                     onChange={e => setIntCredentials(prev => ({ ...prev, [platform]: { ...prev[platform], access_token: e.target.value }}))}
                                                     className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-black/10"
@@ -874,10 +871,9 @@ export default function StudioDetailPage() {
                                                     onChange={e => setIntCredentials(prev => ({ ...prev, [platform]: { ...prev[platform], page_id: e.target.value }}))}
                                                     className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-black/10"
                                                 />
-                                                <input
+                                                <PasswordInput
                                                     placeholder="Access Token"
                                                     dir="ltr"
-                                                    type="password"
                                                     value={creds.access_token || ""}
                                                     onChange={e => setIntCredentials(prev => ({ ...prev, [platform]: { ...prev[platform], access_token: e.target.value }}))}
                                                     className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-black/10"

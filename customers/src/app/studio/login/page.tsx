@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { API } from "@/lib/api";
 import { getStudioToken, setStudioToken, goToBizControl } from "@/lib/handoff";
+import PasswordInput from "@/components/PasswordInput";
 
 export default function StudioLoginPage() {
     const [email, setEmail] = useState("");
@@ -79,8 +80,8 @@ export default function StudioLoginPage() {
                         </div>
                         <div>
                             <label style={{ display: "block", fontSize: "0.82rem", fontWeight: 700, color: "#374151", marginBottom: "0.4rem" }}>סיסמה</label>
-                            <input
-                                type="password" value={password} onChange={e => setPassword(e.target.value)} required
+                            <PasswordInput
+                                value={password} onChange={e => setPassword(e.target.value)} required
                                 placeholder="••••••••"
                                 style={{ width: "100%", border: "1.5px solid #e2e8f0", borderRadius: 12, padding: "0.75rem 1rem", fontSize: "0.95rem", outline: "none", background: "#fafafa", boxSizing: "border-box", transition: "border-color .2s" }}
                                 onFocus={e => (e.target.style.borderColor = "#7c3aed")}

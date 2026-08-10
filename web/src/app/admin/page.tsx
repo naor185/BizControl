@@ -8,6 +8,7 @@ import {
     LineChart, Line, BarChart, Bar, PieChart, Pie,
     XAxis, YAxis, Tooltip, ResponsiveContainer,
 } from "recharts";
+import PasswordInput from "@/components/PasswordInput";
 
 type Stats = {
     total_studios: number;
@@ -129,11 +130,14 @@ function ChangePasswordForm() {
 
     return (
         <form onSubmit={handleSubmit} className="space-y-3">
-            <input type="password" placeholder="סיסמה נוכחית" value={cur} onChange={e => setCur(e.target.value)} required
+            <PasswordInput placeholder="סיסמה נוכחית" value={cur} onChange={e => setCur(e.target.value)} required
+                iconClassName="text-white/70 hover:text-white"
                 className="w-full bg-black/30 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500" />
-            <input type="password" placeholder="סיסמה חדשה" value={next} onChange={e => setNext(e.target.value)} required
+            <PasswordInput placeholder="סיסמה חדשה" value={next} onChange={e => setNext(e.target.value)} required
+                iconClassName="text-white/70 hover:text-white"
                 className="w-full bg-black/30 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500" />
-            <input type="password" placeholder="אימות סיסמה חדשה" value={conf} onChange={e => setConf(e.target.value)} required
+            <PasswordInput placeholder="אימות סיסמה חדשה" value={conf} onChange={e => setConf(e.target.value)} required
+                iconClassName="text-white/70 hover:text-white"
                 className="w-full bg-black/30 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500" />
             {msg && <div className={`text-sm px-4 py-2.5 rounded-xl ${msg.ok ? "bg-green-900/40 text-green-300" : "bg-red-900/40 text-red-300"}`}>{msg.text}</div>}
             <button type="submit" disabled={saving}
@@ -1264,8 +1268,9 @@ export default function AdminPage() {
                                     <label className="block text-xs font-bold text-slate-300 mb-1.5">
                                         🔐 API Token {platformWATokenSet && <span className="text-emerald-400 font-normal mr-1">✓ שמור</span>}
                                     </label>
-                                    <input value={platformWAToken} onChange={e => setPlatformWAToken(e.target.value)}
-                                        type="password" dir="ltr"
+                                    <PasswordInput value={platformWAToken} onChange={e => setPlatformWAToken(e.target.value)}
+                                        dir="ltr"
+                                        iconClassName="text-white/70 hover:text-white"
                                         placeholder={platformWATokenSet ? "השאר ריק כדי לשמור על הToken הקיים" : "הדבק את ה-API Token מ-Green API..."}
                                         className="w-full bg-black/30 border border-white/15 rounded-xl px-4 py-3 text-sm text-white font-mono placeholder:text-slate-600 focus:outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400" />
                                 </div>

@@ -2,6 +2,7 @@
 import { useState, useRef, useEffect } from "react";
 import { API, setToken } from "@/lib/api";
 import { saveCustomer, type Customer } from "@/lib/auth";
+import PasswordInput from "@/components/PasswordInput";
 
 interface Props {
     onClose: () => void;
@@ -34,7 +35,6 @@ export default function AuthModal({ onClose, onSuccess }: Props) {
     const [regLastName, setRegLastName] = useState("");
     const [regPhone, setRegPhone] = useState("");
     const [regCity, setRegCity] = useState("");
-    const [showPassword, setShowPassword] = useState(false);
 
     const [loading, setLoading] = useState(false);
     const [err, setErr] = useState<string | null>(null);
@@ -325,21 +325,12 @@ export default function AuthModal({ onClose, onSuccess }: Props) {
                             onKeyDown={e => e.key === "Enter" && loginEmail()}
                             placeholder="אימייל" dir="ltr" autoComplete="email" autoFocus style={inputStyle}
                         />
-                        <div style={{ position: "relative", marginBottom: "0.75rem" }}>
-                            <input
-                                type={showPassword ? "text" : "password"}
-                                value={password} onChange={e => setPassword(e.target.value)}
-                                onKeyDown={e => e.key === "Enter" && loginEmail()}
-                                placeholder="סיסמה" dir="ltr" autoComplete="current-password"
-                                style={{ ...inputStyle, marginBottom: 0, paddingLeft: "2.8rem" }}
-                            />
-                            <button
-                                type="button" onClick={() => setShowPassword(v => !v)}
-                                style={{ position: "absolute", left: "0.75rem", top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: "#64748b", cursor: "pointer", fontSize: "1rem", padding: 0 }}
-                            >
-                                {showPassword ? "🙈" : "👁️"}
-                            </button>
-                        </div>
+                        <PasswordInput
+                            value={password} onChange={e => setPassword(e.target.value)}
+                            onKeyDown={e => e.key === "Enter" && loginEmail()}
+                            placeholder="סיסמה" dir="ltr" autoComplete="current-password"
+                            style={{ ...inputStyle, marginBottom: "0.75rem" }}
+                        />
                         {err && <p style={errStyle}>{err}</p>}
                         <button onClick={loginEmail} disabled={loading} style={btnStyle}>
                             {loading ? "מתחבר..." : "התחבר"}
@@ -361,20 +352,11 @@ export default function AuthModal({ onClose, onSuccess }: Props) {
                             type="email" value={emailField} onChange={e => setEmailField(e.target.value)}
                             placeholder="אימייל" dir="ltr" autoComplete="email" style={inputStyle}
                         />
-                        <div style={{ position: "relative", marginBottom: "0.75rem" }}>
-                            <input
-                                type={showPassword ? "text" : "password"}
-                                value={password} onChange={e => setPassword(e.target.value)}
-                                placeholder="סיסמה (לפחות 6 תווים)" dir="ltr" autoComplete="new-password"
-                                style={{ ...inputStyle, marginBottom: 0, paddingLeft: "2.8rem" }}
-                            />
-                            <button
-                                type="button" onClick={() => setShowPassword(v => !v)}
-                                style={{ position: "absolute", left: "0.75rem", top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: "#64748b", cursor: "pointer", fontSize: "1rem", padding: 0 }}
-                            >
-                                {showPassword ? "🙈" : "👁️"}
-                            </button>
-                        </div>
+                        <PasswordInput
+                            value={password} onChange={e => setPassword(e.target.value)}
+                            placeholder="סיסמה (לפחות 6 תווים)" dir="ltr" autoComplete="new-password"
+                            style={{ ...inputStyle, marginBottom: "0.75rem" }}
+                        />
                         <input value={regPhone} onChange={e => setRegPhone(e.target.value)} placeholder="טלפון (אופציונלי)" type="tel" dir="ltr" style={inputStyle} />
                         <input value={regCity} onChange={e => setRegCity(e.target.value)} placeholder="עיר (אופציונלי)" style={inputStyle} />
                         {err && <p style={errStyle}>{err}</p>}
