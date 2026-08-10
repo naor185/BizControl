@@ -49,6 +49,7 @@ function RegisterInner() {
     const [form, setForm] = useState({
         business_name: "",
         category: "",
+        category_other: "",
         city: "",
         owner_name: "",
         email: "",
@@ -66,7 +67,9 @@ function RegisterInner() {
     const back = () => { setErr(null); setStep(s => s - 1); };
 
     const canStep1 = planKey !== "";
-    const canStep2 = form.business_name.trim().length >= 2 && form.category && form.city.trim();
+    const canStep2 = form.business_name.trim().length >= 2 && form.category
+        && (form.category !== "אחר" || form.category_other.trim().length >= 2)
+        && form.city.trim();
     const canStep3 = form.owner_name.trim().length >= 2 && form.email.trim() && form.password.length >= 6;
 
     const submit = async () => {
@@ -78,7 +81,7 @@ function RegisterInner() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     business_name: form.business_name.trim(),
-                    category: form.category,
+                    category: form.category === "אחר" ? form.category_other.trim() : form.category,
                     city: form.city.trim(),
                     owner_name: form.owner_name.trim(),
                     email: form.email.trim(),
@@ -235,6 +238,16 @@ function RegisterInner() {
                                 <option value="">בחרו קטגוריה</option>
                                 {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                             </select>
+                            {form.category === "אחר" && (
+                                <input
+                                    style={{ ...inputStyle, marginTop: "0.5rem" }}
+                                    placeholder="פרטו את קטגוריית העסק"
+                                    value={form.category_other}
+                                    onChange={e => set("category_other", e.target.value)}
+                                    maxLength={60}
+                                    autoFocus
+                                />
+                            )}
                         </div>
                         <div>
                             <label style={labelStyle}>עיר *</label>

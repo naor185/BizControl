@@ -53,6 +53,7 @@ export default function OnboardingPage() {
     // Form state
     const [businessName, setBusinessName] = useState("");
     const [category, setCategory] = useState("");
+    const [categoryOther, setCategoryOther] = useState("");
     const [city, setCity] = useState("");
     const [address, setAddress] = useState("");
     const [phone, setPhone] = useState("");
@@ -87,7 +88,7 @@ export default function OnboardingPage() {
                 method: "PATCH",
                 body: JSON.stringify({
                     business_name: businessName.trim() || undefined,
-                    category: category || undefined,
+                    category: (category === "אחר" ? categoryOther.trim() : category) || undefined,
                     city: city.trim() || undefined,
                     address: address.trim() || undefined,
                     phone: phone.trim() || undefined,
@@ -162,6 +163,16 @@ export default function OnboardingPage() {
                                         <option value="">בחרו קטגוריה</option>
                                         {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                                     </select>
+                                    {category === "אחר" && (
+                                        <input
+                                            className={inputCls + " mt-2"}
+                                            value={categoryOther}
+                                            onChange={e => setCategoryOther(e.target.value)}
+                                            placeholder="פרטו את קטגוריית העסק"
+                                            maxLength={60}
+                                            autoFocus
+                                        />
+                                    )}
                                 </div>
                                 <div className="grid grid-cols-2 gap-3">
                                     <div>
