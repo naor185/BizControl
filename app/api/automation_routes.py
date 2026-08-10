@@ -285,8 +285,9 @@ def generate_theme_with_ai(payload: AIGenerateRequest, ctx: AuthContext = Depend
 
 @router.post("/birthday-sweep")
 def manual_birthday_sweep(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
-    """Manually send birthday messages for next month to all eligible club members of this studio.
-    Dedup prevents duplicates if already sent this month."""
+    """Manually run today's birthday sweep for this studio — enqueues a
+    personal message to each club member whose birthday is exactly 2 days
+    away. Normally runs automatically every day; dedup prevents duplicates."""
     if ctx.role not in ("owner", "admin", "manager"):
         raise HTTPException(status_code=403, detail="Forbidden")
     from app.services.message_worker import sweep_birthday_messages

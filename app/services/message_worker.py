@@ -750,23 +750,30 @@ def sweep_same_day_reminders(db: Session) -> int:
 
 
 def sweep_birthday_messages(db: Session, studio_id=None) -> int:
-    """Runs on the 25th of each month — sends birthday WhatsApp + coupon to club members
-    whose birthday falls in the NEXT month, giving them ~5-35 days to book in advance.
+    """Runs DAILY — sends a personal birthday WhatsApp + coupon to each club
+    member exactly 2 days before their own birthday (instead of one generic
+    batch at the start of the birthday month). Each MessageJob is per-client,
+    so "who received / who didn't" is visible in the working system exactly
+    as before — only the timing/targeting changed.
     Pass studio_id to limit the sweep to a single studio (for manual triggers by studio owners)."""
     from app.models.client import Client
     from app.models.studio_settings import StudioSettings
     from app.crud.birthday_coupon import get_or_create_birthday_coupon
     from sqlalchemy import extract
+    import pytz
 
     now = datetime.now(timezone.utc)
+    # Birthday matching is a calendar-date concept — use Israel local date so
+    # "2 days before" lands on the right day regardless of the UTC offset.
+    today_il = datetime.now(pytz.timezone("Asia/Jerusalem")).date()
+    target = today_il + timedelta(days=2)   # the client's birthday is 2 days from today
+    target_month = target.month
+    target_day = target.day
+    target_year = target.year               # year the upcoming birthday falls in (handles Dec→Jan rollover)
 
-    if now.month == 12:
-        target_month = 1
-        target_year = now.year + 1
-    else:
-        target_month = now.month + 1
-        target_year = now.year
-
+    # Kept the same reminder_type format as the old monthly sweep so dedup
+    # stays consistent with the "on join" catch-up path in crud/client.py and
+    # with any already-sent history — one message per client per birthday year.
     reminder_type_wa = f"birthday-{target_year}-{target_month:02d}"
 
     filters = [
@@ -774,6 +781,7 @@ def sweep_birthday_messages(db: Session, studio_id=None) -> int:
         Client.is_active.is_(True),
         Client.birth_date.isnot(None),
         extract("month", Client.birth_date) == target_month,
+        extract("day", Client.birth_date) == target_day,
     ]
     if studio_id is not None:
         filters.append(Client.studio_id == studio_id)
@@ -821,13 +829,17 @@ def sweep_birthday_messages(db: Session, studio_id=None) -> int:
             "birth_month": target_month,
         }
 
+        # Respect a studio's custom template if set; otherwise use a warm,
+        # personal default that names the client and the fact it's *their*
+        # birthday in 2 days — not a generic "birthday month" blast.
         wa_template = settings.birthday_wa_template
         if not wa_template:
             wa_template = (
-                "היי {client_name}, מזל טוב! 🎉\n"
-                "יום ההולדת שלך מתקרב 🥳\n"
-                "הנה הטבה מיוחדת של {benefit_percent}% הנחה לחודש ההולדת שלך — במיוחד בשבילך ❤️\n\n"
-                "קוד הקופון שלך: *{coupon_code}*"
+                "{client_name} יקר/ה, עוד יומיים יום ההולדת שלך! 🎂✨\n"
+                "רצינו להיות הראשונים לאחל לך מכל הלב — מזל טוב! 🎉\n"
+                "הכנו לך מתנה אישית: {benefit_percent}% הנחה, במיוחד בשבילך ליום המיוחד שלך ❤️\n\n"
+                "קוד הקופון שלך: *{coupon_code}*\n"
+                "נשמח לחגוג איתך 🥳"
             )
 
         if client.phone:
@@ -857,8 +869,9 @@ def sweep_birthday_messages(db: Session, studio_id=None) -> int:
             if not already_email:
                 from app.utils.email_templates import _email_base
                 email_html = (
-                    f"<p>היי <strong>{context['client_name']}</strong>, מזל טוב! 🎉</p>"
-                    f"<p>יום ההולדת שלך מתקרב 🥳<br>הנה הטבה מיוחדת של <strong>{context['benefit_percent']}% הנחה</strong> לחודש ההולדת שלך — במיוחד בשבילך ❤️</p>"
+                    f"<p><strong>{context['client_name']}</strong> יקר/ה, עוד יומיים יום ההולדת שלך! 🎂✨</p>"
+                    f"<p>רצינו להיות הראשונים לאחל לך מכל הלב — מזל טוב! 🎉<br>"
+                    f"הכנו לך מתנה אישית: <strong>{context['benefit_percent']}% הנחה</strong>, במיוחד בשבילך ליום המיוחד שלך ❤️</p>"
                     f"<div style='background:#fef9c3;border-radius:12px;padding:16px 20px;margin:20px 0;text-align:center;'>"
                     f"<div style='font-size:13px;color:#92400e;margin-bottom:6px;'>קוד הקופון שלך:</div>"
                     f"<div style='font-size:24px;font-weight:900;letter-spacing:4px;color:#1a1a2e;'>{context['coupon_code']}</div>"
@@ -870,8 +883,8 @@ def sweep_birthday_messages(db: Session, studio_id=None) -> int:
                     client_id=client.id,
                     channel="email",
                     to_phone=client.email,
-                    subject=f"🎉 מזל טוב! הטבת יום הולדת {context['benefit_percent']}% מחכה לך",
-                    body=_email_base("מזל טוב! 🎉 הטבה מיוחדת בשבילך", email_html),
+                    subject=f"🎂 {context['client_name']}, עוד יומיים יום ההולדת שלך — ומתנה מחכה לך!",
+                    body=_email_base("עוד יומיים יום ההולדת שלך! 🎂", email_html),
                     scheduled_at=now,
                     status="pending",
                     reminder_type=reminder_type_email,
@@ -880,7 +893,7 @@ def sweep_birthday_messages(db: Session, studio_id=None) -> int:
 
     if count:
         db.commit()
-    log.info("sweep_birthday_messages: sent %d messages for birthday month %d/%d", count, target_month, target_year)
+    log.info("sweep_birthday_messages: enqueued %d birthday messages for %04d-%02d-%02d (2 days ahead)", count, target_year, target_month, target_day)
     return count
 
 

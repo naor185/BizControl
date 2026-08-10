@@ -144,7 +144,10 @@ def start_scheduler():
     scheduler.add_job(tick_same_day_reminders, "cron", hour=8, minute=0, timezone="Asia/Jerusalem", id="same_day_reminders_tick", replace_existing=True)
     scheduler.add_job(tick_plan_alerts, "cron", hour=9, minute=0, id="plan_alerts_tick", replace_existing=True)
     scheduler.add_job(tick_subscription_transitions, "cron", hour=9, minute=15, id="subscription_transitions_tick", replace_existing=True)
-    scheduler.add_job(tick_birthday_messages, "cron", day=25, hour=10, minute=0, timezone="Asia/Jerusalem", misfire_grace_time=86400, id="birthday_messages_tick", replace_existing=True)
+    # Runs DAILY (not monthly) — sweep_birthday_messages now sends each club
+    # member a personal message 2 days before their own birthday, instead of
+    # one generic batch at the start of the birthday month.
+    scheduler.add_job(tick_birthday_messages, "cron", hour=10, minute=0, timezone="Asia/Jerusalem", misfire_grace_time=86400, id="birthday_messages_tick", replace_existing=True)
     scheduler.add_job(tick_deposit_reminders, "interval", hours=1, id="deposit_reminders_tick", replace_existing=True)
     scheduler.add_job(tick_birthday_automations, "cron", hour=9, minute=5, timezone="Asia/Jerusalem", id="birthday_automations_tick", replace_existing=True)
 

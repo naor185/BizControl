@@ -1849,8 +1849,8 @@ export default function AutomationSettingsPage() {
                                         <div className="bg-pink-50 p-6 rounded-2xl border border-pink-200 md:col-span-2">
                                             <label className="block text-base font-bold text-slate-800 mb-2">שליחה ידנית של הודעות יומולדת 🎂</label>
                                             <p className="text-sm text-slate-500 mb-4">
-                                                שולח עכשיו הודעות יומולדת + קופון לכל חברי המועדון שיומולדתם בחודש הבא.
-                                                המערכת שולחת את זה אוטומטית ב-25 לחודש — לחץ כאן אם רצית לשלוח מוקדם יותר.
+                                                המערכת שולחת אוטומטית כל יום הודעת יומולדת אישית + קופון לכל חבר מועדון,
+                                                יומיים לפני יום ההולדת שלו. לחץ כאן כדי להריץ את הסבב של היום ידנית (למי שיומולדתו בעוד יומיים).
                                             </p>
                                             <button
                                                 type="button"

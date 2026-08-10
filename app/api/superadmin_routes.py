@@ -3204,8 +3204,9 @@ def manual_sweep_birthday_messages(
     admin: User = Depends(require_superadmin),
     db: Session = Depends(get_db),
 ):
-    """Manually trigger the birthday message sweep (same logic as the 25th-of-month cron).
-    Targets next calendar month — dedup prevents duplicates if already sent."""
+    """Manually run today's birthday sweep (same logic as the daily cron) for
+    every studio — enqueues a personal message to each club member whose
+    birthday is exactly 2 days away. Dedup prevents duplicates if already sent."""
     from app.services.message_worker import sweep_birthday_messages
     count = sweep_birthday_messages(db)
     return {"ok": True, "messages_enqueued": count}
