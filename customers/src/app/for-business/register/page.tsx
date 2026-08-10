@@ -55,6 +55,7 @@ function RegisterInner() {
         owner_name: "",
         email: "",
         password: "",
+        password_confirm: "",
         phone: "",
     });
     const [loading, setLoading] = useState(false);
@@ -71,7 +72,11 @@ function RegisterInner() {
     const canStep2 = form.business_name.trim().length >= 2 && form.category
         && (form.category !== "אחר" || form.category_other.trim().length >= 2)
         && form.city.trim();
-    const canStep3 = form.owner_name.trim().length >= 2 && form.email.trim() && form.password.length >= 6;
+    const passwordsMatch = form.password === form.password_confirm;
+    const phoneDigits = form.phone.replace(/\D/g, "");
+    const canStep3 = form.owner_name.trim().length >= 2 && form.email.trim()
+        && form.password.length >= 6 && passwordsMatch
+        && phoneDigits.length >= 9;
 
     const submit = async () => {
         setLoading(true);
@@ -296,11 +301,19 @@ function RegisterInner() {
                         </div>
                         <div>
                             <label style={labelStyle}>סיסמה * (לפחות 6 תווים)</label>
-                            <PasswordInput style={inputStyle} placeholder="••••••••" dir="ltr" value={form.password} onChange={e => set("password", e.target.value)} />
+                            <PasswordInput style={inputStyle} placeholder="••••••••" dir="ltr" autoComplete="new-password" value={form.password} onChange={e => set("password", e.target.value)} />
                         </div>
                         <div>
-                            <label style={labelStyle}>טלפון (אופציונלי)</label>
+                            <label style={labelStyle}>אימות סיסמה *</label>
+                            <PasswordInput style={inputStyle} placeholder="הקלידו שוב את הסיסמה" dir="ltr" autoComplete="new-password" value={form.password_confirm} onChange={e => set("password_confirm", e.target.value)} />
+                            {form.password_confirm.length > 0 && !passwordsMatch && (
+                                <p style={{ color: "#dc2626", fontSize: "0.78rem", marginTop: "0.35rem" }}>הסיסמאות אינן תואמות</p>
+                            )}
+                        </div>
+                        <div>
+                            <label style={labelStyle}>טלפון *</label>
                             <input style={inputStyle} type="tel" placeholder="050-0000000" dir="ltr" value={form.phone} onChange={e => set("phone", e.target.value)} />
+                            <p style={{ color: "#94a3b8", fontSize: "0.78rem", marginTop: "0.35rem" }}>נשלח אליכם וואטסאפ לאימות ולתזכורות</p>
                         </div>
                     </div>
 
