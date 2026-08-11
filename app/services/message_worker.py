@@ -914,6 +914,13 @@ def sweep_deposit_reminders(db: Session) -> int:
             Appointment.status == "scheduled",
             Appointment.created_at >= window_start,
             Appointment.created_at <= window_end,
+            # Only nudge for a deposit while the appointment still has real lead
+            # time. Without this, an appointment booked 24-48h ago but scheduled
+            # for *today* (or already past) still got a "your appointment is
+            # waiting for a deposit" message — pointless and confusing. Same-day/
+            # near appointments are still covered by the deposit-warning line in
+            # their regular 1-day / same-day reminder.
+            Appointment.starts_at >= now + timedelta(hours=24),
         )
     ).all()
 
