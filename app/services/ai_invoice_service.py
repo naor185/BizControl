@@ -540,9 +540,13 @@ CRITICAL RULES:
             except urllib.error.HTTPError as e:
                 body = e.read().decode(errors="replace")
                 last_error = RuntimeError(f"Gemini API HTTP {e.code} for model '{model}': {body[:500]}")
-                if e.code == 404:
-                    continue  # this model is unavailable — try the next candidate
-                raise last_error from e  # auth/quota/etc. won't be fixed by switching models
+                # 404 (model retired) and 403 (this model not enabled for the
+                # project) are both per-model — a different candidate may work, so
+                # fall through and try the next one. 401/429/etc. are account-wide
+                # and switching models won't help, so surface them immediately.
+                if e.code in (403, 404):
+                    continue
+                raise last_error from e
 
         raise last_error
 

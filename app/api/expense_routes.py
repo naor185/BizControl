@@ -197,6 +197,38 @@ def check_duplicate_expense(
     return {"is_duplicate": existing is not None, "existing_id": str(existing.id) if existing else None}
 
 
+def _friendly_scan_error(raw: str) -> str:
+    """Translate a raw AI-provider error into a clear Hebrew explanation of what
+    went wrong and why — so the studio owner never sees a raw English API dump.
+    The technical detail is appended in parentheses for support."""
+    low = (raw or "").lower()
+    short = (raw or "").strip().replace("\n", " ")[:200]
+
+    if "permission_denied" in low or "http 403" in low or "denied access" in low or "forbidden" in low:
+        return ("סריקת ה-AI נכשלה: שירות ה-AI (Google Gemini) חסם את הגישה לחשבון. "
+                "זו בעיה בהרשאות או בחיוב של פרויקט ה-AI בצד Google — לא בקובץ שהעלית. "
+                "יש לבדוק את מפתח ה-API / הפעלת החיוב בפרויקט, או לפנות לתמיכה. "
+                f"(פרטים טכניים: {short})")
+    if "resource_exhausted" in low or "http 429" in low or "quota" in low or "rate limit" in low:
+        return ("סריקת ה-AI נכשלה: נגמרה מכסת השימוש ב-AI כרגע. "
+                "נסה שוב בעוד כמה דקות, או פנה לתמיכה להגדלת המכסה. "
+                f"(פרטים טכניים: {short})")
+    if "unauthenticated" in low or "http 401" in low or "api key not valid" in low or "invalid api key" in low or "api_key_invalid" in low:
+        return ("סריקת ה-AI נכשלה: מפתח ה-AI אינו תקין או פג תוקף. "
+                "יש לעדכן את מפתח ה-API בהגדרות המערכת. "
+                f"(פרטים טכניים: {short})")
+    if "http 404" in low or "not found" in low or "model" in low and "available" in low:
+        return ("סריקת ה-AI נכשלה: מודל ה-AI המבוקש אינו זמין כרגע. "
+                "ייתכן שנדרש עדכון הגדרה — פנה לתמיכה. "
+                f"(פרטים טכניים: {short})")
+    if "timed out" in low or "timeout" in low:
+        return ("סריקת ה-AI נכשלה: שירות ה-AI לא הגיב בזמן. "
+                "נסה שוב — ייתכן שהתמונה גדולה מדי או שהחיבור איטי. "
+                f"(פרטים טכניים: {short})")
+    return ("סריקת ה-AI נכשלה עקב תקלה בשירות ה-AI. נסה שוב, ואם התקלה חוזרת פנה לתמיכה. "
+            f"(פרטים טכניים: {short})")
+
+
 # ── AI Invoice Scan ──────────────────────────────────────────────────────────
 @router.post("/scan", status_code=status.HTTP_200_OK)
 async def scan_invoice(
@@ -260,8 +292,8 @@ async def scan_invoice(
         from app.services.integration_alerts import alert_integration_failure
         alert_integration_failure(db, "סריקת חשבוניות AI (Gemini/OpenAI/Document AI)", str(e))
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"AI parsing failed: {str(e)}",
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=_friendly_scan_error(str(e)),
         )
 
     # Save receipt image to disk
