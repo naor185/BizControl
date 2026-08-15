@@ -319,7 +319,11 @@ def process_due_jobs(db: Session, limit: int = 20) -> int:
     now = datetime.now(timezone.utc)
     israel_tz = _pytz.timezone("Asia/Jerusalem")
     now_israel = datetime.now(israel_tz)
-    is_shabbat = now_israel.weekday() == 5  # Saturday
+    # Real havdalah time varies with sunset/season, but the studio's ask is a
+    # simple fixed cutoff: Shabbat "always ends around 21:00" — so release the
+    # block automatically at 21:00 Israel time on Saturday itself, instead of
+    # holding every message until the calendar day rolls over to Sunday.
+    is_shabbat = now_israel.weekday() == 5 and now_israel.hour < 21  # Saturday, before 21:00
 
     stmt = (
         select(MessageJob)
