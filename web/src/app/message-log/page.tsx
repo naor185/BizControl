@@ -148,7 +148,12 @@ export default function MessageLogPage() {
                                                     <div className="text-sm text-slate-600 max-w-xs truncate group-hover:whitespace-normal group-hover:overflow-visible transition-all">
                                                         {j.body}
                                                     </div>
-                                                    {j.last_error && (
+                                                    {j.last_error && j.status === 'pending' && (
+                                                        <div className="text-[10px] text-sky-600 mt-1 bg-sky-50 px-2 py-0.5 rounded border border-sky-100">
+                                                            ℹ️ {j.last_error}
+                                                        </div>
+                                                    )}
+                                                    {j.last_error && j.status !== 'pending' && (
                                                         <div className="text-[10px] text-rose-500 mt-1 bg-rose-50 px-2 py-0.5 rounded border border-rose-100">
                                                             שגיאה: {j.last_error}
                                                         </div>

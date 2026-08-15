@@ -331,7 +331,10 @@ def process_due_jobs(db: Session, limit: int = 20) -> int:
 
     jobs = list(db.scalars(stmt).all())
     count = 0
+    needs_commit = False
     _shabbat_cache: dict = {}  # studio_id -> block_shabbat_messages bool
+    _SHABBAT_NOTE = ("עדיין לא נשלחה — חסימת הודעות בשבת פעילה בהגדרות האוטומציה. "
+                      "ההודעה תישלח אוטומטית מיד אחרי צאת השבת.")
 
     for job in jobs:
         try:
@@ -342,7 +345,13 @@ def process_due_jobs(db: Session, limit: int = 20) -> int:
                     _s = db.get(StudioSettings, job.studio_id)
                     _shabbat_cache[sid] = bool(getattr(_s, "block_shabbat_messages", False))
                 if _shabbat_cache[sid]:
-                    continue  # Leave as pending — will be sent on Sunday
+                    # Leave status as pending — will be sent on Sunday — but record
+                    # WHY, so a "pending" job in the UI isn't indistinguishable from
+                    # one that's genuinely stuck (this was previously silent).
+                    if job.last_error != _SHABBAT_NOTE:
+                        job.last_error = _SHABBAT_NOTE
+                        needs_commit = True
+                    continue
 
             # Club invite: skip if client already joined the club since enqueueing
             if getattr(job, "reminder_type", None) in ("club_invite", "club_invite_email") and job.client_id:
@@ -397,7 +406,7 @@ def process_due_jobs(db: Session, limit: int = 20) -> int:
             job.status = "failed" if job.attempts >= 3 else "pending"
         count += 1
 
-    if count:
+    if count or needs_commit:
         db.commit()
     return count
 

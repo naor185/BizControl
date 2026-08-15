@@ -41,6 +41,7 @@ from app.middleware.plan_enforcement import PlanEnforcementMiddleware
 
 
 scheduler = BackgroundScheduler()
+_scheduler_log = logging.getLogger("bizcontrol.scheduler")
 
 def start_scheduler():
     if os.getenv("DISABLE_SCHEDULER") == "1":
@@ -50,6 +51,20 @@ def start_scheduler():
         db = SessionLocal()
         try:
             process_due_jobs(db)
+        except Exception as e:
+            # This tick runs every 20s and previously had no error handling at
+            # all — a recurring failure here (DB hiccup, lock contention, etc.)
+            # meant the ENTIRE message queue silently stopped draining, with
+            # zero signal to the studio owner or admin. Log + alert (1h cooldown
+            # inside alert_integration_failure, so a persistent failure doesn't
+            # spam) instead of failing silently.
+            _scheduler_log.exception("process_due_jobs tick failed")
+            try:
+                db.rollback()  # clear any failed-transaction state before reusing the session
+                from app.services.integration_alerts import alert_integration_failure
+                alert_integration_failure(db, "תור הודעות (WhatsApp/Email) — תקלה כללית", str(e), force=True)
+            except Exception:
+                _scheduler_log.exception("failed to send process_due_jobs failure alert")
         finally:
             db.close()
 
