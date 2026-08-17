@@ -864,6 +864,7 @@ export default function ExpensesPage() {
     const now = new Date();
     const [month, setMonth] = useState(now.getMonth() + 1);
     const [year, setYear] = useState(now.getFullYear());
+    const [search, setSearch] = useState("");
     const [expenses, setExpenses] = useState<Expense[]>([]);
     const [summary, setSummary] = useState<ExpenseSummary | null>(null);
     const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -875,8 +876,13 @@ export default function ExpensesPage() {
     const load = useCallback(async () => {
         setLoading(true);
         try {
+            // While searching, pull matches across ALL dates (backend ignores
+            // month/year when q is set) — a receipt filed under an unexpected
+            // month/year (e.g. an AI-misread invoice date) is otherwise invisible
+            // with no way to find it short of paging through every month by hand.
+            // The summary/stats cards stay scoped to the selected month regardless.
             const [exp, sum, st] = await Promise.all([
-                getExpenses({ month, year }),
+                getExpenses(search.trim() ? { q: search.trim(), limit: 200 } : { month, year }),
                 getExpenseSummary(month, year),
                 getDashboardStats(month, year),
             ]);
@@ -886,7 +892,7 @@ export default function ExpensesPage() {
         } catch { } finally {
             setLoading(false);
         }
-    }, [month, year]);
+    }, [month, year, search]);
 
     useEffect(() => { load(); }, [load]);
     useEffect(() => { setSelectedIds(new Set()); }, [month, year]);
@@ -1027,17 +1033,26 @@ export default function ExpensesPage() {
 
                         {/* Period selectors + actions */}
                         <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+                            <input
+                                type="text"
+                                value={search}
+                                onChange={e => setSearch(e.target.value)}
+                                placeholder="🔍 חיפוש לפי ספק/שם — בכל התאריכים"
+                                style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: "8px", padding: "0.45rem 0.9rem", fontSize: "0.875rem", color: "#1a1a2e", minWidth: "220px" }}
+                            />
                             <select
                                 value={month}
                                 onChange={e => setMonth(Number(e.target.value))}
-                                style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: "8px", padding: "0.45rem 0.9rem", fontSize: "0.875rem", color: "#1a1a2e", cursor: "pointer", fontWeight: 500 }}
+                                disabled={!!search.trim()}
+                                style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: "8px", padding: "0.45rem 0.9rem", fontSize: "0.875rem", color: "#1a1a2e", cursor: "pointer", fontWeight: 500, opacity: search.trim() ? 0.5 : 1 }}
                             >
                                 {MONTHS.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
                             </select>
                             <select
                                 value={year}
                                 onChange={e => setYear(Number(e.target.value))}
-                                style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: "8px", padding: "0.45rem 0.9rem", fontSize: "0.875rem", color: "#1a1a2e", cursor: "pointer", fontWeight: 500 }}
+                                disabled={!!search.trim()}
+                                style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: "8px", padding: "0.45rem 0.9rem", fontSize: "0.875rem", color: "#1a1a2e", cursor: "pointer", fontWeight: 500, opacity: search.trim() ? 0.5 : 1 }}
                             >
                                 {[2024, 2025, 2026, 2027].map(y => <option key={y} value={y}>{y}</option>)}
                             </select>

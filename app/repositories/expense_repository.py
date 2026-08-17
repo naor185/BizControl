@@ -3,7 +3,7 @@ from typing import List, Optional, Tuple
 from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import func, select, and_, extract
+from sqlalchemy import func, select, and_, extract, or_
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import NoResultFound
 
@@ -36,21 +36,35 @@ class ExpenseRepository:
         return self.session.execute(stmt).scalar_one_or_none()
 
     def get_multi(
-        self, 
-        studio_id: uuid.UUID, 
-        skip: int = 0, 
+        self,
+        studio_id: uuid.UUID,
+        skip: int = 0,
         limit: int = 100,
         month: Optional[int] = None,
-        year: Optional[int] = None
+        year: Optional[int] = None,
+        q: Optional[str] = None,
     ) -> List[Expense]:
-        """Get list of expenses for a studio, with optional month/year filtering."""
+        """Get list of expenses for a studio, with optional month/year filtering.
+
+        `q` searches supplier/title/invoice number across ALL dates (callers
+        pass month=year=None alongside q) — otherwise a receipt filed under an
+        unexpected month/year (e.g. an AI-misread invoice date) is invisible
+        with no way to find it short of paging through every month by hand."""
         query = select(Expense).where(Expense.studio_id == studio_id)
-        
-        if month is not None:
-            query = query.where(extract('month', Expense.expense_date) == month)
-        if year is not None:
-            query = query.where(extract('year', Expense.expense_date) == year)
-            
+
+        if q:
+            like = f"%{q.strip()}%"
+            query = query.where(or_(
+                Expense.title.ilike(like),
+                Expense.supplier_name.ilike(like),
+                Expense.invoice_number.ilike(like),
+            ))
+        else:
+            if month is not None:
+                query = query.where(extract('month', Expense.expense_date) == month)
+            if year is not None:
+                query = query.where(extract('year', Expense.expense_date) == year)
+
         query = query.order_by(Expense.expense_date.desc()).offset(skip).limit(limit)
         
         result = self.session.execute(query)

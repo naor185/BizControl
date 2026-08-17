@@ -131,6 +131,7 @@ def get_expense_repo(db: Session = Depends(get_db)) -> ExpenseRepository:
 def list_expenses(
     month: Optional[int] = Query(None, ge=1, le=12, description="Filter by month (1-12)"),
     year: Optional[int] = Query(None, ge=2000, le=2100, description="Filter by year"),
+    q: Optional[str] = Query(None, max_length=200, description="Search supplier/title/invoice number across ALL dates — ignores month/year"),
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
     ctx: AuthContext = Depends(require_studio_ctx),
@@ -140,8 +141,9 @@ def list_expenses(
         studio_id=ctx.studio_id,
         skip=skip,
         limit=limit,
-        month=month,
-        year=year,
+        month=None if q else month,
+        year=None if q else year,
+        q=q,
     )
 
 

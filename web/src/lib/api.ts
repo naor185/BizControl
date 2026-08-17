@@ -254,7 +254,7 @@ export async function downloadExpenseReceiptsZip(month: number, year: number): P
     document.body.removeChild(a);
 }
 
-export function getExpenses(params?: { month?: number; year?: number; limit?: number }): Promise<Expense[]> {
+export function getExpenses(params?: { month?: number; year?: number; limit?: number; q?: string }): Promise<Expense[]> {
     const query = params
         ? "?" + new URLSearchParams(
             Object.entries(params)
