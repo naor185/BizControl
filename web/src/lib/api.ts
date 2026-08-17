@@ -276,6 +276,13 @@ export function createExpense(data: ExpenseCreate): Promise<Expense> {
     });
 }
 
+export function updateExpense(id: string, data: Partial<ExpenseCreate>): Promise<Expense> {
+    return apiFetch<Expense>(`/api/expenses/${id}`, {
+        method: "PUT",
+        body: JSON.stringify(data),
+    });
+}
+
 export function deleteExpense(id: string): Promise<void> {
     return apiFetch<void>(`/api/expenses/${id}`, { method: "DELETE" });
 }

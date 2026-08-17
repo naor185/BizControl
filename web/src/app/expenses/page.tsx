@@ -9,6 +9,7 @@ import {
     getExpenses,
     getExpenseSummary,
     createExpense,
+    updateExpense,
     deleteExpense,
     bulkDeleteExpenses,
     scanInvoice,
@@ -144,8 +145,23 @@ function InvoiceUploadModal({ onClose, onSaved }: { onClose: () => void; onSaved
                 if (!file) { setError("לא נמצאה תמונה לצירוף"); return; }
                 setSaving(true);
                 try {
+                    // Matching on supplier+date+amount only guarantees THOSE three
+                    // fields already agree — invoice number, VAT breakdown, payment
+                    // method and category from this fresh scan were previously
+                    // discarded on "attach to existing", silently keeping whatever
+                    // (possibly blank/wrong) values the existing record already had.
+                    // Sync them in along with the image.
+                    await updateExpense(existingId, {
+                        title,
+                        supplier_name: title,
+                        invoice_number: invoiceNum || undefined,
+                        category: category === "אחר" && categoryOther ? `אחר: ${categoryOther}` : category || undefined,
+                        vat_amount: vat ? parseFloat(vat) : undefined,
+                        pretax_amount: pretax ? parseFloat(pretax) : undefined,
+                        payment_method: paymentMethod || undefined,
+                    });
                     await uploadExpenseImage(existingId, file);
-                    toast.success("התמונה צורפה להוצאה הקיימת ✅");
+                    toast.success("התמונה והפרטים עודכנו בהוצאה הקיימת ✅");
                     onSaved();
                     resetForNextScan();
                 } catch (e: any) {
@@ -363,6 +379,11 @@ function ManualExpenseModal({ onClose, onSaved }: { onClose: () => void; onSaved
                 if (!imageFile) { setError("לא נבחרה תמונה לצירוף"); return; }
                 setSaving(true);
                 try {
+                    // See scan-modal handleSave for why this sync matters — matching
+                    // only guarantees supplier+date+amount already agree, everything
+                    // else in this form was previously discarded on "attach to existing".
+                    const { title, supplier_name, invoice_number, category, vat_amount, pretax_amount, payment_method } = form;
+                    await updateExpense(existingId, { title, supplier_name, invoice_number, category, vat_amount, pretax_amount, payment_method });
                     await uploadExpenseImage(existingId, imageFile);
                     onSaved();
                     onClose();
