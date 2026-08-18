@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import RequireAuth from "@/components/RequireAuth";
 import AppShell from "@/components/AppShell";
 import { apiFetch } from "@/lib/api";
+import { toLocalDateStr } from "@/lib/format";
 import Link from "next/link";
 
 type Client = {
@@ -728,7 +729,7 @@ function PageInner() {
                                 <div>
                                     <label className="block text-xs font-semibold text-slate-600 mb-1.5">תאריך לידה</label>
                                     <input value={newBirthDate} onChange={e => setNewBirthDate(e.target.value)} type="date"
-                                        min="1900-01-01" max={new Date().toISOString().split("T")[0]}
+                                        min="1900-01-01" max={toLocalDateStr(new Date())}
                                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-black/10 transition" />
                                 </div>
                                 <div>

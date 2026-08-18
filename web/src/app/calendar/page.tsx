@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import AppShell from "@/components/AppShell";
 import RequireAuth from "@/components/RequireAuth";
 import { apiFetch, getCurrentUserRole } from "@/lib/api";
+import { toLocalDateStr } from "@/lib/format";
 import PaymentModal from "@/components/PaymentModal";
 
 const IL_HOLIDAYS = [
@@ -1429,7 +1430,7 @@ export default function CalendarPage() {
                                 <button
                                     onClick={() => {
                                         setShowTypeChooser(false);
-                                        const dateStr = pendingSelectInfo?.startStr?.split("T")[0] || new Date().toISOString().split("T")[0];
+                                        const dateStr = pendingSelectInfo?.startStr?.split("T")[0] || toLocalDateStr(new Date());
                                         openNewTaskModal(dateStr);
                                     }}
                                     className="flex-1 flex flex-col items-center gap-2 p-4 rounded-2xl border-2 border-violet-200 bg-violet-50 hover:bg-violet-100 transition-colors"

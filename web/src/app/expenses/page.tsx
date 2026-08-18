@@ -1,5 +1,6 @@
 "use client";
 import { toast } from "@/lib/toast";
+import { toLocalDateStr } from "@/lib/format";
 import dynamic from "next/dynamic";
 
 const DocumentScanner = dynamic(() => import("@/components/DocumentScanner"), { ssr: false });
@@ -344,7 +345,7 @@ function ManualExpenseModal({ onClose, onSaved }: { onClose: () => void; onSaved
         title: "",
         amount: 0,
         vat_amount: 0,
-        expense_date: new Date().toISOString().split("T")[0],
+        expense_date: toLocalDateStr(new Date()),
     });
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -670,7 +671,7 @@ function SendToAccountantModal({
     onClose, onSent, defaultMonth, defaultYear,
 }: { onClose: () => void; onSent: () => void; defaultMonth: number; defaultYear: number }) {
     const firstOfMonth = `${defaultYear}-${String(defaultMonth).padStart(2, "0")}-01`;
-    const lastOfMonth = new Date(defaultYear, defaultMonth, 0).toISOString().split("T")[0];
+    const lastOfMonth = toLocalDateStr(new Date(defaultYear, defaultMonth, 0));
     const [dateFrom, setDateFrom] = useState(firstOfMonth);
     const [dateTo, setDateTo] = useState(lastOfMonth);
     const [sending, setSending] = useState(false);

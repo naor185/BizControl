@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from "react";
 import AppShell from "@/components/AppShell";
 import { apiFetch } from "@/lib/api";
+import { toLocalDateStr } from "@/lib/format";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -1051,7 +1052,7 @@ function SettingsTab({ settings, onSaved }: { settings: InvoiceSettings; onSaved
     // date range for manual send
     const now = new Date();
     const firstOfMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
-    const lastOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split("T")[0];
+    const lastOfMonth = toLocalDateStr(new Date(now.getFullYear(), now.getMonth() + 1, 0));
     const [sendFrom, setSendFrom] = useState(firstOfMonth);
     const [sendTo, setSendTo] = useState(lastOfMonth);
     const [sending, setSending] = useState(false);
