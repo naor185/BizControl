@@ -105,7 +105,8 @@ def _log(
 
 # ── Provider implementations ──────────────────────────────────────────────────
 
-def _send_resend(api_key: str, from_addr: str, to: str, subject: str, html: str, reply_to: str) -> str:
+def _send_resend(api_key: str, from_addr: str, to: str, subject: str, html: str, reply_to: str,
+                  attachments: Optional[list[dict]] = None) -> str:
     import httpx
     payload: dict = {
         "from": from_addr,
@@ -115,17 +116,23 @@ def _send_resend(api_key: str, from_addr: str, to: str, subject: str, html: str,
     }
     if reply_to:
         payload["reply_to"] = reply_to
+    if attachments:
+        # Resend wants base64 content directly in the JSON payload — no
+        # multipart upload needed.
+        payload["attachments"] = [{"filename": a["filename"], "content": a["content_base64"]} for a in attachments]
     r = httpx.post(
         "https://api.resend.com/emails",
         headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
         json=payload,
-        timeout=10,
+        timeout=30,
     )
     r.raise_for_status()
     return r.json().get("id", "")
 
 
-def _send_mailgun(api_key: str, domain: str, from_addr: str, to: str, subject: str, html: str, reply_to: str) -> str:
+def _send_mailgun(api_key: str, domain: str, from_addr: str, to: str, subject: str, html: str, reply_to: str,
+                   attachments: Optional[list[dict]] = None) -> str:
+    import base64
     import httpx
     data: dict = {
         "from": from_addr,
@@ -135,17 +142,23 @@ def _send_mailgun(api_key: str, domain: str, from_addr: str, to: str, subject: s
     }
     if reply_to:
         data["h:Reply-To"] = reply_to
+    files = None
+    if attachments:
+        # Mailgun takes real files via multipart, not base64-in-JSON.
+        files = [("attachment", (a["filename"], base64.b64decode(a["content_base64"]))) for a in attachments]
     r = httpx.post(
         f"https://api.mailgun.net/v3/{domain}/messages",
         auth=("api", api_key),
         data=data,
-        timeout=10,
+        files=files,
+        timeout=30,
     )
     r.raise_for_status()
     return r.json().get("id", "")
 
 
-def _send_ses(api_key: str, from_addr: str, to: str, subject: str, html: str, reply_to: str) -> str:
+def _send_ses(api_key: str, from_addr: str, to: str, subject: str, html: str, reply_to: str,
+              attachments: Optional[list[dict]] = None) -> str:
     raise NotImplementedError("Amazon SES support coming soon")
 
 
@@ -163,6 +176,7 @@ def send_email(
     client_id: Optional[str] = None,
     template_key: str = "custom",
     email_type: str = "system",  # system | appointment | marketing | invoice
+    attachments: Optional[list[dict]] = None,  # [{"filename": str, "content_base64": str}]
 ) -> bool:
     """
     Send an email via BizControl's centralized email infrastructure.
@@ -212,11 +226,11 @@ def send_email(
 
     try:
         if provider == "resend":
-            msg_id = _send_resend(api_key, from_addr, to_email, subject, html_content, reply_to)
+            msg_id = _send_resend(api_key, from_addr, to_email, subject, html_content, reply_to, attachments)
         elif provider == "mailgun":
-            msg_id = _send_mailgun(api_key, domain, from_addr, to_email, subject, html_content, reply_to)
+            msg_id = _send_mailgun(api_key, domain, from_addr, to_email, subject, html_content, reply_to, attachments)
         elif provider == "ses":
-            msg_id = _send_ses(api_key, from_addr, to_email, subject, html_content, reply_to)
+            msg_id = _send_ses(api_key, from_addr, to_email, subject, html_content, reply_to, attachments)
         else:
             raise ValueError(f"Unknown provider: {provider}")
 

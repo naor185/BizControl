@@ -88,6 +88,50 @@ def _delete_receipt_file(url: str | None, db=None) -> None:
                 _log.warning("Could not delete local receipt %s: %s", file_path, e)
 
 
+def _build_receipts_pdf(expenses: list) -> bytes | None:
+    """Merge every expense's receipt image into a single multi-page PDF, in
+    the same order as the report (by expense_date). Best-effort per image —
+    a missing/corrupt/unsupported (e.g. HEIC, which Pillow can't decode
+    without an extra plugin) receipt is skipped rather than failing the whole
+    email. Returns None if no receipt could be loaded at all."""
+    import io
+    import httpx
+    from PIL import Image
+
+    images = []
+    for exp in expenses:
+        url = exp.receipt_url
+        if not url:
+            continue
+        try:
+            if url.startswith("http"):
+                resp = httpx.get(url, timeout=15)
+                resp.raise_for_status()
+                img = Image.open(io.BytesIO(resp.content))
+            else:
+                # Same local-path convention/safety check as _delete_receipt_file.
+                file_path = os.path.normpath(url.lstrip("/"))
+                uploads_root = os.path.normpath("uploads")
+                if not os.path.abspath(file_path).startswith(os.path.abspath(uploads_root)):
+                    continue
+                if not os.path.exists(file_path):
+                    continue
+                img = Image.open(file_path)
+            img = img.convert("RGB")
+            img.load()  # force-decode before the source file/response goes out of scope
+            images.append(img)
+        except Exception as e:
+            _log.warning("[receipts-pdf] skipping receipt for expense %s: %s", exp.id, e)
+            continue
+
+    if not images:
+        return None
+
+    buf = io.BytesIO()
+    images[0].save(buf, format="PDF", save_all=True, append_images=images[1:])
+    return buf.getvalue()
+
+
 def _measure_receipt_size(url: str | None) -> int | None:
     """Best-effort byte size lookup for a legacy receipt that predates file_size_bytes tracking."""
     if not url:
@@ -467,6 +511,21 @@ def send_expenses_to_accountant(
           <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;text-align:center">{_receipt_link(exp.receipt_url)}</td>
         </tr>"""
 
+    # One combined PDF of every receipt image in the range, attached to the
+    # email — in addition to (not instead of) the per-row links, since a
+    # receipt that couldn't be merged (HEIC, broken URL, etc.) still has its
+    # link in the table as a fallback.
+    receipts_pdf = _build_receipts_pdf(expenses)
+    attachments = None
+    pdf_note = ""
+    if receipts_pdf:
+        import base64
+        attachments = [{
+            "filename": f"receipts_{date_from}_to_{date_to}.pdf",
+            "content_base64": base64.b64encode(receipts_pdf).decode("ascii"),
+        }]
+        pdf_note = '<p style="color:#166534;font-size:13px;margin:8px 0 0;font-weight:700">📎 מצורף קובץ PDF אחד עם כל תמונות הקבלות.</p>'
+
     html = f"""
     <html dir="rtl" lang="he"><head><meta charset="UTF-8">
     <style>body{{font-family:Arial,sans-serif;direction:rtl;color:#1a1a2e}}
@@ -474,8 +533,9 @@ def send_expenses_to_accountant(
     </head><body>
     <div style="max-width:800px;margin:0 auto;padding:20px">
       <h2 style="color:#1a1a2e;margin-bottom:4px">דוח הוצאות {date_from} עד {date_to} — {biz_name}</h2>
-      <p style="color:#64748b;font-size:13px;margin-bottom:20px">סה"כ {len(expenses)} הוצאות</p>
-      <table>
+      <p style="color:#64748b;font-size:13px;margin-bottom:4px">סה"כ {len(expenses)} הוצאות</p>
+      {pdf_note}
+      <table style="margin-top:16px">
         <thead><tr>
           <th>ספק</th><th>קטגוריה</th><th>תאריך</th><th>אמצעי תשלום</th>
           <th style="text-align:left">סכום</th><th style="text-align:left">מע"מ</th><th>קבלה</th>
@@ -501,6 +561,7 @@ def send_expenses_to_accountant(
         studio_id=str(ctx.studio_id),
         template_key="expenses_report",
         email_type="invoice",
+        attachments=attachments,
     )
     if not ok:
         raise HTTPException(
