@@ -984,6 +984,7 @@ export default function CalendarPage() {
                             ref={calendarRef}
                             plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
                             initialView="timeGridWeek"
+                            dayMinWidth={isMobile ? 130 : undefined}
                             headerToolbar={isMobile ? {
                                 left: "prev,next,today",
                                 center: "title",
