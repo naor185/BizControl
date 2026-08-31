@@ -1029,7 +1029,7 @@ export default function CalendarPage() {
                 {/* Appointment Modal */}
                 {isModalOpen && (
                     <div className={`fixed inset-0 z-50 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200 ${isMobile ? "flex items-end justify-center" : "flex items-center justify-center p-3 sm:p-4"}`}>
-                        <div className={`bg-white w-full shadow-2xl overflow-hidden flex flex-col ${isMobile ? "rounded-t-3xl max-h-[92vh] animate-in slide-in-from-bottom duration-300" : "rounded-3xl max-w-lg max-h-[calc(100vh-5rem)] animate-in zoom-in-95 duration-300"}`} dir="rtl">
+                        <div className={`bg-white w-full shadow-2xl overflow-hidden flex flex-col ${isMobile ? "rounded-t-3xl max-h-[92dvh] animate-in slide-in-from-bottom duration-300" : "rounded-3xl max-w-lg max-h-[calc(100dvh-5rem)] animate-in zoom-in-95 duration-300"}`} dir="rtl">
                             {isMobile && <div className="flex justify-center pt-3 pb-1 flex-shrink-0"><div className="w-10 h-1 rounded-full bg-slate-300" /></div>}
                             <div className="bg-slate-50 border-b border-slate-100 px-5 py-4 flex items-center justify-between flex-shrink-0">
                                 <h3 className="text-xl font-bold text-slate-800">{selectedEventId ? "עריכת תור" : "קביעת תור חדש"}</h3>
@@ -1446,7 +1446,7 @@ export default function CalendarPage() {
                 {/* Task Modal */}
                 {isTaskModalOpen && (
                     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm sm:p-4 animate-in fade-in duration-200">
-                        <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full sm:max-w-md shadow-2xl overflow-hidden max-h-[85vh] flex flex-col animate-in slide-in-from-bottom sm:zoom-in-95 duration-300" dir="rtl">
+                        <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full sm:max-w-md shadow-2xl overflow-hidden max-h-[85dvh] flex flex-col animate-in slide-in-from-bottom sm:zoom-in-95 duration-300" dir="rtl">
                             <div className="bg-violet-50 border-b border-violet-100 p-5 flex items-center justify-between flex-shrink-0">
                                 <h3 className="text-xl font-bold text-violet-900">{selectedTaskId ? "עריכת משימה" : "משימה / תזכורת חדשה"}</h3>
                                 <button onClick={() => setIsTaskModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-2 bg-white rounded-full shadow-sm">✕</button>

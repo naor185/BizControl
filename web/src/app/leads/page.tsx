@@ -512,7 +512,7 @@ export default function LeadsPage() {
                 {/* Create / Edit modal */}
                 {modal && (
                     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 px-4" onClick={() => setModal(null)}>
-                        <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full sm:max-w-md p-6 pb-8 space-y-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                        <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full sm:max-w-md p-6 pb-8 space-y-4 max-h-[90dvh] overflow-y-auto" onClick={e => e.stopPropagation()}>
                             <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto sm:hidden" />
                             <h2 className="text-base font-bold text-slate-900">{modal.mode === "create" ? "ליד חדש" : "עריכת ליד"}</h2>
                             <div className="space-y-3">

@@ -1688,7 +1688,7 @@ export default function AdminPage() {
             {/* Edit Studio + Owner Modal */}
             {editModal && (
                 <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-                    <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-lg max-h-[90vh] flex flex-col" dir="rtl">
+                    <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-lg max-h-[90dvh] flex flex-col" dir="rtl">
                         <div className="flex items-center justify-between p-6 pb-4 flex-shrink-0">
                             <h3 className="font-bold text-lg">✏️ עריכת סטודיו — {editModal.name}</h3>
                             <button onClick={() => setEditModal(null)} className="text-slate-400 hover:text-white text-xl">✕</button>
@@ -1745,7 +1745,7 @@ export default function AdminPage() {
             {/* Users Management Modal */}
             {usersModal && (
                 <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-                    <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col" dir="rtl">
+                    <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-2xl max-h-[90dvh] flex flex-col" dir="rtl">
                         <div className="flex items-center justify-between p-6 pb-4 flex-shrink-0">
                             <h3 className="font-bold text-lg">👤 משתמשי הסטודיו — {usersModal.name}</h3>
                             <button onClick={() => { setUsersModal(null); setEditingUser(null); }} className="text-slate-400 hover:text-white text-xl">✕</button>
@@ -1962,7 +1962,7 @@ export default function AdminPage() {
             {/* New Studio Modal */}
             {showNew && (
                 <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-                    <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-lg max-h-[90vh] flex flex-col" dir="rtl">
+                    <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-lg max-h-[90dvh] flex flex-col" dir="rtl">
                         <div className="flex items-center justify-between p-6 pb-4 flex-shrink-0">
                             <h3 className="font-bold text-lg">הקמת סטודיו חדש</h3>
                             <button onClick={() => setShowNew(false)} className="text-slate-400 hover:text-white text-xl">✕</button>

@@ -281,7 +281,7 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
 
     return (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-4">
-            <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-auto max-h-[95vh]">
+            <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-auto max-h-[95dvh]">
                 <div className="p-6">
                     <div className="flex justify-between items-center mb-5">
                         <h2 className="text-lg font-black">🎁 כרטיס מתנה חדש</h2>
@@ -363,7 +363,7 @@ function DetailModal({ card, onClose, onCancel, onApprove, onDelete }: { card: G
 
     return (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-4">
-            <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-auto max-h-[92vh]">
+            <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-auto max-h-[92dvh]">
                 <div className="p-6">
                     <div className="flex justify-between items-center mb-4">
                         <h2 className="text-base font-black">פרטי כרטיס</h2>

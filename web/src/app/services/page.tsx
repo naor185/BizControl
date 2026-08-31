@@ -73,7 +73,7 @@ function ServiceModal({
 
     return (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: "1rem" }}>
-            <div style={{ background: "linear-gradient(145deg,#1e1b4b,#312e81)", border: "1px solid rgba(167,139,250,.3)", borderRadius: 20, width: "100%", maxWidth: 560, padding: "2rem", maxHeight: "90vh", overflowY: "auto" }} dir="rtl">
+            <div style={{ background: "linear-gradient(145deg,#1e1b4b,#312e81)", border: "1px solid rgba(167,139,250,.3)", borderRadius: 20, width: "100%", maxWidth: 560, padding: "2rem", maxHeight: "90dvh", overflowY: "auto" }} dir="rtl">
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
                     <h2 style={{ color: "#a78bfa", fontWeight: 700, fontSize: "1.2rem", margin: 0 }}>
                         {isEdit ? "✏️ עריכת שירות" : "➕ שירות חדש"}

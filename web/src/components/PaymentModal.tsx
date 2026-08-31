@@ -176,7 +176,7 @@ export default function PaymentModal({ isOpen, onClose, onSuccess, appointment }
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-2 animate-in fade-in duration-200" dir="rtl">
-            <div className="bg-white rounded-2xl w-full max-w-[360px] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
+            <div className="bg-white rounded-2xl w-full max-w-[360px] shadow-2xl overflow-hidden flex flex-col max-h-[90dvh] animate-in zoom-in-95 duration-200">
 
                 {/* Header */}
                 <div className="bg-sky-600 px-4 py-3 text-white flex justify-between items-center shrink-0">

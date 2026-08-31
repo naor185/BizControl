@@ -714,7 +714,7 @@ function PageInner() {
                                 <h3 className="text-base font-bold text-slate-800">לקוח חדש</h3>
                                 <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 transition">✕</button>
                             </div>
-                            <div className="p-5 space-y-3.5 max-h-[70vh] overflow-y-auto">
+                            <div className="p-5 space-y-3.5 max-h-[70dvh] overflow-y-auto">
                                 {[
                                     { label: "שם מלא *", val: newName, set: setNewName, type: "text" },
                                     { label: "טלפון *", val: newPhone, set: setNewPhone, type: "tel" },

@@ -604,7 +604,7 @@ function InvoiceDetailModal({ invoice, onClose, onDownload, getPdfUrl, onCredit 
                 onClick={showActions ? () => setShowActions(false) : onClose}>
 
                 {/* Main sheet */}
-                <div style={{ background: "#fff", borderRadius: "20px 20px 0 0", width: "100%", maxWidth: 580, maxHeight: "92vh", overflow: "auto", display: "flex", flexDirection: "column" }}
+                <div style={{ background: "#fff", borderRadius: "20px 20px 0 0", width: "100%", maxWidth: 580, maxHeight: "92dvh", overflow: "auto", display: "flex", flexDirection: "column" }}
                     onClick={e => e.stopPropagation()}>
 
                     {/* Close bar */}
@@ -922,7 +922,7 @@ function InvoiceSetupWizard({ series, existing, onComplete }: { series: SeriesMa
 
     return (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.6)", zIndex: 9900, display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" }}>
-            <div style={{ background: "#fff", borderRadius: 20, width: "100%", maxWidth: 500, maxHeight: "92vh", overflow: "auto", boxShadow: "0 25px 60px rgba(0,0,0,.25)" }}>
+            <div style={{ background: "#fff", borderRadius: 20, width: "100%", maxWidth: 500, maxHeight: "92dvh", overflow: "auto", boxShadow: "0 25px 60px rgba(0,0,0,.25)" }}>
 
                 {/* Title */}
                 <div style={{ padding: "1.5rem 1.5rem 0", textAlign: "center" }}>

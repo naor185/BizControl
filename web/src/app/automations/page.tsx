@@ -40,7 +40,7 @@ function ExecHistoryModal({ ruleId, ruleName, onClose }: { ruleId: string; ruleN
 
     return (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.8)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100, padding: "1rem" }}>
-            <div style={{ background: "linear-gradient(145deg,#0f172a,#1e1b4b)", border: "1px solid rgba(167,139,250,.4)", borderRadius: 24, width: "100%", maxWidth: 600, padding: "2rem", maxHeight: "85vh", display: "flex", flexDirection: "column" }} dir="rtl">
+            <div style={{ background: "linear-gradient(145deg,#0f172a,#1e1b4b)", border: "1px solid rgba(167,139,250,.4)", borderRadius: 24, width: "100%", maxWidth: 600, padding: "2rem", maxHeight: "85dvh", display: "flex", flexDirection: "column" }} dir="rtl">
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem" }}>
                     <div>
                         <h2 style={{ color: "#a78bfa", fontWeight: 800, fontSize: "1.2rem", margin: 0 }}>📊 היסטוריית הפעלות</h2>
@@ -208,7 +208,7 @@ function RuleModal({ rule, meta, services, onClose, onSaved }: {
 
     return (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.8)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: "1rem" }}>
-            <div style={{ background: "linear-gradient(145deg,#0f172a,#1e1b4b)", border: "1px solid rgba(167,139,250,.4)", borderRadius: 24, width: "100%", maxWidth: 640, padding: "2rem", maxHeight: "90vh", overflowY: "auto" }} dir="rtl">
+            <div style={{ background: "linear-gradient(145deg,#0f172a,#1e1b4b)", border: "1px solid rgba(167,139,250,.4)", borderRadius: 24, width: "100%", maxWidth: 640, padding: "2rem", maxHeight: "90dvh", overflowY: "auto" }} dir="rtl">
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
                     <h2 style={{ color: "#a78bfa", fontWeight: 800, fontSize: "1.3rem", margin: 0 }}>
                         {isEdit ? "✏️ עריכת חוק" : "⚡ חוק אוטומציה חדש"}

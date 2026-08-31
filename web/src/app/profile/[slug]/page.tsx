@@ -86,7 +86,7 @@ export default function ProfilePage() {
             {/* Lightbox */}
             {lightbox && (
                 <div onClick={() => setLightbox(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.92)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", cursor: "zoom-out" }}>
-                    <img src={lightbox} alt="" style={{ maxWidth: "95vw", maxHeight: "90vh", borderRadius: 12, objectFit: "contain" }} />
+                    <img src={lightbox} alt="" style={{ maxWidth: "95vw", maxHeight: "90dvh", borderRadius: 12, objectFit: "contain" }} />
                 </div>
             )}
 

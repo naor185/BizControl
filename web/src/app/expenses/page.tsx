@@ -621,7 +621,7 @@ function StorageUsageModal({ onClose, onChanged }: { onClose: () => void; onChan
                                         </button>
                                     )}
                                 </div>
-                                <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem", maxHeight: "50vh", overflowY: "auto" }}>
+                                <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem", maxHeight: "50dvh", overflowY: "auto" }}>
                                     {receipts.map(e => (
                                         <div key={e.id} style={{ display: "flex", alignItems: "center", gap: "0.75rem", background: selectedIds.has(e.id) ? "rgba(167,139,250,.12)" : "rgba(255,255,255,.05)", border: selectedIds.has(e.id) ? "1px solid rgba(167,139,250,.4)" : "1px solid rgba(255,255,255,.1)", borderRadius: 10, padding: "0.6rem 0.75rem" }}>
                                             <input
@@ -996,7 +996,7 @@ export default function ExpensesPage() {
                         .btn-secondary { background:#fff; color:#1a1a2e; border:1px solid #e5e7eb; padding:0.7rem 1.4rem; border-radius:10px; font-size:0.9rem; cursor:pointer; transition:all .15s; }
                         .btn-secondary:hover { background:#f8f9fa; }
                         .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.55); backdrop-filter:blur(4px); display:flex; align-items:center; justify-content:center; z-index:1000; padding:1rem; }
-                        .modal-panel { background:linear-gradient(145deg,#1e1b4b,#312e81); border:1px solid rgba(167,139,250,.3); border-radius:20px; width:100%; max-width:560px; padding:2rem; max-height:90vh; overflow-y:auto; }
+                        .modal-panel { background:linear-gradient(145deg,#1e1b4b,#312e81); border:1px solid rgba(167,139,250,.3); border-radius:20px; width:100%; max-width:560px; padding:2rem; max-height:90dvh; overflow-y:auto; }
                         .modal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; }
                         .modal-header h2 { font-size:1.3rem; font-weight:700; color:#a78bfa; }
                         .close-btn { background:rgba(255,255,255,.1); border:none; color:#fff; width:32px; height:32px; border-radius:8px; cursor:pointer; font-size:1rem; }

@@ -932,7 +932,7 @@ export default function AutomationSettingsPage() {
         return (
             <RequireAuth>
                 <AppShell title="הגדרות מערכת">
-                    <div className="flex h-[60vh] items-center justify-center">
+                    <div className="flex h-[60dvh] items-center justify-center">
                         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-900"></div>
                     </div>
                 </AppShell>
