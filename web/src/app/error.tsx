@@ -28,10 +28,28 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
                 style={{
                     background: "#0ea5e9", color: "#fff", border: "none", borderRadius: 12,
                     padding: "0.8rem 2rem", fontWeight: 700, fontSize: "0.95rem", cursor: "pointer",
+                    marginBottom: "1.5rem",
                 }}
             >
                 נסה שוב
             </button>
+
+            {/* Temporary while we're actively tracking down mobile crashes — shows
+                the real error text so it can be screenshotted, instead of relying on
+                a phone's browser console (not practically reachable). Remove once
+                the current round of crash reports is resolved. */}
+            <div style={{
+                maxWidth: 340, background: "#1e293b", border: "1px solid #334155", borderRadius: 10,
+                padding: "0.85rem 1rem", textAlign: "left", direction: "ltr",
+            }}>
+                <div style={{ fontSize: "0.7rem", color: "#64748b", marginBottom: "0.3rem" }}>פרטים טכניים (לשליחה לתמיכה):</div>
+                <div style={{ fontSize: "0.78rem", color: "#fca5a5", fontFamily: "monospace", wordBreak: "break-word", whiteSpace: "pre-wrap" }}>
+                    {error?.message || "(no message)"}
+                </div>
+                {error?.digest && (
+                    <div style={{ fontSize: "0.7rem", color: "#64748b", marginTop: "0.4rem" }}>digest: {error.digest}</div>
+                )}
+            </div>
         </div>
     );
 }
