@@ -3,7 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from datetime import datetime
+from datetime import datetime, timezone
 from app.utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -336,9 +336,25 @@ def patch(appointment_id: UUID, payload: AppointmentUpdate, ctx: AuthContext = D
     # then send a reschedule notification to the client
     try:
         if payload.starts_at and existing_appt and prev_starts_at:
-            def _to_naive(dt):
-                return dt.replace(tzinfo=None) if getattr(dt, "tzinfo", None) else dt
-            if _to_naive(payload.starts_at) != _to_naive(prev_starts_at):
+            def _to_utc(dt):
+                # A naive value here is FullCalendar's LOCAL (Israel) wall-clock
+                # time re-serialized on drag (no `timeZone` prop is set on the
+                # calendar, so FullCalendar defaults to "local") — not UTC. The
+                # previous tzinfo-stripping comparison treated a naive value as
+                # if it were already UTC, comparing local-clock digits against
+                # the DB's genuine UTC digits — two different reference frames
+                # offset by Israel's UTC+2/+3, which almost never matched even
+                # when nothing had actually changed (drag) and could also mask
+                # a real change (the modal sends a proper UTC ISO string via
+                # toISOString(), so its digits legitimately differ from the
+                # naive-stripped DB value by the same offset). Normalize both
+                # sides to real UTC before comparing so drag and modal-edit are
+                # judged identically.
+                import pytz
+                if dt.tzinfo is None:
+                    return pytz.timezone("Asia/Jerusalem").localize(dt).astimezone(timezone.utc)
+                return dt.astimezone(timezone.utc)
+            if _to_utc(payload.starts_at) != _to_utc(prev_starts_at):
                 from sqlalchemy import update as sa_update
                 _REMINDER_TYPES = ["1day", "3day", "7day", "same_day", "same_day_email",
                                    "1day_email", "3day_email", "7day_email"]
