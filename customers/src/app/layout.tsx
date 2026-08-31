@@ -13,7 +13,12 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     return (
         <html lang="he" dir="rtl">
             <head>
-                <meta name="viewport" content="width=device-width, initial-scale=1" />
+                {/* Pinch-zoom disabled to match BizControl's fix — an app-like mobile
+                    UI (now also wrapped in a native Capacitor shell) shouldn't zoom its
+                    own chrome, and it removes a real crash trigger (a resize mid-pinch
+                    threw an unhandled client-side exception on BizControl's dashboard;
+                    same risk applies here). */}
+                <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
                 <style>{`
                     * { box-sizing: border-box; margin: 0; padding: 0; }
                     body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f1f5f9; padding-bottom: 64px; }
