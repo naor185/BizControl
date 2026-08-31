@@ -719,12 +719,12 @@ export default function CalendarPage() {
         extendedProps: { isTask: true, taskId: t.id, ...t },
     })), [tasks]);
 
-    const openNewTaskModal = (dateStr: string) => {
+    const openNewTaskModal = (dateStr: string, startTime: string = "", endTime: string = "") => {
         setSelectedTaskId(null);
         setTaskTitle("");
         setTaskDate(dateStr);
-        setTaskStartTime("");
-        setTaskEndTime("");
+        setTaskStartTime(startTime);
+        setTaskEndTime(endTime);
         setTaskNotes("");
         setTaskColor("#8b5cf6");
         setTaskRecurrence("none");
@@ -1431,8 +1431,13 @@ export default function CalendarPage() {
                                 <button
                                     onClick={() => {
                                         setShowTypeChooser(false);
+                                        // Preserve the specific slot the user selected on the time grid
+                                        // (month-view day clicks have no time component — startStr is
+                                        // just a date, so this naturally falls back to an all-day task).
                                         const dateStr = pendingSelectInfo?.startStr?.split("T")[0] || toLocalDateStr(new Date());
-                                        openNewTaskModal(dateStr);
+                                        const startMatch = pendingSelectInfo?.startStr?.match(/T(\d{2}:\d{2})/);
+                                        const endMatch = pendingSelectInfo?.endStr?.match(/T(\d{2}:\d{2})/);
+                                        openNewTaskModal(dateStr, startMatch?.[1] || "", endMatch?.[1] || "");
                                     }}
                                     className="flex-1 flex flex-col items-center gap-2 p-4 rounded-2xl border-2 border-violet-200 bg-violet-50 hover:bg-violet-100 transition-colors"
                                 >
