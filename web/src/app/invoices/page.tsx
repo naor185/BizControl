@@ -667,9 +667,9 @@ function InvoiceDetailModal({ invoice, onClose, onDownload, getPdfUrl, onCredit 
 
                             {/* ── Items table ── */}
                             {invoice.items && invoice.items.length > 0 && (
-                                <div>
+                                <div style={{ overflowX: "auto" }}>
                                     <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.35rem" }}>פירוט</div>
-                                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+                                    <table style={{ minWidth: 480, width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
                                         <thead>
                                             <tr style={{ background: accentColor, color: "#fff" }}>
                                                 <th style={{ padding: "0.5rem 0.6rem", textAlign: "right", fontWeight: 700, borderRadius: "6px 0 0 0" }}>תיאור</th>

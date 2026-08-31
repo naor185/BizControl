@@ -4,6 +4,8 @@ import { toast } from "@/lib/toast";
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { apiFetch } from "@/lib/api";
+import AppShell from "@/components/AppShell";
+import RequireAuth from "@/components/RequireAuth";
 import { CheckCircle2, XCircle, Clock, Phone, Mail, Calendar, User, MessageSquare } from "lucide-react";
 
 interface BookingRequest {
@@ -76,7 +78,9 @@ export default function BookingRequestsPage() {
     }
 
     return (
-        <div className="p-4 md:p-6 max-w-3xl mx-auto" dir="rtl">
+        <RequireAuth>
+            <AppShell title="בקשות תורים">
+                <div className="max-w-3xl mx-auto" dir="rtl">
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
                 <div>
@@ -249,6 +253,8 @@ export default function BookingRequestsPage() {
                     </motion.div>
                 )}
             </AnimatePresence>
-        </div>
+                </div>
+            </AppShell>
+        </RequireAuth>
     );
 }

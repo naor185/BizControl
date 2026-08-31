@@ -109,7 +109,8 @@ export default function InvoiceScansAdminPage() {
                     {loading ? (
                         <div style={{ padding: "3rem", textAlign: "center", color: "#64748b" }}>טוען...</div>
                     ) : (
-                        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.9rem" }}>
+                        <div style={{ overflowX: "auto" }}>
+                        <table style={{ minWidth: 880, width: "100%", borderCollapse: "collapse", fontSize: "0.9rem" }}>
                             <thead>
                                 <tr style={{ background: "rgba(255,255,255,.03)" }}>
                                     {["סטודיו", "סריקה AI", "שימוש חודשי", "מכסה", "טוקנים", "עלות משוערת", "קביעת מכסה", "איפוס חודשי"].map(h => (
@@ -186,6 +187,7 @@ export default function InvoiceScansAdminPage() {
                                 )}
                             </tbody>
                         </table>
+                        </div>
                     )}
                 </div>
 

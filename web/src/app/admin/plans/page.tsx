@@ -673,7 +673,8 @@ function CompareTab({ plans, defaultOther }: { plans: PlanRecord[]; defaultOther
                     {plans.filter(p => p.id !== a).map(p => <option key={p.id} value={p.id}>{p.display_name}</option>)}
                 </select>
             </div>
-            <table style={{ width: "100%", fontSize: "0.8rem", borderCollapse: "collapse" }}>
+            <div style={{ overflowX: "auto" }}>
+            <table style={{ minWidth: 360, width: "100%", fontSize: "0.8rem", borderCollapse: "collapse" }}>
                 <thead>
                     <tr style={{ textAlign: "right", color: "#94a3b8" }}>
                         <th style={{ padding: "0.4rem" }}>מודול</th>
@@ -695,6 +696,7 @@ function CompareTab({ plans, defaultOther }: { plans: PlanRecord[]; defaultOther
                     })}
                 </tbody>
             </table>
+            </div>
         </div>
     );
 }

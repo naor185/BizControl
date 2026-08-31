@@ -680,6 +680,10 @@ _BUILTIN_ORIGINS = [
     "https://bizcontrol-seven.vercel.app",
     "http://localhost:3000",
     "http://localhost:3001",
+    # Native Capacitor shells use these local origins while communicating with
+    # the same HTTPS API as the web application.
+    "capacitor://localhost",
+    "http://localhost",
 ]
 _raw_origins = os.getenv("ALLOWED_ORIGINS", "")
 _extra = [o.strip() for o in _raw_origins.split(",") if o.strip()] if _raw_origins else []

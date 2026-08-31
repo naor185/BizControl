@@ -15,6 +15,7 @@ const PRIMARY_NAV: { href: string; labelKey: TranslationKey; icon: string; badge
 ];
 
 const MORE_NAV: { href: string; labelKey: TranslationKey; icon: string }[] = [
+    { href: "/business",     labelKey: "nav_business",  icon: "🏢" },
     { href: "/dashboard",    labelKey: "nav_dashboard", icon: "📊" },
     { href: "/payments",     labelKey: "nav_payments",  icon: "💳" },
     { href: "/leads",        labelKey: "nav_leads",     icon: "🎯" },
@@ -79,9 +80,10 @@ export default function BottomNav() {
 
             {/* More sheet — slides up */}
             <div
+                id="mobile-more-navigation"
                 dir="rtl"
                 className={[
-                    "fixed right-0 left-0 z-50 md:hidden bg-white rounded-t-3xl shadow-2xl transition-all duration-300 ease-out",
+                    "fixed right-0 left-0 z-50 md:hidden max-h-[calc(100vh-4rem-env(safe-area-inset-bottom,0px))] overflow-y-auto bg-white rounded-t-3xl shadow-2xl transition-all duration-300 ease-out",
                     sheetOpen ? "translate-y-0 opacity-100" : "translate-y-full opacity-0 pointer-events-none",
                 ].join(" ")}
                 style={{ bottom: "64px" }}
@@ -189,6 +191,8 @@ export default function BottomNav() {
                     {!isArtist && (
                         <button
                             onClick={() => setSheetOpen(o => !o)}
+                            aria-expanded={sheetOpen}
+                            aria-controls="mobile-more-navigation"
                             className="flex-1 relative flex flex-col items-center justify-center gap-0.5 transition-all active:scale-90"
                         >
                             {(moreActive || sheetOpen) && (

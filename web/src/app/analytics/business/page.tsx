@@ -217,8 +217,8 @@ export default function BusinessAnalyticsPage() {
                         {/* ── Top Clients ── */}
                         <section>
                             <h2 className="text-base font-bold text-slate-700 mb-3">👑 לקוחות מובילים — לפי הכנסה</h2>
-                            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-                                <table className="w-full text-right text-sm">
+                            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-x-auto">
+                                <table className="min-w-[34rem] w-full text-right text-sm">
                                     <thead>
                                         <tr className="bg-slate-50 text-slate-500 text-xs font-bold border-b border-slate-100">
                                             <th className="px-5 py-3">#</th>

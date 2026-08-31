@@ -175,7 +175,8 @@ export default function GiftCardsPage() {
                         </div>
                     ) : (
                         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-                            <table className="w-full text-right text-sm">
+                            <div className="overflow-x-auto">
+                            <table className="min-w-[38rem] w-full text-right text-sm">
                                 <thead>
                                     <tr className="bg-slate-50 text-slate-500 text-xs font-bold border-b">
                                         <th className="px-4 py-3">קוד</th>
@@ -221,6 +222,7 @@ export default function GiftCardsPage() {
                                     })}
                                 </tbody>
                             </table>
+                            </div>
                         </div>
                     )}
                 </div>
