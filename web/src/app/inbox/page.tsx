@@ -254,7 +254,7 @@ export default function InboxPage() {
                                     <p className="text-[10px] text-gray-300 mt-1">חיבור מתבצע דרך הגדרות הסטודיו</p>
                                 </div>
                             ) : (
-                                <div className="flex-1 overflow-y-auto divide-y divide-gray-50">
+                                <div className="flex-1 min-h-0 overflow-y-auto divide-y divide-gray-50">
                                     {filtered.map(conv => {
                                         const config = ch(conv.channel);
                                         const isActive = selected ? convKey(conv) === convKey(selected) : false;
@@ -375,7 +375,7 @@ export default function InboxPage() {
                                     </div>
 
                                     {/* Messages */}
-                                    <div className="flex-1 overflow-y-auto px-4 py-4 space-y-1.5">
+                                    <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-1.5">
                                         {loadingMsgs ? (
                                             <div className="flex justify-center py-10">
                                                 <div className="animate-spin h-6 w-6 border-2 border-gray-300 border-t-gray-700 rounded-full" />

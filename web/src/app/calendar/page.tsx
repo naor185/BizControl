@@ -1065,7 +1065,7 @@ export default function CalendarPage() {
                                 <button type="button" onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-2 bg-white rounded-full shadow-sm hover:shadow transition-all">✕</button>
                             </div>
 
-                            <div className="p-4 space-y-3 overflow-y-auto flex-1">
+                            <div className="p-4 space-y-3 overflow-y-auto flex-1 min-h-0">
                                 {/* Date row */}
                                 <div>
                                     <label className="block text-sm font-semibold text-slate-700 mb-1">
@@ -1486,7 +1486,7 @@ export default function CalendarPage() {
                                 <button onClick={() => setIsTaskModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-2 bg-white rounded-full shadow-sm">✕</button>
                             </div>
 
-                            <div className="p-5 space-y-4 overflow-y-auto flex-1">
+                            <div className="p-5 space-y-4 overflow-y-auto flex-1 min-h-0">
                                 {/* Title */}
                                 <div>
                                     <label className="block text-sm font-semibold text-slate-700 mb-1">כותרת *</label>

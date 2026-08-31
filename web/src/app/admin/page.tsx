@@ -1565,7 +1565,7 @@ export default function AdminPage() {
                             </div>
 
                             {/* Lead list */}
-                            <div className="flex-1 overflow-y-auto space-y-2 pl-1">
+                            <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pl-1">
                                 {leadsLoading && <div className="text-slate-400 text-sm text-center py-8">טוען...</div>}
                                 {!leadsLoading && leads.length === 0 && <div className="text-slate-500 text-sm text-center py-8">אין לידים</div>}
                                 {leads.map(lead => {
@@ -1694,7 +1694,7 @@ export default function AdminPage() {
                             <button onClick={() => setEditModal(null)} className="text-slate-400 hover:text-white text-xl">✕</button>
                         </div>
                         {editErr && <div className="mx-6 mb-2 text-sm text-red-400 bg-red-900/30 border border-red-500/20 rounded-xl px-3 py-2 flex-shrink-0">⚠️ {editErr}</div>}
-                        <div className="overflow-y-auto flex-1 px-6 pb-2 space-y-5">
+                        <div className="overflow-y-auto flex-1 min-h-0 px-6 pb-2 space-y-5">
                             <div>
                                 <p className="text-xs text-slate-400 mb-3 font-semibold uppercase tracking-wide">פרטי הסטודיו</p>
                                 <div className="space-y-3">
@@ -1750,7 +1750,7 @@ export default function AdminPage() {
                             <h3 className="font-bold text-lg">👤 משתמשי הסטודיו — {usersModal.name}</h3>
                             <button onClick={() => { setUsersModal(null); setEditingUser(null); }} className="text-slate-400 hover:text-white text-xl">✕</button>
                         </div>
-                        <div className="overflow-y-auto flex-1 px-6 pb-6 space-y-5">
+                        <div className="overflow-y-auto flex-1 min-h-0 px-6 pb-6 space-y-5">
                             {/* Current users */}
                             {usersLoading ? (
                                 <div className="flex justify-center py-6"><div className="animate-spin w-6 h-6 border-4 border-white/20 border-t-white rounded-full" /></div>
@@ -1972,7 +1972,7 @@ export default function AdminPage() {
                             <div className="mx-6 mb-2 text-sm text-red-400 bg-red-900/30 border border-red-500/20 rounded-xl px-3 py-2 flex-shrink-0">⚠️ {createErr}</div>
                         )}
 
-                        <div className="overflow-y-auto flex-1 px-6 pb-6 space-y-4">
+                        <div className="overflow-y-auto flex-1 min-h-0 px-6 pb-6 space-y-4">
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
                                     <label className="text-xs text-slate-400 mb-1 block">שם הסטודיו</label>

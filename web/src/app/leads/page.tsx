@@ -337,7 +337,7 @@ export default function LeadsPage() {
                 )}
 
                 {/* Notes / chat area */}
-                <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2">
+                <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-2">
                     {noteLines.length === 0 ? (
                         <div className="flex flex-col items-center justify-center h-full text-slate-300 gap-2">
                             <span className="text-4xl">💬</span>
@@ -429,7 +429,7 @@ export default function LeadsPage() {
                     </div>
 
                     {tab === "analytics" ? (
-                        <div className="flex-1 overflow-y-auto">
+                        <div className="flex-1 min-h-0 overflow-y-auto">
                             <AnalyticsTab leads={leads} />
                         </div>
                     ) : (
@@ -458,7 +458,7 @@ export default function LeadsPage() {
                                 </div>
 
                                 {/* Lead list */}
-                                <div className="flex-1 overflow-y-auto divide-y divide-slate-50">
+                                <div className="flex-1 min-h-0 overflow-y-auto divide-y divide-slate-50">
                                     {filtered.length === 0 ? (
                                         <div className="flex flex-col items-center justify-center py-16 text-slate-300 gap-2">
                                             <span className="text-4xl">🎯</span>

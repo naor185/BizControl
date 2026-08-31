@@ -184,7 +184,7 @@ export default function PaymentModal({ isOpen, onClose, onSuccess, appointment }
                     <button onClick={onClose} className="text-white/70 hover:text-white text-lg leading-none">✕</button>
                 </div>
 
-                <div className="p-4 space-y-4 text-right overflow-y-auto flex-1">
+                <div className="p-4 space-y-4 text-right overflow-y-auto flex-1 min-h-0">
 
                     {/* Method + Type */}
                     <div className="grid grid-cols-2 gap-3">

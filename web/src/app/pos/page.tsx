@@ -404,7 +404,7 @@ export default function PosPage() {
                 ))}
             </div>
             {/* Products */}
-            <div className="flex-1 overflow-y-auto p-2">
+            <div className="flex-1 min-h-0 overflow-y-auto p-2">
                 {filteredProducts.length === 0 ? (
                     <div className="text-center text-slate-300 mt-6 text-xs">
                         <div className="text-2xl mb-1">📦</div>אין מוצרים

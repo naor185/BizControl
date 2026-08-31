@@ -108,7 +108,7 @@ function DetailPanel({ lead, onClose, onUpdate }: { lead: Lead; onClose: () => v
             </div>
 
             {/* Notes */}
-            <div className="flex-1 overflow-y-auto px-5 py-3">
+            <div className="flex-1 min-h-0 overflow-y-auto px-5 py-3">
                 {lead.notes && (
                     <div className="bg-slate-50 rounded-xl p-3 text-sm text-slate-700 whitespace-pre-wrap mb-3">{lead.notes}</div>
                 )}
