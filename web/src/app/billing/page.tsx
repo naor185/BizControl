@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import RequireAuth from "@/components/RequireAuth";
 import AppShell from "@/components/AppShell";
 import { apiFetch } from "@/lib/api";
+import { isNativeApp } from "@/lib/platform";
 
 type BillingStatus = {
     plan: string;
@@ -51,6 +52,20 @@ export default function BillingPage() {
     const [loading, setLoading] = useState(true);
     const [redirecting, setRedirecting] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
+    // Apple/Google require in-app digital purchases to go through their own
+    // payment systems (Apple takes 15-30%) UNLESS the app never offers
+    // purchasing itself — only lets an already-subscribed account use the
+    // service ("multiplatform services" exemption). So inside the native
+    // app shell we must never surface a working checkout/portal link —
+    // same pattern Netflix uses: plain text pointing at the website, no
+    // tappable purchase action. Determined client-side only (starts false)
+    // to avoid an SSR/hydration mismatch — Capacitor's bridge doesn't exist
+    // during server render anyway.
+    const [isNative, setIsNative] = useState(false);
+
+    useEffect(() => {
+        setIsNative(isNativeApp());
+    }, []);
 
     useEffect(() => {
         apiFetch<BillingStatus>("/billing/status")
@@ -108,13 +123,17 @@ export default function BillingPage() {
                                 )}
                             </div>
                             {status.has_active_subscription && (
-                                <button
-                                    onClick={handlePortal}
-                                    disabled={redirecting === "portal"}
-                                    className="text-sm underline text-gray-600 hover:text-black disabled:opacity-50"
-                                >
-                                    {redirecting === "portal" ? "מעבר..." : "נהל מנוי / ביטול"}
-                                </button>
+                                isNative ? (
+                                    <span className="text-sm text-gray-500">לניהול המנוי או ביטולו, בקרו ב-biz-control.com בדפדפן</span>
+                                ) : (
+                                    <button
+                                        onClick={handlePortal}
+                                        disabled={redirecting === "portal"}
+                                        className="text-sm underline text-gray-600 hover:text-black disabled:opacity-50"
+                                    >
+                                        {redirecting === "portal" ? "מעבר..." : "נהל מנוי / ביטול"}
+                                    </button>
+                                )
                             )}
                         </div>
                     )}
@@ -157,25 +176,31 @@ export default function BillingPage() {
                                             </li>
                                         ))}
                                     </ul>
-                                    <button
-                                        onClick={() => handlePlan(plan.key)}
-                                        disabled={!!redirecting || isCurrent}
-                                        className={`w-full py-2.5 rounded-xl font-semibold text-sm transition ${
-                                            isCurrent
-                                                ? "bg-gray-100 text-gray-400 cursor-default"
-                                                : isPopular
-                                                ? "bg-black text-white hover:bg-gray-800"
-                                                : "border border-black text-black hover:bg-gray-50"
-                                        } disabled:opacity-50`}
-                                    >
-                                        {redirecting === plan.key
-                                            ? "מעבר לתשלום..."
-                                            : isCurrent
-                                            ? "תכנית נוכחית"
-                                            : status?.has_active_subscription
-                                            ? "שדרג / שנה תכנית"
-                                            : "התחל עכשיו"}
-                                    </button>
+                                    {isNative && !isCurrent ? (
+                                        <div className="w-full py-2.5 rounded-xl text-sm text-center text-gray-500 bg-gray-50">
+                                            להרשמה או שינוי תכנית, בקרו ב-biz-control.com בדפדפן
+                                        </div>
+                                    ) : (
+                                        <button
+                                            onClick={() => handlePlan(plan.key)}
+                                            disabled={!!redirecting || isCurrent || isNative}
+                                            className={`w-full py-2.5 rounded-xl font-semibold text-sm transition ${
+                                                isCurrent
+                                                    ? "bg-gray-100 text-gray-400 cursor-default"
+                                                    : isPopular
+                                                    ? "bg-black text-white hover:bg-gray-800"
+                                                    : "border border-black text-black hover:bg-gray-50"
+                                            } disabled:opacity-50`}
+                                        >
+                                            {redirecting === plan.key
+                                                ? "מעבר לתשלום..."
+                                                : isCurrent
+                                                ? "תכנית נוכחית"
+                                                : status?.has_active_subscription
+                                                ? "שדרג / שנה תכנית"
+                                                : "התחל עכשיו"}
+                                        </button>
+                                    )}
                                 </div>
                             );
                         })}
