@@ -1002,11 +1002,17 @@ export default function CalendarPage() {
                         onTouchStart={handleTouchStart}
                         onTouchEnd={handleTouchEnd}
                     >
+                        {/* dayMinWidth was removed from the FullCalendar props below — it forces
+                            FullCalendar's horizontal-scroll layout (renderHScrollLayout), which
+                            requires a premium ScrollGrid plugin we don't have installed and throws
+                            "No ScrollGrid implementation" — confirmed in @fullcalendar/daygrid's own
+                            source. Crashed every time on mobile (isMobile ? 130 : undefined), never
+                            on desktop (always undefined there). Week view on mobile just renders at
+                            whatever width the simple (non-scrolling) layout gives it for now. */}
                         <FullCalendar
                             ref={calendarRef}
                             plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
                             initialView="timeGridWeek"
-                            dayMinWidth={isMobile ? 130 : undefined}
                             headerToolbar={isMobile ? {
                                 left: "prev,next,today",
                                 center: "title",
