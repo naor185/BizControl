@@ -166,9 +166,10 @@ export default function CalendarPage() {
     const [taskEndTime, setTaskEndTime] = useState("");
     const [taskNotes, setTaskNotes] = useState("");
     const [taskColor, setTaskColor] = useState("#8b5cf6");
-    const [taskRecurrence, setTaskRecurrence] = useState<"none"|"monthly"|"yearly">("none");
+    const [taskRecurrence, setTaskRecurrence] = useState<"none"|"weekly"|"monthly"|"yearly">("none");
     const [taskRecurrenceDay, setTaskRecurrenceDay] = useState<number|"">("");
     const [taskRecurrenceMonth, setTaskRecurrenceMonth] = useState<number|"">("");
+    const [taskRecurrenceDaysOfWeek, setTaskRecurrenceDaysOfWeek] = useState<number[]>([]);
     const [taskRecurrenceEndDate, setTaskRecurrenceEndDate] = useState("");
     const [toast, setToast] = useState<{message: string; type: "success"|"error"} | null>(null);
     const [todayBroadcasts, setTodayBroadcasts] = useState<{id: string; title: string; scheduled_at: string}[]>([]);
@@ -458,11 +459,16 @@ export default function CalendarPage() {
             setTaskEndTime(app.end_time || "");
             setTaskNotes(app.notes || "");
             setTaskColor(app.color || "#8b5cf6");
-            setTaskRecurrence((app.recurrence_type || "none") as "none"|"monthly"|"yearly");
+            setTaskRecurrence((app.recurrence_type || "none") as "none"|"weekly"|"monthly"|"yearly");
             // Load full task to get recurrence details
             apiFetch<any>(`/api/tasks/${app.taskId}`).then(full => {
                 setTaskRecurrenceDay(full.recurrence_day ?? "");
                 setTaskRecurrenceMonth(full.recurrence_month ?? "");
+                setTaskRecurrenceDaysOfWeek(
+                    full.recurrence_days_of_week
+                        ? full.recurrence_days_of_week.split(",").filter((s: string) => s !== "").map(Number)
+                        : []
+                );
                 setTaskRecurrenceEndDate(full.recurrence_end_date || "");
             }).catch(() => {});
             setIsTaskModalOpen(true);
@@ -730,6 +736,7 @@ export default function CalendarPage() {
         setTaskRecurrence("none");
         setTaskRecurrenceDay("");
         setTaskRecurrenceMonth("");
+        setTaskRecurrenceDaysOfWeek([]);
         setTaskRecurrenceEndDate("");
         setIsTaskModalOpen(true);
     };
@@ -737,6 +744,7 @@ export default function CalendarPage() {
     const handleSaveTask = async () => {
         if (!taskTitle.trim()) { setToast({message: "יש להזין כותרת למשימה", type: "error"}); return; }
         if (taskRecurrence === "none" && !taskDate) { setToast({message: "יש לבחור תאריך", type: "error"}); return; }
+        if (taskRecurrence === "weekly" && taskRecurrenceDaysOfWeek.length === 0) { setToast({message: "יש לבחור לפחות יום אחד בשבוע", type: "error"}); return; }
         if (taskRecurrence === "monthly" && !taskRecurrenceDay) { setToast({message: "יש לבחור יום בחודש", type: "error"}); return; }
         if (taskRecurrence === "yearly" && (!taskRecurrenceDay || !taskRecurrenceMonth)) { setToast({message: "יש לבחור יום וחודש", type: "error"}); return; }
 
@@ -750,6 +758,7 @@ export default function CalendarPage() {
             recurrence_type: taskRecurrence,
             recurrence_day: taskRecurrenceDay !== "" ? Number(taskRecurrenceDay) : null,
             recurrence_month: taskRecurrenceMonth !== "" ? Number(taskRecurrenceMonth) : null,
+            recurrence_days_of_week: taskRecurrence === "weekly" ? taskRecurrenceDaysOfWeek.slice().sort().join(",") : null,
             recurrence_end_date: taskRecurrenceEndDate || null,
         };
 
@@ -1471,10 +1480,10 @@ export default function CalendarPage() {
                                 <div>
                                     <label className="block text-sm font-semibold text-slate-700 mb-2">סוג חזרה</label>
                                     <div className="flex gap-2">
-                                        {(["none","monthly","yearly"] as const).map(r => (
+                                        {(["none","weekly","monthly","yearly"] as const).map(r => (
                                             <button key={r} type="button" onClick={() => setTaskRecurrence(r)}
                                                 className={`flex-1 py-2 rounded-xl text-xs font-bold border-2 transition-all ${taskRecurrence === r ? "bg-violet-600 border-violet-600 text-white" : "bg-slate-50 border-slate-200 text-slate-600 hover:border-violet-300"}`}>
-                                                {r === "none" ? "חד פעמי" : r === "monthly" ? "חודשי" : "שנתי"}
+                                                {r === "none" ? "חד פעמי" : r === "weekly" ? "שבועי" : r === "monthly" ? "חודשי" : "שנתי"}
                                             </button>
                                         ))}
                                     </div>
@@ -1486,6 +1495,25 @@ export default function CalendarPage() {
                                         <label className="block text-sm font-semibold text-slate-700 mb-1">תאריך *</label>
                                         <input type="date" value={taskDate} onChange={e => setTaskDate(e.target.value)}
                                             className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-violet-400 text-sm" dir="ltr" />
+                                    </div>
+                                )}
+                                {taskRecurrence === "weekly" && (
+                                    <div>
+                                        <label className="block text-sm font-semibold text-slate-700 mb-2">בימים * (אפשר לבחור כמה)</label>
+                                        <div className="flex gap-1.5">
+                                            {["ראשון","שני","שלישי","רביעי","חמישי","שישי","שבת"].map((label, jsDay) => {
+                                                const active = taskRecurrenceDaysOfWeek.includes(jsDay);
+                                                return (
+                                                    <button key={jsDay} type="button"
+                                                        onClick={() => setTaskRecurrenceDaysOfWeek(prev =>
+                                                            prev.includes(jsDay) ? prev.filter(d => d !== jsDay) : [...prev, jsDay]
+                                                        )}
+                                                        className={`flex-1 py-2 rounded-lg text-[11px] font-bold border-2 transition-all ${active ? "bg-violet-600 border-violet-600 text-white" : "bg-slate-50 border-slate-200 text-slate-600 hover:border-violet-300"}`}>
+                                                        {label[0]}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
                                     </div>
                                 )}
                                 {taskRecurrence === "monthly" && (

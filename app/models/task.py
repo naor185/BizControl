@@ -23,10 +23,13 @@ class Task(Base):
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     color: Mapped[str] = mapped_column(String(7), nullable=False, default="#8b5cf6", server_default="#8b5cf6")
 
-    # none | monthly | yearly
+    # none | weekly | monthly | yearly
     recurrence_type: Mapped[str] = mapped_column(String(20), nullable=False, default="none", server_default="none")
     recurrence_day: Mapped[int | None] = mapped_column(Integer, nullable=True)    # 1–31
     recurrence_month: Mapped[int | None] = mapped_column(Integer, nullable=True)  # 1–12 (yearly only)
+    # weekly only — comma-separated day-of-week numbers, JS Date.getDay() convention
+    # (0=Sunday..6=Saturday), e.g. "0,3" for every Sunday and Wednesday.
+    recurrence_days_of_week: Mapped[str | None] = mapped_column(String(20), nullable=True)
     recurrence_end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())

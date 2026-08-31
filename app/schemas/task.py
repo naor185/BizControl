@@ -11,9 +11,10 @@ class TaskCreate(BaseModel):
     end_time: str | None = None
     notes: str | None = None
     color: str = "#8b5cf6"
-    recurrence_type: Literal["none", "monthly", "yearly"] = "none"
+    recurrence_type: Literal["none", "weekly", "monthly", "yearly"] = "none"
     recurrence_day: int | None = Field(default=None, ge=1, le=31)
     recurrence_month: int | None = Field(default=None, ge=1, le=12)
+    recurrence_days_of_week: str | None = None  # weekly only — "0,3" (Sun,Wed), 0=Sunday
     recurrence_end_date: date | None = None
 
 
@@ -24,9 +25,10 @@ class TaskUpdate(BaseModel):
     end_time: str | None = None
     notes: str | None = None
     color: str | None = None
-    recurrence_type: Literal["none", "monthly", "yearly"] | None = None
+    recurrence_type: Literal["none", "weekly", "monthly", "yearly"] | None = None
     recurrence_day: int | None = Field(default=None, ge=1, le=31)
     recurrence_month: int | None = Field(default=None, ge=1, le=12)
+    recurrence_days_of_week: str | None = None
     recurrence_end_date: date | None = None
 
 
@@ -41,6 +43,7 @@ class TaskOut(BaseModel):
     recurrence_type: str
     recurrence_day: int | None
     recurrence_month: int | None
+    recurrence_days_of_week: str | None
     recurrence_end_date: date | None
 
     @field_validator("id", mode="before")

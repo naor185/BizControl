@@ -28,6 +28,29 @@ def _expand_tasks(tasks: list[Task], from_date: date, to_date: date) -> list[Tas
                     recurrence_type=t.recurrence_type, is_recurring=False,
                 ))
 
+        elif t.recurrence_type == "weekly":
+            if not t.recurrence_days_of_week:
+                continue
+            try:
+                days = {int(d) for d in t.recurrence_days_of_week.split(",") if d.strip() != ""}
+            except ValueError:
+                continue
+            cur = from_date
+            while cur <= to_date:
+                # JS Date.getDay() convention (0=Sunday..6=Saturday), matching how
+                # the frontend day-picker stores recurrence_days_of_week — Python's
+                # date.weekday() is Monday=0, so shift by one.
+                js_day = (cur.weekday() + 1) % 7
+                if js_day in days:
+                    if t.recurrence_end_date is None or cur <= t.recurrence_end_date:
+                        result.append(TaskInstance(
+                            id=rid, title=t.title, date=cur.isoformat(),
+                            start_time=t.start_time, end_time=t.end_time,
+                            notes=t.notes, color=t.color,
+                            recurrence_type=t.recurrence_type, is_recurring=True,
+                        ))
+                cur = date.fromordinal(cur.toordinal() + 1)
+
         elif t.recurrence_type == "monthly":
             if not t.recurrence_day:
                 continue
