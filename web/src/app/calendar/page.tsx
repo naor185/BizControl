@@ -173,16 +173,29 @@ export default function CalendarPage() {
     const [taskRecurrenceEndDate, setTaskRecurrenceEndDate] = useState("");
     const [toast, setToast] = useState<{message: string; type: "success"|"error"} | null>(null);
     const [todayBroadcasts, setTodayBroadcasts] = useState<{id: string; title: string; scheduled_at: string}[]>([]);
-    const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" ? window.innerWidth < 768 : false);
-    const [showHolidays, setShowHolidays] = useState(() => {
-        if (typeof window === "undefined") return true;
+    // Deliberately starts false — matching what the server always renders (no
+    // `window` there) — and gets corrected in the effect below, right after
+    // mount. Reading window.innerWidth directly in the initializer (the
+    // previous code) runs during the client's FIRST render too, so on any
+    // real phone it returned true immediately while the server had rendered
+    // for false — a server/client markup mismatch that crashed the page with
+    // "Application error: a client-side exception" specifically on mobile
+    // (desktop never mismatches, since it's false on both sides either way).
+    const [isMobile, setIsMobile] = useState(false);
+    // Same hydration-mismatch risk as isMobile above — starts at the SSR
+    // default (true) and gets corrected from localStorage post-mount, only
+    // if the saved value actually differs (avoids an unnecessary re-render).
+    const [showHolidays, setShowHolidays] = useState(true);
+    useEffect(() => {
         const saved = localStorage.getItem("biz_show_holidays");
-        return saved === null ? true : saved === "true";
-    });
+        if (saved !== null) setShowHolidays(saved === "true");
+    }, []);
     const [currentDateRange, setCurrentDateRange] = useState("");
     const [holidayPopup, setHolidayPopup] = useState<{ name: string; info: string } | null>(null);
 
     useEffect(() => {
+        // Set the real value once mounted (client-only, post-hydration — safe).
+        setIsMobile(window.innerWidth < 768);
         const onResize = () => setIsMobile(window.innerWidth < 768);
         window.addEventListener("resize", onResize);
         return () => window.removeEventListener("resize", onResize);
