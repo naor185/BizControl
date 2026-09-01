@@ -10,6 +10,7 @@ from app.models.appointment import Appointment
 from app.models.client_points_ledger import ClientPointsLedger
 from app.models.message_job import MessageJob
 from app.services.email_center import studio_email_allowed as _email_ok
+from app.crud.push import enqueue_push_to_studio_admins
 
 def format_template(template: str, context: dict) -> str:
     """Replaces placeholders like {client_name} with values from context."""
@@ -168,6 +169,14 @@ def enqueue_confirmation_message(db: Session, appt: Appointment, artist_name: st
         ))
 
     db.commit()
+
+    enqueue_push_to_studio_admins(
+        db, appt.studio_id,
+        title="תור חדש נקבע",
+        body=f"{context['client_name']} — {appt.title}, {context['appointment_date']} {context['appointment_time']}",
+        deep_link=f"/calendar?appointment_id={appt.id}",
+        reminder_type="new_appointment",
+    )
 
 
 def enqueue_deposit_approved_message(db: Session, appt: Appointment, artist_name: str = "") -> None:
@@ -364,6 +373,15 @@ def enqueue_cancel_message(db: Session, appt: Appointment) -> None:
         ))
 
     db.commit()
+
+    is_no_show = appt.status == "no_show"
+    enqueue_push_to_studio_admins(
+        db, appt.studio_id,
+        title="לקוח לא הגיע לתור" if is_no_show else "תור בוטל",
+        body=f"{context['client_name']} — {appt.title}, {context['appointment_date']} {context['appointment_time']}",
+        deep_link=f"/calendar?appointment_id={appt.id}",
+        reminder_type="no_show" if is_no_show else "appointment_cancelled",
+    )
 
 def enqueue_post_payment_message(db: Session, appt: Appointment, amount_cents: int, points_earned: int = 0) -> None:
     from sqlalchemy import select as _select

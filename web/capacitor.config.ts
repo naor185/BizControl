@@ -33,6 +33,11 @@ const config: CapacitorConfig = {
         // once you test real flows on a device/emulator:
         // allowNavigation: ["checkout.stripe.com", "accounts.google.com", "wa.me"],
     },
+    plugins: {
+        PushNotifications: {
+            presentationOptions: ["badge", "sound", "alert"],
+        },
+    },
 };
 
 export default config;

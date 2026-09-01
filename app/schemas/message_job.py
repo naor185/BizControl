@@ -7,9 +7,11 @@ class MessageJobOut(BaseModel):
     studio_id: UUID
     client_id: UUID | None
     appointment_id: UUID | None
+    recipient_user_id: UUID | None
     channel: str
-    to_phone: str
+    to_phone: str | None
     body: str
+    deep_link: str | None
     scheduled_at: datetime
     status: str
     attempts: int

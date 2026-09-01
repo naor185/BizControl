@@ -15,6 +15,7 @@ from app.models.user import User
 from app.models.lead import Lead
 from app.models.client import Client
 from app.services.lead_attribution_service import record_conversion
+from app.crud.push import enqueue_push_to_studio_admins
 
 router = APIRouter(prefix="/leads", tags=["Leads"])
 
@@ -106,6 +107,13 @@ def create_lead(
     db.add(lead)
     db.commit()
     db.refresh(lead)
+    enqueue_push_to_studio_admins(
+        db, user.studio_id,
+        title="ליד חדש",
+        body=lead.name + (f" — {lead.service_interest}" if lead.service_interest else ""),
+        deep_link=f"/leads?lead_id={lead.id}",
+        reminder_type="new_lead",
+    )
     return _out(lead)
 
 

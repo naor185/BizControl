@@ -231,7 +231,9 @@ def _maybe_create_lead(db: Session, studio_id: str, name: str, phone: str | None
         ).first()
         if exists:
             return
-    db.add(Lead(
+    import uuid as _uuid
+    lead = Lead(
+        id=_uuid.uuid4(),
         studio_id=studio_id,
         name=name,
         phone=phone,
@@ -241,7 +243,16 @@ def _maybe_create_lead(db: Session, studio_id: str, name: str, phone: str | None
         service_interest=payload.service_interest or None,
         status="new",
         notes=f"הגיע דרך דף נחיתה — {source}" + (f" / {payload.utm_campaign}" if payload.utm_campaign else ""),
-    ))
+    )
+    db.add(lead)
+    from app.crud.push import enqueue_push_to_studio_admins
+    enqueue_push_to_studio_admins(
+        db, studio_id,
+        title="ליד חדש",
+        body=name + (f" — {lead.service_interest}" if lead.service_interest else ""),
+        deep_link=f"/leads?lead_id={lead.id}",
+        reminder_type="new_lead",
+    )
 
 @router.get("/payment/{appointment_id}", response_model=PublicPaymentInfo)
 def get_public_payment_info(appointment_id: str, db: Session = Depends(get_db)):

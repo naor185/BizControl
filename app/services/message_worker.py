@@ -396,6 +396,16 @@ def process_due_jobs(db: Session, limit: int = 20) -> int:
                 )
                 if not ok:
                     raise ValueError("Email center send failed — check system API key")
+            elif job.channel == "push":
+                from app.services.push_service import send_push_to_user
+                sent_count = send_push_to_user(
+                    db, job.recipient_user_id,
+                    title=getattr(job, "subject", None) or "BizControl",
+                    body=job.body,
+                    deep_link=getattr(job, "deep_link", None),
+                )
+                if sent_count == 0:
+                    raise ValueError("No active device tokens for recipient")
             else:
                 settings = db.get(StudioSettings, job.studio_id)
                 send_whatsapp_message(job.to_phone, job.body, settings, db=db,

@@ -15,6 +15,7 @@ import QuickWhatsAppModal from "./QuickWhatsAppModal";
 import { useLang } from "./LanguageProvider";
 import { LOCALES } from "@/lib/i18n";
 import { isBusinessSessionValid } from "@/lib/businessSession";
+import { registerForPushNotifications } from "@/lib/push";
 
 type Me = {
     id: string;
@@ -99,6 +100,7 @@ export default function AppShell({
             try {
                 const token = getToken();
                 if (!token) return;
+                registerForPushNotifications(router);
                 const [data, pin, deposits, locs, mods, studioInfo] = await Promise.all([
                     apiFetch<Me>("/api/auth/me"),
                     apiFetch<PinStatus>("/api/security/pin/status"),

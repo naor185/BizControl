@@ -1462,6 +1462,26 @@ def ensure_schema():
         cur.execute("ALTER TABLE message_jobs ADD COLUMN IF NOT EXISTS subject VARCHAR(255)")
         cur.execute("ALTER TABLE message_jobs ADD COLUMN IF NOT EXISTS media_url TEXT")
 
+        # Push notifications: message_jobs relaxed to allow a User recipient (not just a Client)
+        cur.execute("ALTER TABLE message_jobs ALTER COLUMN client_id DROP NOT NULL")
+        cur.execute("ALTER TABLE message_jobs ALTER COLUMN to_phone DROP NOT NULL")
+        cur.execute("ALTER TABLE message_jobs ADD COLUMN IF NOT EXISTS recipient_user_id UUID REFERENCES users(id) ON DELETE CASCADE")
+        cur.execute("ALTER TABLE message_jobs ADD COLUMN IF NOT EXISTS deep_link TEXT")
+
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS device_tokens (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                token TEXT NOT NULL UNIQUE,
+                platform VARCHAR(16) NOT NULL,
+                is_active BOOLEAN NOT NULL DEFAULT TRUE,
+                last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_device_tokens_user_id ON device_tokens (user_id)")
+
         cur.execute("""
             CREATE TABLE IF NOT EXISTS studio_email_settings (
                 studio_id UUID PRIMARY KEY REFERENCES studios(id) ON DELETE CASCADE,

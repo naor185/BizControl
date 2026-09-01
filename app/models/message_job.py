@@ -11,14 +11,17 @@ class MessageJob(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     studio_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("studios.id", ondelete="CASCADE"), nullable=False, index=True)
-    client_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("clients.id", ondelete="CASCADE"), nullable=False, index=True)
+    # client_id is set for client-facing channels (whatsapp/email); NULL for push jobs, which target recipient_user_id instead
+    client_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("clients.id", ondelete="CASCADE"), nullable=True, index=True)
     appointment_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("appointments.id", ondelete="SET NULL"), nullable=True)
+    recipient_user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
 
     channel: Mapped[str] = mapped_column(String(16), nullable=False)
-    to_phone: Mapped[str] = mapped_column(String(40), nullable=False)
+    to_phone: Mapped[str | None] = mapped_column(String(40), nullable=True)
     body: Mapped[str] = mapped_column(Text, nullable=False)
     subject: Mapped[str | None] = mapped_column(String(255), nullable=True)
     media_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    deep_link: Mapped[str | None] = mapped_column(Text, nullable=True)
     # reminder_type used for dedup (same_day | 1day | 3day | 7day | ...)
     reminder_type: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
 

@@ -100,6 +100,15 @@ def _auto_lead(
     db.add(lead)
     db.commit()
 
+    from app.crud.push import enqueue_push_to_studio_admins
+    enqueue_push_to_studio_admins(
+        db, studio_id,
+        title="ליד חדש",
+        body=lead.name,
+        deep_link=f"/leads?lead_id={lead.id}",
+        reminder_type="new_lead",
+    )
+
     # Auto-tag in background (non-blocking)
     if body:
         try:
@@ -356,6 +365,15 @@ def _handle_leadgen_entry(db: Session, studio_id, payload: dict, source: str):
     )
     db.add(lead)
     db.commit()
+
+    from app.crud.push import enqueue_push_to_studio_admins
+    enqueue_push_to_studio_admins(
+        db, studio_id,
+        title="ליד חדש",
+        body=lead.name + (f" — {campaign_name}" if campaign_name else ""),
+        deep_link=f"/leads?lead_id={lead.id}",
+        reminder_type="new_lead",
+    )
 
 
 # ── Green API (WhatsApp via linked device) ────────────────────────────────────
