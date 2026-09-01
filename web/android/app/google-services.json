@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "207671194394",
+    "project_id": "bizcontrol-69c94",
+    "storage_bucket": "bizcontrol-69c94.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:207671194394:android:9696d9c52474c6ba18f2a3",
+        "android_client_info": {
+          "package_name": "com.bizcontrol.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA6yEXuByaP4FwAOYuAwpmGI2eNu1lYWf0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
