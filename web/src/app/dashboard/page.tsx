@@ -239,7 +239,7 @@ export default function Page() {
                         }) => {
                             const diff = pct - prev;
                             return (
-                                <div className="flex flex-col items-center gap-2 flex-1">
+                                <div className="flex flex-col items-center gap-2 flex-1 min-w-0">
                                     <div className="relative w-32 h-32">
                                         <svg width="128" height="128" viewBox="0 0 128 128" className="-rotate-90">
                                             {/* Track */}

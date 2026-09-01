@@ -58,7 +58,7 @@ function parseErr(msg: string, locale: string): { text: string; field: FieldErr 
 function LoginContent() {
     const router = useRouter();
     const sp = useSearchParams();
-    const nextUrl = useMemo(() => sp.get("next") || "/dashboard", [sp]);
+    const nextUrl = useMemo(() => sp.get("next") || "/calendar", [sp]);
 
     const { t, locale, setLocale, dir } = useLang();
     const [email, setEmail] = useState("");
