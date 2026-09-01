@@ -292,12 +292,12 @@ export default function Page() {
                             <div className="text-xs text-slate-400 font-semibold mb-2 px-1">
                                 📅 {new Date().toLocaleDateString("he-IL", { month: "long", year: "numeric" })} — סיכום חודש נוכחי
                             </div>
-                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
                                 {METHODS.filter(m => m.key !== "all").map(m => (
-                                    <div key={m.key} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
-                                        <div className="text-xl mb-1">{m.icon}</div>
-                                        <div className="text-xs text-slate-500 font-medium">{m.label}</div>
-                                        <div className="text-lg font-black text-slate-800 mt-1" dir="ltr">
+                                    <div key={m.key} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-2.5 sm:p-4 min-w-0">
+                                        <div className="text-base sm:text-xl mb-0.5 sm:mb-1">{m.icon}</div>
+                                        <div className="text-xs text-slate-500 font-medium truncate">{m.label}</div>
+                                        <div className="text-base sm:text-lg font-black text-slate-800 mt-0.5 sm:mt-1" dir="ltr">
                                             {fmt(totals[m.key] || 0)}
                                         </div>
                                     </div>
@@ -354,17 +354,17 @@ export default function Page() {
                                                 onClick={() => toggleMonth(monthKey)}
                                                 className={`w-full px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-right transition-colors ${isCurrentMonth ? "bg-sky-50 hover:bg-sky-100/70" : "bg-slate-50 hover:bg-slate-100/70"}`}
                                             >
-                                                <div className="flex items-center gap-3">
-                                                    <span className={`text-lg transition-transform duration-200 ${isExpanded ? "rotate-90" : ""}`}>▶</span>
-                                                    <div>
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="font-bold text-slate-800 text-base">{monthLabel(monthKey)}</span>
-                                                            {isCurrentMonth && <span className="text-[10px] bg-sky-600 text-white px-2 py-0.5 rounded-full font-bold">חודש נוכחי</span>}
+                                                <div className="flex items-center gap-3 min-w-0">
+                                                    <span className={`text-lg transition-transform duration-200 shrink-0 ${isExpanded ? "rotate-90" : ""}`}>▶</span>
+                                                    <div className="min-w-0">
+                                                        <div className="flex flex-wrap items-center gap-2">
+                                                            <span className="font-bold text-slate-800 text-base shrink-0">{monthLabel(monthKey)}</span>
+                                                            {isCurrentMonth && <span className="text-[10px] bg-sky-600 text-white px-2 py-0.5 rounded-full font-bold shrink-0">חודש נוכחי</span>}
                                                         </div>
                                                         <div className="flex flex-wrap gap-2 mt-1.5">
                                                             {Object.entries(mByMethod).map(([method, cents]) => (
-                                                                <span key={method} className={`text-xs px-2 py-0.5 rounded-full font-semibold ${METHOD_COLORS[method] || "bg-slate-100 text-slate-600"}`}>
-                                                                    {METHOD_LABELS[method] || method}: {fmt(cents)}
+                                                                <span key={method} className={`text-xs px-2 py-0.5 rounded-full font-semibold whitespace-nowrap shrink-0 ${METHOD_COLORS[method] || "bg-slate-100 text-slate-600"}`}>
+                                                                    {METHOD_LABELS[method] || method}: <span dir="ltr">{fmt(cents)}</span>
                                                                 </span>
                                                             ))}
                                                         </div>
@@ -380,42 +380,50 @@ export default function Page() {
 
                                             <div className={isExpanded ? "divide-y divide-slate-50" : "hidden"}>
                                                 {[...es].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).map(e => (
-                                                    <div key={e.id} className="px-6 py-3 flex items-center justify-between hover:bg-slate-50/60 transition-colors group">
-                                                        <div className="flex items-center gap-3 overflow-hidden">
-                                                            <div className="text-xs text-slate-400 w-20 shrink-0">
-                                                                {new Date(e.created_at).toLocaleDateString("he-IL")}
-                                                            </div>
-                                                            <div className="flex flex-col min-w-30">
+                                                    <div key={e.id} className="px-4 sm:px-6 py-3 hover:bg-slate-50/60 transition-colors group space-y-1.5">
+                                                        {/* Row 1: who / how (right) — amount (left, own dir="ltr" element so RTL bidi never reorders the digits/₪) */}
+                                                        <div className="flex items-center justify-between gap-2">
+                                                            <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
                                                                 {e.clientId ? (
-                                                                    <Link href={`/clients/${e.clientId}`} className="text-sm font-bold text-blue-600 hover:underline flex items-center gap-1 truncate">
+                                                                    <Link href={`/clients/${e.clientId}`} className="text-sm font-bold text-blue-600 hover:underline truncate max-w-40 shrink">
                                                                         {e.clientName || "ללא שם"}
-                                                                        {e.isWalkIn && <span className="bg-slate-100 text-slate-500 text-[10px] px-1.5 py-0.5 rounded font-normal">מזדמן</span>}
                                                                     </Link>
                                                                 ) : e.clientName ? (
-                                                                    <span className="text-sm font-bold text-slate-700">{e.clientName}</span>
+                                                                    <span className="text-sm font-bold text-slate-700 truncate max-w-40 shrink">{e.clientName}</span>
                                                                 ) : (
-                                                                    <span className="text-sm font-bold text-slate-400 italic">אנונימי</span>
+                                                                    <span className="text-sm font-bold text-slate-400 italic shrink-0">אנונימי</span>
+                                                                )}
+                                                                {e.isWalkIn && <span className="bg-slate-100 text-slate-500 text-[10px] px-1.5 py-0.5 rounded font-normal shrink-0">מזדמן</span>}
+                                                                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold shrink-0 ${METHOD_COLORS[e.method] || "bg-slate-100 text-slate-600"}`}>
+                                                                    {METHOD_LABELS[e.method] || e.method}
+                                                                </span>
+                                                            </div>
+                                                            <div className={`font-black text-base shrink-0`} dir="ltr">
+                                                                <span className={e.type === "refund" ? "text-rose-600" : "text-slate-800"}>
+                                                                    {e.type === "refund" ? "-" : ""}{fmt(e.amount_cents)}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Row 2: date + status (right) — action icons (left) */}
+                                                        <div className="flex items-center justify-between gap-2">
+                                                            <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
+                                                                <span className="text-xs text-slate-400 shrink-0">
+                                                                    {new Date(e.created_at).toLocaleDateString("he-IL")}
+                                                                </span>
+                                                                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold shrink-0 ${
+                                                                    e.type === "refund" ? "bg-rose-100 text-rose-700" :
+                                                                    e.type === "deposit" ? "bg-amber-100 text-amber-700" :
+                                                                    e.type === "pos_sale" ? "bg-violet-100 text-violet-700" :
+                                                                    "bg-emerald-100 text-emerald-700"
+                                                                }`}>
+                                                                    {e.type === "refund" ? "זיכוי" : e.type === "deposit" ? "מקדמה" : e.type === "pos_sale" ? "🛒 קופה" : "תשלום"}
+                                                                </span>
+                                                                {e.notes && !e.notes.startsWith("[מערכת]") && (
+                                                                    <span className="text-xs text-slate-400 italic truncate max-w-45 hidden sm:inline">{e.notes}</span>
                                                                 )}
                                                             </div>
-                                                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${METHOD_COLORS[e.method] || "bg-slate-100 text-slate-600"} whitespace-nowrap`}>
-                                                                {METHOD_LABELS[e.method] || e.method}
-                                                            </span>
-                                                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold whitespace-nowrap ${
-                                                                e.type === "refund" ? "bg-rose-100 text-rose-700" :
-                                                                e.type === "deposit" ? "bg-amber-100 text-amber-700" :
-                                                                e.type === "pos_sale" ? "bg-violet-100 text-violet-700" :
-                                                                "bg-emerald-100 text-emerald-700"
-                                                            }`}>
-                                                                {e.type === "refund" ? "זיכוי" : e.type === "deposit" ? "מקדמה" : e.type === "pos_sale" ? "🛒 קופה" : "תשלום"}
-                                                            </span>
-                                                            {e.notes && !e.notes.startsWith("[מערכת]") && (
-                                                                <span className="text-xs text-slate-400 italic truncate max-w-45 hidden sm:inline">{e.notes}</span>
-                                                            )}
-                                                        </div>
-                                                        <div className="flex items-center gap-2">
-                                                            <div className={`font-black text-base ${e.type === "refund" ? "text-rose-600" : "text-slate-800"}`} dir="ltr">
-                                                                {e.type === "refund" ? "-" : ""}{fmt(e.amount_cents)}
-                                                            </div>
+                                                            <div className="flex items-center gap-1 shrink-0">
                                                             {e.paymentId && (
                                                                 <>
                                                                     {/* Download receipt PDF */}
@@ -485,6 +493,7 @@ export default function Page() {
                                                                     )}
                                                                 </>
                                                             )}
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 ))}

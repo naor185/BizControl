@@ -121,6 +121,21 @@ function exactMocks(): Record<string, unknown> {
         "/api/dashboard/analytics": { revenue_by_month: [], appts_by_month: [], artists: [], busiest_days: [], new_vs_returning: { new: 0, returning: 0 } },
         "/api/dashboard/consultation-conversion": null,
         "/api/marketplace/my/analytics": null,
+        "/api/payments": [
+            {
+                id: "pay-extreme-1", client_id: "client-extreme-1", appointment_id: "appt-1",
+                amount_cents: BIG_NUMBER, currency: "ILS", type: "payment", status: "paid", method: "paybox",
+                created_at: new Date().toISOString(), notes: NO_SPACE_TOKEN,
+                client: { id: "client-extreme-1", full_name: LONG_NAME, is_walk_in: false },
+            },
+        ],
+        "/api/pos/history": [
+            {
+                id: "pos-extreme-1", client_name: LONG_NAME, cashier_name: "Cashier Test",
+                total_cents: BIG_NUMBER, discount_cents: 0, method: "bit", items_count: 1,
+                created_at: new Date().toISOString(),
+            },
+        ],
     };
 }
 

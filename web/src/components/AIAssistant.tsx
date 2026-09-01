@@ -268,10 +268,14 @@ export default function AIAssistant() {
                 .ai-msg { animation: ai-fade-in 0.15s ease-out; }
             `}</style>
 
-            {/* Floating button */}
+            {/* Floating button — bottom offset is computed (mobile bottom-nav
+                height 4rem + safe-area-inset-bottom + margin) rather than a
+                flat bottom-20, so it never sits on top of / underneath the
+                bottom nav depending on the device's safe area. Desktop has
+                no bottom nav, so md: falls back to a flat margin. */}
             <button
                 onClick={() => setOpen(o => !o)}
-                className="fixed bottom-20 left-4 md:bottom-6 md:left-6 z-50 w-13 h-13 rounded-2xl shadow-xl flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95"
+                className="fixed bottom-[calc(4rem+env(safe-area-inset-bottom,0px)+1rem)] left-4 md:bottom-6 md:left-6 z-50 w-13 h-13 rounded-2xl shadow-xl flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95"
                 style={{
                     width: 52,
                     height: 52,

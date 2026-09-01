@@ -21,6 +21,7 @@ const ROUTES: RouteSpec[] = [
     { path: "/calendar", name: "calendar" },
     { path: "/pos", name: "pos" },
     { path: "/inbox", name: "inbox" },
+    { path: "/payments", name: "payments" },
     {
         path: "/clients",
         name: "clients — VIP club tab",
