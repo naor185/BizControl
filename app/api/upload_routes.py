@@ -172,12 +172,25 @@ def remove_cover(ctx: AuthContext = Depends(require_studio_ctx), db: Session = D
 @router.post("/image")
 def upload_generic_image(
     file: UploadFile = File(...),
-    ctx: AuthContext = Depends(require_studio_ctx)
+    ctx: AuthContext = Depends(require_studio_ctx),
+    db: Session = Depends(get_db),
 ):
+    # Was local-disk-only with no Cloudinary attempt (unlike every other
+    # endpoint in this file) — on Railway that disk is ephemeral, so any
+    # image saved through this endpoint (e.g. product photos) vanished on
+    # the next deploy. Matches /logo's Cloudinary-first-then-fallback now.
     if ctx.role not in ("owner", "admin", "manager"):
         raise HTTPException(status_code=403, detail="Forbidden")
-    filename = _save_image(file, "image", ctx.studio_id)
-    return {"filename": filename}
+    if file.content_type not in ALLOWED_IMAGE_TYPES:
+        raise HTTPException(status_code=400, detail="Only image files are allowed")
+    file_bytes = file.file.read()
+    cloud_url = _cloudinary_upload(file_bytes, f"bizfind/{ctx.studio_id}", uuid4().hex, db=db)
+    if cloud_url:
+        return {"filename": cloud_url, "url": cloud_url}
+    filename = _save_image_bytes(file_bytes, file.content_type, "image", ctx.studio_id)
+    backend_url = os.getenv("API_BASE_URL", "")
+    url = f"{backend_url}/uploads/{filename}" if backend_url else f"/uploads/{filename}"
+    return {"filename": filename, "url": url}
 
 
 # ── Cover photo ───────────────────────────────────────────────────────────────
