@@ -7,7 +7,11 @@ android {
         applicationId "com.bizfind.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
+        // Google Play rejects re-uploading an AAB with a versionCode it's
+        // already seen — override via -PversionCode=N (Codemagic passes its
+        // own ever-increasing $BUILD_NUMBER) so every CI upload is unique;
+        // a plain local build without that property just keeps using 1.
+        versionCode project.hasProperty('versionCode') ? (project.versionCode as Integer) : 1
         versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
@@ -16,10 +20,27 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    // Populated only in CI (Codemagic injects these when the android_signing
+    // keystore reference resolves) — a plain local build without them just
+    // gets an unsigned release build type, same as before this was added.
+    signingConfigs {
+        release {
+            def keystorePath = System.getenv("CM_KEYSTORE_PATH")
+            if (keystorePath) {
+                storeFile file(keystorePath)
+                storePassword System.getenv("CM_KEYSTORE_PASSWORD")
+                keyAlias System.getenv("CM_KEY_ALIAS")
+                keyPassword System.getenv("CM_KEY_PASSWORD")
+            }
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            if (System.getenv("CM_KEYSTORE_PATH")) {
+                signingConfig signingConfigs.release
+            }
         }
     }
 }
