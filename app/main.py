@@ -689,6 +689,14 @@ _raw_origins = os.getenv("ALLOWED_ORIGINS", "")
 _extra = [o.strip() for o in _raw_origins.split(",") if o.strip()] if _raw_origins else []
 origins = list(dict.fromkeys(_BUILTIN_ORIGINS + _extra)) if (_BUILTIN_ORIGINS or _extra) else ["*"]
 
+# CORSMiddleware must be the outermost middleware (added last — Starlette
+# wraps in reverse order of add_middleware calls). PlanEnforcementMiddleware
+# is a BaseHTTPMiddleware subclass; when it sat outside CORSMiddleware, its
+# response reconstruction could drop the CORS headers CORSMiddleware had
+# already added, especially on error/edge-case responses — the browser then
+# reports "CORS blocked" even though the server fully processed the request
+# (e.g. an appointment actually gets created, but the client sees a failure).
+app.add_middleware(PlanEnforcementMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -696,7 +704,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-app.add_middleware(PlanEnforcementMiddleware)
 
 
 @app.middleware("http")
