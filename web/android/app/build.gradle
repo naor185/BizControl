@@ -7,7 +7,11 @@ android {
         applicationId "com.bizcontrol.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
+        // Google Play rejects re-uploading an AAB with a versionCode it's
+        // already seen — override via -PversionCode=N (Codemagic passes its
+        // own ever-increasing $BUILD_NUMBER) so every CI upload is unique;
+        // a plain local build without that property just keeps using 1.
+        versionCode project.hasProperty('versionCode') ? (project.versionCode as Integer) : 1
         versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {

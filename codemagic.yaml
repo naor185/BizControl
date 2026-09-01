@@ -30,7 +30,7 @@ workflows:
         script: |
           cd web/android
           chmod +x ./gradlew
-          ./gradlew bundleRelease
+          ./gradlew bundleRelease -PversionCode=$BUILD_NUMBER
     artifacts:
       - web/android/app/build/outputs/**/*.aab
       - web/android/app/build/outputs/**/*.apk
