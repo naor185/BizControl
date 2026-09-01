@@ -7,6 +7,9 @@ import RequireAuth from "@/components/RequireAuth";
 import { apiFetch, getCurrentUserRole } from "@/lib/api";
 import { toLocalDateStr } from "@/lib/format";
 import PaymentModal from "@/components/PaymentModal";
+import { statusMeta } from "@/lib/appointment-status";
+import AppointmentCard from "@/components/AppointmentCard";
+import BottomSheet from "@/components/ui/bottom-sheet";
 
 const IL_HOLIDAYS = [
     { date: "2025-09-22", name: "🍎 ראש השנה א׳",   info: 'ראש השנה תשפ"ו' },
@@ -76,13 +79,6 @@ type TaskInstance = {
     color: string;
     recurrence_type: string;
     is_recurring: boolean;
-};
-
-// Colors based on Status
-const STATUS_COLORS: Record<string, string> = {
-    "scheduled": "#3b82f6", // Blue
-    "completed": "#10b981", // Green
-    "cancelled": "#ef4444", // Red
 };
 
 export default function CalendarPage() {
@@ -195,7 +191,13 @@ export default function CalendarPage() {
 
     useEffect(() => {
         // Set the real value once mounted (client-only, post-hydration — safe).
-        setIsMobile(window.innerWidth < 768);
+        const mobile = window.innerWidth < 768;
+        setIsMobile(mobile);
+        // FullCalendar's `initialView` prop is read once at mount only — it can't
+        // be mobile-conditional the normal way since `isMobile` is deliberately
+        // `false` at first paint (hydration-safety). Set the real default view
+        // imperatively here, once, right after mount is confirmed.
+        if (mobile) calendarRef.current?.getApi().changeView("timeGridDay");
         const onResize = () => setIsMobile(window.innerWidth < 768);
         window.addEventListener("resize", onResize);
         return () => window.removeEventListener("resize", onResize);
@@ -209,6 +211,11 @@ export default function CalendarPage() {
         });
     }, []);
 
+    // Tracks the date window actually covered by the last fetch, so navigating
+    // within it (or into the pre-fetched buffer either side) never re-fetches —
+    // only crossing outside the buffered window triggers a new loadData().
+    const loadedRangeRef = useRef<{ start: Date; end: Date } | null>(null);
+
     const handleDatesSet = useCallback((info: any) => {
         const HE_MONTHS = ["ינואר","פברואר","מרץ","אפריל","מאי","יוני","יולי","אוגוסט","ספטמבר","אוקטובר","נובמבר","דצמבר"];
         const start = new Date(info.start);
@@ -219,6 +226,23 @@ export default function CalendarPage() {
         } else {
             setCurrentDateRange(`${start.getDate()}/${start.getMonth()+1} – ${end.getDate()}/${end.getMonth()+1} ${start.getFullYear()}`);
         }
+
+        // Fetch only the visible range, padded by one extra view-duration on each
+        // side (so navigating exactly one day/week forward or back is already
+        // covered by the previous fetch — a simple, automatic prefetch).
+        const viewStart = new Date(info.start);
+        const viewEnd = new Date(info.end);
+        const duration = viewEnd.getTime() - viewStart.getTime();
+        const paddedStart = new Date(viewStart.getTime() - duration);
+        const paddedEnd = new Date(viewEnd.getTime() + duration);
+
+        const loaded = loadedRangeRef.current;
+        const alreadyCovered = loaded && viewStart >= loaded.start && viewEnd <= loaded.end;
+        if (!alreadyCovered) {
+            loadedRangeRef.current = { start: paddedStart, end: paddedEnd };
+            setFrom(paddedStart.toISOString());
+            setTo(paddedEnd.toISOString());
+        }
     }, []);
 
     const showToast = (message: string, type: "success"|"error" = "success") => {
@@ -226,21 +250,38 @@ export default function CalendarPage() {
         setTimeout(() => setToast(null), 3500);
     };
 
-    // Filter range: load a wide range by default to populate the calendar
+    // Initial range before FullCalendar's own datesSet narrows this to the
+    // actual visible (+ prefetch buffer) window — see handleDatesSet below.
     const [from, setFrom] = useState(() => {
         const d = new Date();
-        d.setDate(d.getDate() - 30); // 1 month ago
+        d.setDate(d.getDate() - 7);
         return d.toISOString();
     });
     const [to, setTo] = useState(() => {
         const d = new Date();
-        d.setDate(d.getDate() + 90); // 3 months ahead
+        d.setDate(d.getDate() + 7);
         return d.toISOString();
     });
 
     // Modal State
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedEventId, setSelectedEventId] = useState<string | null>(null); // null = Creating new
+
+    // Mobile-only: quick-actions view sheet shown on tapping an appointment,
+    // before (optionally) opening the full edit form. Holds the raw
+    // extendedProps of the clicked FullCalendar event.
+    const [viewSheetAppt, setViewSheetAppt] = useState<any>(null);
+
+    // Calendar filters (staff / treatment / status) — empty array = no filter
+    // on that dimension. Matches by name (not id) for staff/treatment since
+    // that's what the appointment payload reliably carries — same convention
+    // handleEventClick already uses to re-match an artist by display_name.
+    const [showFiltersSheet, setShowFiltersSheet] = useState(false);
+    const [filterArtistNames, setFilterArtistNames] = useState<string[]>([]);
+    const [filterTreatments, setFilterTreatments] = useState<string[]>([]);
+    const [filterStatuses, setFilterStatuses] = useState<string[]>([]);
+    const activeFilterCount = filterArtistNames.length + filterTreatments.length + filterStatuses.length;
+    const toggleInArray = (arr: string[], val: string) => arr.includes(val) ? arr.filter(v => v !== val) : [...arr, val];
 
     // Past-date confirmation
     const [pastDateConfirm, setPastDateConfirm] = useState<null | { onConfirm: () => void; onCancel: () => void }>(null);
@@ -277,6 +318,23 @@ export default function CalendarPage() {
     const [newClientLoading, setNewClientLoading] = useState(false);
     const [newClientErr, setNewClientErr] = useState<string | null>(null);
 
+    // Restore scroll position to whatever time the appointment modal was
+    // showing when it closes, instead of resetting to the top of the day —
+    // startAt already holds that time for both the "edit existing" and
+    // "create from a clicked slot" paths.
+    const wasModalOpenRef = useRef(false);
+    useEffect(() => {
+        if (wasModalOpenRef.current && !isModalOpen && startAt) {
+            const t = new Date(startAt);
+            if (!isNaN(t.getTime())) {
+                const hh = String(t.getHours()).padStart(2, "0");
+                const mm = String(t.getMinutes()).padStart(2, "0");
+                calendarRef.current?.getApi().scrollToTime(`${hh}:${mm}:00`);
+            }
+        }
+        wasModalOpenRef.current = isModalOpen;
+    }, [isModalOpen, startAt]);
+
     const loadData = async () => {
         setLoading(true);
         setErr(null);
@@ -285,7 +343,7 @@ export default function CalendarPage() {
             const toDate = to.split("T")[0];
             const [c, a, arts, settings, t] = await Promise.all([
                 apiFetch<Client[]>("/api/clients?limit=500"),
-                apiFetch<Appointment[]>(`/api/appointments?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`),
+                apiFetch<Appointment[]>(`/api/appointments?start=${encodeURIComponent(from)}&end=${encodeURIComponent(to)}`),
                 apiFetch<Artist[]>("/api/users/artists"),
                 apiFetch<any>("/api/studio/automation"),
                 apiFetch<TaskInstance[]>(`/api/tasks?from_date=${fromDate}&to_date=${toDate}`),
@@ -365,34 +423,39 @@ export default function CalendarPage() {
     // Format appointments for FullCalendar
     const events = useMemo(() => {
         return appointments
-            .filter(app => app.status !== "canceled" && app.status !== "no_show")
+            .filter(app => {
+                if (filterStatuses.length > 0) {
+                    if (!filterStatuses.includes(app.status)) return false;
+                } else if (app.status === "canceled" || app.status === "no_show") {
+                    return false;
+                }
+                if (filterArtistNames.length > 0 && !filterArtistNames.includes(app.artist_name || "")) return false;
+                if (filterTreatments.length > 0 && !filterTreatments.includes(app.title)) return false;
+                return true;
+            })
             .map(app => {
                 const isExternalGoogle = app.id === "00000000-0000-0000-0000-000000000000";
                 const clientObj = clients.find(c => c.id === app.client_id);
-                const walkInBadge = clientObj?.is_walk_in ? "🚶 " : "";
-                
-                // Payment status indicator
-                const paidCents = app.paid_cents || 0;
-                const remainingCents = app.remaining_cents ?? null;
-                const isFullyPaid = paidCents > 0 && (remainingCents !== null && remainingCents <= 0);
-                const isPartiallyPaid = paidCents > 0 && (remainingCents === null || remainingCents > 0);
-                const paymentBadge = isFullyPaid ? "✅ " : isPartiallyPaid ? "💰 " : "";
+                const isWalkIn = !!clientObj?.is_walk_in;
 
                 return {
                     id: app.id,
-                    title: isExternalGoogle ? `📅 ${app.title}` : `${paymentBadge}${walkInBadge}${app.title} - ${app.client_name || 'ללא לקוח'}`,
+                    // Plain-text fallback for accessibility/list-view — the actual
+                    // on-screen rendering comes from the eventContent AppointmentCard.
+                    title: isExternalGoogle ? app.title : `${app.title} - ${app.client_name || 'ללא לקוח'}`,
                     start: app.starts_at,
                     end: app.ends_at,
-                    backgroundColor: app.artist_color || STATUS_COLORS[app.status] || STATUS_COLORS["scheduled"],
-                    borderColor: app.artist_color || STATUS_COLORS[app.status] || STATUS_COLORS["scheduled"],
+                    backgroundColor: app.artist_color || statusMeta(app.status).color,
+                    borderColor: app.artist_color || statusMeta(app.status).color,
                     editable: !isExternalGoogle,
                     extendedProps: {
                         ...app,
-                        isExternalGoogle
+                        isExternalGoogle,
+                        isWalkIn,
                     }
                 };
             });
-    }, [appointments, clients]);
+    }, [appointments, clients, filterArtistNames, filterTreatments, filterStatuses]);
 
     function autoDeposit(startIso: string, endIso: string): number | "" {
         if (!defaultDepositAmount) return "";
@@ -456,42 +519,9 @@ export default function CalendarPage() {
         setShowTypeChooser(true);
     };
 
-    const handleEventClick = (clickInfo: any) => {
-        // Block spurious click that fires right after a touch drag completes
-        if (isDraggingEvent.current) return;
-        const app = clickInfo.event.extendedProps;
-        if (app.isHoliday) {
-            setHolidayPopup({ name: app.holidayName, info: app.holidayInfo });
-            return;
-        }
-        if (app.isTask) {
-            setSelectedTaskId(app.taskId);
-            setTaskTitle(app.title);
-            setTaskDate(app.date || "");
-            setTaskStartTime(app.start_time || "");
-            setTaskEndTime(app.end_time || "");
-            setTaskNotes(app.notes || "");
-            setTaskColor(app.color || "#8b5cf6");
-            setTaskRecurrence((app.recurrence_type || "none") as "none"|"weekly"|"monthly"|"yearly");
-            // Load full task to get recurrence details
-            apiFetch<any>(`/api/tasks/${app.taskId}`).then(full => {
-                setTaskRecurrenceDay(full.recurrence_day ?? "");
-                setTaskRecurrenceMonth(full.recurrence_month ?? "");
-                setTaskRecurrenceDaysOfWeek(
-                    full.recurrence_days_of_week
-                        ? full.recurrence_days_of_week.split(",").filter((s: string) => s !== "").map(Number)
-                        : []
-                );
-                setTaskRecurrenceEndDate(full.recurrence_end_date || "");
-            }).catch(() => {});
-            setIsTaskModalOpen(true);
-            return;
-        }
-        if (app.isExternalGoogle) {
-            showToast("זהו אירוע מיומן גוגל — לא ניתן לערוך אותו מכאן.", "error");
-            return;
-        }
-
+    // Populates and opens the full edit form for a given appointment — used
+    // directly on desktop, and from the mobile view-sheet's "עריכה מלאה" button.
+    const openEditModalFor = (app: any) => {
         setSelectedEventId(app.id);
         setTitle(app.title);
 
@@ -529,6 +559,63 @@ export default function CalendarPage() {
                 }
             })
             .catch(() => {});
+    };
+
+    const handleEventClick = (clickInfo: any) => {
+        // Block spurious click that fires right after a touch drag completes
+        if (isDraggingEvent.current) return;
+        const app = clickInfo.event.extendedProps;
+        if (app.isHoliday) {
+            setHolidayPopup({ name: app.holidayName, info: app.holidayInfo });
+            return;
+        }
+        if (app.isTask) {
+            setSelectedTaskId(app.taskId);
+            setTaskTitle(app.title);
+            setTaskDate(app.date || "");
+            setTaskStartTime(app.start_time || "");
+            setTaskEndTime(app.end_time || "");
+            setTaskNotes(app.notes || "");
+            setTaskColor(app.color || "#8b5cf6");
+            setTaskRecurrence((app.recurrence_type || "none") as "none"|"weekly"|"monthly"|"yearly");
+            // Load full task to get recurrence details
+            apiFetch<any>(`/api/tasks/${app.taskId}`).then(full => {
+                setTaskRecurrenceDay(full.recurrence_day ?? "");
+                setTaskRecurrenceMonth(full.recurrence_month ?? "");
+                setTaskRecurrenceDaysOfWeek(
+                    full.recurrence_days_of_week
+                        ? full.recurrence_days_of_week.split(",").filter((s: string) => s !== "").map(Number)
+                        : []
+                );
+                setTaskRecurrenceEndDate(full.recurrence_end_date || "");
+            }).catch(() => {});
+            setIsTaskModalOpen(true);
+            return;
+        }
+        if (app.isExternalGoogle) {
+            showToast("זהו אירוע מיומן גוגל — לא ניתן לערוך אותו מכאן.", "error");
+            return;
+        }
+
+        // Mobile: tapping an appointment opens a lightweight view sheet with
+        // quick actions first, rather than jumping straight into the full edit
+        // form. Desktop behavior (open the edit form directly) is unchanged.
+        if (isMobile) {
+            setViewSheetAppt(app);
+        } else {
+            openEditModalFor(app);
+        }
+    };
+
+    const handleQuickStatusChange = async (appointmentId: string, newStatus: string) => {
+        try {
+            await apiFetch(`/api/appointments/${appointmentId}`, { method: "PATCH", body: JSON.stringify({ status: newStatus }) });
+            setViewSheetAppt(null);
+            loadData();
+            showToast("✅ הסטטוס עודכן");
+        } catch (e: any) {
+            setToast({ message: e?.message || "שגיאה בעדכון סטטוס", type: "error" });
+        }
     };
 
     // Resize (change duration) — show confirmation, capture times BEFORE revert
@@ -802,90 +889,234 @@ export default function CalendarPage() {
         }
     };
 
+    // First-load scroll position: roughly an hour before "now" so the current
+    // time has some lead-in context, instead of opening at the top of the
+    // configured business hours. Computed once — subsequent scroll position is
+    // handled imperatively (see wasModalOpenRef effect above).
+    const scrollTimeDefault = useMemo(() => {
+        const d = new Date();
+        d.setHours(d.getHours() - 1);
+        const hh = String(Math.max(0, d.getHours())).padStart(2, "0");
+        return `${hh}:00:00`;
+    }, []);
+
+    const saveCalendarHours = async () => {
+        const toMins = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + (m || 0); };
+        const startMins = toMins(draftStartHour);
+        const endMins = toMins(draftEndHour);
+        // Any end time <= start time means "past midnight" → treat as midnight (24:00)
+        const isMidnight = endMins <= startMins;
+        const fcEnd = isMidnight ? "24:00:00" : `${draftEndHour}:00`;
+        const saveEnd = isMidnight ? "00:00" : draftEndHour;
+        setCalendarStartHour(`${draftStartHour}:00`);
+        setCalendarEndHour(fcEnd);
+        if (isMidnight) setDraftEndHour("00:00");
+        try {
+            await apiFetch("/api/studio/automation", { method: "PATCH", body: JSON.stringify({ calendar_start_hour: draftStartHour, calendar_end_hour: saveEnd }) });
+        } catch { /* silent */ }
+    };
+
+    const calendarSettingsBody = (
+        <>
+            {/* Holidays toggle */}
+            <button
+                type="button"
+                onClick={() => { toggleHolidays(); }}
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg border transition-all mb-3 min-h-11 ${showHolidays ? "bg-sky-50 border-sky-200 text-sky-800" : "bg-slate-50 border-slate-200 text-slate-500"}`}
+            >
+                <span>🗓️ הצגת חגים</span>
+                <span className={`w-8 h-4 rounded-full transition-colors relative inline-block ${showHolidays ? "bg-sky-500" : "bg-slate-300"}`}>
+                    <span className={`absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-all ${showHolidays ? "left-4" : "left-0.5"}`} />
+                </span>
+            </button>
+
+            {/* Start / End hour inputs */}
+            <div className="flex gap-2 mb-2">
+                <div className="flex-1">
+                    <div className="text-xs font-bold text-slate-500 mb-1">🕐 התחלה</div>
+                    <input
+                        type="time"
+                        value={draftStartHour}
+                        onChange={e => setDraftStartHour(e.target.value)}
+                        className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm text-slate-700 focus:outline-none focus:border-blue-400 min-h-11"
+                    />
+                </div>
+                <div className="flex-1">
+                    <div className="text-xs font-bold text-slate-500 mb-1">🕙 סיום</div>
+                    <input
+                        type="time"
+                        value={draftEndHour}
+                        onChange={e => setDraftEndHour(e.target.value)}
+                        className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm text-slate-700 focus:outline-none focus:border-blue-400 min-h-11"
+                    />
+                </div>
+            </div>
+            <button
+                type="button"
+                onClick={saveCalendarHours}
+                className="w-full py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-colors min-h-11">
+                שמור שעות
+            </button>
+        </>
+    );
+
     return (
         <RequireAuth>
             <AppShell
                 fullBleed={isMobile}
                 title="יומן תורים"
                 titleAction={
-                    <div className="flex items-center gap-2 relative" ref={calSettingsRef}>
-                        <button
-                            type="button"
-                            onClick={() => router.push("/clients?create=1")}
-                            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-sky-600 text-white hover:bg-sky-700 transition-colors shadow-sm shadow-sky-200"
-                        >
-                            <span className="text-sm leading-none">+</span>
-                            לקוח חדש
-                        </button>
-                        {/* Calendar settings button */}
-                        <button
-                            type="button"
-                            onClick={() => setShowCalSettings(s => !s)}
-                            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors border border-slate-200"
-                            title="הגדרות יומן"
-                        >
-                            ⚙️
-                        </button>
-                        {showCalSettings && (
-                            <div className="absolute top-8 left-0 z-50 bg-white rounded-xl shadow-xl border border-slate-100 p-3 w-64 text-sm" dir="rtl">
-                                <div className="font-bold text-slate-700 mb-3 text-xs uppercase tracking-wide border-b pb-2">הגדרות יומן</div>
-
-                                {/* Holidays toggle */}
+                    isMobile ? (
+                        <>
+                            {/* Mobile header: just two entry points — filters, and a single
+                                "options" menu (new client + calendar settings) — instead of
+                                cramming several buttons in a row. Both open as bottom sheets. */}
+                            <button
+                                type="button"
+                                onClick={() => setShowFiltersSheet(true)}
+                                aria-label="פילטרים"
+                                className="relative w-11 h-11 flex items-center justify-center rounded-lg text-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors border border-slate-200"
+                            >
+                                🔍
+                                {activeFilterCount > 0 && (
+                                    <span className="absolute -top-1 -left-1 bg-sky-600 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                                        {activeFilterCount}
+                                    </span>
+                                )}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setShowCalSettings(true)}
+                                aria-label="אפשרויות יומן"
+                                className="w-11 h-11 flex items-center justify-center rounded-lg text-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors border border-slate-200"
+                            >
+                                ⋯
+                            </button>
+                            <BottomSheet open={showCalSettings} onClose={() => setShowCalSettings(false)} title="אפשרויות יומן">
                                 <button
                                     type="button"
-                                    onClick={() => { toggleHolidays(); }}
-                                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg border transition-all mb-3 ${showHolidays ? "bg-sky-50 border-sky-200 text-sky-800" : "bg-slate-50 border-slate-200 text-slate-500"}`}
+                                    onClick={() => { setShowCalSettings(false); router.push("/clients?create=1"); }}
+                                    className="w-full flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg text-sm font-bold bg-sky-600 text-white hover:bg-sky-700 transition-colors mb-4 min-h-11"
                                 >
-                                    <span>🗓️ הצגת חגים</span>
-                                    <span className={`w-8 h-4 rounded-full transition-colors relative inline-block ${showHolidays ? "bg-sky-500" : "bg-slate-300"}`}>
-                                        <span className={`absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-all ${showHolidays ? "left-4" : "left-0.5"}`} />
-                                    </span>
+                                    <span className="text-base leading-none">+</span>
+                                    לקוח חדש
                                 </button>
-
-                                {/* Start / End hour inputs */}
-                                <div className="flex gap-2 mb-2">
-                                    <div className="flex-1">
-                                        <div className="text-xs font-bold text-slate-500 mb-1">🕐 התחלה</div>
-                                        <input
-                                            type="time"
-                                            value={draftStartHour}
-                                            onChange={e => setDraftStartHour(e.target.value)}
-                                            className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm text-slate-700 focus:outline-none focus:border-blue-400"
-                                        />
+                                {calendarSettingsBody}
+                            </BottomSheet>
+                            <BottomSheet
+                                open={showFiltersSheet}
+                                onClose={() => setShowFiltersSheet(false)}
+                                title="סינון יומן"
+                                footer={
+                                    <div className="flex gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => { setFilterArtistNames([]); setFilterTreatments([]); setFilterStatuses([]); }}
+                                            className="flex-1 min-h-11 rounded-xl bg-slate-100 text-slate-600 text-sm font-bold"
+                                        >
+                                            נקה הכל
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowFiltersSheet(false)}
+                                            className="flex-1 min-h-11 rounded-xl bg-sky-600 text-white text-sm font-bold"
+                                        >
+                                            הצג תוצאות
+                                        </button>
                                     </div>
-                                    <div className="flex-1">
-                                        <div className="text-xs font-bold text-slate-500 mb-1">🕙 סיום</div>
-                                        <input
-                                            type="time"
-                                            value={draftEndHour}
-                                            onChange={e => setDraftEndHour(e.target.value)}
-                                            className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm text-slate-700 focus:outline-none focus:border-blue-400"
-                                        />
+                                }
+                            >
+                                {artists.length > 0 && (
+                                    <div className="mb-4">
+                                        <div className="text-xs font-bold text-slate-400 mb-2">איש צוות</div>
+                                        <div className="flex flex-wrap gap-2">
+                                            {artists.map(a => {
+                                                const name = a.display_name || a.email;
+                                                const active = filterArtistNames.includes(name);
+                                                return (
+                                                    <button
+                                                        key={a.id}
+                                                        type="button"
+                                                        onClick={() => setFilterArtistNames(prev => toggleInArray(prev, name))}
+                                                        className={`min-h-11 px-3 rounded-xl text-sm font-semibold border transition-colors ${active ? "bg-sky-600 border-sky-600 text-white" : "bg-white border-slate-200 text-slate-700"}`}
+                                                    >
+                                                        {name}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {treatmentTypes.length > 0 && (
+                                    <div className="mb-4">
+                                        <div className="text-xs font-bold text-slate-400 mb-2">סוג טיפול</div>
+                                        <div className="flex flex-wrap gap-2">
+                                            {treatmentTypes.map(t => {
+                                                const active = filterTreatments.includes(t.name);
+                                                return (
+                                                    <button
+                                                        key={t.name}
+                                                        type="button"
+                                                        onClick={() => setFilterTreatments(prev => toggleInArray(prev, t.name))}
+                                                        className={`min-h-11 px-3 rounded-xl text-sm font-semibold border transition-colors ${active ? "bg-sky-600 border-sky-600 text-white" : "bg-white border-slate-200 text-slate-700"}`}
+                                                    >
+                                                        {t.name}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div>
+                                    <div className="text-xs font-bold text-slate-400 mb-2">סטטוס</div>
+                                    <div className="flex flex-wrap gap-2">
+                                        {(["scheduled", "done", "canceled", "no_show"] as const).map(s => {
+                                            const active = filterStatuses.includes(s);
+                                            const meta = statusMeta(s);
+                                            return (
+                                                <button
+                                                    key={s}
+                                                    type="button"
+                                                    onClick={() => setFilterStatuses(prev => toggleInArray(prev, s))}
+                                                    className={`min-h-11 px-3 rounded-xl text-sm font-semibold border transition-colors ${active ? "bg-sky-600 border-sky-600 text-white" : "bg-white border-slate-200 text-slate-700"}`}
+                                                >
+                                                    {meta.icon} {meta.label}
+                                                </button>
+                                            );
+                                        })}
                                     </div>
                                 </div>
-                                <button
-                                    type="button"
-                                    onClick={async () => {
-                                        const toMins = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + (m || 0); };
-                                        const startMins = toMins(draftStartHour);
-                                        const endMins = toMins(draftEndHour);
-                                        // Any end time <= start time means "past midnight" → treat as midnight (24:00)
-                                        const isMidnight = endMins <= startMins;
-                                        const fcEnd = isMidnight ? "24:00:00" : `${draftEndHour}:00`;
-                                        const saveEnd = isMidnight ? "00:00" : draftEndHour;
-                                        setCalendarStartHour(`${draftStartHour}:00`);
-                                        setCalendarEndHour(fcEnd);
-                                        if (isMidnight) setDraftEndHour("00:00");
-                                        try {
-                                            await apiFetch("/api/studio/automation", { method: "PATCH", body: JSON.stringify({ calendar_start_hour: draftStartHour, calendar_end_hour: saveEnd }) });
-                                        } catch { /* silent */ }
-                                    }}
-                                    className="w-full py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-colors">
-                                    שמור שעות
-                                </button>
-                            </div>
-                        )}
-                    </div>
+                            </BottomSheet>
+                        </>
+                    ) : (
+                        <div className="flex items-center gap-2 relative" ref={calSettingsRef}>
+                            <button
+                                type="button"
+                                onClick={() => router.push("/clients?create=1")}
+                                className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-sky-600 text-white hover:bg-sky-700 transition-colors shadow-sm shadow-sky-200"
+                            >
+                                <span className="text-sm leading-none">+</span>
+                                לקוח חדש
+                            </button>
+                            {/* Calendar settings button */}
+                            <button
+                                type="button"
+                                onClick={() => setShowCalSettings(s => !s)}
+                                className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors border border-slate-200"
+                                title="הגדרות יומן"
+                            >
+                                ⚙️
+                            </button>
+                            {showCalSettings && (
+                                <div className="absolute top-8 left-0 z-50 bg-white rounded-xl shadow-xl border border-slate-100 p-3 w-64 text-sm" dir="rtl">
+                                    <div className="font-bold text-slate-700 mb-3 text-xs uppercase tracking-wide border-b pb-2">הגדרות יומן</div>
+                                    {calendarSettingsBody}
+                                </div>
+                            )}
+                        </div>
+                    )
                 }
             >
                 {/* Self-booking prompt banner */}
@@ -986,7 +1217,7 @@ export default function CalendarPage() {
                         .fc-timegrid-slot-lane { cursor: pointer !important; }
                     }
                 `}} />
-                <div className={`p-1 md:p-2 max-w-[1600px] w-full mx-auto flex flex-col ${isMobile ? "h-[calc(100vh-3.5rem-4rem)]" : "h-[calc(100vh-5rem)]"}`}>
+                <div className={`p-1 md:p-2 max-w-[1600px] w-full mx-auto flex flex-col ${isMobile ? "h-[calc(100dvh-3.5rem-4rem)]" : "h-[calc(100dvh-5rem)]"}`}>
 
                     {/* Minimal top bar — only error/loading, no date range or holidays toggle */}
                     {(loading || err) && (
@@ -1013,10 +1244,21 @@ export default function CalendarPage() {
                             ref={calendarRef}
                             plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
                             initialView="timeGridWeek"
+                            views={{
+                                // Mobile's "week" button: a swipeable 3-day strip instead of 7 cramped
+                                // columns. Uses the free `duration` option (a plain timeGrid variant),
+                                // NOT `dayMinWidth`/horizontal-scroll — that path needs a premium
+                                // ScrollGrid plugin we don't have and crashes (see note below).
+                                mobileWeek: {
+                                    type: "timeGrid",
+                                    duration: { days: 3 },
+                                    buttonText: "שבוע",
+                                },
+                            }}
                             headerToolbar={isMobile ? {
                                 left: "prev,next,today",
                                 center: "title",
-                                right: "timeGridDay,timeGridWeek,dayGridMonth"
+                                right: "timeGridDay,mobileWeek,dayGridMonth"
                             } : {
                                 left: "prev,next today",
                                 center: "title",
@@ -1034,6 +1276,7 @@ export default function CalendarPage() {
                             selectLongPressDelay={300}
                             dayMaxEvents={true}
                             nowIndicator={true}
+                            scrollTime={scrollTimeDefault}
                             allDaySlot={!isMobile}
                             slotMinTime={calendarStartHour}
                             slotMaxTime={calendarEndHour}
@@ -1050,10 +1293,97 @@ export default function CalendarPage() {
                             eventDrop={handleEventDrop}
                             eventResize={handleEventResize}
                             datesSet={handleDatesSet}
+                            eventContent={(arg: any) => {
+                                const p = arg.event.extendedProps;
+                                return (
+                                    <AppointmentCard
+                                        timeText={arg.timeText}
+                                        title={arg.event.title}
+                                        clientName={p.client_name || "ללא לקוח"}
+                                        artistName={p.artist_name}
+                                        status={p.status}
+                                        paidCents={p.paid_cents}
+                                        remainingCents={p.remaining_cents}
+                                        isWalkIn={p.isWalkIn}
+                                        isExternalGoogle={p.isExternalGoogle}
+                                    />
+                                );
+                            }}
                             height="100%"
                         />
                     </div>
                 </div>
+
+                {/* Mobile quick-actions view sheet — tapping an appointment opens this
+                    first; "עריכה מלאה" hands off to the existing edit form below. */}
+                {viewSheetAppt && (() => {
+                    const app = viewSheetAppt;
+                    const client = clients.find(c => c.id === app.client_id);
+                    const meta = statusMeta(app.status);
+                    const timeStr = (iso: string) => new Date(iso).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
+                    return (
+                        <BottomSheet open={true} onClose={() => setViewSheetAppt(null)} title={app.client_name || "ללא לקוח"}>
+                            <div className="space-y-1 mb-4 text-sm text-slate-600">
+                                <div className="flex items-center gap-2">🕒 {timeStr(app.starts_at)}–{timeStr(app.ends_at)}</div>
+                                {app.title && <div className="flex items-center gap-2">💈 {app.title}</div>}
+                                {app.artist_name && <div className="flex items-center gap-2">👤 {app.artist_name}</div>}
+                                <div className="flex items-center gap-2">
+                                    <span style={{ color: meta.color }}>{meta.icon}</span>
+                                    <span>{meta.label}</span>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2 mb-4">
+                                <a
+                                    href={client?.phone ? `tel:${client.phone}` : undefined}
+                                    className={`min-h-11 flex items-center justify-center gap-1.5 rounded-xl text-sm font-bold border ${client?.phone ? "bg-white border-slate-200 text-slate-700 hover:bg-slate-50" : "bg-slate-50 border-slate-100 text-slate-300 pointer-events-none"}`}
+                                >
+                                    📞 התקשר
+                                </a>
+                                <a
+                                    href={client?.phone ? `https://wa.me/${client.phone.replace(/\D/g, "")}` : undefined}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className={`min-h-11 flex items-center justify-center gap-1.5 rounded-xl text-sm font-bold border ${client?.phone ? "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100" : "bg-slate-50 border-slate-100 text-slate-300 pointer-events-none"}`}
+                                >
+                                    💬 וואטסאפ
+                                </a>
+                            </div>
+
+                            <div className="text-xs font-bold text-slate-400 mb-2">שינוי סטטוס</div>
+                            <div className="flex flex-wrap gap-2 mb-4">
+                                {(["scheduled", "done", "no_show"] as const).map(s => (
+                                    <button
+                                        key={s}
+                                        type="button"
+                                        onClick={() => handleQuickStatusChange(app.id, s)}
+                                        disabled={app.status === s}
+                                        className={`min-h-11 px-3 rounded-xl text-sm font-semibold border transition-colors disabled:opacity-40 ${app.status === s ? "bg-slate-100 border-slate-200 text-slate-500" : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"}`}
+                                    >
+                                        {statusMeta(s).icon} {statusMeta(s).label}
+                                    </button>
+                                ))}
+                            </div>
+
+                            <div className="space-y-2">
+                                <button
+                                    type="button"
+                                    onClick={() => { setViewSheetAppt(null); openEditModalFor(app); }}
+                                    className="w-full min-h-11 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-sm font-bold transition-colors"
+                                >
+                                    ✏️ עריכה מלאה
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => { setSelectedEventId(app.id); setViewSheetAppt(null); handleDeleteClick(); }}
+                                    className="w-full min-h-11 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 text-sm font-bold transition-colors"
+                                >
+                                    ❌ ביטול תור
+                                </button>
+                            </div>
+                        </BottomSheet>
+                    );
+                })()}
 
                 {/* Appointment Modal */}
                 {isModalOpen && (

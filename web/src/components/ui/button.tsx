@@ -25,11 +25,13 @@ const buttonVariants = cva(
                     "bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-md hover:from-violet-700 hover:to-indigo-700 focus-visible:ring-violet-600",
             },
             size: {
-                default: "h-9 px-4 py-2",
+                // default/icon are >=44px (touch-target minimum) — sm/icon-sm stay
+                // smaller as an explicit opt-in for dense/secondary UI only.
+                default: "h-11 px-4 py-2",
                 sm: "h-8 rounded-lg px-3 text-xs",
                 lg: "h-11 rounded-xl px-6 text-base",
                 xl: "h-13 rounded-2xl px-8 text-base font-semibold",
-                icon: "h-9 w-9",
+                icon: "h-11 w-11",
                 "icon-sm": "h-7 w-7 rounded-lg",
             },
         },

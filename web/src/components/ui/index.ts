@@ -5,3 +5,4 @@ export { Input } from "./input";
 export { Dialog, DialogPortal, DialogOverlay, DialogClose, DialogTrigger, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogDescription } from "./dialog";
 export { ToastProvider, useToast } from "./toast";
 export { StatCard } from "./stat-card";
+export { default as BottomSheet } from "./bottom-sheet";

@@ -437,7 +437,7 @@ export default function AppShell({
                         </div>
                     </header>
 
-                    <main className={fullBleed ? "h-[calc(100vh-3.5rem)] overflow-hidden" : "p-5 pb-28 md:pb-6"}>{children}</main>
+                    <main className={fullBleed ? "h-[calc(100dvh-3.5rem)] overflow-hidden" : "p-5 pb-28 md:pb-6"}>{children}</main>
                 </div>
             </div>
 
