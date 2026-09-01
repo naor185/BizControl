@@ -299,6 +299,7 @@ def ensure_schema():
             )
         """)
         cur.execute("ALTER TABLE appointments ADD COLUMN IF NOT EXISTS service_id UUID REFERENCES services(id) ON DELETE SET NULL")
+        cur.execute("ALTER TABLE appointments ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()")
 
         cur.execute("""
             CREATE TABLE IF NOT EXISTS studio_gallery (

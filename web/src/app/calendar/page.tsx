@@ -393,6 +393,32 @@ export default function CalendarPage() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [from, to]);
 
+    // Cross-device live sync: poll a cheap "version" signal every few
+    // seconds so a change made on another device/tab (a payment recorded, a
+    // reschedule, a new booking) shows up here on its own — no manual
+    // refresh. Only the lightweight version check runs on every tick; the
+    // real (heavier) appointment refetch only fires when it actually changed.
+    useEffect(() => {
+        let lastVersion: string | null = null;
+        let cancelled = false;
+
+        const poll = async () => {
+            if (document.visibilityState === "hidden") return;
+            try {
+                const { version } = await apiFetch<{ version: string }>("/api/appointments/version");
+                if (cancelled) return;
+                if (lastVersion !== null && lastVersion !== version) {
+                    loadData();
+                }
+                lastVersion = version;
+            } catch { /* transient network error — retry next tick */ }
+        };
+
+        const interval = setInterval(poll, 6000);
+        return () => { cancelled = true; clearInterval(interval); };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [from, to]);
+
     // Load today's scheduled broadcasts once on mount
     useEffect(() => {
         apiFetch<{id: string; title: string; scheduled_at: string; status: string}[]>("/api/broadcasts")

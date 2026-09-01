@@ -2,7 +2,7 @@ from __future__ import annotations
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, select
 from datetime import datetime, timezone
 from app.utils.logger import get_logger
 
@@ -167,6 +167,23 @@ def list_(
             log.warning("Failed to fetch Google Calendar events: %s", e)
 
     return db_events
+
+@router.get("/version")
+def appointments_version(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+    """
+    Cheap polling signal for cross-device live sync: the calendar polls this
+    every few seconds and only refetches the full appointment list (heavier —
+    joins clients/artists/payments) when the returned string actually changes.
+    count catches creates/hard-deletes, max(updated_at) catches edits/status/
+    payment changes on existing rows.
+    """
+    from app.models.appointment import Appointment
+    row = db.execute(
+        select(func.count(Appointment.id), func.max(Appointment.updated_at))
+        .where(Appointment.studio_id == ctx.studio_id)
+    ).first()
+    count, max_updated = row or (0, None)
+    return {"version": f"{count}:{max_updated.isoformat() if max_updated else ''}"}
 
 @router.get("/pending-deposits")
 def list_pending_deposits(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
