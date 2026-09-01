@@ -30,7 +30,7 @@ export default function BottomSheet({ open, onClose, title, children, footer, cl
         >
             <div
                 className={cn(
-                    "bg-white w-full rounded-t-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90dvh] animate-in slide-in-from-bottom duration-300",
+                    "bg-white w-full sm:max-w-md sm:mb-6 rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90dvh] animate-in slide-in-from-bottom duration-300",
                     className
                 )}
                 style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}

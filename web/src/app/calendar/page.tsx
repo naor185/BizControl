@@ -597,14 +597,13 @@ export default function CalendarPage() {
             return;
         }
 
-        // Mobile: tapping an appointment opens a lightweight view sheet with
-        // quick actions first, rather than jumping straight into the full edit
-        // form. Desktop behavior (open the edit form directly) is unchanged.
-        if (isMobile) {
-            setViewSheetAppt(app);
-        } else {
-            openEditModalFor(app);
-        }
+        // Clicking an appointment always opens the lightweight view sheet
+        // first (quick actions: call, WhatsApp, status, payment) — "עריכה
+        // מלאה" inside it opens the full edit form. Previously desktop
+        // skipped straight to the edit form, which meant those quick actions
+        // (WhatsApp in particular) only existed on mobile — unified so both
+        // behave the same way.
+        setViewSheetAppt(app);
     };
 
     const handleQuickStatusChange = async (appointmentId: string, newStatus: string) => {
