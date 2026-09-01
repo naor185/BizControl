@@ -70,6 +70,14 @@ type ClientProfile = {
     remaining_balance_cents: number;
 };
 
+type ClientPhoto = {
+    id: string;
+    photo_url: string;
+    caption: string | null;
+    appointment_id: string | null;
+    created_at: string;
+};
+
 type Appointment = {
     id: string;
     title: string;
@@ -117,6 +125,8 @@ export default function ClientProfilePage() {
     const [joinPhone, setJoinPhone] = useState("");
     const [invoices, setInvoices] = useState<Invoice[]>([]);
     const [creatingInvoiceFor, setCreatingInvoiceFor] = useState<string | null>(null);
+    const [photos, setPhotos] = useState<ClientPhoto[]>([]);
+    const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
     const loadInvoices = useCallback(async () => {
         if (!id) return;
@@ -125,6 +135,48 @@ export default function ClientProfilePage() {
             setInvoices(data.items);
         } catch { /* silent */ }
     }, [id]);
+
+    const loadPhotos = useCallback(async () => {
+        if (!id) return;
+        try {
+            setPhotos(await apiFetch<ClientPhoto[]>(`/api/clients/${id}/photos`));
+        } catch { /* silent */ }
+    }, [id]);
+
+    const uploadPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !id) return;
+        setUploadingPhoto(true);
+        try {
+            const fd = new FormData();
+            fd.append("file", file);
+            const { getToken } = await import("@/lib/api");
+            const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
+            const res = await fetch(`${API_BASE}/api/clients/${id}/photos`, {
+                method: "POST",
+                headers: { Authorization: `Bearer ${getToken()}` },
+                body: fd,
+            });
+            if (!res.ok) throw new Error(await res.text());
+            const photo = await res.json();
+            setPhotos(p => [photo, ...p]);
+        } catch (err: any) {
+            toast.error(err.message || "שגיאה בהעלאת תמונה");
+        } finally {
+            setUploadingPhoto(false);
+            e.target.value = "";
+        }
+    };
+
+    const deletePhoto = async (photoId: string) => {
+        if (!id) return;
+        try {
+            await apiFetch(`/api/clients/${id}/photos/${photoId}`, { method: "DELETE" });
+            setPhotos(p => p.filter(x => x.id !== photoId));
+        } catch (err: any) {
+            toast.error(err.message || "שגיאה במחיקת תמונה");
+        }
+    };
 
     const loadData = async () => {
         if (!id) return;
@@ -146,6 +198,7 @@ export default function ClientProfilePage() {
     useEffect(() => {
         loadData();
         loadInvoices();
+        loadPhotos();
     }, [id]);
 
     const handleSavePayment = async () => {
@@ -658,6 +711,42 @@ export default function ClientProfilePage() {
                                                 </div>
                                             );
                                         })}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Treatment photos */}
+                            <div className="rounded-xl border bg-white p-5 shadow-sm">
+                                <div className="flex items-center justify-between mb-4 border-b pb-2">
+                                    <h3 className="text-lg font-semibold">📸 תמונות טיפול</h3>
+                                    <label className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-bold cursor-pointer transition-colors ${uploadingPhoto ? "bg-slate-100 text-slate-400 cursor-not-allowed" : "bg-violet-50 text-violet-600 hover:bg-violet-100"}`}>
+                                        {uploadingPhoto ? "⏳ מעלה..." : "+ הוסף תמונה"}
+                                        <input type="file" accept="image/*" className="hidden" onChange={uploadPhoto} disabled={uploadingPhoto} />
+                                    </label>
+                                </div>
+                                {photos.length === 0 ? (
+                                    <div className="text-center py-8 border-2 border-dashed border-slate-200 rounded-xl">
+                                        <div className="text-3xl mb-2">📸</div>
+                                        <p className="text-sm text-gray-400">אין תמונות עדיין — העלה תמונה מהטיפול</p>
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                                        {photos.map(photo => (
+                                            <div key={photo.id} className="relative group aspect-square rounded-xl overflow-hidden bg-slate-100">
+                                                <img
+                                                    src={photo.photo_url.startsWith("/") ? `${(process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "")}${photo.photo_url}` : photo.photo_url}
+                                                    alt={photo.caption || ""}
+                                                    className="w-full h-full object-cover"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => deletePhoto(photo.id)}
+                                                    className="absolute top-1 right-1 w-6 h-6 bg-red-500 text-white rounded-full text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                                                >
+                                                    ×
+                                                </button>
+                                            </div>
+                                        ))}
                                     </div>
                                 )}
                             </div>

@@ -1,15 +1,18 @@
 from __future__ import annotations
-from uuid import UUID
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+import os
+from uuid import UUID, uuid4
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.deps import require_studio_ctx, AuthContext
 from app.core.database import get_db
-from app.schemas.client import ClientCreate, ClientUpdate, ClientOut, ClientProfileOut
+from app.schemas.client import ClientCreate, ClientUpdate, ClientOut, ClientProfileOut, ClientPhotoOut
 from app.crud.client import create_client, get_client, list_clients, update_client, soft_delete_client
 from app.models.client_points_ledger import ClientPointsLedger
+from app.models.client_treatment_photo import ClientTreatmentPhoto
 from app.models.message_job import MessageJob
+from app.api.upload_routes import _cloudinary_upload, _save_image_bytes, ALLOWED_IMAGE_TYPES, UPLOAD_DIR
 
 from app.models.client import Client
 
@@ -326,6 +329,109 @@ def profile(
         "total_appointments_cents": total_appts_cents,
         "remaining_balance_cents": remaining
     }
+
+
+@router.get("/{client_id}/photos", response_model=list[ClientPhotoOut])
+def list_photos(
+    client_id: UUID,
+    ctx: AuthContext = Depends(require_studio_ctx),
+    db: Session = Depends(get_db),
+):
+    obj = get_client(db, ctx.studio_id, client_id)
+    if not obj:
+        raise HTTPException(status_code=404, detail="Client not found")
+    stmt = (
+        select(ClientTreatmentPhoto)
+        .where(ClientTreatmentPhoto.studio_id == ctx.studio_id, ClientTreatmentPhoto.client_id == client_id)
+        .order_by(ClientTreatmentPhoto.created_at.desc())
+    )
+    return list(db.scalars(stmt).all())
+
+
+@router.post("/{client_id}/photos", response_model=ClientPhotoOut, status_code=status.HTTP_201_CREATED)
+def upload_photo(
+    client_id: UUID,
+    file: UploadFile = File(...),
+    caption: str | None = Form(None),
+    appointment_id: UUID | None = Form(None),
+    ctx: AuthContext = Depends(require_studio_ctx),
+    db: Session = Depends(get_db),
+):
+    if ctx.role not in ("owner", "admin", "manager"):
+        raise HTTPException(status_code=403, detail="Forbidden")
+    obj = get_client(db, ctx.studio_id, client_id)
+    if not obj:
+        raise HTTPException(status_code=404, detail="Client not found")
+
+    if appointment_id is not None:
+        from app.models.appointment import Appointment
+        appt = db.scalar(
+            select(Appointment).where(
+                Appointment.id == appointment_id,
+                Appointment.studio_id == ctx.studio_id,
+                Appointment.client_id == client_id,
+            )
+        )
+        if not appt:
+            raise HTTPException(status_code=400, detail="Appointment does not belong to this client")
+
+    if file.content_type not in ALLOWED_IMAGE_TYPES:
+        raise HTTPException(status_code=400, detail="Only image files are allowed")
+
+    file_bytes = file.file.read()
+    cloud_url = _cloudinary_upload(file_bytes, f"bizfind/{ctx.studio_id}/clients/{client_id}", uuid4().hex, db=db)
+    if cloud_url:
+        url = cloud_url
+    else:
+        # Stored as a relative /uploads/... path (never absolutized) — both
+        # web/'s Next rewrite and BizFind's imgUrl() helper already know how
+        # to resolve a relative uploads path against the backend origin, and
+        # this keeps delete_photo's "only unlink non-http urls" check correct.
+        filename = _save_image_bytes(file_bytes, file.content_type, "client_photo", ctx.studio_id)
+        url = f"/uploads/{filename}"
+
+    photo = ClientTreatmentPhoto(
+        studio_id=ctx.studio_id,
+        client_id=client_id,
+        appointment_id=appointment_id,
+        uploaded_by_id=ctx.user_id,
+        photo_url=url,
+        caption=caption,
+    )
+    db.add(photo)
+    db.commit()
+    db.refresh(photo)
+    return photo
+
+
+@router.delete("/{client_id}/photos/{photo_id}", status_code=200)
+def delete_photo(
+    client_id: UUID,
+    photo_id: UUID,
+    ctx: AuthContext = Depends(require_studio_ctx),
+    db: Session = Depends(get_db),
+):
+    if ctx.role not in ("owner", "admin", "manager"):
+        raise HTTPException(status_code=403, detail="Forbidden")
+    photo = db.scalar(
+        select(ClientTreatmentPhoto).where(
+            ClientTreatmentPhoto.id == photo_id,
+            ClientTreatmentPhoto.studio_id == ctx.studio_id,
+            ClientTreatmentPhoto.client_id == client_id,
+        )
+    )
+    if not photo:
+        raise HTTPException(status_code=404, detail="Photo not found")
+    # Only delete local files — never touch remote (Cloudinary) URLs, mirrors
+    # upload_routes.delete_gallery_photo's exact safety check.
+    if photo.photo_url and not photo.photo_url.startswith("http"):
+        file_path = os.path.normpath(photo.photo_url.lstrip("/"))
+        uploads_root = os.path.normpath(UPLOAD_DIR)
+        if os.path.abspath(file_path).startswith(os.path.abspath(uploads_root)) and os.path.exists(file_path):
+            os.remove(file_path)
+    db.delete(photo)
+    db.commit()
+    return {"ok": True}
 
 
 @router.post("/{client_id}/send-points-balance")

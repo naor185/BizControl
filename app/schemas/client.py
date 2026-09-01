@@ -47,6 +47,16 @@ class ClientLedgerItem(BaseModel):
 
     model_config = {"from_attributes": True}
 
+class ClientPhotoOut(BaseModel):
+    id: UUID
+    client_id: UUID
+    appointment_id: UUID | None
+    photo_url: str
+    caption: str | None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
 class ClientMessageItem(BaseModel):
     id: UUID
     appointment_id: UUID | None

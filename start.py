@@ -1598,6 +1598,23 @@ def ensure_schema():
             ADD COLUMN IF NOT EXISTS block_shabbat_messages BOOLEAN NOT NULL DEFAULT FALSE
         """)
 
+        # Treatment photos: owner uploads photos to a client's file after a
+        # treatment; shown to the client in their BizFind personal area.
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS client_treatment_photos (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+                appointment_id UUID REFERENCES appointments(id) ON DELETE SET NULL,
+                uploaded_by_id UUID REFERENCES users(id) ON DELETE SET NULL,
+                photo_url TEXT NOT NULL,
+                caption VARCHAR(255),
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_client_treatment_photos_client ON client_treatment_photos (client_id, created_at DESC)")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_client_treatment_photos_studio ON client_treatment_photos (studio_id)")
+
         conn.commit()
         cur.close()
         conn.close()

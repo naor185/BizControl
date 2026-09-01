@@ -1,19 +1,22 @@
 "use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { API, apiFetch } from "@/lib/api";
+import { API, apiFetch, imgUrl } from "@/lib/api";
 import { getCustomer, saveCustomer, clearCustomer, type Customer } from "@/lib/auth";
 import AuthModal from "@/components/AuthModal";
 
-interface MyInvoice {
-    id: string;
-    doc_type: string;
-    doc_type_label: string;
-    doc_number: number;
-    status: string;
-    total_ils: number;
-    issued_at: string;
-    business_name: string;
+interface Business {
+    client_id: string;
+    studio_id: string;
+    studio_name: string;
+    studio_slug: string;
+    logo_url: string | null;
+    cover_url: string | null;
+    loyalty_points: number;
+    is_club_member: boolean;
+    visit_count: number;
+    photo_count: number;
+    last_visit_at: string | null;
 }
 
 export default function MePage() {
@@ -22,7 +25,8 @@ export default function MePage() {
     const [favorites, setFavorites] = useState<FavStudio[]>([]);
     const [loadingFavs, setLoadingFavs] = useState(false);
     const [mounted, setMounted] = useState(false);
-    const [invoices, setInvoices] = useState<MyInvoice[]>([]);
+    const [businesses, setBusinesses] = useState<Business[]>([]);
+    const [loadingBusinesses, setLoadingBusinesses] = useState(false);
     const [waitlist, setWaitlist] = useState<WaitlistEntry[]>([]);
 
     useEffect(() => {
@@ -44,9 +48,11 @@ export default function MePage() {
             .catch(() => {})
             .finally(() => setLoadingFavs(false));
 
-        apiFetch<MyInvoice[]>("/api/marketplace/auth/my-invoices")
-            .then(setInvoices)
-            .catch(() => {});
+        setLoadingBusinesses(true);
+        apiFetch<Business[]>("/api/marketplace/auth/my-businesses")
+            .then(setBusinesses)
+            .catch(() => {})
+            .finally(() => setLoadingBusinesses(false));
 
         apiFetch<WaitlistEntry[]>("/api/marketplace/auth/my-waitlist")
             .then(setWaitlist)
@@ -173,31 +179,40 @@ export default function MePage() {
                     )}
                 </section>
 
-                {/* Invoices / Receipts */}
-                {invoices.length > 0 && (
-                    <section style={{ marginBottom: "2rem" }}>
-                        <h2 style={{ fontWeight: 800, fontSize: "1rem", marginBottom: "0.75rem", color: "#e2e8f0" }}>
-                            🧾 הקבלות שלי ({invoices.length})
-                        </h2>
-                        <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                            {invoices.slice(0, 5).map(inv => (
-                                <div key={inv.id} style={{ background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.08)", borderRadius: 14, padding: "0.85rem 1rem", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                                    <div>
-                                        <div style={{ fontSize: "0.82rem", fontWeight: 700 }}>
-                                            {inv.doc_type_label} #{inv.doc_number}
-                                        </div>
-                                        <div style={{ color: "#64748b", fontSize: "0.75rem" }}>
-                                            {inv.business_name} · {inv.issued_at ? new Date(inv.issued_at).toLocaleDateString("he-IL") : ""}
+                {/* Businesses — receipts, visits, loyalty & photos live per-business now */}
+                <section style={{ marginBottom: "2rem" }}>
+                    <h2 style={{ fontWeight: 800, fontSize: "1rem", marginBottom: "0.75rem", color: "#e2e8f0" }}>
+                        🏢 העסקים שלי {businesses.length > 0 && `(${businesses.length})`}
+                    </h2>
+                    {loadingBusinesses ? (
+                        <div style={{ color: "#64748b", fontSize: "0.85rem", padding: "1rem 0" }}>טוען...</div>
+                    ) : businesses.length === 0 ? (
+                        <div style={{ background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.08)", borderRadius: 16, padding: "2rem", textAlign: "center", color: "#64748b" }}>
+                            <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>🏢</div>
+                            <div style={{ fontSize: "0.85rem" }}>עוד לא ביקרת באף עסק</div>
+                            <Link href="/explore" style={{ color: "#a78bfa", fontSize: "0.82rem", textDecoration: "none", display: "block", marginTop: "0.5rem" }}>גלה עסקים →</Link>
+                        </div>
+                    ) : (
+                        <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+                            {businesses.map(b => (
+                                <Link key={b.studio_slug} href={`/me/business/${b.studio_slug}`} style={{ background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.08)", borderRadius: 16, padding: "0.9rem 1rem", display: "flex", alignItems: "center", gap: "0.8rem", textDecoration: "none" }}>
+                                    <div style={{ width: 48, height: 48, borderRadius: 12, background: "#7c3aed", overflow: "hidden", flexShrink: 0 }}>
+                                        {(b.cover_url || b.logo_url) && <img src={imgUrl(b.cover_url || b.logo_url)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />}
+                                    </div>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{ fontWeight: 700, fontSize: "0.9rem", color: "#e2e8f0" }}>{b.studio_name}</div>
+                                        <div style={{ color: "#94a3b8", fontSize: "0.78rem", marginTop: "0.15rem" }}>
+                                            {b.visit_count} ביקורים
+                                            {b.is_club_member && ` · 🌟 ${b.loyalty_points} נק'`}
+                                            {b.photo_count > 0 && ` · 📸 ${b.photo_count}`}
                                         </div>
                                     </div>
-                                    <span style={{ fontWeight: 800, color: "#4ade80", fontSize: "0.9rem" }}>
-                                        ₪{inv.total_ils.toFixed(2)}
-                                    </span>
-                                </div>
+                                    <span style={{ color: "#64748b" }}>←</span>
+                                </Link>
                             ))}
                         </div>
-                    </section>
-                )}
+                    )}
+                </section>
 
                 {/* Waitlist */}
                 {waitlist.length > 0 && (

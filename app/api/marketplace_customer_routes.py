@@ -396,6 +396,7 @@ def toggle_favorite(
 
 @router.get("/my-invoices")
 def my_invoices(
+    studio_slug: Optional[str] = None,
     db: Session = Depends(get_db),
     customer_id: str = Depends(_get_customer_id),
 ):
@@ -412,13 +413,15 @@ def my_invoices(
     rows = db.execute(
         text("""
             SELECT DISTINCT i.id, i.doc_type, i.doc_number, i.status,
-                   i.total_cents, i.issued_at, i.business_name
+                   i.total_cents, i.issued_at, i.business_name, s.slug
             FROM invoices i
             JOIN clients c ON c.studio_id = i.studio_id AND c.phone = :phone
+            JOIN studios s ON s.id = i.studio_id
             WHERE i.client_phone = :phone AND i.doc_type != 'credit'
+              AND (:studio_slug IS NULL OR s.slug = :studio_slug)
             ORDER BY i.issued_at DESC LIMIT 50
         """),
-        {"phone": phone}
+        {"phone": phone, "studio_slug": studio_slug}
     ).fetchall()
 
     DOC_LABELS = {
@@ -433,9 +436,127 @@ def my_invoices(
             "total_ils": round((r[4] or 0) / 100, 2),
             "issued_at": r[5].isoformat() if r[5] else None,
             "business_name": r[6],
+            "studio_slug": r[7],
         }
         for r in rows
     ]
+
+
+@router.get("/my-photos")
+def my_photos(
+    studio_slug: Optional[str] = None,
+    db: Session = Depends(get_db),
+    customer_id: str = Depends(_get_customer_id),
+):
+    """Treatment photos the studio owner uploaded to this customer's client
+    record, across every studio where their phone matches a client — same
+    phone-join pattern as my-invoices/my-bookings."""
+    customer_row = db.execute(
+        text("SELECT phone FROM marketplace_customers WHERE id = :id"),
+        {"id": customer_id}
+    ).fetchone()
+    if not customer_row:
+        return []
+    phone = customer_row[0]
+
+    rows = db.execute(
+        text("""
+            SELECT p.id, p.photo_url, p.caption, p.created_at, p.appointment_id,
+                   s.name AS studio_name, s.slug AS studio_slug
+            FROM client_treatment_photos p
+            JOIN clients c ON c.id = p.client_id AND c.phone = :phone
+            JOIN studios s ON s.id = p.studio_id
+            WHERE (:studio_slug IS NULL OR s.slug = :studio_slug)
+            ORDER BY p.created_at DESC
+            LIMIT 100
+        """),
+        {"phone": phone, "studio_slug": studio_slug}
+    ).fetchall()
+
+    return [
+        {
+            "id": str(r[0]), "photo_url": r[1], "caption": r[2],
+            "created_at": r[3].isoformat() if r[3] else None,
+            "appointment_id": str(r[4]) if r[4] else None,
+            "studio_name": r[5], "studio_slug": r[6],
+        }
+        for r in rows
+    ]
+
+
+@router.get("/my-businesses")
+def my_businesses(
+    db: Session = Depends(get_db),
+    customer_id: str = Depends(_get_customer_id),
+):
+    """For every studio where this customer's phone matches a client record,
+    return that business's identity plus visit count / loyalty / photo count —
+    the cross-studio generalization of /linked/{slug} that the BizFind
+    personal area is organized around."""
+    customer_row = db.execute(
+        text("SELECT phone FROM marketplace_customers WHERE id = :id"),
+        {"id": customer_id}
+    ).fetchone()
+    if not customer_row:
+        return []
+    phone = customer_row[0]
+
+    clients = db.execute(
+        text("""
+            SELECT c.id AS client_id, c.studio_id, s.name, s.slug, s.logo_url,
+                   ss.marketplace_cover_url, c.loyalty_points, c.is_club_member
+            FROM clients c
+            JOIN studios s ON s.id = c.studio_id
+            LEFT JOIN studio_settings ss ON ss.studio_id = s.id
+            WHERE c.phone = :phone AND c.is_active = true
+        """),
+        {"phone": phone}
+    ).fetchall()
+    if not clients:
+        return []
+
+    client_ids = [r[0] for r in clients]
+
+    visit_rows = db.execute(
+        text("""
+            SELECT client_id, COUNT(*) AS visit_count, MAX(starts_at) AS last_visit_at
+            FROM appointments WHERE client_id = ANY(:cids) AND status != 'canceled'
+            GROUP BY client_id
+        """),
+        {"cids": client_ids}
+    ).fetchall()
+    visits = {r[0]: (r[1], r[2]) for r in visit_rows}
+
+    photo_rows = db.execute(
+        text("""
+            SELECT client_id, COUNT(*) AS photo_count
+            FROM client_treatment_photos WHERE client_id = ANY(:cids)
+            GROUP BY client_id
+        """),
+        {"cids": client_ids}
+    ).fetchall()
+    photo_counts = {r[0]: r[1] for r in photo_rows}
+
+    result = []
+    for r in clients:
+        client_id = r[0]
+        visit_count, last_visit_at = visits.get(client_id, (0, None))
+        result.append({
+            "client_id": str(client_id),
+            "studio_id": str(r[1]),
+            "studio_name": r[2],
+            "studio_slug": r[3],
+            "logo_url": r[4],
+            "cover_url": r[5] or r[4],
+            "loyalty_points": int(r[6] or 0),
+            "is_club_member": r[7],
+            "visit_count": visit_count,
+            "photo_count": photo_counts.get(client_id, 0),
+            "last_visit_at": last_visit_at.isoformat() if last_visit_at else None,
+        })
+
+    result.sort(key=lambda b: b["last_visit_at"] or "", reverse=True)
+    return result
 
 
 @router.get("/linked/{slug}")

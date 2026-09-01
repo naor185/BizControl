@@ -7,6 +7,7 @@ from app.models.client import Client
 from app.models.appointment import Appointment
 from app.models.payment import Payment
 from app.models.client_points_ledger import ClientPointsLedger
+from app.models.client_treatment_photo import ClientTreatmentPhoto
 from app.models.message_job import MessageJob
 from app.models.expense import Expense
 from app.models.work_session import WorkSession
@@ -31,7 +32,7 @@ from app.models.device_token import DeviceToken
 
 __all__ = [
     "Base", "Studio", "User", "StudioSettings", "RefreshToken",
-    "Client", "Appointment", "Payment", "ClientPointsLedger", "MessageJob", "Expense", "WorkSession", "MonthlyGoal", "Product", "ProductSale", "StudioNote", "Lead", "AuditLog", "StudioIntegration", "BookingRequest",
+    "Client", "Appointment", "Payment", "ClientPointsLedger", "ClientTreatmentPhoto", "MessageJob", "Expense", "WorkSession", "MonthlyGoal", "Product", "ProductSale", "StudioNote", "Lead", "AuditLog", "StudioIntegration", "BookingRequest",
     "AIConversation", "AIMessage", "AIAuditLog",
     "EmployeeNfcTag", "AttendanceLog",
     "PosTransaction", "PosTransactionItem",
