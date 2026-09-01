@@ -243,7 +243,10 @@ def cancel_appointment(db: Session, studio_id: UUID, appointment_id: UUID, reaso
     obj = get_appointment(db, studio_id, appointment_id)
     if not obj:
         return False
-    
+
+    if obj.status == "done":
+        raise ValueError("לא ניתן לבטל תור שכבר הושלם ושולם")
+
     # Update Client Counters based on reason before marking canceled/no_show
     if reason in ("client_cancelled", "no_show"):
         client = db.get(Client, obj.client_id)
@@ -264,6 +267,8 @@ def hard_delete_appointment(db: Session, studio_id: UUID, appointment_id: UUID) 
     obj = get_appointment(db, studio_id, appointment_id)
     if not obj:
         return False
+    if obj.status == "done":
+        raise ValueError("לא ניתן למחוק תור שכבר הושלם ושולם")
     db.delete(obj)
     db.commit()
     return True

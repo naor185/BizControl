@@ -1469,13 +1469,15 @@ export default function CalendarPage() {
                                 >
                                     ✏️ עריכה מלאה
                                 </button>
-                                <button
-                                    type="button"
-                                    onClick={() => { setSelectedEventId(app.id); setViewSheetAppt(null); handleDeleteClick(); }}
-                                    className="w-full min-h-11 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 text-sm font-bold transition-colors"
-                                >
-                                    ❌ ביטול תור
-                                </button>
+                                {app.status === "scheduled" && (
+                                    <button
+                                        type="button"
+                                        onClick={() => { setSelectedEventId(app.id); setViewSheetAppt(null); handleDeleteClick(); }}
+                                        className="w-full min-h-11 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 text-sm font-bold transition-colors"
+                                    >
+                                        ❌ ביטול תור
+                                    </button>
+                                )}
                             </div>
                         </BottomSheet>
                     );
@@ -1750,13 +1752,13 @@ export default function CalendarPage() {
 
                             <div className="bg-slate-50 px-4 py-3 sm:p-5 flex justify-between items-center rounded-b-3xl border-t border-slate-100 flex-shrink-0">
                                 <div>
-                                    {selectedEventId && (
+                                    {selectedEventId && status === "scheduled" && (
                                         <button onClick={handleDeleteClick} className="px-4 py-2 text-sm font-bold text-red-600 hover:bg-red-50 rounded-xl transition-colors flex items-center gap-1">
                                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                                             מחק תור
                                         </button>
                                     )}
-                                    {selectedEventId && new Date(startAt) < new Date() && status !== "cancelled" && (
+                                    {selectedEventId && new Date(startAt) < new Date() && status === "scheduled" && (
                                         <button
                                             onClick={handlePaymentClick}
                                             className="px-4 py-2 text-sm font-bold text-emerald-600 hover:bg-emerald-50 rounded-xl transition-colors flex items-center gap-1"

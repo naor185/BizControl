@@ -457,12 +457,15 @@ def patch(appointment_id: UUID, payload: AppointmentUpdate, ctx: AuthContext = D
 def cancel(appointment_id: UUID, reason: str | None = Query(default=None), hard_delete: bool = Query(default=False), ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
     # Grab event before canceling to get google_event_id
     appt_obj = get_appointment(db, ctx.studio_id, appointment_id)
-    
-    if hard_delete:
-        ok = hard_delete_appointment(db, ctx.studio_id, appointment_id)
-    else:
-        ok = cancel_appointment(db, ctx.studio_id, appointment_id, reason=reason)
-        
+
+    try:
+        if hard_delete:
+            ok = hard_delete_appointment(db, ctx.studio_id, appointment_id)
+        else:
+            ok = cancel_appointment(db, ctx.studio_id, appointment_id, reason=reason)
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+
     if not ok:
         raise HTTPException(status_code=404, detail="Appointment not found")
         
