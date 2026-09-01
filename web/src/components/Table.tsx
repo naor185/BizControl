@@ -6,7 +6,7 @@ export default function Table({
     rows: Record<string, any>[];
 }) {
     return (
-        <div className="overflow-hidden rounded-2xl border bg-white shadow-sm">
+        <div className="overflow-x-auto rounded-2xl border bg-white shadow-sm">
             <table className="w-full text-sm">
                 <thead className="bg-zinc-50 text-zinc-600">
                     <tr>

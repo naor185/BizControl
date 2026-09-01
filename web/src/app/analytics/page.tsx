@@ -564,9 +564,9 @@ function BusinessAnalyticsTab() {
 
             {/* Top clients LTV */}
             {topClients.length > 0 && (
-                <div className="bg-white rounded-2xl border border-slate-100 p-5">
+                <div className="bg-white rounded-2xl border border-slate-100 p-5 overflow-x-auto">
                     <div className="font-bold text-slate-800 mb-3">👑 לקוחות מובילים (LTV)</div>
-                    <table className="w-full text-sm">
+                    <table className="w-full min-w-125 text-sm">
                         <thead>
                             <tr className="text-slate-400 text-xs border-b border-slate-100">
                                 <th className="text-right pb-2">#</th>

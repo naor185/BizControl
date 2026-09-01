@@ -103,7 +103,13 @@ export default function NotificationBell() {
             </button>
 
             {open && (
-                <div className="absolute left-0 top-11 w-80 bg-white rounded-2xl shadow-2xl border border-slate-100 z-50 overflow-hidden" dir="rtl">
+                // Fixed + inset-x on mobile: an absolute dropdown anchored to
+                // the bell button's own position can run off the right edge
+                // of a narrow screen depending on where the icon sits in the
+                // header, regardless of the dropdown's own width. Pinning it
+                // to the viewport with side margins below sm: sidesteps that
+                // entirely; sm: and up restores the original anchored dropdown.
+                <div className="fixed inset-x-4 top-16 sm:absolute sm:inset-x-auto sm:left-0 sm:top-11 sm:w-80 bg-white rounded-2xl shadow-2xl border border-slate-100 z-50 overflow-hidden" dir="rtl">
                     {/* Header */}
                     <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
                         <span className="font-bold text-slate-800 text-sm">התראות</span>

@@ -452,7 +452,7 @@ function PageInner() {
                                 )}
 
                                 {/* Member list */}
-                                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-x-auto">
                                     <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row gap-3">
                                         <input type="text" placeholder="חיפוש לפי שם או טלפון..." value={clubSearch}
                                             onChange={e => setClubSearch(e.target.value)}
@@ -472,7 +472,7 @@ function PageInner() {
                                             <div className="text-slate-600 font-semibold">אין חברי מועדון</div>
                                         </div>
                                     ) : (
-                                        <table className="w-full text-sm">
+                                        <table className="w-full min-w-105 text-sm">
                                             <thead>
                                                 <tr className="bg-slate-50 border-b border-slate-100">
                                                     <th className="text-right px-5 py-3 font-semibold text-slate-500 text-xs">שם</th>
@@ -494,13 +494,13 @@ function PageInner() {
                                                         : false;
                                                     return (
                                                     <tr key={m.id} className={`hover:bg-slate-50 transition-colors ${isBirthdayToday ? "bg-pink-50" : ""}`}>
-                                                        <td className="px-5 py-3.5">
-                                                            <Link href={`/clients/${m.id}`} className="flex items-center gap-2.5">
+                                                        <td className="px-5 py-3.5 max-w-40">
+                                                            <Link href={`/clients/${m.id}`} className="flex items-center gap-2.5 min-w-0">
                                                                 <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center text-xs font-bold shrink-0">
                                                                     {m.full_name[0] || "?"}
                                                                 </div>
-                                                                <span className="font-medium text-slate-800 hover:text-amber-700">{m.full_name}</span>
-                                                                {isBirthdayToday && <span className="text-base">🎂</span>}
+                                                                <span className="font-medium text-slate-800 hover:text-amber-700 truncate">{m.full_name}</span>
+                                                                {isBirthdayToday && <span className="text-base shrink-0">🎂</span>}
                                                             </Link>
                                                         </td>
                                                         <td className="px-5 py-3.5 text-slate-500 hidden sm:table-cell" dir="ltr">{m.phone || "—"}</td>
@@ -534,7 +534,7 @@ function PageInner() {
                                 </div>
 
                                 {/* ── Birthday Coupon Status ── */}
-                                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-x-auto">
                                     <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                                         <div>
                                             <h3 className="font-bold text-slate-800">🎂 קופוני יום הולדת — מי קיבל ומי לא</h3>
@@ -566,7 +566,7 @@ function PageInner() {
                                             אין לקוחות עם יום הולדת ב{MONTHS[bdMonth - 1]}
                                         </div>
                                     ) : (
-                                        <table className="w-full text-sm">
+                                        <table className="w-full min-w-150 text-sm">
                                             <thead>
                                                 <tr className="bg-slate-50 border-b border-slate-100 text-xs text-slate-500 font-semibold">
                                                     <th className="text-right px-4 py-3">שם</th>
