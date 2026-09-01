@@ -151,7 +151,12 @@ workflows:
     environment:
       ios_signing:
         distribution_type: app_store
-        bundle_identifier: com.bizfind.app
+        # iOS-specific bundle id — com.bizfind.app was already claimed on
+        # Apple's side by a different account, so the iOS build uses this
+        # instead. Android keeps com.bizfind.app (see PACKAGE_NAME above) —
+        # no conflict there, and Capacitor allows the two platforms to use
+        # different identifiers for the same app.
+        bundle_identifier: com.bizcontrol.bizfind
       node: 22
       xcode: latest
       vars:

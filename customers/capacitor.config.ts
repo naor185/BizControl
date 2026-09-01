@@ -15,6 +15,14 @@ import type { CapacitorConfig } from "@capacitor/cli";
  * screens always come from `server.url`.
  */
 const config: CapacitorConfig = {
+    // Android only — com.bizfind.app is what the generated android/ project
+    // actually uses (applicationId). iOS uses a different id, com.bizcontrol.bizfind
+    // (see ios/App/App.xcodeproj's PRODUCT_BUNDLE_IDENTIFIER and codemagic.yaml's
+    // bizfind-ios workflow): com.bizfind.app was already registered on Apple's
+    // side under a different account by the time BizFind's iOS signing was set
+    // up (2026-09-02), so the iOS app ships under this second identifier instead.
+    // This field itself only matters if the native projects are ever
+    // regenerated from scratch — they're already committed and won't be.
     appId: "com.bizfind.app",
     appName: "BizFind",
     webDir: "www",
