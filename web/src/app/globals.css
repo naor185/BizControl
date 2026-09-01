@@ -11,6 +11,14 @@
   --primary-200: #bae6fd;   /* sky-200 */
 }
 
+html, body {
+  /* Safety net: no page-level layout bug (a flex/grid row that refuses to
+     shrink, a fixed-width element, etc.) can ever force horizontal scroll
+     of the whole app — the worst case is that specific content gets clipped,
+     never a sideways-scrolling page. */
+  overflow-x: hidden;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
