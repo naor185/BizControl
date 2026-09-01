@@ -764,9 +764,12 @@ export default function CalendarPage() {
         }
     };
 
-    const handlePaymentClick = () => {
-        if (!selectedEventId) return;
-        const appt = appointments.find(a => a.id === selectedEventId);
+    const handlePaymentClick = (apptOverride?: any) => {
+        // apptOverride lets a caller (e.g. the mobile view sheet) pass the
+        // appointment directly instead of relying on selectedEventId, which
+        // would still be stale in this same synchronous handler if it was
+        // just set via setSelectedEventId() moments earlier.
+        const appt = apptOverride || (selectedEventId ? appointments.find(a => a.id === selectedEventId) : null);
         if (!appt) return;
 
         setPaymentAppt({
@@ -1350,20 +1353,32 @@ export default function CalendarPage() {
                                 </a>
                             </div>
 
-                            <div className="text-xs font-bold text-slate-400 mb-2">שינוי סטטוס</div>
-                            <div className="flex flex-wrap gap-2 mb-4">
-                                {(["scheduled", "done", "no_show"] as const).map(s => (
+                            {/* No manual "done" toggle — an appointment is marked done automatically
+                                by the backend the moment a full payment is recorded
+                                (app/crud/payment.py), via the payment button below. "No-show" stays
+                                a direct status toggle since it has nothing to do with payment. */}
+                            <div className="text-xs font-bold text-slate-400 mb-2">סטטוס</div>
+                            <div className="flex flex-wrap gap-2 mb-2">
+                                <span className="min-h-11 flex items-center px-3 rounded-xl text-sm font-semibold border bg-slate-50 border-slate-200 text-slate-500">
+                                    {statusMeta(app.status).icon} {statusMeta(app.status).label}
+                                </span>
+                                {app.status !== "no_show" && (
                                     <button
-                                        key={s}
                                         type="button"
-                                        onClick={() => handleQuickStatusChange(app.id, s)}
-                                        disabled={app.status === s}
-                                        className={`min-h-11 px-3 rounded-xl text-sm font-semibold border transition-colors disabled:opacity-40 ${app.status === s ? "bg-slate-100 border-slate-200 text-slate-500" : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"}`}
+                                        onClick={() => handleQuickStatusChange(app.id, "no_show")}
+                                        className="min-h-11 px-3 rounded-xl text-sm font-semibold border bg-white border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors"
                                     >
-                                        {statusMeta(s).icon} {statusMeta(s).label}
+                                        {statusMeta("no_show").icon} {statusMeta("no_show").label}
                                     </button>
-                                ))}
+                                )}
                             </div>
+                            <button
+                                type="button"
+                                onClick={() => { setSelectedEventId(app.id); setViewSheetAppt(null); handlePaymentClick(); }}
+                                className="w-full min-h-11 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-sm font-bold transition-colors mb-4 flex items-center justify-center gap-1.5"
+                            >
+                                💳 חיוב לתשלום
+                            </button>
 
                             <div className="space-y-2">
                                 <button
