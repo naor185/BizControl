@@ -1,0 +1,97 @@
+workflows:
+  bizcontrol-android:
+    name: BizControl — Android
+    max_build_duration: 60
+    instance_type: linux_x2
+    environment:
+      groups:
+        - google_play   # Codemagic UI: Teams > your team > Code signing identities / Environment variables
+          # Provide as an env var in this group: GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
+          # (the Google Play service-account JSON, used for Play Store publishing — optional, only
+          # needed once you want this workflow to also upload to Play Console automatically)
+      android_signing:
+        - bizcontrol_android   # keystore reference configured in Codemagic UI (Team settings > Code signing identities > Android)
+      node: 20.9.0
+      java: 17
+      vars:
+        PACKAGE_NAME: "com.bizcontrol.app"
+    scripts:
+      - name: Install npm dependencies
+        script: |
+          cd web
+          npm ci
+      - name: Sync native Capacitor project
+        script: |
+          cd web
+          npx cap sync android
+      - name: Build signed release AAB
+        script: |
+          cd web/android
+          ./gradlew bundleRelease
+    artifacts:
+      - web/android/app/build/outputs/**/*.aab
+      - web/android/app/build/outputs/**/*.apk
+    publishing:
+      email:
+        recipients:
+          - ncbilutattoo@gmail.com
+        notify:
+          success: true
+          failure: true
+      # Uncomment once the google_play group above has real credentials and
+      # the app already has at least one manual release in Play Console
+      # (Play's API requires that before it will accept automated uploads):
+      # google_play:
+      #   credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
+      #   track: internal   # internal -> alpha -> beta -> production, promote manually at first
+
+  bizcontrol-ios:
+    name: BizControl — iOS
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: bizcontrol_asc_api_key   # name of the App Store Connect API key integration, added in Codemagic UI (Team settings > Integrations > App Store Connect)
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.bizcontrol.app
+      node: 20.9.0
+      xcode: latest
+      vars:
+        XCODE_PROJECT: "App.xcodeproj"
+        XCODE_SCHEME: "App"
+    scripts:
+      - name: Install npm dependencies
+        script: |
+          cd web
+          npm ci
+      - name: Sync native Capacitor project
+        script: |
+          cd web
+          npx cap sync ios
+      - name: Set up code signing
+        script: |
+          cd web/ios/App
+          xcode-project use-profiles
+      - name: Build ipa for distribution
+        script: |
+          cd web/ios/App
+          xcode-project build-ipa \
+            --project "$XCODE_PROJECT" \
+            --scheme "$XCODE_SCHEME"
+    artifacts:
+      - web/ios/App/build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      email:
+        recipients:
+          - ncbilutattoo@gmail.com
+        notify:
+          success: true
+          failure: true
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        # Flip to true once you're ready for an actual App Store review —
+        # leave false while you're still just getting TestFlight builds out:
+        submit_to_app_store: false
