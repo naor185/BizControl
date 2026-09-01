@@ -1,5 +1,4 @@
 import "./globals.css";
-import InstallButton from "@/components/InstallButton";
 import { LanguageProvider } from "@/components/LanguageProvider";
 import { ToastProvider } from "@/components/ui/toast";
 import { QueryProvider } from "@/components/QueryProvider";
@@ -44,7 +43,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <LanguageProvider>
             <ToastProvider>
               {children}
-              <InstallButton />
             </ToastProvider>
           </LanguageProvider>
         </QueryProvider>
