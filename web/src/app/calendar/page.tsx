@@ -1486,20 +1486,37 @@ export default function CalendarPage() {
                                     <label className="block text-sm font-semibold text-slate-700 mb-1.5">לקוח</label>
 
                                     {/* Row 1: search */}
-                                    <div className="relative mb-2">
-                                        <input
-                                            type="text"
-                                            placeholder="חפש לפי שם או טלפון..."
-                                            value={clientSearch}
-                                            onChange={e => { setClientSearch(e.target.value); setClientId(""); setIsWalkIn(false); setIsClientDropdownOpen(true); }}
-                                            onFocus={() => setIsClientDropdownOpen(true)}
-                                            onBlur={() => setTimeout(() => setIsClientDropdownOpen(false), 200)}
-                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500"
-                                        />
-                                        {clientSearch && clientId && (
-                                            <button type="button" onClick={() => { setClientSearch(""); setClientId(""); setIsWalkIn(false); }}
-                                                className="absolute left-3 top-1.5 text-slate-400 hover:text-red-500 font-bold text-2xl leading-none">&times;</button>
-                                        )}
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <div className="relative flex-1">
+                                            <input
+                                                type="text"
+                                                placeholder="חפש לפי שם או טלפון..."
+                                                value={clientSearch}
+                                                onChange={e => { setClientSearch(e.target.value); setClientId(""); setIsWalkIn(false); setIsClientDropdownOpen(true); }}
+                                                onFocus={() => setIsClientDropdownOpen(true)}
+                                                onBlur={() => setTimeout(() => setIsClientDropdownOpen(false), 200)}
+                                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+                                            />
+                                            {clientSearch && clientId && (
+                                                <button type="button" onClick={() => { setClientSearch(""); setClientId(""); setIsWalkIn(false); }}
+                                                    className="absolute left-3 top-1.5 text-slate-400 hover:text-red-500 font-bold text-2xl leading-none">&times;</button>
+                                            )}
+                                        </div>
+                                        {(() => {
+                                            const selectedClient = clients.find(c => c.id === clientId);
+                                            if (!selectedClient?.phone) return null;
+                                            return (
+                                                <a
+                                                    href={`https://wa.me/${selectedClient.phone.replace(/\D/g, "")}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    title="שלח וואטסאפ ללקוח"
+                                                    className="shrink-0 flex items-center justify-center w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-100 transition-colors"
+                                                >
+                                                    💬
+                                                </a>
+                                            );
+                                        })()}
                                     </div>
                                     {isClientDropdownOpen && (
                                         <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto">
