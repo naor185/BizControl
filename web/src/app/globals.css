@@ -29,8 +29,8 @@ html, body {
      exact bug in different places. Forcing min-width:0 on every flex/grid
      item lets text truncate/wrap or the item shrink instead, so nothing can
      push the page past 100vw. Fixed-size elements (icons, avatars) are
-     unaffected — they already pin their size with an explicit w-*/shrink-0
-     class, which still wins over this. Scoped to mobile only so desktop
+     unaffected — they already pin their size with an explicit width class
+     or shrink-0, which still wins over this. Scoped to mobile only so desktop
      layouts (which have room to spare) are untouched.
   */
   body :where(.flex, .grid) > * {
