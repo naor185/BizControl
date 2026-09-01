@@ -17,6 +17,25 @@ html, body {
      of the whole app — the worst case is that specific content gets clipped,
      never a sideways-scrolling page. */
   overflow-x: hidden;
+  max-width: 100vw;
+}
+
+@media (max-width: 767px) {
+  /* Mobile-wide rule, not a per-screen patch: a flex/grid item's default
+     min-width is "auto" (its content's unwrapped min-content size), so a
+     row/label that's individually fine on desktop can silently force the
+     whole page wider than the phone screen — the clipped/overflowing
+     "מועדון VIP" cards, header button, and leaderboard row were all this
+     exact bug in different places. Forcing min-width:0 on every flex/grid
+     item lets text truncate/wrap or the item shrink instead, so nothing can
+     push the page past 100vw. Fixed-size elements (icons, avatars) are
+     unaffected — they already pin their size with an explicit w-*/shrink-0
+     class, which still wins over this. Scoped to mobile only so desktop
+     layouts (which have room to spare) are untouched.
+  */
+  body :where(.flex, .grid) > * {
+    min-width: 0;
+  }
 }
 
 body {
