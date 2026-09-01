@@ -768,7 +768,7 @@ export default function ClientProfilePage() {
                 )}
 
                 {isPaymentModalOpen && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
                         <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
                             <div className="bg-emerald-600 p-4 text-white">
                                 <div className="flex justify-between items-center mb-1">
@@ -976,7 +976,7 @@ export default function ClientProfilePage() {
 
                 {/* Appointment History Modal */}
                 {isApptModalOpen && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
                         <div className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85dvh] animate-in zoom-in-95 duration-200">
                             <div className="bg-slate-900 p-5 text-white flex justify-between items-center">
                                 <h3 className="text-lg font-bold">היסטוריית תורים 📅</h3>

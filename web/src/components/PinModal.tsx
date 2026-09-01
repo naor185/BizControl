@@ -153,7 +153,7 @@ export default function PinModal({ mode, onSuccess, onClose }: Props) {
     const currentDots = step === "current" ? currentPin : step === "confirm" ? confirmPin : pin;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" dir="rtl">
+        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center" dir="rtl">
             {/* Backdrop */}
             <div
                 className="absolute inset-0 bg-black/60 backdrop-blur-sm"

@@ -524,7 +524,7 @@ export default function ObligationsPage() {
 
                     {/* Pay popup */}
                     {payPopup && (
-                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setPayPopup(null)}>
+                        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4" onClick={() => setPayPopup(null)}>
                             <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full text-right" onClick={e => e.stopPropagation()} dir="rtl">
                                 <div className="text-lg font-bold text-slate-800 mb-1">✓ סמן תשלום</div>
                                 <div className="text-sm text-slate-500 mb-4">{payPopup.title}</div>
@@ -558,7 +558,7 @@ export default function ObligationsPage() {
 
                     {/* Delete confirm */}
                     {deletingId && (
-                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setDeletingId(null)}>
+                        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4" onClick={() => setDeletingId(null)}>
                             <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full text-center" onClick={e => e.stopPropagation()} dir="rtl">
                                 <div className="text-4xl mb-3">🗑️</div>
                                 <div className="font-bold text-slate-800 mb-2">מחיקת התחייבות</div>

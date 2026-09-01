@@ -264,7 +264,7 @@ export default function CallsPage() {
                 </div>
 
                 {showLogModal && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" dir="rtl">
+                    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4" dir="rtl">
                         <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
                             <h2 className="text-lg font-bold text-slate-900">לוג שיחה</h2>
 

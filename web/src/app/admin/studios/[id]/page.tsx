@@ -1155,7 +1155,7 @@ export default function StudioDetailPage() {
 
             {/* Extend Modal */}
             {extendModal && (
-                <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 px-4" onClick={() => setExtendModal(false)}>
+                <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/40 px-4" onClick={() => setExtendModal(false)}>
                     <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full sm:max-w-sm p-6" onClick={e => e.stopPropagation()}>
                         <h3 className="text-base font-bold text-gray-900 mb-4">הארך תוכנית — {detail.name}</h3>
 

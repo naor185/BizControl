@@ -689,7 +689,7 @@ function PageInner() {
 
                 {/* Delete modal */}
                 {deletingClientId && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
                         <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl p-6 text-center">
                             <div className="w-14 h-14 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
                                 <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -708,7 +708,7 @@ function PageInner() {
 
                 {/* Add client modal */}
                 {isModalOpen && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
                         <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden">
                             <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
                                 <h3 className="text-base font-bold text-slate-800">לקוח חדש</h3>

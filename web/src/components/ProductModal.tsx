@@ -89,7 +89,7 @@ export default function ProductModal({ isOpen, onClose, onSuccess, product }: Pr
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
             <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden max-h-[90dvh] flex flex-col">
                 <div className="p-6 border-b border-slate-50 flex items-center justify-between bg-slate-50/50 shrink-0">
                     <h2 className="text-xl font-bold text-slate-800">{product ? "עריכת מוצר" : "הוספת מוצר חדש 🎁"}</h2>

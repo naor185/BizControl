@@ -1057,7 +1057,7 @@ export default function CalendarPage() {
 
                 {/* Appointment Modal */}
                 {isModalOpen && (
-                    <div className={`fixed inset-0 z-50 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200 ${isMobile ? "flex items-end justify-center" : "flex items-center justify-center p-3 sm:p-4"}`}>
+                    <div className={`fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm animate-in fade-in duration-200 ${isMobile ? "flex items-end justify-center" : "flex items-center justify-center p-3 sm:p-4"}`}>
                         <div className={`bg-white w-full shadow-2xl overflow-hidden flex flex-col ${isMobile ? "rounded-t-3xl max-h-[92dvh] animate-in slide-in-from-bottom duration-300" : "rounded-3xl max-w-lg max-h-[calc(100dvh-5rem)] animate-in zoom-in-95 duration-300"}`} dir="rtl">
                             {isMobile && <div className="flex justify-center pt-3 pb-1 flex-shrink-0"><div className="w-10 h-1 rounded-full bg-slate-300" /></div>}
                             <div className="bg-slate-50 border-b border-slate-100 px-5 py-4 flex items-center justify-between flex-shrink-0">
@@ -1442,7 +1442,7 @@ export default function CalendarPage() {
 
                 {/* Type Chooser — appointment vs task */}
                 {showTypeChooser && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-150"
+                    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-150"
                         onClick={() => setShowTypeChooser(false)}>
                         <div className="bg-white rounded-3xl shadow-2xl p-6 w-full max-w-xs animate-in zoom-in-95 duration-200"
                             onClick={e => e.stopPropagation()} dir="rtl">
@@ -1479,7 +1479,7 @@ export default function CalendarPage() {
 
                 {/* Task Modal */}
                 {isTaskModalOpen && (
-                    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm sm:p-4 animate-in fade-in duration-200">
+                    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm sm:p-4 animate-in fade-in duration-200">
                         <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full sm:max-w-md shadow-2xl overflow-hidden max-h-[85dvh] flex flex-col animate-in slide-in-from-bottom sm:zoom-in-95 duration-300" dir="rtl">
                             <div className="bg-violet-50 border-b border-violet-100 p-5 flex items-center justify-between flex-shrink-0">
                                 <h3 className="text-xl font-bold text-violet-900">{selectedTaskId ? "עריכת משימה" : "משימה / תזכורת חדשה"}</h3>
@@ -1630,7 +1630,7 @@ export default function CalendarPage() {
 
                 {/* Holiday popup */}
                 {holidayPopup && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={() => setHolidayPopup(null)}>
+                    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={() => setHolidayPopup(null)}>
                         <div className="bg-white rounded-3xl shadow-2xl p-6 max-w-xs w-full text-center animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
                             <div className="text-4xl mb-2">{holidayPopup.name.split(" ")[0]}</div>
                             <h3 className="text-lg font-bold text-slate-900 mb-1">{holidayPopup.name.slice(2)}</h3>

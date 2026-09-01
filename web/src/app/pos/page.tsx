@@ -96,7 +96,7 @@ function ReceiptModal({ txn, clientId, onClose }: { txn: TransactionOut; clientI
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xs overflow-hidden" onClick={e => e.stopPropagation()}>
                 <div className="bg-emerald-600 text-white px-5 py-4 text-center">
                     <div className="text-2xl mb-1">✅</div>
@@ -692,7 +692,7 @@ export default function PosPage() {
         {/* Modals */}
         {receipt && <ReceiptModal txn={receipt} clientId={client?.id ?? null} onClose={() => setReceipt(null)} />}
         {showAddClient && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowAddClient(false)}>
+            <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4" onClick={() => setShowAddClient(false)}>
                 <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xs p-5" onClick={e => e.stopPropagation()} dir="rtl">
                     <div className="text-sm font-bold text-slate-800 mb-3">הוסף לקוח חדש</div>
                     <div className="space-y-2">
