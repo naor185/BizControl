@@ -1402,7 +1402,7 @@ export default function CalendarPage() {
                                 <span className="min-h-11 flex items-center px-3 rounded-xl text-sm font-semibold border bg-slate-50 border-slate-200 text-slate-500">
                                     {statusMeta(app.status).icon} {statusMeta(app.status).label}
                                 </span>
-                                {app.status !== "no_show" && (
+                                {app.status === "scheduled" && (
                                     <button
                                         type="button"
                                         onClick={() => handleQuickStatusChange(app.id, "no_show")}
@@ -1412,13 +1412,15 @@ export default function CalendarPage() {
                                     </button>
                                 )}
                             </div>
-                            <button
-                                type="button"
-                                onClick={() => { setSelectedEventId(app.id); setViewSheetAppt(null); handlePaymentClick(); }}
-                                className="w-full min-h-11 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-sm font-bold transition-colors mb-4 flex items-center justify-center gap-1.5"
-                            >
-                                💳 חיוב לתשלום
-                            </button>
+                            {app.status === "scheduled" && (
+                                <button
+                                    type="button"
+                                    onClick={() => { setSelectedEventId(app.id); setViewSheetAppt(null); handlePaymentClick(app); }}
+                                    className="w-full min-h-11 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-sm font-bold transition-colors mb-4 flex items-center justify-center gap-1.5"
+                                >
+                                    💳 חיוב לתשלום
+                                </button>
+                            )}
 
                             <label
                                 className={`w-full min-h-11 rounded-xl border text-sm font-bold transition-colors mb-4 flex items-center justify-center gap-1.5 cursor-pointer ${uploadingViewPhoto ? "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed" : "bg-violet-50 border-violet-200 text-violet-700 hover:bg-violet-100"}`}
