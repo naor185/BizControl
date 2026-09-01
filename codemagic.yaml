@@ -29,6 +29,7 @@ workflows:
       - name: Build signed release AAB
         script: |
           cd web/android
+          chmod +x ./gradlew
           ./gradlew bundleRelease
     artifacts:
       - web/android/app/build/outputs/**/*.aab
