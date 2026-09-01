@@ -614,7 +614,7 @@ export default function CalendarPage() {
             loadData();
             showToast("✅ הסטטוס עודכן");
         } catch (e: any) {
-            setToast({ message: e?.message || "שגיאה בעדכון סטטוס", type: "error" });
+            showToast(e?.message || "שגיאה בעדכון סטטוס", "error");
         }
     };
 
@@ -651,7 +651,7 @@ export default function CalendarPage() {
                     setAppointments(prev => prev.map(a => a.id === eventId ? { ...a, ends_at: newEndStr } : a));
                     showToast("משך התור עודכן ✅");
                 } catch (e: any) {
-                    setToast({ message: "שגיאה בעדכון משך התור: " + (e?.message || ""), type: "error" });
+                    showToast("שגיאה בעדכון משך התור: " + (e?.message || ""), "error");
                 }
             },
             onCancel: () => setDragConfirm(null),
@@ -661,7 +661,7 @@ export default function CalendarPage() {
     const handleEventDrop = async (dropInfo: any) => {
         const app = dropInfo.event.extendedProps;
         if (app.isExternalGoogle) {
-            setToast({message: "לא ניתן להזיז אירועים מגוגל קלנדר חיצוני.", type: "error"});
+            showToast("לא ניתן להזיז אירועים מגוגל קלנדר חיצוני.", "error");
             dropInfo.revert();
             return;
         }
@@ -685,7 +685,7 @@ export default function CalendarPage() {
                     : t
                 ));
             } catch {
-                setToast({ message: "שגיאה בהזזת המשימה", type: "error" });
+                showToast("שגיאה בהזזת המשימה", "error");
                 dropInfo.revert();
             }
             return;
@@ -716,7 +716,7 @@ export default function CalendarPage() {
                     setAppointments(prev => prev.map(a => a.id === eventId ? { ...a, starts_at: newStartStr, ends_at: newEndStr } : a));
                     showToast("התור הוזז בהצלחה ✅");
                 } catch (e: any) {
-                    setToast({ message: "שגיאה בהזזת התור: " + (e?.message || ""), type: "error" });
+                    showToast("שגיאה בהזזת התור: " + (e?.message || ""), "error");
                 }
             },
             onCancel: () => setDragConfirm(null),
@@ -725,7 +725,7 @@ export default function CalendarPage() {
 
     const handleSaveAppointment = async (skipPastCheck = false) => {
         if (!title || !startAt || !endAt || !artistId || !clientId) {
-            setToast({message: "יש למלא את כל שדות החובה: כותרת, זמנים, איש צוות ולקוח.", type: "error"});
+            showToast("יש למלא את כל שדות החובה: כותרת, זמנים, איש צוות ולקוח.", "error");
             return;
         }
 
@@ -760,7 +760,7 @@ export default function CalendarPage() {
             setIsModalOpen(false);
             loadData();
         } catch (e: any) {
-            setToast({message: e?.message || "שגיאה בשמירת התור", type: "error"});
+            showToast(e?.message || "שגיאה בשמירת התור", "error");
         }
     };
 
@@ -800,7 +800,7 @@ export default function CalendarPage() {
             setIsModalOpen(false);
             loadData();
         } catch (e: any) {
-            setToast({message: e?.message || "שגיאה במחיקת התור", type: "error"});
+            showToast(e?.message || "שגיאה במחיקת התור", "error");
         }
     };
 
@@ -842,11 +842,11 @@ export default function CalendarPage() {
     };
 
     const handleSaveTask = async () => {
-        if (!taskTitle.trim()) { setToast({message: "יש להזין כותרת למשימה", type: "error"}); return; }
-        if (taskRecurrence === "none" && !taskDate) { setToast({message: "יש לבחור תאריך", type: "error"}); return; }
-        if (taskRecurrence === "weekly" && taskRecurrenceDaysOfWeek.length === 0) { setToast({message: "יש לבחור לפחות יום אחד בשבוע", type: "error"}); return; }
-        if (taskRecurrence === "monthly" && !taskRecurrenceDay) { setToast({message: "יש לבחור יום בחודש", type: "error"}); return; }
-        if (taskRecurrence === "yearly" && (!taskRecurrenceDay || !taskRecurrenceMonth)) { setToast({message: "יש לבחור יום וחודש", type: "error"}); return; }
+        if (!taskTitle.trim()) { showToast("יש להזין כותרת למשימה", "error"); return; }
+        if (taskRecurrence === "none" && !taskDate) { showToast("יש לבחור תאריך", "error"); return; }
+        if (taskRecurrence === "weekly" && taskRecurrenceDaysOfWeek.length === 0) { showToast("יש לבחור לפחות יום אחד בשבוע", "error"); return; }
+        if (taskRecurrence === "monthly" && !taskRecurrenceDay) { showToast("יש לבחור יום בחודש", "error"); return; }
+        if (taskRecurrence === "yearly" && (!taskRecurrenceDay || !taskRecurrenceMonth)) { showToast("יש לבחור יום וחודש", "error"); return; }
 
         const body: any = {
             title: taskTitle.trim(),
@@ -872,7 +872,7 @@ export default function CalendarPage() {
             loadData();
             showToast(selectedTaskId ? "✅ המשימה עודכנה" : "✅ המשימה נוספה");
         } catch (e: any) {
-            setToast({message: e?.message || "שגיאה בשמירת המשימה", type: "error"});
+            showToast(e?.message || "שגיאה בשמירת המשימה", "error");
         }
     };
 
@@ -885,7 +885,7 @@ export default function CalendarPage() {
             loadData();
             showToast("המשימה נמחקה");
         } catch (e: any) {
-            setToast({message: e?.message || "שגיאה במחיקת המשימה", type: "error"});
+            showToast(e?.message || "שגיאה במחיקת המשימה", "error");
         }
     };
 
