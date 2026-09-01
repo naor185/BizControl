@@ -4,11 +4,11 @@ workflows:
     max_build_duration: 60
     instance_type: linux_x2
     environment:
-      groups:
-        - google_play   # Codemagic UI: Teams > your team > Code signing identities / Environment variables
-          # Provide as an env var in this group: GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
-          # (the Google Play service-account JSON, used for Play Store publishing — optional, only
-          # needed once you want this workflow to also upload to Play Console automatically)
+      # Add a "google_play" env-var group here (Settings > Environment
+      # variables, with GCLOUD_SERVICE_ACCOUNT_CREDENTIALS in it) once you
+      # want this workflow to also auto-upload to Play Console — omitted
+      # for now since Codemagic requires a referenced group to actually
+      # exist, and this one didn't yet.
       android_signing:
         - bizcontrol_android   # keystore reference configured in Codemagic UI (Team settings > Code signing identities > Android)
       node: 20.9.0
