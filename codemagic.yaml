@@ -13,7 +13,7 @@ workflows:
       # exist, and this one didn't yet.
       android_signing:
         - bizcontrol_android   # keystore reference configured in Codemagic UI (Team settings > Code signing identities > Android)
-      node: 20.9.0
+      node: 22
       java: 17
       vars:
         PACKAGE_NAME: "com.bizcontrol.app"
@@ -57,7 +57,7 @@ workflows:
       ios_signing:
         distribution_type: app_store
         bundle_identifier: com.bizcontrol.app
-      node: 20.9.0
+      node: 22
       xcode: latest
       vars:
         XCODE_PROJECT: "App.xcodeproj"
