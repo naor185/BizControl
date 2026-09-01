@@ -14,7 +14,7 @@ workflows:
       android_signing:
         - bizcontrol_android   # keystore reference configured in Codemagic UI (Team settings > Code signing identities > Android)
       node: 22
-      java: 17
+      java: 21
       vars:
         PACKAGE_NAME: "com.bizcontrol.app"
     scripts:
