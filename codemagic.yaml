@@ -76,6 +76,14 @@ workflows:
         script: |
           cd web/ios/App
           xcode-project use-profiles
+      - name: Bump build number
+        script: |
+          # App Store Connect rejects re-uploading the same CFBundleVersion —
+          # $BUILD_NUMBER is Codemagic's own per-app, ever-increasing counter,
+          # so this is always higher than whatever was uploaded last time,
+          # no need to query Apple for the previous value.
+          cd web/ios/App
+          agvtool new-version -all $BUILD_NUMBER
       - name: Build ipa for distribution
         script: |
           cd web/ios/App
