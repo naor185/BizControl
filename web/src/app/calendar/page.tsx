@@ -267,10 +267,11 @@ export default function CalendarPage() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedEventId, setSelectedEventId] = useState<string | null>(null); // null = Creating new
 
-    // Mobile-only: quick-actions view sheet shown on tapping an appointment,
-    // before (optionally) opening the full edit form. Holds the raw
-    // extendedProps of the clicked FullCalendar event.
+    // Quick-actions view sheet shown on clicking an appointment, before
+    // (optionally) opening the full edit form. Holds the raw extendedProps
+    // of the clicked FullCalendar event.
     const [viewSheetAppt, setViewSheetAppt] = useState<any>(null);
+    const [uploadingViewPhoto, setUploadingViewPhoto] = useState(false);
 
     // Calendar filters (staff / treatment / status) — empty array = no filter
     // on that dimension. Matches by name (not id) for staff/treatment since
@@ -614,6 +615,35 @@ export default function CalendarPage() {
             showToast("✅ הסטטוס עודכן");
         } catch (e: any) {
             showToast(e?.message || "שגיאה בעדכון סטטוס", "error");
+        }
+    };
+
+    // Upload a treatment photo straight from the view sheet, tagged to this
+    // specific appointment — same endpoint/storage as the client profile
+    // page's photo card (app/api/client_routes.py), just reachable without
+    // navigating away from the calendar.
+    const uploadViewSheetPhoto = async (clientId: string, appointmentId: string, e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setUploadingViewPhoto(true);
+        try {
+            const fd = new FormData();
+            fd.append("file", file);
+            fd.append("appointment_id", appointmentId);
+            const { getToken } = await import("@/lib/api");
+            const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
+            const res = await fetch(`${API_BASE}/api/clients/${clientId}/photos`, {
+                method: "POST",
+                headers: { Authorization: `Bearer ${getToken()}` },
+                body: fd,
+            });
+            if (!res.ok) throw new Error(await res.text());
+            showToast("📸 התמונה נשמרה");
+        } catch (err: any) {
+            showToast(err?.message || "שגיאה בהעלאת תמונה", "error");
+        } finally {
+            setUploadingViewPhoto(false);
+            e.target.value = "";
         }
     };
 
@@ -1389,6 +1419,19 @@ export default function CalendarPage() {
                             >
                                 💳 חיוב לתשלום
                             </button>
+
+                            <label
+                                className={`w-full min-h-11 rounded-xl border text-sm font-bold transition-colors mb-4 flex items-center justify-center gap-1.5 cursor-pointer ${uploadingViewPhoto ? "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed" : "bg-violet-50 border-violet-200 text-violet-700 hover:bg-violet-100"}`}
+                            >
+                                {uploadingViewPhoto ? "⏳ מעלה..." : "📸 הוסף תמונת טיפול"}
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    disabled={uploadingViewPhoto}
+                                    onChange={e => uploadViewSheetPhoto(app.client_id, app.id, e)}
+                                />
+                            </label>
 
                             <div className="space-y-2">
                                 <button
