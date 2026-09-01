@@ -308,7 +308,7 @@ function LoginContent() {
 
     /* ── Main login ── */
     return (
-        <div className="min-h-screen relative overflow-hidden" dir={dir}>
+        <div className="min-h-screen relative overflow-x-hidden overflow-y-auto" dir={dir}>
 
             <Suspense fallback={<div className="absolute inset-0 bg-gradient-to-b from-[#001a2e] to-[#003055]" />}>
                 <OceanBackground />
