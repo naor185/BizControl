@@ -1324,9 +1324,13 @@ export default function CalendarPage() {
                     const client = clients.find(c => c.id === app.client_id);
                     const meta = statusMeta(app.status);
                     const timeStr = (iso: string) => new Date(iso).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
+                    const dateStr = (iso: string) => new Date(iso).toLocaleDateString("he-IL", { weekday: "long", day: "numeric", month: "long" });
+                    const depositCents = app.deposit_amount_cents || 0;
+                    const depositPaid = depositCents > 0 && (app.paid_cents || 0) >= depositCents;
                     return (
                         <BottomSheet open={true} onClose={() => setViewSheetAppt(null)} title={app.client_name || "ללא לקוח"}>
                             <div className="space-y-1 mb-4 text-sm text-slate-600">
+                                <div className="flex items-center gap-2">📅 {dateStr(app.starts_at)}</div>
                                 <div className="flex items-center gap-2">🕒 {timeStr(app.starts_at)}–{timeStr(app.ends_at)}</div>
                                 {app.title && <div className="flex items-center gap-2">💈 {app.title}</div>}
                                 {app.artist_name && <div className="flex items-center gap-2">👤 {app.artist_name}</div>}
@@ -1334,6 +1338,13 @@ export default function CalendarPage() {
                                     <span style={{ color: meta.color }}>{meta.icon}</span>
                                     <span>{meta.label}</span>
                                 </div>
+                                {depositCents > 0 && (
+                                    <div className={`flex items-center gap-2 font-semibold ${depositPaid ? "text-emerald-600" : "text-amber-600"}`}>
+                                        {depositPaid
+                                            ? <>✅ מקדמה שולמה (₪{(depositCents / 100).toLocaleString("he-IL")})</>
+                                            : <>⚠️ מקדמה טרם שולמה (₪{(depositCents / 100).toLocaleString("he-IL")})</>}
+                                    </div>
+                                )}
                             </div>
 
                             <div className="grid grid-cols-2 gap-2 mb-4">
