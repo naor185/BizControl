@@ -4,7 +4,7 @@ import type { CapacitorConfig } from "@capacitor/cli";
  * Native shell configuration for BizControl.
  *
  * The app is a native iOS/Android shell that loads the live production site
- * (biz-control.com) over the network — it is a real installable app (icon,
+ * (www.biz-control.com) over the network — it is a real installable app (icon,
  * splash screen, no visible browser chrome, works through the App Store /
  * Google Play), it just doesn't bundle a copy of the screens inside the
  * binary. This avoids a large, risky rewrite of the ~11 dynamic routes
@@ -22,7 +22,11 @@ const config: CapacitorConfig = {
     appName: "BizControl",
     webDir: "www",
     server: {
-        url: "https://biz-control.com",
+        // Must be the exact final origin — biz-control.com (no www) 307-redirects
+        // to this at the Vercel level, and Capacitor only keeps navigation inside
+        // the WebView for the configured origin; any redirect to a different one
+        // gets handed off to the system browser instead of rendering in-app.
+        url: "https://www.biz-control.com",
         // Cleartext is never used (https only); androidScheme keeps Android's
         // WebView cookies/localStorage consistent with a real https origin.
         androidScheme: "https",
