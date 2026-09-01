@@ -1468,6 +1468,10 @@ def ensure_schema():
         cur.execute("ALTER TABLE message_jobs ADD COLUMN IF NOT EXISTS recipient_user_id UUID REFERENCES users(id) ON DELETE CASCADE")
         cur.execute("ALTER TABLE message_jobs ADD COLUMN IF NOT EXISTS deep_link TEXT")
 
+        # ck_message_jobs_channel still only allowed ('whatsapp', 'email') — 'push' rows were violating it
+        cur.execute("ALTER TABLE message_jobs DROP CONSTRAINT IF EXISTS ck_message_jobs_channel")
+        cur.execute("ALTER TABLE message_jobs ADD CONSTRAINT ck_message_jobs_channel CHECK (channel IN ('whatsapp', 'email', 'push'))")
+
         cur.execute("""
             CREATE TABLE IF NOT EXISTS device_tokens (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
