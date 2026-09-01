@@ -2,7 +2,9 @@ workflows:
   bizcontrol-android:
     name: BizControl — Android
     max_build_duration: 60
-    instance_type: linux
+    # instance_type omitted — let Codemagic pick whatever's available on
+    # the current billing plan instead of guessing an exact name that
+    # keeps getting rejected.
     environment:
       # Add a "google_play" env-var group here (Settings > Environment
       # variables, with GCLOUD_SERVICE_ACCOUNT_CREDENTIALS in it) once you
