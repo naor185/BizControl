@@ -24,6 +24,7 @@ from passlib.context import CryptContext as _CryptContext
 _pwd_ctx = _CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 from fastapi import APIRouter, Depends, HTTPException, Header, Request
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
@@ -537,26 +538,131 @@ def my_businesses(
     ).fetchall()
     photo_counts = {r[0]: r[1] for r in photo_rows}
 
+    from app.services.apple_wallet_service import is_configured as apple_ok
+    from app.services.google_wallet_service import is_configured as google_ok, generate_save_url
+    from app.crud.customer_club import get_design
+
     result = []
     for r in clients:
         client_id = r[0]
+        studio_id = r[1]
+        is_member = bool(r[7])
         visit_count, last_visit_at = visits.get(client_id, (0, None))
+
+        apple_wallet_url = None
+        google_wallet_url = None
+        if is_member:
+            # Gated on club membership only for now (requirement: button shows
+            # only for active club members) — per-studio Super Admin
+            # enable/disable is planned but not wired up yet; see wallet plan.
+            if apple_ok():
+                apple_wallet_url = f"{os.getenv('API_BASE_URL', '')}/api/marketplace/auth/my-businesses/{r[3]}/wallet/apple"
+            if google_ok():
+                try:
+                    design = get_design(db, studio_id)
+                    google_wallet_url = generate_save_url(
+                        client_id=str(client_id),
+                        client_name=phone,  # BizFind customer name isn't guaranteed set; phone is always present
+                        loyalty_points=int(r[6] or 0),
+                        qr_token=_get_or_create_qr_token(db, studio_id, client_id),
+                        studio_name=r[2],
+                        studio_id=str(studio_id),
+                        background_color=design.background_color,
+                        logo_url=design.logo_url or r[4],
+                        card_title=design.card_title,
+                    )
+                except Exception:
+                    pass
+
         result.append({
             "client_id": str(client_id),
-            "studio_id": str(r[1]),
+            "studio_id": str(studio_id),
             "studio_name": r[2],
             "studio_slug": r[3],
             "logo_url": r[4],
             "cover_url": r[5] or r[4],
             "loyalty_points": int(r[6] or 0),
-            "is_club_member": r[7],
+            "is_club_member": is_member,
             "visit_count": visit_count,
             "photo_count": photo_counts.get(client_id, 0),
             "last_visit_at": last_visit_at.isoformat() if last_visit_at else None,
+            "apple_wallet_url": apple_wallet_url,
+            "google_wallet_url": google_wallet_url,
         })
 
     result.sort(key=lambda b: b["last_visit_at"] or "", reverse=True)
     return result
+
+
+def _get_or_create_qr_token(db: Session, studio_id, client_id) -> str:
+    from app.crud.customer_club import get_or_create_card
+    card = get_or_create_card(db, studio_id, client_id)
+    db.commit()
+    return card.qr_token
+
+
+@router.get("/my-businesses/{studio_slug}/wallet/apple")
+def my_business_apple_wallet(
+    studio_slug: str,
+    db: Session = Depends(get_db),
+    customer_id: str = Depends(_get_customer_id),
+):
+    """Streams a signed .pkpass for this BizFind customer's club card at the
+    given studio — same generate_pkpass() used by the studio-direct portal,
+    just resolved through the BizFind customer's phone instead of a
+    portal_auth session. Never trusts a client_id from the caller: always
+    re-derives it server-side from (customer's own phone, studio_slug)."""
+    from app.services.apple_wallet_service import generate_pkpass, is_configured
+    from app.crud.customer_club import get_or_create_card, get_design
+
+    if not is_configured():
+        raise HTTPException(status_code=503, detail="Apple Wallet is not configured for this deployment.")
+
+    customer_row = db.execute(
+        text("SELECT phone FROM marketplace_customers WHERE id = :id"),
+        {"id": customer_id}
+    ).fetchone()
+    if not customer_row:
+        raise HTTPException(status_code=404, detail="Customer not found")
+    phone = customer_row[0]
+
+    row = db.execute(
+        text("""
+            SELECT c.id, c.studio_id, c.full_name, c.loyalty_points, c.is_club_member, s.name, s.logo_url
+            FROM clients c
+            JOIN studios s ON s.id = c.studio_id
+            WHERE c.phone = :phone AND s.slug = :slug AND c.is_active = true
+        """),
+        {"phone": phone, "slug": studio_slug}
+    ).fetchone()
+    if not row or not row[4]:
+        raise HTTPException(status_code=404, detail="Club membership not found for this business")
+
+    client_id, studio_id, full_name, points, _, studio_name, studio_logo = row
+    card = get_or_create_card(db, studio_id, client_id)
+    design = get_design(db, studio_id)
+    db.commit()
+
+    pkpass_bytes = generate_pkpass(
+        serial_number=str(client_id),
+        client_name=full_name or phone,
+        loyalty_points=int(points or 0),
+        qr_token=card.qr_token,
+        studio_name=studio_name,
+        background_color=design.background_color,
+        text_color=design.text_color,
+        label_color=design.label_color,
+        strip_color=design.strip_color,
+        logo_url=design.logo_url or studio_logo,
+        card_title=design.card_title,
+    )
+
+    import io
+    return StreamingResponse(
+        io.BytesIO(pkpass_bytes),
+        media_type="application/vnd.apple.pkpass",
+        headers={"Content-Disposition": 'attachment; filename="club_card.pkpass"'},
+    )
 
 
 @router.get("/linked/{slug}")

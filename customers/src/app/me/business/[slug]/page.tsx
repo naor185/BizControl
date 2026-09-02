@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { API, apiFetch, imgUrl } from "@/lib/api";
+import { API, apiFetch, imgUrl, getToken } from "@/lib/api";
 
 interface Business {
     client_id: string;
@@ -16,6 +16,8 @@ interface Business {
     visit_count: number;
     photo_count: number;
     last_visit_at: string | null;
+    apple_wallet_url: string | null;
+    google_wallet_url: string | null;
 }
 
 interface Receipt {
@@ -42,6 +44,31 @@ export default function BusinessDetailPage() {
     const [photos, setPhotos] = useState<Photo[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
+    const [downloadingPass, setDownloadingPass] = useState(false);
+
+    const downloadAppleWallet = async (url: string) => {
+        setDownloadingPass(true);
+        try {
+            const token = getToken();
+            const res = await fetch(`${API}${url}`, {
+                headers: token ? { Authorization: `Bearer ${token}` } : {},
+            });
+            if (!res.ok) throw new Error("שגיאה בהורדת הכרטיס");
+            const blob = await res.blob();
+            const blobUrl = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = blobUrl;
+            a.download = "club_card.pkpass";
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(blobUrl);
+        } catch {
+            alert("שגיאה בהורדת הכרטיס ל-Apple Wallet");
+        } finally {
+            setDownloadingPass(false);
+        }
+    };
 
     useEffect(() => {
         if (!slug) return;
@@ -102,6 +129,33 @@ export default function BusinessDetailPage() {
                         )}
                         <Link href={`/b/${business.studio_slug}`} style={{ color: "#64748b", fontSize: "1.1rem", textDecoration: "none" }}>↗</Link>
                     </div>
+
+                    {/* Add to Wallet — only for active club members, only when the
+                        studio actually has a URL (Apple/Google configured deployment-wide) */}
+                    {business.is_club_member && (business.apple_wallet_url || business.google_wallet_url) && (
+                        <div style={{ display: "flex", gap: "0.6rem", marginBottom: "2rem" }}>
+                            {business.apple_wallet_url && (
+                                <button
+                                    type="button"
+                                    onClick={() => downloadAppleWallet(business.apple_wallet_url!)}
+                                    disabled={downloadingPass}
+                                    style={{ flex: 1, background: "#000", color: "#fff", border: "none", borderRadius: 12, padding: "0.75rem", fontWeight: 700, fontSize: "0.85rem", cursor: downloadingPass ? "not-allowed" : "pointer", opacity: downloadingPass ? 0.6 : 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "0.4rem" }}
+                                >
+                                    <span></span> {downloadingPass ? "טוען..." : "הוסף ל-Apple Wallet"}
+                                </button>
+                            )}
+                            {business.google_wallet_url && (
+                                <a
+                                    href={business.google_wallet_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    style={{ flex: 1, background: "#1a73e8", color: "#fff", borderRadius: 12, padding: "0.75rem", fontWeight: 700, fontSize: "0.85rem", textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.4rem" }}
+                                >
+                                    <span>G</span> הוסף ל-Google Wallet
+                                </a>
+                            )}
+                        </div>
+                    )}
 
                     {/* Receipts */}
                     <section style={{ marginBottom: "2rem" }}>
