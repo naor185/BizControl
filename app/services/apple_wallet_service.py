@@ -53,12 +53,10 @@ def is_configured() -> bool:
 
 def _sign_manifest(manifest_json: bytes, cert_pem: bytes, key_pem: bytes, wwdr_pem: bytes) -> bytes:
     """Returns PKCS7 detached signature (DER) of manifest_json."""
-    from cryptography.hazmat.primitives.serialization import load_pem_private_key
+    from cryptography.hazmat.primitives.serialization import load_pem_private_key, Encoding
     from cryptography.hazmat.primitives import hashes
     from cryptography.x509 import load_pem_x509_certificate
-    from cryptography.hazmat.primitives.asymmetric import padding
     from cryptography.hazmat.backends import default_backend
-    from cryptography import x509
     import cryptography.hazmat.primitives.serialization.pkcs7 as pkcs7_mod
 
     cert = load_pem_x509_certificate(cert_pem, default_backend())
@@ -70,7 +68,7 @@ def _sign_manifest(manifest_json: bytes, cert_pem: bytes, key_pem: bytes, wwdr_p
         .set_data(manifest_json)
         .add_signer(cert, key, hashes.SHA256())
         .add_certificate(wwdr)
-        .sign(pkcs7_mod.PKCS7Options.DetachedSignature)
+        .sign(Encoding.DER, [pkcs7_mod.PKCS7Options.DetachedSignature])
     )
     return signed
 
