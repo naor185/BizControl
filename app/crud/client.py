@@ -25,9 +25,13 @@ def _handle_new_club_member(db: Session, studio_id: UUID, client: Client):
     # reporting success.
     client.is_club_member = True
 
-    # ── Idempotency guard ────────────────────────────────────────────────────
-    # Prevents duplicate points + welcome messages when called multiple times
-    # (e.g. WhatsApp failed → user retried enrollment, or toggle off/on).
+    # ── Idempotency guards ───────────────────────────────────────────────────
+    # Bonus points and the welcome message are independently idempotent, not
+    # gated together — they used to be an all-or-nothing "already_bonus or
+    # already_welcome -> skip everything" check, which meant a client who
+    # somehow already had a club_welcome message (e.g. from earlier testing)
+    # but never actually received signup-bonus points would be stuck at 0
+    # points forever, since the points block was never reached.
     already_bonus = db.scalar(
         _sel(ClientPointsLedger).where(
             ClientPointsLedger.client_id == client.id,
@@ -40,7 +44,7 @@ def _handle_new_club_member(db: Session, studio_id: UUID, client: Client):
             MessageJob.reminder_type == "club_welcome",
         )
     )
-    if already_bonus or already_welcome:
+    if already_bonus and already_welcome:
         log.info("_handle_new_club_member: already processed for client %s — skipping", client.id)
         return
     # ─────────────────────────────────────────────────────────────────────────
@@ -50,18 +54,24 @@ def _handle_new_club_member(db: Session, studio_id: UUID, client: Client):
         log.warning("_handle_new_club_member: no settings for studio %s", studio_id)
         return
 
-    points = settings.points_on_signup or 0
-    if points > 0:
-        client.loyalty_points = int(client.loyalty_points or 0) + points
-        db.add(ClientPointsLedger(
-            studio_id=studio_id,
-            client_id=client.id,
-            appointment_id=None,
-            delta_points=points,
-            reason="Club signup bonus"
-        ))
+    points = 0
+    if not already_bonus:
+        points = settings.points_on_signup or 0
+        if points > 0:
+            client.loyalty_points = int(client.loyalty_points or 0) + points
+            db.add(ClientPointsLedger(
+                studio_id=studio_id,
+                client_id=client.id,
+                appointment_id=None,
+                delta_points=points,
+                reason="Club signup bonus"
+            ))
 
     total_points = int(client.loyalty_points or 0)
+
+    if already_welcome:
+        # Bonus (if any) was applied above; nothing left to send.
+        return
 
     # Build points block — shown in WhatsApp and email
     if points > 0:
