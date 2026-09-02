@@ -106,10 +106,11 @@ workflows:
         # Targets the existing Internal Testing group only — internal testers
         # get the build instantly with no Apple review and no Beta App
         # Description requirement (that's only needed for External Testing
-        # groups). "NA" is the group already set up in App Store Connect >
-        # TestFlight > Internal Testing for this app.
+        # groups). "NAOR" is the group already set up in App Store Connect >
+        # TestFlight > Internal Testing for this app (its badge shows as the
+        # 2-letter initials "NA", but the actual group name is "NAOR").
         beta_groups:
-          - NA
+          - NAOR
         # Flip to true once you're ready for an actual App Store review —
         # leave false while you're still just getting TestFlight builds out:
         submit_to_app_store: false
@@ -208,8 +209,9 @@ workflows:
         # See bizcontrol-ios above — targets Internal Testing only, no Apple
         # review / Beta App Description needed. BizFind is a separate app in
         # App Store Connect with its own testing groups — verify/create an
-        # internal group named "NA" here too (or update this name to match
-        # whatever group actually exists for this app).
+        # internal group named "NAOR" here too (check the group's actual
+        # name, not the 2-letter avatar badge shown next to it — that
+        # mistake broke bizcontrol-ios's config once already).
         beta_groups:
-          - NA
+          - NAOR
         submit_to_app_store: false
