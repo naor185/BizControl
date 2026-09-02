@@ -50,7 +50,8 @@ export default function BusinessDetailPage() {
         setDownloadingPass(true);
         try {
             const token = getToken();
-            const res = await fetch(`${API}${url}`, {
+            const fullUrl = url.startsWith("http") ? url : `${API}${url}`;
+            const res = await fetch(fullUrl, {
                 headers: token ? { Authorization: `Bearer ${token}` } : {},
             });
             if (!res.ok) throw new Error("שגיאה בהורדת הכרטיס");
