@@ -144,6 +144,33 @@ def list_businesses(
     }
 
 
+def _get_or_lookup_google_place_id(db: Session, business_id: str, name: str, address: str | None, city: str | None) -> str | None:
+    """Looked up once per business and stored — never re-searched. See
+    app/services/google_places.py for why the place_id (only) is safe to
+    cache indefinitely while photos/hours are not."""
+    existing = db.execute(
+        text("SELECT external_id FROM business_sources WHERE business_id=:bid AND source='google'"),
+        {"bid": business_id},
+    ).fetchone()
+    if existing:
+        return existing[0]
+
+    from app.services.google_places import find_place_id
+    place_id = find_place_id(name, address, city)
+    if place_id:
+        db.execute(
+            text("""
+                INSERT INTO business_sources (id, business_id, source, external_id, source_url)
+                VALUES (:id, :bid, 'google', :eid, :url)
+                ON CONFLICT (source, external_id) DO NOTHING
+            """),
+            {"id": str(uuid.uuid4()), "bid": business_id, "eid": place_id,
+             "url": f"https://www.google.com/maps/place/?q=place_id:{place_id}"},
+        )
+        db.commit()
+    return place_id
+
+
 @router.get("/{slug}")
 def get_business(slug: str, db: Session = Depends(get_db)):
     row = db.execute(
@@ -156,12 +183,56 @@ def get_business(slug: str, db: Session = Depends(get_db)):
     ).fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="עסק לא נמצא")
-    return {
-        "id": str(row[0]), "slug": row[1], "name": row[2], "category": row[3],
+
+    business_id = str(row[0])
+    result = {
+        "id": business_id, "slug": row[1], "name": row[2], "category": row[3],
         "city": row[4], "address": row[5], "phone": row[6],
         "latitude": row[7], "longitude": row[8], "description": row[9],
         "opening_hours": row[10], "claim_status": row[11],
+        "google_photo_urls": [], "google_rating": None, "google_rating_count": None,
     }
+
+    place_id = _get_or_lookup_google_place_id(db, business_id, row[2], row[5], row[4])
+    if place_id:
+        from app.services.google_places import get_place_details
+        details = get_place_details(place_id)
+        if details:
+            result["google_photo_urls"] = [
+                f"/api/businesses/{business_id}/photo/{i}" for i in range(len(details["photo_names"]))
+            ]
+            result["google_rating"] = details["rating"]
+            result["google_rating_count"] = details["rating_count"]
+            if not result["opening_hours"] and details["opening_hours"]:
+                result["opening_hours_google"] = details["opening_hours"]
+
+    return result
+
+
+@router.get("/{business_id}/photo/{index}")
+def get_business_photo(business_id: str, index: int, db: Session = Depends(get_db)):
+    """Proxies a live Google photo — never stored, and the API key never
+    reaches the browser this way."""
+    from fastapi.responses import Response
+    from app.services.google_places import get_place_details, get_place_photo
+
+    src = db.execute(
+        text("SELECT external_id FROM business_sources WHERE business_id=:bid AND source='google'"),
+        {"bid": business_id},
+    ).fetchone()
+    if not src:
+        raise HTTPException(status_code=404, detail="אין תמונה זמינה")
+
+    details = get_place_details(src[0])
+    if not details or index >= len(details["photo_names"]):
+        raise HTTPException(status_code=404, detail="אין תמונה זמינה")
+
+    photo = get_place_photo(details["photo_names"][index])
+    if not photo:
+        raise HTTPException(status_code=502, detail="שגיאה בטעינת התמונה מגוגל")
+
+    content, content_type = photo
+    return Response(content=content, media_type=content_type)
 
 
 # ── Claim flow ────────────────────────────────────────────────────────────────
