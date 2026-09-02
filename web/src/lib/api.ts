@@ -20,25 +20,44 @@ export function clearToken() {
 
 // Single in-flight refresh promise — prevents race condition where multiple
 // simultaneous 401s each try to refresh and only the first succeeds.
-let _refreshPromise: Promise<boolean> | null = null;
+//
+// Three outcomes, not two — a dropped connection (very common on mobile,
+// e.g. the native app backgrounded mid-request right after the backend had
+// already rotated the refresh token server-side but before the new one
+// made it into localStorage) must NOT be treated the same as the server
+// explicitly rejecting the token. Only an explicit rejection means the
+// session is actually dead; a network failure just means try again later —
+// forcing a logout on every transient blip was exactly what made the app
+// randomly drop people back to the login screen.
+type RefreshOutcome = "ok" | "rejected" | "network-error";
 
-async function tryRefresh(): Promise<boolean> {
+let _refreshPromise: Promise<RefreshOutcome> | null = null;
+
+async function tryRefresh(): Promise<RefreshOutcome> {
     if (_refreshPromise) return _refreshPromise;
     const refresh = localStorage.getItem(REFRESH_TOKEN_KEY);
-    if (!refresh) return false;
-    _refreshPromise = (async () => {
+    if (!refresh) return "rejected";
+    _refreshPromise = (async (): Promise<RefreshOutcome> => {
         try {
             const res = await fetch(`${API_BASE}/api/auth/refresh`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ refresh_token: refresh }),
             });
-            if (!res.ok) return false;
+            if (!res.ok) {
+                // 401/403 = the server explicitly rejected this refresh token
+                // (expired, revoked, already rotated) — genuinely dead. Any
+                // other status (5xx, etc.) is the server's own problem, not
+                // proof the session is invalid — treat it like a network error.
+                return res.status === 401 || res.status === 403 ? "rejected" : "network-error";
+            }
             const data = await res.json();
             setToken(data.access_token, data.refresh_token);
-            return true;
+            return "ok";
         } catch {
-            return false;
+            // fetch() threw — offline, DNS hiccup, request aborted because the
+            // app was backgrounded mid-flight, etc. Not a verdict on the token.
+            return "network-error";
         } finally {
             _refreshPromise = null;
         }
@@ -82,8 +101,8 @@ export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promi
 
     if (!res.ok) {
         if (res.status === 401 && typeof window !== "undefined" && !url.includes("/api/auth/")) {
-            const refreshed = await tryRefresh();
-            if (refreshed) {
+            const outcome = await tryRefresh();
+            if (outcome === "ok") {
                 // retry once with new token
                 const newHeaders = new Headers(headers);
                 newHeaders.set("Authorization", `Bearer ${getToken()}`);
@@ -92,12 +111,24 @@ export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promi
                     const retryText = await retry.text();
                     return (retryText ? safeJson(retryText) : {}) as T;
                 }
-                // Retry also returned 401 — the session is genuinely dead below.
+                // Retry also returned 401 — the refresh token itself was fine,
+                // but this specific resource still rejects the new access
+                // token (unusual). Fall through and treat it like a genuine
+                // rejection below rather than silently swallowing it.
+            } else if (outcome === "network-error") {
+                // Could not even reach the refresh endpoint — a dropped
+                // connection is not proof the session is invalid. Leave the
+                // token in place (the next call will just retry the same
+                // dance) instead of force-logging-out over a transient blip,
+                // which is exactly what was throwing people back to /login
+                // on the native app over flaky mobile networks.
+                throw new Error("שגיאת רשת — נסה שוב");
             }
-            // Refresh failed (or the refreshed retry still 401'd): the session is
-            // truly over, regardless of which endpoint discovered it first. Leaving
-            // the user on a broken page with a raw "Session expired" error and no
-            // way back in is worse than redirecting — always send them to login.
+            // Either the refresh endpoint explicitly rejected the token, or a
+            // successful refresh's retry still 401'd — the session is
+            // genuinely over. Leaving the user on a broken page with a raw
+            // "Session expired" error and no way back in is worse than
+            // redirecting — send them to login.
             clearToken();
             const next = encodeURIComponent(window.location.pathname + window.location.search);
             window.location.href = `/login?next=${next}`;
