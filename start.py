@@ -985,6 +985,52 @@ def ensure_schema():
         """)
         cur.execute("CREATE INDEX IF NOT EXISTS ix_marketplace_favorites_customer ON marketplace_favorites (customer_id)")
 
+        # ── BizFind auto-imported businesses (unclaimed listings + Claim flow) ──
+        # Deliberately separate from `studios` — an unclaimed business is not a
+        # tenant, has no User/login, and its fields come from an external
+        # source until an owner claims it. Once claimed, claimed_studio_id
+        # points at the real Studio created via the normal registration path;
+        # the businesses row itself is kept (not deleted) as the claim record.
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS businesses (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                name VARCHAR(200) NOT NULL,
+                slug VARCHAR(220) NOT NULL UNIQUE,
+                category VARCHAR(60) NOT NULL,
+                city VARCHAR(120),
+                address VARCHAR(255),
+                phone VARCHAR(20),
+                latitude DOUBLE PRECISION,
+                longitude DOUBLE PRECISION,
+                description TEXT,
+                opening_hours JSONB,
+                claim_status VARCHAR(12) NOT NULL DEFAULT 'unclaimed'
+                    CHECK (claim_status IN ('unclaimed','pending','claimed')),
+                claimed_studio_id UUID REFERENCES studios(id) ON DELETE SET NULL,
+                claimed_at TIMESTAMPTZ,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_businesses_city_category ON businesses (city, category)")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_businesses_claim_status ON businesses (claim_status)")
+
+        # One row per external source a business was found in/synced from —
+        # never conflate this with the business's own live fields (same
+        # mistake as the old marketplace_profiles shadow-table bug).
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS business_sources (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                business_id UUID NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+                source VARCHAR(30) NOT NULL,
+                external_id VARCHAR(120) NOT NULL,
+                source_url VARCHAR(500),
+                last_synced_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                UNIQUE (source, external_id)
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_business_sources_business ON business_sources (business_id)")
+
         # ── Platform Config (key-value system settings) ───────────────────────
         cur.execute("""
             CREATE TABLE IF NOT EXISTS platform_config (
