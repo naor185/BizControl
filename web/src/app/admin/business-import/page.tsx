@@ -57,6 +57,7 @@ export default function BusinessImportPage() {
     const [loadingList, setLoadingList] = useState(true);
     const [filterCity, setFilterCity] = useState("");
     const [filterStatus, setFilterStatus] = useState("");
+    const [rematchingId, setRematchingId] = useState<string | null>(null);
 
     const loadList = useCallback(async () => {
         setLoadingList(true);
@@ -93,6 +94,17 @@ export default function BusinessImportPage() {
             setError(err instanceof Error ? err.message : "שגיאה בייבוא");
         } finally {
             setImporting(false);
+        }
+    }
+
+    async function rematchGoogle(businessId: string) {
+        setRematchingId(businessId);
+        try {
+            await apiFetch(`/api/admin/businesses/${businessId}/google-match`, { method: "DELETE" });
+        } catch {
+            // silent — worst case the old match just stays as-is
+        } finally {
+            setRematchingId(null);
         }
     }
 
@@ -202,6 +214,7 @@ export default function BusinessImportPage() {
                                     <th style={{ padding: "0.5rem" }}>כתובת</th>
                                     <th style={{ padding: "0.5rem" }}>טלפון</th>
                                     <th style={{ padding: "0.5rem" }}>סטטוס</th>
+                                    <th style={{ padding: "0.5rem" }}></th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -212,6 +225,19 @@ export default function BusinessImportPage() {
                                         <td style={{ padding: "0.5rem", color: "#64748b" }}>{b.address || "—"}</td>
                                         <td style={{ padding: "0.5rem", color: "#64748b", direction: "ltr", textAlign: "right" }}>{b.phone || "—"}</td>
                                         <td style={{ padding: "0.5rem" }}>{CLAIM_STATUS_LABELS[b.claim_status] || b.claim_status}</td>
+                                        <td style={{ padding: "0.5rem" }}>
+                                            {b.claim_status === "unclaimed" && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => rematchGoogle(b.id)}
+                                                    disabled={rematchingId === b.id}
+                                                    style={{ background: "none", border: "1px solid #e2e8f0", borderRadius: 7, padding: "0.2rem 0.55rem", fontSize: "0.72rem", color: "#64748b", cursor: rematchingId === b.id ? "not-allowed" : "pointer" }}
+                                                    title="אם התמונה/דירוג שגויים — נקה את ההתאמה לגוגל ותאולץ התאמה מחדש בכניסה הבאה"
+                                                >
+                                                    {rematchingId === b.id ? "..." : "🔄 התאם מחדש מול גוגל"}
+                                                </button>
+                                            )}
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>

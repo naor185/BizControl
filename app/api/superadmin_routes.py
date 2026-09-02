@@ -3280,3 +3280,18 @@ def list_imported_businesses(
         "total": total,
         "offset": offset,
     }
+
+
+@router.delete("/businesses/{business_id}/google-match")
+def clear_business_google_match(business_id: str, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    """Forces a fresh Google Places lookup on next page view — for when the
+    saved match turned out to be the wrong business (find_place_id has no
+    address to disambiguate with when OSM didn't provide one, so an
+    occasional bad match is expected, especially for older imports made
+    before the category-hint improvement in app/services/google_places.py)."""
+    result = db.execute(
+        text("DELETE FROM business_sources WHERE business_id=:bid AND source='google'"),
+        {"bid": business_id},
+    )
+    db.commit()
+    return {"ok": True, "cleared": result.rowcount}
