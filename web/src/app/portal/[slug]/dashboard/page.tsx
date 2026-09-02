@@ -159,13 +159,13 @@ export default function PortalDashboardPage() {
         setError(null);
         try {
             const [meRes, apptRes, couponRes, cardRes, tierRes, stampsRes, timelineRes] = await Promise.all([
-                fetch(`${API_BASE}/portal/me`, { headers: authHeaders }),
-                fetch(`${API_BASE}/portal/appointments`, { headers: authHeaders }),
-                fetch(`${API_BASE}/portal/coupons`, { headers: authHeaders }),
-                fetch(`${API_BASE}/portal/card`, { headers: authHeaders }),
-                fetch(`${API_BASE}/portal/tier`, { headers: authHeaders }),
-                fetch(`${API_BASE}/portal/stamps`, { headers: authHeaders }),
-                fetch(`${API_BASE}/portal/timeline`, { headers: authHeaders }),
+                fetch(`${API_BASE}/api/portal/me`, { headers: authHeaders }),
+                fetch(`${API_BASE}/api/portal/appointments`, { headers: authHeaders }),
+                fetch(`${API_BASE}/api/portal/coupons`, { headers: authHeaders }),
+                fetch(`${API_BASE}/api/portal/card`, { headers: authHeaders }),
+                fetch(`${API_BASE}/api/portal/tier`, { headers: authHeaders }),
+                fetch(`${API_BASE}/api/portal/stamps`, { headers: authHeaders }),
+                fetch(`${API_BASE}/api/portal/timeline`, { headers: authHeaders }),
             ]);
             if (meRes.status === 401) { router.replace(`/portal/${slug}`); return; }
             setMe(await meRes.json());
@@ -200,7 +200,7 @@ export default function PortalDashboardPage() {
         if (!confirm("לבטל את התור?")) return;
         setCanceling(id);
         try {
-            const res = await fetch(`${API_BASE}/portal/appointments/${id}/cancel`, {
+            const res = await fetch(`${API_BASE}/api/portal/appointments/${id}/cancel`, {
                 method: "PATCH", headers: authHeaders,
             });
             if (!res.ok) { const d = await res.json(); toast.error(d.detail || "שגיאה בביטול"); return; }

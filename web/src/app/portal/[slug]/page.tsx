@@ -23,7 +23,7 @@ export default function PortalLoginPage() {
         setError(null);
         setHint(null);
         try {
-            const res = await fetch(`${API_BASE}/portal/request-otp`, {
+            const res = await fetch(`${API_BASE}/api/portal/request-otp`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ studio_slug: slug, phone: phone.trim() }),
@@ -47,7 +47,7 @@ export default function PortalLoginPage() {
         setLoading(true);
         setError(null);
         try {
-            const res = await fetch(`${API_BASE}/portal/verify-otp`, {
+            const res = await fetch(`${API_BASE}/api/portal/verify-otp`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ studio_slug: slug, phone: phone.trim(), code: otp.trim() }),
