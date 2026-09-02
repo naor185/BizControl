@@ -18,3 +18,9 @@ web/node_modules/
 .next/
 web/.next/
 .mcp.json
+
+# Certificates/keys generated locally (Apple Wallet, etc.) — never commit private keys
+*.pem
+*.csr
+*.p12
+*.key
