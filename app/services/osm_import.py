@@ -30,16 +30,31 @@ def fetch_osm_businesses(city: str, osm_tag: str, limit: int) -> list[dict]:
     key, _, value = osm_tag.partition("=")
     tag_filter = f'["{key}"="{value}"]' if value else f'["{key}"]'
 
+    # A plain area["name"="<city>"]["boundary"="administrative"] misses a lot
+    # of real cities — some are tagged as place=city instead of a boundary
+    # relation, and Hebrew names are inconsistently on `name` vs `name:he`.
+    # Union all three so a real city reliably resolves to *some* area.
     query = f"""
         [out:json][timeout:60];
-        area["name"="{city}"]["boundary"="administrative"]->.searchArea;
+        (
+          area["name"="{city}"]["boundary"="administrative"];
+          area["name"="{city}"]["place"];
+          area["name:he"="{city}"];
+        )->.searchArea;
         (
           node{tag_filter}(area.searchArea);
           way{tag_filter}(area.searchArea);
         );
         out center {limit};
     """
-    resp = requests.post(OVERPASS_URL, data={"data": query}, timeout=90)
+    headers = {
+        # Overpass's public instance rejects generic/bot-like requests (406)
+        # unless they identify themselves — this is their documented policy,
+        # not a bug on our end.
+        "User-Agent": "BizFind-Importer/1.0 (BizControl; bizcontrol.system@gmail.com)",
+        "Accept": "application/json",
+    }
+    resp = requests.post(OVERPASS_URL, data={"data": query}, headers=headers, timeout=90)
     resp.raise_for_status()
     elements = resp.json().get("elements", [])
 
