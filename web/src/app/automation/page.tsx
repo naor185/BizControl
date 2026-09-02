@@ -583,6 +583,13 @@ export default function AutomationSettingsPage() {
     const [msg, setMsg] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<"branding" | "policy" | "finance" | "integrations" | "public">("branding");
 
+    useEffect(() => {
+        const tab = new URLSearchParams(window.location.search).get("tab");
+        if (tab === "branding" || tab === "policy" || tab === "finance" || tab === "integrations" || tab === "public") {
+            setActiveTab(tab);
+        }
+    }, []);
+
     const [voucherPreviewLoading, setVoucherPreviewLoading] = useState(false);
     const [voucherPreviewImage, setVoucherPreviewImage] = useState<string | null>(null);
     const [voucherPreviewErr, setVoucherPreviewErr] = useState<string | null>(null);
@@ -2109,6 +2116,10 @@ export default function AutomationSettingsPage() {
                                             placeholder="https://g.page/r/..."
                                             className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-yellow-500" />
                                     </div>
+
+                                    <div className="md:col-span-2">
+                                        <AccountantEmailCard />
+                                    </div>
                                 </div>
                             </div>
                         )}
@@ -2338,5 +2349,108 @@ export default function AutomationSettingsPage() {
 
             </AppShell>
         </RequireAuth>
+    );
+}
+
+// ── Accountant email (moved here from /invoices' Settings tab) ─────────────
+// Self-contained — reads/writes app/api/invoice_routes.py's accountant_email
+// endpoints directly rather than piggybacking on this page's own `settings`
+// (a different backend resource, app/models/studio_settings.py) or the
+// invoices page's own settings state.
+function AccountantEmailCard() {
+    const [email, setEmail] = useState("");
+    const [loaded, setLoaded] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [saveMsg, setSaveMsg] = useState<string | null>(null);
+
+    const today = new Date();
+    const firstOfMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-01`;
+    const lastOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    const lastOfMonthStr = `${lastOfMonth.getFullYear()}-${String(lastOfMonth.getMonth() + 1).padStart(2, "0")}-${String(lastOfMonth.getDate()).padStart(2, "0")}`;
+    const [sendFrom, setSendFrom] = useState(firstOfMonth);
+    const [sendTo, setSendTo] = useState(lastOfMonthStr);
+    const [sending, setSending] = useState(false);
+    const [sendMsg, setSendMsg] = useState<string | null>(null);
+
+    useEffect(() => {
+        apiFetch<{ accountant_email?: string | null }>("/api/invoices/settings")
+            .then(s => setEmail(s.accountant_email || ""))
+            .catch(() => {})
+            .finally(() => setLoaded(true));
+    }, []);
+
+    const saveEmail = async () => {
+        setSaving(true);
+        setSaveMsg(null);
+        try {
+            await apiFetch("/api/invoices/settings/accountant-email", {
+                method: "PATCH",
+                body: JSON.stringify({ accountant_email: email }),
+            });
+            setSaveMsg("נשמר ✓");
+        } catch {
+            setSaveMsg("שגיאה בשמירה");
+        } finally {
+            setSaving(false);
+            setTimeout(() => setSaveMsg(null), 3000);
+        }
+    };
+
+    const sendNow = async () => {
+        if (!email) { setSendMsg("הזן מייל רואה חשבון קודם"); return; }
+        setSending(true);
+        setSendMsg(null);
+        try {
+            const res = await apiFetch<{ sent: number }>("/api/invoices/send-to-accountant", {
+                method: "POST",
+                body: JSON.stringify({ date_from: sendFrom, date_to: sendTo }),
+            });
+            setSendMsg(`נשלח ✓ — ${res.sent} מסמכים`);
+        } catch (e: unknown) {
+            setSendMsg((e as { message?: string })?.message || "שגיאה בשליחה");
+        } finally {
+            setSending(false);
+            setTimeout(() => setSendMsg(null), 5000);
+        }
+    };
+
+    if (!loaded) return null;
+
+    return (
+        <div className="bg-emerald-50 p-6 rounded-2xl border border-emerald-100">
+            <label className="block text-base font-bold text-emerald-900 mb-2">📧 מייל רואה חשבון</label>
+            <p className="text-sm text-emerald-700/80 mb-4">
+                כתובת המייל שאליה יישלחו חשבוניות/קבלות ידנית, וגם דוחות הוצאות ספציפיים שתשלח מעמוד ההוצאות.
+            </p>
+            <div className="flex gap-2 mb-4">
+                <input
+                    type="email" dir="ltr" placeholder="accountant@example.com"
+                    value={email} onChange={e => setEmail(e.target.value)}
+                    className="flex-1 bg-white border border-emerald-200 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+                <button type="button" onClick={saveEmail} disabled={saving}
+                    className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold disabled:opacity-60 whitespace-nowrap">
+                    {saving ? "..." : "שמור"}
+                </button>
+            </div>
+            {saveMsg && <div className={`text-sm font-semibold mb-4 ${saveMsg.includes("✓") ? "text-emerald-700" : "text-red-600"}`}>{saveMsg}</div>}
+
+            <div className="border-t border-emerald-100 pt-4">
+                <label className="block text-sm font-semibold text-emerald-900 mb-2">שלח מסמכים לרואה חשבון לפי תקופה</label>
+                <div className="flex flex-wrap items-center gap-2 mb-3">
+                    <input type="date" title="מתאריך" value={sendFrom} onChange={e => setSendFrom(e.target.value)}
+                        className="px-3 py-2 rounded-lg border border-emerald-200 text-sm bg-white" />
+                    <span className="text-emerald-600 font-bold">עד</span>
+                    <input type="date" title="עד תאריך" value={sendTo} onChange={e => setSendTo(e.target.value)}
+                        className="px-3 py-2 rounded-lg border border-emerald-200 text-sm bg-white" />
+                </div>
+                <button type="button" onClick={sendNow} disabled={sending || !email}
+                    className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold disabled:opacity-60 disabled:cursor-not-allowed">
+                    {sending ? "שולח..." : "📤 שלח לרואה חשבון"}
+                </button>
+                {sendMsg && <div className={`mt-2 text-sm font-semibold ${sendMsg.includes("✓") ? "text-emerald-700" : "text-red-600"}`}>{sendMsg}</div>}
+                <p className="mt-2 text-xs text-emerald-700/70">ישלח סיכום טקסטואלי של כל הקבלות והחשבוניות בטווח לכתובת המייל שהוגדרה.</p>
+            </div>
+        </div>
     );
 }

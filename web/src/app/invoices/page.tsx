@@ -1,8 +1,8 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import AppShell from "@/components/AppShell";
 import { apiFetch } from "@/lib/api";
-import { toLocalDateStr } from "@/lib/format";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -382,7 +382,7 @@ export default function InvoicesPage() {
                 />
             )}
             {tab === "settings" && settings && (
-                <SettingsTab settings={settings} onSaved={loadSettings} />
+                <SettingsTab settings={settings} />
             )}
             {tab === "series" && (
                 <SeriesTab series={series} locked={settings?.settings_completed ?? false} onSaved={loadSeries} />
@@ -1044,55 +1044,8 @@ function InvoiceSetupWizard({ series, existing, onComplete }: { series: SeriesMa
 
 // ── Settings Tab ──────────────────────────────────────────────────────────────
 
-function SettingsTab({ settings, onSaved }: { settings: InvoiceSettings; onSaved: () => void }) {
+function SettingsTab({ settings }: { settings: InvoiceSettings }) {
     const locked = settings.settings_completed;
-    const [accountantEmail, setAccountantEmail] = useState(settings.accountant_email || "");
-    const [savingEmail, setSavingEmail] = useState(false);
-    const [emailMsg, setEmailMsg] = useState<string | null>(null);
-    // date range for manual send
-    const now = new Date();
-    const firstOfMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
-    const lastOfMonth = toLocalDateStr(new Date(now.getFullYear(), now.getMonth() + 1, 0));
-    const [sendFrom, setSendFrom] = useState(firstOfMonth);
-    const [sendTo, setSendTo] = useState(lastOfMonth);
-    const [sending, setSending] = useState(false);
-    const [sendMsg, setSendMsg] = useState<string | null>(null);
-
-    const saveAccountantEmail = async () => {
-        setSavingEmail(true);
-        setEmailMsg(null);
-        try {
-            await apiFetch("/api/invoices/settings/accountant-email", {
-                method: "PATCH",
-                body: JSON.stringify({ accountant_email: accountantEmail }),
-            });
-            setEmailMsg("נשמר ✓");
-            onSaved();
-        } catch {
-            setEmailMsg("שגיאה בשמירה");
-        } finally {
-            setSavingEmail(false);
-            setTimeout(() => setEmailMsg(null), 3000);
-        }
-    };
-
-    const sendToAccountant = async () => {
-        if (!accountantEmail) { setSendMsg("הזן מייל רואה חשבון קודם"); return; }
-        setSending(true);
-        setSendMsg(null);
-        try {
-            const res = await apiFetch<{ sent: number }>("/api/invoices/send-to-accountant", {
-                method: "POST",
-                body: JSON.stringify({ date_from: sendFrom, date_to: sendTo }),
-            });
-            setSendMsg(`נשלח ✓ — ${res.sent} מסמכים`);
-        } catch (e: any) {
-            setSendMsg(e?.message || "שגיאה בשליחה");
-        } finally {
-            setSending(false);
-            setTimeout(() => setSendMsg(null), 5000);
-        }
-    };
 
     return (
         <div style={{ padding: "0 1rem 2rem", maxWidth: 540 }}>
@@ -1140,67 +1093,9 @@ function SettingsTab({ settings, onSaved }: { settings: InvoiceSettings; onSaved
                     <p style={{ color: "#94a3b8", fontSize: "0.8rem" }}>השלם את אשף ההגדרה הראשוני כדי לנעול את הפרטים.</p>
                 )}
 
-                {/* Accountant email — always editable */}
-                <div style={{ marginTop: "1rem", padding: "1.25rem", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 14, display: "flex", flexDirection: "column", gap: "0.85rem" }}>
-                    <div style={{ fontWeight: 700, fontSize: "0.95rem", color: "#166534" }}>
-                        📧 מייל רואה חשבון
-                    </div>
-
-                    {/* Email address field */}
-                    <div>
-                        <label style={{ ...labelStyle, color: "#166534", marginBottom: "0.3rem" }}>כתובת מייל</label>
-                        <div style={{ display: "flex", gap: "0.5rem" }}>
-                            <input
-                                type="email"
-                                placeholder="accountant@example.com"
-                                value={accountantEmail}
-                                onChange={e => setAccountantEmail(e.target.value)}
-                                dir="ltr"
-                                style={{ ...inputStyle, flex: 1, margin: 0 }}
-                            />
-                            <button
-                                type="button"
-                                onClick={saveAccountantEmail}
-                                disabled={savingEmail}
-                                style={{ background: "#16a34a", color: "#fff", border: "none", borderRadius: 10, padding: "0 1rem", cursor: "pointer", fontWeight: 700, fontSize: "0.85rem", whiteSpace: "nowrap", opacity: savingEmail ? 0.6 : 1 }}
-                            >
-                                {savingEmail ? "..." : "שמור"}
-                            </button>
-                        </div>
-                        {emailMsg && (
-                            <div style={{ marginTop: "0.4rem", fontSize: "0.82rem", color: emailMsg.includes("✓") ? "#16a34a" : "#dc2626", fontWeight: 600 }}>
-                                {emailMsg}
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Manual send — date range */}
-                    <div style={{ borderTop: "1px solid #bbf7d0", paddingTop: "0.85rem" }}>
-                        <label style={{ ...labelStyle, color: "#166534", marginBottom: "0.5rem" }}>שלח מסמכים לרואה חשבון לפי תקופה</label>
-                        <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "center", marginBottom: "0.6rem" }}>
-                            <input type="date" title="מתאריך" value={sendFrom} onChange={e => setSendFrom(e.target.value)}
-                                style={{ padding: "0.45rem 0.7rem", borderRadius: 8, border: "1px solid #86efac", fontSize: "0.85rem", background: "#fff" }} />
-                            <span style={{ color: "#4ade80", fontWeight: 700 }}>עד</span>
-                            <input type="date" title="עד תאריך" value={sendTo} onChange={e => setSendTo(e.target.value)}
-                                style={{ padding: "0.45rem 0.7rem", borderRadius: 8, border: "1px solid #86efac", fontSize: "0.85rem", background: "#fff" }} />
-                        </div>
-                        <button
-                            type="button"
-                            onClick={sendToAccountant}
-                            disabled={sending || !accountantEmail}
-                            style={{ background: sending ? "#86efac" : "#16a34a", color: "#fff", border: "none", borderRadius: 10, padding: "0.55rem 1.25rem", cursor: accountantEmail ? "pointer" : "not-allowed", fontWeight: 700, fontSize: "0.85rem", opacity: (!accountantEmail || sending) ? 0.65 : 1 }}
-                        >
-                            {sending ? "שולח..." : "📤 שלח לרואה חשבון"}
-                        </button>
-                        {sendMsg && (
-                            <div style={{ marginTop: "0.5rem", fontSize: "0.82rem", color: sendMsg.includes("✓") ? "#16a34a" : "#dc2626", fontWeight: 600 }}>
-                                {sendMsg}
-                            </div>
-                        )}
-                        <p style={{ marginTop: "0.5rem", fontSize: "0.75rem", color: "#4ade80", color: "#6b7280" }}>
-                            ישלח סיכום טקסטואלי של כל הקבלות והחשבוניות בטווח לכתובת המייל שהוגדרה.
-                        </p>
-                    </div>
+                <div style={{ marginTop: "1rem", padding: "0.9rem 1rem", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 12, fontSize: "0.82rem", color: "#64748b" }}>
+                    💡 הגדרות מייל רואה חשבון ושליחת מסמכים עברו לעמוד{" "}
+                    <Link href="/automation?tab=finance" style={{ color: "#16a34a", fontWeight: 700 }}>אוטומציות ← ניהול פיננסי ומיסוי</Link>.
                 </div>
             </div>
         </div>
