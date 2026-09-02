@@ -10,8 +10,6 @@ GET  /api/marketplace/auth/me            — get profile (JWT required)
 POST /api/marketplace/auth/favorites     — toggle favorite studio
 GET  /api/marketplace/auth/linked/{slug} — check if customer is a client of this studio
 """
-from __future__ import annotations
-
 import os
 import random
 import string

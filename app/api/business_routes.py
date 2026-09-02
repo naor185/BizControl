@@ -12,8 +12,6 @@ Businesses imported from an external source (OpenStreetMap etc.) live in the
 studio once its owner claims it here. See `business_sources` for where each
 business's data actually came from.
 """
-from __future__ import annotations
-
 import logging
 import uuid
 from datetime import datetime, timezone, timedelta
