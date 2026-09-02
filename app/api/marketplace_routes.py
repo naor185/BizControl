@@ -622,7 +622,50 @@ def search_marketplace(
             "self_booking_enabled": settings.self_booking_enabled,
             "avg_rating": round(float(avg_rating), 1) if avg_rating else None,
             "review_count": review_count,
+            "is_claimed": True,
         })
+
+    # Unclaimed BizFind imports, merged into the same list — deliberately no
+    # live Google lookup here (would be N+1 API calls per search); photos
+    # only get fetched on the individual profile page (get_studio_profile /
+    # _get_unclaimed_business_profile), same cost tradeoff as everywhere
+    # else Google data is used in this codebase.
+    remaining = max(limit - len(result), 0)
+    if remaining:
+        conditions = ["claim_status = 'unclaimed'"]
+        params: dict = {"limit": remaining}
+        if q:
+            conditions.append("name ILIKE :q")
+            params["q"] = f"%{q}%"
+        if business_type:
+            conditions.append("category = :business_type")
+            params["business_type"] = business_type
+        if city:
+            conditions.append("city ILIKE :city")
+            params["city"] = f"%{city}%"
+        where = " AND ".join(conditions)
+        biz_rows = db.execute(
+            text(f"SELECT id, slug, name, category, city, description FROM businesses WHERE {where} ORDER BY name LIMIT :limit"),
+            params,
+        ).fetchall()
+        for b in biz_rows:
+            result.append({
+                "id": str(b.id),
+                "slug": b.slug,
+                "name": b.name,
+                "business_type": b.category,
+                "business_type_label": BUSINESS_TYPE_LABELS.get(b.category, "אחר"),
+                "business_type_icon": BUSINESS_TYPE_ICONS.get(b.category, "🏢"),
+                "logo_url": None,
+                "cover_url": None,
+                "city": b.city,
+                "description": b.description,
+                "primary_color": "#7c3aed",
+                "self_booking_enabled": False,
+                "avg_rating": None,
+                "review_count": 0,
+                "is_claimed": False,
+            })
 
     return {"studios": result, "total": len(result), "offset": offset}
 
@@ -673,6 +716,11 @@ def get_studio_profile(slug: str, db: Session = Depends(get_db)):
 
     studio = db.scalar(select(Studio).where(Studio.slug == slug, Studio.is_active == True))  # noqa
     if not studio:
+        # Falls back to an unclaimed BizFind import (businesses table) — a
+        # real Studio always wins on a slug collision, checked first above.
+        unclaimed = _get_unclaimed_business_profile(db, slug)
+        if unclaimed:
+            return unclaimed
         raise HTTPException(404, "Studio not found")
 
     settings = db.get(StudioSettings, studio.id)
@@ -751,6 +799,91 @@ def get_studio_profile(slug: str, db: Session = Depends(get_db)):
         "avg_rating": round(float(avg_rating), 1) if avg_rating else None,
         "review_count": len(reviews),
         "gallery": _get_gallery(db, studio.id),
+        "is_claimed": True,
+    }
+
+
+def _get_unclaimed_business_profile(db: Session, slug: str) -> Optional[dict]:
+    """Same response shape as get_studio_profile (minus fields that don't
+    exist yet for an unclaimed business — services/artists/reviews stay
+    empty), plus is_claimed=False and business_id for the inline Claim
+    flow. See app/api/business_routes.py for the Claim endpoints themselves
+    and app/services/google_places.py for how photos/rating/hours are
+    fetched live rather than stored."""
+    row = db.execute(
+        text("""
+            SELECT id, slug, name, category, city, address, phone, latitude, longitude,
+                   description, opening_hours, claim_status
+            FROM businesses WHERE slug = :slug
+        """),
+        {"slug": slug},
+    ).fetchone()
+    if not row or row.claim_status == "claimed":
+        return None
+
+    business_id = str(row.id)
+    photo_urls: list[str] = []
+    rating = rating_count = None
+    hours = row.opening_hours
+
+    src = db.execute(
+        text("SELECT external_id FROM business_sources WHERE business_id=:bid AND source='google'"),
+        {"bid": business_id},
+    ).fetchone()
+    place_id = src[0] if src else None
+    if not place_id:
+        from app.services.google_places import find_place_id
+        place_id = find_place_id(row.name, row.address, row.city)
+        if place_id:
+            db.execute(
+                text("""
+                    INSERT INTO business_sources (id, business_id, source, external_id, source_url)
+                    VALUES (:id, :bid, 'google', :eid, :url)
+                    ON CONFLICT (source, external_id) DO NOTHING
+                """),
+                {"id": str(uuid.uuid4()), "bid": business_id, "eid": place_id,
+                 "url": f"https://www.google.com/maps/place/?q=place_id:{place_id}"},
+            )
+            db.commit()
+
+    if place_id:
+        from app.services.google_places import get_place_details
+        details = get_place_details(place_id)
+        if details:
+            photo_urls = [f"/api/businesses/{business_id}/photo/{i}" for i in range(len(details["photo_names"]))]
+            rating, rating_count = details["rating"], details["rating_count"]
+            if not hours and details["opening_hours"]:
+                hours = "\n".join(details["opening_hours"])
+
+    return {
+        "id": business_id,
+        "business_id": business_id,
+        "slug": row.slug,
+        "name": row.name,
+        "business_type": row.category,
+        "business_type_label": BUSINESS_TYPE_LABELS.get(row.category, "אחר"),
+        "business_type_icon": BUSINESS_TYPE_ICONS.get(row.category, "🏢"),
+        "logo_url": None,
+        "cover_url": photo_urls[0] if photo_urls else None,
+        "primary_color": "#7c3aed",
+        "description": row.description,
+        "city": row.city,
+        "address": row.address,
+        "map_link": None,
+        "phone": row.phone,
+        "whatsapp": None, "instagram": None, "facebook": None, "tiktok": None,
+        "website": None, "youtube": None,
+        "hours": hours,
+        "portfolio_link": None,
+        "review_link_google": None,
+        "self_booking_enabled": False,
+        "services": [],
+        "artists": [],
+        "reviews": [],
+        "avg_rating": rating,
+        "review_count": rating_count or 0,
+        "gallery": photo_urls,
+        "is_claimed": False,
     }
 
 

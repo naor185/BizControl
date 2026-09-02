@@ -9,6 +9,7 @@ interface StudioCard {
     logo_url?: string; cover_url?: string; city?: string; description?: string;
     primary_color: string; self_booking_enabled: boolean;
     avg_rating?: number; review_count: number;
+    is_claimed?: boolean;
 }
 interface Category { id: string; label: string; icon: string; count: number; }
 
@@ -249,6 +250,7 @@ function GridCard({ s }: { s: StudioCard }) {
                     {!s.cover_url && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "3rem" }}>{s.logo_url ? <img src={imgUrl(s.logo_url)} alt="" style={{ width: 68, height: 68, borderRadius: 14, objectFit: "cover" }} /> : s.business_type_icon}</div>}
                     {s.cover_url && <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom,transparent 50%,rgba(0,0,0,.55))" }} />}
                     {s.self_booking_enabled && <div style={{ position: "absolute", top: 8, left: 8, background: "rgba(74,222,128,.9)", color: "#052e16", fontSize: "0.66rem", fontWeight: 800, padding: "0.2rem 0.55rem", borderRadius: 7 }}>📅 אונליין</div>}
+                    {s.is_claimed === false && <div style={{ position: "absolute", top: 8, right: 8, background: "rgba(15,23,42,.85)", color: "#fbbf24", fontSize: "0.62rem", fontWeight: 700, padding: "0.2rem 0.5rem", borderRadius: 7 }}>⚪ לא מאומת</div>}
                 </div>
                 <div style={{ padding: "0.9rem" }}>
                     <div style={{ fontWeight: 800, fontSize: "0.92rem", marginBottom: "0.2rem" }}>{s.name}</div>
@@ -280,6 +282,7 @@ function ListCard({ s }: { s: StudioCard }) {
                 <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 800, fontSize: "0.92rem", marginBottom: "0.15rem" }}>{s.name}</div>
                     <div style={{ fontSize: "0.75rem", color: "#64748b" }}>{s.business_type_icon} {s.business_type_label}{s.city ? ` · 📍 ${s.city}` : ""}</div>
+                    {s.is_claimed === false && <span style={{ display: "inline-block", marginTop: "0.2rem", background: "rgba(251,191,36,.12)", color: "#fbbf24", fontSize: "0.68rem", fontWeight: 700, padding: "0.12rem 0.45rem", borderRadius: 6 }}>⚪ לא מאומת</span>}
                     {s.description && <div style={{ fontSize: "0.76rem", color: "#94a3b8", marginTop: "0.15rem", overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{s.description}</div>}
                 </div>
                 {/* Right side */}

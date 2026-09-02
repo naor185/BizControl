@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { API, imgUrl } from "@/lib/api";
+import { setStudioToken, goToBizControl } from "@/lib/handoff";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -18,6 +19,8 @@ interface Profile {
     reviews: { id: string; client_name: string; rating: number; comment?: string; created_at: string }[];
     avg_rating?: number; review_count: number;
     gallery: string[];
+    is_claimed?: boolean;
+    business_id?: string;
 }
 
 type Day = "sun" | "mon" | "tue" | "wed" | "thu" | "fri" | "sat";
@@ -46,6 +49,124 @@ function isOpenNow(hours: Hours): { open: boolean; label: string } {
     if (nowMin >= openMin && nowMin < closeMin) return { open: true, label: `פתוח · סוגר ${day.close}` };
     if (nowMin < openMin) return { open: false, label: `נפתח ב-${day.open}` };
     return { open: false, label: "סגור כעת" };
+}
+
+// ── Claim banner (unclaimed BizFind imports only) ───────────────────────────
+
+type ClaimStep = "closed" | "otp_sent" | "otp_verified" | "done";
+
+const claimInputStyle: React.CSSProperties = {
+    width: "100%", border: "1.5px solid #e2e8f0", borderRadius: 10,
+    padding: "0.6rem 0.85rem", fontSize: "0.9rem", outline: "none",
+    color: "#1e293b", background: "#fff", boxSizing: "border-box",
+};
+
+function ClaimBanner({ businessId, phone, primary }: { businessId: string; phone?: string; primary: string }) {
+    const [step, setStep] = useState<ClaimStep>("closed");
+    const [loading, setLoading] = useState(false);
+    const [err, setErr] = useState<string | null>(null);
+    const [otpCode, setOtpCode] = useState("");
+    const [claimToken, setClaimToken] = useState("");
+    const [ownerName, setOwnerName] = useState("");
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+
+    const startClaim = async () => {
+        setLoading(true); setErr(null);
+        try {
+            const res = await fetch(`${API}/api/businesses/${businessId}/claim/request-otp`, { method: "POST" });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || "שגיאה בשליחת קוד");
+            setStep("otp_sent");
+        } catch (e: unknown) { setErr(e instanceof Error ? e.message : "שגיאה בשליחת קוד"); }
+        finally { setLoading(false); }
+    };
+
+    const verifyOtp = async () => {
+        setLoading(true); setErr(null);
+        try {
+            const res = await fetch(`${API}/api/businesses/${businessId}/claim/verify-otp`, {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ code: otpCode.trim() }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || "קוד שגוי");
+            setClaimToken(data.claim_token);
+            setStep("otp_verified");
+        } catch (e: unknown) { setErr(e instanceof Error ? e.message : "קוד שגוי"); }
+        finally { setLoading(false); }
+    };
+
+    const completeClaim = async () => {
+        setLoading(true); setErr(null);
+        try {
+            const res = await fetch(`${API}/api/businesses/${businessId}/claim/complete`, {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ claim_token: claimToken, owner_name: ownerName.trim(), email: email.trim(), password }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || "שגיאה ביצירת החשבון");
+            setStudioToken(data.access_token);
+            setStep("done");
+        } catch (e: unknown) { setErr(e instanceof Error ? e.message : "שגיאה ביצירת החשבון"); }
+        finally { setLoading(false); }
+    };
+
+    if (step === "closed") {
+        return (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.75rem", flexWrap: "wrap", background: "rgba(251,191,36,.08)", border: "1px solid rgba(251,191,36,.25)", borderRadius: 12, padding: "0.65rem 1rem", marginBottom: "1.25rem" }}>
+                <span style={{ fontSize: "0.82rem", color: "#fbbf24", fontWeight: 600 }}>⚪ זה העסק שלך? צור קשר לקבל גישה לניהול ושיווק העסק שלך</span>
+                <button type="button" onClick={startClaim} disabled={loading || !phone}
+                    style={{ background: primary, color: "#fff", border: "none", borderRadius: 9, padding: "0.4rem 0.9rem", fontWeight: 700, fontSize: "0.78rem", cursor: phone ? "pointer" : "not-allowed", opacity: loading ? 0.7 : 1, whiteSpace: "nowrap" }}>
+                    {loading ? "..." : "צור קשר →"}
+                </button>
+            </div>
+        );
+    }
+
+    return (
+        <div style={{ background: "#fff", color: "#1e293b", borderRadius: 14, padding: "1.1rem", marginBottom: "1.25rem" }}>
+            {step === "otp_sent" && (
+                <>
+                    <div style={{ fontWeight: 800, fontSize: "0.95rem", marginBottom: "0.3rem" }}>הזן את הקוד שקיבלת</div>
+                    <p style={{ color: "#64748b", fontSize: "0.8rem", marginBottom: "0.75rem" }}>שלחנו קוד אימות ל-{phone}.</p>
+                    <div style={{ display: "flex", gap: "0.5rem" }}>
+                        <input value={otpCode} onChange={e => setOtpCode(e.target.value)} maxLength={6} dir="ltr" style={{ ...claimInputStyle, textAlign: "center", letterSpacing: "0.25em" }} />
+                        <button type="button" onClick={verifyOtp} disabled={loading || otpCode.trim().length < 4}
+                            style={{ background: primary, color: "#fff", border: "none", borderRadius: 10, padding: "0 1.1rem", fontWeight: 700, fontSize: "0.85rem", cursor: "pointer", opacity: loading ? 0.7 : 1, whiteSpace: "nowrap" }}>
+                            {loading ? "מאמת..." : "אמת"}
+                        </button>
+                    </div>
+                </>
+            )}
+            {step === "otp_verified" && (
+                <>
+                    <div style={{ fontWeight: 800, fontSize: "0.95rem", marginBottom: "0.75rem" }}>כמעט סיימנו 🎉 — פרטי הכניסה שלך</div>
+                    <div style={{ display: "grid", gap: "0.5rem", marginBottom: "0.75rem" }}>
+                        <input placeholder="שם מלא" value={ownerName} onChange={e => setOwnerName(e.target.value)} style={claimInputStyle} />
+                        <input type="email" placeholder="אימייל" value={email} onChange={e => setEmail(e.target.value)} dir="ltr" style={claimInputStyle} />
+                        <input type="password" placeholder="סיסמה" value={password} onChange={e => setPassword(e.target.value)} dir="ltr" style={claimInputStyle} />
+                    </div>
+                    <button type="button" onClick={completeClaim}
+                        disabled={loading || ownerName.trim().length < 2 || !email.trim() || password.length < 6}
+                        style={{ width: "100%", background: primary, color: "#fff", border: "none", borderRadius: 10, padding: "0.65rem", fontWeight: 700, fontSize: "0.88rem", cursor: "pointer", opacity: loading ? 0.7 : 1 }}>
+                        {loading ? "יוצר חשבון..." : "סיים והתחל לנהל"}
+                    </button>
+                </>
+            )}
+            {step === "done" && (
+                <div style={{ textAlign: "center" }}>
+                    <div style={{ fontSize: "2.2rem", marginBottom: "0.3rem" }}>🎉</div>
+                    <div style={{ fontWeight: 800, marginBottom: "0.75rem" }}>העסק שלך אומת!</div>
+                    <button type="button" onClick={() => goToBizControl("/onboarding")}
+                        style={{ width: "100%", background: "#16a34a", color: "#fff", border: "none", borderRadius: 10, padding: "0.65rem", fontWeight: 700, fontSize: "0.88rem", cursor: "pointer" }}>
+                        נהל את העסק שלך עכשיו →
+                    </button>
+                </div>
+            )}
+            {err && <div style={{ color: "#dc2626", fontSize: "0.78rem", marginTop: "0.6rem", fontWeight: 600 }}>{err}</div>}
+        </div>
+    );
 }
 
 // ── Main ─────────────────────────────────────────────────────────────────────
@@ -202,9 +323,11 @@ export default function BusinessPage() {
                     </div>
                 </div>
 
+                {p!.is_claimed === false && p!.business_id && <ClaimBanner businessId={p!.business_id} phone={p!.phone} primary={primary} />}
+
                 {/* ── CTA buttons ── */}
                 <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "1.5rem" }}>
-                    {p!.self_booking_enabled ? (
+                    {p!.is_claimed !== false && (p!.self_booking_enabled ? (
                         <Link href={`/b/${slug}/book`}
                             style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: `linear-gradient(135deg,${primary},#4c1d95)`, color: "#fff", textDecoration: "none", padding: "0.7rem 1.3rem", borderRadius: 14, fontWeight: 800, fontSize: "0.9rem", boxShadow: `0 4px 16px ${primary}44` }}>
                             📅 קביעת תור
@@ -214,7 +337,7 @@ export default function BusinessPage() {
                             style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: `linear-gradient(135deg,${primary},#4c1d95)`, color: "#fff", border: "none", padding: "0.7rem 1.3rem", borderRadius: 14, fontWeight: 800, fontSize: "0.9rem", cursor: "pointer", boxShadow: `0 4px 16px ${primary}44` }}>
                             📋 בקש תור
                         </button>
-                    )}
+                    ))}
                     {p!.whatsapp && (
                         <a href={`https://wa.me/${p!.whatsapp.replace(/\D/g, "")}`} target="_blank" rel="noopener"
                             style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "rgba(37,211,102,.12)", border: "1px solid rgba(37,211,102,.3)", color: "#25d366", textDecoration: "none", padding: "0.7rem 1.1rem", borderRadius: 14, fontWeight: 700, fontSize: "0.86rem" }}>
@@ -251,9 +374,9 @@ export default function BusinessPage() {
                 <div style={{ display: "flex", gap: "0.25rem", background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.08)", borderRadius: 14, padding: "0.3rem", marginBottom: "1.5rem", overflowX: "auto" }}>
                     {([
                         ["about",    "ℹ️ אודות"],
-                        ["services", `🛎️ שירותים${p!.services.length > 0 ? ` (${p!.services.length})` : ""}`],
+                        ...(p!.is_claimed !== false ? [["services", `🛎️ שירותים${p!.services.length > 0 ? ` (${p!.services.length})` : ""}`]] as const : []),
                         ...(hasGallery ? [["gallery", `🖼️ גלריה (${p!.gallery.length})`]] as const : []),
-                        ["reviews",  `⭐ ביקורות${p!.review_count > 0 ? ` (${p!.review_count})` : ""}`],
+                        ...(p!.is_claimed !== false ? [["reviews", `⭐ ביקורות${p!.review_count > 0 ? ` (${p!.review_count})` : ""}`]] as const : []),
                     ] as [string, string][]).map(([id, label]) => (
                         <button key={id} type="button" onClick={() => setActiveTab(id as any)}
                             style={{ padding: "0.5rem 1rem", borderRadius: 10, border: "none", cursor: "pointer", fontWeight: 700, fontSize: "0.82rem", whiteSpace: "nowrap", transition: "all .15s", background: activeTab === id ? `linear-gradient(135deg,${primary},#4c1d95)` : "transparent", color: activeTab === id ? "#fff" : "#64748b" }}>
