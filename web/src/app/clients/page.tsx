@@ -133,7 +133,12 @@ function PageInner() {
     };
 
     const loadClubData = async () => {
-        if (clubStats) return;
+        // Deliberately no "if (clubStats) return" cache guard here — this tab's
+        // data changes whenever anyone joins/leaves the club elsewhere in the
+        // app (e.g. the client detail page), so a stale first-load cache meant
+        // a newly-joined member could pass every other "is a member" check
+        // (badge on the client list, count in the header) yet never appear in
+        // this specific tab until a hard page reload.
         setClubLoading(true);
         try {
             const [cs, ls, lb] = await Promise.all([
