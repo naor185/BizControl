@@ -266,7 +266,7 @@ def request_claim_otp(request: Request, business_id: str, db: Session = Depends(
 
 @router.post("/{business_id}/claim/verify-otp")
 @limiter.limit("5/minute")
-def verify_claim_otp(request: Request, business_id: str, body: VerifyClaimOTPIn, db: Session = Depends(get_db)):
+def verify_claim_otp(request: Request, business_id: str, payload: VerifyClaimOTPIn, db: Session = Depends(get_db)):
     biz = _get_business_or_404(db, business_id)
     if not biz.phone:
         raise HTTPException(status_code=400, detail="לעסק זה אין מספר טלפון רשום")
@@ -279,7 +279,7 @@ def verify_claim_otp(request: Request, business_id: str, body: VerifyClaimOTPIn,
             WHERE phone = :phone AND code = :code AND expires_at > :now AND used_at IS NULL
             ORDER BY created_at DESC LIMIT 1
         """),
-        {"phone": phone, "code": body.code.strip(), "now": now},
+        {"phone": phone, "code": payload.code.strip(), "now": now},
     ).fetchone()
     if not row:
         raise HTTPException(status_code=400, detail="קוד שגוי או פג תוקף")

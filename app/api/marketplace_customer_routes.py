@@ -161,7 +161,7 @@ class EmailRegisterIn(BaseModel):
     phone: Optional[str] = None
     city: Optional[str] = None
 
-class EmailLoginIn(BaseModel):
+class CustomerEmailLoginIn(BaseModel):
     email: str
     password: str
 
@@ -170,8 +170,8 @@ class EmailLoginIn(BaseModel):
 
 @router.post("/request-otp")
 @limiter.limit("3/minute")
-def request_otp(request: Request, body: RequestOTPIn, db: Session = Depends(get_db)):
-    phone = body.phone.strip().replace("-", "").replace(" ", "")
+def request_otp(request: Request, payload: RequestOTPIn, db: Session = Depends(get_db)):
+    phone = payload.phone.strip().replace("-", "").replace(" ", "")
     if not phone or len(phone) < 9:
         raise HTTPException(status_code=400, detail="מספר טלפון לא תקין")
 
@@ -194,8 +194,8 @@ def request_otp(request: Request, body: RequestOTPIn, db: Session = Depends(get_
 
 @router.post("/verify-otp")
 @limiter.limit("5/minute")
-def verify_otp(request: Request, body: VerifyOTPIn, db: Session = Depends(get_db)):
-    phone = body.phone.strip().replace("-", "").replace(" ", "")
+def verify_otp(request: Request, payload: VerifyOTPIn, db: Session = Depends(get_db)):
+    phone = payload.phone.strip().replace("-", "").replace(" ", "")
     now = datetime.now(timezone.utc)
 
     row = db.execute(
@@ -205,7 +205,7 @@ def verify_otp(request: Request, body: VerifyOTPIn, db: Session = Depends(get_db
               AND expires_at > :now AND used_at IS NULL
             ORDER BY created_at DESC LIMIT 1
         """),
-        {"phone": phone, "code": body.code.strip(), "now": now}
+        {"phone": phone, "code": payload.code.strip(), "now": now}
     ).fetchone()
 
     if not row:
@@ -312,8 +312,8 @@ def register_email(body: EmailRegisterIn, db: Session = Depends(get_db)):
 
 @router.post("/login-email")
 @limiter.limit("10/minute")
-def login_email(request: Request, body: EmailLoginIn, db: Session = Depends(get_db)):
-    email = body.email.strip().lower()
+def login_email(request: Request, payload: CustomerEmailLoginIn, db: Session = Depends(get_db)):
+    email = payload.email.strip().lower()
 
     row = db.execute(
         text("""
@@ -323,7 +323,7 @@ def login_email(request: Request, body: EmailLoginIn, db: Session = Depends(get_
         {"email": email}
     ).fetchone()
 
-    if not row or not row[5] or not _pwd_ctx.verify(body.password, row[5]):
+    if not row or not row[5] or not _pwd_ctx.verify(payload.password, row[5]):
         raise HTTPException(status_code=401, detail="אימייל או סיסמה שגויים")
 
     cid = str(row[0])
