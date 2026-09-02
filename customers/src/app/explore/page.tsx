@@ -21,6 +21,13 @@ const CAT_GRADIENTS: Record<string, string> = {
     pilates:"linear-gradient(135deg,#f59e0b,#b45309)",
     laser:  "linear-gradient(135deg,#6366f1,#4338ca)",
     medical:"linear-gradient(135deg,#14b8a6,#0f766e)",
+    massage:"linear-gradient(135deg,#22c55e,#15803d)",
+    clothing:"linear-gradient(135deg,#f472b6,#be185d)",
+    pharmacy:"linear-gradient(135deg,#ef4444,#b91c1c)",
+    gym:    "linear-gradient(135deg,#eab308,#a16207)",
+    dental: "linear-gradient(135deg,#38bdf8,#0369a1)",
+    photography:"linear-gradient(135deg,#a855f7,#6b21a8)",
+    florist:"linear-gradient(135deg,#f97316,#c2410c)",
     other:  "linear-gradient(135deg,#64748b,#334155)",
 };
 
@@ -40,6 +47,8 @@ function ExploreContent() {
     const [loading, setLoading] = useState(true);
     const [q, setQ] = useState("");
     const [city, setCity] = useState("");
+    const [citySuggestions, setCitySuggestions] = useState<string[]>([]);
+    const [showCitySuggestions, setShowCitySuggestions] = useState(false);
     const [selectedType, setSelectedType] = useState("");
     const [sort, setSort] = useState<SortKey>("default");
     const [view, setView] = useState<ViewMode>("grid");
@@ -65,6 +74,17 @@ function ExploreContent() {
     useEffect(() => {
         fetch(`${API}/api/marketplace/categories`).then(r => r.json()).then(setCategories).catch(() => {});
     }, []);
+
+    useEffect(() => {
+        if (!city.trim()) { setCitySuggestions([]); return; }
+        const t = setTimeout(() => {
+            fetch(`${API}/api/marketplace/cities?q=${encodeURIComponent(city.trim())}`)
+                .then(r => r.json())
+                .then(setCitySuggestions)
+                .catch(() => setCitySuggestions([]));
+        }, 200);
+        return () => clearTimeout(t);
+    }, [city]);
 
     useEffect(() => {
         const t = setTimeout(load, 300);
@@ -118,9 +138,23 @@ function ExploreContent() {
                         {/* City */}
                         <div style={{ flex: "1 1 110px", position: "relative" }}>
                             <span style={{ position: "absolute", right: "0.75rem", top: "50%", transform: "translateY(-50%)", fontSize: "0.8rem" }}>📍</span>
-                            <input value={city} onChange={e => setCity(e.target.value)}
+                            <input value={city}
+                                onChange={e => { setCity(e.target.value); setShowCitySuggestions(true); }}
+                                onFocus={() => setShowCitySuggestions(true)}
+                                onBlur={() => setTimeout(() => setShowCitySuggestions(false), 150)}
                                 placeholder="עיר"
                                 style={{ width: "100%", background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.1)", borderRadius: 12, padding: "0.6rem 2rem 0.6rem 0.75rem", color: "#f1f5f9", fontSize: "0.9rem", outline: "none", boxSizing: "border-box" }} />
+                            {showCitySuggestions && citySuggestions.length > 0 && (
+                                <div style={{ position: "absolute", top: "calc(100% + 0.3rem)", right: 0, left: 0, background: "#1e293b", border: "1px solid rgba(255,255,255,.12)", borderRadius: 12, overflow: "hidden", zIndex: 20, boxShadow: "0 8px 24px rgba(0,0,0,.4)" }}>
+                                    {citySuggestions.map(c => (
+                                        <div key={c} onClick={() => { setCity(c); setShowCitySuggestions(false); }}
+                                            style={{ padding: "0.55rem 0.85rem", fontSize: "0.85rem", color: "#e2e8f0", cursor: "pointer" }}
+                                            onMouseDown={e => e.preventDefault()}>
+                                            {c}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
 
                         {/* Near me */}

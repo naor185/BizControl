@@ -15,7 +15,11 @@ from sqlalchemy.orm import Session
 
 OVERPASS_URL = "https://overpass-api.de/api/interpreter"
 
-VALID_CATEGORIES = {"tattoo", "barber", "nails", "laser", "pilates", "spa", "medical", "other"}
+VALID_CATEGORIES = {
+    "tattoo", "barber", "nails", "laser", "pilates", "spa", "medical",
+    "massage", "clothing", "pharmacy", "gym", "dental", "photography", "florist",
+    "other",
+}
 
 
 def slugify(name: str) -> str:

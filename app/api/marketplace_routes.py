@@ -545,13 +545,22 @@ BUSINESS_TYPE_LABELS = {
     "pilates":         "פילאטיס / כושר",
     "spa":             "ספא / קוסמטיקה",
     "medical":         "קליניקה / מרפאה",
+    "massage":         "עיסוי ורפלקסולוגיה",
+    "clothing":        "חנות בגדים",
+    "pharmacy":        "בית מרקחת",
+    "gym":             "מכון כושר",
+    "dental":          "מרפאת שיניים",
+    "photography":     "צילום",
+    "florist":         "פרחים",
     "other":           "אחר",
 }
 
 BUSINESS_TYPE_ICONS = {
     "tattoo":  "🎨", "barber":  "✂️", "nails":  "💅",
     "laser":   "⚡", "pilates": "🏃", "spa":    "🧖",
-    "medical": "🏥", "other":   "🏢",
+    "medical": "🏥", "massage": "💆", "clothing": "👗",
+    "pharmacy": "💊", "gym": "🏋️", "dental": "🦷",
+    "photography": "📷", "florist": "💐", "other":   "🏢",
 }
 
 
@@ -681,26 +690,58 @@ def get_hero_slides(db: Session = Depends(get_db)):
 
 @router.get("/categories")
 def get_categories(db: Session = Depends(get_db)):
-    """Return business type categories with counts."""
+    """Return business type categories with counts — real studios plus
+    unclaimed BizFind imports, merged, so the filter bar reflects everything
+    actually shown in search (see search_marketplace)."""
     from app.models.studio import Studio
     from app.models.studio_settings import StudioSettings
 
-    counts = db.execute(
+    counts: dict[str, int] = {}
+
+    studio_counts = db.execute(
         select(Studio.business_type, func.count(Studio.id))
         .join(StudioSettings, StudioSettings.studio_id == Studio.id)
         .where(Studio.is_active == True, StudioSettings.marketplace_visible == True)  # noqa
         .group_by(Studio.business_type)
     ).all()
+    for bt, count in studio_counts:
+        counts[bt or "other"] = counts.get(bt or "other", 0) + count
+
+    business_counts = db.execute(
+        text("SELECT category, COUNT(*) FROM businesses WHERE claim_status='unclaimed' GROUP BY category")
+    ).all()
+    for category, count in business_counts:
+        counts[category or "other"] = counts.get(category or "other", 0) + count
 
     return [
         {
-            "id": bt or "other",
-            "label": BUSINESS_TYPE_LABELS.get(bt or "other", "אחר"),
-            "icon": BUSINESS_TYPE_ICONS.get(bt or "other", "🏢"),
+            "id": bt,
+            "label": BUSINESS_TYPE_LABELS.get(bt, "אחר"),
+            "icon": BUSINESS_TYPE_ICONS.get(bt, "🏢"),
             "count": count,
         }
-        for bt, count in counts
+        for bt, count in counts.items()
     ]
+
+
+@router.get("/cities")
+def search_cities(q: str = Query(..., min_length=1, max_length=40), limit: int = Query(8, le=20)):
+    """City name autocomplete for the marketplace search box — matches
+    against a curated list of real Israeli localities (see
+    app/data/israel_cities.py for scope/source). Prefix matches rank first,
+    substring matches fill any remaining slots."""
+    from app.data.israel_cities import ISRAEL_CITIES
+
+    needle = q.strip()
+    if not needle:
+        return []
+
+    prefix = [c for c in ISRAEL_CITIES if c.startswith(needle)]
+    if len(prefix) >= limit:
+        return sorted(prefix, key=len)[:limit]
+
+    substring = [c for c in ISRAEL_CITIES if needle in c and c not in prefix]
+    return sorted(prefix, key=len) + sorted(substring, key=len)[:limit - len(prefix)]
 
 
 # ── Studio profile ────────────────────────────────────────────────────────────

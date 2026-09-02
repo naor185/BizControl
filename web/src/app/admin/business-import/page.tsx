@@ -24,6 +24,13 @@ const CATEGORIES = [
     { value: "pilates", label: "פילאטיס / כושר" },
     { value: "spa", label: "ספא / קוסמטיקה" },
     { value: "medical", label: "קליניקה / מרפאה" },
+    { value: "massage", label: "עיסוי ורפלקסולוגיה" },
+    { value: "clothing", label: "חנות בגדים" },
+    { value: "pharmacy", label: "בית מרקחת" },
+    { value: "gym", label: "מכון כושר" },
+    { value: "dental", label: "מרפאת שיניים" },
+    { value: "photography", label: "צילום" },
+    { value: "florist", label: "פרחים" },
     { value: "other", label: "אחר" },
 ];
 
@@ -33,6 +40,11 @@ const OSM_TAG_PRESETS = [
     { value: "shop=massage", label: "עיסוי" },
     { value: "leisure=fitness_centre", label: "חדרי כושר / פילאטיס" },
     { value: "healthcare=clinic", label: "קליניקות" },
+    { value: "shop=clothes", label: "חנויות בגדים" },
+    { value: "amenity=pharmacy", label: "בתי מרקחת" },
+    { value: "amenity=dentist", label: "מרפאות שיניים" },
+    { value: "shop=photo", label: "צילום" },
+    { value: "shop=florist", label: "פרחים" },
 ];
 
 const CLAIM_STATUS_LABELS: Record<string, string> = {
