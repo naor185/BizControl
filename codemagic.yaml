@@ -103,13 +103,13 @@ workflows:
       app_store_connect:
         auth: integration
         submit_to_testflight: true
-        # Targets the Internal Testing group only — internal testers get the
-        # build instantly with no Apple review and no Beta App Description
-        # requirement (that's only needed for External Testing groups).
-        # Create this group once in App Store Connect > TestFlight > Internal
-        # Testing and add yourself as a tester there.
+        # Targets the existing Internal Testing group only — internal testers
+        # get the build instantly with no Apple review and no Beta App
+        # Description requirement (that's only needed for External Testing
+        # groups). "NA" is the group already set up in App Store Connect >
+        # TestFlight > Internal Testing for this app.
         beta_groups:
-          - Internal Testers
+          - NA
         # Flip to true once you're ready for an actual App Store review —
         # leave false while you're still just getting TestFlight builds out:
         submit_to_app_store: false
@@ -206,8 +206,10 @@ workflows:
         auth: integration
         submit_to_testflight: true
         # See bizcontrol-ios above — targets Internal Testing only, no Apple
-        # review / Beta App Description needed. Create this group once in
-        # App Store Connect > TestFlight > Internal Testing for this app.
+        # review / Beta App Description needed. BizFind is a separate app in
+        # App Store Connect with its own testing groups — verify/create an
+        # internal group named "NA" here too (or update this name to match
+        # whatever group actually exists for this app).
         beta_groups:
-          - Internal Testers
+          - NA
         submit_to_app_store: false
