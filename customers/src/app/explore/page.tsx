@@ -275,14 +275,16 @@ function ExploreContent() {
 
 function GridCard({ s }: { s: StudioCard }) {
     const [hovered, setHovered] = useState(false);
+    const [imgFailed, setImgFailed] = useState(false);
+    const showCover = s.cover_url && !imgFailed;
     return (
         <Link href={`/b/${s.slug}`} style={{ textDecoration: "none", display: "block" }}>
             <div onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
                 style={{ background: "rgba(255,255,255,.04)", border: `1px solid ${hovered ? "rgba(167,139,250,.4)" : "rgba(255,255,255,.08)"}`, borderRadius: 20, overflow: "hidden", transform: hovered ? "translateY(-3px)" : "none", transition: "all .25s", boxShadow: hovered ? "0 8px 24px rgba(0,0,0,.3)" : "none" }}>
-                <div style={{ height: 140, position: "relative", background: s.cover_url ? undefined : (CAT_GRADIENTS[s.business_type] || CAT_GRADIENTS.other) }}>
-                    {s.cover_url && <img src={imgUrl(s.cover_url)} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", transform: hovered ? "scale(1.04)" : "scale(1)", transition: "transform .3s" }} />}
-                    {!s.cover_url && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "3rem" }}>{s.logo_url ? <img src={imgUrl(s.logo_url)} alt="" style={{ width: 68, height: 68, borderRadius: 14, objectFit: "cover" }} /> : s.business_type_icon}</div>}
-                    {s.cover_url && <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom,transparent 50%,rgba(0,0,0,.55))" }} />}
+                <div style={{ height: 140, position: "relative", background: showCover ? undefined : (CAT_GRADIENTS[s.business_type] || CAT_GRADIENTS.other) }}>
+                    {showCover && <img src={imgUrl(s.cover_url)} alt="" onError={() => setImgFailed(true)} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", transform: hovered ? "scale(1.04)" : "scale(1)", transition: "transform .3s" }} />}
+                    {!showCover && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "3rem" }}>{s.logo_url ? <img src={imgUrl(s.logo_url)} alt="" style={{ width: 68, height: 68, borderRadius: 14, objectFit: "cover" }} /> : s.business_type_icon}</div>}
+                    {showCover && <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom,transparent 50%,rgba(0,0,0,.55))" }} />}
                     {s.self_booking_enabled && <div style={{ position: "absolute", top: 8, left: 8, background: "rgba(74,222,128,.9)", color: "#052e16", fontSize: "0.66rem", fontWeight: 800, padding: "0.2rem 0.55rem", borderRadius: 7 }}>📅 אונליין</div>}
                     {s.is_claimed === false && <div style={{ position: "absolute", top: 8, right: 8, background: "rgba(15,23,42,.85)", color: "#fbbf24", fontSize: "0.62rem", fontWeight: 700, padding: "0.2rem 0.5rem", borderRadius: 7 }}>⚪ לא מאומת</div>}
                 </div>

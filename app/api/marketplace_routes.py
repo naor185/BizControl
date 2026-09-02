@@ -634,27 +634,33 @@ def search_marketplace(
             "is_claimed": True,
         })
 
-    # Unclaimed BizFind imports, merged into the same list — deliberately no
-    # live Google lookup here (would be N+1 API calls per search); photos
-    # only get fetched on the individual profile page (get_studio_profile /
-    # _get_unclaimed_business_profile), same cost tradeoff as everywhere
-    # else Google data is used in this codebase.
+    # Unclaimed BizFind imports, merged into the same list. No live Google
+    # lookup here (would be N+1 API calls per search) — but if a business
+    # was already matched (either eagerly at import time, or lazily from an
+    # earlier profile-page view), that match is just a cached row, so
+    # showing its cover photo costs nothing extra: constructing the proxy
+    # URL doesn't call Google, only actually loading the image does, later,
+    # in the browser.
     remaining = max(limit - len(result), 0)
     if remaining:
-        conditions = ["claim_status = 'unclaimed'"]
+        conditions = ["b.claim_status = 'unclaimed'"]
         params: dict = {"limit": remaining}
         if q:
-            conditions.append("name ILIKE :q")
+            conditions.append("b.name ILIKE :q")
             params["q"] = f"%{q}%"
         if business_type:
-            conditions.append("category = :business_type")
+            conditions.append("b.category = :business_type")
             params["business_type"] = business_type
         if city:
-            conditions.append("city ILIKE :city")
+            conditions.append("b.city ILIKE :city")
             params["city"] = f"%{city}%"
         where = " AND ".join(conditions)
         biz_rows = db.execute(
-            text(f"SELECT id, slug, name, category, city, description FROM businesses WHERE {where} ORDER BY name LIMIT :limit"),
+            text(f"""
+                SELECT b.id, b.slug, b.name, b.category, b.city, b.description,
+                       (SELECT 1 FROM business_sources bs WHERE bs.business_id = b.id AND bs.source = 'google') AS has_google
+                FROM businesses b WHERE {where} ORDER BY b.name LIMIT :limit
+            """),
             params,
         ).fetchall()
         for b in biz_rows:
@@ -666,7 +672,7 @@ def search_marketplace(
                 "business_type_label": BUSINESS_TYPE_LABELS.get(b.category, "אחר"),
                 "business_type_icon": BUSINESS_TYPE_ICONS.get(b.category, "🏢"),
                 "logo_url": None,
-                "cover_url": None,
+                "cover_url": f"/api/businesses/{b.id}/photo/0" if b.has_google else None,
                 "city": b.city,
                 "description": b.description,
                 "primary_color": "#7c3aed",

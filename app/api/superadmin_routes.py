@@ -3295,3 +3295,19 @@ def clear_business_google_match(business_id: str, admin: User = Depends(require_
     )
     db.commit()
     return {"ok": True, "cleared": result.rowcount}
+
+
+@router.delete("/businesses/{business_id}")
+def delete_business(business_id: str, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    """Permanently removes an imported (unclaimed) business — for cleaning
+    up bad imports, e.g. wrong category/OSM-tag combination. Refuses to
+    delete a claimed business (that's a real studio's record now, not
+    just an import)."""
+    row = db.execute(text("SELECT claim_status FROM businesses WHERE id=:id"), {"id": business_id}).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="עסק לא נמצא")
+    if row.claim_status == "claimed":
+        raise HTTPException(status_code=409, detail="לא ניתן למחוק עסק שכבר נתבע")
+    db.execute(text("DELETE FROM businesses WHERE id=:id"), {"id": business_id})
+    db.commit()
+    return {"ok": True}

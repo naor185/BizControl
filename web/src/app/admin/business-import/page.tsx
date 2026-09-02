@@ -16,36 +16,32 @@ type Business = {
     created_at: string | null;
 };
 
-const CATEGORIES = [
-    { value: "tattoo", label: "סטודיו קעקועים" },
-    { value: "barber", label: "ספר / ברברשופ" },
-    { value: "nails", label: "ציפורניים" },
-    { value: "laser", label: "לייזר" },
-    { value: "pilates", label: "פילאטיס / כושר" },
-    { value: "spa", label: "ספא / קוסמטיקה" },
-    { value: "medical", label: "קליניקה / מרפאה" },
-    { value: "massage", label: "עיסוי ורפלקסולוגיה" },
-    { value: "clothing", label: "חנות בגדים" },
-    { value: "pharmacy", label: "בית מרקחת" },
-    { value: "gym", label: "מכון כושר" },
-    { value: "dental", label: "מרפאת שיניים" },
-    { value: "photography", label: "צילום" },
-    { value: "florist", label: "פרחים" },
-    { value: "other", label: "אחר" },
+// Category and OSM tag are coupled here on purpose — picking one always sets
+// the other. Two independent dropdowns let you pick category="tattoo" with
+// osm_tag="healthcare=clinic" and silently import health funds labeled as
+// tattoo studios (a real bug this caused). "custom" is the escape hatch for
+// anything not in this list — it reveals free-text fields for both.
+const PRESETS = [
+    { category: "tattoo", categoryLabel: "סטודיו קעקועים", osmTag: "shop=tattoo", osmLabel: "קעקועים" },
+    { category: "barber", categoryLabel: "ספר / ברברשופ", osmTag: "shop=hairdresser", osmLabel: "מספרות / ברברשופים" },
+    { category: "nails", categoryLabel: "ציפורניים", osmTag: "shop=beauty", osmLabel: "מכוני יופי (כולל ציפורניים)" },
+    { category: "spa", categoryLabel: "ספא / קוסמטיקה", osmTag: "shop=beauty", osmLabel: "מכוני יופי / קוסמטיקה" },
+    { category: "laser", categoryLabel: "לייזר", osmTag: "shop=beauty", osmLabel: "מכוני יופי (כולל לייזר)" },
+    { category: "massage", categoryLabel: "עיסוי ורפלקסולוגיה", osmTag: "shop=massage", osmLabel: "עיסוי" },
+    { category: "pilates", categoryLabel: "פילאטיס / כושר", osmTag: "leisure=fitness_centre", osmLabel: "חדרי כושר / פילאטיס" },
+    { category: "gym", categoryLabel: "מכון כושר", osmTag: "leisure=fitness_centre", osmLabel: "חדרי כושר" },
+    { category: "medical", categoryLabel: "קליניקה / מרפאה", osmTag: "healthcare=clinic", osmLabel: "קליניקות" },
+    { category: "dental", categoryLabel: "מרפאת שיניים", osmTag: "amenity=dentist", osmLabel: "מרפאות שיניים" },
+    { category: "pharmacy", categoryLabel: "בית מרקחת", osmTag: "amenity=pharmacy", osmLabel: "בתי מרקחת" },
+    { category: "clothing", categoryLabel: "חנות בגדים", osmTag: "shop=clothes", osmLabel: "חנויות בגדים" },
+    { category: "photography", categoryLabel: "צילום", osmTag: "shop=photo", osmLabel: "צילום" },
+    { category: "florist", categoryLabel: "פרחים", osmTag: "shop=florist", osmLabel: "פרחים" },
+    { category: "custom", categoryLabel: "✏️ מותאם אישית", osmTag: "", osmLabel: "✏️ מותאם אישית" },
 ];
 
-const OSM_TAG_PRESETS = [
-    { value: "shop=hairdresser", label: "מספרות / ברברשופים" },
-    { value: "shop=beauty", label: "מכוני יופי / קוסמטיקה" },
-    { value: "shop=massage", label: "עיסוי" },
-    { value: "leisure=fitness_centre", label: "חדרי כושר / פילאטיס" },
-    { value: "healthcare=clinic", label: "קליניקות" },
-    { value: "shop=clothes", label: "חנויות בגדים" },
-    { value: "amenity=pharmacy", label: "בתי מרקחת" },
-    { value: "amenity=dentist", label: "מרפאות שיניים" },
-    { value: "shop=photo", label: "צילום" },
-    { value: "shop=florist", label: "פרחים" },
-];
+const CATEGORY_LABELS: Record<string, string> = Object.fromEntries(
+    PRESETS.filter(p => p.category !== "custom").map(p => [p.category, p.categoryLabel])
+);
 
 const CLAIM_STATUS_LABELS: Record<string, string> = {
     unclaimed: "⚪ לא נתבע",
@@ -57,8 +53,13 @@ export default function BusinessImportPage() {
     const router = useRouter();
 
     const [city, setCity] = useState("");
-    const [category, setCategory] = useState("barber");
-    const [osmTag, setOsmTag] = useState("shop=hairdresser");
+    const [presetIndex, setPresetIndex] = useState(1); // barber
+    const [customCategory, setCustomCategory] = useState("");
+    const [customOsmTag, setCustomOsmTag] = useState("");
+    const preset = PRESETS[presetIndex];
+    const isCustom = preset.category === "custom";
+    const category = isCustom ? customCategory.trim() : preset.category;
+    const osmTag = isCustom ? customOsmTag.trim() : preset.osmTag;
     const [limit, setLimit] = useState(50);
     const [importing, setImporting] = useState(false);
     const [result, setResult] = useState<{ found: number; created: number; skipped: number } | null>(null);
@@ -70,6 +71,8 @@ export default function BusinessImportPage() {
     const [filterCity, setFilterCity] = useState("");
     const [filterStatus, setFilterStatus] = useState("");
     const [rematchingId, setRematchingId] = useState<string | null>(null);
+    const [selected, setSelected] = useState<Set<string>>(new Set());
+    const [deleting, setDeleting] = useState(false);
 
     const loadList = useCallback(async () => {
         setLoadingList(true);
@@ -92,6 +95,7 @@ export default function BusinessImportPage() {
     async function handleImport(e: React.FormEvent) {
         e.preventDefault();
         if (!city.trim()) { setError("הזן שם עיר"); return; }
+        if (!category || !osmTag) { setError("מלא קטגוריה ותגית OSM (במצב מותאם אישית)"); return; }
         setImporting(true);
         setError("");
         setResult(null);
@@ -120,6 +124,40 @@ export default function BusinessImportPage() {
         }
     }
 
+    async function deleteBusiness(businessId: string) {
+        if (!confirm("למחוק את העסק הזה? הפעולה בלתי הפיכה.")) return;
+        try {
+            await apiFetch(`/api/admin/businesses/${businessId}`, { method: "DELETE" });
+            setSelected(prev => { const next = new Set(prev); next.delete(businessId); return next; });
+            await loadList();
+        } catch (err: unknown) {
+            alert(err instanceof Error ? err.message : "שגיאה במחיקה");
+        }
+    }
+
+    async function deleteSelected() {
+        if (selected.size === 0) return;
+        if (!confirm(`למחוק ${selected.size} עסקים? הפעולה בלתי הפיכה.`)) return;
+        setDeleting(true);
+        try {
+            for (const id of selected) {
+                await apiFetch(`/api/admin/businesses/${id}`, { method: "DELETE" }).catch(() => {});
+            }
+            setSelected(new Set());
+            await loadList();
+        } finally {
+            setDeleting(false);
+        }
+    }
+
+    function toggleSelected(id: string) {
+        setSelected(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id); else next.add(id);
+            return next;
+        });
+    }
+
     return (
         <div dir="rtl" style={{ maxWidth: 1000, margin: "0 auto", padding: "2rem 1.25rem", fontFamily: "system-ui,sans-serif" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "2rem" }}>
@@ -143,26 +181,41 @@ export default function BusinessImportPage() {
                             style={{ width: "100%", border: "1.5px solid #e2e8f0", borderRadius: 8, padding: "0.55rem 0.75rem", fontSize: "0.9rem", boxSizing: "border-box" }}
                         />
                     </div>
-                    <div style={{ flex: "1 1 200px" }}>
-                        <label style={{ display: "block", fontSize: "0.78rem", fontWeight: 600, color: "#64748b", marginBottom: "0.3rem" }}>קטגוריה פנימית *</label>
-                        <select
-                            value={category}
-                            onChange={e => setCategory(e.target.value)}
-                            style={{ width: "100%", border: "1.5px solid #e2e8f0", borderRadius: 8, padding: "0.55rem 0.75rem", fontSize: "0.9rem", boxSizing: "border-box" }}
-                        >
-                            {CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
-                        </select>
-                    </div>
                     <div style={{ flex: "1 1 220px" }}>
-                        <label style={{ display: "block", fontSize: "0.78rem", fontWeight: 600, color: "#64748b", marginBottom: "0.3rem" }}>סוג עסק ב-OpenStreetMap *</label>
+                        <label style={{ display: "block", fontSize: "0.78rem", fontWeight: 600, color: "#64748b", marginBottom: "0.3rem" }}>סוג עסק *</label>
                         <select
-                            value={osmTag}
-                            onChange={e => setOsmTag(e.target.value)}
+                            value={presetIndex}
+                            onChange={e => setPresetIndex(Number(e.target.value))}
                             style={{ width: "100%", border: "1.5px solid #e2e8f0", borderRadius: 8, padding: "0.55rem 0.75rem", fontSize: "0.9rem", boxSizing: "border-box" }}
                         >
-                            {OSM_TAG_PRESETS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                            {PRESETS.map((p, i) => <option key={i} value={i}>{p.categoryLabel}</option>)}
                         </select>
+                        {!isCustom && <div style={{ fontSize: "0.72rem", color: "#94a3b8", marginTop: "0.25rem" }}>מחפש ב-OSM: {preset.osmLabel}</div>}
                     </div>
+                    {isCustom && (
+                        <>
+                            <div style={{ flex: "1 1 180px" }}>
+                                <label style={{ display: "block", fontSize: "0.78rem", fontWeight: 600, color: "#64748b", marginBottom: "0.3rem" }}>קטגוריה פנימית (מפתח)</label>
+                                <input
+                                    value={customCategory}
+                                    onChange={e => setCustomCategory(e.target.value)}
+                                    placeholder="לדוגמה: bakery"
+                                    dir="ltr"
+                                    style={{ width: "100%", border: "1.5px solid #e2e8f0", borderRadius: 8, padding: "0.55rem 0.75rem", fontSize: "0.9rem", boxSizing: "border-box" }}
+                                />
+                            </div>
+                            <div style={{ flex: "1 1 180px" }}>
+                                <label style={{ display: "block", fontSize: "0.78rem", fontWeight: 600, color: "#64748b", marginBottom: "0.3rem" }}>תגית OSM (key=value)</label>
+                                <input
+                                    value={customOsmTag}
+                                    onChange={e => setCustomOsmTag(e.target.value)}
+                                    placeholder="לדוגמה: shop=bakery"
+                                    dir="ltr"
+                                    style={{ width: "100%", border: "1.5px solid #e2e8f0", borderRadius: 8, padding: "0.55rem 0.75rem", fontSize: "0.9rem", boxSizing: "border-box" }}
+                                />
+                            </div>
+                        </>
+                    )}
                     <div style={{ flex: "0 0 100px" }}>
                         <label style={{ display: "block", fontSize: "0.78rem", fontWeight: 600, color: "#64748b", marginBottom: "0.3rem" }}>מקסימום</label>
                         <input
@@ -214,6 +267,20 @@ export default function BusinessImportPage() {
                     </div>
                 </div>
 
+                {selected.size > 0 && (
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10, padding: "0.6rem 0.9rem", marginBottom: "0.75rem" }}>
+                        <span style={{ fontSize: "0.82rem", color: "#991b1b", fontWeight: 600 }}>{selected.size} נבחרו</span>
+                        <button type="button" onClick={deleteSelected} disabled={deleting}
+                            style={{ background: "#dc2626", color: "#fff", border: "none", borderRadius: 8, padding: "0.35rem 0.85rem", fontSize: "0.8rem", fontWeight: 700, cursor: deleting ? "not-allowed" : "pointer" }}>
+                            {deleting ? "מוחק..." : "🗑️ מחק נבחרים"}
+                        </button>
+                        <button type="button" onClick={() => setSelected(new Set())}
+                            style={{ background: "none", border: "none", color: "#991b1b", fontSize: "0.8rem", cursor: "pointer", textDecoration: "underline" }}>
+                            בטל בחירה
+                        </button>
+                    </div>
+                )}
+
                 {loadingList && <div style={{ color: "#94a3b8", fontSize: "0.85rem", textAlign: "center", padding: "2rem 0" }}>טוען...</div>}
                 {!loadingList && businesses.length === 0 && <div style={{ color: "#94a3b8", fontSize: "0.85rem", textAlign: "center", padding: "2rem 0" }}>אין עדיין עסקים מיובאים</div>}
                 {!loadingList && businesses.length > 0 && (
@@ -221,18 +288,27 @@ export default function BusinessImportPage() {
                         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
                             <thead>
                                 <tr style={{ borderBottom: "1px solid #e2e8f0", color: "#64748b", textAlign: "right" }}>
+                                    <th style={{ padding: "0.5rem", width: 28 }}></th>
                                     <th style={{ padding: "0.5rem" }}>שם</th>
+                                    <th style={{ padding: "0.5rem" }}>קטגוריה</th>
                                     <th style={{ padding: "0.5rem" }}>עיר</th>
                                     <th style={{ padding: "0.5rem" }}>כתובת</th>
                                     <th style={{ padding: "0.5rem" }}>טלפון</th>
                                     <th style={{ padding: "0.5rem" }}>סטטוס</th>
+                                    <th style={{ padding: "0.5rem" }}></th>
                                     <th style={{ padding: "0.5rem" }}></th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {businesses.map(b => (
                                     <tr key={b.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                                        <td style={{ padding: "0.5rem" }}>
+                                            {b.claim_status === "unclaimed" && (
+                                                <input type="checkbox" checked={selected.has(b.id)} onChange={() => toggleSelected(b.id)} />
+                                            )}
+                                        </td>
                                         <td style={{ padding: "0.5rem", fontWeight: 600, color: "#1e293b" }}>{b.name}</td>
+                                        <td style={{ padding: "0.5rem", color: "#64748b" }}>{CATEGORY_LABELS[b.category] || b.category}</td>
                                         <td style={{ padding: "0.5rem", color: "#64748b" }}>{b.city || "—"}</td>
                                         <td style={{ padding: "0.5rem", color: "#64748b" }}>{b.address || "—"}</td>
                                         <td style={{ padding: "0.5rem", color: "#64748b", direction: "ltr", textAlign: "right" }}>{b.phone || "—"}</td>
@@ -246,7 +322,19 @@ export default function BusinessImportPage() {
                                                     style={{ background: "none", border: "1px solid #e2e8f0", borderRadius: 7, padding: "0.2rem 0.55rem", fontSize: "0.72rem", color: "#64748b", cursor: rematchingId === b.id ? "not-allowed" : "pointer" }}
                                                     title="אם התמונה/דירוג שגויים — נקה את ההתאמה לגוגל ותאולץ התאמה מחדש בכניסה הבאה"
                                                 >
-                                                    {rematchingId === b.id ? "..." : "🔄 התאם מחדש מול גוגל"}
+                                                    {rematchingId === b.id ? "..." : "🔄 גוגל"}
+                                                </button>
+                                            )}
+                                        </td>
+                                        <td style={{ padding: "0.5rem" }}>
+                                            {b.claim_status === "unclaimed" && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => deleteBusiness(b.id)}
+                                                    style={{ background: "none", border: "1px solid #fecaca", borderRadius: 7, padding: "0.2rem 0.55rem", fontSize: "0.72rem", color: "#dc2626", cursor: "pointer" }}
+                                                    title="מחק לצמיתות"
+                                                >
+                                                    🗑️
                                                 </button>
                                             )}
                                         </td>

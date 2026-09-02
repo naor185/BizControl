@@ -88,9 +88,15 @@ def fetch_osm_businesses(city: str, osm_tag: str, limit: int) -> list[dict]:
 def import_osm_businesses(db: Session, city: str, category: str, osm_tag: str, limit: int = 50) -> dict:
     """Fetches businesses from OSM and upserts them into businesses/business_sources.
     Safe to re-run — dedupes by (source, external_id), never touches a business
-    once it's no longer 'unclaimed'. Returns {found, created, skipped}."""
-    if category not in VALID_CATEGORIES:
-        raise ValueError(f"Unknown category '{category}'. Valid: {', '.join(sorted(VALID_CATEGORIES))}")
+    once it's no longer 'unclaimed'. Returns {found, created, skipped}.
+
+    category isn't restricted to VALID_CATEGORIES — those are just the ones
+    with a label/icon/gradient already wired up in the UI. A custom key
+    still works, it just renders with the generic "אחר"/🏢 fallback until
+    someone adds it to BUSINESS_TYPE_LABELS."""
+    category = category.strip()
+    if not category or not category.replace("_", "").isalnum() or not category.isascii():
+        raise ValueError("קטגוריה חייבת להיות מפתח באנגלית (אותיות/מספרים/קו תחתון), לדוגמה: bakery")
 
     found = fetch_osm_businesses(city, osm_tag, limit)
     created, skipped = 0, 0
@@ -129,5 +135,32 @@ def import_osm_businesses(db: Session, city: str, category: str, osm_tag: str, l
         })
         created += 1
 
+        # Match against Google now (not on first page view) so the search
+        # results list can show a real cover photo immediately — see
+        # search_marketplace in marketplace_routes.py, which only uses an
+        # *already-cached* match (no live Google call at search time).
+        _try_eager_google_match(db, business_id, biz["name"], biz["address"], city, category)
+
     db.commit()
     return {"found": len(found), "created": created, "skipped": skipped}
+
+
+def _try_eager_google_match(db: Session, business_id: str, name: str, address: str | None, city: str, category: str) -> None:
+    try:
+        from app.services.google_places import find_place_id
+        from app.api.marketplace_routes import BUSINESS_TYPE_LABELS
+        category_label = BUSINESS_TYPE_LABELS.get(category, category)
+        place_id = find_place_id(name, address, city, category_label)
+        if place_id:
+            db.execute(text("""
+                INSERT INTO business_sources (id, business_id, source, external_id, source_url)
+                VALUES (:id, :bid, 'google', :eid, :url)
+                ON CONFLICT (source, external_id) DO NOTHING
+            """), {
+                "id": str(uuid.uuid4()), "bid": business_id, "eid": place_id,
+                "url": f"https://www.google.com/maps/place/?q=place_id:{place_id}",
+            })
+    except Exception:
+        # Best-effort — a missing/invalid GOOGLE_PLACES_API_KEY or a flaky
+        # request shouldn't fail the whole OSM import.
+        pass
