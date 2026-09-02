@@ -580,29 +580,30 @@ function PageInner() {
                                             <tbody>
                                                 {bdData.map(c => {
                                                     const today = new Date();
-                                                    const todayMonth = today.getMonth() + 1;
-                                                    const todayYear = today.getFullYear();
+                                                    today.setHours(0, 0, 0, 0);
                                                     const birthDay = c.birth_date ? new Date(c.birth_date).getDate() : null;
-                                                    const birthdayPassed = birthDay !== null && (
-                                                        bdYear < todayYear ||
-                                                        (bdYear === todayYear && bdMonth < todayMonth) ||
-                                                        (bdYear === todayYear && bdMonth === todayMonth && birthDay <= today.getDate())
-                                                    );
-                                                    // "יישלח ב-25" only when viewing the NEXT month and sweep hasn't run yet
-                                                    const isNextMonthView = (bdMonth === todayMonth + 1 && bdYear === todayYear) ||
-                                                        (todayMonth === 12 && bdMonth === 1 && bdYear === todayYear + 1);
-                                                    const sweepWillSend = isNextMonthView && today.getDate() < 25;
+                                                    // The actual send trigger (sweep_birthday_messages, message_worker.py)
+                                                    // runs daily and messages each club member exactly 2 days before
+                                                    // *their own* birthday — not on a fixed day-of-month. Mirror that
+                                                    // here instead of the old "sweeps on the 25th" assumption, which no
+                                                    // longer matches what the backend actually does.
+                                                    const birthdayThisOccurrence = birthDay !== null ? new Date(bdYear, bdMonth - 1, birthDay) : null;
+                                                    const sendDate = birthdayThisOccurrence ? new Date(birthdayThisOccurrence) : null;
+                                                    if (sendDate) sendDate.setDate(sendDate.getDate() - 2);
+                                                    const birthdayPassed = birthdayThisOccurrence !== null && birthdayThisOccurrence <= today;
                                                     const canSendNow = c.is_club_member && !c.message_sent && !c.whatsapp_opted_out && c.coupon_status !== "redeemed";
                                                     const statusConfig: Record<string, { label: string; cls: string }> = {
                                                         active:   { label: "פעיל",    cls: "bg-emerald-50 text-emerald-700 border-emerald-200" },
                                                         redeemed: { label: "✅ מומש",  cls: "bg-blue-50 text-blue-700 border-blue-200" },
                                                         expired:  { label: "פג תוקף", cls: "bg-slate-50 text-slate-500 border-slate-200" },
                                                         not_sent: { label: "לא נשלח", cls: "bg-slate-50 text-slate-400 border-slate-200" },
-                                                        pending:  birthdayPassed
+                                                        pending:  c.message_sent
+                                                            ? { label: "✅ נשלח", cls: "bg-emerald-50 text-emerald-700 border-emerald-200" }
+                                                            : birthdayPassed
                                                             ? { label: "לא קיבל", cls: "bg-red-50 text-red-600 border-red-200" }
-                                                            : sweepWillSend
-                                                            ? { label: "יישלח ב-25", cls: "bg-amber-50 text-amber-700 border-amber-200" }
-                                                            : { label: "לא יישלח", cls: "bg-slate-100 text-slate-500 border-slate-200" },
+                                                            : sendDate && sendDate <= today
+                                                            ? { label: "יישלח היום", cls: "bg-amber-50 text-amber-700 border-amber-200" }
+                                                            : { label: `יישלח ב-${sendDate ? sendDate.toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit" }) : "—"}`, cls: "bg-slate-100 text-slate-500 border-slate-200" },
                                                     };
                                                     const st = statusConfig[c.coupon_status] ?? { label: c.coupon_status, cls: "bg-slate-50 text-slate-400 border-slate-200" };
                                                     return (

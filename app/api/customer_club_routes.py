@@ -244,12 +244,15 @@ def birthday_status(
             )
         )
 
-        # Check if WhatsApp message was sent (by tag in body)
-        tag = f"[birthday-{target_year}-{target_month:02d}]"
+        # Check if WhatsApp message was sent — reminder_type is the real dedup
+        # key both send paths (the daily sweep in message_worker.py and the
+        # on-join catch-up in crud/client.py) actually write; a body-tag
+        # never matched what either path puts in the message body, so this
+        # always reported "not sent" regardless of the truth.
         msg_sent = db.scalar(
             select(MessageJob).where(
                 MessageJob.client_id == c.id,
-                MessageJob.body.contains(tag),
+                MessageJob.reminder_type == f"birthday-{target_year}-{target_month:02d}",
             )
         )
 

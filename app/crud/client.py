@@ -142,18 +142,29 @@ def _handle_new_club_member(db: Session, studio_id: UUID, client: Client):
             status="pending",
         ))
 
-    # Send birthday coupon immediately if birthday is this month (missed monthly sweep)
+    # Send birthday coupon immediately if birthday is this month (catches a
+    # client whose birthday falls before the daily sweep in message_worker.py
+    # (sweep_birthday_messages) would otherwise reach them 2 days out).
+    #
+    # reminder_type — not a "[birthday-YYYY-MM]" tag stuffed into the message
+    # body — is the dedup key here, for two reasons: it's the same key the
+    # daily sweep uses (see sweep_birthday_messages), so the two paths can
+    # never double-send for the same client/birthday even if both apply
+    # around the same time; and a body-tag was leaking into the actual
+    # WhatsApp text customers received when a studio had no custom
+    # birthday_wa_template — every default-template birthday message opened
+    # with a literal "[birthday-2026-09]" line.
     if client.birth_date and client.phone and not getattr(client, "whatsapp_opted_out", False):
         now = datetime.now(timezone.utc)
         if client.birth_date.month == now.month:
             try:
                 from app.crud.birthday_coupon import get_or_create_birthday_coupon
                 from sqlalchemy import select as _sel
-                tag = f"[birthday-{now.year}-{now.month:02d}]"
+                reminder_type = f"birthday-{now.year}-{now.month:02d}"
                 already = db.scalar(
                     _sel(MessageJob).where(
                         MessageJob.client_id == client.id,
-                        MessageJob.body.contains(tag),
+                        MessageJob.reminder_type == reminder_type,
                     )
                 )
                 if not already:
@@ -167,16 +178,11 @@ def _handle_new_club_member(db: Session, studio_id: UUID, client: Client):
                         discount_percent=discount_percent,
                         client_name=client.full_name or "",
                     )
-                    bd_template = settings.birthday_wa_template
-                    if not bd_template:
-                        bd_template = (
-                            f"{tag}\n"
-                            "היי {client_name}, מזל טוב! 🎉\n"
-                            "הנה הטבה מיוחדת של {benefit_percent}% הנחה לחודש ההולדת שלך — במיוחד בשבילך ❤️\n\n"
-                            "קוד הקופון שלך: *{coupon_code}*"
-                        )
-                    else:
-                        bd_template = f"{tag}\n{bd_template}"
+                    bd_template = settings.birthday_wa_template or (
+                        "היי {client_name}, מזל טוב! 🎉\n"
+                        "הנה הטבה מיוחדת של {benefit_percent}% הנחה לחודש ההולדת שלך — במיוחד בשבילך ❤️\n\n"
+                        "קוד הקופון שלך: *{coupon_code}*"
+                    )
                     bd_body = format_template(bd_template, {
                         "client_name": client.full_name or "",
                         "benefit_percent": discount_percent,
@@ -192,6 +198,7 @@ def _handle_new_club_member(db: Session, studio_id: UUID, client: Client):
                         body=bd_body,
                         scheduled_at=datetime.now(timezone.utc),
                         status="pending",
+                        reminder_type=reminder_type,
                     ))
             except Exception as _e:
                 log.warning("birthday coupon on join failed for client %s: %s", client.id, _e)
