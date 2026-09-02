@@ -37,6 +37,7 @@ type ClientBasic = {
     notes?: string | null;
     whatsapp_opted_out?: boolean;
     is_club_member?: boolean;
+    birth_date?: string | null;
     created_at: string;
 };
 
@@ -123,6 +124,7 @@ export default function ClientProfilePage() {
     const [showJoinForm, setShowJoinForm] = useState(false);
     const [joinName, setJoinName] = useState("");
     const [joinPhone, setJoinPhone] = useState("");
+    const [joinBirthDate, setJoinBirthDate] = useState("");
     const [invoices, setInvoices] = useState<Invoice[]>([]);
     const [creatingInvoiceFor, setCreatingInvoiceFor] = useState<string | null>(null);
     const [photos, setPhotos] = useState<ClientPhoto[]>([]);
@@ -359,25 +361,31 @@ export default function ClientProfilePage() {
         if (!profile) return;
         const hasName = profile.client.full_name?.trim();
         const hasPhone = profile.client.phone?.trim();
-        if (hasName && hasPhone) {
+        const hasBirthDate = profile.client.birth_date;
+        // Birth date is required at join time, not just name/phone — without
+        // it the birthday coupon/automation system has nothing to trigger on
+        // for this client, ever (this was the exact root cause of an earlier
+        // "birthday messages not sending" investigation this session).
+        if (hasName && hasPhone && hasBirthDate) {
             triggerJoinClub();
         } else {
             setJoinName(profile.client.full_name || "");
             setJoinPhone(profile.client.phone || "");
+            setJoinBirthDate(profile.client.birth_date || "");
             setShowJoinForm(true);
         }
     };
 
     const handleJoinSubmit = async () => {
-        if (!joinName.trim() || !joinPhone.trim()) {
-            toast.error("שם וטלפון הם שדות חובה");
+        if (!joinName.trim() || !joinPhone.trim() || !joinBirthDate) {
+            toast.error("שם, טלפון ותאריך לידה הם שדות חובה להצטרפות למועדון");
             return;
         }
         setJoiningClub(true);
         try {
             await apiFetch(`/api/clients/${id}`, {
                 method: "PATCH",
-                body: JSON.stringify({ full_name: joinName.trim(), phone: joinPhone.trim() }),
+                body: JSON.stringify({ full_name: joinName.trim(), phone: joinPhone.trim(), birth_date: joinBirthDate }),
             });
             await triggerJoinClub();
         } catch (e: any) {
@@ -533,7 +541,7 @@ export default function ClientProfilePage() {
                                 </button>
                             )}
 
-                            {/* Join form — when name/phone missing */}
+                            {/* Join form — when name/phone/birth date missing */}
                             {showJoinForm && (
                                 <div className="bg-violet-50 border-2 border-violet-200 rounded-2xl p-4 space-y-3">
                                     <div className="font-bold text-violet-900 text-sm">השלמת פרטים להצטרפות למועדון</div>
@@ -553,6 +561,15 @@ export default function ClientProfilePage() {
                                             className="w-full border border-violet-200 bg-white rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-violet-400"
                                             dir="ltr"
                                         />
+                                        <div>
+                                            <label className="block text-xs text-violet-700 mb-1">תאריך לידה * (נדרש לצורך הטבת יום הולדת)</label>
+                                            <input
+                                                type="date"
+                                                value={joinBirthDate}
+                                                onChange={e => setJoinBirthDate(e.target.value)}
+                                                className="w-full border border-violet-200 bg-white rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-violet-400"
+                                            />
+                                        </div>
                                     </div>
                                     <div className="flex gap-2">
                                         <button

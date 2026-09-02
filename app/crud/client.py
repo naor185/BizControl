@@ -17,6 +17,14 @@ def _handle_new_club_member(db: Session, studio_id: UUID, client: Client):
     from datetime import datetime, timezone
     from sqlalchemy import select as _sel
 
+    # Set unconditionally, ahead of the idempotency guard below — this
+    # function used to only grant the signup bonus/welcome message and never
+    # actually flipped the membership flag itself, so a repeat call (e.g. a
+    # client who already had bonus points from an earlier test) would return
+    # early and leave is_club_member permanently False despite the UI
+    # reporting success.
+    client.is_club_member = True
+
     # ── Idempotency guard ────────────────────────────────────────────────────
     # Prevents duplicate points + welcome messages when called multiple times
     # (e.g. WhatsApp failed → user retried enrollment, or toggle off/on).
