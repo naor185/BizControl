@@ -54,7 +54,10 @@ export default function BusinessDetailPage() {
             const res = await fetch(fullUrl, {
                 headers: token ? { Authorization: `Bearer ${token}` } : {},
             });
-            if (!res.ok) throw new Error("שגיאה בהורדת הכרטיס");
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(err.detail || `HTTP ${res.status}`);
+            }
             const blob = await res.blob();
             const blobUrl = URL.createObjectURL(blob);
             const a = document.createElement("a");
@@ -64,8 +67,8 @@ export default function BusinessDetailPage() {
             a.click();
             a.remove();
             URL.revokeObjectURL(blobUrl);
-        } catch {
-            alert("שגיאה בהורדת הכרטיס ל-Apple Wallet");
+        } catch (e: any) {
+            alert(e?.message || "שגיאה בהורדת הכרטיס ל-Apple Wallet");
         } finally {
             setDownloadingPass(false);
         }

@@ -641,19 +641,24 @@ def my_business_apple_wallet(
     design = get_design(db, studio_id)
     db.commit()
 
-    pkpass_bytes = generate_pkpass(
-        serial_number=str(client_id),
-        client_name=full_name or phone,
-        loyalty_points=int(points or 0),
-        qr_token=card.qr_token,
-        studio_name=studio_name,
-        background_color=design.background_color,
-        text_color=design.text_color,
-        label_color=design.label_color,
-        strip_color=design.strip_color,
-        logo_url=design.logo_url or studio_logo,
-        card_title=design.card_title,
-    )
+    try:
+        pkpass_bytes = generate_pkpass(
+            serial_number=str(client_id),
+            client_name=full_name or phone,
+            loyalty_points=int(points or 0),
+            qr_token=card.qr_token,
+            studio_name=studio_name,
+            background_color=design.background_color,
+            text_color=design.text_color,
+            label_color=design.label_color,
+            strip_color=design.strip_color,
+            logo_url=design.logo_url or studio_logo,
+            card_title=design.card_title,
+        )
+    except Exception as e:
+        import logging, traceback
+        logging.getLogger(__name__).error("generate_pkpass failed: %s\n%s", e, traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"יצירת הכרטיס נכשלה: {type(e).__name__}: {e}")
 
     import io
     return StreamingResponse(
