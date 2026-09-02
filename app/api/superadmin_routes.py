@@ -3210,3 +3210,73 @@ def manual_sweep_birthday_messages(
     from app.services.message_worker import sweep_birthday_messages
     count = sweep_birthday_messages(db)
     return {"ok": True, "messages_enqueued": count}
+
+
+# ── BizFind — Import Businesses (unclaimed listings, see business_routes.py) ──
+
+class ImportBusinessesIn(BaseModel):
+    city: str
+    category: str
+    osm_tag: str
+    limit: int = 50
+
+
+@router.post("/businesses/import")
+def import_businesses(payload: ImportBusinessesIn, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    """Seeds `businesses` from OpenStreetMap for one city/category at a time.
+    Safe to re-run — dedupes against already-imported rows. See
+    app/services/osm_import.py for the shared logic (same function backs
+    scripts/import_osm_businesses.py)."""
+    from app.services.osm_import import import_osm_businesses
+
+    try:
+        result = import_osm_businesses(db, payload.city.strip(), payload.category.strip(), payload.osm_tag.strip(), payload.limit)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"ייבוא מ-OpenStreetMap נכשל: {e}")
+    return result
+
+
+@router.get("/businesses")
+def list_imported_businesses(
+    city: Optional[str] = None,
+    claim_status: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0,
+    admin: User = Depends(require_superadmin),
+    db: Session = Depends(get_db),
+):
+    """Lists businesses imported for the Claim flow, newest first."""
+    conditions = []
+    params: dict = {"limit": min(limit, 200), "offset": offset}
+    if city:
+        conditions.append("city = :city")
+        params["city"] = city
+    if claim_status:
+        conditions.append("claim_status = :claim_status")
+        params["claim_status"] = claim_status
+    where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+
+    rows = db.execute(
+        text(f"""
+            SELECT id, name, slug, category, city, address, phone, claim_status, created_at
+            FROM businesses {where}
+            ORDER BY created_at DESC LIMIT :limit OFFSET :offset
+        """),
+        params,
+    ).fetchall()
+    total = db.execute(text(f"SELECT COUNT(*) FROM businesses {where}"), params).scalar()
+
+    return {
+        "businesses": [
+            {
+                "id": str(r[0]), "name": r[1], "slug": r[2], "category": r[3],
+                "city": r[4], "address": r[5], "phone": r[6],
+                "claim_status": r[7], "created_at": r[8].isoformat() if r[8] else None,
+            }
+            for r in rows
+        ],
+        "total": total,
+        "offset": offset,
+    }

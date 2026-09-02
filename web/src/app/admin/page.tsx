@@ -823,6 +823,12 @@ export default function AdminPage() {
                     >
                         🖼️ תמונות HERO
                     </a>
+                    <a
+                        href="/admin/business-import"
+                        className="px-4 py-2 rounded-xl text-sm font-semibold transition-colors text-slate-400 hover:text-white"
+                    >
+                        🗺️ ייבוא עסקים
+                    </a>
                 </div>
 
                 {err && (
