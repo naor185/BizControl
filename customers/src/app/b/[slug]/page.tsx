@@ -21,6 +21,7 @@ interface Profile {
     gallery: string[];
     is_claimed?: boolean;
     business_id?: string;
+    google_reviews?: { author?: string; rating?: number; text?: string; relative_time?: string }[];
 }
 
 type Day = "sun" | "mon" | "tue" | "wed" | "thu" | "fri" | "sat";
@@ -407,6 +408,25 @@ export default function BusinessPage() {
                                         פתח ב-Google Maps ↗
                                     </a>
                                 )}
+                            </Card>
+                        )}
+
+                        {/* Google reviews (unclaimed businesses only — pulled live, not stored) */}
+                        {p!.google_reviews && p!.google_reviews.length > 0 && (
+                            <Card>
+                                <SectionTitle>⭐ ביקורות מגוגל</SectionTitle>
+                                <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                                    {p!.google_reviews.map((r, i) => (
+                                        <div key={i} style={{ paddingBottom: i < p!.google_reviews!.length - 1 ? "0.75rem" : 0, borderBottom: i < p!.google_reviews!.length - 1 ? "1px solid rgba(255,255,255,.08)" : "none" }}>
+                                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.25rem" }}>
+                                                <span style={{ fontWeight: 700, fontSize: "0.85rem", color: "#e2e8f0" }}>{r.author || "משתמש גוגל"}</span>
+                                                <span style={{ fontSize: "0.72rem", color: "#64748b" }}>{r.relative_time}</span>
+                                            </div>
+                                            {r.rating != null && <div style={{ color: "#fbbf24", fontSize: "0.8rem", marginBottom: "0.25rem" }}>{"★".repeat(Math.round(r.rating))}</div>}
+                                            {r.text && <p style={{ color: "#94a3b8", fontSize: "0.85rem", lineHeight: 1.6, margin: 0 }}>{r.text}</p>}
+                                        </div>
+                                    ))}
+                                </div>
                             </Card>
                         )}
 

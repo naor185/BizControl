@@ -824,7 +824,10 @@ def _get_unclaimed_business_profile(db: Session, slug: str) -> Optional[dict]:
     business_id = str(row.id)
     photo_urls: list[str] = []
     rating = rating_count = None
-    hours = row.opening_hours
+    address = row.address
+    phone = row.phone
+    google_reviews: list[dict] = []
+    category_label = BUSINESS_TYPE_LABELS.get(row.category, "אחר")
 
     src = db.execute(
         text("SELECT external_id FROM business_sources WHERE business_id=:bid AND source='google'"),
@@ -833,7 +836,10 @@ def _get_unclaimed_business_profile(db: Session, slug: str) -> Optional[dict]:
     place_id = src[0] if src else None
     if not place_id:
         from app.services.google_places import find_place_id
-        place_id = find_place_id(row.name, row.address, row.city)
+        # Category label helps Google's ranking pick the right *kind* of
+        # place when there's no real address to disambiguate with (OSM
+        # imports very often have none).
+        place_id = find_place_id(row.name, row.address, row.city, category_label)
         if place_id:
             db.execute(
                 text("""
@@ -852,8 +858,9 @@ def _get_unclaimed_business_profile(db: Session, slug: str) -> Optional[dict]:
         if details:
             photo_urls = [f"/api/businesses/{business_id}/photo/{i}" for i in range(len(details["photo_names"]))]
             rating, rating_count = details["rating"], details["rating_count"]
-            if not hours and details["opening_hours"]:
-                hours = "\n".join(details["opening_hours"])
+            address = address or details["address"]
+            phone = phone or details["phone"]
+            google_reviews = details["reviews"]
 
     return {
         "id": business_id,
@@ -861,25 +868,31 @@ def _get_unclaimed_business_profile(db: Session, slug: str) -> Optional[dict]:
         "slug": row.slug,
         "name": row.name,
         "business_type": row.category,
-        "business_type_label": BUSINESS_TYPE_LABELS.get(row.category, "אחר"),
+        "business_type_label": category_label,
         "business_type_icon": BUSINESS_TYPE_ICONS.get(row.category, "🏢"),
         "logo_url": None,
         "cover_url": photo_urls[0] if photo_urls else None,
         "primary_color": "#7c3aed",
         "description": row.description,
         "city": row.city,
-        "address": row.address,
-        "map_link": None,
-        "phone": row.phone,
+        "address": address,
+        # google_reviews carry their own permalink via the id in the source URL,
+        # but a plain search link is simpler and always works even without one.
+        "map_link": f"https://www.google.com/maps/search/?api=1&query={row.name}+{row.city or ''}" if (address or row.city) else None,
+        "phone": phone,
         "whatsapp": None, "instagram": None, "facebook": None, "tiktok": None,
         "website": None, "youtube": None,
-        "hours": hours,
+        # Not exposed yet — Google's opening hours come back as freeform
+        # per-day text, not the {open,close,closed} JSON this page's hours
+        # parser expects; needs its own conversion, not built yet.
+        "hours": row.opening_hours,
         "portfolio_link": None,
         "review_link_google": None,
         "self_booking_enabled": False,
         "services": [],
         "artists": [],
         "reviews": [],
+        "google_reviews": google_reviews,
         "avg_rating": rating,
         "review_count": rating_count or 0,
         "gallery": photo_urls,
