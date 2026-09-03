@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone
 from uuid import UUID
 from sqlalchemy import select, text
@@ -5,6 +6,8 @@ from sqlalchemy.orm import Session
 
 from app.models.user import User
 from app.models.message_job import MessageJob
+
+log = logging.getLogger(__name__)
 
 def enqueue_push_to_studio_admins(db: Session, studio_id: UUID, title: str, body: str,
                                    deep_link: str | None = None, reminder_type: str | None = None) -> None:
@@ -36,19 +39,28 @@ def enqueue_push_to_customer(db: Session, studio_id: UUID, customer_id: UUID, ti
     """Queues a push notification (channel='push') to a single BizFind
     marketplace customer's device(s) — drained by the same message_jobs
     worker as everything else. See enqueue_push_to_studio_admins for the
-    studio-owner-facing equivalent."""
-    db.add(MessageJob(
-        studio_id=studio_id,
-        recipient_customer_id=customer_id,
-        channel="push",
-        subject=title,
-        body=body,
-        deep_link=deep_link,
-        reminder_type=reminder_type,
-        scheduled_at=datetime.now(timezone.utc),
-        status="pending",
-    ))
-    db.commit()
+    studio-owner-facing equivalent.
+
+    Swallows its own failures (e.g. a schema migration that hasn't landed
+    yet) — this is a side-effect notification, not part of the core
+    booking transaction, and must never turn into a 500 on the caller
+    after the actual appointment/message has already been committed."""
+    try:
+        db.add(MessageJob(
+            studio_id=studio_id,
+            recipient_customer_id=customer_id,
+            channel="push",
+            subject=title,
+            body=body,
+            deep_link=deep_link,
+            reminder_type=reminder_type,
+            scheduled_at=datetime.now(timezone.utc),
+            status="pending",
+        ))
+        db.commit()
+    except Exception:
+        db.rollback()
+        log.exception("enqueue_push_to_customer failed for customer %s", customer_id)
 
 
 def enqueue_push_to_customer_by_phone(db: Session, studio_id: UUID, phone: str | None, title: str, body: str,
@@ -61,7 +73,12 @@ def enqueue_push_to_customer_by_phone(db: Session, studio_id: UUID, phone: str |
     elsewhere for this table, e.g. marketplace_customer_routes.py)."""
     if not phone:
         return
-    row = db.execute(text("SELECT id FROM marketplace_customers WHERE phone = :phone"), {"phone": phone}).fetchone()
+    try:
+        row = db.execute(text("SELECT id FROM marketplace_customers WHERE phone = :phone"), {"phone": phone}).fetchone()
+    except Exception:
+        db.rollback()
+        log.exception("enqueue_push_to_customer_by_phone lookup failed")
+        return
     if not row:
         return
     enqueue_push_to_customer(db, studio_id, row[0], title, body, deep_link=deep_link, reminder_type=reminder_type)
