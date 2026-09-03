@@ -116,12 +116,17 @@ def send_push_to_user(db: Session, user_id: UUID, title: str, body: str, deep_li
         select(DeviceToken).where(DeviceToken.user_id == user_id, DeviceToken.is_active == True)
     ).scalars().all()
     if not tokens:
+        log.info(f"send_push_to_user: no active device tokens for user {user_id}")
         return 0
+    for t in tokens:
+        log.info(f"send_push_to_user: device {t.id} platform={t.platform!r} token[:24]={t.token[:24]!r} len={len(t.token)}")
 
     sent = 0
 
     for dt in [t for t in tokens if t.platform == "ios"]:
-        if _send_apns(dt, title, body, deep_link):
+        ok = _send_apns(dt, title, body, deep_link)
+        log.info(f"send_push_to_user: APNs send to device {dt.id} -> {ok}")
+        if ok:
             sent += 1
 
     android_tokens = [t for t in tokens if t.platform != "ios"]
