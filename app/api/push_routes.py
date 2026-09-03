@@ -36,6 +36,17 @@ def register_token(payload: RegisterTokenIn, db: Session = Depends(get_db), ctx:
     return {"ok": True}
 
 
+class ClientLogIn(BaseModel):
+    message: str
+
+
+@router.post("/client-log")
+def client_log(payload: ClientLogIn, ctx: AuthContext = Depends(require_studio_ctx)):
+    import logging
+    logging.getLogger("push_client").info(f"[push-client user={ctx.user_id}] {payload.message}")
+    return {"ok": True}
+
+
 @router.delete("/register-token")
 def unregister_token(token: str, db: Session = Depends(get_db), ctx: AuthContext = Depends(require_studio_ctx)):
     existing = db.scalar(select(DeviceToken).where(DeviceToken.token == token, DeviceToken.user_id == ctx.user_id))
