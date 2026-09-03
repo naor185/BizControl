@@ -51,6 +51,8 @@ export default function BusinessDetailPage() {
         try {
             const token = getToken();
             const fullUrl = url.startsWith("http") ? url : `${API}${url}`;
+            // Pre-flight with the auth header so failures surface a real error
+            // message instead of a broken navigation to a JSON error page.
             const res = await fetch(fullUrl, {
                 headers: token ? { Authorization: `Bearer ${token}` } : {},
             });
@@ -58,15 +60,11 @@ export default function BusinessDetailPage() {
                 const err = await res.json().catch(() => ({}));
                 throw new Error(err.detail || `HTTP ${res.status}`);
             }
-            const blob = await res.blob();
-            const blobUrl = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = blobUrl;
-            a.download = "club_card.pkpass";
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            URL.revokeObjectURL(blobUrl);
+            // Real navigation (not fetch+blob) — iOS Safari only offers its
+            // native "Add to Apple Wallet" screen when it loads a .pkpass URL
+            // directly, so the auth token has to travel as a query param here.
+            const sep = fullUrl.includes("?") ? "&" : "?";
+            window.location.href = `${fullUrl}${sep}token=${encodeURIComponent(token || "")}`;
         } catch (e: any) {
             alert(e?.message || "שגיאה בהורדת הכרטיס ל-Apple Wallet");
         } finally {

@@ -72,10 +72,16 @@ def _verify_token(token: str) -> str:
         raise HTTPException(status_code=401, detail="טוקן לא תקין")
 
 
-def _get_customer_id(authorization: str = Header(None)) -> str:
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="לא מחובר")
-    return _verify_token(authorization[7:])
+def _get_customer_id(authorization: str = Header(None), token: str = None) -> str:
+    """Accepts the JWT via Authorization header (normal API calls) or a
+    `token` query param — the latter lets Safari navigate directly to a
+    .pkpass URL (required for the native Add-to-Wallet flow), which can't
+    attach a custom header."""
+    if authorization and authorization.startswith("Bearer "):
+        return _verify_token(authorization[7:])
+    if token:
+        return _verify_token(token)
+    raise HTTPException(status_code=401, detail="לא מחובר")
 
 
 def _send_sms(phone: str, code: str, db=None):
