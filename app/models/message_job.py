@@ -15,8 +15,12 @@ class MessageJob(Base):
     client_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("clients.id", ondelete="CASCADE"), nullable=True, index=True)
     appointment_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("appointments.id", ondelete="SET NULL"), nullable=True)
     recipient_user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
-    # set for push jobs targeting a BizFind marketplace customer instead of a studio user
-    recipient_customer_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("marketplace_customers.id", ondelete="CASCADE"), nullable=True)
+    # set for push jobs targeting a BizFind marketplace customer instead of a studio
+    # user. No ForeignKey() — marketplace_customers has no SQLAlchemy ORM model in
+    # this codebase (accessed only via raw SQL), so declaring one here breaks mapper
+    # configuration with NoReferencedTableError. The real FK constraint lives in the
+    # raw SQL migration in start.py; Postgres enforces it regardless.
+    recipient_customer_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
 
     channel: Mapped[str] = mapped_column(String(16), nullable=False)
     to_phone: Mapped[str | None] = mapped_column(String(40), nullable=True)

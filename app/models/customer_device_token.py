@@ -1,7 +1,7 @@
 from __future__ import annotations
 import uuid
 from datetime import datetime
-from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text, func
+from sqlalchemy import Boolean, DateTime, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 from app.models.base import Base
@@ -15,7 +15,11 @@ class CustomerDeviceToken(Base):
     __tablename__ = "customer_device_tokens"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    customer_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("marketplace_customers.id", ondelete="CASCADE"), nullable=False, index=True)
+    # marketplace_customers has no SQLAlchemy ORM model in this codebase (accessed
+    # only via raw SQL) — no ForeignKey() here, or mapper configuration fails with
+    # NoReferencedTableError. The real FK constraint lives in the raw SQL migration
+    # in start.py; Postgres enforces it regardless of what the ORM knows about it.
+    customer_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
 
     token: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
     platform: Mapped[str] = mapped_column(String(16), nullable=False)  # ios | android
