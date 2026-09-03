@@ -30,6 +30,11 @@ const config: CapacitorConfig = {
         url: "https://find.biz-control.com",
         androidScheme: "https",
     },
+    plugins: {
+        PushNotifications: {
+            presentationOptions: ["badge", "sound", "alert"],
+        },
+    },
 };
 
 export default config;

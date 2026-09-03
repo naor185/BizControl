@@ -29,6 +29,7 @@ from app.models.user_pin_settings import UserPinSettings
 from app.models.pin_attempt_log import PinAttemptLog
 from app.models.financial_obligation import FinancialObligation
 from app.models.device_token import DeviceToken
+from app.models.customer_device_token import CustomerDeviceToken
 
 __all__ = [
     "Base", "Studio", "User", "StudioSettings", "RefreshToken",
@@ -38,5 +39,5 @@ __all__ = [
     "PosTransaction", "PosTransactionItem",
     "UserPinSettings", "PinAttemptLog",
     "FinancialObligation",
-    "DeviceToken",
+    "DeviceToken", "CustomerDeviceToken",
 ]

@@ -20,6 +20,9 @@ export function getCustomer(): Customer | null {
 
 export function saveCustomer(c: Customer) {
     localStorage.setItem(CUSTOMER_KEY, JSON.stringify(c));
+    // Fire-and-forget: registers this device for push notifications now that
+    // we have an authenticated customer. No-op outside the native app shell.
+    import("@/lib/push").then(({ registerForPushNotifications }) => registerForPushNotifications()).catch(() => {});
 }
 
 export function clearCustomer() {

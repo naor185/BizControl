@@ -8,6 +8,10 @@ from app.models.message_job import MessageJob
 from app.models.studio_settings import StudioSettings
 from app.models.appointment import Appointment
 from app.models.client import Client
+from app.models.studio import Studio
+from app.crud.push import enqueue_push_to_customer_by_phone
+
+_REMINDER_LABELS = {"1day": "מחר", "7day": "בעוד שבוע", "3day": "בעוד 3 ימים", "same_day": "היום"}
 from app.crud.automation import format_template
 from app.utils.logger import get_logger
 
@@ -397,13 +401,21 @@ def process_due_jobs(db: Session, limit: int = 20) -> int:
                 if not ok:
                     raise ValueError("Email center send failed — check system API key")
             elif job.channel == "push":
-                from app.services.push_service import send_push_to_user
-                sent_count = send_push_to_user(
-                    db, job.recipient_user_id,
-                    title=getattr(job, "subject", None) or "BizControl",
-                    body=job.body,
-                    deep_link=getattr(job, "deep_link", None),
-                )
+                from app.services.push_service import send_push_to_user, send_push_to_customer
+                if job.recipient_customer_id:
+                    sent_count = send_push_to_customer(
+                        db, job.recipient_customer_id,
+                        title=getattr(job, "subject", None) or "BizFind",
+                        body=job.body,
+                        deep_link=getattr(job, "deep_link", None),
+                    )
+                else:
+                    sent_count = send_push_to_user(
+                        db, job.recipient_user_id,
+                        title=getattr(job, "subject", None) or "BizControl",
+                        body=job.body,
+                        deep_link=getattr(job, "deep_link", None),
+                    )
                 if sent_count == 0:
                     raise ValueError("No active device tokens for recipient")
             else:
@@ -540,6 +552,15 @@ def _sweep_reminders_for_window(
                 reminder_type=f"{reminder_type}_email",
             ))
             count += 1
+
+        studio = db.get(Studio, appt.studio_id)
+        enqueue_push_to_customer_by_phone(
+            db, appt.studio_id, client.phone,
+            title=f"תזכורת: יש לך תור {_REMINDER_LABELS.get(reminder_type, 'בקרוב')} 📅",
+            body=f"{ctx['appointment_title']} · {ctx['appointment_date']} בשעה {ctx['appointment_time']}" + (f" · {studio.name}" if studio else ""),
+            deep_link=f"/me/business/{studio.slug}" if studio else "/me",
+            reminder_type=reminder_type,
+        )
 
     if count:
         db.commit()
@@ -765,6 +786,15 @@ def sweep_same_day_reminders(db: Session) -> int:
                 reminder_type="same_day_email",
             ))
             count += 1
+
+        studio = db.get(Studio, appt.studio_id)
+        enqueue_push_to_customer_by_phone(
+            db, appt.studio_id, client.phone,
+            title="תזכורת: יש לך תור היום ☀️",
+            body=f"{ctx['appointment_title']} · שעה {ctx['appointment_time']}" + (f" · {studio.name}" if studio else ""),
+            deep_link=f"/me/business/{studio.slug}" if studio else "/me",
+            reminder_type="same_day",
+        )
 
     if count:
         db.commit()

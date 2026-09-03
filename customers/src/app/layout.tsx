@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import PushRegistrar from "@/components/PushRegistrar";
 
 export const metadata = {
     title: "BizFind — מצא עסקים וקבע תור",
@@ -32,6 +33,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                 `}</style>
             </head>
             <body>
+                <PushRegistrar />
                 {children}
                 <nav className="bottom-nav">
                     <a href="/">🏠<span>ראשי</span></a>

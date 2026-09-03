@@ -9,8 +9,9 @@ from app.models.client import Client
 from app.models.appointment import Appointment
 from app.models.client_points_ledger import ClientPointsLedger
 from app.models.message_job import MessageJob
+from app.models.studio import Studio
 from app.services.email_center import studio_email_allowed as _email_ok
-from app.crud.push import enqueue_push_to_studio_admins
+from app.crud.push import enqueue_push_to_studio_admins, enqueue_push_to_customer_by_phone
 
 def format_template(template: str, context: dict) -> str:
     """Replaces placeholders like {client_name} with values from context."""
@@ -178,6 +179,15 @@ def enqueue_confirmation_message(db: Session, appt: Appointment, artist_name: st
         reminder_type="new_appointment",
     )
 
+    studio = db.get(Studio, appt.studio_id)
+    enqueue_push_to_customer_by_phone(
+        db, appt.studio_id, client.phone,
+        title="התור שלך נקבע ✅",
+        body=f"{appt.title} · {context['appointment_date']} בשעה {context['appointment_time']}" + (f" · {studio.name}" if studio else ""),
+        deep_link=f"/me/business/{studio.slug}" if studio else "/me",
+        reminder_type="new_appointment",
+    )
+
 
 def enqueue_deposit_approved_message(db: Session, appt: Appointment, artist_name: str = "") -> None:
     """Send full details message after studio owner approves the deposit."""
@@ -324,6 +334,15 @@ def enqueue_reschedule_message(db: Session, appt: Appointment) -> None:
 
     db.commit()
 
+    studio = db.get(Studio, appt.studio_id)
+    enqueue_push_to_customer_by_phone(
+        db, appt.studio_id, client.phone,
+        title="התור שלך עודכן 🔄",
+        body=f"{appt.title} · יום {day_name}, {context['appointment_date']} בשעה {context['appointment_time']}" + (f" · {studio.name}" if studio else ""),
+        deep_link=f"/me/business/{studio.slug}" if studio else "/me",
+        reminder_type="reschedule",
+    )
+
 def enqueue_cancel_message(db: Session, appt: Appointment) -> None:
     """Send a WhatsApp/Email cancellation notice to the client."""
     settings = db.get(StudioSettings, appt.studio_id)
@@ -382,6 +401,16 @@ def enqueue_cancel_message(db: Session, appt: Appointment) -> None:
         deep_link=f"/calendar?appointment_id={appt.id}",
         reminder_type="no_show" if is_no_show else "appointment_cancelled",
     )
+
+    if not is_no_show:
+        studio = db.get(Studio, appt.studio_id)
+        enqueue_push_to_customer_by_phone(
+            db, appt.studio_id, client.phone,
+            title="התור שלך בוטל",
+            body=f"{appt.title} · {context['appointment_date']} בשעה {context['appointment_time']}" + (f" · {studio.name}" if studio else ""),
+            deep_link=f"/me/business/{studio.slug}" if studio else "/me",
+            reminder_type="appointment_cancelled",
+        )
 
 def enqueue_post_payment_message(db: Session, appt: Appointment, amount_cents: int, points_earned: int = 0) -> None:
     from sqlalchemy import select as _select

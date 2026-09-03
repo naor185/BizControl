@@ -14,6 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.device_token import DeviceToken
+from app.models.customer_device_token import CustomerDeviceToken
 
 log = logging.getLogger(__name__)
 
@@ -46,11 +47,11 @@ def _get_fcm_access_token() -> str | None:
 def _get_apns_jwt() -> str | None:
     """iOS pushes go straight to Apple (APNs), not through FCM. The Capacitor
     push-notifications plugin only hands back a raw APNs device token on
-    iOS (no Firebase SDK is integrated in the native app), so routing that
-    token through FCM's send API silently accepts the request without ever
-    actually delivering it. Reuses the same APNs Auth Key (.p8) uploaded to
-    Firebase's Cloud Messaging config — it's a standard Apple key, usable
-    directly against APNs too."""
+    iOS (no Firebase SDK is integrated in either native app), so routing
+    that token through FCM's send API silently accepts the request without
+    ever actually delivering it. The APNs Auth Key (.p8) is team-scoped, not
+    per-app, so the same JWT signs pushes for both BizControl and BizFind —
+    only the apns-topic header (bundle id) needs to match the target app."""
     global _cached_apns_jwt, _cached_apns_jwt_issued
     now = time.time()
     if _cached_apns_jwt and now - _cached_apns_jwt_issued < 1800:
@@ -73,11 +74,10 @@ def _get_apns_jwt() -> str | None:
     return _cached_apns_jwt
 
 
-def _send_apns(dt: DeviceToken, title: str, body: str, deep_link: str | None) -> bool:
+def _send_apns(dt, title: str, body: str, deep_link: str | None, bundle_id: str) -> bool:
     jwt_token = _get_apns_jwt()
     if not jwt_token:
         return False
-    bundle_id = os.environ.get("APNS_BUNDLE_ID", "com.bizcontrol.app")
 
     headers = {
         "authorization": f"bearer {jwt_token}",
@@ -102,30 +102,24 @@ def _send_apns(dt: DeviceToken, title: str, body: str, deep_link: str | None) ->
         if resp.status_code == 410 or (resp.status_code == 400 and reason == "BadDeviceToken"):
             dt.is_active = False
         else:
-            log.warning(f"APNs send failed for token {dt.id}: {resp.status_code} {reason or resp.text}")
+            log.warning(f"APNs send failed for token {dt.id} (topic={bundle_id}): {resp.status_code} {reason or resp.text}")
     except Exception as e:
         log.warning(f"APNs send exception for token {dt.id}: {e}")
     return False
 
 
-def send_push_to_user(db: Session, user_id: UUID, title: str, body: str, deep_link: str | None = None) -> int:
-    """Sends a push notification to every active device registered for user_id.
-    iOS devices are pushed directly via APNs; Android devices go through FCM.
-    Returns the number of devices it was successfully delivered to."""
-    tokens = db.execute(
-        select(DeviceToken).where(DeviceToken.user_id == user_id, DeviceToken.is_active == True)
-    ).scalars().all()
-    if not tokens:
-        log.info(f"send_push_to_user: no active device tokens for user {user_id}")
-        return 0
+def _send_to_tokens(tokens, title: str, body: str, deep_link: str | None, bundle_id: str) -> int:
+    """Shared send path for both DeviceToken (studio users) and
+    CustomerDeviceToken (BizFind customers) rows — both expose the same
+    id/token/platform/is_active shape."""
     for t in tokens:
-        log.info(f"send_push_to_user: device {t.id} platform={t.platform!r} token[:24]={t.token[:24]!r} len={len(t.token)}")
+        log.info(f"push: device {t.id} platform={t.platform!r} token[:24]={t.token[:24]!r} len={len(t.token)}")
 
     sent = 0
 
     for dt in [t for t in tokens if t.platform == "ios"]:
-        ok = _send_apns(dt, title, body, deep_link)
-        log.info(f"send_push_to_user: APNs send to device {dt.id} -> {ok}")
+        ok = _send_apns(dt, title, body, deep_link, bundle_id)
+        log.info(f"push: APNs send to device {dt.id} -> {ok}")
         if ok:
             sent += 1
 
@@ -162,5 +156,34 @@ def send_push_to_user(db: Session, user_id: UUID, title: str, body: str, deep_li
                 except Exception as e:
                     log.warning(f"FCM send exception for token {dt.id}: {e}")
 
+    return sent
+
+
+def send_push_to_user(db: Session, user_id: UUID, title: str, body: str, deep_link: str | None = None) -> int:
+    """Sends a push notification to every active device registered for a
+    BizControl studio user (owner/staff). iOS devices are pushed directly
+    via APNs; Android devices go through FCM."""
+    tokens = db.execute(
+        select(DeviceToken).where(DeviceToken.user_id == user_id, DeviceToken.is_active == True)
+    ).scalars().all()
+    if not tokens:
+        return 0
+    bundle_id = os.environ.get("APNS_BUNDLE_ID", "com.bizcontrol.app")
+    sent = _send_to_tokens(tokens, title, body, deep_link, bundle_id)
+    db.commit()
+    return sent
+
+
+def send_push_to_customer(db: Session, customer_id: UUID, title: str, body: str, deep_link: str | None = None) -> int:
+    """Sends a push notification to every active device registered for a
+    BizFind marketplace customer (the consumer-facing app, separate from
+    BizControl's studio-user devices)."""
+    tokens = db.execute(
+        select(CustomerDeviceToken).where(CustomerDeviceToken.customer_id == customer_id, CustomerDeviceToken.is_active == True)
+    ).scalars().all()
+    if not tokens:
+        return 0
+    bundle_id = os.environ.get("APNS_BUNDLE_ID_BIZFIND", "com.bizcontrol.bizfind")
+    sent = _send_to_tokens(tokens, title, body, deep_link, bundle_id)
     db.commit()
     return sent

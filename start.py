@@ -1662,6 +1662,24 @@ def ensure_schema():
         cur.execute("CREATE INDEX IF NOT EXISTS ix_client_treatment_photos_client ON client_treatment_photos (client_id, created_at DESC)")
         cur.execute("CREATE INDEX IF NOT EXISTS ix_client_treatment_photos_studio ON client_treatment_photos (studio_id)")
 
+        # Push notifications for BizFind's own customers (marketplace_customers) —
+        # separate device-token table from device_tokens (that one is for
+        # BizControl studio users). A customer's device isn't tied to one studio.
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS customer_device_tokens (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                customer_id UUID NOT NULL REFERENCES marketplace_customers(id) ON DELETE CASCADE,
+                token TEXT NOT NULL UNIQUE,
+                platform VARCHAR(16) NOT NULL,
+                is_active BOOLEAN NOT NULL DEFAULT TRUE,
+                last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_customer_device_tokens_customer_id ON customer_device_tokens (customer_id)")
+
+        cur.execute("ALTER TABLE message_jobs ADD COLUMN IF NOT EXISTS recipient_customer_id UUID REFERENCES marketplace_customers(id) ON DELETE CASCADE")
+
         conn.commit()
         cur.close()
         conn.close()

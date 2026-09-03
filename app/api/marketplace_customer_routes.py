@@ -802,3 +802,46 @@ def my_bookings(db: Session = Depends(get_db), customer_id: str = Depends(_get_c
         }
         for r in rows
     ]
+
+
+# ── Push notifications (BizFind customer's own device) ──────────────────────
+
+class RegisterPushTokenIn(BaseModel):
+    token: str
+    platform: str  # "ios" | "android"
+
+
+@router.post("/push/register-token")
+def register_push_token(payload: RegisterPushTokenIn, db: Session = Depends(get_db), customer_id: str = Depends(_get_customer_id)):
+    from app.models.customer_device_token import CustomerDeviceToken
+    existing = db.execute(text("SELECT id FROM customer_device_tokens WHERE token = :token"), {"token": payload.token}).fetchone()
+    if existing:
+        db.execute(
+            text("UPDATE customer_device_tokens SET customer_id = :cid, platform = :platform, is_active = true, last_seen_at = NOW() WHERE token = :token"),
+            {"cid": customer_id, "platform": payload.platform, "token": payload.token}
+        )
+    else:
+        db.add(CustomerDeviceToken(customer_id=customer_id, token=payload.token, platform=payload.platform))
+    db.commit()
+    return {"ok": True}
+
+
+@router.delete("/push/register-token")
+def unregister_push_token(token: str, db: Session = Depends(get_db), customer_id: str = Depends(_get_customer_id)):
+    db.execute(
+        text("UPDATE customer_device_tokens SET is_active = false WHERE token = :token AND customer_id = :cid"),
+        {"token": token, "cid": customer_id}
+    )
+    db.commit()
+    return {"ok": True}
+
+
+class PushClientLogIn(BaseModel):
+    message: str
+
+
+@router.post("/push/client-log")
+def push_client_log(payload: PushClientLogIn, customer_id: str = Depends(_get_customer_id)):
+    import logging
+    logging.getLogger("push_client").info(f"[push-client customer={customer_id}] {payload.message}")
+    return {"ok": True}
