@@ -59,9 +59,25 @@ def _sign_manifest(manifest_json: bytes, cert_pem: bytes, key_pem: bytes, wwdr_p
     from cryptography.hazmat.backends import default_backend
     import cryptography.hazmat.primitives.serialization.pkcs7 as pkcs7_mod
 
-    cert = load_pem_x509_certificate(cert_pem, default_backend())
-    key = load_pem_private_key(key_pem, password=None, backend=default_backend())
-    wwdr = load_pem_x509_certificate(wwdr_pem, default_backend())
+    def _pem_header(data: bytes) -> str:
+        for line in data.split(b"\n"):
+            line = line.strip()
+            if line.startswith(b"-----BEGIN"):
+                return line.decode("ascii", "replace")
+        return "(no BEGIN line found)"
+
+    try:
+        cert = load_pem_x509_certificate(cert_pem, default_backend())
+    except Exception as e:
+        raise ValueError(f"APPLE_WALLET_CERT_PEM invalid ({_pem_header(cert_pem)}): {e}") from e
+    try:
+        key = load_pem_private_key(key_pem, password=None, backend=default_backend())
+    except Exception as e:
+        raise ValueError(f"APPLE_WALLET_CERT_KEY_PEM invalid ({_pem_header(key_pem)}): {e}") from e
+    try:
+        wwdr = load_pem_x509_certificate(wwdr_pem, default_backend())
+    except Exception as e:
+        raise ValueError(f"APPLE_WALLET_WWDR_PEM invalid ({_pem_header(wwdr_pem)}): {e}") from e
 
     signed = (
         pkcs7_mod.PKCS7SignatureBuilder()
