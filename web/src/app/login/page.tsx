@@ -2,11 +2,13 @@
 
 import { useEffect, useMemo, useState, Suspense, lazy } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { apiFetch, setToken } from "@/lib/api";
+import { apiFetch, setToken, getToken, clearToken } from "@/lib/api";
 import { useLang } from "@/components/LanguageProvider";
 import { LOCALES } from "@/lib/i18n";
 import { BIZFIND_URL } from "@/lib/config";
 import PasswordInput from "@/components/PasswordInput";
+import { isNativeApp } from "@/lib/platform";
+import { isNativeBiometricAvailable, verifyNativeBiometric } from "@/lib/biometric";
 
 const OceanBackground = lazy(() => import("@/components/OceanBackground"));
 
@@ -74,6 +76,16 @@ function LoginContent() {
     const [selectionToken, setSelectionToken] = useState("");
     const [studioOptions, setStudioOptions] = useState<StudioOption[]>([]);
 
+    // Native Face ID / Touch ID unlock — separate from `supportsBiometric`
+    // above (that one is the WebAuthn path, Android Chrome / desktop only;
+    // WebKit never implemented Credential Management API password support,
+    // so it silently never applies on iOS, native app included). This gates
+    // an already-remembered session behind a device biometric check instead
+    // of performing a fresh credential-based login.
+    const [nativeUnlock, setNativeUnlock] = useState<"checking" | "show" | "hide">("checking");
+    const [nativeUnlocking, setNativeUnlocking] = useState(false);
+    const [nativeUnlockErr, setNativeUnlockErr] = useState<string | null>(null);
+
     useEffect(() => {
         if (typeof window !== "undefined" && "credentials" in navigator && "PasswordCredential" in window) {
             setSupportsBiometric(true);
@@ -91,6 +103,35 @@ function LoginContent() {
             }
         } catch {}
     }, [sp]);
+
+    useEffect(() => {
+        (async () => {
+            if (!isNativeApp() || !getToken()) { setNativeUnlock("hide"); return; }
+            const available = await isNativeBiometricAvailable();
+            setNativeUnlock(available ? "show" : "hide");
+        })();
+    }, []);
+
+    async function handleNativeBiometricUnlock() {
+        setNativeUnlockErr(null);
+        setNativeUnlocking(true);
+        try {
+            const ok = await verifyNativeBiometric("כניסה מהירה ל-BizControl");
+            if (!ok) return; // user cancelled — stay on this screen
+            const me = await apiFetch<{ role: string }>("/api/auth/me");
+            router.replace(me.role === "superadmin" ? "/admin" : nextUrl);
+        } catch (e: unknown) {
+            // Either the biometric check itself failed at the device level,
+            // or /api/auth/me rejected the stored session outright (both
+            // access and refresh tokens genuinely dead) — either way there's
+            // no session left to unlock into, fall back to a normal login.
+            clearToken();
+            setNativeUnlockErr((e as Error)?.message || "האימות נכשל, יש להתחבר מחדש");
+            setNativeUnlock("hide");
+        } finally {
+            setNativeUnlocking(false);
+        }
+    }
 
     type LoginResponse = {
         access_token?: string;
@@ -222,6 +263,61 @@ function LoginContent() {
 
     const emailBorder = fieldErr === "email"    ? "border-red-400/70 bg-red-500/10"  : "border-white/20 focus:border-white/50 bg-white/10 focus:bg-white/15";
     const passBorder  = fieldErr === "password" ? "border-red-400/70 bg-red-500/10"  : "border-white/20 focus:border-white/50 bg-white/10 focus:bg-white/15";
+
+    /* ── Deciding whether there's a remembered session to unlock with Face ID — brief, avoids a form flash ── */
+    if (nativeUnlock === "checking") return (
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-[#001a2e] to-[#003055]" />
+    );
+
+    /* ── Native Face ID / Touch ID unlock (iOS/Android app only) ── */
+    if (nativeUnlock === "show") return (
+        <div className="min-h-screen relative overflow-hidden flex flex-col items-center justify-center p-6 bg-gradient-to-b from-[#001a2e] to-[#003055]" dir={dir}>
+            <div className="w-full max-w-sm text-center">
+                <img src="/logo.png" alt="BizControl" className="w-32 h-32 object-contain drop-shadow-2xl mx-auto mb-6" />
+                <div className="font-black text-2xl text-white tracking-tight drop-shadow-lg mb-1">BizControl</div>
+                <p className="text-sm text-blue-200/70 mb-10">{locale.startsWith("en") ? "Welcome back" : "ברוך שובך"}</p>
+
+                <button
+                    type="button"
+                    onClick={handleNativeBiometricUnlock}
+                    disabled={nativeUnlocking}
+                    className="w-24 h-24 rounded-full bg-white/10 hover:bg-white/20 border border-white/25 flex items-center justify-center mx-auto mb-6 transition-all disabled:opacity-50 shadow-lg"
+                >
+                    {nativeUnlocking ? (
+                        <svg className="animate-spin w-8 h-8 text-white" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                    ) : (
+                        <svg className="w-10 h-10 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M7.864 4.243A7.5 7.5 0 0119.5 10.5c0 2.92-.556 5.709-1.568 8.268M5.742 6.364A7.465 7.465 0 004.5 10.5a7.464 7.464 0 01-1.15 3.993m1.989 3.559A11.209 11.209 0 008.25 10.5a3.75 3.75 0 117.5 0c0 .527-.021 1.049-.064 1.565M12 10.5a14.94 14.94 0 01-3.6 9.75m6.633-4.596a18.666 18.666 0 01-2.485 5.33" />
+                        </svg>
+                    )}
+                </button>
+
+                <button type="button" onClick={handleNativeBiometricUnlock} disabled={nativeUnlocking}
+                    className="text-sm font-semibold text-white/90 hover:text-white transition-colors">
+                    {nativeUnlocking
+                        ? (locale.startsWith("en") ? "Verifying..." : "מאמת...")
+                        : (locale.startsWith("en") ? "Unlock with Face ID / Touch ID" : "פתח נעילה עם Face ID / Touch ID")}
+                </button>
+
+                {nativeUnlockErr && (
+                    <div className="mt-4 text-sm text-red-200 bg-red-500/20 border border-red-400/30 rounded-xl p-3">
+                        {nativeUnlockErr}
+                    </div>
+                )}
+
+                <button
+                    type="button"
+                    onClick={() => setNativeUnlock("hide")}
+                    className="block mx-auto mt-8 text-xs text-blue-200/50 hover:text-blue-200/80 transition-colors"
+                >
+                    {locale.startsWith("en") ? "Sign in with email instead" : "התחבר עם אימייל וסיסמה"}
+                </button>
+            </div>
+        </div>
+    );
 
     /* ── 2FA step ── */
     if (step === "2fa") return (
