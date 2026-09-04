@@ -208,10 +208,10 @@ workflows:
         submit_to_testflight: true
         # See bizcontrol-ios above — targets Internal Testing only, no Apple
         # review / Beta App Description needed. BizFind is a separate app in
-        # App Store Connect with its own testing groups — verify/create an
-        # internal group named "NAOR" here too (check the group's actual
-        # name, not the 2-letter avatar badge shown next to it — that
-        # mistake broke bizcontrol-ios's config once already).
+        # App Store Connect with its own internal testing group, already
+        # named "Internal" there (not "NAOR" — that's BizControl's group
+        # name, confirmed to differ 2026-09-03 after auto-assignment failed
+        # here with "Cannot add internal group to a build").
         beta_groups:
-          - NAOR
+          - Internal
         submit_to_app_store: false
