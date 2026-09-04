@@ -17,5 +17,11 @@ class RefreshToken(Base):
 
     token: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
     is_revoked: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # Set together at rotation time — lets /api/auth/refresh forgive a client
+    # that never received/saved the new pair (e.g. the mobile app suspended
+    # mid-request right after the server rotated) within a short grace
+    # window, instead of permanently locking the user out. See auth_routes.py.
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    replaced_by_token: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())

@@ -268,12 +268,34 @@ def refresh(payload: RefreshRequest, db: Session = Depends(get_db)):
     if not user_id or not studio_id:
         raise HTTPException(status_code=401, detail="Invalid refresh token payload")
 
-    token_row = db.query(RefreshToken).filter(
-        RefreshToken.token == payload.refresh_token,
-        RefreshToken.is_revoked == False,  # noqa: E712
-    ).first()
+    token_row = db.query(RefreshToken).filter(RefreshToken.token == payload.refresh_token).first()
     if not token_row:
         raise HTTPException(status_code=401, detail="Refresh token revoked or not found")
+
+    if token_row.is_revoked:
+        # The server already rotated this token once. Normally that means
+        # reuse (stolen/replayed token) — reject. But it's also exactly what
+        # happens when the mobile app gets killed by iOS mid-request, right
+        # after the server responded but before the new pair made it into
+        # localStorage: the client is left holding a token that's already
+        # dead, with no way back short of a full re-login — often only
+        # discovered long after (whenever the app is next opened), so a
+        # short time window wouldn't help. Chase the single successor this
+        # token was rotated into and reissue from there instead of hard-
+        # failing. No time limit needed: this is self-limiting on its own —
+        # chasing forward immediately re-rotates again, closing this same
+        # hole behind it, and an attacker holding a stale token here has by
+        # definition also captured whatever superseded it, making the chase
+        # moot for them. Anything more than one hop away is real reuse.
+        successor = None
+        if token_row.replaced_by_token:
+            successor = db.query(RefreshToken).filter(
+                RefreshToken.token == token_row.replaced_by_token,
+                RefreshToken.is_revoked == False,  # noqa: E712
+            ).first()
+        if not successor:
+            raise HTTPException(status_code=401, detail="Refresh token revoked or not found")
+        token_row = successor
 
     user = db.query(User).filter(User.id == user_id, User.studio_id == studio_id, User.is_active == True).first()  # noqa: E712
     if not user:
@@ -283,6 +305,8 @@ def refresh(payload: RefreshRequest, db: Session = Depends(get_db)):
     new_refresh = create_refresh_token({"user_id": str(user.id), "studio_id": str(user.studio_id)})
 
     token_row.is_revoked = True
+    token_row.revoked_at = datetime.now(timezone.utc)
+    token_row.replaced_by_token = new_refresh
     db.add(RefreshToken(id=uuid.uuid4(), studio_id=user.studio_id, user_id=user.id, token=new_refresh, is_revoked=False))
     db.commit()
 

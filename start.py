@@ -1680,6 +1680,13 @@ def ensure_schema():
 
         cur.execute("ALTER TABLE message_jobs ADD COLUMN IF NOT EXISTS recipient_customer_id UUID REFERENCES marketplace_customers(id) ON DELETE CASCADE")
 
+        # Refresh-token rotation grace window (see /api/auth/refresh) — lets a
+        # client that never received/saved a rotated pair (mobile app
+        # suspended mid-request) recover instead of being permanently
+        # locked out of their session.
+        cur.execute("ALTER TABLE refresh_tokens ADD COLUMN IF NOT EXISTS revoked_at TIMESTAMPTZ")
+        cur.execute("ALTER TABLE refresh_tokens ADD COLUMN IF NOT EXISTS replaced_by_token TEXT")
+
         conn.commit()
         cur.close()
         conn.close()
