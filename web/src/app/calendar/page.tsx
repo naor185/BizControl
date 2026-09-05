@@ -1291,6 +1291,15 @@ export default function CalendarPage() {
                         .fc-timegrid-axis { width: 3rem !important; }
                         .fc:has(.fc-timegrid) .fc-toolbar.fc-header-toolbar { padding-right: 3rem !important; }
                         .fc .fc-toolbar.fc-header-toolbar { gap: 0.4rem !important; }
+                        /* FullCalendar's own default dims disabled buttons to
+                           65% opacity — on the dark "today" button that reads
+                           as almost invisible against the white card whenever
+                           the current view already includes today (confirmed
+                           empirically: opacity:.65 on background rgb(44,62,80)
+                           is the exact rule, in FullCalendar's own core CSS).
+                           Keep it identical to its enabled look at all times —
+                           it shouldn't visually shift depending on the date. */
+                        .fc .fc-button:disabled { opacity: 1 !important; }
                         /* Toolbar title — smaller to leave room for buttons */
                         .fc .fc-toolbar-title { font-size: 0.85rem !important; font-weight: 800 !important; }
                         /* Compact header buttons that still have big enough touch target */
