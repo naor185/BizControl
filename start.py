@@ -1687,6 +1687,35 @@ def ensure_schema():
         cur.execute("ALTER TABLE refresh_tokens ADD COLUMN IF NOT EXISTS revoked_at TIMESTAMPTZ")
         cur.execute("ALTER TABLE refresh_tokens ADD COLUMN IF NOT EXISTS replaced_by_token TEXT")
 
+        # Staff-facing push reminders (distinct from the customer-facing
+        # 1day/3day/7day/same_day set) — the studio admin adds as many rules
+        # as they want, each with an arbitrary lead time, applying to
+        # appointments and/or tasks. No fixed set of lead times by design.
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS staff_reminder_rules (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                applies_to VARCHAR(20) NOT NULL DEFAULT 'both',
+                lead_minutes INTEGER NOT NULL,
+                enabled BOOLEAN NOT NULL DEFAULT TRUE,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_staff_reminder_rules_studio ON staff_reminder_rules (studio_id)")
+
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS staff_reminder_sent_log (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                rule_id UUID NOT NULL REFERENCES staff_reminder_rules(id) ON DELETE CASCADE,
+                target_type VARCHAR(20) NOT NULL,
+                target_id UUID NOT NULL,
+                occurrence_date DATE NOT NULL,
+                sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                CONSTRAINT uq_staff_reminder_sent UNIQUE (rule_id, target_type, target_id, occurrence_date)
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_staff_reminder_sent_log_rule ON staff_reminder_sent_log (rule_id)")
+
         conn.commit()
         cur.close()
         conn.close()

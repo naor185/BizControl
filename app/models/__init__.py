@@ -30,6 +30,8 @@ from app.models.pin_attempt_log import PinAttemptLog
 from app.models.financial_obligation import FinancialObligation
 from app.models.device_token import DeviceToken
 from app.models.customer_device_token import CustomerDeviceToken
+from app.models.staff_reminder_rule import StaffReminderRule
+from app.models.staff_reminder_log import StaffReminderSentLog
 
 __all__ = [
     "Base", "Studio", "User", "StudioSettings", "RefreshToken",
@@ -40,4 +42,5 @@ __all__ = [
     "UserPinSettings", "PinAttemptLog",
     "FinancialObligation",
     "DeviceToken", "CustomerDeviceToken",
+    "StaffReminderRule", "StaffReminderSentLog",
 ]

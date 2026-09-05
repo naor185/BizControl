@@ -33,7 +33,7 @@ from app.core.limiter import limiter
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from app.db.session import SessionLocal
-from app.services.message_worker import process_due_jobs, sweep_upcoming_reminders, sweep_7day_reminders, sweep_3day_reminders, sweep_birthday_messages, sweep_same_day_reminders, sweep_deposit_reminders
+from app.services.message_worker import process_due_jobs, sweep_upcoming_reminders, sweep_7day_reminders, sweep_3day_reminders, sweep_birthday_messages, sweep_same_day_reminders, sweep_deposit_reminders, sweep_staff_reminders
 from app.services.plan_alert_service import sweep_plan_expiry_alerts, sweep_subscription_transitions
 from app.api.router import api_router
 from app.services.automation_service import AutomationService
@@ -112,6 +112,15 @@ def start_scheduler():
         finally:
             db.close()
 
+    def tick_staff_reminders():
+        db = SessionLocal()
+        try:
+            sweep_staff_reminders(db)
+        except Exception:
+            _scheduler_log.exception("sweep_staff_reminders tick failed")
+        finally:
+            db.close()
+
     def tick_birthday_automations():
         """Fire client_birthday automation rules for clients with a birthday today."""
         import pytz as _pytz
@@ -164,6 +173,7 @@ def start_scheduler():
     # one generic batch at the start of the birthday month.
     scheduler.add_job(tick_birthday_messages, "cron", hour=10, minute=0, timezone="Asia/Jerusalem", misfire_grace_time=86400, id="birthday_messages_tick", replace_existing=True)
     scheduler.add_job(tick_deposit_reminders, "interval", hours=1, id="deposit_reminders_tick", replace_existing=True)
+    scheduler.add_job(tick_staff_reminders, "interval", minutes=2, id="staff_reminders_tick", replace_existing=True)
     scheduler.add_job(tick_birthday_automations, "cron", hour=9, minute=5, timezone="Asia/Jerusalem", id="birthday_automations_tick", replace_existing=True)
 
     def tick_waitlist_expiry():

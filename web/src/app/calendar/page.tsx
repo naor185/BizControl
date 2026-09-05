@@ -1052,7 +1052,7 @@ export default function CalendarPage() {
                                 aria-label="אפשרויות יומן"
                                 className="w-11 h-11 flex items-center justify-center rounded-lg text-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors border border-slate-200"
                             >
-                                ⋯
+                                ⚙️
                             </button>
                             <BottomSheet open={showCalSettings} onClose={() => setShowCalSettings(false)} title="אפשרויות יומן">
                                 <button
@@ -1248,7 +1248,7 @@ export default function CalendarPage() {
                        direction-agnostic — safe for RTL — since it only
                        changes each chunk's own box width, not its internal
                        alignment. */
-                    .fc .fc-toolbar.fc-header-toolbar { display: flex !important; }
+                    .fc .fc-toolbar.fc-header-toolbar { display: flex !important; gap: 0.6rem !important; }
                     .fc .fc-toolbar.fc-header-toolbar > .fc-toolbar-chunk:first-child,
                     .fc .fc-toolbar.fc-header-toolbar > .fc-toolbar-chunk:last-child {
                         flex: 1 1 0 !important;
@@ -1257,6 +1257,23 @@ export default function CalendarPage() {
                         flex: 0 0 auto !important;
                         justify-content: center !important;
                     }
+                    /* The centering above balances the title against the full
+                       toolbar width — but in day/week (timeGrid) views the
+                       grid below has a time-axis gutter (hour labels) on one
+                       side that the toolbar has no equivalent of, so the
+                       title still LOOKS off-center against the actual day
+                       columns even though it's exactly centered in the
+                       toolbar's own box. Confirmed by measuring real rendered
+                       coordinates: title sat exactly at the toolbar's
+                       midpoint (offset 0px) but 28.5px off the grid columns'
+                       real midpoint — reserving matching space on the
+                       toolbar's axis-side fixes it to sub-pixel accuracy.
+                       Scoped to timeGrid views only (:has(.fc-timegrid)) —
+                       month view has no axis, so it's already centered
+                       correctly against its own (axis-free) grid and must
+                       not get this compensation. */
+                    .fc-timegrid-axis { width: 3.5rem !important; }
+                    .fc:has(.fc-timegrid) .fc-toolbar.fc-header-toolbar { padding-right: 3.5rem !important; }
                     @media (max-width: 768px) {
                         /* Bigger slots — comfortable finger tap */
                         .fc-timegrid-slot { height: 2.5rem !important; }
@@ -1264,6 +1281,8 @@ export default function CalendarPage() {
                         .fc-timegrid-slot-label { font-size: 0.75rem !important; color: #475569 !important; font-weight: 600 !important; }
                         /* Wider time axis */
                         .fc-timegrid-axis { width: 3rem !important; }
+                        .fc:has(.fc-timegrid) .fc-toolbar.fc-header-toolbar { padding-right: 3rem !important; }
+                        .fc .fc-toolbar.fc-header-toolbar { gap: 0.4rem !important; }
                         /* Toolbar title — smaller to leave room for buttons */
                         .fc .fc-toolbar-title { font-size: 0.85rem !important; font-weight: 800 !important; }
                         /* Compact header buttons that still have big enough touch target */
@@ -1359,7 +1378,7 @@ export default function CalendarPage() {
                             dayMaxEvents={true}
                             nowIndicator={true}
                             scrollTime={scrollTimeDefault}
-                            allDaySlot={!isMobile}
+                            allDaySlot={true}
                             slotMinTime={calendarStartHour}
                             slotMaxTime={calendarEndHour}
                             expandRows={!isMobile}
@@ -1377,6 +1396,22 @@ export default function CalendarPage() {
                             datesSet={handleDatesSet}
                             eventContent={(arg: any) => {
                                 const p = arg.event.extendedProps;
+                                // Holidays and untimed tasks have no client/status/payment —
+                                // routing them through AppointmentCard (built for real
+                                // appointments) rendered a bogus "ללא לקוח" line plus a broken
+                                // status icon for every single one, and their 3-line height
+                                // is exactly why the all-day row looked oversized. A plain
+                                // single-line label is both correct and compact. No hardcoded
+                                // text color here — inherit it, since holiday events set a dark
+                                // textColor (#0369a1) while tasks set white; AppointmentCard's
+                                // hardcoded text-white silently broke holiday's own color.
+                                if (p.isHoliday || p.isTask) {
+                                    return (
+                                        <div className="px-1.5 py-0.5 h-full w-full flex items-center overflow-hidden text-[11px] font-semibold truncate">
+                                            {arg.event.title}
+                                        </div>
+                                    );
+                                }
                                 return (
                                     <AppointmentCard
                                         timeText={arg.timeText}

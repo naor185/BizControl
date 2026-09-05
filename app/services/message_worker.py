@@ -1029,3 +1029,124 @@ def sweep_deposit_reminders(db: Session) -> int:
         db.commit()
     log.info("sweep_deposit_reminders: enqueued %d deposit reminders", count)
     return count
+
+
+def _format_lead_label(minutes: int) -> str:
+    if minutes >= 7 * 24 * 60 and minutes % (7 * 24 * 60) == 0:
+        weeks = minutes // (7 * 24 * 60)
+        return "שבוע" if weeks == 1 else f"{weeks} שבועות"
+    if minutes >= 24 * 60 and minutes % (24 * 60) == 0:
+        days = minutes // (24 * 60)
+        return "יום" if days == 1 else f"{days} ימים"
+    if minutes >= 60 and minutes % 60 == 0:
+        hours = minutes // 60
+        return "שעה" if hours == 1 else f"{hours} שעות"
+    return f"{minutes} דקות"
+
+
+def _staff_reminder_already_sent(db: Session, rule_id, target_type: str, target_id, occurrence_date: date) -> bool:
+    from app.models.staff_reminder_log import StaffReminderSentLog
+    return bool(db.scalar(
+        select(StaffReminderSentLog).where(
+            StaffReminderSentLog.rule_id == rule_id,
+            StaffReminderSentLog.target_type == target_type,
+            StaffReminderSentLog.target_id == target_id,
+            StaffReminderSentLog.occurrence_date == occurrence_date,
+        )
+    ))
+
+
+def sweep_staff_reminders(db: Session, window_minutes: int = 3) -> int:
+    """Push reminders to studio staff themselves ('appointment starts in
+    30 min', 'task starts in 2 hours') — configured per-studio as an
+    admin-managed list of rules with arbitrary lead times (see
+    StaffReminderRule), not the fixed 1day/3day/7day/same_day set used for
+    customer-facing reminders. Runs every ~2-3 minutes (see main.py) — a
+    coarse window like the customer sweeps use (hours) would fire a
+    "30 minutes before" reminder hours early or late, since lead times here
+    aren't fixed to round day/week boundaries."""
+    from app.models.staff_reminder_rule import StaffReminderRule
+    from app.models.staff_reminder_log import StaffReminderSentLog
+    from app.models.task import Task
+    from app.models.device_token import DeviceToken
+    from app.api.task_routes import _expand_tasks
+    from app.services.push_service import send_push_to_user
+    from uuid import UUID as _UUID
+
+    now = datetime.now(timezone.utc)
+    rules = db.scalars(select(StaffReminderRule).where(StaffReminderRule.enabled == True)).all()
+    if not rules:
+        return 0
+
+    rules_by_studio: dict = {}
+    for r in rules:
+        rules_by_studio.setdefault(r.studio_id, []).append(r)
+
+    count = 0
+    for studio_id, studio_rules in rules_by_studio.items():
+        appt_rules = [r for r in studio_rules if r.applies_to in ("appointment", "both")]
+        for rule in appt_rules:
+            window_start = now + timedelta(minutes=rule.lead_minutes)
+            window_end = window_start + timedelta(minutes=window_minutes)
+            appts = db.scalars(
+                select(Appointment).where(
+                    Appointment.studio_id == studio_id,
+                    Appointment.status == "scheduled",
+                    Appointment.starts_at >= window_start,
+                    Appointment.starts_at < window_end,
+                )
+            ).all()
+            for appt in appts:
+                occurrence_date = appt.starts_at.astimezone(_IL_TZ).date()
+                if _staff_reminder_already_sent(db, rule.id, "appointment", appt.id, occurrence_date):
+                    continue
+                client = db.get(Client, appt.client_id) if appt.client_id else None
+                local_time = appt.starts_at.astimezone(_IL_TZ).strftime("%H:%M")
+                lead_label = _format_lead_label(rule.lead_minutes)
+                send_push_to_user(
+                    db, appt.artist_id,
+                    title=f"תור מתחיל בעוד {lead_label} ⏰",
+                    body=f"{(client.full_name if client else 'לקוח')} בשעה {local_time}" + (f" · {appt.title}" if appt.title else ""),
+                    deep_link="/calendar",
+                )
+                db.add(StaffReminderSentLog(rule_id=rule.id, target_type="appointment", target_id=appt.id, occurrence_date=occurrence_date))
+                count += 1
+
+        task_rules = [r for r in studio_rules if r.applies_to in ("task", "both")]
+        if task_rules:
+            max_lead = max(r.lead_minutes for r in task_rules)
+            today_il = now.astimezone(_IL_TZ).date()
+            # +2 days buffer on top of the coarse minutes->days conversion,
+            # so a lead time that isn't a round number of days (e.g. 90 min)
+            # still covers "now" landing near midnight IL time.
+            to_date = today_il + timedelta(days=(max_lead // 1440) + 2)
+            tasks = db.scalars(select(Task).where(Task.studio_id == studio_id)).all()
+            instances = _expand_tasks(list(tasks), today_il, to_date)
+            studio_user_ids = list(db.scalars(
+                select(DeviceToken.user_id).where(DeviceToken.studio_id == studio_id, DeviceToken.is_active == True).distinct()
+            ).all())
+
+            for rule in task_rules:
+                window_start = now + timedelta(minutes=rule.lead_minutes)
+                window_end = window_start + timedelta(minutes=window_minutes)
+                for inst in instances:
+                    if not inst.start_time:
+                        continue
+                    occ_date = date.fromisoformat(inst.date)
+                    local_dt = _IL_TZ.localize(datetime.combine(occ_date, datetime.strptime(inst.start_time, "%H:%M").time()))
+                    inst_utc = local_dt.astimezone(timezone.utc)
+                    if not (window_start <= inst_utc < window_end):
+                        continue
+                    task_uuid = _UUID(inst.id)
+                    if _staff_reminder_already_sent(db, rule.id, "task", task_uuid, occ_date):
+                        continue
+                    lead_label = _format_lead_label(rule.lead_minutes)
+                    for uid in studio_user_ids:
+                        send_push_to_user(db, uid, title=f"משימה בעוד {lead_label} 📌", body=inst.title, deep_link="/calendar")
+                    db.add(StaffReminderSentLog(rule_id=rule.id, target_type="task", target_id=task_uuid, occurrence_date=occ_date))
+                    count += 1
+
+    if count:
+        db.commit()
+    log.info("sweep_staff_reminders: sent %d staff reminders", count)
+    return count
