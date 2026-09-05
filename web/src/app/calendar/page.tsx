@@ -11,6 +11,7 @@ import { statusMeta } from "@/lib/appointment-status";
 import AppointmentCard from "@/components/AppointmentCard";
 import BottomSheet from "@/components/ui/bottom-sheet";
 import { HIDE_BOOKING_BANNER_KEY } from "@/lib/localPrefs";
+import StaffReminderRulesSettings from "@/components/StaffReminderRulesSettings";
 
 const IL_HOLIDAYS = [
     { date: "2025-09-22", name: "🍎 ראש השנה א׳",   info: 'ראש השנה תשפ"ו' },
@@ -1019,6 +1020,13 @@ export default function CalendarPage() {
                 className="w-full py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-colors min-h-11">
                 שמור שעות
             </button>
+
+            {/* Same component /automation's policy tab uses — one set of
+                rules, reachable from both places, and live on the native app
+                too since it's the same site. */}
+            <div className="mt-3 pt-3 border-t border-slate-100">
+                <StaffReminderRulesSettings compact />
+            </div>
         </>
     );
 

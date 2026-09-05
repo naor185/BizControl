@@ -9,6 +9,7 @@ import { apiFetch } from "@/lib/api";
 import confetti from "canvas-confetti";
 import LandingPageTemplate from "@/components/LandingPageTemplate";
 import { HIDE_BOOKING_BANNER_KEY } from "@/lib/localPrefs";
+import StaffReminderRulesSettings from "@/components/StaffReminderRulesSettings";
 
 // logo_filename may be a bare local filename or a full Cloudinary URL —
 // only prefix with /uploads/ for the former.
@@ -604,84 +605,6 @@ export default function AutomationSettingsPage() {
             if (show) localStorage.removeItem(HIDE_BOOKING_BANNER_KEY);
             else localStorage.setItem(HIDE_BOOKING_BANNER_KEY, "1");
         } catch {}
-    };
-
-    // Staff-facing push reminders — an admin-managed list with no fixed set
-    // of lead times (unlike the customer-facing 1day/3day/7day/same_day
-    // reminders), so the UI is add/remove/toggle rather than a few checkboxes.
-    type ReminderRule = { id: string; applies_to: "appointment" | "task" | "both"; lead_minutes: number; enabled: boolean; created_at: string };
-    const [reminderRules, setReminderRules] = useState<ReminderRule[]>([]);
-    const [reminderRulesLoading, setReminderRulesLoading] = useState(true);
-    const [newRuleValue, setNewRuleValue] = useState(30);
-    const [newRuleUnit, setNewRuleUnit] = useState<"minutes" | "hours" | "days">("minutes");
-    const [newRuleAppliesTo, setNewRuleAppliesTo] = useState<"appointment" | "task" | "both">("both");
-    const [reminderRuleSaving, setReminderRuleSaving] = useState(false);
-    const [reminderRuleErr, setReminderRuleErr] = useState<string | null>(null);
-
-    useEffect(() => {
-        apiFetch<ReminderRule[]>("/api/push/staff-reminder-rules")
-            .then(setReminderRules)
-            .catch(() => {})
-            .finally(() => setReminderRulesLoading(false));
-    }, []);
-
-    const formatLeadLabel = (minutes: number): string => {
-        if (minutes >= 7 * 24 * 60 && minutes % (7 * 24 * 60) === 0) {
-            const w = minutes / (7 * 24 * 60);
-            return w === 1 ? "שבוע לפני" : `${w} שבועות לפני`;
-        }
-        if (minutes >= 24 * 60 && minutes % (24 * 60) === 0) {
-            const d = minutes / (24 * 60);
-            return d === 1 ? "יום לפני" : `${d} ימים לפני`;
-        }
-        if (minutes >= 60 && minutes % 60 === 0) {
-            const h = minutes / 60;
-            return h === 1 ? "שעה לפני" : `${h} שעות לפני`;
-        }
-        return `${minutes} דקות לפני`;
-    };
-
-    const addReminderRule = async () => {
-        const unitToMinutes = { minutes: 1, hours: 60, days: 1440 };
-        const lead_minutes = Math.round(newRuleValue * unitToMinutes[newRuleUnit]);
-        if (!lead_minutes || lead_minutes <= 0) return;
-        setReminderRuleSaving(true);
-        setReminderRuleErr(null);
-        try {
-            const created = await apiFetch<ReminderRule>("/api/push/staff-reminder-rules", {
-                method: "POST",
-                body: JSON.stringify({ applies_to: newRuleAppliesTo, lead_minutes, enabled: true }),
-            });
-            setReminderRules(prev => [...prev, created].sort((a, b) => a.lead_minutes - b.lead_minutes));
-            setNewRuleValue(30);
-            setNewRuleUnit("minutes");
-        } catch {
-            setReminderRuleErr("שגיאה בהוספת התזמון");
-        } finally {
-            setReminderRuleSaving(false);
-        }
-    };
-
-    const toggleReminderRule = async (rule: ReminderRule) => {
-        setReminderRules(prev => prev.map(r => r.id === rule.id ? { ...r, enabled: !r.enabled } : r));
-        try {
-            await apiFetch<ReminderRule>(`/api/push/staff-reminder-rules/${rule.id}`, {
-                method: "PUT",
-                body: JSON.stringify({ enabled: !rule.enabled }),
-            });
-        } catch {
-            setReminderRules(prev => prev.map(r => r.id === rule.id ? rule : r));
-        }
-    };
-
-    const deleteReminderRule = async (id: string) => {
-        const prev = reminderRules;
-        setReminderRules(prev.filter(r => r.id !== id));
-        try {
-            await apiFetch(`/api/push/staff-reminder-rules/${id}`, { method: "DELETE" });
-        } catch {
-            setReminderRules(prev);
-        }
     };
 
     const [voucherPreviewLoading, setVoucherPreviewLoading] = useState(false);
@@ -2157,96 +2080,10 @@ export default function AutomationSettingsPage() {
                                     )}
                                 </div>
 
-                                {/* Staff push reminders */}
-                                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-                                    <div className="mb-4">
-                                        <h4 className="text-lg font-bold text-slate-800">🔔 תזכורות פוש לצוות</h4>
-                                        <p className="text-sm text-slate-500 mt-0.5">שלחו פוש לעצמכם/לצוות לפני שתור או משימה מתחילים — הוסיפו כמה תזמונים שתרצו, אין מגבלה על הכמות</p>
-                                    </div>
-
-                                    {reminderRulesLoading ? (
-                                        <p className="text-sm text-slate-400">טוען...</p>
-                                    ) : (
-                                        <div className="space-y-2 mb-4">
-                                            {reminderRules.length === 0 && (
-                                                <p className="text-sm text-slate-400">אין תזמונים מוגדרים עדיין</p>
-                                            )}
-                                            {reminderRules.map(rule => (
-                                                <div key={rule.id} className="flex items-center justify-between gap-3 bg-slate-50 rounded-xl px-3 py-2.5 border border-slate-100">
-                                                    <div className="flex items-center gap-3 min-w-0">
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => toggleReminderRule(rule)}
-                                                            className={`relative inline-flex h-6 w-10 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ${rule.enabled ? "bg-emerald-500" : "bg-slate-200"}`}
-                                                        >
-                                                            <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${rule.enabled ? "translate-x-4" : "translate-x-0"}`} />
-                                                        </button>
-                                                        <span className={`text-sm font-semibold truncate ${rule.enabled ? "text-slate-700" : "text-slate-400"}`}>
-                                                            {formatLeadLabel(rule.lead_minutes)}
-                                                        </span>
-                                                        <span className="text-xs text-slate-400 shrink-0">
-                                                            {rule.applies_to === "both" ? "תורים ומשימות" : rule.applies_to === "appointment" ? "תורים בלבד" : "משימות בלבד"}
-                                                        </span>
-                                                    </div>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => deleteReminderRule(rule.id)}
-                                                        aria-label="מחק תזמון"
-                                                        className="text-slate-300 hover:text-red-500 text-lg leading-none shrink-0 px-1"
-                                                    >
-                                                        ✕
-                                                    </button>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-
-                                    {reminderRuleErr && <p className="text-sm text-red-500 mb-2">{reminderRuleErr}</p>}
-
-                                    <div className="flex flex-wrap items-end gap-2 pt-3 border-t border-slate-100">
-                                        <div>
-                                            <label className="block text-xs font-semibold text-slate-500 mb-1">כמה זמן לפני</label>
-                                            <input
-                                                type="number" min={1}
-                                                value={newRuleValue}
-                                                onChange={e => setNewRuleValue(parseInt(e.target.value) || 1)}
-                                                className="w-20 text-center bg-white border border-slate-200 rounded-xl px-2 py-2 font-semibold outline-none focus:ring-2 focus:ring-blue-500" dir="ltr"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-semibold text-slate-500 mb-1">יחידה</label>
-                                            <select
-                                                value={newRuleUnit}
-                                                onChange={e => setNewRuleUnit(e.target.value as "minutes" | "hours" | "days")}
-                                                className="bg-white border border-slate-200 rounded-xl px-2 py-2 text-sm font-semibold outline-none focus:ring-2 focus:ring-blue-500"
-                                            >
-                                                <option value="minutes">דקות</option>
-                                                <option value="hours">שעות</option>
-                                                <option value="days">ימים</option>
-                                            </select>
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-semibold text-slate-500 mb-1">חל על</label>
-                                            <select
-                                                value={newRuleAppliesTo}
-                                                onChange={e => setNewRuleAppliesTo(e.target.value as "appointment" | "task" | "both")}
-                                                className="bg-white border border-slate-200 rounded-xl px-2 py-2 text-sm font-semibold outline-none focus:ring-2 focus:ring-blue-500"
-                                            >
-                                                <option value="both">תורים ומשימות</option>
-                                                <option value="appointment">תורים בלבד</option>
-                                                <option value="task">משימות בלבד</option>
-                                            </select>
-                                        </div>
-                                        <button
-                                            type="button"
-                                            onClick={addReminderRule}
-                                            disabled={reminderRuleSaving}
-                                            className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl transition-colors disabled:opacity-50"
-                                        >
-                                            {reminderRuleSaving ? "מוסיף..." : "+ הוסף תזמון"}
-                                        </button>
-                                    </div>
-                                </div>
+                                {/* Staff push reminders — same component the calendar's own
+                                    gear-menu dropdown uses (see calendar/page.tsx), so both
+                                    surfaces read/write the exact same rules. */}
+                                <StaffReminderRulesSettings />
                             </div>
                         )}
 
