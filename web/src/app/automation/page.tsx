@@ -8,6 +8,7 @@ import AppShell from "@/components/AppShell";
 import { apiFetch } from "@/lib/api";
 import confetti from "canvas-confetti";
 import LandingPageTemplate from "@/components/LandingPageTemplate";
+import { HIDE_BOOKING_BANNER_KEY } from "@/lib/localPrefs";
 
 // logo_filename may be a bare local filename or a full Cloudinary URL —
 // only prefix with /uploads/ for the former.
@@ -589,6 +590,21 @@ export default function AutomationSettingsPage() {
             setActiveTab(tab);
         }
     }, []);
+
+    // Per-device only — whether the "enable self-booking" nudge banner on
+    // the calendar was dismissed. Not a studio setting, just a local
+    // preference re-exposed here so dismissing it isn't a one-way trip.
+    const [showBookingBannerPref, setShowBookingBannerPref] = useState(true);
+    useEffect(() => {
+        try { setShowBookingBannerPref(localStorage.getItem(HIDE_BOOKING_BANNER_KEY) !== "1"); } catch {}
+    }, []);
+    const toggleBookingBannerPref = (show: boolean) => {
+        setShowBookingBannerPref(show);
+        try {
+            if (show) localStorage.removeItem(HIDE_BOOKING_BANNER_KEY);
+            else localStorage.setItem(HIDE_BOOKING_BANNER_KEY, "1");
+        } catch {}
+    };
 
     const [voucherPreviewLoading, setVoucherPreviewLoading] = useState(false);
     const [voucherPreviewImage, setVoucherPreviewImage] = useState<string | null>(null);
@@ -2010,6 +2026,18 @@ export default function AutomationSettingsPage() {
                                             <span className={`inline-block h-6 w-6 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${settings.self_booking_enabled ? "translate-x-5" : "translate-x-0"}`} />
                                         </button>
                                     </div>
+
+                                    {!settings.self_booking_enabled && (
+                                        <label className="flex items-center justify-between gap-3 pt-3 border-t border-slate-100 cursor-pointer">
+                                            <span className="text-sm text-slate-600">הראה תזכורת ביומן כל עוד זה כבוי</span>
+                                            <input
+                                                type="checkbox"
+                                                checked={showBookingBannerPref}
+                                                onChange={e => toggleBookingBannerPref(e.target.checked)}
+                                                className="w-4 h-4 rounded accent-emerald-600"
+                                            />
+                                        </label>
+                                    )}
 
                                     {settings.self_booking_enabled && (
                                         <div className="space-y-4 pt-3 border-t border-slate-100">

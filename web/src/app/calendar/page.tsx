@@ -10,6 +10,7 @@ import PaymentModal from "@/components/PaymentModal";
 import { statusMeta } from "@/lib/appointment-status";
 import AppointmentCard from "@/components/AppointmentCard";
 import BottomSheet from "@/components/ui/bottom-sheet";
+import { HIDE_BOOKING_BANNER_KEY } from "@/lib/localPrefs";
 
 const IL_HOLIDAYS = [
     { date: "2025-09-22", name: "🍎 ראש השנה א׳",   info: 'ראש השנה תשפ"ו' },
@@ -144,7 +145,10 @@ export default function CalendarPage() {
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, [showCalSettings]);
     const [selfBookingEnabled, setSelfBookingEnabled] = useState<boolean | null>(null);
-    const [dismissedBookingBanner, setDismissedBookingBanner] = useState(false);
+    const [dismissedBookingBanner, setDismissedBookingBanner] = useState(() => {
+        if (typeof window === "undefined") return false;
+        try { return localStorage.getItem(HIDE_BOOKING_BANNER_KEY) === "1"; } catch { return false; }
+    });
     const [creatingApptInvoice, setCreatingApptInvoice] = useState(false);
     const [apptInvoiceId, setApptInvoiceId] = useState<string | null>(null);
     const [apptInvoiceData, setApptInvoiceData] = useState<any | null>(null);
@@ -1183,9 +1187,9 @@ export default function CalendarPage() {
                         <span className="text-lg">📅</span>
                         <div className="flex-1 min-w-0">
                             <span className="font-bold text-emerald-900">רוצה שלקוחות יקבעו תורים עצמאית? </span>
-                            <a href="/business" className="text-emerald-700 underline font-semibold">הפעל קביעת תורים אונליין ←</a>
+                            <a href="/automation?tab=policy" className="text-emerald-700 underline font-semibold">הפעל קביעת תורים אונליין ←</a>
                         </div>
-                        <button type="button" onClick={() => setDismissedBookingBanner(true)}
+                        <button type="button" onClick={() => { setDismissedBookingBanner(true); try { localStorage.setItem(HIDE_BOOKING_BANNER_KEY, "1"); } catch {} }}
                             className="text-emerald-400 hover:text-emerald-600 font-bold text-base leading-none shrink-0">✕</button>
                     </div>
                 )}
@@ -1233,6 +1237,26 @@ export default function CalendarPage() {
                     .fc .fc-button-group { gap: 0.35rem !important; display: inline-flex !important; }
                     .fc .fc-button-group .fc-button { border-radius: 8px !important; }
                     .fc .fc-toolbar-chunk { display: flex !important; align-items: center !important; gap: 0.4rem !important; }
+                    /* Center the date-range title for real, on every week —
+                       equal flex-grow on both side chunks (prev/next/today
+                       vs the view-switch buttons) so the title always lands
+                       at the true midpoint, regardless of which side's
+                       button labels happen to be wider. justify-content:
+                       space-between (the default) only spaces chunks apart,
+                       it doesn't make them equal width, so the title drifts
+                       toward whichever side chunk is narrower. This is
+                       direction-agnostic — safe for RTL — since it only
+                       changes each chunk's own box width, not its internal
+                       alignment. */
+                    .fc .fc-toolbar.fc-header-toolbar { display: flex !important; }
+                    .fc .fc-toolbar.fc-header-toolbar > .fc-toolbar-chunk:first-child,
+                    .fc .fc-toolbar.fc-header-toolbar > .fc-toolbar-chunk:last-child {
+                        flex: 1 1 0 !important;
+                    }
+                    .fc .fc-toolbar.fc-header-toolbar > .fc-toolbar-chunk:nth-child(2) {
+                        flex: 0 0 auto !important;
+                        justify-content: center !important;
+                    }
                     @media (max-width: 768px) {
                         /* Bigger slots — comfortable finger tap */
                         .fc-timegrid-slot { height: 2.5rem !important; }
