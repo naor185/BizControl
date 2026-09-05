@@ -1289,7 +1289,11 @@ export default function CalendarPage() {
                         .fc-timegrid-slot-label { font-size: 0.75rem !important; color: #475569 !important; font-weight: 600 !important; }
                         /* Wider time axis */
                         .fc-timegrid-axis { width: 3rem !important; }
-                        .fc:has(.fc-timegrid) .fc-toolbar.fc-header-toolbar { padding-right: 3rem !important; }
+                        /* Cancels the general (desktop) axis-compensation padding —
+                           at mobile widths there's no spare room for it (see the
+                           titleFormat note above); the view-switch buttons already
+                           use 100% of the available width once the title is compact. */
+                        .fc:has(.fc-timegrid) .fc-toolbar.fc-header-toolbar { padding-right: 0 !important; }
                         .fc .fc-toolbar.fc-header-toolbar { gap: 0.4rem !important; }
                         /* FullCalendar's own default dims disabled buttons to
                            65% opacity — on the dark "today" button that reads
@@ -1382,6 +1386,16 @@ export default function CalendarPage() {
                                 center: "title",
                                 right: "timeGridDay,timeGridWeek,dayGridMonth"
                             }}
+                            // The full spelled-out title ("30 באוג' – 5 בספט' 2026") plus
+                            // the today/prev/next buttons on one side and the three
+                            // view-switch buttons on the other genuinely doesn't fit in
+                            // ~360px — confirmed with Playwright: the view-switch group
+                            // was rendering ~50px past the toolbar's own right edge and
+                            // getting clipped by the card's overflow-hidden (that's the
+                            // "יום" button you saw cut off). A short numeric date is the
+                            // single biggest space recovery (measured ~140px → ~70px) and
+                            // is what actually fixes it, not the hour-axis width.
+                            titleFormat={isMobile ? { month: "numeric", day: "numeric" } : undefined}
                             footerToolbar={false}
                             locales={[heLocale]}
                             locale="he"
