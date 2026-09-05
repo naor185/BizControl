@@ -1,5 +1,7 @@
 "use client";
 
+import { createPortal } from "react-dom";
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 
 // The single reusable bottom-sheet the app was missing — this exact pattern
@@ -10,6 +12,18 @@ import { cn } from "@/lib/utils";
 // the app-wide fix so it never renders behind BottomNav), dvh (not vh),
 // overflow-y-auto + min-h-0 on the scroll body (so the footer never gets
 // pushed off-screen), and safe-area-aware bottom padding.
+//
+// Rendered via a portal straight into <body> — confirmed necessary, not
+// defensive-programming: this component is meant to be usable from inside a
+// page's header titleAction (AppShell's <header> has backdrop-blur-sm), and
+// backdrop-filter — like transform/filter/perspective/will-change — creates
+// a new containing block for position:fixed descendants. Without the
+// portal, "fixed inset-0" resolves against the header's own small box
+// instead of the viewport, so items-end pushes the (taller) card's bottom
+// edge to the header's bottom edge and the rest of the card extends
+// upward, off-screen — verified with Playwright against both WebKit and
+// Chromium (identical bug in both, so not an engine quirk): the card's
+// negative y-offset matched the header's height to the pixel.
 interface BottomSheetProps {
     open: boolean;
     onClose: () => void;
@@ -20,9 +34,14 @@ interface BottomSheetProps {
 }
 
 export default function BottomSheet({ open, onClose, title, children, footer, className }: BottomSheetProps) {
-    if (!open) return null;
+    // document.body doesn't exist during SSR/the first client render before
+    // hydration — mount-gate the portal target instead of reading it eagerly.
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => { setMounted(true); }, []);
 
-    return (
+    if (!open || !mounted) return null;
+
+    return createPortal(
         <div
             className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-end justify-center animate-in fade-in duration-200"
             onClick={onClose}
@@ -64,6 +83,7 @@ export default function BottomSheet({ open, onClose, title, children, footer, cl
                     </div>
                 )}
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }
