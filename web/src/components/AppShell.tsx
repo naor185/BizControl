@@ -397,8 +397,11 @@ export default function AppShell({
                 {/* Main content */}
                 <div className="flex-1 md:pr-60">
                     {/* Topbar */}
-                    <header className="sticky top-0 z-10 h-14 bg-white/95 backdrop-blur-sm border-b border-slate-100">
-                        <div className="h-full px-5 flex items-center justify-between">
+                    <header
+                        className="sticky top-0 z-10 bg-white/95 backdrop-blur-sm border-b border-slate-100"
+                        style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
+                    >
+                        <div className="h-14 px-5 flex items-center justify-between">
                             <div className="flex items-center gap-2 min-w-0">
                                 {title && <h1 className="text-lg font-bold text-slate-900 truncate">{title}</h1>}
                                 {titleAction}
@@ -437,7 +440,7 @@ export default function AppShell({
                         </div>
                     </header>
 
-                    <main className={fullBleed ? "h-[calc(100dvh-3.5rem)] overflow-hidden" : "p-5 pb-28 md:pb-6"}>{children}</main>
+                    <main className={fullBleed ? "h-[calc(100dvh-3.5rem-env(safe-area-inset-top,0px))] overflow-hidden" : "p-5 pb-28 md:pb-6"}>{children}</main>
                 </div>
             </div>
 

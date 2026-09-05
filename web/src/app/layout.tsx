@@ -24,6 +24,13 @@ export const viewport = {
   themeColor: "#000000",
   width: "device-width",
   initialScale: 1,
+  // Required for env(safe-area-inset-*) to return real values instead of
+  // silently falling back to 0 on every device with a notch/Dynamic Island/
+  // home indicator — without this, the app's WebView renders full-screen
+  // (edge-to-edge) but nothing in the CSS actually knows where the unsafe
+  // zones are, so fixed headers/nav bars collide with the status bar and
+  // home indicator on every iPhone.
+  viewportFit: "cover",
   // Pinch-zoom was enabled (maximumScale: 5) on an app-like dashboard UI
   // (already configured as appleWebApp-capable, and now wrapped in a native
   // Capacitor shell) — native apps don't pinch-zoom their own chrome, and a
