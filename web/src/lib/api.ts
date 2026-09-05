@@ -469,7 +469,17 @@ export interface ProductSale {
 
 export function getProducts(category?: string): Promise<Product[]> {
     const query = category ? `?category=${category}` : "";
-    return apiFetch<Product[]>(`/api/products${query}`);
+    // Trailing slash matters here: the backend route is registered as
+    // "/" under the /products prefix, so a request without it 307-redirects
+    // to add it — and WebKit's fetch() (Safari, and the native iOS app's
+    // WKWebView) drops the Authorization header when auto-following that
+    // redirect. The result is a real, valid session getting a false 401
+    // (on both the original request AND its post-refresh retry, since the
+    // retry redirects the exact same way), which apiFetch then correctly
+    // — but wrongly, in this case — treats as a genuinely dead session and
+    // force-logs-out. Every other /api/products/... call below already has
+    // the trailing slash; this was the one that didn't.
+    return apiFetch<Product[]>(`/api/products/${query}`);
 }
 
 export function createProduct(data: Partial<Product>): Promise<Product> {
