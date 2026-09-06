@@ -12,6 +12,12 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
     const router = useRouter();
     const pathname = usePathname();
     const [ready, setReady] = useState(false);
+    // Temporary, visible-on-screen diagnostics — after two rounds of "should
+    // be fixed now" that apparently weren't, this replaces guessing with an
+    // actual answer: whatever step it's stuck on shows up directly in the
+    // stuck screenshot instead of needing device console access no one has.
+    // Remove once this is confirmed resolved.
+    const [stage, setStage] = useState("start");
     // Track if we've already confirmed auth once — don't re-check on every pathname change
     const authedRef = useRef(false);
 
@@ -33,16 +39,18 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
         // just render — worst case, a stale page reloads on the next tap
         // instead of sitting frozen indefinitely.
         const hardTimeout = setTimeout(() => {
-            if (!cancelled) setReady(true);
+            if (!cancelled) { setStage("hard-timeout-fired"); setReady(true); }
         }, 6000);
 
         (async () => {
           try {
+            setStage("delay");
             // Small delay first, to let localStorage itself finish hydrating
             // fully on mobile browsers (pre-existing behavior, kept as-is).
             await new Promise(r => setTimeout(r, 50));
             if (cancelled) return;
 
+            setStage("read-token");
             let token = getToken();
             // Only touch Keychain/Keystore when localStorage has nothing —
             // that's the one case it can actually help with (a fresh/evicted
@@ -52,11 +60,13 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
             // it entirely on the hot path is one less thing that has to go
             // right for the common case.
             if (!token) {
+                setStage("hydrate-secure-storage");
                 await hydrateTokensFromSecureStorage();
                 if (cancelled) return;
                 token = getToken();
             }
             if (!token) {
+                setStage("redirect-login-no-token");
                 router.replace(`/login?next=${encodeURIComponent(pathname || "/dashboard")}`);
                 return;
             }
@@ -72,9 +82,11 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
             // (if stale) access token is left in place and whatever the user
             // opens first will retry the refresh dance itself.
             if (isAccessTokenExpiringSoon(token)) {
+                setStage("try-refresh");
                 const outcome = await tryRefresh();
                 if (cancelled) return;
                 if (outcome === "rejected") {
+                    setStage("redirect-login-rejected");
                     clearToken();
                     router.replace(`/login?next=${encodeURIComponent(pathname || "/dashboard")}`);
                     return;
@@ -82,13 +94,24 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
                 token = getToken();
             }
 
+            setStage("check-role");
             const role = getCurrentUserRole();
             if ((role === "artist" || role === "staff") && !ARTIST_ALLOWED.some(p => pathname?.startsWith(p))) {
+                setStage("redirect-calendar-role");
                 router.replace("/calendar");
                 return;
             }
 
+            setStage("done");
             authedRef.current = true;
+            setReady(true);
+          } catch (e) {
+            // Whatever this is, it must not be able to leave the app stuck —
+            // render anyway rather than hang with no fallback left (the
+            // hard-timeout below still fires as a backstop regardless, but
+            // there's no reason to wait 6s for it once we already know
+            // something broke).
+            setStage(`error: ${e instanceof Error ? e.message : String(e)}`);
             setReady(true);
           } finally {
             clearTimeout(hardTimeout);
@@ -101,8 +124,9 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
 
     if (!ready) {
         return (
-            <div className="min-h-screen flex items-center justify-center text-sm text-gray-500" dir="rtl">
-                בודק התחברות...
+            <div className="min-h-screen flex flex-col items-center justify-center gap-2 text-sm text-gray-500" dir="rtl">
+                <div>בודק התחברות...</div>
+                <div className="text-xs text-gray-400" dir="ltr">{stage}</div>
             </div>
         );
     }
