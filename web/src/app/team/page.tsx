@@ -6,6 +6,7 @@ import AppShell from "@/components/AppShell";
 import RequireAuth from "@/components/RequireAuth";
 import { apiFetch } from "@/lib/api";
 import PasswordInput from "@/components/PasswordInput";
+import StaffSessionsModal from "@/components/StaffSessionsModal";
 
 type Artist = {
     id: string;
@@ -57,6 +58,7 @@ export default function TeamPage() {
 
     // Deletion state
     const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
+    const [sessionsFor, setSessionsFor] = useState<{ id: string; name: string } | null>(null);
 
     const loadArtists = async () => {
         setLoading(true);
@@ -261,6 +263,18 @@ export default function TeamPage() {
                                                                 <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                                                             </svg>
                                                         </button>
+                                                        {artist.role !== 'owner' && (
+                                                            <button
+                                                                onClick={() => setSessionsFor({ id: artist.id, name: artist.display_name })}
+                                                                className="p-2 text-slate-400 hover:text-sky-500 hover:bg-sky-50 rounded-xl transition-colors"
+                                                                title="מכשירים מחוברים"
+                                                            >
+                                                                <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                                    <rect x="7" y="2" width="10" height="20" rx="2" />
+                                                                    <path strokeLinecap="round" d="M11 18h2" />
+                                                                </svg>
+                                                            </button>
+                                                        )}
                                                         {artist.role !== 'owner' && (
                                                             <button
                                                                 onClick={() => setDeletingUserId(artist.id)}
@@ -494,6 +508,14 @@ export default function TeamPage() {
                             </div>
                         </div>
                     </div>
+                )}
+
+                {sessionsFor && (
+                    <StaffSessionsModal
+                        userId={sessionsFor.id}
+                        userName={sessionsFor.name}
+                        onClose={() => setSessionsFor(null)}
+                    />
                 )}
             </AppShell>
         </RequireAuth>

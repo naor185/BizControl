@@ -12,3 +12,10 @@ class TokenResponse(BaseModel):
 
 class RefreshRequest(BaseModel):
     refresh_token: str
+
+class SessionOut(BaseModel):
+    id: str
+    user_agent: str | None
+    session_started_at: str | None
+    last_active_at: str
+

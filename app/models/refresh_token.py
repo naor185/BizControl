@@ -24,4 +24,12 @@ class RefreshToken(Base):
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     replaced_by_token: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    # Identify a "session" (one login, one device) across its whole rotation
+    # chain for the session-list/revoke UI — copied forward onto each new row
+    # at rotation time (see /api/auth/refresh), NOT reset per-row like
+    # created_at is. Without this, the original login time and device would
+    # be lost the moment the token first silently rotates.
+    user_agent: Mapped[str | None] = mapped_column(Text, nullable=True)
+    session_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())

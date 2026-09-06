@@ -1613,6 +1613,11 @@ def ensure_schema():
                 used_at TIMESTAMPTZ
             )
         """)
+        # A handoff-issued session used to carry only an access token, so it
+        # could never outlive that token's own expiry — unlike every other
+        # login path, which gets a real refresh token. Persisted alongside
+        # the access token in the same one-time code.
+        cur.execute("ALTER TABLE auth_handoff_codes ADD COLUMN IF NOT EXISTS refresh_token TEXT")
 
         # ── Marketplace customer email/password auth ─────────────────────────
         cur.execute("""
@@ -1686,6 +1691,10 @@ def ensure_schema():
         # locked out of their session.
         cur.execute("ALTER TABLE refresh_tokens ADD COLUMN IF NOT EXISTS revoked_at TIMESTAMPTZ")
         cur.execute("ALTER TABLE refresh_tokens ADD COLUMN IF NOT EXISTS replaced_by_token TEXT")
+        # Session identity across a rotation chain, for the session-list /
+        # remote-revoke ("log out this device") feature — see auth_routes.py.
+        cur.execute("ALTER TABLE refresh_tokens ADD COLUMN IF NOT EXISTS user_agent TEXT")
+        cur.execute("ALTER TABLE refresh_tokens ADD COLUMN IF NOT EXISTS session_started_at TIMESTAMPTZ")
 
         # Staff-facing push reminders (distinct from the customer-facing
         # 1day/3day/7day/same_day set) — the studio admin adds as many rules

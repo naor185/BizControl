@@ -18,10 +18,11 @@ from app.core.database import get_db
 from app.core.limiter import limiter
 from app.core.security import create_access_token, create_refresh_token, decode_token, create_set_password_token, validate_password_strength, JWT_SECRET, JWT_ALG
 from app.core.auth_deps import get_current_user
+from app.core.permissions import require_roles, Perms
 from app.models.studio import Studio
 from app.models.user import User
 from app.models.refresh_token import RefreshToken
-from app.schemas.auth_schemas import LoginRequest, TokenResponse, RefreshRequest
+from app.schemas.auth_schemas import LoginRequest, TokenResponse, RefreshRequest, SessionOut
 from app.services.auth_service import (
     find_login_candidates, track_login_failure, raise_if_locked, reset_login_failures,
     create_pending_token, create_studio_selection_token, issue_full_tokens, studio_label,
@@ -74,7 +75,7 @@ def login(request: Request, payload: LoginRequest, db: Session = Depends(get_db)
         }
 
     reset_login_failures(db, user)
-    return issue_full_tokens(user, db)
+    return issue_full_tokens(user, db, user_agent=request.headers.get("user-agent"))
 
 
 # ── 2FA verify (step 2 of login) ─────────────────────────────────────────────
@@ -105,7 +106,7 @@ def verify_2fa(request: Request, payload: TwoFAVerifyIn, db: Session = Depends(g
 
     raise_if_locked(db, user)
     reset_login_failures(db, user)
-    return issue_full_tokens(user, db)
+    return issue_full_tokens(user, db, user_agent=request.headers.get("user-agent"))
 
 
 # ── Login by email only (no slug — the one login path for every business
@@ -154,7 +155,7 @@ def login_by_email(request: Request, payload: EmailLoginIn, db: Session = Depend
             "pending_token": create_pending_token(str(user.id), str(user.studio_id)),
         }
     reset_login_failures(db, user)
-    return issue_full_tokens(user, db)
+    return issue_full_tokens(user, db, user_agent=request.headers.get("user-agent"))
 
 
 # ── Studio selection (step 2 of login-by-email, only when >1 match) ──────────
@@ -197,7 +198,7 @@ def select_studio(request: Request, payload: SelectStudioIn, db: Session = Depen
             "pending_token": create_pending_token(str(user.id), str(user.studio_id)),
         }
     reset_login_failures(db, user)
-    return issue_full_tokens(user, db)
+    return issue_full_tokens(user, db, user_agent=request.headers.get("user-agent"))
 
 
 # ── Cross-app handoff (secure one-time code instead of JWT in URL) ────────────
@@ -211,18 +212,19 @@ class UseHandoffIn(BaseModel):
 
 @router.post("/create-handoff")
 def create_handoff(
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Authenticated: create a 2-minute one-time code wrapping the caller's token."""
-    access = create_access_token({
-        "user_id": str(current_user.id),
-        "studio_id": str(current_user.studio_id),
-        "role": current_user.role,
-    })
+    """Authenticated: create a 2-minute one-time code wrapping a real
+    access+refresh pair for the caller (issue_full_tokens — same as any other
+    login path), so a session that arrives via /auto-login is a genuine
+    persistent login too, not one that dies the moment the access token
+    expires. Previously issued an access-only token here."""
+    tokens = issue_full_tokens(current_user, db, user_agent=request.headers.get("user-agent"))
     row = db.execute(
-        _text("INSERT INTO auth_handoff_codes (token) VALUES (:t) RETURNING code"),
-        {"t": access},
+        _text("INSERT INTO auth_handoff_codes (token, refresh_token) VALUES (:t, :r) RETURNING code"),
+        {"t": tokens.access_token, "r": tokens.refresh_token},
     ).fetchone()
     db.commit()
     return {"code": str(row[0])}
@@ -231,8 +233,9 @@ def create_handoff(
 @router.post("/use-handoff")
 @limiter.limit("20/minute")
 def use_handoff(request: Request, payload: UseHandoffIn, db: Session = Depends(get_db)):
-    """Exchange a one-time code for a real JWT (code consumed on first use).
-    Uses atomic UPDATE...RETURNING so concurrent requests cannot both succeed."""
+    """Exchange a one-time code for a real JWT pair (code consumed on first
+    use). Uses atomic UPDATE...RETURNING so concurrent requests cannot both
+    succeed."""
     row = db.execute(
         _text("""
             UPDATE auth_handoff_codes
@@ -240,7 +243,7 @@ def use_handoff(request: Request, payload: UseHandoffIn, db: Session = Depends(g
             WHERE code = :code
               AND used_at IS NULL
               AND expires_at > NOW()
-            RETURNING token
+            RETURNING token, refresh_token
         """),
         {"code": payload.code},
     ).fetchone()
@@ -248,7 +251,7 @@ def use_handoff(request: Request, payload: UseHandoffIn, db: Session = Depends(g
         # Could be: unknown code, already used, or expired — all treated the same
         raise HTTPException(status_code=400, detail="קוד לא תקין, כבר נוצל, או פג תוקף")
     db.commit()
-    return {"access_token": row[0], "token_type": "bearer"}
+    return {"access_token": row[0], "refresh_token": row[1], "token_type": "bearer"}
 
 
 # ── Refresh ───────────────────────────────────────────────────────────────────
@@ -318,10 +321,96 @@ def refresh(payload: RefreshRequest, db: Session = Depends(get_db)):
     token_row.is_revoked = True
     token_row.revoked_at = datetime.now(timezone.utc)
     token_row.replaced_by_token = new_refresh
-    db.add(RefreshToken(id=uuid.uuid4(), studio_id=user.studio_id, user_id=user.id, token=new_refresh, is_revoked=False))
+    db.add(RefreshToken(
+        id=uuid.uuid4(), studio_id=user.studio_id, user_id=user.id, token=new_refresh, is_revoked=False,
+        # Carried forward from the row being rotated, not reset — this is
+        # still the same session/device as far as the session-list UI is
+        # concerned, just a later hop in its rotation chain.
+        user_agent=token_row.user_agent, session_started_at=token_row.session_started_at,
+    ))
     db.commit()
 
     return TokenResponse(access_token=new_access, refresh_token=new_refresh)
+
+
+# ── Sessions ("logged-in devices") — list / revoke ────────────────────────────
+# A "session" here is a refresh-token rotation chain: at any moment exactly
+# one row in that chain is non-revoked (see /refresh above, which always
+# revokes the old row the instant it rotates), so "every non-revoked row for
+# this user" is naturally "every currently active login/device" — no
+# separate session-id concept needed.
+
+def _session_out(row: RefreshToken) -> SessionOut:
+    return SessionOut(
+        id=str(row.id),
+        user_agent=row.user_agent,
+        session_started_at=row.session_started_at.isoformat() if row.session_started_at else None,
+        last_active_at=row.created_at.isoformat(),
+    )
+
+
+@router.get("/sessions", response_model=list[SessionOut])
+def list_my_sessions(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Self-service — 'which devices am I logged in on'."""
+    rows = db.query(RefreshToken).filter(
+        RefreshToken.user_id == current_user.id,
+        RefreshToken.is_revoked == False,  # noqa: E712
+    ).order_by(RefreshToken.created_at.desc()).all()
+    return [_session_out(r) for r in rows]
+
+
+@router.delete("/sessions/{session_id}", status_code=204)
+def revoke_my_session(session_id: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Self-service 'log out this device' — the next time that device tries
+    to refresh, it's hard-rejected (nothing replaced this row, so the reuse-
+    chase in /refresh has nowhere to go)."""
+    row = db.query(RefreshToken).filter(
+        RefreshToken.id == session_id, RefreshToken.user_id == current_user.id,
+    ).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Session not found")
+    row.is_revoked = True
+    row.revoked_at = datetime.now(timezone.utc)
+    db.commit()
+
+
+@router.get("/users/{user_id}/sessions", response_model=list[SessionOut])
+def list_user_sessions(
+    user_id: str,
+    current_user: User = Depends(require_roles(Perms.OWNER, Perms.ADMIN)),
+    db: Session = Depends(get_db),
+):
+    """Owner/admin view of a staff member's active sessions — same studio only."""
+    target = db.get(User, user_id)
+    if not target or str(target.studio_id) != str(current_user.studio_id):
+        raise HTTPException(status_code=404, detail="User not found")
+    rows = db.query(RefreshToken).filter(
+        RefreshToken.user_id == target.id,
+        RefreshToken.is_revoked == False,  # noqa: E712
+    ).order_by(RefreshToken.created_at.desc()).all()
+    return [_session_out(r) for r in rows]
+
+
+@router.delete("/users/{user_id}/sessions/{session_id}", status_code=204)
+def revoke_user_session(
+    user_id: str,
+    session_id: str,
+    current_user: User = Depends(require_roles(Perms.OWNER, Perms.ADMIN)),
+    db: Session = Depends(get_db),
+):
+    """Force-logout a specific device belonging to another staff member in
+    the same studio."""
+    target = db.get(User, user_id)
+    if not target or str(target.studio_id) != str(current_user.studio_id):
+        raise HTTPException(status_code=404, detail="User not found")
+    row = db.query(RefreshToken).filter(
+        RefreshToken.id == session_id, RefreshToken.user_id == target.id,
+    ).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Session not found")
+    row.is_revoked = True
+    row.revoked_at = datetime.now(timezone.utc)
+    db.commit()
 
 
 # ── Forgot Password ───────────────────────────────────────────────────────────

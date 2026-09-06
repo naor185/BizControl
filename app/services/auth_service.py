@@ -197,10 +197,13 @@ def create_studio_selection_token(candidate_user_ids: list[str]) -> str:
     )
 
 
-def issue_full_tokens(user: User, db: Session) -> TokenResponse:
+def issue_full_tokens(user: User, db: Session, user_agent: str | None = None) -> TokenResponse:
     access = create_access_token({"user_id": str(user.id), "studio_id": str(user.studio_id), "role": user.role})
     refresh = create_refresh_token({"user_id": str(user.id), "studio_id": str(user.studio_id)})
-    db.add(RefreshToken(id=uuid.uuid4(), studio_id=user.studio_id, user_id=user.id, token=refresh, is_revoked=False))
+    db.add(RefreshToken(
+        id=uuid.uuid4(), studio_id=user.studio_id, user_id=user.id, token=refresh, is_revoked=False,
+        user_agent=user_agent, session_started_at=datetime.now(timezone.utc),
+    ))
     db.commit()
     return TokenResponse(access_token=access, refresh_token=refresh)
 

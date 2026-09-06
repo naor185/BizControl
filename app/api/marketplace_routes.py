@@ -83,7 +83,7 @@ class MarketplaceLoginIn(BaseModel):
 
 
 @router.post("/auth/login")
-def marketplace_login(payload: MarketplaceLoginIn, db: Session = Depends(get_db)):
+def marketplace_login(request: Request, payload: MarketplaceLoginIn, db: Session = Depends(get_db)):
     """
     Login for business owners/staff via the BizFind portal — email+password
     only, same shared logic as BizControl's own /api/auth/login-by-email
@@ -121,7 +121,7 @@ def marketplace_login(payload: MarketplaceLoginIn, db: Session = Depends(get_db)
             "pending_token": create_pending_token(str(user.id), str(user.studio_id)),
         }
     reset_login_failures(db, user)
-    return issue_full_tokens(user, db)
+    return issue_full_tokens(user, db, user_agent=request.headers.get("user-agent"))
 
 
 # ── Self-registration for business owners via BizFind ────────────────────────

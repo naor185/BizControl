@@ -30,13 +30,10 @@ function AutoLoginInner() {
         })
             .then(r => r.ok ? r.json() : Promise.reject())
             .then(data => {
-                // This handoff endpoint only ever issues an access token (no
-                // refresh) — setToken() still mirrors it to Keychain/Keystore
-                // on native, but a session that arrives this way genuinely
-                // can't outlive the access token's own expiry the way a
-                // normal password login can, since there's nothing to
-                // refresh it with.
-                setToken(data.access_token);
+                // Now a real access+refresh pair (same as any other login
+                // path) — this session persists the same way, not just for
+                // as long as the access token itself lasts.
+                setToken(data.access_token, data.refresh_token);
                 localStorage.removeItem("biz_studio_token");
                 router.replace(dest);
             })
