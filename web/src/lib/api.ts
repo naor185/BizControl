@@ -1,3 +1,5 @@
+import { mirrorTokensToSecureStorage, clearSecureStorageTokens } from "@/lib/secureTokenStorage";
+
 export const API_BASE = (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_BASE || "").replace(/^http:\/\//, "https://");
 
 const TOKEN_KEY = "bizcontrol_token";
@@ -11,11 +13,16 @@ export function getToken(): string | null {
 export function setToken(access: string, refresh?: string) {
     localStorage.setItem(TOKEN_KEY, access);
     if (refresh) localStorage.setItem(REFRESH_TOKEN_KEY, refresh);
+    // Best-effort, native-only mirror to Keychain/Keystore — see
+    // secureTokenStorage.ts for why this exists alongside localStorage
+    // rather than replacing it.
+    void mirrorTokensToSecureStorage(access, refresh);
 }
 
 export function clearToken() {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(REFRESH_TOKEN_KEY);
+    void clearSecureStorageTokens();
 }
 
 // Single in-flight refresh promise — prevents race condition where multiple
@@ -33,7 +40,7 @@ type RefreshOutcome = "ok" | "rejected" | "network-error";
 
 let _refreshPromise: Promise<RefreshOutcome> | null = null;
 
-async function tryRefresh(): Promise<RefreshOutcome> {
+export async function tryRefresh(): Promise<RefreshOutcome> {
     if (_refreshPromise) return _refreshPromise;
     const refresh = localStorage.getItem(REFRESH_TOKEN_KEY);
     if (!refresh) return "rejected";
@@ -65,15 +72,31 @@ async function tryRefresh(): Promise<RefreshOutcome> {
     return _refreshPromise;
 }
 
-export function getCurrentUserRole(): string | null {
-    const token = getToken();
-    if (!token) return null;
+function decodeJwtPayload(token: string): Record<string, unknown> | null {
     try {
-        const payload = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
-        return payload.role || null;
+        return JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
     } catch {
         return null;
     }
+}
+
+export function getCurrentUserRole(): string | null {
+    const token = getToken();
+    if (!token) return null;
+    const role = decodeJwtPayload(token)?.role;
+    return typeof role === "string" ? role : null;
+}
+
+// Used at app boot to decide whether it's worth proactively refreshing
+// before rendering, rather than waiting for the first API call to hit a 401
+// (see RequireAuth) — the app can otherwise sit at a "1 second from
+// expiring" access token while the user is already tapping around, which
+// then eats one guaranteed 401-refresh-retry round trip on whatever they
+// touch first. A minute of slack is deliberately generous, not exact.
+export function isAccessTokenExpiringSoon(token: string, skewSeconds = 60): boolean {
+    const exp = decodeJwtPayload(token)?.exp;
+    if (typeof exp !== "number") return true; // can't tell — treat as expiring, harmless to refresh
+    return Date.now() / 1000 >= exp - skewSeconds;
 }
 
 type ApiOptions = RequestInit & { auth?: boolean };

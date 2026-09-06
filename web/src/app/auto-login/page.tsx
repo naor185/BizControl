@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { setToken } from "@/lib/api";
 
 const API = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
 
@@ -29,7 +30,13 @@ function AutoLoginInner() {
         })
             .then(r => r.ok ? r.json() : Promise.reject())
             .then(data => {
-                localStorage.setItem("bizcontrol_token", data.access_token);
+                // This handoff endpoint only ever issues an access token (no
+                // refresh) — setToken() still mirrors it to Keychain/Keystore
+                // on native, but a session that arrives this way genuinely
+                // can't outlive the access token's own expiry the way a
+                // normal password login can, since there's nothing to
+                // refresh it with.
+                setToken(data.access_token);
                 localStorage.removeItem("biz_studio_token");
                 router.replace(dest);
             })

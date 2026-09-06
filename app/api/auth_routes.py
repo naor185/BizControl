@@ -277,22 +277,33 @@ def refresh(payload: RefreshRequest, db: Session = Depends(get_db)):
         # reuse (stolen/replayed token) — reject. But it's also exactly what
         # happens when the mobile app gets killed by iOS mid-request, right
         # after the server responded but before the new pair made it into
-        # localStorage: the client is left holding a token that's already
-        # dead, with no way back short of a full re-login — often only
-        # discovered long after (whenever the app is next opened), so a
-        # short time window wouldn't help. Chase the single successor this
-        # token was rotated into and reissue from there instead of hard-
-        # failing. No time limit needed: this is self-limiting on its own —
-        # chasing forward immediately re-rotates again, closing this same
-        # hole behind it, and an attacker holding a stale token here has by
-        # definition also captured whatever superseded it, making the chase
-        # moot for them. Anything more than one hop away is real reuse.
+        # storage: the client is left holding a token that's already dead,
+        # with no way back short of a full re-login — often only discovered
+        # long after (whenever the app is next opened), so a short time
+        # window wouldn't help. Chase the chain of successors this token
+        # was rotated into and reissue from the live end of it, instead of
+        # hard-failing. Bounded at a handful of hops (not unbounded) purely
+        # as a sanity cap against a corrupted chain looping — legitimate
+        # chains are always this short, since every hop the client actually
+        # uses stops the chase right there. No time limit: this is
+        # self-limiting on its own — chasing forward immediately re-rotates
+        # again, closing this same hole behind it, and an attacker holding a
+        # stale token here has by definition also captured whatever
+        # superseded it, making the chase moot for them.
         successor = None
-        if token_row.replaced_by_token:
-            successor = db.query(RefreshToken).filter(
-                RefreshToken.token == token_row.replaced_by_token,
-                RefreshToken.is_revoked == False,  # noqa: E712
+        cursor = token_row
+        for _ in range(5):
+            if not cursor.replaced_by_token:
+                break
+            nxt = db.query(RefreshToken).filter(
+                RefreshToken.token == cursor.replaced_by_token,
             ).first()
+            if not nxt:
+                break
+            if not nxt.is_revoked:
+                successor = nxt
+                break
+            cursor = nxt
         if not successor:
             raise HTTPException(status_code=401, detail="Refresh token revoked or not found")
         token_row = successor
