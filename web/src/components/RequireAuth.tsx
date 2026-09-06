@@ -24,17 +24,38 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
 
         let cancelled = false;
 
+        // Absolute worst-case bound on the whole boot check, independent of
+        // whatever any individual step below does — after the freeze this
+        // caused once already (unbounded native-plugin call — see
+        // secureTokenStorage.ts), this screen must never be able to hang
+        // forever again, full stop, regardless of what future changes touch
+        // this function. If nothing has decided ready/redirect within 6s,
+        // just render — worst case, a stale page reloads on the next tap
+        // instead of sitting frozen indefinitely.
+        const hardTimeout = setTimeout(() => {
+            if (!cancelled) setReady(true);
+        }, 6000);
+
         (async () => {
-            // Restores localStorage from Keychain/Keystore first, in case this
-            // WebView's own storage was evicted or this is a fresh install —
-            // see secureTokenStorage.ts. No-op on web or if nothing's there.
-            await hydrateTokensFromSecureStorage();
-            // Small delay on top, to let localStorage itself finish hydrating
+          try {
+            // Small delay first, to let localStorage itself finish hydrating
             // fully on mobile browsers (pre-existing behavior, kept as-is).
             await new Promise(r => setTimeout(r, 50));
             if (cancelled) return;
 
             let token = getToken();
+            // Only touch Keychain/Keystore when localStorage has nothing —
+            // that's the one case it can actually help with (a fresh/evicted
+            // WebView or reinstall); an already-logged-in user's normal boot
+            // never needs to call the native plugin at all. secureTokenStorage.ts
+            // guards every call with its own timeout regardless, but skipping
+            // it entirely on the hot path is one less thing that has to go
+            // right for the common case.
+            if (!token) {
+                await hydrateTokensFromSecureStorage();
+                if (cancelled) return;
+                token = getToken();
+            }
             if (!token) {
                 router.replace(`/login?next=${encodeURIComponent(pathname || "/dashboard")}`);
                 return;
@@ -69,9 +90,12 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
 
             authedRef.current = true;
             setReady(true);
+          } finally {
+            clearTimeout(hardTimeout);
+          }
         })();
 
-        return () => { cancelled = true; };
+        return () => { cancelled = true; clearTimeout(hardTimeout); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);  // run once on mount only — subsequent navigations don't remount RequireAuth in App Router
 
