@@ -45,11 +45,20 @@ export async function tryRefresh(): Promise<RefreshOutcome> {
     const refresh = localStorage.getItem(REFRESH_TOKEN_KEY);
     if (!refresh) return "rejected";
     _refreshPromise = (async (): Promise<RefreshOutcome> => {
+        // RequireAuth now calls this proactively on every app boot (not just
+        // reactively off a 401), so a hung connection here — fetch() has no
+        // default timeout — would freeze the boot screen the same way an
+        // unbounded native-plugin call did (see secureTokenStorage.ts).
+        // Bounded well under what a user would tolerate staring at "בודק
+        // התחברות...".
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
         try {
             const res = await fetch(`${API_BASE}/api/auth/refresh`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ refresh_token: refresh }),
+                signal: controller.signal,
             });
             if (!res.ok) {
                 // 401/403 = the server explicitly rejected this refresh token
@@ -62,10 +71,12 @@ export async function tryRefresh(): Promise<RefreshOutcome> {
             setToken(data.access_token, data.refresh_token);
             return "ok";
         } catch {
-            // fetch() threw — offline, DNS hiccup, request aborted because the
-            // app was backgrounded mid-flight, etc. Not a verdict on the token.
+            // fetch() threw — offline, DNS hiccup, the abort() above firing,
+            // request aborted because the app was backgrounded mid-flight,
+            // etc. Not a verdict on the token.
             return "network-error";
         } finally {
+            clearTimeout(timeoutId);
             _refreshPromise = null;
         }
     })();
