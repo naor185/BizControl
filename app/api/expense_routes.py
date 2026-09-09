@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import require_studio_ctx, AuthContext
 from app.db.deps import get_db
+from app.models.studio import Studio
 from app.repositories.expense_repository import ExpenseRepository
 from app.schemas.expense import ExpenseCreate, ExpenseResponse, ExpenseUpdate, ExpenseSummary
 from app.services.ai_invoice_service import AIInvoiceService
@@ -700,6 +701,40 @@ def export_excel(
     return StreamingResponse(
         buf,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+# ── Export month as a single-page PDF summary ─────────────────────────────────
+@router.get("/export/pdf")
+def export_pdf(
+    month: int = Query(..., ge=1, le=12),
+    year: int = Query(..., ge=2000),
+    ctx: AuthContext = Depends(require_studio_ctx),
+    repo: ExpenseRepository = Depends(get_expense_repo),
+    db: Session = Depends(get_db),
+):
+    """One-page PDF companion to /export/excel — a compact, printable sheet
+    listing every expense for the period plus totals, for sending the
+    accountant alongside the receipts (export_excel already covers the full
+    unbounded spreadsheet)."""
+    from fastapi.responses import StreamingResponse
+    import io
+    from app.services.pdf_service import generate_expenses_summary_pdf
+
+    expenses = repo.get_multi(studio_id=ctx.studio_id, month=month, year=year, limit=1000)
+    if not expenses:
+        raise HTTPException(status_code=400, detail="אין הוצאות בתקופה זו")
+
+    studio = db.get(Studio, ctx.studio_id)
+    studio_name = studio.name if studio else "עסק"
+
+    pdf_bytes = generate_expenses_summary_pdf(expenses, month=month, year=year, studio_name=studio_name)
+    buf = io.BytesIO(pdf_bytes)
+    filename = f"expenses_{year}_{month:02d}.pdf"
+    return StreamingResponse(
+        buf,
+        media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 

@@ -456,7 +456,7 @@ def generate_payroll_pdf(
         h("סה\"כ"), "", "", "", f"₪{float(grand_total):.2f}", ""
     ])
 
-    tbl = Table(table_data, colWidths=col_w)
+    tbl = Table(table_data, colWidths=col_w, rowHeights=22)
     tbl.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#111111")),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
@@ -472,7 +472,6 @@ def generate_payroll_pdf(
         ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#f0fdf4")),
         ("FONTNAME", (0, -1), (-1, -1), font_bold),
         ("TEXTCOLOR", (4, -1), (4, -1), colors.HexColor("#166534")),
-        ("ROWHEIGHT", (0, 0), (-1, -1), 22),
     ]))
 
     tbl_w, tbl_h = tbl.wrapOn(c, W - 4 * cm, H)
@@ -486,6 +485,156 @@ def generate_payroll_pdf(
     c.setFillColor(colors.HexColor("#9ca3af"))
     c.drawCentredString(W / 2, 22, h("דוח זה הופק אוטומטית על ידי מערכת BizControl"))
     c.drawCentredString(W / 2, 10, h(f"הופק ב: {datetime.now(timezone.utc).strftime('%d/%m/%Y %H:%M')} UTC"))
+
+    c.showPage()
+    c.save()
+    return buf.getvalue()
+
+
+# ── Expenses summary PDF (one page — for sending to the accountant) ────────────
+
+def generate_expenses_summary_pdf(
+    expenses: list[Any],
+    month: int,
+    year: int,
+    studio_name: str,
+) -> bytes:
+    """Every expense for the period, one row each, on a single A4 page — a
+    quick-glance sheet to send the accountant alongside the receipts
+    (export_excel already covers the full unbounded spreadsheet; this is the
+    compact one-page companion, not a replacement). Row height and font
+    scale down as the item count grows so it still fits one page for the
+    normal case (a studio's typical month, comfortably under ~90 expenses).
+
+    Past that, scaling down further stops helping: reportlab's Table.drawOn
+    doesn't clip or paginate — a table taller than the space it's given just
+    keeps drawing past the footer band, off the bottom of the page, with no
+    error and no visual warning that rows were lost. Silently dropping
+    expenses off a page an accountant works from is worse than any font-size
+    compromise, so past the legibility floor this truncates the ITEMIZED
+    list with an explicit "+N more, see the Excel export" row instead —
+    but the totals row always sums every expense passed in, never just the
+    ones actually printed, so the one number that must be right always is."""
+    font_reg, font_bold = _ensure_fonts()
+    buf = io.BytesIO()
+    c = canvas.Canvas(buf, pagesize=A4)
+    W, H = A4
+
+    # ── Header ─────────────────────────────────────────────
+    c.setFillColor(colors.HexColor("#111111"))
+    c.rect(0, H - 80, W, 80, fill=1, stroke=0)
+    c.setFont(font_bold, 20)
+    c.setFillColor(colors.white)
+    c.drawCentredString(W / 2, H - 48, h(studio_name))
+    c.setFont(font_reg, 10)
+    c.setFillColor(colors.HexColor("#aaaaaa"))
+    c.drawCentredString(W / 2, H - 66, h("דוח הוצאות לרו\"ח"))
+
+    y = H - 105
+    c.setFont(font_reg, 10)
+    c.setFillColor(colors.HexColor("#555555"))
+    month_names = ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"]
+    c.drawCentredString(W / 2, y, h(f"{month_names[month - 1]} {year}  ·  {len(expenses)} הוצאות"))
+    y -= 20
+
+    # ── Table (row height / font scale down to keep this to one page,
+    # itemized list truncated with a note past the legibility floor — see
+    # the docstring above for why) ────────────────────────────────────────
+    # IMPORTANT: row height in reportlab is only real when passed as the
+    # Table constructor's `rowHeights=`, not as a ("ROWHEIGHT", ...)
+    # TableStyle command — that name isn't a recognized style command at
+    # all (confirmed against reportlab's own source) and is silently
+    # dropped, so the row heights below were never actually being applied.
+    # Fixed by passing rowHeights= directly and sizing padding as a genuine
+    # sub-part of it, verified empirically (font_size, then row_h at >=1.3x
+    # that, renders with zero clipping down to font 6 / row 8).
+    available_h = y - 45  # leave room for the footer band
+    MIN_ROW_H, MAX_ROW_H = 8.0, 20.0
+    MIN_FONT, MAX_FONT = 6.0, 8.5
+
+    max_printable_rows = max(1, int(available_h / MIN_ROW_H) - 2)  # minus header + totals
+    truncated = len(expenses) > max_printable_rows
+    shown = expenses[:max_printable_rows] if truncated else expenses
+
+    n_rows = len(shown) + 2 + (1 if truncated else 0)  # header + items + (note) + totals
+    row_h = max(MIN_ROW_H, min(MAX_ROW_H, available_h / n_rows))
+    font_size = max(MIN_FONT, min(MAX_FONT, row_h / 1.35))
+    cell_pad = max(0.5, (row_h - font_size * 1.15) / 2)
+
+    def _short(s: str, limit: int) -> str:
+        s = s or ""
+        return s if len(s) <= limit else s[:limit - 1] + "…"
+
+    headers = [h(t) for t in ["תאריך", "ספק", "קטגוריה", "לפני מע\"מ", "מע\"מ", "סה\"כ"]]
+    weights = [0.14, 0.30, 0.18, 0.14, 0.12, 0.12]
+    col_w = [w * (W - 4 * cm) for w in weights]
+    table_data = [headers]
+
+    # Always summed across every expense — never just the printed subset.
+    total_pretax = sum(float(e.pretax_amount) if e.pretax_amount else 0.0 for e in expenses)
+    total_vat = sum(float(e.vat_amount or 0) for e in expenses)
+    total_amount = sum(float(e.amount or 0) for e in expenses)
+
+    for e in shown:
+        pretax = float(e.pretax_amount) if e.pretax_amount else 0.0
+        vat = float(e.vat_amount or 0)
+        amount = float(e.amount or 0)
+        table_data.append([
+            str(e.expense_date) if e.expense_date else "",
+            h(_short(e.supplier_name or e.title or "", 28)),
+            h(_short(e.category or "", 16)),
+            f"{pretax:,.2f}" if e.pretax_amount else "",
+            f"{vat:,.2f}",
+            f"{amount:,.2f}",
+        ])
+
+    note_row_idx = None
+    if truncated:
+        note_row_idx = len(table_data)
+        remaining = len(expenses) - len(shown)
+        table_data.append([h(f"+ {remaining} הוצאות נוספות — הרשימה המלאה בקובץ ה-Excel"), "", "", "", "", ""])
+
+    table_data.append([h("סה\"כ (כל ההוצאות)"), "", "", f"{total_pretax:,.2f}", f"{total_vat:,.2f}", f"{total_amount:,.2f}"])
+
+    style_cmds = [
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#111111")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), font_bold),
+        ("FONTSIZE", (0, 0), (-1, 0), font_size),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -2), [colors.white, colors.HexColor("#f9fafb")]),
+        ("FONTNAME", (0, 1), (-1, -2), font_reg),
+        ("FONTSIZE", (0, 1), (-1, -1), font_size),
+        ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#e5e7eb")),
+        ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#f0fdf4")),
+        ("FONTNAME", (0, -1), (-1, -1), font_bold),
+        ("TEXTCOLOR", (3, -1), (-1, -1), colors.HexColor("#166534")),
+        ("TOPPADDING", (0, 0), (-1, -1), cell_pad),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), cell_pad),
+        ("LEFTPADDING", (0, 0), (-1, -1), 3),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 3),
+    ]
+    if note_row_idx is not None:
+        style_cmds += [
+            ("SPAN", (0, note_row_idx), (-1, note_row_idx)),
+            ("BACKGROUND", (0, note_row_idx), (-1, note_row_idx), colors.HexColor("#fffbeb")),
+            ("FONTNAME", (0, note_row_idx), (-1, note_row_idx), font_bold),
+            ("TEXTCOLOR", (0, note_row_idx), (-1, note_row_idx), colors.HexColor("#92400e")),
+        ]
+
+    tbl = Table(table_data, colWidths=col_w, rowHeights=row_h)
+    tbl.setStyle(TableStyle(style_cmds))
+
+    tbl_w, tbl_h = tbl.wrapOn(c, W - 4 * cm, H)
+    tbl.drawOn(c, 2 * cm, y - tbl_h)
+
+    # ── Footer ─────────────────────────────────────────────
+    c.setFillColor(colors.HexColor("#f9fafb"))
+    c.rect(0, 0, W, 30, fill=1, stroke=0)
+    c.setFont(font_reg, 7)
+    c.setFillColor(colors.HexColor("#9ca3af"))
+    c.drawCentredString(W / 2, 11, h(f"הופק אוטומטית על ידי מערכת BizControl · {datetime.now(timezone.utc).strftime('%d/%m/%Y %H:%M')} UTC"))
 
     c.showPage()
     c.save()

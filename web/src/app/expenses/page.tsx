@@ -17,6 +17,7 @@ import {
     markExpenseSent,
     markMonthSent,
     downloadExpenseExcel,
+    downloadExpensesPdf,
     uploadExpenseImage,
     getExpenseStorageUsage,
     deleteExpenseReceiptImage,
@@ -873,6 +874,7 @@ export default function ExpensesPage() {
     const [modal, setModal] = useState<"scan" | "manual" | "storage" | "send-accountant" | null>(null);
     const [viewExpense, setViewExpense] = useState<Expense | null>(null);
     const [downloadingZip, setDownloadingZip] = useState(false);
+    const [downloadingPdf, setDownloadingPdf] = useState(false);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -1064,6 +1066,22 @@ export default function ExpensesPage() {
                                 style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "#fff", border: "1px solid #e5e7eb", color: "#1a1a2e", padding: "0.45rem 1rem", borderRadius: "8px", fontWeight: 500, fontSize: "0.875rem", cursor: "pointer" }}
                             >
                                 Excel לרו&quot;ח
+                            </button>
+                            <button
+                                disabled={downloadingPdf}
+                                onClick={async () => {
+                                    setDownloadingPdf(true);
+                                    try {
+                                        await downloadExpensesPdf(month, year);
+                                    } catch (e: any) {
+                                        toast.error(e.message || "שגיאה בהפקת ה-PDF");
+                                    } finally {
+                                        setDownloadingPdf(false);
+                                    }
+                                }}
+                                style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "#fff", border: "1px solid #e5e7eb", color: "#1a1a2e", padding: "0.45rem 1rem", borderRadius: "8px", fontWeight: 500, fontSize: "0.875rem", cursor: "pointer" }}
+                            >
+                                {downloadingPdf ? "מפיק..." : "📄 PDF מסודר לרו\"ח"}
                             </button>
                             <button
                                 onClick={() => setModal("send-accountant")}
