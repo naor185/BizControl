@@ -495,8 +495,7 @@ def generate_payroll_pdf(
 
 def generate_expenses_summary_pdf(
     expenses: list[Any],
-    month: int,
-    year: int,
+    period_label: str,
     studio_name: str,
 ) -> bytes:
     """Every expense for the period, one row each, on a single A4 page — a
@@ -533,8 +532,7 @@ def generate_expenses_summary_pdf(
     y = H - 105
     c.setFont(font_reg, 10)
     c.setFillColor(colors.HexColor("#555555"))
-    month_names = ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"]
-    c.drawCentredString(W / 2, y, h(f"{month_names[month - 1]} {year}  ·  {len(expenses)} הוצאות"))
+    c.drawCentredString(W / 2, y, h(f"{period_label}  ·  {len(expenses)} הוצאות"))
     y -= 20
 
     # ── Table (row height / font scale down to keep this to one page,

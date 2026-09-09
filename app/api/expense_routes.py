@@ -517,15 +517,41 @@ def send_expenses_to_accountant(
     # receipt that couldn't be merged (HEIC, broken URL, etc.) still has its
     # link in the table as a fallback.
     receipts_pdf = _build_receipts_pdf(expenses)
-    attachments = None
-    pdf_note = ""
+    import base64
+    from app.services.pdf_service import generate_expenses_summary_pdf
+
+    attachments = []
+    pdf_notes = []
+
+    # Same one-page summary sheet as the manual "PDF מסודר" download button
+    # (/export/pdf) — attached automatically here too, since the accountant
+    # should get it with the email, not require the studio owner to
+    # separately download and attach it by hand.
+    #
+    # date_to comes BEFORE date_from here — looks backwards, isn't. Two
+    # LTR date runs either side of an RTL word get reordered by the bidi
+    # algorithm (get_display, called inside h()) relative to EACH OTHER,
+    # not just internally — "2026-09-01 עד 2026-09-15" renders with the
+    # dates swapped, end date first. Confirmed empirically (rendered both
+    # ways to PNG): feeding it pre-swapped is what makes it come out in
+    # the correct, actual chronological order on the page.
+    summary_pdf = generate_expenses_summary_pdf(
+        expenses, period_label=f"{date_to} עד {date_from}", studio_name=biz_name or "עסק",
+    )
+    attachments.append({
+        "filename": f"expenses_summary_{date_from}_to_{date_to}.pdf",
+        "content_base64": base64.b64encode(summary_pdf).decode("ascii"),
+    })
+    pdf_notes.append('📎 מצורף PDF מסודר בעמוד אחד עם כל ההוצאות.')
+
     if receipts_pdf:
-        import base64
-        attachments = [{
+        attachments.append({
             "filename": f"receipts_{date_from}_to_{date_to}.pdf",
             "content_base64": base64.b64encode(receipts_pdf).decode("ascii"),
-        }]
-        pdf_note = '<p style="color:#166534;font-size:13px;margin:8px 0 0;font-weight:700">📎 מצורף קובץ PDF אחד עם כל תמונות הקבלות.</p>'
+        })
+        pdf_notes.append('📎 מצורף קובץ PDF אחד עם כל תמונות הקבלות.')
+
+    pdf_note = "".join(f'<p style="color:#166534;font-size:13px;margin:8px 0 0;font-weight:700">{n}</p>' for n in pdf_notes)
 
     html = f"""
     <html dir="rtl" lang="he"><head><meta charset="UTF-8">
@@ -729,7 +755,9 @@ def export_pdf(
     studio = db.get(Studio, ctx.studio_id)
     studio_name = studio.name if studio else "עסק"
 
-    pdf_bytes = generate_expenses_summary_pdf(expenses, month=month, year=year, studio_name=studio_name)
+    month_names = ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"]
+    period_label = f"{month_names[month - 1]} {year}"
+    pdf_bytes = generate_expenses_summary_pdf(expenses, period_label=period_label, studio_name=studio_name)
     buf = io.BytesIO(pdf_bytes)
     filename = f"expenses_{year}_{month:02d}.pdf"
     return StreamingResponse(
