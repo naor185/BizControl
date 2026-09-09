@@ -257,7 +257,7 @@ def use_handoff(request: Request, payload: UseHandoffIn, db: Session = Depends(g
 # ── Refresh ───────────────────────────────────────────────────────────────────
 
 @router.post("/refresh", response_model=TokenResponse)
-def refresh(payload: RefreshRequest, db: Session = Depends(get_db)):
+def refresh(request: Request, payload: RefreshRequest, db: Session = Depends(get_db)):
     try:
         data = decode_token(payload.refresh_token)
     except Exception:
@@ -325,8 +325,13 @@ def refresh(payload: RefreshRequest, db: Session = Depends(get_db)):
         id=uuid.uuid4(), studio_id=user.studio_id, user_id=user.id, token=new_refresh, is_revoked=False,
         # Carried forward from the row being rotated, not reset — this is
         # still the same session/device as far as the session-list UI is
-        # concerned, just a later hop in its rotation chain.
-        user_agent=token_row.user_agent, session_started_at=token_row.session_started_at,
+        # concerned, just a later hop in its rotation chain. Falls back to
+        # THIS request's own header only when the chain never had one at
+        # all (sessions that started before this column existed, or from
+        # any other pre-existing gap) — otherwise a legacy row would show
+        # "unidentified device" forever, since nothing else ever revisits it.
+        user_agent=token_row.user_agent or request.headers.get("user-agent"),
+        session_started_at=token_row.session_started_at,
     ))
     db.commit()
 
