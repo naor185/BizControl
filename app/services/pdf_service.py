@@ -513,7 +513,15 @@ def generate_expenses_summary_pdf(
     compromise, so past the legibility floor this truncates the ITEMIZED
     list with an explicit "+N more, see the Excel export" row instead —
     but the totals row always sums every expense passed in, never just the
-    ones actually printed, so the one number that must be right always is."""
+    ones actually printed, so the one number that must be right always is.
+
+    A "קבלה" column links each row straight to its receipt image (same URL
+    resolution as the accountant email's own per-row link) — a Table has no
+    native concept of a per-cell hyperlink, so this draws the visible column
+    normally and then overlays invisible c.linkURL() rectangles on top of it
+    afterward, positioned from the exact same row_h/col_w geometry the table
+    itself used, since there's no other way to ask reportlab where a
+    already-drawn cell ended up."""
     font_reg, font_bold = _ensure_fonts()
     buf = io.BytesIO()
     c = canvas.Canvas(buf, pagesize=A4)
@@ -563,8 +571,24 @@ def generate_expenses_summary_pdf(
         s = s or ""
         return s if len(s) <= limit else s[:limit - 1] + "…"
 
-    headers = [h(t) for t in ["תאריך", "ספק", "קטגוריה", "לפני מע\"מ", "מע\"מ", "סה\"כ"]]
-    weights = [0.14, 0.30, 0.18, 0.14, 0.12, 0.12]
+    # Same URL resolution as the accountant-email HTML table's per-row
+    # receipt link (_receipt_link in expense_routes.py) — receipt_url is
+    # stored either as an absolute Cloudinary URL or a path relative to this
+    # API's own host, and a relative path has nothing to resolve against
+    # once it's sitting in a PDF a viewer opens outside the app.
+    api_base = os.getenv("API_BASE_URL", "").rstrip("/")
+
+    def _receipt_url(url: str | None) -> str | None:
+        if not url:
+            return None
+        if url.startswith("http"):
+            return url
+        if api_base:
+            return f"{api_base}{url}"
+        return None
+
+    headers = [h(t) for t in ["תאריך", "ספק", "קטגוריה", "לפני מע\"מ", "מע\"מ", "סה\"כ", "קבלה"]]
+    weights = [0.13, 0.26, 0.15, 0.12, 0.10, 0.12, 0.12]
     col_w = [w * (W - 4 * cm) for w in weights]
     table_data = [headers]
 
@@ -573,10 +597,16 @@ def generate_expenses_summary_pdf(
     total_vat = sum(float(e.vat_amount or 0) for e in expenses)
     total_amount = sum(float(e.amount or 0) for e in expenses)
 
+    # Collected alongside the rows so the clickable overlay added after
+    # drawOn (reportlab tables can't hold link annotations themselves) knows
+    # exactly which row index has a receipt to link.
+    row_receipt_urls: list[str | None] = []
     for e in shown:
         pretax = float(e.pretax_amount) if e.pretax_amount else 0.0
         vat = float(e.vat_amount or 0)
         amount = float(e.amount or 0)
+        receipt_url = _receipt_url(getattr(e, "receipt_url", None))
+        row_receipt_urls.append(receipt_url)
         table_data.append([
             str(e.expense_date) if e.expense_date else "",
             h(_short(e.supplier_name or e.title or "", 28)),
@@ -584,15 +614,16 @@ def generate_expenses_summary_pdf(
             f"{pretax:,.2f}" if e.pretax_amount else "",
             f"{vat:,.2f}",
             f"{amount:,.2f}",
+            h("צפה בקבלה") if receipt_url else "—",
         ])
 
     note_row_idx = None
     if truncated:
         note_row_idx = len(table_data)
         remaining = len(expenses) - len(shown)
-        table_data.append([h(f"+ {remaining} הוצאות נוספות — הרשימה המלאה בקובץ ה-Excel"), "", "", "", "", ""])
+        table_data.append([h(f"+ {remaining} הוצאות נוספות — הרשימה המלאה בקובץ ה-Excel"), "", "", "", "", "", ""])
 
-    table_data.append([h("סה\"כ (כל ההוצאות)"), "", "", f"{total_pretax:,.2f}", f"{total_vat:,.2f}", f"{total_amount:,.2f}"])
+    table_data.append([h("סה\"כ (כל ההוצאות)"), "", "", f"{total_pretax:,.2f}", f"{total_vat:,.2f}", f"{total_amount:,.2f}", ""])
 
     style_cmds = [
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#111111")),
@@ -620,12 +651,33 @@ def generate_expenses_summary_pdf(
             ("FONTNAME", (0, note_row_idx), (-1, note_row_idx), font_bold),
             ("TEXTCOLOR", (0, note_row_idx), (-1, note_row_idx), colors.HexColor("#92400e")),
         ]
+    # Receipt column reads as a link (blue) wherever one actually exists.
+    RECEIPT_COL = 6
+    for i, url in enumerate(row_receipt_urls, start=1):  # +1: row 0 is the header
+        if url:
+            style_cmds.append(("TEXTCOLOR", (RECEIPT_COL, i), (RECEIPT_COL, i), colors.HexColor("#2563eb")))
 
     tbl = Table(table_data, colWidths=col_w, rowHeights=row_h)
     tbl.setStyle(TableStyle(style_cmds))
 
     tbl_w, tbl_h = tbl.wrapOn(c, W - 4 * cm, H)
-    tbl.drawOn(c, 2 * cm, y - tbl_h)
+    table_left = 2 * cm
+    table_top = y  # y - tbl_h is the bottom-left drawOn origin, so the top edge is exactly y
+    tbl.drawOn(c, table_left, y - tbl_h)
+
+    # Clickable overlay — a Table has no concept of per-cell links, so this
+    # draws invisible link-annotation rectangles on top of the already-
+    # rendered receipt cells, positioned from the same row_h/col_w geometry
+    # the table itself was built with (uniform row height, so each row's Y
+    # band is just its index times row_h from the table's top edge).
+    receipt_col_x0 = table_left + sum(col_w[:RECEIPT_COL])
+    receipt_col_x1 = receipt_col_x0 + col_w[RECEIPT_COL]
+    for i, url in enumerate(row_receipt_urls, start=1):  # +1: row 0 is the header
+        if not url:
+            continue
+        row_top = table_top - i * row_h
+        row_bottom = row_top - row_h
+        c.linkURL(url, (receipt_col_x0, row_bottom, receipt_col_x1, row_top), relative=0)
 
     # ── Footer ─────────────────────────────────────────────
     c.setFillColor(colors.HexColor("#f9fafb"))
