@@ -739,7 +739,7 @@ def ensure_schema():
         # manual Stripe-side step). id/columns match app/models/module.py's Plan.
         # (plan_id, display_name, price_cents, billing_period_days, trial_days, scope_bizcontrol, is_purchasable, sort_order)
         PLANS_SEED = [
-            ("trial",         "ניסיון חינמי",              0,     30, 14, True,  False, 0),
+            ("trial",         "ניסיון חינמי",              0,     30, 30, True,  False, 0),
             ("free",          "Free",                       0,     30, 0,  True,  False, 1),
             ("bizfind_basic", "Basic — BizFind בלבד",       9900,  30, 0,  False, False, 2),
             ("bizfind_pro",   "Pro — BizFind בלבד",         17900, 30, 0,  False, False, 3),
@@ -756,6 +756,14 @@ def ensure_schema():
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (id) DO NOTHING
             """, (pid, display_name, price_cents, period_days, trial_days, scope_bc, purchasable, sort))
+
+        # The seed above is ON CONFLICT DO NOTHING (never overwrites an admin's
+        # own edits in the Plan Management Center) — so on any environment
+        # where the 'trial' row was already created before this change, the
+        # seed alone can't move it from 14 to 30. This one-time correction
+        # targets only the still-default 14 value, so it won't clobber an
+        # admin who already customized trial_days themselves.
+        cur.execute("UPDATE plans SET trial_days = 30 WHERE id = 'trial' AND trial_days = 14")
 
         # plan_modules.plan becomes a real FK now that plans is seeded with every
         # key PLAN_MODULES ever used. Checked first (rather than a blind ALTER)

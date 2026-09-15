@@ -14,26 +14,26 @@ type BillingStatus = {
     has_active_subscription: boolean;
 };
 
-const PLANS = [
-    {
-        key: "starter",
-        name: "Starter",
-        price: "₪199",
-        features: ["עד 2 אמנים", "יומן + לקוחות", "תשלומים", "דוחות בסיסיים"],
-    },
-    {
-        key: "pro",
-        name: "Pro",
-        price: "₪349",
-        features: ["עד 5 אמנים", "כל פיצ׳רים של Starter", "AI הודעות", "אנליטיקה מלאה", "תזכורות אוטומטיות"],
-    },
-    {
-        key: "studio",
-        name: "Studio",
-        price: "₪499",
-        features: ["אמנים ללא הגבלה", "כל פיצ׳רים של Pro", "דף הזמנה עצמית", "ייצוא Excel", "תמיכה מועדפת"],
-    },
-];
+type ApiPlan = {
+    key: string;
+    label: string;
+    price_ils: number;
+    is_trial: boolean;
+    scope_bizcontrol: boolean;
+};
+
+// Hand-written marketing bullets, kept separate from price/name — those now
+// come from the real plans table (GET /api/marketplace/plans) below, fixing
+// the actual bug (this page used to show a price nobody could change from
+// the Plan Management Center at all). The bullet copy itself isn't really
+// "data" in the same sense — bizfind_plan_features exists but unifying it
+// into this page too is a separate, later step (see project_bizfind_
+// bizcontrol_unification memory).
+const PLAN_FEATURES: Record<string, string[]> = {
+    starter: ["עד 2 אמנים", "יומן + לקוחות", "תשלומים", "דוחות בסיסיים"],
+    pro: ["עד 5 אמנים", "כל פיצ׳רים של Starter", "AI הודעות", "אנליטיקה מלאה", "תזכורות אוטומטיות"],
+    studio: ["אמנים ללא הגבלה", "כל פיצ׳רים של Pro", "דף הזמנה עצמית", "ייצוא Excel", "תמיכה מועדפת"],
+};
 
 const PLAN_LABELS: Record<string, string> = {
     free: "חינם",
@@ -62,23 +62,37 @@ export default function BillingPage() {
     // to avoid an SSR/hydration mismatch — Capacitor's bridge doesn't exist
     // during server render anyway.
     const [isNative, setIsNative] = useState(false);
+    const [plans, setPlans] = useState<ApiPlan[]>([]);
 
     useEffect(() => {
         setIsNative(isNativeApp());
     }, []);
 
     useEffect(() => {
-        apiFetch<BillingStatus>("/billing/status")
+        // Was missing the /api prefix every other call in this codebase uses
+        // (confirmed against 40+ other apiFetch call sites) — apiFetch just
+        // prepends API_BASE with no path normalization, so this 404'd
+        // silently against the frontend's own domain instead of reaching
+        // the backend at all, and the catch below swallowed it into a
+        // generic "can't load" message. The whole billing page — status,
+        // checkout, and the manage-subscription portal — was broken.
+        apiFetch<BillingStatus>("/api/billing/status")
             .then(setStatus)
             .catch(() => setError("לא ניתן לטעון פרטי מנוי"))
             .finally(() => setLoading(false));
+    }, []);
+
+    useEffect(() => {
+        apiFetch<ApiPlan[]>("/api/marketplace/plans")
+            .then(data => setPlans(data.filter(p => !p.is_trial && p.scope_bizcontrol)))
+            .catch(() => {});
     }, []);
 
     async function handlePlan(plan: string) {
         setRedirecting(plan);
         setError(null);
         try {
-            const { url } = await apiFetch<{ url: string }>("/billing/checkout", {
+            const { url } = await apiFetch<{ url: string }>("/api/billing/checkout", {
                 method: "POST",
                 body: JSON.stringify({ plan }),
             });
@@ -94,7 +108,7 @@ export default function BillingPage() {
         setRedirecting("portal");
         setError(null);
         try {
-            const { url } = await apiFetch<{ url: string }>("/billing/portal", { method: "POST" });
+            const { url } = await apiFetch<{ url: string }>("/api/billing/portal", { method: "POST" });
             window.location.href = url;
         } catch (e) {
             setError(e instanceof Error ? e.message : "שגיאה בחיבור לשרת");
@@ -142,11 +156,13 @@ export default function BillingPage() {
                         <div className="bg-red-50 text-red-700 rounded-lg px-4 py-3 mb-6 text-sm">{error}</div>
                     )}
 
-                    {/* Plan cards */}
+                    {/* Plan cards — from the real plans table now (GET /api/marketplace/plans),
+                        not a hardcoded array the Plan Management Center had no effect on. */}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-                        {PLANS.map((plan) => {
+                        {plans.map((plan) => {
                             const isCurrent = status?.plan === plan.key;
                             const isPopular = plan.key === "pro";
+                            const features = PLAN_FEATURES[plan.key] ?? [];
                             return (
                                 <div
                                     key={plan.key}
@@ -162,14 +178,14 @@ export default function BillingPage() {
                                         </span>
                                     )}
                                     <div className="mb-4">
-                                        <p className="font-bold text-lg">{plan.name}</p>
+                                        <p className="font-bold text-lg">{plan.label}</p>
                                         <p className="text-3xl font-extrabold mt-1">
-                                            {plan.price}
+                                            {`₪${plan.price_ils}`}
                                             <span className="text-sm font-normal text-gray-500"> / חודש</span>
                                         </p>
                                     </div>
                                     <ul className="space-y-2 mb-6 flex-1">
-                                        {plan.features.map((f) => (
+                                        {features.map((f) => (
                                             <li key={f} className="flex items-start gap-2 text-sm text-gray-700">
                                                 <span className="mt-0.5 text-green-600">✓</span>
                                                 {f}

@@ -23,55 +23,16 @@ log = get_logger(__name__)
 router = APIRouter(prefix="/marketplace", tags=["Marketplace"])
 
 # ── Plan definitions ──────────────────────────────────────────────────────────
+# Used to be a hardcoded BIZFIND_PLANS dict here — a second, disconnected
+# source of plan price/label/trial-length that never agreed with what an
+# admin actually configured in the Plan Management Center (the `plans`
+# table, app/models/module.py's Plan). Every former reader now queries that
+# table directly (see bizfind_register, get_plans, get_plan_features below).
 
-BIZFIND_PLANS = {
-    "trial": {
-        "label": "ניסיון חינמי",
-        "price_ils": 0,
-        "days": 14,
-        "subscription_plan": "trial",
-        "scope_bizcontrol": True,   # trial gets full access
-    },
-    "bizfind_basic": {
-        "label": "Basic — BizFind בלבד",
-        "price_ils": 99,
-        "days": 30,
-        "subscription_plan": "bizfind_basic",
-        "scope_bizcontrol": False,
-    },
-    "bizfind_pro": {
-        "label": "Pro — BizFind בלבד",
-        "price_ils": 179,
-        "days": 30,
-        "subscription_plan": "bizfind_pro",
-        "scope_bizcontrol": False,
-    },
-    "starter": {
-        "label": "Starter — BizFind + BizControl",
-        "price_ils": 199,
-        "days": 30,
-        "subscription_plan": "starter",
-        "scope_bizcontrol": True,
-    },
-    "pro": {
-        "label": "Pro — BizFind + BizControl",
-        "price_ils": 349,
-        "days": 30,
-        "subscription_plan": "pro",
-        "scope_bizcontrol": True,
-    },
-    "studio": {
-        "label": "Studio — BizFind + BizControl",
-        "price_ils": 499,
-        "days": 30,
-        "subscription_plan": "studio",
-        "scope_bizcontrol": True,
-    },
-}
-
-# BizFind-only plans (no BizControl access) are no longer sold — kept in
-# BIZFIND_PLANS above only because existing studios may still be on them
-# (see PLAN_MODULES safety net in start.py). Not offered for new signups.
+# BizFind-only plans (no BizControl access) are no longer sold — every
+# business owner is managed through BizControl. Existing studios already on
+# either plan keep working (see PLAN_MODULES safety net in start.py); this
+# just blocks new signups from choosing them.
 _RETIRED_PLAN_KEYS = {"bizfind_basic", "bizfind_pro"}
 
 
@@ -163,8 +124,14 @@ def bizfind_register(payload: BizFindRegisterIn, db: Session = Depends(get_db)):
         # already on these plans keep working (see PLAN_MODULES in start.py).
         raise HTTPException(status_code=400, detail="תכנית זו הופסקה. כל בעלי העסקים מנוהלים כעת דרך BizControl.")
 
-    plan = BIZFIND_PLANS.get(payload.plan_key)
-    if not plan:
+    # Reads the real plans table (Super Admin's Plan Management Center) —
+    # not the old hardcoded BIZFIND_PLANS dict. That dict was a second,
+    # disconnected source of trial length/pricing that never agreed with
+    # what an admin configured — e.g. trial length was a literal `14` here
+    # forever, no matter what Plan.trial_days on the 'trial' row said.
+    from app.models.module import Plan
+    plan = db.get(Plan, payload.plan_key)
+    if not plan or not plan.is_active:
         raise HTTPException(status_code=400, detail=f"תכנית לא חוקית: {payload.plan_key}")
 
     ph = PasswordHasher()
@@ -183,13 +150,18 @@ def bizfind_register(payload: BizFindRegisterIn, db: Session = Depends(get_db)):
         slug = f"{base_slug}-{counter}"
         counter += 1
 
-    expires = datetime.now(timezone.utc) + timedelta(days=plan["days"])
+    # Trial length comes from Plan.trial_days (admin-configurable); every
+    # other plan's initial period is its normal billing cycle length —
+    # matches what BIZFIND_PLANS' "days" used to hardcode per-plan (always
+    # 30 for paid plans), just read from the real table now.
+    days = plan.trial_days if payload.plan_key == "trial" else plan.billing_period_days
+    expires = datetime.now(timezone.utc) + timedelta(days=days)
 
     studio = Studio(
         id=uuid.uuid4(),
         name=payload.business_name.strip(),
         slug=slug,
-        subscription_plan=plan["subscription_plan"],
+        subscription_plan=plan.id,
         business_type=payload.category.strip(),
         is_active=True,
         plan_expires_at=expires,
@@ -240,7 +212,7 @@ def bizfind_register(payload: BizFindRegisterIn, db: Session = Depends(get_db)):
         db, studio.id,
         "trial_started" if payload.plan_key == "trial" else "activated",
         source="customer",
-        plan_id=plan["subscription_plan"],
+        plan_id=plan.id,
         current_period_start=datetime.now(timezone.utc),
         current_period_end=expires,
         trial_ends_at=expires if payload.plan_key == "trial" else None,
@@ -283,7 +255,7 @@ def bizfind_register(payload: BizFindRegisterIn, db: Session = Depends(get_db)):
                 owner_name=payload.owner_name.strip(),
                 email=email,
                 phone=payload.phone.strip() if payload.phone else "—",
-                plan_label=plan["label"],
+                plan_label=plan.display_name,
                 city=payload.city.strip(),
             ),
             from_name="BizControl",
@@ -299,9 +271,9 @@ def bizfind_register(payload: BizFindRegisterIn, db: Session = Depends(get_db)):
         "token_type": "bearer",
         "studio_slug": slug,
         "plan_key": payload.plan_key,
-        "plan_label": plan["label"],
-        "scope_bizcontrol": plan["scope_bizcontrol"],
-        "trial_days": plan["days"] if payload.plan_key == "trial" else None,
+        "plan_label": plan.display_name,
+        "scope_bizcontrol": plan.scope_bizcontrol,
+        "trial_days": days if payload.plan_key == "trial" else None,
         "plan_expires_at": expires.isoformat(),
     }
 
@@ -343,12 +315,37 @@ def verify_email(payload: VerifyEmailIn, db: Session = Depends(get_db)):
 @router.get("/plans")
 def get_plans(db: Session = Depends(get_db)):
     """Public endpoint — returns available BizFind plans with their feature flags.
-    Excludes retired BizFind-only plans (no longer sold) — every plan offered
-    going forward includes BizControl."""
+    Reads the real plans table (Super Admin's Plan Management Center) instead
+    of the old hardcoded BIZFIND_PLANS dict — an admin editing a plan's price
+    or the trial's length here now actually shows up at signup, which it
+    never did before (two disconnected sources of the same facts). Same
+    response shape as before (key/label/price_ils/days/scope_bizcontrol/
+    is_trial/features) — zero frontend change needed (for-business/pricing,
+    web/onboarding both already read this endpoint).
+
+    is_purchasable OR id='trial' reproduces exactly the old dict's
+    membership (starter/pro/studio + trial) — free/enterprise/platform stay
+    excluded (never in the old dict either; admin/manually-assigned only),
+    and bizfind_basic/bizfind_pro stay excluded too since they're seeded
+    not-purchasable (they were previously excluded via a separate retired-
+    keys check — same outcome here, just via the same is_purchasable flag
+    already used to hide them from admin/packages).
+    Feature flags still come from bizfind_plan_features, keyed by the same
+    plan id string as before — unifying that separate features system is
+    out of scope for this pass (see project_bizfind_bizcontrol_unification
+    memory: 'unifying the two parallel plan/feature systems' is still a
+    later, larger step)."""
+    from app.models.module import Plan
+
+    rows = db.query(Plan).filter(
+        Plan.is_active == True,  # noqa: E712
+        Plan.is_visible == True,  # noqa: E712
+        Plan.scope_bizcontrol == True,  # noqa: E712
+        (Plan.is_purchasable == True) | (Plan.id == "trial"),  # noqa: E712
+    ).order_by(Plan.sort_order).all()
+
     plans = []
-    for k, v in BIZFIND_PLANS.items():
-        if k in _RETIRED_PLAN_KEYS:
-            continue
+    for p in rows:
         features = db.execute(
             text("""
                 SELECT feature_key, feature_label, is_enabled, limit_value
@@ -356,15 +353,16 @@ def get_plans(db: Session = Depends(get_db)):
                 WHERE plan_code = :plan
                 ORDER BY feature_key
             """),
-            {"plan": k},
+            {"plan": p.id},
         ).fetchall()
+        is_trial = p.id == "trial"
         plans.append({
-            "key": k,
-            "label": v["label"],
-            "price_ils": v["price_ils"],
-            "days": v["days"],
-            "scope_bizcontrol": v["scope_bizcontrol"],
-            "is_trial": k == "trial",
+            "key": p.id,
+            "label": p.display_name,
+            "price_ils": p.price_cents // 100,
+            "days": p.trial_days if is_trial else p.billing_period_days,
+            "scope_bizcontrol": p.scope_bizcontrol,
+            "is_trial": is_trial,
             "features": [
                 {
                     "key": r[0],
@@ -388,7 +386,8 @@ def get_plan_features(plan_code: str, db: Session = Depends(get_db)):
     Logging real usage before considering removal.
     """
     log.warning("[deprecated-endpoint] GET /marketplace/plans/%s/features called", plan_code)
-    if plan_code not in BIZFIND_PLANS:
+    from app.models.module import Plan
+    if not db.get(Plan, plan_code):
         raise HTTPException(status_code=404, detail=f"תכנית לא קיימת: {plan_code}")
     rows = db.execute(
         text("""

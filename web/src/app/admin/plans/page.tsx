@@ -277,6 +277,18 @@ function OverviewTab({ plan, onSaved, onDuplicate, onDelete, onTogglePublish }: 
     );
 
     const save = async () => {
+        // No versioning exists (see the Plan model's own docstring) — every
+        // field here is read live by is_module_enabled/effective_quota/
+        // checkout for every current subscriber the instant this saves,
+        // with zero warning until now. The delete button already blocks
+        // outright when subscribers exist; edits had no equivalent guard.
+        if (plan.active_subscriptions_count > 0) {
+            const ok = confirm(
+                `לתשומת לבך: ל-${plan.active_subscriptions_count} עסקים יש מנוי פעיל על המסלול הזה. ` +
+                `השינוי ישפיע עליהם מיידית (אין גרסאות היסטוריות). להמשיך?`
+            );
+            if (!ok) return;
+        }
         setSaving(true);
         try {
             await apiFetch(`/api/admin/plans/${plan.id}`, {
