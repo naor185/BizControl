@@ -14,9 +14,15 @@ from app.schemas.automation import AutomationSettingsOut
 
 google_router = APIRouter(prefix="/studio/google", tags=["google_calendar"])
 
-# We need a strict redirect URI that exactly matches the Google Cloud configuration
-# In a real production app, this should be an environment variable.
-REDIRECT_URI = "http://localhost:8000/api/studio/google/callback"
+# Must exactly match an Authorized redirect URI configured on the Google
+# Cloud OAuth app — was hardcoded to localhost:8000, which cannot work for
+# any real deployed instance (every studio's "Connect Google Calendar"
+# click would send Google's redirect to a URL only reachable on a
+# developer's own machine). API_BASE_URL is already used the same way
+# elsewhere in this codebase (e.g. app/services/pdf_service.py's receipt
+# links) — same env var, same convention.
+_API_BASE = os.getenv("API_BASE_URL", "http://localhost:8000").rstrip("/")
+REDIRECT_URI = f"{_API_BASE}/api/studio/google/callback"
 SCOPES = ['https://www.googleapis.com/auth/calendar']
 
 def get_client_config(settings: StudioSettings):

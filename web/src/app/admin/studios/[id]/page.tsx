@@ -668,7 +668,13 @@ export default function StudioDetailPage() {
                         <div className="px-4 py-3 border-b border-gray-50 flex items-center gap-2">
                             <span className="text-base">💬</span>
                             <h2 className="text-sm font-semibold text-gray-700">WhatsApp Business (Meta Cloud API)</h2>
-                            {settings.whatsapp_provider === "meta_cloud" && settings.whatsapp_phone_id && (
+                            {/* Save writes whatsapp_provider="meta" (matches what
+                                message_worker.py's sender actually checks) — this used
+                                to compare against "meta_cloud", a value that's never
+                                actually written, so a correctly-configured studio's
+                                badge stayed on "not connected" forever even though
+                                sending worked fine. */}
+                            {settings.whatsapp_provider === "meta" && settings.whatsapp_phone_id && (
                                 <span className="text-xs text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full font-medium">מחובר</span>
                             )}
                         </div>
@@ -743,7 +749,7 @@ export default function StudioDetailPage() {
                                 {savingWa ? "שומר..." : "שמור הגדרות WhatsApp"}
                             </button>
 
-                            {settings.whatsapp_provider === "meta_cloud" && settings.whatsapp_phone_id && (
+                            {settings.whatsapp_provider === "meta" && settings.whatsapp_phone_id && (
                                 <button
                                     onClick={() => {
                                         if (!confirm("לנתק את WhatsApp מהסטודיו הזה?")) return;

@@ -60,6 +60,25 @@ def _green_qr(instance_id: str, api_token: str) -> dict:
     return data
 
 
+# ── Meta Cloud API helper ────────────────────────────────────────────────────
+
+def _meta_connected(phone_id: str, access_token: str) -> bool:
+    """Live check, same spirit as _green_state — a GET on the phone number
+    node only succeeds with a valid, still-authorized access token, so a
+    200 here is a genuine 'this is actually working right now' signal, not
+    just 'credentials are present in the DB' (which is all the old
+    Green-API-shaped status check could tell for a Meta-configured studio —
+    it never recognized Meta studios at all, so they always showed
+    'not connected' regardless of whether sending actually worked)."""
+    url = f"https://graph.facebook.com/v19.0/{phone_id}?access_token={access_token}"
+    req = urllib.request.Request(url)
+    try:
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            return resp.status == 200
+    except Exception:
+        return False
+
+
 def _green_get_phone(instance_id: str, api_token: str) -> Optional[str]:
     """Get the phone number linked to this instance."""
     try:
@@ -164,9 +183,24 @@ def get_status(
     if not conn or not conn.get("instance_id") or not conn.get("api_token"):
         # Check legacy studio_settings
         legacy = db.execute(
-            text("SELECT whatsapp_instance_id, whatsapp_api_key, whatsapp_provider FROM studio_settings WHERE studio_id = :sid"),
+            text("SELECT whatsapp_instance_id, whatsapp_api_key, whatsapp_provider, whatsapp_phone_id FROM studio_settings WHERE studio_id = :sid"),
             {"sid": str(ctx.studio_id)}
         ).fetchone()
+
+        # Meta Cloud API studios have no whatsapp_instance_id at all (that
+        # column is Green-API-shaped) — without this branch they always fell
+        # through to "not_configured" below regardless of whether Meta was
+        # actually working.
+        if legacy and legacy[2] == "meta" and legacy[3] and legacy[1]:
+            connected = _meta_connected(legacy[3], legacy[1])
+            return {
+                "connected": connected,
+                "status": "authorized" if connected else "not_authorized",
+                "instance_id": None,
+                "phone_number": None,
+                "managed": False,
+                "source": "meta",
+            }
 
         if legacy and legacy[0] and legacy[1]:
             state = _green_state(legacy[0], legacy[1])
