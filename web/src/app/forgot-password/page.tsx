@@ -5,26 +5,42 @@ import Link from "next/link";
 import { apiFetch } from "@/lib/api";
 
 type Lang = "he" | "en";
-type FieldErr = "slug" | "email" | null;
+type Method = "email" | "phone";
+type PhoneStep = "request" | "verify";
 
-const FP_TEXT: Record<string, Record<Lang, string>> = {
-    studio_not_found: { he: "מזהה הסטודיו לא קיים במערכת", en: "Studio not found" },
-    email_not_found:  { he: "האימייל לא רשום במערכת",      en: "Email not registered" },
-    network:          { he: "לא ניתן להתחבר לשרת",          en: "Cannot connect to server" },
-    default_err:      { he: "שגיאה בשליחה",                  en: "Error sending" },
-};
-const FP_FIELD: Record<string, FieldErr> = {
-    studio_not_found: "slug",
-    email_not_found:  "email",
+const T: Record<string, Record<Lang, string>> = {
+    title:          { he: "שכחת סיסמה?",                       en: "Forgot Password?" },
+    subtitleEmail:  { he: "הזן את האימייל שלך ונשלח לך קישור לאיפוס", en: "Enter your email and we'll send a reset link" },
+    subtitlePhone:  { he: "הזן את האימייל שלך ונשלח קוד אימות בוואטסאפ לטלפון הרשום", en: "Enter your email and we'll WhatsApp a code to your phone on file" },
+    tabEmail:       { he: "אימייל",                              en: "Email" },
+    tabPhone:       { he: "וואטסאפ",                             en: "WhatsApp" },
+    emailLabel:     { he: "אימייל",                              en: "Email" },
+    codeLabel:      { he: "קוד אימות",                           en: "Verification code" },
+    sendLink:       { he: "שלח קישור לאיפוס",                    en: "Send Reset Link" },
+    sendCode:       { he: "שלח קוד בוואטסאפ",                    en: "Send WhatsApp Code" },
+    verify:         { he: "אמת קוד",                             en: "Verify Code" },
+    sending:        { he: "שולח...",                             en: "Sending..." },
+    verifying:      { he: "מאמת...",                             en: "Verifying..." },
+    sentTitle:      { he: "נשלח!",                                en: "Sent!" },
+    sentBodyEmail:  { he: "קישור לאיפוס סיסמה נשלח לאימייל שלך.", en: "A password reset link has been sent to your email." },
+    spamNote:       { he: "בדוק גם את תיקיית הספאם.",             en: "Check your spam folder too." },
+    codeSentNote:   { he: "אם קיים טלפון רשום לחשבון הזה, נשלח אליו קוד בוואטסאפ. הקוד תקף ל-10 דקות.", en: "If a phone is on file for this account, a WhatsApp code was sent. It's valid for 10 minutes." },
+    resend:         { he: "לא קיבלת? שלח קוד חדש",                en: "Didn't get it? Send a new code" },
+    changeEmail:    { he: "← אימייל אחר",                        en: "← Different email" },
+    back:           { he: "← חזור להתחברות",                     en: "← Back to login" },
+    network:        { he: "לא ניתן להתחבר לשרת",                 en: "Cannot connect to server" },
+    invalidCode:    { he: "קוד שגוי או פג תוקף",                  en: "Invalid or expired code" },
+    defaultErr:     { he: "שגיאה בשליחה",                        en: "Error sending" },
 };
 
 export default function ForgotPasswordPage() {
-    const [studioSlug, setStudioSlug] = useState("");
+    const [method, setMethod] = useState<Method>("email");
+    const [phoneStep, setPhoneStep] = useState<PhoneStep>("request");
     const [email, setEmail] = useState("");
+    const [code, setCode] = useState("");
     const [loading, setLoading] = useState(false);
     const [sent, setSent] = useState(false);
     const [err, setErr] = useState<string | null>(null);
-    const [fieldErr, setFieldErr] = useState<FieldErr>(null);
     const [lang, setLang] = useState<Lang>("he");
 
     useEffect(() => {
@@ -34,44 +50,85 @@ export default function ForgotPasswordPage() {
     }, []);
 
     const dir = lang === "he" ? "rtl" : "ltr";
+    const t = (key: keyof typeof T) => T[key][lang];
 
-    function parseFPErr(msg: string): { text: string; field: FieldErr } {
-        const l = lang;
-        for (const [code, field] of Object.entries(FP_FIELD)) {
-            if (msg.includes(code)) return { text: FP_TEXT[code][l], field };
-        }
-        if (msg.includes("fetch") || msg.includes("network") || msg.includes("Failed"))
-            return { text: FP_TEXT.network[l], field: null };
-        return { text: msg || FP_TEXT.default_err[l], field: null };
+    function friendlyError(msg: string): string {
+        if (msg.includes("קוד שגוי") || msg.includes("Invalid or expired code")) return t("invalidCode");
+        if (msg.includes("fetch") || msg.includes("network") || msg.includes("Failed")) return t("network");
+        return msg || t("defaultErr");
     }
 
-    async function onSubmit(e: React.FormEvent) {
+    function switchMethod(m: Method) {
+        setMethod(m);
+        setPhoneStep("request");
+        setCode("");
+        setErr(null);
+        setSent(false);
+    }
+
+    function errMessage(e: unknown): string {
+        return friendlyError(e instanceof Error ? e.message : String(e));
+    }
+
+    async function submitEmail(e: React.FormEvent) {
         e.preventDefault();
         setErr(null);
-        setFieldErr(null);
         setLoading(true);
         try {
             await apiFetch("/api/auth/forgot-password", {
                 method: "POST",
                 auth: false,
-                body: JSON.stringify({
-                    studio_slug: studioSlug.toLowerCase().trim(),
-                    email: email.toLowerCase().trim(),
-                }),
+                body: JSON.stringify({ email: email.toLowerCase().trim() }),
             });
             setSent(true);
-        } catch (e: any) {
-            const msg = String(e?.message || "");
-            const { text, field } = parseFPErr(msg);
-            setErr(text);
-            setFieldErr(field);
+        } catch (e) {
+            setErr(errMessage(e));
         } finally {
             setLoading(false);
         }
     }
 
-    const slugBorder  = fieldErr === "slug"  ? "border-red-400/70 bg-red-500/10" : "border-white/20 focus:border-white/50 bg-white/10 focus:bg-white/15";
-    const emailBorder = fieldErr === "email" ? "border-red-400/70 bg-red-500/10" : "border-white/20 focus:border-white/50 bg-white/10 focus:bg-white/15";
+    async function sendPhoneCode() {
+        setErr(null);
+        setLoading(true);
+        try {
+            await apiFetch("/api/auth/forgot-password/phone", {
+                method: "POST",
+                auth: false,
+                body: JSON.stringify({ email: email.toLowerCase().trim() }),
+            });
+            setPhoneStep("verify");
+        } catch (e) {
+            setErr(errMessage(e));
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    async function requestPhoneCode(e: React.FormEvent) {
+        e.preventDefault();
+        await sendPhoneCode();
+    }
+
+    async function verifyPhoneCode(e: React.FormEvent) {
+        e.preventDefault();
+        setErr(null);
+        setLoading(true);
+        try {
+            const { token } = await apiFetch<{ token: string }>("/api/auth/forgot-password/verify-phone", {
+                method: "POST",
+                auth: false,
+                body: JSON.stringify({ email: email.toLowerCase().trim(), code: code.trim() }),
+            });
+            window.location.href = `/set-password?token=${encodeURIComponent(token)}`;
+        } catch (e) {
+            setErr(errMessage(e));
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    const inputCls = "w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none text-white placeholder-white/30 transition-all border-white/20 focus:border-white/50 bg-white/10 focus:bg-white/15";
 
     return (
         <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-gradient-to-br from-[#0a0a1a] to-[#001a35]" dir={dir}>
@@ -91,98 +148,164 @@ export default function ForgotPasswordPage() {
                     {sent ? (
                         <div className="text-center space-y-4">
                             <div className="text-4xl">📧</div>
-                            <h2 className="text-lg font-bold text-white">
-                                {lang === "he" ? "נשלח!" : "Sent!"}
-                            </h2>
-                            <p className="text-sm text-blue-200/70 leading-relaxed">
-                                {lang === "he"
-                                    ? "קישור לאיפוס סיסמה נשלח לאימייל שלך."
-                                    : "A password reset link has been sent to your email."}
-                            </p>
-                            <p className="text-xs text-blue-200/40">
-                                {lang === "he" ? "בדוק גם את תיקיית הספאם." : "Check your spam folder too."}
-                            </p>
-                            <Link
-                                href="/login"
-                                className="block mt-4 text-sm text-blue-300 hover:text-white transition-colors"
-                            >
-                                {lang === "he" ? "← חזור להתחברות" : "← Back to login"}
+                            <h2 className="text-lg font-bold text-white">{t("sentTitle")}</h2>
+                            <p className="text-sm text-blue-200/70 leading-relaxed">{t("sentBodyEmail")}</p>
+                            <p className="text-xs text-blue-200/40">{t("spamNote")}</p>
+                            <Link href="/login" className="block mt-4 text-sm text-blue-300 hover:text-white transition-colors">
+                                {t("back")}
                             </Link>
                         </div>
                     ) : (
                         <>
                             <div className="mb-6">
-                                <h1 className="text-xl font-bold text-white">
-                                    {lang === "he" ? "שכחת סיסמה?" : "Forgot Password?"}
-                                </h1>
+                                <h1 className="text-xl font-bold text-white">{t("title")}</h1>
                                 <p className="text-sm text-blue-200/60 mt-1">
-                                    {lang === "he"
-                                        ? "הזן את מזהה הסטודיו והאימייל שלך"
-                                        : "Enter your studio ID and email"}
+                                    {method === "email" ? t("subtitleEmail") : t("subtitlePhone")}
                                 </p>
                             </div>
 
-                            <form onSubmit={onSubmit} className="space-y-4">
-                                <div>
-                                    <label className="text-xs font-semibold text-blue-100/80 block mb-1.5">
-                                        {lang === "he" ? "מזהה סטודיו" : "Studio ID"}
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={studioSlug}
-                                        onChange={e => setStudioSlug(e.target.value)}
-                                        placeholder="my-studio"
-                                        dir="ltr"
-                                        required
-                                        className={`w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none text-white placeholder-white/30 transition-all ${slugBorder}`}
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="text-xs font-semibold text-blue-100/80 block mb-1.5">
-                                        {lang === "he" ? "אימייל" : "Email"}
-                                    </label>
-                                    <input
-                                        type="email"
-                                        value={email}
-                                        onChange={e => setEmail(e.target.value)}
-                                        placeholder="you@example.com"
-                                        dir="ltr"
-                                        required
-                                        className={`w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none text-white placeholder-white/30 transition-all ${emailBorder}`}
-                                    />
-                                </div>
-
-                                {err && (
-                                    <div className="text-sm text-red-200 bg-red-500/20 border border-red-400/30 rounded-xl p-3 flex items-center gap-2">
-                                        <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.997L13.732 4.997c-.77-1.33-2.694-1.33-3.464 0L3.34 16.003c-.77 1.33.192 2.997 1.732 2.997z" />
-                                        </svg>
-                                        {err}
-                                    </div>
-                                )}
-
+                            {/* Method tabs */}
+                            <div className="grid grid-cols-2 gap-1.5 mb-5 p-1 rounded-xl bg-white/5 border border-white/10">
                                 <button
-                                    type="submit"
-                                    disabled={loading || !studioSlug || !email}
-                                    className="w-full rounded-2xl bg-white/20 hover:bg-white/30 border border-white/30 text-white py-3 font-semibold disabled:opacity-50 transition-all backdrop-blur shadow-lg"
+                                    type="button"
+                                    onClick={() => switchMethod("email")}
+                                    className={`rounded-lg py-2 text-sm font-semibold transition-all ${method === "email" ? "bg-white/20 text-white" : "text-blue-200/60 hover:text-blue-100"}`}
                                 >
-                                    {loading
-                                        ? (lang === "he" ? "שולח..." : "Sending...")
-                                        : (lang === "he" ? "שלח קישור לאיפוס" : "Send Reset Link")}
+                                    {t("tabEmail")}
                                 </button>
-
-                                <Link
-                                    href="/login"
-                                    className="block text-center text-sm text-blue-200/50 hover:text-blue-200/80 transition-colors pt-1"
+                                <button
+                                    type="button"
+                                    onClick={() => switchMethod("phone")}
+                                    className={`rounded-lg py-2 text-sm font-semibold transition-all ${method === "phone" ? "bg-white/20 text-white" : "text-blue-200/60 hover:text-blue-100"}`}
                                 >
-                                    {lang === "he" ? "← חזור להתחברות" : "← Back to login"}
-                                </Link>
-                            </form>
+                                    {t("tabPhone")}
+                                </button>
+                            </div>
+
+                            {method === "email" && (
+                                <form onSubmit={submitEmail} className="space-y-4">
+                                    <div>
+                                        <label className="text-xs font-semibold text-blue-100/80 block mb-1.5">{t("emailLabel")}</label>
+                                        <input
+                                            type="email"
+                                            value={email}
+                                            onChange={e => setEmail(e.target.value)}
+                                            placeholder="you@example.com"
+                                            dir="ltr"
+                                            required
+                                            className={inputCls}
+                                        />
+                                    </div>
+
+                                    {err && <ErrorBox text={err} />}
+
+                                    <button
+                                        type="submit"
+                                        disabled={loading || !email}
+                                        className="w-full rounded-2xl bg-white/20 hover:bg-white/30 border border-white/30 text-white py-3 font-semibold disabled:opacity-50 transition-all backdrop-blur shadow-lg"
+                                    >
+                                        {loading ? t("sending") : t("sendLink")}
+                                    </button>
+
+                                    <Link href="/login" className="block text-center text-sm text-blue-200/50 hover:text-blue-200/80 transition-colors pt-1">
+                                        {t("back")}
+                                    </Link>
+                                </form>
+                            )}
+
+                            {method === "phone" && phoneStep === "request" && (
+                                <form onSubmit={requestPhoneCode} className="space-y-4">
+                                    <div>
+                                        <label className="text-xs font-semibold text-blue-100/80 block mb-1.5">{t("emailLabel")}</label>
+                                        <input
+                                            type="email"
+                                            value={email}
+                                            onChange={e => setEmail(e.target.value)}
+                                            placeholder="you@example.com"
+                                            dir="ltr"
+                                            required
+                                            className={inputCls}
+                                        />
+                                    </div>
+
+                                    {err && <ErrorBox text={err} />}
+
+                                    <button
+                                        type="submit"
+                                        disabled={loading || !email}
+                                        className="w-full rounded-2xl bg-white/20 hover:bg-white/30 border border-white/30 text-white py-3 font-semibold disabled:opacity-50 transition-all backdrop-blur shadow-lg"
+                                    >
+                                        {loading ? t("sending") : t("sendCode")}
+                                    </button>
+
+                                    <Link href="/login" className="block text-center text-sm text-blue-200/50 hover:text-blue-200/80 transition-colors pt-1">
+                                        {t("back")}
+                                    </Link>
+                                </form>
+                            )}
+
+                            {method === "phone" && phoneStep === "verify" && (
+                                <form onSubmit={verifyPhoneCode} className="space-y-4">
+                                    <p className="text-xs text-blue-200/60 leading-relaxed -mt-1">{t("codeSentNote")}</p>
+
+                                    <div>
+                                        <label className="text-xs font-semibold text-blue-100/80 block mb-1.5">{t("codeLabel")}</label>
+                                        <input
+                                            type="text"
+                                            inputMode="numeric"
+                                            value={code}
+                                            onChange={e => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                                            placeholder="123456"
+                                            dir="ltr"
+                                            required
+                                            autoFocus
+                                            className={`${inputCls} text-center tracking-[0.4em] text-lg`}
+                                        />
+                                    </div>
+
+                                    {err && <ErrorBox text={err} />}
+
+                                    <button
+                                        type="submit"
+                                        disabled={loading || code.length < 6}
+                                        className="w-full rounded-2xl bg-white/20 hover:bg-white/30 border border-white/30 text-white py-3 font-semibold disabled:opacity-50 transition-all backdrop-blur shadow-lg"
+                                    >
+                                        {loading ? t("verifying") : t("verify")}
+                                    </button>
+
+                                    <div className="flex items-center justify-between pt-1">
+                                        <button
+                                            type="button"
+                                            onClick={() => { setPhoneStep("request"); setCode(""); setErr(null); }}
+                                            className="text-sm text-blue-200/50 hover:text-blue-200/80 transition-colors"
+                                        >
+                                            {t("changeEmail")}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => { setCode(""); void sendPhoneCode(); }}
+                                            className="text-sm text-blue-200/50 hover:text-blue-200/80 transition-colors"
+                                        >
+                                            {t("resend")}
+                                        </button>
+                                    </div>
+                                </form>
+                            )}
                         </>
                     )}
                 </div>
             </div>
+        </div>
+    );
+}
+
+function ErrorBox({ text }: { text: string }) {
+    return (
+        <div className="text-sm text-red-200 bg-red-500/20 border border-red-400/30 rounded-xl p-3 flex items-center gap-2">
+            <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.997L13.732 4.997c-.77-1.33-2.694-1.33-3.464 0L3.34 16.003c-.77 1.33.192 2.997 1.732 2.997z" />
+            </svg>
+            {text}
         </div>
     );
 }

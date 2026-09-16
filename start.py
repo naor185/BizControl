@@ -983,6 +983,19 @@ def ensure_schema():
         cur.execute("CREATE INDEX IF NOT EXISTS ix_marketplace_otps_phone ON marketplace_otps (phone, expires_at)")
 
         cur.execute("""
+            CREATE TABLE IF NOT EXISTS password_reset_otps (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                email VARCHAR(255) NOT NULL,
+                code VARCHAR(6) NOT NULL,
+                expires_at TIMESTAMPTZ NOT NULL,
+                used_at TIMESTAMPTZ,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_password_reset_otps_email ON password_reset_otps (email, expires_at)")
+
+        cur.execute("""
             CREATE TABLE IF NOT EXISTS marketplace_favorites (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                 customer_id UUID NOT NULL REFERENCES marketplace_customers(id) ON DELETE CASCADE,

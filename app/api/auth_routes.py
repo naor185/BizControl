@@ -8,7 +8,7 @@ log = get_logger(__name__)
 import pyotp
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
-from sqlalchemy import select
+from sqlalchemy import text
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
 from pydantic import BaseModel, Field
@@ -27,7 +27,6 @@ from app.services.auth_service import (
     find_login_candidates, track_login_failure, raise_if_locked, reset_login_failures,
     create_pending_token, create_studio_selection_token, issue_full_tokens, studio_label,
 )
-from app.utils.email_utils import send_email_sync
 from app.utils.email_templates import reset_password_email_html
 from jose import jwt as jose_jwt
 
@@ -419,51 +418,161 @@ def revoke_user_session(
 
 
 # ── Forgot Password ───────────────────────────────────────────────────────────
+#
+# Two independent recovery channels, both resolving the account from email
+# alone (no studio ID — Unified Login already dropped it everywhere else;
+# this was the one screen left behind). Email is not globally unique
+# (uq_users_studio_email), so a shared email can own one User row per
+# studio — both channels handle that by acting on every matching row.
 
 class ForgotPasswordIn(BaseModel):
-    studio_slug: str
     email: str
+
+
+def _gen_reset_code() -> str:
+    import random, string
+    return "".join(random.choices(string.digits, k=6))
+
+
+def _send_reset_code_whatsapp(phone: str, code: str, db: Session) -> None:
+    """Send a password-reset code over WhatsApp using the platform-level
+    Green API instance (same credentials/pattern as
+    marketplace_customer_routes.py's consumer OTP). This is account
+    recovery for the business owner themselves, so it deliberately does
+    NOT go through that studio's own WhatsApp integration — which may be
+    unconfigured or broken, i.e. exactly when recovery is most needed."""
+    clean = phone.lstrip("+").replace("-", "").replace(" ", "")
+    if clean.startswith("0"):
+        clean = "972" + clean[1:]
+    chat_id = clean + "@c.us"
+    msg = f"קוד האימות שלך לאיפוס סיסמה ב-BizControl: *{code}*\n\nהקוד תקף ל-10 דקות."
+
+    wa_instance, wa_token = None, None
+    try:
+        row_i = db.execute(text("SELECT value FROM platform_config WHERE key='platform_wa_instance'")).fetchone()
+        row_t = db.execute(text("SELECT value FROM platform_config WHERE key='platform_wa_token'")).fetchone()
+        wa_instance = row_i[0] if row_i else None
+        wa_token = row_t[0] if row_t else None
+    except Exception as e:
+        log.warning("[forgot_password_phone] platform_config read failed: %s", e)
+
+    if not wa_instance or not wa_token:
+        wa_instance = os.getenv("BIZFIND_WA_INSTANCE")
+        wa_token = os.getenv("BIZFIND_WA_TOKEN")
+
+    if not wa_instance or not wa_token:
+        log.warning("[forgot_password_phone] no platform WhatsApp credentials configured")
+        return
+
+    try:
+        import requests
+        url = f"https://api.green-api.com/waInstance{wa_instance}/sendMessage/{wa_token}"
+        requests.post(url, json={"chatId": chat_id, "message": msg}, timeout=10)
+    except Exception as e:
+        log.warning("[forgot_password_phone] WhatsApp send failed: %s", e)
 
 
 @router.post("/forgot-password")
 @limiter.limit("5/minute")
 def forgot_password(request: Request, payload: ForgotPasswordIn, db: Session = Depends(get_db)):
-    slug = payload.studio_slug.lower().strip()
-    studio = db.scalar(select(Studio).where(Studio.slug == slug))
-    if not studio:
-        raise HTTPException(status_code=404, detail="studio_not_found")
+    """Email a password-reset link. Resolves the account from email alone —
+    sends one email per active studio membership sharing that address, each
+    naming its studio so the recipient can tell them apart."""
+    from app.services.email_center import send_email as send_platform_email
 
-    user = db.scalar(select(User).where(
-        User.studio_id == studio.id,
-        User.email == payload.email.lower().strip(),
-        User.is_active == True,  # noqa: E712
-    ))
-    if not user:
+    email = payload.email.lower().strip()
+    users = db.query(User).filter(User.email == email, User.is_active == True).all()  # noqa: E712
+    if not users:
         # Same response as the success path — don't reveal whether this
         # email is registered (avoids account enumeration).
         return {"status": "sent"}
 
-    token = create_set_password_token(str(user.id))
     frontend_url = os.getenv("FRONTEND_URL", "https://bizcontrol-seven.vercel.app")
-    reset_link = f"{frontend_url}/set-password?token={token}"
-
-    try:
-        smtp_host = os.getenv("PLATFORM_SMTP_HOST", "")
-        smtp_port = int(os.getenv("PLATFORM_SMTP_PORT", "587"))
-        smtp_user_env = os.getenv("PLATFORM_SMTP_USER", "")
-        smtp_pass = os.getenv("PLATFORM_SMTP_PASS", "")
-        smtp_from = os.getenv("PLATFORM_SMTP_FROM", smtp_user_env)
-        send_email_sync(
-            host=smtp_host, port=smtp_port, user=smtp_user_env,
-            password=smtp_pass, from_email=smtp_from,
-            to_email=user.email,
-            subject="איפוס סיסמה — BizControl",
-            html_content=reset_password_email_html(user.display_name or user.email, reset_link),
-        )
-    except Exception as e:
-        log.error("[forgot_password] email failed: %s", e)
+    for user in users:
+        token = create_set_password_token(str(user.id))
+        reset_link = f"{frontend_url}/set-password?token={token}"
+        studio = user.studio
+        subject = "איפוס סיסמה — BizControl"
+        if len(users) > 1 and studio:
+            subject = f"איפוס סיסמה — BizControl ({studio.name})"
+        try:
+            send_platform_email(
+                db,
+                to_email=user.email,
+                subject=subject,
+                html_content=reset_password_email_html(user.display_name or user.email, reset_link),
+                from_name="BizControl",
+                studio_id=str(user.studio_id),
+                template_key="forgot_password",
+                email_type="system",
+            )
+        except Exception as e:
+            log.error("[forgot_password] email failed for user %s: %s", user.id, e)
 
     return {"status": "sent"}
+
+
+class VerifyResetCodeIn(BaseModel):
+    email: str
+    code: str
+
+
+@router.post("/forgot-password/phone")
+@limiter.limit("5/minute")
+def forgot_password_phone(request: Request, payload: ForgotPasswordIn, db: Session = Depends(get_db)):
+    """Alternative to the email link: send a 6-digit code over WhatsApp to
+    the phone on file, for owners who'd rather not wait on email. Silently
+    no-ops (same {"status": "sent"} response) when the email is unknown or
+    none of its active studio memberships have a phone on file — same
+    anti-enumeration posture as the email path."""
+    email = payload.email.lower().strip()
+    users = db.query(User).filter(User.email == email, User.is_active == True).all()  # noqa: E712
+    user = next((u for u in users if u.phone), None)
+    if not user:
+        return {"status": "sent"}
+
+    code = _gen_reset_code()
+    expires = datetime.now(timezone.utc) + timedelta(minutes=10)
+    db.execute(text("UPDATE password_reset_otps SET used_at = NOW() WHERE user_id = :uid AND used_at IS NULL"), {"uid": str(user.id)})
+    db.execute(
+        text("INSERT INTO password_reset_otps (id, user_id, email, code, expires_at) VALUES (:id, :uid, :email, :code, :exp)"),
+        {"id": str(uuid.uuid4()), "uid": str(user.id), "email": email, "code": code, "exp": expires},
+    )
+    db.commit()
+    _send_reset_code_whatsapp(user.phone, code, db)
+    return {"status": "sent"}
+
+
+@router.post("/forgot-password/verify-phone")
+@limiter.limit("8/minute")
+def forgot_password_verify_phone(request: Request, payload: VerifyResetCodeIn, db: Session = Depends(get_db)):
+    """Verify a WhatsApp code and return a set-password token directly — the
+    phone check IS the proof of ownership, so this skips the emailed link
+    entirely and the frontend can jump straight to setting a new password."""
+    email = payload.email.lower().strip()
+    code = payload.code.strip()
+    now = datetime.now(timezone.utc)
+    row = db.execute(
+        text("""
+            SELECT user_id FROM password_reset_otps
+            WHERE email = :email AND code = :code
+              AND expires_at > :now AND used_at IS NULL
+            ORDER BY created_at DESC LIMIT 1
+        """),
+        {"email": email, "code": code, "now": now},
+    ).fetchone()
+    if not row:
+        raise HTTPException(status_code=400, detail="קוד שגוי או פג תוקף")
+
+    db.execute(text("UPDATE password_reset_otps SET used_at = NOW() WHERE user_id = :uid AND code = :code"), {"uid": str(row[0]), "code": code})
+    db.commit()
+
+    user = db.get(User, row[0])
+    if not user or not user.is_active:
+        raise HTTPException(status_code=404, detail="משתמש לא נמצא")
+
+    token = create_set_password_token(str(user.id))
+    return {"token": token}
 
 
 # ── Set Password ──────────────────────────────────────────────────────────────

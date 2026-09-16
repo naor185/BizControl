@@ -87,6 +87,10 @@ export default function StudioLoginPage() {
                                 onFocus={e => (e.target.style.borderColor = "#7c3aed")}
                                 onBlur={e => (e.target.style.borderColor = "#e2e8f0")}
                             />
+                            <a href="https://www.biz-control.com/forgot-password" target="_blank" rel="noopener"
+                                style={{ display: "inline-block", marginTop: "0.5rem", color: "#7c3aed", fontSize: "0.82rem", fontWeight: 600, textDecoration: "none" }}>
+                                שכחתם סיסמה?
+                            </a>
                         </div>
 
                         {err && (
