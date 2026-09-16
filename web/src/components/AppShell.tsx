@@ -28,6 +28,13 @@ type Me = {
 
 type PinStatus = { has_pin: boolean; is_locked: boolean };
 
+// The bottom-nav's primary tabs — the only pages with no meaningful "back":
+// tapping a tab icon already gets you there directly. Everywhere else
+// (settings, client detail, message templates, anything reached through the
+// "More" sheet, etc.) shows a back arrow on mobile, since the sidebar isn't
+// there to fall back on and neither is any hardware back button on iOS.
+const ROOT_PATHS = new Set(["/calendar", "/pos", "/clients", "/inbox"]);
+
 const MAIN_NAV: { href: string; label: string; icon: string; module?: string }[] = [
     { href: "/calendar",  label: "יומן תורים",  icon: "📅", module: "calendar" },
     { href: "/pos",       label: "קופה",         icon: "🛒", module: "pos" },
@@ -403,6 +410,18 @@ export default function AppShell({
                     >
                         <div className="h-14 px-5 flex items-center justify-between">
                             <div className="flex items-center gap-2 min-w-0">
+                                {!ROOT_PATHS.has(pathname || "") && (
+                                    <button
+                                        type="button"
+                                        onClick={() => router.back()}
+                                        aria-label={t("login_2fa_back")}
+                                        className="md:hidden -mr-1.5 flex items-center justify-center w-8 h-8 rounded-full text-slate-500 hover:bg-slate-100 active:scale-90 transition-all shrink-0"
+                                    >
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M15 18l-6-6 6-6" />
+                                        </svg>
+                                    </button>
+                                )}
                                 {title && <h1 className="text-lg font-bold text-slate-900 truncate">{title}</h1>}
                                 {titleAction}
                             </div>

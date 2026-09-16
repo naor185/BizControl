@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { type SessionOut, describeDevice, formatSessionDate } from "@/lib/sessionFormat";
+import { useBackButtonClose } from "@/lib/backButtonStack";
 
 // Owner/admin view of a staff member's active devices (require_roles(OWNER,
 // ADMIN) enforced server-side on both endpoints — same as MySessionsSettings
@@ -19,6 +20,9 @@ export default function StaffSessionsModal({ userId, userName, onClose }: { user
             .catch(() => {})
             .finally(() => setLoading(false));
     }, [userId]);
+
+    // No isOpen prop — the parent mounts this only while it should be shown.
+    useBackButtonClose(true, onClose);
 
     const revoke = async (id: string) => {
         setRevokingId(id);

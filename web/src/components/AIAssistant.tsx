@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { usePathname } from "next/navigation";
 import { apiFetch, API_BASE, getToken } from "@/lib/api";
+import { useBackButtonClose } from "@/lib/backButtonStack";
 
 type Message = {
     id: string;
@@ -116,6 +117,8 @@ export default function AIAssistant() {
     const bottomRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLTextAreaElement>(null);
     const abortRef = useRef<AbortController | null>(null);
+
+    useBackButtonClose(open, () => setOpen(false));
 
     // Load suggestions once
     useEffect(() => {

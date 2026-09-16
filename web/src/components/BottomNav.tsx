@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { clearToken, apiFetch, getCurrentUserRole } from "@/lib/api";
 import { useLang } from "./LanguageProvider";
 import { TranslationKey } from "@/lib/i18n";
+import { useBackButtonClose } from "@/lib/backButtonStack";
 
 const PRIMARY_NAV: { href: string; labelKey: TranslationKey; icon: string; badge?: boolean }[] = [
     { href: "/calendar",  labelKey: "nav_calendar",  icon: "📅" },
@@ -58,6 +59,8 @@ export default function BottomNav() {
 
     // Close sheet on navigation
     useEffect(() => { setSheetOpen(false); }, [pathname]);
+
+    useBackButtonClose(sheetOpen, () => setSheetOpen(false));
 
     function logout() {
         clearToken();

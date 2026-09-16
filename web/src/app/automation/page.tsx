@@ -2306,7 +2306,11 @@ export default function AutomationSettingsPage() {
                                             setTotpSetupSecret(null);
                                             setTotpQr(null);
                                             setTotpCode("");
-                                            setTotpMsg("✓ אימות דו-שלבי הופעל בהצלחה");
+                                            setTotpMsg(
+                                                "✓ אימות דו-שלבי הופעל בהצלחה. החיבור הנוכחי שלך ימשיך כרגיל — " +
+                                                "הקוד יידרש רק בפעם הבאה שתתחבר מחדש למערכת (אחרי יציאה, או באפליקציה אחרי כמה שבועות). " +
+                                                "שמור על אפליקציית האימות שלך — בלעדיה לא תוכל להתחבר."
+                                            );
                                         } catch (e: unknown) {
                                             setTotpMsg((e as Error)?.message || "קוד שגוי");
                                         } finally {

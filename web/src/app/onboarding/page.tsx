@@ -318,6 +318,10 @@ export default function OnboardingPage() {
                             <p className="text-xs text-slate-400 mt-3">
                                 ניתן תמיד לחזור להגדרות מתפריט ההגדרות
                             </p>
+
+                            <button onClick={() => setStep(2)} className="text-xs text-slate-400 hover:text-slate-600 mt-2 underline">
+                                ← חזרה לבחירת מסלול
+                            </button>
                         </div>
                     )}
                 </div>

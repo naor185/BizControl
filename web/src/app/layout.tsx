@@ -3,6 +3,7 @@ import { LanguageProvider } from "@/components/LanguageProvider";
 import { ToastProvider } from "@/components/ui/toast";
 import { QueryProvider } from "@/components/QueryProvider";
 import OverflowDebugger from "@/components/OverflowDebugger";
+import BackButtonHandler from "@/components/BackButtonHandler";
 
 export const metadata = {
   title: "BizControl",
@@ -50,6 +51,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <QueryProvider>
           <LanguageProvider>
             <ToastProvider>
+              <BackButtonHandler />
               {children}
               {process.env.NODE_ENV !== "production" && <OverflowDebugger />}
             </ToastProvider>

@@ -3,6 +3,7 @@ import { useState, useRef, useEffect } from "react";
 import { API, setToken } from "@/lib/api";
 import { saveCustomer, type Customer } from "@/lib/auth";
 import PasswordInput from "@/components/PasswordInput";
+import { useBackButtonClose } from "@/lib/backButtonStack";
 
 interface Props {
     onClose: () => void;
@@ -42,6 +43,9 @@ export default function AuthModal({ onClose, onSuccess }: Props) {
     useEffect(() => {
         if (otpStep === "otp") otpRefs.current[0]?.focus();
     }, [otpStep]);
+
+    // No isOpen prop — the parent mounts this only while it should be shown.
+    useBackButtonClose(true, onClose);
 
     // Try to auto-fill from browser credential manager (enables FaceID/TouchID auto-fill)
     useEffect(() => {

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { apiFetch } from "@/lib/api";
+import { useBackButtonClose } from "@/lib/backButtonStack";
 
 type Client = {
     id: string;
@@ -40,6 +41,9 @@ export default function QuickWhatsAppModal({ onClose }: { onClose: () => void })
         }, 250);
         return () => clearTimeout(t);
     }, [search]);
+
+    // No isOpen prop — the parent mounts this only while it should be shown.
+    useBackButtonClose(true, onClose);
 
     const filtered = clients.filter(c => !c.is_walk_in && c.phone).slice(0, 8);
 

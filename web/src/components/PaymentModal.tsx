@@ -3,6 +3,7 @@
 import { toast } from "@/lib/toast";
 import { useState, useEffect } from "react";
 import { apiFetch, Product, getProducts } from "@/lib/api";
+import { useBackButtonClose } from "@/lib/backButtonStack";
 
 export type PaymentAppointmentInfo = {
     appointment_id: string;
@@ -63,6 +64,8 @@ export default function PaymentModal({ isOpen, onClose, onSuccess, appointment }
             getProducts().then(setAllProducts).catch(console.error);
         }
     }, [appointment, isOpen]);
+
+    useBackButtonClose(isOpen, onClose);
 
     if (!isOpen || !appointment) return null;
 

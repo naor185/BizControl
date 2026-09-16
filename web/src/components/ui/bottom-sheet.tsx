@@ -3,6 +3,7 @@
 import { createPortal } from "react-dom";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
+import { useBackButtonClose } from "@/lib/backButtonStack";
 
 // The single reusable bottom-sheet the app was missing — this exact pattern
 // (backdrop + rounded-t-3xl + drag handle + slide-in-from-bottom) was
@@ -39,6 +40,19 @@ export default function BottomSheet({ open, onClose, title, children, footer, cl
     const [mounted, setMounted] = useState(false);
     useEffect(() => { setMounted(true); }, []);
 
+    // Escape closes it (desktop/keyboard), and it registers as a "back
+    // target" so Android's hardware back button closes the topmost open
+    // sheet instead of falling through to the WebView/app default (which,
+    // with nothing in browser history to go back to, otherwise exits the
+    // app outright).
+    useEffect(() => {
+        if (!open) return;
+        const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+    }, [open, onClose]);
+    useBackButtonClose(open, onClose);
+
     if (!open || !mounted) return null;
 
     return createPortal(
@@ -55,8 +69,18 @@ export default function BottomSheet({ open, onClose, title, children, footer, cl
                 style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
                 onClick={(e) => e.stopPropagation()}
             >
-                <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
+                <div className="relative flex justify-center pt-3 pb-1 flex-shrink-0">
                     <div className="w-10 h-1 rounded-full bg-slate-300" />
+                    {!title && (
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            aria-label="סגור"
+                            className="absolute left-1.5 top-0.5 w-9 h-9 flex items-center justify-center text-slate-400 hover:text-slate-600"
+                        >
+                            ✕
+                        </button>
+                    )}
                 </div>
 
                 {title && (

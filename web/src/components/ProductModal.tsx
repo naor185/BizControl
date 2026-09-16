@@ -3,6 +3,7 @@
 import { toast } from "@/lib/toast";
 import { useState, useEffect, useRef } from "react";
 import { Product, createProduct, updateProduct, apiFetch } from "@/lib/api";
+import { useBackButtonClose } from "@/lib/backButtonStack";
 
 interface ProductModalProps {
     isOpen: boolean;
@@ -37,6 +38,8 @@ export default function ProductModal({ isOpen, onClose, onSuccess, product }: Pr
             setDescription(""); setStockQuantity("0"); setImageUrl(null);
         }
     }, [product, isOpen]);
+
+    useBackButtonClose(isOpen, onClose);
 
     if (!isOpen) return null;
 

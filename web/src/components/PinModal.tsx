@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { apiFetch } from "@/lib/api";
 import { setBusinessSession } from "@/lib/businessSession";
+import { useBackButtonClose } from "@/lib/backButtonStack";
 
 type Mode = "verify" | "set" | "change";
 
@@ -70,6 +71,13 @@ export default function PinModal({ mode, onSuccess, onClose }: Props) {
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activePin]);
+
+    // No isOpen prop — the parent mounts this component only while it's
+    // meant to be shown, so "mounted" is "open." When there's no onClose
+    // (a mandatory PIN check the user can't dismiss), the back press is
+    // still consumed here as a no-op — it must not fall through and exit
+    // the app out from under an unfinished PIN entry.
+    useBackButtonClose(true, onClose ?? (() => {}));
 
     const handleSubmit = async () => {
         if (loading) return;
