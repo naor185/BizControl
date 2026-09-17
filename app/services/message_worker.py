@@ -9,7 +9,38 @@ from app.models.studio_settings import StudioSettings
 from app.models.appointment import Appointment
 from app.models.client import Client
 from app.models.studio import Studio
+from app.models.notification import Notification
 from app.crud.push import enqueue_push_to_customer_by_phone
+
+_CHANNEL_LABEL = {"whatsapp": "וואטסאפ", "email": "מייל", "push": "פוש"}
+
+
+def _notify_message_failed(db: Session, job: MessageJob) -> None:
+    """Surface a permanently-failed message (exhausted its 3 retry attempts)
+    as an in-app notification, so the studio finds out from the bell icon
+    instead of only by noticing a client never got confirmation — which is
+    what actually happened before this existed (see message-log gate 4 in
+    the launch checklist)."""
+    try:
+        recipient = None
+        if job.client_id:
+            client = db.get(Client, job.client_id)
+            recipient = client.full_name if client else None
+        elif job.recipient_user_id:
+            from app.models.user import User
+            user = db.get(User, job.recipient_user_id)
+            recipient = (user.display_name or user.email) if user else None
+        recipient = recipient or job.to_phone or "לקוח"
+        ch_label = _CHANNEL_LABEL.get(job.channel, job.channel)
+        db.add(Notification(
+            studio_id=job.studio_id,
+            type="message_failed",
+            title=f"הודעת {ch_label} נכשלה",
+            body=f"ההודעה ל{recipient} לא נשלחה אחרי 3 ניסיונות. {job.last_error or ''}"[:500],
+            action_url="/message-log",
+        ))
+    except Exception:
+        log.exception("[message_worker] failed to create failure notification for job %s", job.id)
 
 _REMINDER_LABELS = {"1day": "מחר", "7day": "בעוד שבוע", "3day": "בעוד 3 ימים", "same_day": "היום"}
 from app.crud.automation import format_template
@@ -429,7 +460,11 @@ def process_due_jobs(db: Session, limit: int = 20) -> int:
         except Exception as e:
             job.attempts = int(job.attempts or 0) + 1
             job.last_error = str(e)
-            job.status = "failed" if job.attempts >= 3 else "pending"
+            if job.attempts >= 3:
+                job.status = "failed"
+                _notify_message_failed(db, job)
+            else:
+                job.status = "pending"
         count += 1
 
     if count or needs_commit:

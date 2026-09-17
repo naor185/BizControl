@@ -18,6 +18,7 @@ const TYPE_ICON: Record<string, string> = {
     upcoming_appointment: "📅",
     new_message: "💬",
     client_optout: "🔕",
+    message_failed: "⚠️",
     system: "🔔",
 };
 
