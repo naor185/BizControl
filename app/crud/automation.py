@@ -160,13 +160,46 @@ def enqueue_confirmation_message(db: Session, appt: Appointment, artist_name: st
         ))
 
     # --- Email ---
-    if client.email and settings.confirm_email_template \
-            and _email_ok(db, appt.studio_id, "email_confirmation_enabled"):
-        email_body = smart_format(settings.confirm_email_template, context)
+    # Unlike WhatsApp above (which always has a default when the studio
+    # never configured confirm_wa_template) this had no fallback at all —
+    # a studio that never set confirm_email_template got a WhatsApp
+    # confirmation on every new booking but silently zero email, with
+    # nothing telling them a channel was missing. enqueue_reschedule_message
+    # already has exactly this default-template pattern for its own email;
+    # mirrored here.
+    email_template = settings.confirm_email_template
+    if not email_template:
+        deposit_block = ""
+        if has_deposit and context.get("payment_link"):
+            deposit_block = f"""
+            <p style="background:#fef3c7;border-radius:8px;padding:12px 16px;">
+                💳 לאישור התור נדרשת מקדמה של ₪{context.get('deposit_amount', '')}<br>
+                <a href="{context['payment_link']}">לתשלום לחצו כאן</a> — לאחר התשלום שלחו אסמכתא ונאשר את התור.
+            </p>
+            """
+        address_block = f"<p>📍 {context['studio_address']}</p>" if context.get("studio_address") else ""
+        map_block = f'<p><a href="{context["map_link"]}">🗺️ הגעה בוויז/גוגל מפות</a></p>' if context.get("map_link") else ""
+        email_template = f"""
+        <div dir="rtl" style="font-family: Arial, sans-serif; padding: 20px;">
+            <h2 style="color: #333;">התור שלך נקבע בהצלחה ✅</h2>
+            <p>שלום {{client_name}},</p>
+            <p>התור שלך ל-<strong>{{appointment_title}}</strong> נקבע.</p>
+            <p><strong>תאריך:</strong> {{appointment_date}}</p>
+            <p><strong>שעה:</strong> {{appointment_time}}</p>
+            {address_block}
+            {map_block}
+            {deposit_block}
+            <p>נשמח לראותך! 🙏</p>
+            <hr style="border: none; border-top: 1px solid #eaeaea; margin: 20px 0;" />
+            <p style="font-size: 12px; color: #888;">הודעה זו נשלחה אוטומטית ממערכת BizControl.</p>
+        </div>
+        """
+    if client.email and _email_ok(db, appt.studio_id, "email_confirmation_enabled"):
+        email_body = smart_format(email_template, context)
         db.add(MessageJob(
             studio_id=appt.studio_id, client_id=client.id, appointment_id=appt.id,
-            channel="email", to_phone=client.email, body=email_body,
-            scheduled_at=now, status="pending",
+            channel="email", to_phone=client.email, subject="✅ אישור תור",
+            body=email_body, scheduled_at=now, status="pending",
         ))
 
     db.commit()

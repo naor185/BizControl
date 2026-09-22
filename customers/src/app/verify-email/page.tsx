@@ -1,49 +1,46 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { API } from "@/lib/api";
 import { goToBizControl } from "@/lib/handoff";
 
-type Status = "loading" | "success" | "error";
+type Status = "confirm" | "loading" | "success" | "error";
 
 function VerifyInner() {
     const params = useSearchParams();
     const token = params.get("token") || "";
-    const [status, setStatus] = useState<Status>("loading");
-    const [message, setMessage] = useState("");
+    // Verifying is NOT fired automatically on load — a one-time-use link
+    // that consumes itself the moment the PAGE loads (no click required)
+    // gets silently used up by email security scanners that pre-fetch
+    // every link in an incoming message before the real recipient ever
+    // opens it (Gmail/Outlook safe-link checks, corporate mail gateways).
+    // That's what "arrived, but the link says already used" actually was —
+    // the link was fine, a bot had already spent it. Requiring an explicit
+    // click here means a bot loading the page harmlessly does nothing.
+    const [status, setStatus] = useState<Status>(token ? "confirm" : "error");
+    const [message, setMessage] = useState(token ? "" : "קישור האימות חסר או פגום.");
 
-    useEffect(() => {
-        if (!token) {
-            setStatus("error");
-            setMessage("קישור האימות חסר או פגום.");
-            return;
-        }
-        let cancelled = false;
-        (async () => {
-            try {
-                const res = await fetch(`${API}/api/marketplace/auth/verify-email`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ token }),
-                });
-                const data = await res.json().catch(() => ({}));
-                if (cancelled) return;
-                if (res.ok) {
-                    setStatus("success");
-                } else {
-                    setStatus("error");
-                    setMessage(data.detail || "אימות המייל נכשל.");
-                }
-            } catch {
-                if (!cancelled) {
-                    setStatus("error");
-                    setMessage("שגיאת רשת — נסו שוב מאוחר יותר.");
-                }
+    async function doVerify() {
+        setStatus("loading");
+        try {
+            const res = await fetch(`${API}/api/marketplace/auth/verify-email`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ token }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok) {
+                setStatus("success");
+            } else {
+                setStatus("error");
+                setMessage(data.detail || "אימות המייל נכשל.");
             }
-        })();
-        return () => { cancelled = true; };
-    }, [token]);
+        } catch {
+            setStatus("error");
+            setMessage("שגיאת רשת — נסו שוב מאוחר יותר.");
+        }
+    }
 
     const card: React.CSSProperties = {
         background: "#fff", borderRadius: 20, padding: "2.5rem 2rem", maxWidth: 440, width: "100%",
@@ -58,6 +55,14 @@ function VerifyInner() {
     return (
         <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "1.5rem", background: "linear-gradient(135deg,#faf5ff,#eef2ff)", direction: "rtl" }}>
             <div style={card}>
+                {status === "confirm" && (
+                    <>
+                        <div style={{ fontSize: "2.5rem", marginBottom: "0.75rem" }}>📧</div>
+                        <h1 style={{ fontWeight: 900, fontSize: "1.3rem", color: "#1e1b4b", marginBottom: "0.4rem" }}>אימות כתובת המייל</h1>
+                        <p style={{ color: "#64748b", fontSize: "0.92rem" }}>לחצו לאישור שזו כתובת המייל שלכם.</p>
+                        <button style={btn} onClick={doVerify}>✅ אמת את המייל שלי</button>
+                    </>
+                )}
                 {status === "loading" && (
                     <>
                         <div style={{ fontSize: "2.5rem", marginBottom: "0.75rem" }}>⏳</div>
