@@ -1,8 +1,9 @@
 from typing import Optional
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import select, func, extract, case, or_
 from datetime import datetime, timezone, timedelta
+import json
 import pytz
 
 from app.core.database import get_db
@@ -953,17 +954,24 @@ def get_calendar_occupancy(
     }
 
 
-@router.get("/setup-progress")
-def get_setup_progress(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+# Only "recommended" items can be dismissed — the "required" ones are core
+# fundamentals (business details, logo, first service/client/appointment)
+# that apply to every studio regardless of preference.
+_DISMISSIBLE_SETUP_ITEM_IDS = {
+    "staff_member", "payment_method", "self_booking", "first_product", "first_automation",
+}
+
+
+def _build_setup_items(db: Session, ctx: AuthContext) -> tuple[list[dict], dict]:
     """
-    Business-setup checklist for the dashboard's greeting/progress card.
-    Every item's `done` flag is computed live against real rows — nothing
-    here is a stored score, so it can never drift from what's actually true
-    for the studio. Items tagged with a module are dropped entirely (not
-    just marked incomplete) when that module isn't enabled for this studio,
-    via the same get_studio_modules() gate AppShell/business hub already use
-    to hide irrelevant nav — so percent is always computed out of only the
-    items that actually apply here.
+    Shared by the GET/dismiss/restore endpoints below. Every `done` flag is
+    computed live against real rows — nothing here is a stored score, so it
+    can never drift from what's actually true for the studio. Items tagged
+    with a module are dropped entirely (not just marked incomplete) when
+    that module isn't enabled for this studio, via the same
+    get_studio_modules() gate AppShell/business hub already use to hide
+    irrelevant nav. Returns (all_module_visible_items, meta) — meta carries
+    studio/settings/user for the caller to build its own response shape.
     """
     studio = db.get(Studio, ctx.studio_id)
     settings = db.get(StudioSettings, ctx.studio_id)
@@ -1007,10 +1015,28 @@ def get_setup_progress(ctx: AuthContext = Depends(require_studio_ctx), db: Sessi
     for it in items:
         it.pop("module", None)
 
-    completed_count = sum(1 for it in items if it["done"])
-    total_count = len(items)
+    return items, {"studio": studio, "settings": settings, "user": user}
+
+
+def _dismissed_ids(settings: StudioSettings | None) -> set[str]:
+    if not settings or not settings.dismissed_setup_items:
+        return set()
+    try:
+        return set(json.loads(settings.dismissed_setup_items))
+    except Exception:
+        return set()
+
+
+def _setup_progress_response(items: list[dict], dismissed: set[str], meta: dict) -> dict:
+    shown = [it for it in items if it["id"] not in dismissed]
+    hidden = [{"id": it["id"], "label": it["label"], "href": it["href"]} for it in items if it["id"] in dismissed]
+
+    completed_count = sum(1 for it in shown if it["done"])
+    total_count = len(shown)
     percent = round(completed_count / total_count * 100) if total_count else 100
 
+    user = meta["user"]
+    studio = meta["studio"]
     first_name = None
     if user and user.display_name:
         first_name = user.display_name.strip().split(" ")[0] or None
@@ -1018,8 +1044,49 @@ def get_setup_progress(ctx: AuthContext = Depends(require_studio_ctx), db: Sessi
     return {
         "owner_first_name": first_name,
         "studio_name": studio.name if studio else None,
-        "items": items,
+        "items": shown,
+        "dismissed_items": hidden,
         "completed_count": completed_count,
         "total_count": total_count,
         "percent": percent,
     }
+
+
+@router.get("/setup-progress")
+def get_setup_progress(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+    """Business-setup checklist for the dashboard's greeting/progress card."""
+    items, meta = _build_setup_items(db, ctx)
+    dismissed = _dismissed_ids(meta["settings"])
+    return _setup_progress_response(items, dismissed, meta)
+
+
+@router.post("/setup-progress/{item_id}/dismiss")
+def dismiss_setup_item(item_id: str, ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+    """Mark a 'recommended' checklist item as not relevant for this studio — it stops counting against percent."""
+    if item_id not in _DISMISSIBLE_SETUP_ITEM_IDS:
+        raise HTTPException(status_code=400, detail="This item can't be dismissed")
+    settings = db.get(StudioSettings, ctx.studio_id)
+    if not settings:
+        raise HTTPException(status_code=404, detail="Settings not found")
+    dismissed = _dismissed_ids(settings)
+    dismissed.add(item_id)
+    settings.dismissed_setup_items = json.dumps(sorted(dismissed))
+    db.commit()
+
+    items, meta = _build_setup_items(db, ctx)
+    return _setup_progress_response(items, dismissed, meta)
+
+
+@router.post("/setup-progress/{item_id}/restore")
+def restore_setup_item(item_id: str, ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+    """Undo a dismissal — the item counts again."""
+    settings = db.get(StudioSettings, ctx.studio_id)
+    if not settings:
+        raise HTTPException(status_code=404, detail="Settings not found")
+    dismissed = _dismissed_ids(settings)
+    dismissed.discard(item_id)
+    settings.dismissed_setup_items = json.dumps(sorted(dismissed))
+    db.commit()
+
+    items, meta = _build_setup_items(db, ctx)
+    return _setup_progress_response(items, dismissed, meta)

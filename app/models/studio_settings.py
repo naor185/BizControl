@@ -178,6 +178,11 @@ class StudioSettings(Base):
     self_booking_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     self_booking_slot_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=60, server_default="60")
 
+    # Setup-progress checklist — item ids the studio deliberately dismissed
+    # (JSON array of strings), so a "recommended" item they don't want
+    # (e.g. self-booking) stops counting against their completion percent.
+    dismissed_setup_items: Mapped[str | None] = mapped_column(Text, nullable=True, default=None)
+
     # Reminder toggles — כל סטודיו שולט בנפרד
     same_day_reminder_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
     reminder_1_day_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")

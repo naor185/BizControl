@@ -1396,6 +1396,13 @@ def ensure_schema():
         cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS points_celebration_enabled BOOLEAN NOT NULL DEFAULT true")
         cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS points_celebration_threshold_cents INTEGER NOT NULL DEFAULT 30000")
 
+        # ── Setup-progress checklist — a studio can dismiss a "recommended"
+        # item it deliberately doesn't want (e.g. self-booking), so it stops
+        # counting against their percent instead of nagging forever. JSON
+        # array of item ids, same lightweight-list pattern as other small
+        # per-studio lists in this table.
+        cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS dismissed_setup_items TEXT")
+
         # ── Short opt-out links — a short code instead of a long JWT in the URL ──
         cur.execute("""
             CREATE TABLE IF NOT EXISTS client_optout_links (

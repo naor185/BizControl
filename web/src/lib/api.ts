@@ -655,13 +655,28 @@ export interface SetupProgressItem {
     href: string;
 }
 
+export interface DismissedSetupItem {
+    id: string;
+    label: string;
+    href: string;
+}
+
 export interface SetupProgress {
     owner_first_name: string | null;
     studio_name: string | null;
     items: SetupProgressItem[];
+    dismissed_items: DismissedSetupItem[];
     completed_count: number;
     total_count: number;
     percent: number;
+}
+
+export function dismissSetupItem(itemId: string): Promise<SetupProgress> {
+    return apiFetch<SetupProgress>(`/api/dashboard/setup-progress/${itemId}/dismiss`, { method: "POST" });
+}
+
+export function restoreSetupItem(itemId: string): Promise<SetupProgress> {
+    return apiFetch<SetupProgress>(`/api/dashboard/setup-progress/${itemId}/restore`, { method: "POST" });
 }
 
 export function getDashboardStats(month?: number, year?: number): Promise<DashboardStats> {

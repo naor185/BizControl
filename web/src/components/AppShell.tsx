@@ -41,6 +41,7 @@ const MAIN_NAV: { href: string; label: string; icon: string; module?: string }[]
     { href: "/dashboard", label: "לוח בקרה",    icon: "📊" },
     { href: "/clients",   label: "לקוחות",       icon: "👥", module: "crm" },
     { href: "/inbox",     label: "תיבת הודעות", icon: "💬" },
+    { href: "/setup",     label: "הקמת העסק",   icon: "🚀" },
 ];
 
 export default function AppShell({
