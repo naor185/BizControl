@@ -4,7 +4,20 @@
 def _email_base(title: str, body_html: str) -> str:
     return f"""<!DOCTYPE html>
 <html lang="he">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <!-- Every color here is chosen deliberately (the dark header IS supposed
+       to be dark) — without these, Gmail/Outlook's automatic dark-mode
+       re-coloring of HTML email can invert or blend inline colors into
+       their background (e.g. white text disappearing on a navy header it
+       decided to lighten), making the message look blank even though the
+       markup and content are intact. This opts every email in the product
+       out of that auto-recoloring instead of fighting it per-color. -->
+  <meta name="color-scheme" content="light">
+  <meta name="supported-color-schemes" content="light">
+  <style>:root {{ color-scheme: light; supported-color-schemes: light; }}</style>
+</head>
 <body style="margin:0;padding:0;background:#f1f5f9;font-family:Arial,Helvetica,sans-serif;direction:rtl;text-align:right;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:40px 16px;direction:rtl;">
     <tr><td align="center">
