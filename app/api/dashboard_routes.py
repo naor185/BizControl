@@ -15,6 +15,11 @@ from app.models.pos_transaction import PosTransaction
 from app.models.message_job import MessageJob
 from app.models.studio_settings import StudioSettings
 from app.models.user import User
+from app.models.studio import Studio
+from app.models.service import Service
+from app.models.product import Product
+from app.models.automation_rule import AutomationRule
+from app.core.features import get_studio_modules
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
@@ -945,4 +950,76 @@ def get_calendar_occupancy(
         "this_month":  period_data(month_start,      next_month),
         "last_month":  period_data(last_month_start, last_month_end),
         "work_hours_per_day": work_hours,
+    }
+
+
+@router.get("/setup-progress")
+def get_setup_progress(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+    """
+    Business-setup checklist for the dashboard's greeting/progress card.
+    Every item's `done` flag is computed live against real rows — nothing
+    here is a stored score, so it can never drift from what's actually true
+    for the studio. Items tagged with a module are dropped entirely (not
+    just marked incomplete) when that module isn't enabled for this studio,
+    via the same get_studio_modules() gate AppShell/business hub already use
+    to hide irrelevant nav — so percent is always computed out of only the
+    items that actually apply here.
+    """
+    studio = db.get(Studio, ctx.studio_id)
+    settings = db.get(StudioSettings, ctx.studio_id)
+    user = db.get(User, ctx.user_id)
+
+    plan = studio.subscription_plan if studio else "free"
+    enabled_modules = get_studio_modules(db, ctx.studio_id, plan)
+
+    def count(model) -> int:
+        return db.scalar(select(func.count(model.id)).where(model.studio_id == ctx.studio_id)) or 0
+
+    has_business_details = bool(settings and settings.studio_address)
+    has_logo = bool(settings and settings.logo_filename)
+    has_service = count(Service) > 0
+    has_client = count(Client) > 0
+    has_appointment = count(Appointment) > 0
+    has_staff = (db.scalar(
+        select(func.count(User.id)).where(User.studio_id == ctx.studio_id, User.role.in_(["artist", "staff"]))
+    ) or 0) > 0
+    has_payment_method = bool(settings and (settings.bit_link or settings.paybox_link or settings.bank_account))
+    has_self_booking = bool(settings and settings.self_booking_enabled)
+    has_product = count(Product) > 0
+    has_automation_rule = count(AutomationRule) > 0
+
+    all_items = [
+        {"id": "business_details",  "label": "עדכנו את פרטי העסק",           "tier": "required",    "done": has_business_details, "href": "/automation?tab=branding", "module": None},
+        {"id": "logo",              "label": "העלו לוגו לעסק",               "tier": "required",    "done": has_logo,             "href": "/automation?tab=branding", "module": None},
+        {"id": "first_service",     "label": "הוסיפו שירות ראשון",           "tier": "required",    "done": has_service,          "href": "/services",                "module": None},
+        {"id": "first_client",      "label": "הוסיפו לקוח ראשון",            "tier": "required",    "done": has_client,           "href": "/clients",                 "module": None},
+        {"id": "first_appointment", "label": "קבעו תור ראשון",               "tier": "required",    "done": has_appointment,      "href": "/calendar",                "module": "calendar"},
+        {"id": "staff_member",      "label": "הוסיפו איש/אשת צוות",          "tier": "recommended", "done": has_staff,            "href": "/team",                    "module": None},
+        {"id": "payment_method",    "label": "הגדירו אמצעי תשלום למקדמות",   "tier": "recommended", "done": has_payment_method,   "href": "/automation?tab=finance",  "module": None},
+        {"id": "self_booking",      "label": "הפעילו קביעת תורים עצמאית",    "tier": "recommended", "done": has_self_booking,     "href": "/automation?tab=policy",   "module": None},
+        {"id": "first_product",     "label": "הוסיפו מוצר ראשון",            "tier": "recommended", "done": has_product,          "href": "/products",                "module": "products"},
+        {"id": "first_automation",  "label": "צרו אוטומציה ראשונה",          "tier": "recommended", "done": has_automation_rule,  "href": "/automations",             "module": "automation_builder"},
+    ]
+
+    # Missing key in enabled_modules defaults to True — same "no key = shown"
+    # convention business/page.tsx already relies on for its own hub tiles.
+    items = [it for it in all_items if it["module"] is None or enabled_modules.get(it["module"], True)]
+    for it in items:
+        it.pop("module", None)
+
+    completed_count = sum(1 for it in items if it["done"])
+    total_count = len(items)
+    percent = round(completed_count / total_count * 100) if total_count else 100
+
+    first_name = None
+    if user and user.display_name:
+        first_name = user.display_name.strip().split(" ")[0] or None
+
+    return {
+        "owner_first_name": first_name,
+        "studio_name": studio.name if studio else None,
+        "items": items,
+        "completed_count": completed_count,
+        "total_count": total_count,
+        "percent": percent,
     }

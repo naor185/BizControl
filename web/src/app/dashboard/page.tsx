@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 import RequireAuth from "@/components/RequireAuth";
 import AppShell from "@/components/AppShell";
-import { apiFetch, DashboardStats } from "@/lib/api";
+import { apiFetch, DashboardStats, SetupProgress } from "@/lib/api";
 import PaymentModal from "@/components/PaymentModal";
+import SetupProgressCard from "@/components/SetupProgressCard";
 import { BIZFIND_URL } from "@/lib/config";
 import {
     BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip,
@@ -112,10 +113,12 @@ export default function Page() {
         daily_views: { date: string; count: number }[];
     } | null>(null);
 
+    const [setupProgress, setSetupProgress] = useState<SetupProgress | null>(null);
+
     const fetchData = async () => {
         try {
             setLoading(true);
-            const [statsData, paymentsData, pendingData, depositsData, bfData, occData, todayRevData, pendingGiftCardsData] = await Promise.all([
+            const [statsData, paymentsData, pendingData, depositsData, bfData, occData, todayRevData, pendingGiftCardsData, setupProgressData] = await Promise.all([
                 apiFetch<DashboardStats>("/api/dashboard/stats"),
                 apiFetch<DailyPayment[]>("/api/dashboard/daily-payments"),
                 apiFetch<PendingPayment[]>("/api/dashboard/pending-payments"),
@@ -124,6 +127,7 @@ export default function Page() {
                 apiFetch<OccupancyData>("/api/dashboard/occupancy").catch(() => null),
                 apiFetch<any>("/api/dashboard/today-revenue").catch(() => null),
                 apiFetch<PendingGiftCard[]>("/api/dashboard/pending-gift-cards").catch(() => []),
+                apiFetch<SetupProgress>("/api/dashboard/setup-progress").catch(() => null),
             ]);
             setStats(statsData);
             setDailyPayments(paymentsData);
@@ -133,6 +137,7 @@ export default function Page() {
             setOccupancy(occData);
             setTodayRevenue(todayRevData);
             setPendingGiftCards(pendingGiftCardsData);
+            setSetupProgress(setupProgressData);
         } catch {
             setError("שגיאה בטעינת נתונים");
         } finally {
@@ -225,6 +230,10 @@ export default function Page() {
         <RequireAuth>
             <AppShell title="לוח בקרה">
                 <div className="space-y-6 animate-in fade-in duration-300">
+
+                    {setupProgress && setupProgress.percent < 100 && (
+                        <SetupProgressCard progress={setupProgress} />
+                    )}
 
                     {/* ── Calendar Occupancy Card ── */}
                     {occupancy && (() => {

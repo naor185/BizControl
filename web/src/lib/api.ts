@@ -647,6 +647,23 @@ export interface DashboardStats {
     };
 }
 
+export interface SetupProgressItem {
+    id: string;
+    label: string;
+    tier: "required" | "recommended";
+    done: boolean;
+    href: string;
+}
+
+export interface SetupProgress {
+    owner_first_name: string | null;
+    studio_name: string | null;
+    items: SetupProgressItem[];
+    completed_count: number;
+    total_count: number;
+    percent: number;
+}
+
 export function getDashboardStats(month?: number, year?: number): Promise<DashboardStats> {
     const params = new URLSearchParams();
     if (month) params.append("month", String(month));

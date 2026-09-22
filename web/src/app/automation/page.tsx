@@ -2069,15 +2069,6 @@ export default function AutomationSettingsPage() {
                                 <div className="flex flex-col gap-4">
                                     {[
                                         {
-                                            icon: "💬",
-                                            color: "bg-emerald-100",
-                                            title: "WhatsApp",
-                                            desc: "שלח הודעות אוטומטיות, תזכורות ועדכונים ללקוחות. לידים חדשים נוצרים אוטומטית.",
-                                            connected: !!(settings.whatsapp_api_key),
-                                            href: "/integrations/whatsapp",
-                                            logo: null,
-                                        },
-                                        {
                                             icon: "📸",
                                             color: "bg-gradient-to-br from-purple-100 to-pink-100",
                                             title: "Instagram",
