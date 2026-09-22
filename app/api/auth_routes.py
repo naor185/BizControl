@@ -693,10 +693,16 @@ def resend_verification(request: Request, current_user: User = Depends(get_curre
     bizfind_url = os.getenv("BIZFIND_URL", "https://find.biz-control.com").rstrip("/")
     verify_link = f"{bizfind_url}/verify-email?token={token}"
     try:
+        # A different subject than the original signup email — Gmail (and
+        # most mail clients) group messages into one conversation primarily
+        # by exact subject match; with no In-Reply-To/References headers
+        # set here to override that, every resend kept landing in the same
+        # thread as the very first email, reading as "the same message"
+        # even though the link inside was genuinely new each time.
         email_sent = send_email(
             db,
             to_email=current_user.email,
-            subject="אימות כתובת המייל — BizControl",
+            subject="תזכורת: אימות כתובת המייל — BizControl",
             html_content=verify_email_html(current_user.display_name or current_user.email, verify_link),
             from_name="BizControl",
             studio_id=str(current_user.studio_id),
