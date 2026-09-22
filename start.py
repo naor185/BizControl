@@ -990,14 +990,22 @@ def ensure_schema():
             CREATE TABLE IF NOT EXISTS password_reset_otps (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                 user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                email VARCHAR(255) NOT NULL,
+                email VARCHAR(255),
+                phone VARCHAR(32),
                 code VARCHAR(6) NOT NULL,
                 expires_at TIMESTAMPTZ NOT NULL,
                 used_at TIMESTAMPTZ,
                 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
             )
         """)
+        # The WhatsApp recovery flow was redesigned to key off phone (typed
+        # directly by the owner) instead of email — email was never NULL
+        # before, existing rows still have it; drop the constraint so new
+        # phone-keyed rows don't need one.
+        cur.execute("ALTER TABLE password_reset_otps ALTER COLUMN email DROP NOT NULL")
+        cur.execute("ALTER TABLE password_reset_otps ADD COLUMN IF NOT EXISTS phone VARCHAR(32)")
         cur.execute("CREATE INDEX IF NOT EXISTS ix_password_reset_otps_email ON password_reset_otps (email, expires_at)")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_password_reset_otps_phone ON password_reset_otps (phone, expires_at)")
 
         cur.execute("""
             CREATE TABLE IF NOT EXISTS marketplace_favorites (

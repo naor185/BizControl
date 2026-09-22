@@ -11,10 +11,11 @@ type PhoneStep = "request" | "verify";
 const T: Record<string, Record<Lang, string>> = {
     title:          { he: "שכחת סיסמה?",                       en: "Forgot Password?" },
     subtitleEmail:  { he: "הזן את האימייל שלך ונשלח לך קישור לאיפוס", en: "Enter your email and we'll send a reset link" },
-    subtitlePhone:  { he: "הזן את האימייל שלך ונשלח קוד אימות בוואטסאפ לטלפון הרשום", en: "Enter your email and we'll WhatsApp a code to your phone on file" },
+    subtitlePhone:  { he: "הזן את מספר הטלפון שלך ונשלח קוד אימות בוואטסאפ", en: "Enter your phone number and we'll WhatsApp you a code" },
     tabEmail:       { he: "אימייל",                              en: "Email" },
     tabPhone:       { he: "וואטסאפ",                             en: "WhatsApp" },
     emailLabel:     { he: "אימייל",                              en: "Email" },
+    phoneLabel:     { he: "טלפון",                               en: "Phone" },
     codeLabel:      { he: "קוד אימות",                           en: "Verification code" },
     sendLink:       { he: "שלח קישור לאיפוס",                    en: "Send Reset Link" },
     sendCode:       { he: "שלח קוד בוואטסאפ",                    en: "Send WhatsApp Code" },
@@ -24,9 +25,9 @@ const T: Record<string, Record<Lang, string>> = {
     sentTitle:      { he: "נשלח!",                                en: "Sent!" },
     sentBodyEmail:  { he: "קישור לאיפוס סיסמה נשלח לאימייל שלך.", en: "A password reset link has been sent to your email." },
     spamNote:       { he: "בדוק גם את תיקיית הספאם.",             en: "Check your spam folder too." },
-    codeSentNote:   { he: "אם קיים טלפון רשום לחשבון הזה, נשלח אליו קוד בוואטסאפ. הקוד תקף ל-10 דקות.", en: "If a phone is on file for this account, a WhatsApp code was sent. It's valid for 10 minutes." },
+    codeSentNote:   { he: "אם המספר הזה רשום במערכת, נשלח אליו קוד בוואטסאפ. הקוד תקף ל-10 דקות.", en: "If this number is on file, a WhatsApp code was sent. It's valid for 10 minutes." },
     resend:         { he: "לא קיבלת? שלח קוד חדש",                en: "Didn't get it? Send a new code" },
-    changeEmail:    { he: "← אימייל אחר",                        en: "← Different email" },
+    changePhone:    { he: "← טלפון אחר",                         en: "← Different phone" },
     back:           { he: "← חזור להתחברות",                     en: "← Back to login" },
     network:        { he: "לא ניתן להתחבר לשרת",                 en: "Cannot connect to server" },
     invalidCode:    { he: "קוד שגוי או פג תוקף",                  en: "Invalid or expired code" },
@@ -37,6 +38,7 @@ export default function ForgotPasswordPage() {
     const [method, setMethod] = useState<Method>("email");
     const [phoneStep, setPhoneStep] = useState<PhoneStep>("request");
     const [email, setEmail] = useState("");
+    const [phone, setPhone] = useState("");
     const [code, setCode] = useState("");
     const [loading, setLoading] = useState(false);
     const [sent, setSent] = useState(false);
@@ -95,7 +97,7 @@ export default function ForgotPasswordPage() {
             await apiFetch("/api/auth/forgot-password/phone", {
                 method: "POST",
                 auth: false,
-                body: JSON.stringify({ email: email.toLowerCase().trim() }),
+                body: JSON.stringify({ phone: phone.trim() }),
             });
             setPhoneStep("verify");
         } catch (e) {
@@ -118,7 +120,7 @@ export default function ForgotPasswordPage() {
             const { token } = await apiFetch<{ token: string }>("/api/auth/forgot-password/verify-phone", {
                 method: "POST",
                 auth: false,
-                body: JSON.stringify({ email: email.toLowerCase().trim(), code: code.trim() }),
+                body: JSON.stringify({ phone: phone.trim(), code: code.trim() }),
             });
             window.location.href = `/set-password?token=${encodeURIComponent(token)}`;
         } catch (e) {
@@ -216,12 +218,12 @@ export default function ForgotPasswordPage() {
                             {method === "phone" && phoneStep === "request" && (
                                 <form onSubmit={requestPhoneCode} className="space-y-4">
                                     <div>
-                                        <label className="text-xs font-semibold text-blue-100/80 block mb-1.5">{t("emailLabel")}</label>
+                                        <label className="text-xs font-semibold text-blue-100/80 block mb-1.5">{t("phoneLabel")}</label>
                                         <input
-                                            type="email"
-                                            value={email}
-                                            onChange={e => setEmail(e.target.value)}
-                                            placeholder="you@example.com"
+                                            type="tel"
+                                            value={phone}
+                                            onChange={e => setPhone(e.target.value)}
+                                            placeholder="050-1234567"
                                             dir="ltr"
                                             required
                                             className={inputCls}
@@ -232,7 +234,7 @@ export default function ForgotPasswordPage() {
 
                                     <button
                                         type="submit"
-                                        disabled={loading || !email}
+                                        disabled={loading || !phone}
                                         className="w-full rounded-2xl bg-white/20 hover:bg-white/30 border border-white/30 text-white py-3 font-semibold disabled:opacity-50 transition-all backdrop-blur shadow-lg"
                                     >
                                         {loading ? t("sending") : t("sendCode")}
@@ -279,7 +281,7 @@ export default function ForgotPasswordPage() {
                                             onClick={() => { setPhoneStep("request"); setCode(""); setErr(null); }}
                                             className="text-sm text-blue-200/50 hover:text-blue-200/80 transition-colors"
                                         >
-                                            {t("changeEmail")}
+                                            {t("changePhone")}
                                         </button>
                                         <button
                                             type="button"

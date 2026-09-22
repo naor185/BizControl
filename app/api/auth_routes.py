@@ -434,6 +434,13 @@ def _gen_reset_code() -> str:
     return "".join(random.choices(string.digits, k=6))
 
 
+def _normalize_il_phone(phone: str) -> str:
+    clean = (phone or "").strip().replace("+", "").replace(" ", "").replace("-", "")
+    if clean.startswith("0") and len(clean) >= 9:
+        clean = "972" + clean[1:]
+    return clean
+
+
 def _send_reset_code_whatsapp(phone: str, code: str, db: Session) -> None:
     """Send a password-reset code over WhatsApp using the platform-level
     Green API instance (same credentials/pattern as
@@ -512,22 +519,31 @@ def forgot_password(request: Request, payload: ForgotPasswordIn, db: Session = D
     return {"status": "sent"}
 
 
+class ForgotPasswordPhoneIn(BaseModel):
+    phone: str
+
+
 class VerifyResetCodeIn(BaseModel):
-    email: str
+    phone: str
     code: str
 
 
 @router.post("/forgot-password/phone")
 @limiter.limit("5/minute")
-def forgot_password_phone(request: Request, payload: ForgotPasswordIn, db: Session = Depends(get_db)):
-    """Alternative to the email link: send a 6-digit code over WhatsApp to
-    the phone on file, for owners who'd rather not wait on email. Silently
-    no-ops (same {"status": "sent"} response) when the email is unknown or
-    none of its active studio memberships have a phone on file — same
-    anti-enumeration posture as the email path."""
-    email = payload.email.lower().strip()
-    users = db.query(User).filter(User.email == email, User.is_active == True).all()  # noqa: E712
-    user = next((u for u in users if u.phone), None)
+def forgot_password_phone(request: Request, payload: ForgotPasswordPhoneIn, db: Session = Depends(get_db)):
+    """Alternative to the email link: the owner types their phone directly
+    (not email — "recover via WhatsApp" means giving the phone WhatsApp
+    will message, and doesn't require remembering which email a
+    half-forgotten account used) and gets a 6-digit code over WhatsApp.
+    Silently no-ops (same {"status": "sent"} response) when no active user
+    has that phone on file — same anti-enumeration posture as the email
+    path."""
+    target = _normalize_il_phone(payload.phone)
+    if not target:
+        return {"status": "sent"}
+
+    candidates = db.query(User).filter(User.phone.isnot(None), User.is_active == True).all()  # noqa: E712
+    user = next((u for u in candidates if _normalize_il_phone(u.phone) == target), None)
     if not user:
         return {"status": "sent"}
 
@@ -535,8 +551,8 @@ def forgot_password_phone(request: Request, payload: ForgotPasswordIn, db: Sessi
     expires = datetime.now(timezone.utc) + timedelta(minutes=10)
     db.execute(text("UPDATE password_reset_otps SET used_at = NOW() WHERE user_id = :uid AND used_at IS NULL"), {"uid": str(user.id)})
     db.execute(
-        text("INSERT INTO password_reset_otps (id, user_id, email, code, expires_at) VALUES (:id, :uid, :email, :code, :exp)"),
-        {"id": str(uuid.uuid4()), "uid": str(user.id), "email": email, "code": code, "exp": expires},
+        text("INSERT INTO password_reset_otps (id, user_id, phone, code, expires_at) VALUES (:id, :uid, :phone, :code, :exp)"),
+        {"id": str(uuid.uuid4()), "uid": str(user.id), "phone": target, "code": code, "exp": expires},
     )
     db.commit()
     _send_reset_code_whatsapp(user.phone, code, db)
@@ -549,17 +565,17 @@ def forgot_password_verify_phone(request: Request, payload: VerifyResetCodeIn, d
     """Verify a WhatsApp code and return a set-password token directly — the
     phone check IS the proof of ownership, so this skips the emailed link
     entirely and the frontend can jump straight to setting a new password."""
-    email = payload.email.lower().strip()
+    target = _normalize_il_phone(payload.phone)
     code = payload.code.strip()
     now = datetime.now(timezone.utc)
     row = db.execute(
         text("""
             SELECT user_id FROM password_reset_otps
-            WHERE email = :email AND code = :code
+            WHERE phone = :phone AND code = :code
               AND expires_at > :now AND used_at IS NULL
             ORDER BY created_at DESC LIMIT 1
         """),
-        {"email": email, "code": code, "now": now},
+        {"phone": target, "code": code, "now": now},
     ).fetchone()
     if not row:
         raise HTTPException(status_code=400, detail="קוד שגוי או פג תוקף")
@@ -626,11 +642,27 @@ def me(current_user: User = Depends(get_current_user)):
         "id": str(current_user.id),
         "email": current_user.email,
         "display_name": current_user.display_name,
+        "phone": current_user.phone,
         "role": current_user.role,
         "studio_id": str(current_user.studio_id),
         "totp_enabled": bool(current_user.totp_secret),
         "email_verified": bool(current_user.email_verified),
     }
+
+
+class UpdateMyPhoneIn(BaseModel):
+    phone: str
+
+
+@router.patch("/me/phone")
+def update_my_phone(payload: UpdateMyPhoneIn, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Lets the logged-in user set/change their own phone — needed for the
+    WhatsApp password-recovery option to work at all (it matches against
+    User.phone, which nothing else in the product ever asked an owner to
+    fill in)."""
+    current_user.phone = payload.phone.strip() or None
+    db.commit()
+    return {"phone": current_user.phone}
 
 
 @router.post("/resend-verification")
@@ -645,15 +677,27 @@ def resend_verification(request: Request, current_user: User = Depends(get_curre
     if current_user.email_verified:
         return {"ok": True, "already_verified": True}
 
-    token = secrets.token_urlsafe(32)
-    current_user.email_verify_token = token
-    current_user.email_verify_sent_at = datetime.now(timezone.utc)
-    db.commit()
+    # Reuse the existing token if it's still valid instead of always minting
+    # a fresh one — a new token overwrites users.email_verify_token (there's
+    # only one column, one value), which silently invalidated every earlier
+    # email's link. Someone who clicks an OLDER email still in their inbox
+    # after a resend got "link invalid" even though they never asked for
+    # that specific link to stop working.
+    token = current_user.email_verify_token
+    sent_at = current_user.email_verify_sent_at
+    is_stale = not token or not sent_at or (
+        datetime.now(timezone.utc) - (sent_at if sent_at.tzinfo else sent_at.replace(tzinfo=timezone.utc))
+    ) > timedelta(days=7)
+    if is_stale:
+        token = secrets.token_urlsafe(32)
+        current_user.email_verify_token = token
+        current_user.email_verify_sent_at = datetime.now(timezone.utc)
+        db.commit()
 
     bizfind_url = os.getenv("BIZFIND_URL", "https://find.biz-control.com").rstrip("/")
     verify_link = f"{bizfind_url}/verify-email?token={token}"
     try:
-        send_email(
+        email_sent = send_email(
             db,
             to_email=current_user.email,
             subject="אימות כתובת המייל — BizControl",
@@ -663,6 +707,8 @@ def resend_verification(request: Request, current_user: User = Depends(get_curre
             template_key="verify_email",
             email_type="system",
         )
+        if not email_sent:
+            raise RuntimeError("send_email() returned False")
     except Exception as e:
         log.error("[resend_verification] email failed: %s", e)
         raise HTTPException(status_code=502, detail="שליחת מייל האימות נכשלה, נסה שוב מאוחר יותר")

@@ -633,11 +633,39 @@ export default function AutomationSettingsPage() {
     const [totpMsg, setTotpMsg] = useState<string | null>(null);
     const [totpLoading, setTotpLoading] = useState(false);
 
+    // My account state — email (read-only) + phone, which nothing else in
+    // the product ever asked an owner to fill in, but the WhatsApp
+    // password-recovery option needs it to have anything to match against.
+    const [myEmail, setMyEmail] = useState("");
+    const [myPhone, setMyPhone] = useState("");
+    const [myPhoneSaving, setMyPhoneSaving] = useState(false);
+    const [myPhoneMsg, setMyPhoneMsg] = useState<string | null>(null);
+
     useEffect(() => {
-        apiFetch<{ totp_enabled: boolean }>("/api/auth/me")
-            .then(me => setTotpEnabled(me.totp_enabled))
+        apiFetch<{ totp_enabled: boolean; email: string; phone: string | null }>("/api/auth/me")
+            .then(me => {
+                setTotpEnabled(me.totp_enabled);
+                setMyEmail(me.email);
+                setMyPhone(me.phone || "");
+            })
             .catch(() => {});
     }, []);
+
+    const saveMyPhone = async () => {
+        setMyPhoneSaving(true);
+        setMyPhoneMsg(null);
+        try {
+            await apiFetch("/api/auth/me/phone", {
+                method: "PATCH",
+                body: JSON.stringify({ phone: myPhone.trim() }),
+            });
+            setMyPhoneMsg("✓ נשמר");
+        } catch (e: unknown) {
+            setMyPhoneMsg((e as Error)?.message || "שגיאה בשמירה");
+        } finally {
+            setMyPhoneSaving(false);
+        }
+    };
 
     useEffect(() => {
         apiFetch<Settings>("/api/studio/automation", { method: "GET" })
@@ -2231,6 +2259,47 @@ export default function AutomationSettingsPage() {
                         )}
 
                     </div>
+                </div>
+
+                {/* My Account Section */}
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 mt-6">
+                    <div className="flex items-center gap-3 mb-4">
+                        <span className="text-2xl">👤</span>
+                        <div>
+                            <h3 className="font-bold text-slate-800">הפרטים שלי</h3>
+                            <p className="text-sm text-slate-500">מספר הטלפון שלך נדרש כדי שתוכל לשחזר סיסמה דרך וואטסאפ</p>
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
+                        <div>
+                            <label className="text-xs font-semibold text-slate-500 block mb-1.5">אימייל</label>
+                            <input value={myEmail} disabled dir="ltr" className="w-full border rounded-xl px-4 py-2 bg-slate-50 text-slate-400 text-sm" />
+                        </div>
+                        <div>
+                            <label className="text-xs font-semibold text-slate-500 block mb-1.5">טלפון</label>
+                            <div className="flex gap-2">
+                                <input
+                                    value={myPhone}
+                                    onChange={e => setMyPhone(e.target.value)}
+                                    placeholder="050-1234567"
+                                    dir="ltr"
+                                    className="flex-1 border rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-black/20"
+                                />
+                                <button
+                                    onClick={saveMyPhone}
+                                    disabled={myPhoneSaving}
+                                    className="bg-black text-white text-sm font-semibold px-4 py-2 rounded-xl hover:bg-gray-800 disabled:opacity-50 transition"
+                                >
+                                    {myPhoneSaving ? "שומר..." : "שמור"}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    {myPhoneMsg && (
+                        <div className={`text-sm rounded-xl px-4 py-3 mt-3 ${myPhoneMsg.startsWith("✓") ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"}`}>
+                            {myPhoneMsg}
+                        </div>
+                    )}
                 </div>
 
                 {/* 2FA Section */}
