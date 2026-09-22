@@ -305,6 +305,38 @@ def ensure_schema():
         cur.execute("ALTER TABLE booking_requests ADD COLUMN IF NOT EXISTS service_id UUID REFERENCES services(id) ON DELETE SET NULL")
         cur.execute("CREATE INDEX IF NOT EXISTS ix_booking_requests_service_id ON booking_requests (service_id)")
 
+        # One-time repair: marketplace_routes.py's slug generator used to let
+        # non-ASCII characters straight through (Python's \w in unicode mode
+        # matches Hebrew letters), so an all-Hebrew business name became a
+        # literal Hebrew slug (e.g. "קליניקה"). That round-trips inconsistently
+        # through URL encoding across different code paths — Next.js's
+        # useParams() on a client-side navigation can hand back a still-percent-
+        # encoded value for a non-ASCII route segment while an API response
+        # carries it as plain text, so an exact-match lookup against it silently
+        # never matches — which is exactly what broke "my own business shows
+        # not found" for every Hebrew-named studio. Regenerate any slug that
+        # isn't plain ASCII from the studio's name, the same way a fresh
+        # registration would today (see the fixed _slugify() in
+        # marketplace_routes.py) — never touches an already-ASCII slug, so a
+        # studio's existing public links are untouched unless they were
+        # already broken by this bug.
+        import re as _re
+        cur.execute("SELECT id, name, slug FROM studios WHERE slug ~ '[^a-z0-9-]'")
+        for _sid, _name, _old_slug in cur.fetchall():
+            _base = _re.sub(r"[^a-z0-9\s-]", "", (_name or "").lower().strip())
+            _base = _re.sub(r"[\s_]+", "-", _base)
+            _base = _re.sub(r"-+", "-", _base).strip("-")[:48] or "business"
+            _new_slug = _base
+            _n = 1
+            while True:
+                cur.execute("SELECT 1 FROM studios WHERE slug = %s AND id != %s", (_new_slug, _sid))
+                if not cur.fetchone():
+                    break
+                _new_slug = f"{_base}-{_n}"
+                _n += 1
+            cur.execute("UPDATE studios SET slug = %s WHERE id = %s", (_new_slug, _sid))
+            print(f"[start] fixed non-ASCII studio slug: {_old_slug!r} -> {_new_slug!r} (studio {_sid})")
+
         cur.execute("""
             CREATE TABLE IF NOT EXISTS studio_gallery (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

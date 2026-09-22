@@ -24,7 +24,13 @@ VALID_CATEGORIES = {
 
 def slugify(name: str) -> str:
     slug = name.lower().strip()
-    slug = re.sub(r"[^\w\s-]", "", slug, flags=re.UNICODE)
+    # ASCII-only, not \w — \w in unicode mode (the previous flags=re.UNICODE)
+    # matches Hebrew letters too, so an all-Hebrew business name (the common
+    # case for an OSM import in Israel) passed straight through as a literal
+    # Hebrew slug, which round-trips inconsistently through URL encoding
+    # across different code paths (see the matching fix + full explanation
+    # in app/api/marketplace_routes.py's _slugify).
+    slug = re.sub(r"[^a-z0-9\s-]", "", slug)
     slug = re.sub(r"[\s_]+", "-", slug)
     slug = re.sub(r"-+", "-", slug).strip("-")
     return slug[:48] or "business"

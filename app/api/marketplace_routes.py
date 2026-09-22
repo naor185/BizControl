@@ -101,7 +101,19 @@ class BizFindRegisterIn(BaseModel):
 def _slugify(name: str) -> str:
     import re
     slug = name.lower().strip()
-    slug = re.sub(r"[^\w\s-]", "", slug, flags=re.UNICODE)
+    # ASCII-only, not \w — \w in unicode mode (the previous flags=re.UNICODE)
+    # matches Hebrew letters too, so an all-Hebrew business name (routine on
+    # a Hebrew-first product) passed straight through as a literal Hebrew
+    # slug. That round-trips inconsistently through URL encoding across
+    # different code paths (a client-side Next.js navigation can hand back a
+    # still-percent-encoded value for a non-ASCII route segment where an API
+    # response carries the same slug as plain text), so an exact-match
+    # lookup against it can silently never match. A name with no Latin
+    # letters at all (the common case here) falls through to the "business"
+    # fallback below, same as an empty name always did — the caller's
+    # existing uniqueness loop (base_slug, then base_slug-1, -2, ...) handles
+    # the rest.
+    slug = re.sub(r"[^a-z0-9\s-]", "", slug)
     slug = re.sub(r"[\s_]+", "-", slug)
     slug = re.sub(r"-+", "-", slug).strip("-")
     return slug[:48] or "business"

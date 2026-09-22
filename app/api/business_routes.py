@@ -35,7 +35,13 @@ CLAIM_TOKEN_TTL_MINUTES = 15
 def _slugify(name: str) -> str:
     import re
     slug = name.lower().strip()
-    slug = re.sub(r"[^\w\s-]", "", slug, flags=re.UNICODE)
+    # ASCII-only, not \w — \w in unicode mode (the previous flags=re.UNICODE)
+    # matches Hebrew letters too, so an all-Hebrew business name passed
+    # straight through as a literal Hebrew slug, which round-trips
+    # inconsistently through URL encoding across different code paths (see
+    # the matching fix + full explanation in marketplace_routes.py's
+    # _slugify, and start.py's one-time repair for slugs this already broke).
+    slug = re.sub(r"[^a-z0-9\s-]", "", slug)
     slug = re.sub(r"[\s_]+", "-", slug)
     slug = re.sub(r"-+", "-", slug).strip("-")
     return slug[:48] or "business"
