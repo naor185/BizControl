@@ -215,14 +215,14 @@ export default function ServicesPage() {
     const load = useCallback(async () => {
         setLoading(true);
         try {
-            const [svcs, staffData] = await Promise.all([
-                apiFetch<Service[]>("/api/services?active_only=false"),
-                apiFetch<StaffMember[]>("/api/artists"),
-            ]);
+            const svcs = await apiFetch<Service[]>("/api/services?active_only=false");
             setServices(svcs);
+        } catch (e: any) { toast.error(e.message || "שגיאה בטעינת השירותים"); }
+        try {
+            const staffData = await apiFetch<StaffMember[]>("/api/users/artists");
             setStaff(staffData);
         } catch { }
-        finally { setLoading(false); }
+        setLoading(false);
     }, []);
 
     useEffect(() => { load(); }, [load]);
