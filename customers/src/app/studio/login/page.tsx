@@ -108,10 +108,10 @@ export default function StudioLoginPage() {
                     <div style={{ marginTop: "1.5rem", paddingTop: "1.5rem", borderTop: "1px solid #f1f5f9", textAlign: "center" }}>
                         <p style={{ color: "#64748b", fontSize: "0.85rem", marginBottom: "0.75rem" }}>אין לכם חשבון BizControl?</p>
                         <div style={{ display: "flex", gap: "0.6rem", justifyContent: "center", flexWrap: "wrap" }}>
-                            <a href="https://www.biz-control.com" target="_blank" rel="noopener"
+                            <Link href="/for-business/register?plan=trial"
                                 style={{ background: "linear-gradient(135deg,#7c3aed,#4f46e5)", color: "#fff", padding: "0.55rem 1.1rem", borderRadius: 10, fontWeight: 700, fontSize: "0.82rem", textDecoration: "none" }}>
-                                🚀 נסו BizControl בחינם
-                            </a>
+                                🚀 הצטרפו בחינם
+                            </Link>
                             <Link href="/for-business"
                                 style={{ background: "#f5f3ff", color: "#7c3aed", padding: "0.55rem 1.1rem", borderRadius: 10, fontWeight: 700, fontSize: "0.82rem", textDecoration: "none", border: "1px solid #ede9fe" }}>
                                 📋 למד עוד
