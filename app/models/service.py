@@ -27,6 +27,15 @@ class Service(Base):
     requires_consultation: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     is_bookable_online: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # Previously lived only on studio_settings.treatment_types (a JSON blob
+    # with no relation to a real Service row, matched to appointments only by
+    # fuzzy title-substring comparison) — moved onto the Service itself so a
+    # deposit/aftercare rule is actually tied to the specific service, not a
+    # loose name string. See start.py for the one-time migration that folds
+    # existing treatment_types entries into real Service rows.
+    requires_deposit: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    deposit_amount_cents: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    send_aftercare: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

@@ -291,6 +291,13 @@ def ensure_schema():
             )
         """)
         cur.execute("CREATE INDEX IF NOT EXISTS ix_services_studio ON services (studio_id)")
+        # Deposit/aftercare used to live only on studio_settings.treatment_types
+        # (a JSON blob with no relation to a real Service row) — moved onto the
+        # Service itself; see the one-time migration below that folds existing
+        # treatment_types entries into real Service rows.
+        cur.execute("ALTER TABLE services ADD COLUMN IF NOT EXISTS requires_deposit BOOLEAN NOT NULL DEFAULT false")
+        cur.execute("ALTER TABLE services ADD COLUMN IF NOT EXISTS deposit_amount_cents INTEGER NOT NULL DEFAULT 0")
+        cur.execute("ALTER TABLE services ADD COLUMN IF NOT EXISTS send_aftercare BOOLEAN NOT NULL DEFAULT false")
         cur.execute("""
             CREATE TABLE IF NOT EXISTS service_staff (
                 service_id UUID NOT NULL REFERENCES services(id) ON DELETE CASCADE,
@@ -304,6 +311,53 @@ def ensure_schema():
         # instead of everyone always taking the studio's flat self_booking_slot_minutes.
         cur.execute("ALTER TABLE booking_requests ADD COLUMN IF NOT EXISTS service_id UUID REFERENCES services(id) ON DELETE SET NULL")
         cur.execute("CREATE INDEX IF NOT EXISTS ix_booking_requests_service_id ON booking_requests (service_id)")
+
+        # One-time migration: fold studio_settings.treatment_types (a JSON
+        # array of {name, requires_deposit, deposit_amount_ils, send_aftercare}
+        # with no id/FK, matched to appointments only by fuzzy title-substring
+        # comparison) into real Service rows — one studio-owner-facing catalog
+        # instead of two disconnected places to configure "what is a bookable
+        # treatment." For each entry: update the existing Service with a
+        # matching name (case-insensitive) if one exists, else create one
+        # (duration defaults to 60 min — unknown before, since treatment_types
+        # never had a duration field at all). Clears treatment_types on the
+        # studio afterward so this only runs once per studio, ever — a studio
+        # visited again on a later startup with treatment_types already NULL
+        # is simply skipped.
+        import json as _json_mig
+        cur.execute("SELECT studio_id, treatment_types FROM studio_settings WHERE treatment_types IS NOT NULL")
+        for _stid, _raw in cur.fetchall():
+            try:
+                _entries = _json_mig.loads(_raw) if isinstance(_raw, str) else _raw
+            except Exception:
+                _entries = []
+            for _entry in (_entries or []):
+                _tname = (_entry.get("name") or "").strip()
+                if not _tname:
+                    continue
+                _req_dep = bool(_entry.get("requires_deposit"))
+                _dep_cents = round(float(_entry.get("deposit_amount_ils") or 0) * 100)
+                _aftercare = bool(_entry.get("send_aftercare"))
+                cur.execute(
+                    "SELECT id FROM services WHERE studio_id = %s AND lower(name) = lower(%s) LIMIT 1",
+                    (_stid, _tname),
+                )
+                _match = cur.fetchone()
+                if _match:
+                    cur.execute(
+                        "UPDATE services SET requires_deposit = %s, deposit_amount_cents = %s, send_aftercare = %s WHERE id = %s",
+                        (_req_dep, _dep_cents, _aftercare, _match[0]),
+                    )
+                else:
+                    cur.execute(
+                        """
+                        INSERT INTO services (studio_id, name, duration_minutes, requires_deposit, deposit_amount_cents, send_aftercare, is_active)
+                        VALUES (%s, %s, 60, %s, %s, %s, true)
+                        """,
+                        (_stid, _tname, _req_dep, _dep_cents, _aftercare),
+                    )
+            cur.execute("UPDATE studio_settings SET treatment_types = NULL WHERE studio_id = %s", (_stid,))
+            print(f"[start] migrated {len(_entries or [])} treatment_types into services for studio {_stid}")
 
         # One-time repair: marketplace_routes.py's slug generator used to let
         # non-ASCII characters straight through (Python's \w in unicode mode

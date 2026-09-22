@@ -816,24 +816,15 @@ def enqueue_aftercare_if_needed(db: Session, appt: Appointment) -> None:
         appt.automation_enqueued_at = datetime.now(timezone.utc)
         return
 
-    # בדוק אם סוג הטיפול של התור מצריך שליחת הוראות טיפול
-    # אם אין treatment_types מוגדרים — שולחים לכולם (ברירת מחדל)
-    # אם יש — שולחים רק לסוגים שסומנו send_aftercare=True
-    import json as _json
-    aftercare_allowed = True
-    raw_types = getattr(settings, "treatment_types", None)
-    if raw_types:
-        try:
-            types_list = _json.loads(raw_types) if isinstance(raw_types, str) else raw_types
-            if any(t.get("send_aftercare") is not None for t in types_list):
-                # יש לפחות סוג אחד עם הגדרה מפורשת — בדוק לפי שם התור
-                appt_title = (appt.title or "").strip().lower()
-                aftercare_allowed = any(
-                    t.get("send_aftercare") and t.get("name", "").strip().lower() in appt_title
-                    for t in types_list
-                )
-        except Exception:
-            pass
+    # Does this appointment's service want an aftercare message? Previously
+    # matched by lower-casing the appointment's free-text title and checking
+    # whether some treatment_types[].name from a disconnected JSON blob
+    # appeared as a substring in it — a rename, a typo, or two treatment
+    # types sharing a common substring (e.g. "פירסינג" inside "פירסינג
+    # אוזניים") could silently misfire. Now reads the real, linked Service —
+    # no service linked (a manual/legacy appointment with just a title) keeps
+    # the original default of sending to everyone.
+    aftercare_allowed = appt.service.send_aftercare if (appt.service_id and appt.service) else True
 
     if not aftercare_allowed:
         appt.automation_enqueued_at = datetime.now(timezone.utc)

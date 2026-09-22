@@ -145,14 +145,6 @@ type Settings = {
     deposit_lock_days: number;
     deposit_fixed_amount_ils: number;
     deposit_min_duration_minutes: number | null;
-    treatment_types: TreatmentTypeTemplate[];
-};
-
-type TreatmentTypeTemplate = {
-    name: string;
-    requires_deposit: boolean;
-    deposit_amount_ils: number | null;
-    send_aftercare: boolean;
 };
 
 function WebhookUrlBox({ provider, instanceId }: { provider: "green_api" | "meta"; instanceId: string }) {
@@ -615,11 +607,6 @@ export default function AutomationSettingsPage() {
     const [aiPrompt, setAiPrompt] = useState("");
     const [isAiLoading, setIsAiLoading] = useState(false);
     const [retroLoading, setRetroLoading] = useState(false);
-    const [newTreatmentType, setNewTreatmentType] = useState("");
-    const [newTreatmentRequiresDeposit, setNewTreatmentRequiresDeposit] = useState(false);
-    const [newTreatmentDepositAmount, setNewTreatmentDepositAmount] = useState<number | null>(null);
-    const [newTreatmentSendAftercare, setNewTreatmentSendAftercare] = useState(false);
-    const [treatmentSaving, setTreatmentSaving] = useState(false);
     const [retroResult, setRetroResult] = useState<{ processed: number; failed: number; clients: { id: string; name: string }[] } | null>(null);
     const [birthdaySweepLoading, setBirthdaySweepLoading] = useState(false);
     const [birthdaySweepResult, setBirthdaySweepResult] = useState<{ ok: boolean; messages_enqueued: number } | null>(null);
@@ -751,7 +738,6 @@ export default function AutomationSettingsPage() {
                     welcome_email_template: data.welcome_email_template ?? "ברוך הבא למועדון! אנחנו שמחים שהצטרפת 🎉",
                     reminder_wa_template: data.reminder_wa_template ?? "תזכורת! יש לך תור מחר. מחכים לך 🕐",
                     reminder_email_template: data.reminder_email_template ?? "תזכורת! יש לך תור מחר. מחכים לך 🕐",
-                    treatment_types: data.treatment_types ?? [],
                 });
             })
             .catch((e) => setErr(e?.message || "שגיאה בטעינת ההגדרות"))
@@ -761,43 +747,6 @@ export default function AutomationSettingsPage() {
     const handleChange = (field: keyof Settings, val: any) => {
         if (!settings) return;
         setSettings({ ...settings, [field]: val });
-    };
-
-    const saveTreatmentTypes = async (updated: TreatmentTypeTemplate[]) => {
-        setTreatmentSaving(true);
-        try {
-            const res = await apiFetch<Settings>("/api/studio/automation", {
-                method: "PATCH",
-                body: JSON.stringify({ treatment_types: updated }),
-            });
-            setSettings(prev => prev ? { ...prev, treatment_types: res.treatment_types ?? updated } : prev);
-        } catch {
-            toast.error("שגיאה בשמירת הטמפלט — נסה שוב");
-        } finally {
-            setTreatmentSaving(false);
-        }
-    };
-
-    const handleAddTreatmentType = async () => {
-        if (!newTreatmentType.trim() || !settings) return;
-        const newTpl: TreatmentTypeTemplate = {
-            name: newTreatmentType.trim(),
-            requires_deposit: newTreatmentRequiresDeposit,
-            deposit_amount_ils: newTreatmentRequiresDeposit ? newTreatmentDepositAmount : null,
-            send_aftercare: newTreatmentSendAftercare,
-        };
-        const updated = [...(settings.treatment_types || []), newTpl];
-        setNewTreatmentType("");
-        setNewTreatmentRequiresDeposit(false);
-        setNewTreatmentDepositAmount(null);
-        setNewTreatmentSendAftercare(false);
-        await saveTreatmentTypes(updated);
-    };
-
-    const handleRemoveTreatmentType = async (idx: number) => {
-        if (!settings) return;
-        const updated = (settings.treatment_types || []).filter((_, i) => i !== idx);
-        await saveTreatmentTypes(updated);
     };
 
     const [logoPreview, setLogoPreview] = useState<string | null>(null);
@@ -1949,94 +1898,16 @@ export default function AutomationSettingsPage() {
                                             )}
                                         </div>
 
-                                        <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 md:col-span-2">
-                                            <label className="block text-base font-bold text-slate-800 mb-1">טמפלטים לכותרת טיפול</label>
-                                            <p className="text-sm text-slate-500 mb-4">הגדר קטגוריות קבועות שיופיעו כפתורים מהירים בזמן קביעת תור. ניתן לקבוע לכל טמפלט אם לבקש מקדמה אוטומטית.</p>
-
-                                            {/* Existing templates */}
-                                            <div className="space-y-2 mb-4">
-                                                {(settings.treatment_types || []).length === 0 && (
-                                                    <span className="text-sm text-slate-400 italic">אין קטגוריות עדיין</span>
-                                                )}
-                                                {(settings.treatment_types || []).map((tpl, idx) => (
-                                                    <div key={idx} className="flex items-center gap-3 bg-white rounded-xl border border-slate-200 px-4 py-3">
-                                                        <span className="flex-1 font-semibold text-slate-800 text-sm">{tpl.name}</span>
-                                                        {tpl.send_aftercare && (
-                                                            <span className="text-xs bg-blue-100 text-blue-700 font-semibold px-2 py-0.5 rounded-full">
-                                                                📋 הוראות טיפול
-                                                            </span>
-                                                        )}
-                                                        {tpl.requires_deposit ? (
-                                                            <span className="text-xs bg-emerald-100 text-emerald-700 font-semibold px-2 py-0.5 rounded-full">
-                                                                💳 מקדמה{tpl.deposit_amount_ils ? ` ₪${tpl.deposit_amount_ils}` : ""}
-                                                            </span>
-                                                        ) : (
-                                                            <span className="text-xs text-slate-400">ללא מקדמה</span>
-                                                        )}
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => handleRemoveTreatmentType(idx)}
-                                                            disabled={treatmentSaving}
-                                                            className="text-slate-400 hover:text-red-500 font-bold text-lg leading-none disabled:opacity-40"
-                                                        >×</button>
-                                                    </div>
-                                                ))}
+                                        <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 md:col-span-2 flex items-center justify-between gap-4 flex-wrap">
+                                            <div>
+                                                <label className="block text-base font-bold text-slate-800 mb-1">טמפלטים לכותרת טיפול</label>
+                                                <p className="text-sm text-slate-500">
+                                                    עברו ל<strong>קטלוג השירותים</strong> — שם מגדירים שירות פעם אחת (כולל מקדמה והוראות טיפול), וזה חל בכל מקום: קביעת תור ביומן, וגם קביעת תור עצמאית דרך BizFind. לא צריך יותר להגדיר את אותו הדבר פעמיים.
+                                                </p>
                                             </div>
-
-                                            {/* Add new template */}
-                                            <div className="bg-white rounded-xl border border-dashed border-slate-300 p-4 space-y-3">
-                                                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">הוסף טמפלט חדש</p>
-                                                <input
-                                                    type="text"
-                                                    value={newTreatmentType}
-                                                    onChange={e => setNewTreatmentType(e.target.value)}
-                                                    onKeyDown={e => { if (e.key === "Enter") handleAddTreatmentType(); }}
-                                                    placeholder="שם הטיפול (למשל: קעקוע, פירסינג...)"
-                                                    className="w-full border border-slate-200 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                                                />
-                                                <div className="flex flex-wrap items-center gap-4">
-                                                    <label className="flex items-center gap-2 cursor-pointer select-none">
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={newTreatmentRequiresDeposit}
-                                                            onChange={e => setNewTreatmentRequiresDeposit(e.target.checked)}
-                                                            className="w-4 h-4 rounded accent-emerald-600"
-                                                        />
-                                                        <span className="text-sm font-semibold text-slate-700">לבקש מקדמה לטמפלט זה?</span>
-                                                    </label>
-                                                    {newTreatmentRequiresDeposit && (
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="text-sm text-slate-500">סכום:</span>
-                                                            <input
-                                                                type="number"
-                                                                min="0"
-                                                                value={newTreatmentDepositAmount ?? ""}
-                                                                onChange={e => setNewTreatmentDepositAmount(e.target.value === "" ? null : Number(e.target.value))}
-                                                                placeholder="ברירת מחדל"
-                                                                className="w-28 border border-slate-200 rounded-xl px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-emerald-400"
-                                                            />
-                                                            <span className="text-sm text-slate-500">₪</span>
-                                                        </div>
-                                                    )}
-                                                    <label className="flex items-center gap-2 cursor-pointer select-none">
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={newTreatmentSendAftercare}
-                                                            onChange={e => setNewTreatmentSendAftercare(e.target.checked)}
-                                                            className="w-4 h-4 rounded accent-blue-600"
-                                                        />
-                                                        <span className="text-sm font-semibold text-slate-700">שלח הוראות טיפול לאחר תור</span>
-                                                    </label>
-                                                </div>
-                                                <button
-                                                    type="button"
-                                                    onClick={handleAddTreatmentType}
-                                                    disabled={treatmentSaving || !newTreatmentType.trim()}
-                                                    className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl transition-colors disabled:opacity-50 flex items-center gap-2"
-                                                >
-                                                    {treatmentSaving ? "שומר..." : "+ הוסף"}
-                                                </button>
-                                            </div>
+                                            <Link href="/services" className="bg-slate-900 hover:bg-slate-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm transition-colors whitespace-nowrap">
+                                                🛎️ פתח קטלוג שירותים ←
+                                            </Link>
                                         </div>
 
                                     </div>

@@ -675,12 +675,20 @@ def mark_appointment_done(
     appt.done_at = func.now()
     db.commit()
 
-    # ── Send aftercare + review message for every completed appointment ──
-    # Sends if aftercare_message OR any review link is configured in settings.
-    # No treatment_type matching needed — every done appointment gets the message.
+    # ── Send aftercare + review message when this completed appointment's
+    # service wants one ──
+    # Sends if aftercare_message OR any review link is configured in settings,
+    # AND (when a real Service is linked) that service's send_aftercare flag
+    # allows it — same rule crud/automation.py's enqueue_aftercare_if_needed
+    # uses for the OTHER way an appointment gets marked done (editing its
+    # status directly). This endpoint previously ignored that flag entirely
+    # ("no treatment_type matching needed — every done appointment gets the
+    # message"), so which door you used to mark something done silently
+    # changed whether aftercare respected the service's own setting.
     try:
         settings = db.get(StudioSettings, ctx.studio_id)
-        if settings and appt.client_id:
+        aftercare_allowed = appt.service.send_aftercare if (appt.service_id and appt.service) else True
+        if settings and appt.client_id and aftercare_allowed:
             _has_content = bool(
                 getattr(settings, "aftercare_message", None) or
                 getattr(settings, "review_link_google", None) or

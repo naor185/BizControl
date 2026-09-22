@@ -128,8 +128,12 @@ export default function CalendarPage() {
     const [calendarEndHour, setCalendarEndHour] = useState("23:00:00");
     const [draftStartHour, setDraftStartHour] = useState("08:00");
     const [draftEndHour, setDraftEndHour] = useState("23:00");
-    const [treatmentTypes, setTreatmentTypes] = useState<{ name: string; requires_deposit: boolean; deposit_amount_ils: number | null }[]>([]);
-    const [services, setServices] = useState<{ id: string; name: string; duration_minutes: number; price_cents: number; color: string; requires_consultation: boolean }[]>([]);
+    // The single service catalog — used both for the appointment-creation
+    // picker and the sidebar filter (previously two separate, disconnected
+    // lists: this real catalog, fetched but never rendered, and a JSON blob
+    // of free-text "treatment type" names on studio_settings with its own
+    // deposit/aftercare flags unrelated to any real Service row).
+    const [services, setServices] = useState<{ id: string; name: string; duration_minutes: number; price_cents: number; color: string; requires_consultation: boolean; requires_deposit: boolean; deposit_amount_cents: number }[]>([]);
     const [selectedServiceId, setSelectedServiceId] = useState<string>("");
 
     const [showCalSettings, setShowCalSettings] = useState(false);
@@ -372,14 +376,6 @@ export default function CalendarPage() {
                 }
                 if (settings.deposit_fixed_amount_ils) setDefaultDepositAmount(settings.deposit_fixed_amount_ils);
                 if (settings.deposit_min_duration_minutes) setDepositMinDuration(settings.deposit_min_duration_minutes);
-                if (settings.treatment_types?.length) {
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    setTreatmentTypes((settings.treatment_types as any[]).map((t: any) =>
-                        typeof t === "string"
-                            ? { name: t, requires_deposit: false, deposit_amount_ils: null }
-                            : t
-                    ));
-                }
             }
             // Load service catalog
             try {
@@ -577,6 +573,7 @@ export default function CalendarPage() {
         setStatus(app.status);
         setNotes(app.notes || "");
         setDepositAmount(app.deposit_amount_cents ? Math.round(app.deposit_amount_cents / 100) : "");
+        setSelectedServiceId(app.service_id || "");
         setApptInvoiceId(null);
         setApptInvoiceData(null);
         setShowNewClientForm(false);
@@ -1118,20 +1115,20 @@ export default function CalendarPage() {
                                     </div>
                                 )}
 
-                                {treatmentTypes.length > 0 && (
+                                {services.length > 0 && (
                                     <div className="mb-4">
                                         <div className="text-xs font-bold text-slate-400 mb-2">סוג טיפול</div>
                                         <div className="flex flex-wrap gap-2">
-                                            {treatmentTypes.map(t => {
-                                                const active = filterTreatments.includes(t.name);
+                                            {services.map(s => {
+                                                const active = filterTreatments.includes(s.name);
                                                 return (
                                                     <button
-                                                        key={t.name}
+                                                        key={s.id}
                                                         type="button"
-                                                        onClick={() => setFilterTreatments(prev => toggleInArray(prev, t.name))}
+                                                        onClick={() => setFilterTreatments(prev => toggleInArray(prev, s.name))}
                                                         className={`min-h-11 px-3 rounded-xl text-sm font-semibold border transition-colors ${active ? "bg-sky-600 border-sky-600 text-white" : "bg-white border-slate-200 text-slate-700"}`}
                                                     >
-                                                        {t.name}
+                                                        {s.name}
                                                     </button>
                                                 );
                                             })}
@@ -1778,35 +1775,28 @@ export default function CalendarPage() {
 
                                 <div>
                                     <label className="block text-sm font-semibold text-slate-700 mb-1">כותרת הטיפול</label>
-                                    {treatmentTypes.length > 0 && (
+                                    {services.length > 0 && (
                                         <div className="flex flex-wrap gap-2 mb-2">
-                                            {treatmentTypes.map(tpl => (
+                                            {services.map(svc => (
                                                 <button
-                                                    key={tpl.name}
+                                                    key={svc.id}
                                                     type="button"
                                                     onClick={() => {
-                                                        setTitle(prev => {
-                                                            if (prev.startsWith(tpl.name)) return prev;
-                                                            const existingSuffix = treatmentTypes.reduce((s, t) => s.startsWith(t.name + " - ") ? s.slice(t.name.length + 3) : s.startsWith(t.name) ? "" : s, prev);
-                                                            return existingSuffix ? `${tpl.name} - ${existingSuffix}` : tpl.name;
-                                                        });
-                                                        if (tpl.requires_deposit) {
-                                                            setDepositAmount((tpl.deposit_amount_ils ?? defaultDepositAmount) || "");
-                                                        } else {
-                                                            setDepositAmount("");
-                                                        }
+                                                        setTitle(svc.name);
+                                                        setSelectedServiceId(svc.id);
+                                                        setDepositAmount(svc.requires_deposit ? (svc.deposit_amount_cents / 100 || defaultDepositAmount || "") : "");
                                                     }}
-                                                    className={`px-3 py-1 rounded-full text-sm font-semibold border transition-all ${title.startsWith(tpl.name) ? "bg-blue-600 text-white border-blue-600" : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-blue-50 hover:border-blue-300"}`}
+                                                    className={`px-3 py-1 rounded-full text-sm font-semibold border transition-all ${selectedServiceId === svc.id ? "bg-blue-600 text-white border-blue-600" : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-blue-50 hover:border-blue-300"}`}
                                                 >
-                                                    {tpl.name}{tpl.requires_deposit ? " 💳" : ""}
+                                                    {svc.name}{svc.requires_deposit ? " 💳" : ""}
                                                 </button>
                                             ))}
                                         </div>
                                     )}
                                     <input
                                         value={title}
-                                        onChange={e => setTitle(e.target.value)}
-                                        placeholder={treatmentTypes.length > 0 ? "בחר קטגוריה למעלה או הקלד ישירות..." : "כותרת הטיפול"}
+                                        onChange={e => { setTitle(e.target.value); setSelectedServiceId(""); }}
+                                        placeholder={services.length > 0 ? "בחר שירות למעלה או הקלד ישירות..." : "כותרת הטיפול"}
                                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500"
                                     />
                                 </div>

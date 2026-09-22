@@ -28,6 +28,9 @@ class ServiceCreate(BaseModel):
     requires_consultation: bool = False
     is_bookable_online: bool = False
     sort_order: int = 0
+    requires_deposit: bool = False
+    deposit_amount_cents: int = Field(0, ge=0)
+    send_aftercare: bool = False
     staff_ids: list[str] = []
 
 
@@ -42,6 +45,9 @@ class ServiceUpdate(BaseModel):
     requires_consultation: Optional[bool] = None
     is_bookable_online: Optional[bool] = None
     sort_order: Optional[int] = None
+    requires_deposit: Optional[bool] = None
+    deposit_amount_cents: Optional[int] = Field(None, ge=0)
+    send_aftercare: Optional[bool] = None
     staff_ids: Optional[list[str]] = None
 
 
@@ -59,6 +65,10 @@ class ServiceResponse(BaseModel):
     requires_consultation: bool
     is_bookable_online: bool
     sort_order: int
+    requires_deposit: bool
+    deposit_amount_cents: int
+    deposit_amount_ils: float
+    send_aftercare: bool
     staff_ids: list[str]
 
     model_config = {"from_attributes": True}
@@ -79,6 +89,10 @@ def _to_response(s: Service) -> dict:
         "requires_consultation": s.requires_consultation,
         "is_bookable_online": s.is_bookable_online,
         "sort_order": s.sort_order,
+        "requires_deposit": s.requires_deposit,
+        "deposit_amount_cents": s.deposit_amount_cents,
+        "deposit_amount_ils": s.deposit_amount_cents / 100,
+        "send_aftercare": s.send_aftercare,
         "staff_ids": [str(ss.user_id) for ss in s.staff],
     }
 
@@ -116,6 +130,9 @@ def create_service(
         requires_consultation=payload.requires_consultation,
         is_bookable_online=payload.is_bookable_online,
         sort_order=payload.sort_order,
+        requires_deposit=payload.requires_deposit,
+        deposit_amount_cents=payload.deposit_amount_cents,
+        send_aftercare=payload.send_aftercare,
     )
     db.add(svc)
     db.flush()

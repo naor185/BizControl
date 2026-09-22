@@ -18,6 +18,10 @@ interface Service {
     requires_consultation: boolean;
     is_bookable_online: boolean;
     sort_order: number;
+    requires_deposit: boolean;
+    deposit_amount_cents: number;
+    deposit_amount_ils: number;
+    send_aftercare: boolean;
     staff_ids: string[];
 }
 
@@ -44,6 +48,9 @@ function ServiceModal({
         is_active: service?.is_active ?? true,
         requires_consultation: service?.requires_consultation ?? false,
         is_bookable_online: service?.is_bookable_online ?? false,
+        requires_deposit: service?.requires_deposit ?? false,
+        deposit_amount_cents: service?.deposit_amount_cents ?? 0,
+        send_aftercare: service?.send_aftercare ?? false,
         staff_ids: service?.staff_ids || [],
     });
     const [saving, setSaving] = useState(false);
@@ -135,12 +142,32 @@ function ServiceModal({
                             { key: "is_active", label: "פעיל" },
                             { key: "is_bookable_online", label: "ניתן לקביעה אונליין" },
                             { key: "requires_consultation", label: "דורש ייעוץ קודם" },
+                            { key: "send_aftercare", label: "שלח הוראות טיפול אחרי סיום" },
                         ].map(({ key, label }) => (
                             <label key={key} style={{ display: "flex", alignItems: "center", gap: "0.4rem", cursor: "pointer", color: "#94a3b8", fontSize: "0.85rem" }}>
                                 <input type="checkbox" checked={(form as any)[key]} onChange={e => set(key, e.target.checked)} />
                                 {label}
                             </label>
                         ))}
+                    </div>
+
+                    {/* Deposit — was previously only configurable in a separate,
+                        disconnected "treatment types" settings section that had
+                        no relation to the actual service being booked. */}
+                    <div style={{ gridColumn: "1/-1", background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.1)", borderRadius: 12, padding: "0.9rem 1rem" }}>
+                        <label style={{ display: "flex", alignItems: "center", gap: "0.4rem", cursor: "pointer", color: "#e2e8f0", fontSize: "0.88rem", fontWeight: 600, marginBottom: form.requires_deposit ? "0.75rem" : 0 }}>
+                            <input type="checkbox" checked={form.requires_deposit} onChange={e => set("requires_deposit", e.target.checked)} />
+                            💳 דורש מקדמה לקביעת תור
+                        </label>
+                        {form.requires_deposit && (
+                            <div style={{ maxWidth: 200 }}>
+                                <label style={lStyle}>סכום המקדמה (₪)</label>
+                                <input type="number" min={0} step={10}
+                                    value={form.deposit_amount_cents / 100}
+                                    onChange={e => set("deposit_amount_cents", Math.round(parseFloat(e.target.value || "0") * 100))}
+                                    style={iStyle} placeholder="0" />
+                            </div>
+                        )}
                     </div>
 
                     {/* Staff */}
@@ -279,6 +306,8 @@ export default function ServicesPage() {
                                             <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", marginBottom: "0.75rem" }}>
                                                 {svc.is_bookable_online && <span style={{ background: "rgba(16,185,129,.15)", color: "#34d399", fontSize: "0.7rem", padding: "0.1rem 0.5rem", borderRadius: 8 }}>🌐 אונליין</span>}
                                                 {svc.requires_consultation && <span style={{ background: "rgba(245,158,11,.15)", color: "#fbbf24", fontSize: "0.7rem", padding: "0.1rem 0.5rem", borderRadius: 8 }}>📋 ייעוץ</span>}
+                                                {svc.requires_deposit && <span style={{ background: "rgba(96,165,250,.15)", color: "#60a5fa", fontSize: "0.7rem", padding: "0.1rem 0.5rem", borderRadius: 8 }}>💳 מקדמה ₪{fmt(svc.deposit_amount_ils)}</span>}
+                                                {svc.send_aftercare && <span style={{ background: "rgba(236,72,153,.15)", color: "#f472b6", fontSize: "0.7rem", padding: "0.1rem 0.5rem", borderRadius: 8 }}>💊 טיפול-אחרי</span>}
                                             </div>
                                             <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}>
                                                 <button onClick={() => setModal(svc)} style={{ background: "rgba(167,139,250,.15)", border: "none", borderRadius: 8, color: "#a78bfa", padding: "0.3rem 0.8rem", cursor: "pointer", fontSize: "0.8rem" }}>✏️ עריכה</button>
