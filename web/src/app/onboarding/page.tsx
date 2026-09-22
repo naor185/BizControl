@@ -106,7 +106,7 @@ export default function OnboardingPage() {
 
     const finish = async () => {
         await saveProfile();
-        router.replace("/calendar");
+        router.replace("/automation");
     };
 
     const trialDaysLeft = (() => {
@@ -312,11 +312,11 @@ export default function OnboardingPage() {
                                 disabled={saving}
                                 className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-black py-4 rounded-2xl text-base shadow-lg shadow-violet-200 disabled:opacity-40"
                             >
-                                {saving ? "שומר..." : "פתח את היומן שלי ←"}
+                                {saving ? "שומר..." : "הגדר את החנות שלי ←"}
                             </button>
 
                             <p className="text-xs text-slate-400 mt-3">
-                                ניתן תמיד לחזור להגדרות מתפריט ההגדרות
+                                ניתן תמיד לעבור ליומן התורים מהתפריט למטה
                             </p>
 
                             <button onClick={() => setStep(2)} className="text-xs text-slate-400 hover:text-slate-600 mt-2 underline">

@@ -232,7 +232,14 @@ def bizfind_register(payload: BizFindRegisterIn, db: Session = Depends(get_db)):
     bizfind_url = os.getenv("BIZFIND_URL", "https://find.biz-control.com").rstrip("/")
     verify_link = f"{bizfind_url}/verify-email?token={verify_token}"
     try:
-        send_email(
+        # send_email() never raises on a normal send failure (missing API key,
+        # provider rejection, etc.) — it swallows that internally and returns
+        # False, so the old bare try/except here never actually caught the
+        # realistic failure case, only a genuine bug (e.g. in the template
+        # itself). Checking the return value is what makes a broken signup
+        # email pipeline visible at all instead of silently losing every new
+        # owner's verification email with zero record anyone could act on.
+        email_sent = send_email(
             db,
             to_email=email,
             subject="אימות כתובת המייל — BizControl",
@@ -242,6 +249,14 @@ def bizfind_register(payload: BizFindRegisterIn, db: Session = Depends(get_db)):
             template_key="verify_email",
             email_type="system",
         )
+        if not email_sent:
+            log.error("[bizfind_register] verification email did not send for studio %s (%s)", studio.id, email)
+            from app.services.integration_alerts import alert_integration_failure
+            alert_integration_failure(
+                db, "Signup verification email",
+                f"studio_id={studio.id} email={email} — send_email() returned False",
+                force=True,
+            )
     except Exception as e:
         log.warning("[bizfind_register] verification email failed: %s", e)
 
