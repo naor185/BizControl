@@ -2302,6 +2302,22 @@ export default function AutomationSettingsPage() {
                     )}
                 </div>
 
+                {/* Email Settings — moved here from its own top-level card
+                    in the business hub; it's a settings sub-page, not a
+                    separate area of the app. */}
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 mt-6 flex items-center justify-between gap-4 flex-wrap">
+                    <div className="flex items-center gap-3">
+                        <span className="text-2xl">📧</span>
+                        <div>
+                            <h3 className="font-bold text-slate-800">הגדרות מייל</h3>
+                            <p className="text-sm text-slate-500">כתובת מענה, חתימה, ואילו מיילים נשלחים ללקוחות</p>
+                        </div>
+                    </div>
+                    <Link href="/settings/email" className="bg-black text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-gray-800 transition whitespace-nowrap">
+                        פתח הגדרות מייל ←
+                    </Link>
+                </div>
+
                 {/* 2FA Section */}
                 <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 mt-6">
                     <div className="flex items-center gap-3 mb-4">

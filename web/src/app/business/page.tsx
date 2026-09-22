@@ -74,8 +74,7 @@ const SECTION_GROUPS: { groupLabel: string; icon: string; items: { href: string;
         groupLabel: "הגדרות מערכת",
         icon: "⚙️",
         items: [
-            { href: "/automation",     label: "הגדרות",          description: "מיתוג, אוטומציות, תשלומים ואינטגרציות",         icon: "⚙️", gradient: "from-slate-500 to-slate-700" },
-            { href: "/settings/email", label: "הגדרות מייל",     description: "תבניות ואוטומציית מיילים",                       icon: "📧", gradient: "from-slate-600 to-blue-700", module: "pos" },
+            { href: "/automation",     label: "הגדרות",          description: "מיתוג, אוטומציות, תשלומים, אינטגרציות והגדרות מייל", icon: "⚙️", gradient: "from-slate-500 to-slate-700" },
             { href: "/automations",    label: "בונה אוטומציות",  description: "חוקי אוטומציה מותאמים אישית (טריגרים ופעולות)", icon: "🔧", gradient: "from-zinc-500 to-zinc-700" },
             { href: "/help",           label: "מרכז עזרה",       description: "מדריכים, תמיכה ויצירת קשר",                     icon: "🆘", gradient: "from-gray-500 to-gray-700" },
         ],

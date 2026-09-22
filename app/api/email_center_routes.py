@@ -9,8 +9,11 @@ Superadmin:
 
 Studio (owner/admin):
   GET/PUT /api/email-center/studio         — studio reply-to + signature
-  GET     /api/email-center/studio/logs    — studio's own email log
-  GET     /api/email-center/studio/stats   — studio's own stats
+
+Studio, but superadmin-only (regular owner/admin can no longer see a
+studio's own send history/stats — deliberate, not an oversight):
+  GET     /api/email-center/studio/logs    — a studio's email log
+  GET     /api/email-center/studio/stats   — a studio's stats
 """
 from __future__ import annotations
 
@@ -341,7 +344,7 @@ def get_studio_logs(
     ctx: AuthContext = Depends(require_studio_ctx),
     db: Session = Depends(get_db),
 ):
-    if ctx.role not in ("owner", "admin", "superadmin"):
+    if ctx.role != "superadmin":
         raise HTTPException(403, "אין הרשאה")
 
     rows = db.execute(
@@ -369,7 +372,7 @@ def get_studio_stats(
     ctx: AuthContext = Depends(require_studio_ctx),
     db: Session = Depends(get_db),
 ):
-    if ctx.role not in ("owner", "admin", "superadmin"):
+    if ctx.role != "superadmin":
         raise HTTPException(403, "אין הרשאה")
 
     sid = str(ctx.studio_id)

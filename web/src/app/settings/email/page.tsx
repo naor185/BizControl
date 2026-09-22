@@ -56,14 +56,23 @@ export default function StudioEmailSettingsPage() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
+    // History/stats are superadmin-only — a regular owner/admin no longer
+    // sees send history or delivery stats for their own studio at all, not
+    // just via a hidden tab (the backend now 403s these two endpoints for
+    // anyone else too).
+    const [isSuperadmin, setIsSuperadmin] = useState(false);
 
     useEffect(() => {
         apiFetch<StudioEmailSettings>("/api/email-center/studio")
             .then(s => setSettings(s))
             .finally(() => setLoading(false));
+        apiFetch<{ role: string }>("/api/auth/me")
+            .then(me => setIsSuperadmin(me.role === "superadmin"))
+            .catch(() => {});
     }, []);
 
     useEffect(() => {
+        if (!isSuperadmin) return;
         if (tab === "stats" && !stats) {
             apiFetch<StudioStats>("/api/email-center/studio/stats").then(setStats);
         }
@@ -71,7 +80,7 @@ export default function StudioEmailSettingsPage() {
             apiFetch<{ items: Log[]; total: number }>("/api/email-center/studio/logs?limit=50")
                 .then(r => { setLogs(r.items); setLogsTotal(r.total); });
         }
-    }, [tab]);
+    }, [tab, isSuperadmin]);
 
     const save = async () => {
         setSaving(true);
@@ -89,19 +98,23 @@ export default function StudioEmailSettingsPage() {
 
     return (
         <AppShell title="הגדרות מייל">
-            {/* Tabs */}
-            <div className="flex gap-1 px-4 border-b border-slate-100 mb-5">
-                {[
-                    { id: "settings", label: "⚙️ הגדרות" },
-                    { id: "logs",     label: "📋 היסטוריה" },
-                    { id: "stats",    label: "📊 סטטיסטיקות" },
-                ].map(t => (
-                    <button key={t.id} type="button" onClick={() => setTab(t.id as any)}
-                        className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors ${tab === t.id ? "border-slate-900 text-slate-900" : "border-transparent text-slate-400 hover:text-slate-600"}`}>
-                        {t.label}
-                    </button>
-                ))}
-            </div>
+            {/* Tabs — history/stats only exist for superadmin, so a regular
+                owner/admin gets straight to the settings content with no
+                tab bar at all (nothing to switch between). */}
+            {isSuperadmin && (
+                <div className="flex gap-1 px-4 border-b border-slate-100 mb-5">
+                    {[
+                        { id: "settings", label: "⚙️ הגדרות" },
+                        { id: "logs",     label: "📋 היסטוריה" },
+                        { id: "stats",    label: "📊 סטטיסטיקות" },
+                    ].map(t => (
+                        <button key={t.id} type="button" onClick={() => setTab(t.id as any)}
+                            className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors ${tab === t.id ? "border-slate-900 text-slate-900" : "border-transparent text-slate-400 hover:text-slate-600"}`}>
+                            {t.label}
+                        </button>
+                    ))}
+                </div>
+            )}
 
             <div className="px-4 max-w-lg space-y-5">
 
