@@ -159,6 +159,7 @@ def create_booking(slug: str, payload: BookingRequest, db: Session = Depends(get
     from app.models.client import Client
     from app.models.appointment import Appointment
     from app.models.message_job import MessageJob
+    from app.models.user import User
 
     studio = db.scalar(select(Studio).where(Studio.slug == slug, Studio.is_active == True))  # noqa
     if not studio:
@@ -204,6 +205,7 @@ def create_booking(slug: str, payload: BookingRequest, db: Session = Depends(get
     if conflict:
         raise HTTPException(409, "זמן זה כבר תפוס. אנא בחר זמן אחר.")
 
+    artist_id = _uuid.UUID(payload.artist_id) if payload.artist_id else None
     appt = Appointment(
         studio_id=studio.id,
         client_id=client.id,
@@ -215,45 +217,25 @@ def create_booking(slug: str, payload: BookingRequest, db: Session = Depends(get
         ends_at=ends,
         status="scheduled",
         notes=payload.notes or f"קביעה אונליין",
-        artist_id=_uuid.UUID(payload.artist_id) if payload.artist_id else None,
+        artist_id=artist_id,
         color=service.color,
+        total_price_cents=service.price_cents,
+        deposit_amount_cents=service.deposit_amount_cents if service.requires_deposit else 0,
     )
     db.add(appt)
     db.flush()
 
-    # Send confirmation to client
+    # Send confirmation to client — routed through the same
+    # enqueue_confirmation_message() every other booking path uses (internal
+    # calendar, BizFind request-and-approve) so a service's requires_deposit/
+    # deposit_amount_cents actually produces a deposit-request message here
+    # too, instead of this endpoint's own hand-rolled body that never
+    # mentioned a deposit regardless of the service's settings.
     if client.phone:
-        tz_str = getattr(settings, "timezone", "Asia/Jerusalem") or "Asia/Jerusalem"
-        import pytz
-        tz = pytz.timezone(tz_str)
-        local_start = starts.astimezone(tz)
-        custom_tpl = getattr(settings, "booking_confirm_wa_template", None)
-        if custom_tpl:
-            from app.crud.automation import format_template
-            body = format_template(custom_tpl, {
-                "client_name": payload.client_name,
-                "service_name": service.name,
-                "appointment_title": service.name,
-                "appointment_date": local_start.strftime("%d/%m/%Y"),
-                "appointment_time": local_start.strftime("%H:%M"),
-                "studio_name": studio.name,
-            })
-        else:
-            body = (
-                f"שלום {payload.client_name}! ✅\n\n"
-                f"התור שלך נקבע בהצלחה!\n\n"
-                f"📋 שירות: {service.name}\n"
-                f"📅 תאריך: {local_start.strftime('%d/%m/%Y')}\n"
-                f"⏰ שעה: {local_start.strftime('%H:%M')}\n\n"
-                f"ב{studio.name} 🙏"
-            )
-        db.add(MessageJob(
-            studio_id=studio.id, client_id=client.id,
-            appointment_id=appt.id,
-            channel="whatsapp", to_phone=client.phone,
-            body=body, scheduled_at=datetime.now(timezone.utc),
-            status="pending", reminder_type="booking_confirmation",
-        ))
+        from app.crud.automation import enqueue_confirmation_message
+        artist = db.get(User, artist_id) if artist_id else None
+        artist_name = artist.display_name if artist else ""
+        enqueue_confirmation_message(db, appt, artist_name=artist_name)
 
     # Notify studio (owner/admin)
     if getattr(settings, "notification_phone", None):

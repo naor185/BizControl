@@ -15,8 +15,6 @@ from app.schemas.automation import AutomationSettingsOut, AutomationSettingsUpda
 
 router = APIRouter(prefix="/studio/automation", tags=["Automation"])
 
-import json as _json
-
 _DEFAULT_AFTERCARE = (
     "היי {client_name}! 🎉\n\n"
     "לאחר סיום הקעקוע נשארים עם הניילון/מדבקה למשך כשעתיים.\n"
@@ -66,9 +64,6 @@ def patch_settings(payload: AutomationSettingsUpdate, ctx: AuthContext = Depends
     # longer configure their own Resend credentials, even via a direct API call.
     data.pop("resend_api_key", None)
     data.pop("resend_from_email", None)
-    # Serialize treatment_types list → JSON string before saving
-    if "treatment_types" in data and isinstance(data["treatment_types"], list):
-        data["treatment_types"] = _json.dumps(data["treatment_types"], ensure_ascii=False)
     for k, v in data.items():
         setattr(settings, k, v)
 

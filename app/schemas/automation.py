@@ -1,16 +1,5 @@
 from pydantic import BaseModel, Field, field_validator
 from datetime import date
-import json as _json
-
-
-class TreatmentTypeTemplate(BaseModel):
-    name: str
-    requires_deposit: bool = False
-    deposit_amount_ils: int | None = None
-    send_aftercare: bool = False
-
-    class Config:
-        from_attributes = True
 
 
 class AutomationSettingsOut(BaseModel):
@@ -174,33 +163,6 @@ class AutomationSettingsOut(BaseModel):
     self_booking_enabled: bool = False
     self_booking_slot_minutes: int = 60
 
-    # Treatment type templates
-    treatment_types: list[TreatmentTypeTemplate] = []
-
-    @field_validator("treatment_types", mode="before")
-    @classmethod
-    def parse_treatment_types(cls, v):
-        if v is None:
-            return []
-        if isinstance(v, str):
-            try:
-                parsed = _json.loads(v)
-            except Exception:
-                return []
-        else:
-            parsed = v
-        if not isinstance(parsed, list):
-            return []
-        result = []
-        for item in parsed:
-            if isinstance(item, str):
-                result.append({"name": item, "requires_deposit": False, "deposit_amount_ils": None})
-            elif isinstance(item, dict):
-                result.append(item)
-            else:
-                result.append(item)
-        return result
-
     class Config:
         from_attributes = True
 
@@ -362,6 +324,3 @@ class AutomationSettingsUpdate(BaseModel):
     # Online Self-Booking
     self_booking_enabled: bool | None = None
     self_booking_slot_minutes: int | None = Field(default=None, ge=5, le=480)
-
-    # Treatment type templates
-    treatment_types: list[TreatmentTypeTemplate] | None = None

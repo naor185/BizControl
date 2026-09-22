@@ -163,6 +163,11 @@ def approve_request(
 
     service_label = req.service.name if req.service_id and req.service else None
     title = f"{service_label} — {req.client_name}" if service_label else f"הזמנה מקוונת — {req.client_name}"
+    # Price/deposit come from the linked service — same source the Services
+    # catalog UI edits — so a service configured to require a deposit
+    # actually asks for one here too, not just on appointments created
+    # manually from the calendar.
+    req_service = req.service if req.service_id else None
     appt = Appointment(
         id=uuid.uuid4(),
         studio_id=current_user.studio_id,
@@ -174,6 +179,8 @@ def approve_request(
         ends_at=ends_at,
         status="scheduled",
         notes=req.service_note or "",
+        total_price_cents=req_service.price_cents if req_service else 0,
+        deposit_amount_cents=(req_service.deposit_amount_cents if req_service and req_service.requires_deposit else 0),
     )
     db.add(appt)
     db.flush()
