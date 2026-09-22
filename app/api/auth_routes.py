@@ -677,22 +677,18 @@ def resend_verification(request: Request, current_user: User = Depends(get_curre
     if current_user.email_verified:
         return {"ok": True, "already_verified": True}
 
-    # Reuse the existing token if it's still valid instead of always minting
-    # a fresh one — a new token overwrites users.email_verify_token (there's
-    # only one column, one value), which silently invalidated every earlier
-    # email's link. Someone who clicks an OLDER email still in their inbox
-    # after a resend got "link invalid" even though they never asked for
-    # that specific link to stop working.
-    token = current_user.email_verify_token
-    sent_at = current_user.email_verify_sent_at
-    is_stale = not token or not sent_at or (
-        datetime.now(timezone.utc) - (sent_at if sent_at.tzinfo else sent_at.replace(tzinfo=timezone.utc))
-    ) > timedelta(days=7)
-    if is_stale:
-        token = secrets.token_urlsafe(32)
-        current_user.email_verify_token = token
-        current_user.email_verify_sent_at = datetime.now(timezone.utc)
-        db.commit()
+    # Every resend mints a genuinely fresh token and invalidates whatever
+    # was sent before — by design: the owner explicitly wants a stale/failed
+    # link to stop working and each "resend" to be a real, new attempt, not
+    # a reuse of the same one under the hood. The verify page itself only
+    # spends the token on an explicit click (not on page load), which is
+    # what actually stops it from being silently burned by an email
+    # security scanner before the person ever opens the message — that
+    # protection doesn't depend on reusing tokens.
+    token = secrets.token_urlsafe(32)
+    current_user.email_verify_token = token
+    current_user.email_verify_sent_at = datetime.now(timezone.utc)
+    db.commit()
 
     bizfind_url = os.getenv("BIZFIND_URL", "https://find.biz-control.com").rstrip("/")
     verify_link = f"{bizfind_url}/verify-email?token={token}"
