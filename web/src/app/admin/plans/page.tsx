@@ -515,7 +515,7 @@ function AddonEditor({ addon, onChanged }: { addon: AddonRecord; onChanged: () =
         } catch (e: any) { toast.error(e.message); }
     };
 
-    const inputStyle = { width: "100%", background: "#1e1b4b", border: "1px solid rgba(255,255,255,.15)", borderRadius: 8, padding: "0.4rem 0.6rem", color: "#fff", fontSize: "0.8rem", boxSizing: "border-box" as const };
+    const inputStyle = { width: "100%", background: "#1e1b4b", border: "1px solid rgba(255,255,255,.15)", borderRadius: 8, padding: "0.4rem 0.6rem", color: "#fff", fontSize: "0.8rem", boxSizing: "border-box" as const, colorScheme: "dark" as const };
 
     return (
         <div style={{ background: "rgba(255,255,255,.02)", borderRadius: 10, padding: "1rem", marginTop: "0.4rem" }}>
@@ -606,7 +606,7 @@ function PreviewTab({ plan }: { plan: PlanRecord }) {
             </div>
             <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
                 <select value={studioId} onChange={e => { setStudioId(e.target.value); setSelectedAddonIds(null); }}
-                    style={{ flex: 1, background: "#1e1b4b", border: "1px solid rgba(255,255,255,.15)", borderRadius: 8, padding: "0.5rem", color: "#fff", fontSize: "0.85rem" }}>
+                    style={{ flex: 1, background: "#1e1b4b", border: "1px solid rgba(255,255,255,.15)", borderRadius: 8, padding: "0.5rem", color: "#fff", fontSize: "0.85rem", colorScheme: "dark" }}>
                     <option value="">-- בחר עסק --</option>
                     {studios.map(st => <option key={st.id} value={st.id}>{st.name} ({st.subscription_plan})</option>)}
                 </select>
@@ -681,7 +681,7 @@ function CompareTab({ plans, defaultOther }: { plans: PlanRecord[]; defaultOther
             <div style={{ marginBottom: "1rem" }}>
                 <label style={{ fontSize: "0.8rem", color: "#94a3b8", marginLeft: "0.5rem" }}>השווה מול:</label>
                 <select value={otherId} onChange={e => setOtherId(e.target.value)}
-                    style={{ background: "#1e1b4b", border: "1px solid rgba(255,255,255,.15)", borderRadius: 8, padding: "0.4rem 0.7rem", color: "#fff", fontSize: "0.85rem" }}>
+                    style={{ background: "#1e1b4b", border: "1px solid rgba(255,255,255,.15)", borderRadius: 8, padding: "0.4rem 0.7rem", color: "#fff", fontSize: "0.85rem", colorScheme: "dark" }}>
                     {plans.filter(p => p.id !== a).map(p => <option key={p.id} value={p.id}>{p.display_name}</option>)}
                 </select>
             </div>

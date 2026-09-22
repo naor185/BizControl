@@ -201,7 +201,7 @@ export default function ModulesAdminPage() {
         title: { fontSize: "1.8rem", fontWeight: 800, margin: 0 },
         card: { background: "rgba(255,255,255,.05)", border: "1px solid rgba(255,255,255,.1)", borderRadius: 16, padding: "1.25rem 1.5rem", marginBottom: "1.5rem" },
         label: { color: "#94a3b8", fontSize: "0.8rem", fontWeight: 600, marginBottom: "0.5rem" },
-        select: { background: "rgba(255,255,255,.08)", border: "1px solid rgba(255,255,255,.15)", borderRadius: 10, padding: "0.65rem 1rem", color: "#fff", fontSize: "0.9rem", width: "100%" },
+        select: { background: "rgba(255,255,255,.08)", border: "1px solid rgba(255,255,255,.15)", borderRadius: 10, padding: "0.65rem 1rem", color: "#fff", fontSize: "0.9rem", width: "100%", colorScheme: "dark" as const },
         catTitle: { color: "#a78bfa", fontWeight: 700, fontSize: "0.95rem", marginBottom: "0.75rem", marginTop: "0.5rem" },
         moduleRow: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.6rem 0", borderBottom: "1px solid rgba(255,255,255,.05)" },
         moduleName: { fontSize: "0.9rem", color: "#e2e8f0" },

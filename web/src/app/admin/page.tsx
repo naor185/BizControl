@@ -1463,7 +1463,7 @@ export default function AdminPage() {
                                     <select
                                         value={apptsStatus}
                                         onChange={e => { setApptsStatus(e.target.value); loadAppts(apptsSearch, e.target.value); }}
-                                        className="bg-white/10 border border-white/10 rounded-xl px-3 py-1.5 text-sm text-white outline-none"
+                                        className="bg-white/10 border border-white/10 rounded-xl px-3 py-1.5 text-sm text-white outline-none scheme-dark"
                                     >
                                         <option value="">כל הסטטוסים</option>
                                         <option value="scheduled">מתוכנן</option>
@@ -1552,7 +1552,7 @@ export default function AdminPage() {
                             </div>
                             <div className="flex gap-2">
                                 <select value={leadsFilter.source} onChange={e => { const f = { ...leadsFilter, source: e.target.value }; setLeadsFilter(f); loadLeads(f); }}
-                                    className="flex-1 bg-white/5 border border-white/10 rounded-xl px-2 py-1.5 text-xs text-white outline-none">
+                                    className="flex-1 bg-white/5 border border-white/10 rounded-xl px-2 py-1.5 text-xs text-white outline-none scheme-dark">
                                     <option value="">כל המקורות</option>
                                     <option value="whatsapp">WhatsApp</option>
                                     <option value="facebook">Facebook</option>
@@ -1560,7 +1560,7 @@ export default function AdminPage() {
                                     <option value="manual">ידני</option>
                                 </select>
                                 <select value={leadsFilter.status} onChange={e => { const f = { ...leadsFilter, status: e.target.value }; setLeadsFilter(f); loadLeads(f); }}
-                                    className="flex-1 bg-white/5 border border-white/10 rounded-xl px-2 py-1.5 text-xs text-white outline-none">
+                                    className="flex-1 bg-white/5 border border-white/10 rounded-xl px-2 py-1.5 text-xs text-white outline-none scheme-dark">
                                     <option value="">כל הסטטוסים</option>
                                     <option value="new">חדש</option>
                                     <option value="contacted">נענה</option>
@@ -1805,7 +1805,7 @@ export default function AdminPage() {
                                         </div>
                                         <div>
                                             <label className="text-xs text-slate-400 mb-1 block">תפקיד</label>
-                                            <select className="w-full bg-white/10 border border-white/10 rounded-lg px-3 py-1.5 text-sm outline-none"
+                                            <select className="w-full bg-white/10 border border-white/10 rounded-lg px-3 py-1.5 text-sm outline-none scheme-dark"
                                                 value={editUserForm.role} onChange={e => setEditUserForm(f => ({ ...f, role: e.target.value }))}>
                                                 <option value="owner">בעלים</option>
                                                 <option value="admin">מנהל</option>
@@ -1850,7 +1850,7 @@ export default function AdminPage() {
                                     </div>
                                     <div>
                                         <label className="text-xs text-slate-400 mb-1 block">תפקיד</label>
-                                        <select className="w-full bg-white/10 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none"
+                                        <select className="w-full bg-white/10 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none scheme-dark"
                                             value={addUserForm.role} onChange={e => setAddUserForm(f => ({ ...f, role: e.target.value }))}>
                                             <option value="admin">מנהל</option>
                                             <option value="artist">אמן/אמנית</option>
@@ -2021,7 +2021,7 @@ export default function AdminPage() {
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
                                     <label className="text-xs text-slate-400 mb-1 block">תוכנית</label>
-                                    <select className="w-full bg-white/10 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-white/30"
+                                    <select className="w-full bg-white/10 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-white/30 scheme-dark"
                                         value={form.subscription_plan} onChange={e => setForm(f => ({ ...f, subscription_plan: e.target.value }))}>
                                         <option value="starter">Starter — 99₪/חודש</option>
                                         <option value="pro">Pro — 199₪/חודש</option>

@@ -767,7 +767,12 @@ function RequestModal({ slug, studioName, services, primary, onClose }: {
 }
 
 const reqLabel: React.CSSProperties = { display: "block", color: "#94a3b8", fontSize: "0.75rem", fontWeight: 600, marginBottom: "0.3rem" };
-const reqInput: React.CSSProperties = { width: "100%", background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.12)", borderRadius: 10, padding: "0.65rem 0.85rem", color: "#f1f5f9", fontSize: "0.9rem", outline: "none", boxSizing: "border-box" };
+// colorScheme: "dark" matters specifically for the <select> that reuses this
+// style — a <select>'s open dropdown/options list is rendered by the browser's
+// native form-control chrome, which ignores this object's own background/color
+// and defaults to a light popup (barely-visible text) unless told the
+// surrounding UI is dark.
+const reqInput: React.CSSProperties = { width: "100%", background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.12)", borderRadius: 10, padding: "0.65rem 0.85rem", color: "#f1f5f9", fontSize: "0.9rem", outline: "none", boxSizing: "border-box", colorScheme: "dark" };
 
 // ── UI helpers ────────────────────────────────────────────────────────────────
 

@@ -228,7 +228,7 @@ export default function ModuleTreeEditor({ planFilter, showSearch = false }: Pro
                                                             <div style={{ color: p.color, fontSize: "0.75rem", fontWeight: 700, marginBottom: "0.4rem" }}>{p.icon} {p.label}</div>
                                                             <div style={{ display: "flex", gap: "0.4rem", marginBottom: "0.4rem" }}>
                                                                 <select value={qv.period_type} onChange={e => setQuotaField(plan, mod.id, "period_type", e.target.value)}
-                                                                    style={{ flex: 1, fontSize: "0.75rem", background: "#1e1b4b", color: "#e2e8f0", border: "1px solid rgba(255,255,255,.15)", borderRadius: 6, padding: "0.25rem" }}>
+                                                                    style={{ flex: 1, fontSize: "0.75rem", background: "#1e1b4b", color: "#e2e8f0", border: "1px solid rgba(255,255,255,.15)", borderRadius: 6, padding: "0.25rem", colorScheme: "dark" }}>
                                                                     {Object.entries(PERIOD_TYPE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                                                                 </select>
                                                                 <input type="number" placeholder="מכסה" value={qv.limit_value ?? ""}
@@ -238,7 +238,7 @@ export default function ModuleTreeEditor({ planFilter, showSearch = false }: Pro
                                                             </div>
                                                             <select value={qv.on_exceed_action} onChange={e => setQuotaField(plan, mod.id, "on_exceed_action", e.target.value)}
                                                                 disabled={qv.period_type === "unlimited"}
-                                                                style={{ width: "100%", fontSize: "0.75rem", background: "#1e1b4b", color: "#e2e8f0", border: "1px solid rgba(255,255,255,.15)", borderRadius: 6, padding: "0.25rem", marginBottom: "0.4rem" }}>
+                                                                style={{ width: "100%", fontSize: "0.75rem", background: "#1e1b4b", color: "#e2e8f0", border: "1px solid rgba(255,255,255,.15)", borderRadius: 6, padding: "0.25rem", marginBottom: "0.4rem", colorScheme: "dark" }}>
                                                                 {Object.entries(ON_EXCEED_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                                                             </select>
                                                             <button onClick={() => saveQuota(plan, mod.id)} disabled={savingQuota === key}

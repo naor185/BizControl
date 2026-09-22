@@ -228,7 +228,7 @@ function ExploreContent() {
                 <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
                     {/* Sort */}
                     <select value={sort} onChange={e => setSort(e.target.value as SortKey)}
-                        style={{ background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.1)", borderRadius: 10, padding: "0.4rem 0.7rem", color: "#94a3b8", fontSize: "0.8rem", cursor: "pointer", outline: "none" }}>
+                        style={{ background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.1)", borderRadius: 10, padding: "0.4rem 0.7rem", color: "#94a3b8", fontSize: "0.8rem", cursor: "pointer", outline: "none", colorScheme: "dark" }}>
                         {SORT_OPTIONS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
                     </select>
                     {/* View toggle */}
