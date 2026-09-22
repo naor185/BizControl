@@ -64,26 +64,27 @@ export default function BookPage() {
             }).catch(() => setErr("שגיאה בטעינה"));
     }, [slug]);
 
-    // Load slots when date + artist are ready
+    // Load slots when date + artist are ready — sized to the chosen
+    // service's real duration, not a generic one-size-fits-all block.
     useEffect(() => {
         if (step !== "time" || !date || !artist) return;
         setSlotsLoading(true);
-        fetch(`${API}/api/public/book/${slug}/slots?date=${date}&artist_id=${artist.id}`)
+        const serviceParam = service ? `&service_id=${service.id}` : "";
+        fetch(`${API}/api/public/book/${slug}/slots?date=${date}&artist_id=${artist.id}${serviceParam}`)
             .then(r => r.json())
             .then(d => setSlots(Array.isArray(d) ? d : []))
             .catch(() => setSlots([]))
             .finally(() => setSlotsLoading(false));
-    }, [step, date, artist, slug]);
+    }, [step, date, artist, service, slug]);
 
     const submit = async () => {
         if (!artist || !date || !time) return;
         if (!customer) { requireAuth(submit); return; }
         setSubmitting(true);
         try {
-            const serviceLabel = service ? `[שירות: ${service.name}] ` : "";
             await apiFetch(`/api/public/book/${slug}`, {
                 method: "POST",
-                body: JSON.stringify({ artist_id: artist.id, date, time, notes: `${serviceLabel}${notes}`.trim() }),
+                body: JSON.stringify({ artist_id: artist.id, date, time, service_id: service?.id, notes: notes.trim() }),
             });
             setDone(true);
         } catch (e: any) { setErr(e.message); }

@@ -36,6 +36,7 @@ class BookingRequestOut(BaseModel):
     client_name: str
     client_phone: str
     client_email: Optional[str]
+    service_name: Optional[str]
     service_note: Optional[str]
     requested_at: datetime
     requested_at_local: str
@@ -62,6 +63,7 @@ def _out(req: BookingRequest, settings: StudioSettings) -> BookingRequestOut:
         client_name=req.client_name,
         client_phone=req.client_phone,
         client_email=req.client_email,
+        service_name=req.service.name if req.service_id and req.service else None,
         service_note=req.service_note,
         requested_at=req.requested_at,
         requested_at_local=_fmt_local(req.requested_at, settings.timezone or "Asia/Jerusalem"),
@@ -117,15 +119,21 @@ def approve_request(
         raise HTTPException(status_code=400, detail=f"Request is already {req.status}")
 
     settings = db.get(StudioSettings, current_user.studio_id)
-    slot_min = settings.self_booking_slot_minutes or 60
+    # The service the client picked (if any) drives the real appointment
+    # duration — falls back to the studio's flat default for older requests
+    # made before service_id existed, or a since-deleted service.
+    duration = req.service.duration_minutes if req.service_id and req.service else (settings.self_booking_slot_minutes or 60)
+    ends_at = req.requested_at + timedelta(minutes=duration)
 
-    # Check slot still free
+    # Check slot still free — a real overlap check against the full
+    # duration, not just an exact-start-time match.
     conflict = db.scalar(
         select(Appointment).where(
             Appointment.studio_id == current_user.studio_id,
             Appointment.artist_id == req.artist_id,
-            Appointment.starts_at == req.requested_at,
             Appointment.status != "canceled",
+            Appointment.starts_at < ends_at,
+            Appointment.ends_at > req.requested_at,
         )
     )
     if conflict:
@@ -153,13 +161,15 @@ def approve_request(
         db.add(client)
         db.flush()
 
-    ends_at = req.requested_at + timedelta(minutes=slot_min)
+    service_label = req.service.name if req.service_id and req.service else None
+    title = f"{service_label} — {req.client_name}" if service_label else f"הזמנה מקוונת — {req.client_name}"
     appt = Appointment(
         id=uuid.uuid4(),
         studio_id=current_user.studio_id,
         client_id=client.id,
         artist_id=req.artist_id,
-        title=f"הזמנה מקוונת — {req.client_name}",
+        service_id=req.service_id,
+        title=title,
         starts_at=req.requested_at,
         ends_at=ends_at,
         status="scheduled",

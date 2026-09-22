@@ -6,7 +6,6 @@ from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
 from typing import Optional
-from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
@@ -121,60 +120,18 @@ def get_available_slots(
         return {"slots": [], "date": booking_date}
 
     tz_str = getattr(settings, "timezone", "Asia/Jerusalem") or "Asia/Jerusalem"
-    try:
-        tz = ZoneInfo(tz_str)
-    except Exception:
-        import pytz
-        tz = pytz.timezone(tz_str)
-
     start_hour = int((getattr(settings, "calendar_start_hour", "09") or "09").split(":")[0])
     end_hour = int((getattr(settings, "calendar_end_hour", "21") or "21").split(":")[0])
     slot_duration = service.duration_minutes
-    slot_step = min(slot_duration, 30)  # step by 30min or less
 
-    # Load existing appointments for that day
-    day_start = datetime(target_date.year, target_date.month, target_date.day, 0, 0, 0, tzinfo=tz)
-    day_end = day_start + timedelta(days=1)
-
-    existing_q = select(Appointment).where(
-        Appointment.studio_id == studio.id,
-        Appointment.status.in_(["scheduled", "done"]),
-        Appointment.starts_at >= day_start.astimezone(timezone.utc),
-        Appointment.starts_at < day_end.astimezone(timezone.utc),
+    from app.services.booking_availability import compute_available_slots
+    raw_slots = compute_available_slots(
+        db, studio.id, tz_str, start_hour, end_hour, slot_duration, target_date, artist_id,
     )
-    if artist_id:
-        existing_q = existing_q.where(Appointment.artist_id == _uuid.UUID(artist_id))
-    existing = db.scalars(existing_q).all()
-
-    # Build busy intervals
-    busy: list[tuple[datetime, datetime]] = [
-        (a.starts_at.replace(tzinfo=timezone.utc), a.ends_at.replace(tzinfo=timezone.utc))
-        for a in existing
-        if a.ends_at
+    slots = [
+        {"starts_at": starts.isoformat(), "ends_at": ends.isoformat(), "label": label}
+        for label, starts, ends in raw_slots
     ]
-
-    # Generate slots
-    slots = []
-    current = datetime(target_date.year, target_date.month, target_date.day,
-                       start_hour, 0, 0, tzinfo=tz).astimezone(timezone.utc)
-    end_time = datetime(target_date.year, target_date.month, target_date.day,
-                        end_hour, 0, 0, tzinfo=tz).astimezone(timezone.utc)
-
-    while current + timedelta(minutes=slot_duration) <= end_time:
-        slot_end = current + timedelta(minutes=slot_duration)
-        # Check if free
-        is_free = all(
-            slot_end <= b_start or current >= b_end
-            for b_start, b_end in busy
-        )
-        if is_free:
-            local_time = current.astimezone(tz)
-            slots.append({
-                "starts_at": current.isoformat(),
-                "ends_at": slot_end.isoformat(),
-                "label": local_time.strftime("%H:%M"),
-            })
-        current += timedelta(minutes=slot_step)
 
     return {"slots": slots, "date": booking_date, "service_duration": slot_duration}
 

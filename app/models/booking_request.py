@@ -22,6 +22,12 @@ class BookingRequest(Base):
     client_phone: Mapped[str] = mapped_column(String(32), nullable=False)
     client_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     service_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # The service the client picked in the booking wizard — drives slot duration
+    # (see app/api/public_routes.py's booking_slots/create_booking) instead of
+    # everyone always taking the studio's flat self_booking_slot_minutes.
+    # SET NULL, not CASCADE: deleting a service shouldn't take past booking
+    # requests down with it — approval just falls back to the flat default.
+    service_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("services.id", ondelete="SET NULL"), nullable=True, index=True)
 
     # Requested time slot
     requested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
@@ -43,3 +49,4 @@ class BookingRequest(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     artist = relationship("User", foreign_keys=[artist_id])
+    service = relationship("Service")

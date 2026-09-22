@@ -17,6 +17,7 @@ from app.models.client import Client
 from app.models.appointment import Appointment
 from app.models.studio_settings import StudioSettings
 from app.models.booking_request import BookingRequest
+from app.models.service import Service
 from app.models.lead import Lead
 from app.api.marketplace_customer_routes import _get_customer_id
 from pydantic import BaseModel, EmailStr
@@ -326,6 +327,7 @@ class BookingCreateRequest(BaseModel):
     artist_id: str
     date: date          # YYYY-MM-DD
     time: str           # HH:MM
+    service_id: Optional[str] = None
     email: Optional[EmailStr] = None
     notes: Optional[str] = None
 
@@ -369,9 +371,14 @@ def booking_slots(
     slug: str,
     artist_id: str,
     booking_date: str = Query(..., alias="date"),
+    service_id: Optional[str] = Query(None),
     db: Session = Depends(get_db),
 ):
-    """Return list of available HH:MM slots for a given artist + date."""
+    """Return list of available HH:MM slots for a given artist + date, sized
+    to the chosen service's real duration — not the studio's flat
+    self_booking_slot_minutes for every service regardless of how long it
+    actually takes. Falls back to that flat value when no service_id is
+    given (or it doesn't resolve), for backward compatibility."""
     studio, settings = _get_booking_studio(slug, db)
 
     if not settings.self_booking_enabled:
@@ -386,48 +393,21 @@ def booking_slots(
     if day < datetime.now(timezone.utc).date():
         return []
 
-    slot_min = settings.self_booking_slot_minutes or 60
+    duration = settings.self_booking_slot_minutes or 60
+    if service_id:
+        service = db.scalar(select(Service).where(Service.id == service_id, Service.studio_id == studio.id))
+        if service:
+            duration = service.duration_minutes
 
-    # Parse working hours
-    def parse_hour(s: str):
-        h, m = map(int, s.split(":"))
-        return h * 60 + m
+    start_hour = int((settings.calendar_start_hour or "08:00").split(":")[0])
+    end_hour = int((settings.calendar_end_hour or "22:00").split(":")[0])
 
-    start_min = parse_hour(settings.calendar_start_hour or "08:00")
-    end_min = parse_hour(settings.calendar_end_hour or "22:00")
-
-    # Generate all candidate slots
-    slots = []
-    t = start_min
-    while t + slot_min <= end_min:
-        slots.append(t)
-        t += slot_min
-
-    # Get existing appointments for this artist on this day
-    day_start = datetime(day.year, day.month, day.day, 0, 0, 0, tzinfo=timezone.utc)
-    day_end = day_start + timedelta(days=1)
-
-    booked = db.scalars(
-        select(Appointment).where(
-            Appointment.studio_id == studio.id,
-            Appointment.artist_id == artist_id,
-            Appointment.starts_at >= day_start,
-            Appointment.starts_at < day_end,
-            Appointment.status != "canceled",
-        )
-    ).all()
-
-    occupied: set[int] = set()
-    for appt in booked:
-        appt_start = int(appt.starts_at.hour * 60 + appt.starts_at.minute)
-        appt_end = int(appt.ends_at.hour * 60 + appt.ends_at.minute)
-        s = appt_start
-        while s < appt_end:
-            occupied.add(s)
-            s += slot_min
-
-    available = [f"{m // 60:02d}:{m % 60:02d}" for m in slots if m not in occupied]
-    return available
+    from app.services.booking_availability import compute_available_slots
+    raw_slots = compute_available_slots(
+        db, studio.id, settings.timezone or "Asia/Jerusalem",
+        start_hour, end_hour, duration, day, artist_id,
+    )
+    return [label for label, _starts, _ends in raw_slots]
 
 
 @router.post("/book/{slug}", status_code=201)
@@ -463,22 +443,50 @@ def create_booking(
     if not artist:
         raise HTTPException(status_code=404, detail="Artist not found")
 
+    # payload.time is one of the local "HH:MM" labels booking_slots() just
+    # handed the client — it must be interpreted in the studio's own
+    # timezone before converting to UTC for storage, not treated as if it
+    # were already UTC (that mismatch used to silently book every online
+    # request 2-3 hours off from the slot the customer actually picked).
+    from zoneinfo import ZoneInfo
+    tz_str = settings.timezone or "Asia/Jerusalem"
+    try:
+        tz = ZoneInfo(tz_str)
+    except Exception:
+        import pytz
+        tz = pytz.timezone(tz_str)
     try:
         h, m = map(int, payload.time.split(":"))
-        requested_at = datetime(payload.date.year, payload.date.month, payload.date.day, h, m, tzinfo=timezone.utc)
+        requested_at = datetime(payload.date.year, payload.date.month, payload.date.day, h, m, tzinfo=tz).astimezone(timezone.utc)
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid time format")
 
     if requested_at < datetime.now(timezone.utc):
         raise HTTPException(status_code=400, detail="Cannot book in the past")
 
-    # Check slot not already taken or pending
+    # Resolve the chosen service (drives real duration — a studio's flat
+    # self_booking_slot_minutes was previously the only thing that mattered,
+    # so a 4-hour session and a 15-minute touch-up both silently reserved
+    # the exact same generic block).
+    duration = settings.self_booking_slot_minutes or 60
+    service = None
+    if payload.service_id:
+        service = db.scalar(select(Service).where(Service.id == payload.service_id, Service.studio_id == studio.id))
+        if service:
+            duration = service.duration_minutes
+    ends_at = requested_at + timedelta(minutes=duration)
+
+    # Check slot not already taken — a real overlap check against the
+    # service's full duration, not just an exact-start-time match (which
+    # missed a new request that would overlap the tail end of a longer
+    # existing appointment starting earlier the same day).
     conflict = db.scalar(
         select(Appointment).where(
             Appointment.studio_id == studio.id,
             Appointment.artist_id == payload.artist_id,
-            Appointment.starts_at == requested_at,
             Appointment.status != "canceled",
+            Appointment.starts_at < ends_at,
+            Appointment.ends_at > requested_at,
         )
     )
     if conflict:
@@ -499,6 +507,7 @@ def create_booking(
         id=uuid.uuid4(),
         studio_id=studio.id,
         artist_id=uuid.UUID(payload.artist_id),
+        service_id=service.id if service else None,
         client_name=client_name,
         client_phone=client_phone,
         client_email=str(payload.email) if payload.email else None,

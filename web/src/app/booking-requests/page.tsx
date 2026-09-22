@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { apiFetch } from "@/lib/api";
 import AppShell from "@/components/AppShell";
 import RequireAuth from "@/components/RequireAuth";
-import { CheckCircle2, XCircle, Clock, Phone, Mail, Calendar, User, MessageSquare } from "lucide-react";
+import { CheckCircle2, XCircle, Clock, Phone, Mail, Calendar, User, MessageSquare, Tag } from "lucide-react";
 
 interface BookingRequest {
     id: string;
@@ -14,6 +14,7 @@ interface BookingRequest {
     client_name: string;
     client_phone: string;
     client_email?: string;
+    service_name?: string;
     service_note?: string;
     requested_at_local: string;
     status: "pending" | "approved" | "rejected";
@@ -173,6 +174,12 @@ export default function BookingRequestsPage() {
                                                         <div className="flex items-center gap-1.5 text-sm text-zinc-500">
                                                             <Mail className="h-3.5 w-3.5 shrink-0" />
                                                             <span className="truncate">{req.client_email}</span>
+                                                        </div>
+                                                    )}
+                                                    {req.service_name && (
+                                                        <div className="flex items-center gap-1.5 text-sm text-zinc-700 font-medium">
+                                                            <Tag className="h-3.5 w-3.5 shrink-0" />
+                                                            <span>{req.service_name}</span>
                                                         </div>
                                                     )}
                                                     {req.service_note && (

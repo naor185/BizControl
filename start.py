@@ -300,6 +300,10 @@ def ensure_schema():
         """)
         cur.execute("ALTER TABLE appointments ADD COLUMN IF NOT EXISTS service_id UUID REFERENCES services(id) ON DELETE SET NULL")
         cur.execute("ALTER TABLE appointments ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()")
+        # Drives slot duration in public_routes.py's booking_slots/create_booking
+        # instead of everyone always taking the studio's flat self_booking_slot_minutes.
+        cur.execute("ALTER TABLE booking_requests ADD COLUMN IF NOT EXISTS service_id UUID REFERENCES services(id) ON DELETE SET NULL")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_booking_requests_service_id ON booking_requests (service_id)")
 
         cur.execute("""
             CREATE TABLE IF NOT EXISTS studio_gallery (
