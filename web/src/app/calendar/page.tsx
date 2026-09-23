@@ -13,6 +13,37 @@ import BottomSheet from "@/components/ui/bottom-sheet";
 import { HIDE_BOOKING_BANNER_KEY } from "@/lib/localPrefs";
 import StaffReminderRulesSettings from "@/components/StaffReminderRulesSettings";
 
+// What the "הצגת חגים" panel lets you switch on/off, one group at a time.
+type HolidayCat = "chagim" | "modern" | "fasts" | "roshChodesh" | "parsha";
+const HOLIDAY_CATS: { key: HolidayCat; label: string }[] = [
+    { key: "chagim", label: "חגים ומועדים" },
+    { key: "modern", label: "ימי זיכרון ולאום" },
+    { key: "fasts", label: "צומות" },
+    { key: "roshChodesh", label: "ראשי חודשים" },
+    { key: "parsha", label: "פרשת השבוע ושבתות מיוחדות" },
+];
+const DEFAULT_HOLIDAY_CATS: Record<HolidayCat, boolean> = { chagim: true, modern: true, fasts: true, roshChodesh: true, parsha: true };
+const HOLIDAY_CATS_KEY = "biz_holiday_cats";
+
+function readHolidayCats(): Record<HolidayCat, boolean> {
+    try {
+        const raw = localStorage.getItem(HOLIDAY_CATS_KEY);
+        return raw ? { ...DEFAULT_HOLIDAY_CATS, ...JSON.parse(raw) } : DEFAULT_HOLIDAY_CATS;
+    } catch {
+        return DEFAULT_HOLIDAY_CATS;
+    }
+}
+
+// Which group a hebcal event belongs to (flag bits from @hebcal/core's `flags`).
+function holidayCategory(f: number, F: Record<string, number>): HolidayCat {
+    if (f & F.CHAG) return "chagim";
+    if (f & F.ROSH_CHODESH) return "roshChodesh";
+    if (f & (F.MINOR_FAST | F.MAJOR_FAST)) return "fasts";
+    if (f & (F.PARSHA_HASHAVUA | F.SPECIAL_SHABBAT)) return "parsha";
+    if (f & F.MODERN_HOLIDAY) return "modern";
+    return "chagim";
+}
+
 // Emoji for a Jewish-calendar event (hebcal gives the English name + flag bits).
 function holidayEmoji(desc: string, f: number, F: Record<string, number>): string {
     const d = desc.toLowerCase();
@@ -184,6 +215,14 @@ export default function CalendarPage() {
     useEffect(() => {
         const saved = localStorage.getItem("biz_show_holidays");
         if (saved !== null) setShowHolidays(saved === "true");
+    }, []);
+    const [holidayCats, setHolidayCats] = useState<Record<HolidayCat, boolean>>(readHolidayCats);
+    const toggleHolidayCat = useCallback((k: HolidayCat) => {
+        setHolidayCats(prev => {
+            const next = { ...prev, [k]: !prev[k] };
+            try { localStorage.setItem(HOLIDAY_CATS_KEY, JSON.stringify(next)); } catch { /* preference only */ }
+            return next;
+        });
     }, []);
     const [currentDateRange, setCurrentDateRange] = useState("");
     const [holidayPopup, setHolidayPopup] = useState<{ emoji: string; name: string; info: string } | null>(null);
@@ -435,22 +474,25 @@ export default function CalendarPage() {
         const { HebrewCalendar, Locale, flags: F } = hebcal;
         const heb = (t: string) => Locale.hebrewStripNikkud(t);
         const pad = (n: number) => String(n).padStart(2, "0");
-        const styleFor = (f: number) => {
-            if (f & F.CHAG) return { bg: "#e0f2fe", border: "#7dd3fc", text: "#0369a1" };          // yom tov
-            if (f & (F.MINOR_FAST | F.MAJOR_FAST)) return { bg: "#f1f5f9", border: "#cbd5e1", text: "#475569" };   // fasts
-            if (f & F.ROSH_CHODESH) return { bg: "#eef2ff", border: "#c7d2fe", text: "#4338ca" };
-            if (f & F.MODERN_HOLIDAY) return { bg: "#ecfeff", border: "#a5f3fc", text: "#0e7490" };   // Israeli days
-            if (f & (F.PARSHA_HASHAVUA | F.SPECIAL_SHABBAT)) return { bg: "#f8fafc", border: "#e2e8f0", text: "#64748b" };
-            return { bg: "#f0f9ff", border: "#bae6fd", text: "#0369a1" };                             // erev, chol hamoed, chanukah, minor
+        const styleFor = (f: number, cat: HolidayCat) => {
+            if (cat === "chagim") return f & F.CHAG
+                ? { bg: "#e0f2fe", border: "#7dd3fc", text: "#0369a1" }        // yom tov
+                : { bg: "#f0f9ff", border: "#bae6fd", text: "#0369a1" };       // erev, chol hamoed, chanukah, minor holidays
+            if (cat === "fasts") return { bg: "#f1f5f9", border: "#cbd5e1", text: "#475569" };
+            if (cat === "roshChodesh") return { bg: "#eef2ff", border: "#c7d2fe", text: "#4338ca" };
+            if (cat === "modern") return { bg: "#ecfeff", border: "#a5f3fc", text: "#0e7490" };
+            return { bg: "#f8fafc", border: "#e2e8f0", text: "#64748b" };       // parsha / special shabbat
         };
-        return HebrewCalendar.calendar({ start: new Date(from), end: new Date(to), il: true, sedrot: true }).map(ev => {
+        const wanted = HebrewCalendar.calendar({ start: new Date(from), end: new Date(to), il: true, sedrot: true })
+            .filter(ev => holidayCats[holidayCategory(ev.getFlags(), F as unknown as Record<string, number>)]);
+        return wanted.map(ev => {
             const f = ev.getFlags();
             const hd = ev.getDate();
             const g = hd.greg();
             const iso = `${g.getFullYear()}-${pad(g.getMonth() + 1)}-${pad(g.getDate())}`;
             const name = heb(ev.render("he"));
             const emoji = holidayEmoji(ev.getDesc(), f, F as unknown as Record<string, number>);
-            const c = styleFor(f);
+            const c = styleFor(f, holidayCategory(f, F as unknown as Record<string, number>));
             return {
                 id: `holiday-${iso}-${ev.getDesc()}`,
                 title: `${emoji} ${name}`,
@@ -469,7 +511,7 @@ export default function CalendarPage() {
                 },
             };
         });
-    }, [showHolidays, hebcal, from, to]);
+    }, [showHolidays, hebcal, from, to, holidayCats]);
 
     // Format appointments for FullCalendar
     const events = useMemo(() => {
@@ -1012,6 +1054,16 @@ export default function CalendarPage() {
                     <span className={`absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-all ${showHolidays ? "left-4" : "left-0.5"}`} />
                 </span>
             </button>
+            {showHolidays && (
+                <div className="mb-3 -mt-1 px-3 py-2 rounded-lg border border-slate-200 bg-white space-y-1.5">
+                    {HOLIDAY_CATS.map(c => (
+                        <label key={c.key} className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer min-h-6">
+                            <input type="checkbox" checked={holidayCats[c.key]} onChange={() => toggleHolidayCat(c.key)} className="accent-sky-600" />
+                            {c.label}
+                        </label>
+                    ))}
+                </div>
+            )}
 
             {/* Start / End hour inputs */}
             <div className="flex gap-2 mb-2">
