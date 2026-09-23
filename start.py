@@ -1403,6 +1403,34 @@ def ensure_schema():
         # per-studio lists in this table.
         cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS dismissed_setup_items TEXT")
 
+        # ── Global platform design system — superadmin-controlled palette
+        # applied everywhere in BizControl + BizFind, replacing each
+        # studio's own theme_primary_color/theme_secondary_color (those
+        # columns are untouched here — just no longer read for color; see
+        # app/api/public_routes.py's GET /public/platform-theme). Only
+        # meaningful on the one studio row with is_platform = true.
+        cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS theme_background_color VARCHAR(32) NOT NULL DEFAULT '#f8fafc'")
+        cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS theme_surface_color VARCHAR(32) NOT NULL DEFAULT '#ffffff'")
+        cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS theme_text_color VARCHAR(32) NOT NULL DEFAULT '#0f172a'")
+        cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS theme_text_muted_color VARCHAR(32) NOT NULL DEFAULT '#64748b'")
+        cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS theme_accent_color VARCHAR(32) NOT NULL DEFAULT '#f59e0b'")
+
+        # One-time seed: the platform row's theme_primary_color/
+        # theme_secondary_color predate this feature and still sit at the
+        # generic black/white default from when they were per-studio-only
+        # fields — give the platform row a real starting palette so launch
+        # day isn't black-on-white. Guarded on "still at the untouched
+        # default" so this never overwrites a superadmin's real edit on a
+        # later restart — runs at most once, ever, per environment.
+        cur.execute("""
+            UPDATE studio_settings SET
+                theme_primary_color = '#7c3aed',
+                theme_secondary_color = '#4c1d95'
+            WHERE studio_id = (SELECT id FROM studios WHERE is_platform = true LIMIT 1)
+              AND theme_primary_color = '#000000'
+              AND theme_secondary_color = '#ffffff'
+        """)
+
         # ── Short opt-out links — a short code instead of a long JWT in the URL ──
         cur.execute("""
             CREATE TABLE IF NOT EXISTS client_optout_links (

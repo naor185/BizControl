@@ -3,6 +3,7 @@
 import { toast } from "@/lib/toast";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import { usePlatformTheme } from "@/lib/usePlatformTheme";
 
 interface PublicPaymentInfo {
     id: string;
@@ -23,6 +24,7 @@ interface PublicPaymentInfo {
 export default function PublicPaymentPage() {
     const params = useParams();
     const apptId = params.appointmentId as string;
+    const theme = usePlatformTheme();
 
     const [loading, setLoading] = useState(true);
     const [info, setInfo] = useState<PublicPaymentInfo | null>(null);
@@ -107,7 +109,7 @@ export default function PublicPaymentPage() {
                         {info.logo_filename ? (
                             <img src={`${process.env.NEXT_PUBLIC_API_URL || "https://api.biz-control.com"}/uploads/${info.logo_filename}`} alt="Logo" className="max-w-[70%] max-h-[70%] object-contain" />
                         ) : (
-                            <span className="text-2xl font-bold" style={{ color: info.theme_primary_color }}>B</span>
+                            <span className="text-2xl font-bold" style={{ color: theme.primary }}>B</span>
                         )}
                     </div>
                     <h1 className="text-2xl font-black text-slate-900 leading-tight">אישור תשלום מקדמה</h1>

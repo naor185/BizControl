@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { usePlatformTheme } from "@/lib/usePlatformTheme";
 
 const API = (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_BASE || "").replace(/\/$/, "");
 function imgUrl(url?: string) { if (!url) return ""; return url.startsWith("http") ? url : `${API}${url}`; }
@@ -26,6 +27,7 @@ function Stars({ rating }: { rating?: number }) {
 }
 
 export default function ExplorePage() {
+    const theme = usePlatformTheme();
     const [studios, setStudios] = useState<StudioCard[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
     const [loading, setLoading] = useState(true);
@@ -110,10 +112,10 @@ export default function ExplorePage() {
                         {studios.map(s => (
                             <Link key={s.id} href={`/profile/${s.slug}`} style={{ textDecoration: "none" }}>
                                 <div style={{ background: "rgba(255,255,255,.05)", border: "1px solid rgba(255,255,255,.1)", borderRadius: 20, overflow: "hidden", transition: "transform .2s, border-color .2s", cursor: "pointer" }}
-                                    onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.transform = "translateY(-3px)"; (e.currentTarget as HTMLDivElement).style.borderColor = s.primary_color; }}
+                                    onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.transform = "translateY(-3px)"; (e.currentTarget as HTMLDivElement).style.borderColor = theme.primary; }}
                                     onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.transform = ""; (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(255,255,255,.1)"; }}>
                                     {/* Cover */}
-                                    <div style={{ height: 140, background: s.cover_url ? `url(${imgUrl(s.cover_url)}) center/cover` : `linear-gradient(135deg,${s.primary_color}44,${s.primary_color}22)`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                    <div style={{ height: 140, background: s.cover_url ? `url(${imgUrl(s.cover_url)}) center/cover` : `linear-gradient(135deg,${theme.primary}44,${theme.primary}22)`, display: "flex", alignItems: "center", justifyContent: "center" }}>
                                         {!s.cover_url && s.logo_url && (
                                             <img src={imgUrl(s.logo_url)} alt="" style={{ width: 70, height: 70, borderRadius: 16, objectFit: "cover" }} />
                                         )}

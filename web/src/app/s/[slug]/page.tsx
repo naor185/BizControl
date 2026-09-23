@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import LandingPageTemplate from "@/components/LandingPageTemplate";
+import { usePlatformTheme } from "@/lib/usePlatformTheme";
 
 type LandingData = {
     studio_id: string;
@@ -33,6 +34,7 @@ export default function StudioLandingPage() {
     const params = useParams();
     const searchParams = useSearchParams();
     const slug = params?.slug as string;
+    const theme = usePlatformTheme();
 
     const [data, setData] = useState<LandingData | null>(null);
     const [loading, setLoading] = useState(true);
@@ -142,16 +144,16 @@ export default function StudioLandingPage() {
     return (
         <div className="min-h-screen">
             <LandingPageTemplate
-                themePrimary={data.theme_primary_color}
-                themeSecondary={data.theme_secondary_color}
+                themePrimary={theme.primary}
+                themeSecondary={theme.secondary}
                 logoUrl={imgUrl(data.logo_filename)}
                 title={data.landing_page_title || ""}
                 description={data.landing_page_description || ""}
                 studioName={data.studio_name}
                 templateId={data.landing_page_active_template}
                 bgImage={imgUrl(data.landing_page_bg_image)}
-                titleFont={data.landing_page_title_font}
-                descFont={data.landing_page_desc_font}
+                titleFont={theme.heading_font}
+                descFont={theme.body_font}
                 galleryImages={[
                     imgUrl(data.landing_page_image_1),
                     imgUrl(data.landing_page_image_2),

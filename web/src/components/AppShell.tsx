@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { Calendar, ShoppingCart, LayoutDashboard, Users, MessageSquare, Rocket, Building2, Lock, type LucideIcon } from "lucide-react";
 import { apiFetch, clearToken, getToken, setToken } from "@/lib/api";
 import ClockWidget from "./ClockWidget";
 import BottomNav from "./BottomNav";
@@ -35,13 +36,13 @@ type PinStatus = { has_pin: boolean; is_locked: boolean };
 // there to fall back on and neither is any hardware back button on iOS.
 const ROOT_PATHS = new Set(["/calendar", "/pos", "/clients", "/inbox"]);
 
-const MAIN_NAV: { href: string; label: string; icon: string; module?: string }[] = [
-    { href: "/calendar",  label: "יומן תורים",  icon: "📅", module: "calendar" },
-    { href: "/pos",       label: "קופה",         icon: "🛒", module: "pos" },
-    { href: "/dashboard", label: "לוח בקרה",    icon: "📊" },
-    { href: "/clients",   label: "לקוחות",       icon: "👥", module: "crm" },
-    { href: "/inbox",     label: "תיבת הודעות", icon: "💬" },
-    { href: "/setup",     label: "הקמת העסק",   icon: "🚀" },
+const MAIN_NAV: { href: string; label: string; icon: LucideIcon; module?: string }[] = [
+    { href: "/calendar",  label: "יומן תורים",  icon: Calendar, module: "calendar" },
+    { href: "/pos",       label: "קופה",         icon: ShoppingCart, module: "pos" },
+    { href: "/dashboard", label: "לוח בקרה",    icon: LayoutDashboard },
+    { href: "/clients",   label: "לקוחות",       icon: Users, module: "crm" },
+    { href: "/inbox",     label: "תיבת הודעות", icon: MessageSquare },
+    { href: "/setup",     label: "הקמת העסק",   icon: Rocket },
 ];
 
 export default function AppShell({
@@ -171,7 +172,7 @@ export default function AppShell({
         <div className="min-h-screen bg-slate-50" dir={dir}>
             {/* Trial banner */}
             {trialDaysLeft !== null && (
-                <div className="bg-linear-to-r from-violet-600 to-indigo-600 text-white text-sm font-semibold px-4 py-2.5 flex items-center justify-between z-50 relative">
+                <div className="text-white text-sm font-semibold px-4 py-2.5 flex items-center justify-between z-50 relative" style={{ background: "linear-gradient(to right, var(--primary), var(--secondary))" }}>
                     <span className="flex items-center gap-2">
                         <span>🔬</span>
                         <span>
@@ -180,7 +181,7 @@ export default function AppShell({
                                 : `ניסיון חינמי — נותרו ${trialDaysLeft} ימים`}
                         </span>
                     </span>
-                    <Link href="/billing" className="bg-white text-violet-700 px-3 py-1 rounded-lg text-xs font-bold hover:bg-violet-50 transition-colors no-underline">
+                    <Link href="/billing" className="bg-white px-3 py-1 rounded-lg text-xs font-bold hover:opacity-90 transition-opacity no-underline" style={{ color: "var(--primary)" }}>
                         שדרגו עכשיו ←
                     </Link>
                 </div>
@@ -238,6 +239,7 @@ export default function AppShell({
                             const badge = item.href === "/dashboard" && pendingDepositsCount > 0
                                 ? pendingDepositsCount
                                 : 0;
+                            const Icon = item.icon;
                             return (
                                 <Link
                                     key={item.href}
@@ -245,14 +247,15 @@ export default function AppShell({
                                     className={[
                                         "flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium transition-all",
                                         active
-                                            ? "bg-slate-900 text-white shadow-sm"
+                                            ? "text-white shadow-sm"
                                             : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
                                     ].join(" ")}
+                                    style={active ? { background: "var(--primary)" } : undefined}
                                 >
-                                    <span className="text-base leading-none">{item.icon}</span>
+                                    <Icon className="h-4 w-4 shrink-0" />
                                     <span className="flex-1">{item.label}</span>
                                     {badge > 0 && (
-                                        <span className="bg-amber-500 text-white text-[10px] font-bold rounded-full min-w-4.5 h-4.5 flex items-center justify-center px-1">
+                                        <span className="text-white text-[10px] font-bold rounded-full min-w-4.5 h-4.5 flex items-center justify-center px-1" style={{ background: "var(--accent)" }}>
                                             {badge}
                                         </span>
                                     )}
@@ -272,11 +275,12 @@ export default function AppShell({
                             className={[
                                 "w-full flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium transition-all",
                                 pathname.startsWith("/business")
-                                    ? "bg-violet-600 text-white shadow-sm"
-                                    : "text-slate-600 hover:bg-violet-50 hover:text-violet-700",
+                                    ? "text-white shadow-sm"
+                                    : "text-slate-600 hover:bg-slate-100",
                             ].join(" ")}
+                            style={pathname.startsWith("/business") ? { background: "var(--secondary)" } : undefined}
                         >
-                            <span className="text-base leading-none">{businessUnlocked ? "🏢" : "🔐"}</span>
+                            {businessUnlocked ? <Building2 className="h-4 w-4 shrink-0" /> : <Lock className="h-4 w-4 shrink-0" />}
                             <span className="flex-1 text-right">ניהול עסק</span>
                             {!businessUnlocked && (
                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" className="opacity-50">

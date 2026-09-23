@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import LandingPageTemplate from "@/components/LandingPageTemplate";
+import { usePlatformTheme } from "@/lib/usePlatformTheme";
 
 // Define the API URL directly since this page is public and doesn't use the standard authenticated api fetcher for everything.
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://127.0.0.1:8000";
@@ -27,6 +28,7 @@ type PublicStudioInfo = {
 export default function JoinStudioPage() {
     const params = useParams();
     const studioId = params.studioId as string;
+    const theme = usePlatformTheme();
 
     const [info, setInfo] = useState<PublicStudioInfo | null>(null);
     const [loading, setLoading] = useState(true);
@@ -98,16 +100,16 @@ export default function JoinStudioPage() {
 
     return (
         <LandingPageTemplate
-            themePrimary={info.theme_primary_color}
-            themeSecondary={info.theme_secondary_color}
+            themePrimary={theme.primary}
+            themeSecondary={theme.secondary}
             logoUrl={logoUrl}
             title={info.landing_page_title || ""}
             description={info.landing_page_description || ""}
             studioName={info.name}
             templateId={info.landing_page_active_template}
             bgImage={info.landing_page_bg_image ? `${API_BASE}/uploads/${info.landing_page_bg_image}` : null}
-            titleFont={info.landing_page_title_font}
-            descFont={info.landing_page_desc_font}
+            titleFont={theme.heading_font}
+            descFont={theme.body_font}
             galleryImages={[
                 info.landing_page_image_1 ? `${API_BASE}/uploads/${info.landing_page_image_1}` : null,
                 info.landing_page_image_2 ? `${API_BASE}/uploads/${info.landing_page_image_2}` : null,

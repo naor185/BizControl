@@ -86,6 +86,59 @@ class ClientJoinRequest(BaseModel):
     utm_medium: str | None = None
     service_interest: str | None = None
 
+
+class PublicPlatformTheme(BaseModel):
+    primary: str
+    secondary: str
+    accent: str
+    background: str
+    surface: str
+    text: str
+    text_muted: str
+    heading_font: str
+    body_font: str
+
+
+# Safe fallback if the platform studio row is ever missing/misconfigured in
+# an environment — this endpoint must never 404/500, since customers/ (fully
+# public, no auth) fetches it at boot on every page load.
+_DEFAULT_PLATFORM_THEME = PublicPlatformTheme(
+    primary="#7c3aed", secondary="#4c1d95", accent="#f59e0b",
+    background="#f8fafc", surface="#ffffff",
+    text="#0f172a", text_muted="#64748b",
+    heading_font="Heebo", body_font="Assistant",
+)
+
+
+@router.get("/platform-theme", response_model=PublicPlatformTheme)
+def get_public_platform_theme(db: Session = Depends(get_db)):
+    """
+    The superadmin-controlled global design system — background/palette/font
+    tokens applied platform-wide across BizControl and BizFind. Reuses the
+    same platform StudioSettings row app/api/superadmin_routes.py's
+    /admin/platform-settings edits (PLATFORM_STUDIO_ID env var, falling back
+    to the is_platform flag) — no separate storage, one source of truth.
+    """
+    platform_studio_id = os.getenv("PLATFORM_STUDIO_ID", "")
+    settings = db.get(StudioSettings, platform_studio_id) if platform_studio_id else None
+    if not settings:
+        studio = db.scalar(select(Studio).where(Studio.is_platform == True))  # noqa: E712
+        settings = db.get(StudioSettings, studio.id) if studio else None
+    if not settings:
+        return _DEFAULT_PLATFORM_THEME
+    return PublicPlatformTheme(
+        primary=settings.theme_primary_color,
+        secondary=settings.theme_secondary_color,
+        accent=settings.theme_accent_color,
+        background=settings.theme_background_color,
+        surface=settings.theme_surface_color,
+        text=settings.theme_text_color,
+        text_muted=settings.theme_text_muted_color,
+        heading_font=settings.landing_page_title_font or "Heebo",
+        body_font=settings.landing_page_desc_font or "Assistant",
+    )
+
+
 @router.get("/landing/{slug}", response_model=PublicLandingInfo)
 def get_landing_by_slug(slug: str, db: Session = Depends(get_db)):
     studio = db.query(Studio).filter(Studio.slug == slug, Studio.is_active == True).first()  # noqa: E712

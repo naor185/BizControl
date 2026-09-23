@@ -4,6 +4,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { API, imgUrl } from "@/lib/api";
 import { setStudioToken, goToBizControl } from "@/lib/handoff";
+import { usePlatformTheme } from "@/lib/usePlatformTheme";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -174,6 +175,7 @@ function ClaimBanner({ businessId, phone, primary }: { businessId: string; phone
 
 export default function BusinessPage() {
     const { slug } = useParams() as { slug: string };
+    const theme = usePlatformTheme();
     const [p, setP] = useState<Profile | null>(null);
     const [err, setErr] = useState<string | null>(null);
     const [lightbox, setLightbox] = useState<{ url: string; index: number } | null>(null);
@@ -224,7 +226,7 @@ export default function BusinessPage() {
         </div>
     );
 
-    const primary = p!.primary_color || "#7c3aed";
+    const primary = theme.primary;
     let hours: Hours | null = null;
     if (p!.hours) { try { hours = JSON.parse(p!.hours); } catch {} }
     const openStatus = hours ? isOpenNow(hours) : null;

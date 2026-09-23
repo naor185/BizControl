@@ -109,6 +109,19 @@ class StudioSettings(Base):
     theme_secondary_color: Mapped[str] = mapped_column(String(32), nullable=False, default="#ffffff", server_default="#ffffff")
     logo_filename: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
+    # Global platform design system — only meaningful on the PLATFORM_STUDIO_ID
+    # row (see app/api/superadmin_routes.py's platform-settings endpoints).
+    # Every regular studio's own theme_primary_color/theme_secondary_color
+    # above are left untouched in the DB but no longer read for rendering —
+    # the platform row's full palette (these 5 + primary/secondary/the two
+    # landing_page_*_font columns above, repurposed as heading/body font)
+    # is what actually renders everywhere now.
+    theme_background_color: Mapped[str] = mapped_column(String(32), nullable=False, default="#f8fafc", server_default="#f8fafc")
+    theme_surface_color: Mapped[str] = mapped_column(String(32), nullable=False, default="#ffffff", server_default="#ffffff")
+    theme_text_color: Mapped[str] = mapped_column(String(32), nullable=False, default="#0f172a", server_default="#0f172a")
+    theme_text_muted_color: Mapped[str] = mapped_column(String(32), nullable=False, default="#64748b", server_default="#64748b")
+    theme_accent_color: Mapped[str] = mapped_column(String(32), nullable=False, default="#f59e0b", server_default="#f59e0b")
+
     # Landing Pages
     landing_page_active_template: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
     landing_page_title: Mapped[str | None] = mapped_column(String(255), nullable=True)

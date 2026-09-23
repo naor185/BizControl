@@ -9,6 +9,7 @@ import {
     XAxis, YAxis, Tooltip, ResponsiveContainer,
 } from "recharts";
 import PasswordInput from "@/components/PasswordInput";
+import LandingPageTemplate from "@/components/LandingPageTemplate";
 
 type Stats = {
     total_studios: number;
@@ -170,11 +171,23 @@ export default function AdminPage() {
     const [healthLoading, setHealthLoading] = useState(false);
     const [auditLog, setAuditLog] = useState<AuditEntry[] | null>(null);
     const [auditLoading, setAuditLoading] = useState(false);
-    const [platformSettings, setPlatformSettings] = useState<{ whatsapp_provider: string | null; whatsapp_phone_id: string | null; whatsapp_api_key: string | null } | null>(null);
+    const [platformSettings, setPlatformSettings] = useState<{
+        whatsapp_provider: string | null; whatsapp_phone_id: string | null; whatsapp_api_key: string | null;
+        theme_primary_color?: string; theme_secondary_color?: string; theme_accent_color?: string;
+        theme_background_color?: string; theme_surface_color?: string;
+        theme_text_color?: string; theme_text_muted_color?: string;
+        theme_heading_font?: string | null; theme_body_font?: string | null;
+    } | null>(null);
     const [webhookConfig, setWebhookConfig] = useState<{ webhook_url: string; verify_token: string } | null>(null);
     const [platformLoading, setPlatformLoading] = useState(false);
     const [platformSaving, setPlatformSaving] = useState(false);
-    const [platformForm, setPlatformForm] = useState({ whatsapp_provider: "meta", whatsapp_phone_id: "", whatsapp_api_key: "" });
+    const [platformForm, setPlatformForm] = useState({
+        whatsapp_provider: "meta", whatsapp_phone_id: "", whatsapp_api_key: "",
+        theme_primary_color: "#7c3aed", theme_secondary_color: "#4c1d95", theme_accent_color: "#f59e0b",
+        theme_background_color: "#f8fafc", theme_surface_color: "#ffffff",
+        theme_text_color: "#0f172a", theme_text_muted_color: "#64748b",
+        theme_heading_font: "Heebo", theme_body_font: "Assistant",
+    });
     const [testPhone, setTestPhone] = useState("");
     const [testSending, setTestSending] = useState(false);
     const [testResult, setTestResult] = useState<{ ok: boolean; msg: string } | null>(null);
@@ -395,12 +408,27 @@ export default function AdminPage() {
 
         // Load remaining settings — each isolated so one failure doesn't block others
         try {
-            const data = await apiFetch<{ whatsapp_provider: string | null; whatsapp_phone_id: string | null; whatsapp_api_key: string | null }>("/api/admin/platform-settings");
+            const data = await apiFetch<{
+                whatsapp_provider: string | null; whatsapp_phone_id: string | null; whatsapp_api_key: string | null;
+                theme_primary_color: string; theme_secondary_color: string; theme_accent_color: string;
+                theme_background_color: string; theme_surface_color: string;
+                theme_text_color: string; theme_text_muted_color: string;
+                theme_heading_font: string | null; theme_body_font: string | null;
+            }>("/api/admin/platform-settings");
             setPlatformSettings(data);
             setPlatformForm({
                 whatsapp_provider: data.whatsapp_provider || "meta",
                 whatsapp_phone_id: data.whatsapp_phone_id || "",
                 whatsapp_api_key: data.whatsapp_api_key || "",
+                theme_primary_color: data.theme_primary_color || "#7c3aed",
+                theme_secondary_color: data.theme_secondary_color || "#4c1d95",
+                theme_accent_color: data.theme_accent_color || "#f59e0b",
+                theme_background_color: data.theme_background_color || "#f8fafc",
+                theme_surface_color: data.theme_surface_color || "#ffffff",
+                theme_text_color: data.theme_text_color || "#0f172a",
+                theme_text_muted_color: data.theme_text_muted_color || "#64748b",
+                theme_heading_font: data.theme_heading_font || "Heebo",
+                theme_body_font: data.theme_body_font || "Assistant",
             });
         } catch { setPlatformSettings(null); }
 
@@ -1175,6 +1203,135 @@ export default function AdminPage() {
                 {/* Platform Settings Tab */}
                 {tab === "platform" && (
                     <div className="max-w-2xl space-y-6">
+
+                        {/* ══ GLOBAL DESIGN SYSTEM CARD ══ */}
+                        <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-5">
+                            <div className="flex items-center gap-3">
+                                <div className="w-12 h-12 rounded-2xl bg-violet-500/20 border border-violet-500/30 flex items-center justify-center text-2xl">🎨</div>
+                                <div>
+                                    <h2 className="text-lg font-bold">עיצוב גלובלי</h2>
+                                    <p className="text-slate-400 text-sm mt-0.5">הפלטה והפונטים האלה חלים על כל סטודיו ב-BizControl וב-BizFind — הלוגו נשאר פר-סטודיו, הצבעים לא.</p>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                                {([
+                                    ["theme_primary_color", "ראשי"],
+                                    ["theme_secondary_color", "משני"],
+                                    ["theme_accent_color", "הדגשה"],
+                                    ["theme_background_color", "רקע"],
+                                    ["theme_surface_color", "כרטיסים"],
+                                    ["theme_text_color", "טקסט"],
+                                    ["theme_text_muted_color", "טקסט משני"],
+                                ] as const).map(([key, label]) => (
+                                    <div key={key} className="space-y-1.5">
+                                        <label className="text-xs text-slate-400 block">{label}</label>
+                                        <div className="flex items-center gap-2 bg-black/30 border border-white/10 rounded-xl p-1.5">
+                                            <input
+                                                type="color"
+                                                value={platformForm[key]}
+                                                onChange={e => setPlatformForm(f => ({ ...f, [key]: e.target.value }))}
+                                                className="h-8 w-9 rounded cursor-pointer border-0 p-0 bg-transparent shrink-0"
+                                            />
+                                            <input
+                                                type="text" dir="ltr"
+                                                value={platformForm[key]}
+                                                onChange={e => setPlatformForm(f => ({ ...f, [key]: e.target.value }))}
+                                                className="bg-transparent w-full text-xs outline-none uppercase font-mono text-slate-300 min-w-0"
+                                            />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1.5">
+                                    <label className="text-xs text-slate-400 block">פונט כותרות</label>
+                                    <select
+                                        value={platformForm.theme_heading_font}
+                                        onChange={e => setPlatformForm(f => ({ ...f, theme_heading_font: e.target.value }))}
+                                        className="w-full bg-black/30 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none"
+                                        style={{ colorScheme: "dark" }}
+                                    >
+                                        {["Heebo", "Assistant", "Rubik", "M PLUS Rounded 1c", "Varela Round"].map(f => <option key={f} value={f}>{f}</option>)}
+                                    </select>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-xs text-slate-400 block">פונט גוף טקסט</label>
+                                    <select
+                                        value={platformForm.theme_body_font}
+                                        onChange={e => setPlatformForm(f => ({ ...f, theme_body_font: e.target.value }))}
+                                        className="w-full bg-black/30 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none"
+                                        style={{ colorScheme: "dark" }}
+                                    >
+                                        {["Heebo", "Assistant", "Rubik", "M PLUS Rounded 1c", "Varela Round"].map(f => <option key={f} value={f}>{f}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* Live preview #1 — public landing page, same isLive={false} mock automation/page.tsx's branding tab already uses */}
+                            <div>
+                                <div className="text-xs text-slate-400 mb-2">תצוגה מקדימה — דף נחיתה ציבורי</div>
+                                <div className="w-full h-64 relative bg-white rounded-2xl shadow-xl overflow-hidden border border-white/10">
+                                    <div className="h-8 bg-slate-100 border-b border-slate-200 flex items-center px-3 gap-1.5">
+                                        <div className="w-2.5 h-2.5 rounded-full bg-red-400" />
+                                        <div className="w-2.5 h-2.5 rounded-full bg-amber-400" />
+                                        <div className="w-2.5 h-2.5 rounded-full bg-green-400" />
+                                    </div>
+                                    <div className="w-full h-[calc(100%-2rem)] overflow-hidden relative bg-white">
+                                        <div className="absolute inset-0 origin-top w-[160%] h-[160%] scale-[0.625]">
+                                            <LandingPageTemplate
+                                                themePrimary={platformForm.theme_primary_color}
+                                                themeSecondary={platformForm.theme_secondary_color}
+                                                logoUrl={null}
+                                                title="שם העסק שלך"
+                                                description="תיאור קצר של העסק יופיע כאן, בדיוק כמו שיראה כל לקוח."
+                                                templateId={1}
+                                                titleFont={platformForm.theme_heading_font}
+                                                descFont={platformForm.theme_body_font}
+                                                isLive={false}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Live preview #2 — the authenticated app's own sidebar chrome (a materially different surface than the public landing page) */}
+                            <div>
+                                <div className="text-xs text-slate-400 mb-2">תצוגה מקדימה — סרגל ניווט (BizControl)</div>
+                                <div
+                                    className="w-48 rounded-2xl border border-white/10 p-2.5 space-y-1"
+                                    style={{ background: platformForm.theme_surface_color }}
+                                >
+                                    {[
+                                        ["📅", "יומן תורים"],
+                                        ["📊", "לוח בקרה"],
+                                        ["👥", "לקוחות"],
+                                    ].map(([icon, label], i) => (
+                                        <div
+                                            key={label}
+                                            className="flex items-center gap-2 rounded-xl px-2.5 py-2 text-xs font-medium"
+                                            style={i === 0
+                                                ? { background: platformForm.theme_primary_color, color: "#fff" }
+                                                : { color: platformForm.theme_text_color }
+                                            }
+                                        >
+                                            <span>{icon}</span>
+                                            <span>{label}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <button
+                                onClick={handleSavePlatform}
+                                disabled={platformSaving}
+                                className="w-full py-3 rounded-xl font-bold text-sm transition-all text-white disabled:opacity-60"
+                                style={{ background: platformForm.theme_primary_color }}
+                            >
+                                {platformSaving ? "שומר..." : "💾 שמור עיצוב גלובלי"}
+                            </button>
+                        </div>
 
                         {/* Webhook Config Card */}
                         {webhookConfig && (

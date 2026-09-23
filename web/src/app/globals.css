@@ -1,14 +1,31 @@
 @import "tailwindcss";
 
+/*
+ * Global design-system tokens — superadmin-controlled platform-wide (see
+ * GET /api/public/platform-theme), applied at runtime by ThemeProvider.tsx
+ * via document.documentElement.style.setProperty(). The values below are
+ * only the pre-JS/no-JS fallback (matches the seeded platform defaults) —
+ * ThemeProvider overrides them as soon as the fetch resolves.
+ *
+ * --primary-600/700/50/100/200 are derived from --primary via color-mix()
+ * instead of being set individually, so ThemeProvider only ever needs to
+ * set the 7 base tokens, never compute shades in JS.
+ */
 :root {
   --background: #f8fafc;
+  --surface: #ffffff;
   --foreground: #0f172a;
-  --primary: #0ea5e9;       /* sky-500 */
-  --primary-600: #0284c7;   /* sky-600 */
-  --primary-700: #0369a1;   /* sky-700 */
-  --primary-50: #f0f9ff;    /* sky-50 */
-  --primary-100: #e0f2fe;   /* sky-100 */
-  --primary-200: #bae6fd;   /* sky-200 */
+  --foreground-muted: #64748b;
+  --primary: #7c3aed;
+  --secondary: #4c1d95;
+  --accent: #f59e0b;
+  --font-heading: "Heebo", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-body: "Assistant", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --primary-600: color-mix(in srgb, var(--primary) 85%, black);
+  --primary-700: color-mix(in srgb, var(--primary) 70%, black);
+  --primary-50: color-mix(in srgb, var(--primary) 6%, white);
+  --primary-100: color-mix(in srgb, var(--primary) 12%, white);
+  --primary-200: color-mix(in srgb, var(--primary) 25%, white);
 }
 
 html, body {
@@ -41,9 +58,13 @@ html, body {
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
 }
 
 /* Remove 300ms tap delay on touch devices */
@@ -104,8 +125,8 @@ button:focus-visible {
   animation: toastSlideIn 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-/* Scrollbar — תכלת עדין */
+/* Scrollbar */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #bae6fd; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #7dd3fc; }
+::-webkit-scrollbar-thumb { background: var(--primary-200); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--primary-100); }

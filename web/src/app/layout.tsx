@@ -4,6 +4,7 @@ import { ToastProvider } from "@/components/ui/toast";
 import { QueryProvider } from "@/components/QueryProvider";
 import OverflowDebugger from "@/components/OverflowDebugger";
 import BackButtonHandler from "@/components/BackButtonHandler";
+import ThemeProvider from "@/components/ThemeProvider";
 
 export const metadata = {
   title: "BizControl",
@@ -47,10 +48,22 @@ export const viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="he" dir="rtl">
+      <head>
+        {/* Global platform fonts — the fixed 5-font set the superadmin's
+            theme editor picks from (same set LandingPageTemplate already
+            uses for per-studio landing pages), loaded once here so
+            ThemeProvider only has to set --font-heading/--font-body,
+            never inject a <link> itself. */}
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;700;900&family=Assistant:wght@400;700&family=Rubik:wght@400;700&family=M+PLUS+Rounded+1c:wght@400;700&family=Varela+Round&display=swap"
+        />
+      </head>
       <body>
         <QueryProvider>
           <LanguageProvider>
             <ToastProvider>
+              <ThemeProvider />
               <BackButtonHandler />
               {children}
               {process.env.NODE_ENV !== "production" && <OverflowDebugger />}

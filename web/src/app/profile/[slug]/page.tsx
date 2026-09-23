@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { usePlatformTheme } from "@/lib/usePlatformTheme";
 
 const API = (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_BASE || "").replace(/\/$/, "");
 
@@ -35,6 +36,7 @@ function durLabel(m: number) {
 
 export default function ProfilePage() {
     const { slug } = useParams() as { slug: string };
+    const theme = usePlatformTheme();
     const [profile, setProfile] = useState<Profile | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [showReviewForm, setShowReviewForm] = useState(false);
@@ -78,7 +80,7 @@ export default function ProfilePage() {
     );
 
     const p = profile!;
-    const primary = p.primary_color || "#7c3aed";
+    const primary = theme.primary;
 
     return (
         <div dir="rtl" style={{ minHeight: "100vh", background: "#0f172a", color: "#f1f5f9", fontFamily: "system-ui,sans-serif" }}>

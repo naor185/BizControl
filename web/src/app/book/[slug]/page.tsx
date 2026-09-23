@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
+import { usePlatformTheme } from "@/lib/usePlatformTheme";
 
 const API = (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_BASE || "").replace(/^http:\/\//, "https://");
 
@@ -90,7 +91,8 @@ export default function BookingPage() {
         finally { setBooking(false); }
     };
 
-    const primary = info?.primary_color || "#7c3aed";
+    const platformTheme = usePlatformTheme();
+    const primary = platformTheme.primary;
 
     // Calendar helpers
     const daysInMonth = (y: number, m: number) => new Date(y, m + 1, 0).getDate();

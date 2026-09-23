@@ -1090,16 +1090,68 @@ class LeadAnalyticsOut(BaseModel):
 PLATFORM_STUDIO_ID = os.getenv("PLATFORM_STUDIO_ID", "")
 
 
+def _get_platform_settings(db: Session) -> StudioSettings | None:
+    """
+    Resolve the one StudioSettings row that backs every platform-wide setting
+    (WhatsApp, and now the global design theme). Prefers the explicit env var
+    (lets ops point at a specific row), falls back to the is_platform flag
+    set at bootstrap (app/api/superadmin_routes.py's studio-creation code) —
+    so this keeps working even in an environment (e.g. local dev) where
+    PLATFORM_STUDIO_ID was never set.
+    """
+    if PLATFORM_STUDIO_ID:
+        settings = db.get(StudioSettings, PLATFORM_STUDIO_ID)
+        if settings:
+            return settings
+    studio = db.scalar(select(Studio).where(Studio.is_platform == True))  # noqa: E712
+    return db.get(StudioSettings, studio.id) if studio else None
+
+
 class PlatformSettingsOut(BaseModel):
     whatsapp_provider: str | None
     whatsapp_phone_id: str | None
     whatsapp_api_key: str | None
+    theme_primary_color: str
+    theme_secondary_color: str
+    theme_accent_color: str
+    theme_background_color: str
+    theme_surface_color: str
+    theme_text_color: str
+    theme_text_muted_color: str
+    theme_heading_font: str | None
+    theme_body_font: str | None
 
 
 class PlatformSettingsIn(BaseModel):
     whatsapp_provider: str | None = None
     whatsapp_phone_id: str | None = None
     whatsapp_api_key: str | None = None
+    theme_primary_color: str | None = None
+    theme_secondary_color: str | None = None
+    theme_accent_color: str | None = None
+    theme_background_color: str | None = None
+    theme_surface_color: str | None = None
+    theme_text_color: str | None = None
+    theme_text_muted_color: str | None = None
+    theme_heading_font: str | None = None
+    theme_body_font: str | None = None
+
+
+def _platform_settings_out(settings: StudioSettings) -> "PlatformSettingsOut":
+    return PlatformSettingsOut(
+        whatsapp_provider=settings.whatsapp_provider,
+        whatsapp_phone_id=settings.whatsapp_phone_id,
+        whatsapp_api_key=settings.whatsapp_api_key,
+        theme_primary_color=settings.theme_primary_color,
+        theme_secondary_color=settings.theme_secondary_color,
+        theme_accent_color=settings.theme_accent_color,
+        theme_background_color=settings.theme_background_color,
+        theme_surface_color=settings.theme_surface_color,
+        theme_text_color=settings.theme_text_color,
+        theme_text_muted_color=settings.theme_text_muted_color,
+        theme_heading_font=settings.landing_page_title_font,
+        theme_body_font=settings.landing_page_desc_font,
+    )
 
 
 @router.get("/webhook-config")
@@ -1115,14 +1167,10 @@ def get_webhook_config(admin: User = Depends(require_superadmin)):
 
 @router.get("/platform-settings", response_model=PlatformSettingsOut)
 def get_platform_settings(admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
-    settings = db.get(StudioSettings, PLATFORM_STUDIO_ID) if PLATFORM_STUDIO_ID else None
+    settings = _get_platform_settings(db)
     if not settings:
         raise HTTPException(status_code=404, detail="Platform settings not found")
-    return PlatformSettingsOut(
-        whatsapp_provider=settings.whatsapp_provider,
-        whatsapp_phone_id=settings.whatsapp_phone_id,
-        whatsapp_api_key=settings.whatsapp_api_key,
-    )
+    return _platform_settings_out(settings)
 
 
 class TestWhatsappIn(BaseModel):
@@ -1132,7 +1180,7 @@ class TestWhatsappIn(BaseModel):
 @router.post("/test-whatsapp")
 def test_whatsapp(payload: TestWhatsappIn, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
     import urllib.request as _urllib_req, json as _json, urllib.error as _urllib_err
-    settings = db.get(StudioSettings, PLATFORM_STUDIO_ID) if PLATFORM_STUDIO_ID else None
+    settings = _get_platform_settings(db)
     if not settings or not settings.whatsapp_provider:
         raise HTTPException(status_code=400, detail="WhatsApp לא מוגדר בפלטפורמה")
 
@@ -1184,7 +1232,7 @@ def update_platform_settings(
     admin: User = Depends(require_superadmin),
     db: Session = Depends(get_db),
 ):
-    settings = db.get(StudioSettings, PLATFORM_STUDIO_ID) if PLATFORM_STUDIO_ID else None
+    settings = _get_platform_settings(db)
     if not settings:
         raise HTTPException(status_code=404, detail="Platform settings not found")
     if payload.whatsapp_provider is not None:
@@ -1193,13 +1241,27 @@ def update_platform_settings(
         settings.whatsapp_phone_id = payload.whatsapp_phone_id or None
     if payload.whatsapp_api_key is not None:
         settings.whatsapp_api_key = payload.whatsapp_api_key or None
+    if payload.theme_primary_color is not None:
+        settings.theme_primary_color = payload.theme_primary_color
+    if payload.theme_secondary_color is not None:
+        settings.theme_secondary_color = payload.theme_secondary_color
+    if payload.theme_accent_color is not None:
+        settings.theme_accent_color = payload.theme_accent_color
+    if payload.theme_background_color is not None:
+        settings.theme_background_color = payload.theme_background_color
+    if payload.theme_surface_color is not None:
+        settings.theme_surface_color = payload.theme_surface_color
+    if payload.theme_text_color is not None:
+        settings.theme_text_color = payload.theme_text_color
+    if payload.theme_text_muted_color is not None:
+        settings.theme_text_muted_color = payload.theme_text_muted_color
+    if payload.theme_heading_font is not None:
+        settings.landing_page_title_font = payload.theme_heading_font
+    if payload.theme_body_font is not None:
+        settings.landing_page_desc_font = payload.theme_body_font
     db.commit()
     db.refresh(settings)
-    return PlatformSettingsOut(
-        whatsapp_provider=settings.whatsapp_provider,
-        whatsapp_phone_id=settings.whatsapp_phone_id,
-        whatsapp_api_key=settings.whatsapp_api_key,
-    )
+    return _platform_settings_out(settings)
 
 
 # ── BizFind System Settings (platform_config) ─────────────────────────────────

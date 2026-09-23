@@ -4,6 +4,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { API, apiFetch } from "@/lib/api";
 import { getCustomer, type Customer } from "@/lib/auth";
+import { usePlatformTheme } from "@/lib/usePlatformTheme";
 import AuthModal from "@/components/AuthModal";
 
 interface Service { id: string; name: string; duration_minutes: number; price_ils: number; color: string; is_bookable_online: boolean; }
@@ -13,8 +14,9 @@ type Step = "service" | "artist" | "date" | "time" | "details";
 
 export default function BookPage() {
     const { slug } = useParams() as { slug: string };
+    const theme = usePlatformTheme();
+    const primary = theme.primary;
     const [studioName, setStudioName] = useState("");
-    const [primary, setPrimary] = useState("#7c3aed");
     const [services, setServices] = useState<Service[]>([]);
     const [artists, setArtists] = useState<Artist[]>([]);
 
@@ -55,7 +57,6 @@ export default function BookPage() {
             .then(r => r.json())
             .then(d => {
                 setStudioName(d.name);
-                setPrimary(d.primary_color || "#7c3aed");
                 setBookingEnabled(!!d.self_booking_enabled);
                 setServices(d.services.filter((s: Service) => s.is_bookable_online));
                 setArtists(d.artists);

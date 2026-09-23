@@ -1075,47 +1075,17 @@ export default function AutomationSettingsPage() {
                                 </div>
                             </div>
 
-                            {/* Brand Colors */}
+                            {/* Brand Colors — now platform-wide (superadmin-controlled), not
+                                per-studio. The color pickers that used to live here are gone;
+                                this is a read-only note instead of silently vanishing, so an
+                                owner who remembers picking colors here before understands why. */}
                             <div className="bg-white rounded-2xl border border-slate-100 shadow-xl shadow-slate-200/40 p-6 md:p-10 relative overflow-hidden">
                                 <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/10 rounded-bl-full -z-10"></div>
                                 <h3 className="text-2xl font-bold text-slate-800 mb-2">צבעי המותג</h3>
-                                <p className="text-slate-500 text-sm mb-6">צבעים אלו יופיעו בדף הנחיתה, בדף ההזמנה האונליין ובממשק הסטודיו.</p>
-                                <div className="grid grid-cols-2 gap-6">
-                                    <div className="space-y-2">
-                                        <label className="block text-sm font-semibold text-slate-700">צבע ראשי (Primary)</label>
-                                        <div className="flex items-center gap-3 bg-slate-50 p-2 rounded-xl border border-slate-200 focus-within:ring-2 focus-within:ring-purple-500 transition-all">
-                                            <input
-                                                type="color"
-                                                value={settings.theme_primary_color || "#000000"}
-                                                onChange={e => handleChange("theme_primary_color", e.target.value)}
-                                                className="h-10 w-12 rounded cursor-pointer border-0 p-0"
-                                            />
-                                            <input
-                                                type="text" dir="ltr"
-                                                value={settings.theme_primary_color || "#000000"}
-                                                onChange={e => handleChange("theme_primary_color", e.target.value)}
-                                                className="bg-transparent w-full text-xs outline-none uppercase font-mono font-medium text-slate-700"
-                                            />
-                                        </div>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="block text-sm font-semibold text-slate-700">צבע משני (Secondary)</label>
-                                        <div className="flex items-center gap-3 bg-slate-50 p-2 rounded-xl border border-slate-200 focus-within:ring-2 focus-within:ring-purple-500 transition-all">
-                                            <input
-                                                type="color"
-                                                value={settings.theme_secondary_color || "#ffffff"}
-                                                onChange={e => handleChange("theme_secondary_color", e.target.value)}
-                                                className="h-10 w-12 rounded cursor-pointer border-0 p-0"
-                                            />
-                                            <input
-                                                type="text" dir="ltr"
-                                                value={settings.theme_secondary_color || "#ffffff"}
-                                                onChange={e => handleChange("theme_secondary_color", e.target.value)}
-                                                className="bg-transparent w-full text-xs outline-none uppercase font-mono font-medium text-slate-700"
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
+                                <p className="text-slate-500 text-sm">
+                                    צבעי המותג וה-Font כעת אחידים לכל המערכת ומנוהלים ברמת הפלטפורמה — לא ניתנים יותר לעריכה פר-סטודיו.
+                                    הלוגו שלך נשאר אישי ומופיע בכל מקום כרגיל.
+                                </p>
                             </div>
 
                             {/* Studio Info — moved from policy tab */}

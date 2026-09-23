@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { API, apiFetch, imgUrl } from "@/lib/api";
 import { getCustomer, saveCustomer, clearCustomer, type Customer } from "@/lib/auth";
+import { usePlatformTheme } from "@/lib/usePlatformTheme";
 import AuthModal from "@/components/AuthModal";
 
 interface Business {
@@ -20,6 +21,7 @@ interface Business {
 }
 
 export default function MePage() {
+    const theme = usePlatformTheme();
     const [customer, setCustomer] = useState<Customer | null>(null);
     const [showAuth, setShowAuth] = useState(false);
     const [favorites, setFavorites] = useState<FavStudio[]>([]);
@@ -158,7 +160,7 @@ export default function MePage() {
                         <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
                             {favorites.map(s => (
                                 <div key={s.slug} style={{ background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.08)", borderRadius: 16, padding: "0.9rem 1rem", display: "flex", alignItems: "center", gap: "0.8rem" }}>
-                                    <div style={{ width: 44, height: 44, borderRadius: 12, background: s.primary_color || "#7c3aed", overflow: "hidden", flexShrink: 0 }}>
+                                    <div style={{ width: 44, height: 44, borderRadius: 12, background: theme.primary, overflow: "hidden", flexShrink: 0 }}>
                                         {s.logo_url && <img src={s.logo_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />}
                                     </div>
                                     <div style={{ flex: 1, minWidth: 0 }}>
