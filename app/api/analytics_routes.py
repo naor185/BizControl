@@ -1,5 +1,5 @@
 """
-Analytics API — Meta Ads data, organic lead analytics, AI insights.
+Analytics API — Meta Ads data, AI insights.
 """
 from __future__ import annotations
 import uuid
@@ -103,68 +103,6 @@ def ads_summary(
         "cpc": round(spend / total_clicks, 2) if total_clicks else 0,
         "cpl": round(spend / total_leads, 2) if total_leads else 0,
         "last_synced": last_synced.isoformat() if last_synced else None,
-        "days_back": days_back,
-    }
-
-
-# ── Organic Analytics ────────────────────────────────────────────────────────
-
-@router.get("/organic/summary")
-def organic_summary(
-    days_back: int = 30,
-    ctx: AuthContext = Depends(require_studio_ctx),
-    db: Session = Depends(get_db),
-):
-    """Lead-based organic analytics (from our own data, no Meta API needed)."""
-    cutoff = datetime.now(timezone.utc) - timedelta(days=days_back)
-    leads = db.scalars(
-        select(Lead).where(
-            Lead.studio_id == ctx.studio_id,
-            Lead.created_at >= cutoff,
-        )
-    ).all()
-
-    by_source: dict[str, dict] = {}
-    for l in leads:
-        src = l.source
-        if src not in by_source:
-            by_source[src] = {"source": src, "total": 0, "booked": 0, "lost": 0}
-        by_source[src]["total"] += 1
-        if l.status == "booked":
-            by_source[src]["booked"] += 1
-        elif l.status == "lost":
-            by_source[src]["lost"] += 1
-
-    for s in by_source.values():
-        s["conversion_rate"] = round(s["booked"] / s["total"] * 100, 1) if s["total"] else 0
-
-    by_campaign: dict[str, dict] = {}
-    for l in leads:
-        if not l.campaign_name:
-            continue
-        k = l.campaign_name
-        if k not in by_campaign:
-            by_campaign[k] = {"campaign": k, "total": 0, "booked": 0, "source": l.source}
-        by_campaign[k]["total"] += 1
-        if l.status == "booked":
-            by_campaign[k]["booked"] += 1
-
-    for c in by_campaign.values():
-        c["conversion_rate"] = round(c["booked"] / c["total"] * 100, 1) if c["total"] else 0
-
-    # Daily lead volume for chart
-    daily: dict[str, int] = {}
-    for l in leads:
-        k = l.created_at.date().isoformat()
-        daily[k] = daily.get(k, 0) + 1
-
-    return {
-        "total_leads": len(leads),
-        "booked": sum(1 for l in leads if l.status == "booked"),
-        "lost": sum(1 for l in leads if l.status == "lost"),
-        "by_source": sorted(by_source.values(), key=lambda x: x["total"], reverse=True),
-        "by_campaign": sorted(by_campaign.values(), key=lambda x: x["total"], reverse=True),
-        "daily": [{"date": k, "leads": v} for k, v in sorted(daily.items())],
         "days_back": days_back,
     }
 

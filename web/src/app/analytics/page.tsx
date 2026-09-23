@@ -23,13 +23,6 @@ type Campaign = {
 
 type DailyPoint = { date: string; spend: number; leads: number; clicks: number; impressions: number };
 
-type OrganicSummary = {
-    total_leads: number; booked: number; lost: number;
-    by_source: { source: string; total: number; booked: number; lost: number; conversion_rate: number }[];
-    by_campaign: { campaign: string; total: number; booked: number; source: string; conversion_rate: number }[];
-    daily: { date: string; leads: number }[];
-};
-
 type AiInsight = {
     id: string; type: string; title: string; body: string;
     priority: string; icon: string | null; generated_at: string;
@@ -41,15 +34,6 @@ const PRIORITY_COLOR: Record<string, string> = {
     high: "border-red-400 bg-red-50",
     medium: "border-amber-400 bg-amber-50",
     low: "border-sky-400 bg-sky-50",
-};
-
-const SOURCE_META: Record<string, { label: string; icon: string; color: string }> = {
-    whatsapp:  { label: "WhatsApp",  icon: "💬", color: "bg-emerald-500" },
-    instagram: { label: "Instagram", icon: "📸", color: "bg-pink-500" },
-    facebook:  { label: "Facebook",  icon: "👍", color: "bg-blue-500" },
-    manual:    { label: "ידני",      icon: "✏️", color: "bg-slate-400" },
-    tiktok:    { label: "TikTok",    icon: "🎵", color: "bg-slate-800" },
-    google:    { label: "Google",    icon: "🔍", color: "bg-sky-500" },
 };
 
 function fmt(n: number, suffix = "") {
@@ -90,12 +74,11 @@ function MiniBar({ data, valueKey, labelKey, color = "bg-sky-500" }: { data: any
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function AnalyticsPage() {
-    const [tab, setTab] = useState<"ads" | "organic" | "insights">("ads");
+    const [tab, setTab] = useState<"ads" | "insights">("ads");
     const [days, setDays] = useState(30);
     const [adsSummary, setAdsSummary] = useState<AdsSummary | null>(null);
     const [campaigns, setCampaigns] = useState<Campaign[]>([]);
     const [dailyAds, setDailyAds] = useState<DailyPoint[]>([]);
-    const [organic, setOrganic] = useState<OrganicSummary | null>(null);
     const [aiInsights, setAiInsights] = useState<AiInsight[]>([]);
     const [loading, setLoading] = useState(true);
     const [syncing, setSyncing] = useState(false);
@@ -105,17 +88,15 @@ export default function AnalyticsPage() {
     const load = useCallback(async () => {
         setLoading(true);
         try {
-            const [summary, camps, daily, org, insights] = await Promise.all([
+            const [summary, camps, daily, insights] = await Promise.all([
                 apiFetch<AdsSummary>(`/api/analytics/ads/summary?days_back=${days}`).catch(() => null),
                 apiFetch<Campaign[]>(`/api/analytics/ads/campaigns?days_back=${days}`).catch(() => []),
                 apiFetch<DailyPoint[]>(`/api/analytics/ads/daily?days_back=${days}`).catch(() => []),
-                apiFetch<OrganicSummary>(`/api/analytics/organic/summary?days_back=${days}`).catch(() => null),
                 apiFetch<AiInsight[]>("/api/analytics/insights").catch(() => []),
             ]);
             setAdsSummary(summary);
             setCampaigns(camps);
             setDailyAds(daily);
-            setOrganic(org);
             setAiInsights(insights);
         } finally { setLoading(false); }
     }, [days]);
@@ -148,8 +129,6 @@ export default function AnalyticsPage() {
         setAiInsights(prev => prev.filter(i => i.id !== id));
     };
 
-    const maxOrganic = Math.max(...(organic?.daily.map(d => d.leads) ?? [1]), 1);
-
     return (
         <RequireAuth>
             <AppShell title="אנליטיקות שיווק">
@@ -169,13 +148,13 @@ export default function AnalyticsPage() {
                             ))}
                         </div>
                         <div className="flex bg-white border border-slate-200 rounded-xl overflow-hidden text-sm">
-                            {(["ads", "organic", "insights"] as const).map(t => (
+                            {(["ads", "insights"] as const).map(t => (
                                 <button
                                     key={t}
                                     onClick={() => setTab(t)}
                                     className={`px-4 py-1.5 font-semibold transition-colors ${tab === t ? "bg-sky-600 text-white" : "text-slate-500 hover:bg-slate-50"}`}
                                 >
-                                    {t === "ads" ? "📣 ממומן" : t === "organic" ? "🌱 אורגני" : "🤖 AI"}
+                                    {t === "ads" ? "📣 ממומן" : "🤖 AI"}
                                 </button>
                             ))}
                         </div>
@@ -259,89 +238,6 @@ export default function AnalyticsPage() {
                                                             <td className="py-2.5 text-center">
                                                                 <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${c.cpl > 0 && c.cpl < 50 ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
                                                                     {c.cpl > 0 ? `₪${c.cpl}` : "—"}
-                                                                </span>
-                                                            </td>
-                                                        </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-
-                            {/* ── ORGANIC TAB ────────────────────────────────────── */}
-                            {tab === "organic" && organic && (
-                                <div className="space-y-5">
-                                    {/* Summary cards */}
-                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                                        <KpiCard label="לידים" value={String(organic.total_leads)} color="bg-sky-50 text-sky-700" />
-                                        <KpiCard label="קבעו תור" value={String(organic.booked)} color="bg-emerald-50 text-emerald-700" />
-                                        <KpiCard label="המרה" value={`${organic.total_leads ? Math.round(organic.booked / organic.total_leads * 100) : 0}%`} color="bg-violet-50 text-violet-700" />
-                                        <KpiCard label="אבדו" value={String(organic.lost)} color="bg-red-50 text-red-600" />
-                                    </div>
-
-                                    {/* Daily chart */}
-                                    {organic.daily.length > 0 && (
-                                        <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm">
-                                            <h3 className="font-bold text-slate-800 mb-4 text-sm">לידים יומיים</h3>
-                                            <MiniBar data={organic.daily} valueKey="leads" labelKey="date" color="bg-sky-400" />
-                                        </div>
-                                    )}
-
-                                    {/* By source */}
-                                    <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm">
-                                        <h3 className="font-bold text-slate-800 mb-4 text-sm">לפי מקור</h3>
-                                        {organic.by_source.length === 0 ? (
-                                            <p className="text-sm text-slate-400 text-center py-4">אין נתונים</p>
-                                        ) : (
-                                            <div className="space-y-3">
-                                                {organic.by_source.map(s => {
-                                                    const meta = SOURCE_META[s.source] ?? { label: s.source, icon: "📊", color: "bg-slate-400" };
-                                                    const pct = organic.total_leads > 0 ? (s.total / organic.total_leads) * 100 : 0;
-                                                    return (
-                                                        <div key={s.source}>
-                                                            <div className="flex items-center justify-between mb-1">
-                                                                <span className="text-sm font-semibold text-slate-700">{meta.icon} {meta.label}</span>
-                                                                <div className="flex items-center gap-3">
-                                                                    <span className="text-xs text-emerald-600 font-semibold">{s.conversion_rate}% המרה</span>
-                                                                    <span className="text-sm font-bold text-slate-700">{s.total}</span>
-                                                                </div>
-                                                            </div>
-                                                            <div className="bg-slate-100 rounded-full h-3 overflow-hidden">
-                                                                <div className={`h-full ${meta.color} rounded-full transition-all duration-500`} style={{ width: `${pct}%` }} />
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {/* By campaign */}
-                                    {organic.by_campaign.length > 0 && (
-                                        <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm overflow-x-auto">
-                                            <h3 className="font-bold text-slate-800 mb-4 text-sm">ביצועי קמפיינים אורגניים</h3>
-                                            <table className="w-full text-sm">
-                                                <thead>
-                                                    <tr className="text-xs text-slate-400 border-b border-slate-100 text-right">
-                                                        <th className="pb-2 font-semibold">קמפיין</th>
-                                                        <th className="pb-2 font-semibold text-center">מקור</th>
-                                                        <th className="pb-2 font-semibold text-center">לידים</th>
-                                                        <th className="pb-2 font-semibold text-center">תורים</th>
-                                                        <th className="pb-2 font-semibold text-center">המרה</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {organic.by_campaign.map(c => (
-                                                        <tr key={c.campaign} className="border-b border-slate-50 hover:bg-slate-50">
-                                                            <td className="py-2.5 font-medium text-slate-800 max-w-[160px] truncate">{c.campaign}</td>
-                                                            <td className="py-2.5 text-center">{SOURCE_META[c.source]?.icon ?? "📊"}</td>
-                                                            <td className="py-2.5 text-center text-slate-600">{c.total}</td>
-                                                            <td className="py-2.5 text-center text-emerald-600 font-bold">{c.booked}</td>
-                                                            <td className="py-2.5 text-center">
-                                                                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${c.conversion_rate >= 30 ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
-                                                                    {c.conversion_rate}%
                                                                 </span>
                                                             </td>
                                                         </tr>

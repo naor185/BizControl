@@ -15,8 +15,6 @@ type Stats = {
     total_studios: number;
     active_studios: number;
     new_studios_month: number;
-    total_clients: number;
-    total_appointments_month: number;
     pending_messages: number;
 };
 
@@ -867,7 +865,7 @@ export default function AdminPage() {
 
                 {/* KPI Cards */}
                 {tab === "studios" && stats && (
-                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
                         {[
                             { label: "סטודיואים", value: stats.total_studios, icon: "🏢", color: "" },
                             { label: "פעילים", value: stats.active_studios, icon: "✅", color: "" },
@@ -875,8 +873,6 @@ export default function AdminPage() {
                             { label: "בניסיון (<14י׳)", value: trialCount, icon: "🔬", color: trialCount > 0 ? "border-amber-500/40 bg-amber-500/10" : "" },
                             { label: "פג תוקף", value: expiredCount, icon: "⏰", color: expiredCount > 0 ? "border-red-500/40 bg-red-500/10" : "" },
                             { label: "טרם הגדירו", value: incompleteSetupStudios.length, icon: "⚙️", color: incompleteSetupStudios.length > 0 ? "border-orange-500/40 bg-orange-500/10" : "" },
-                            { label: "לקוחות סה\"כ", value: stats.total_clients, icon: "👥", color: "" },
-                            { label: "תורים החודש", value: stats.total_appointments_month, icon: "📅", color: "" },
                         ].map(k => (
                             <div key={k.label} className={`bg-white/5 border border-white/10 rounded-2xl p-4 ${k.color}`}>
                                 <div className="text-2xl mb-2">{k.icon}</div>

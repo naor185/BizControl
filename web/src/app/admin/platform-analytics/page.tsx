@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
 
 interface PlatformData {
-    active_studios: number;
     mrr_ils: number;
     appts_today: number;
     appts_month: number;
@@ -25,7 +24,6 @@ export default function PlatformAnalyticsPage() {
 
     const cards = data ? [
         { label: "MRR החודש", value: "₪" + data.mrr_ils.toLocaleString(), icon: "💰", color: "#4ade80" },
-        { label: "סטודיוים פעילים", value: String(data.active_studios), icon: "🏢", color: "#60a5fa" },
         { label: "תורים היום", value: String(data.appts_today), icon: "📅", color: "#a78bfa" },
         { label: "הודעות החודש", value: data.messages_sent_month.toLocaleString(), icon: "💬", color: "#f59e0b" },
         { label: "תורים החודש", value: data.appts_month.toLocaleString(), icon: "📊", color: "#34d399" },

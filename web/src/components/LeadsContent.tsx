@@ -60,7 +60,30 @@ function avatarColor(id: string) { return AVATAR_COLORS[id.charCodeAt(0) % AVATA
 const EMPTY_FORM = { name: "", phone: "", email: "", source: "manual", service_interest: "", notes: "", campaign_name: "" };
 
 // ── Analytics helpers ──────────────────────────────────────────────────────────
-function AnalyticsTab({ leads }: { leads: Lead[] }) {
+const PERIODS: { key: "week" | "month" | "2months" | "all"; label: string; days: number | null }[] = [
+    { key: "week", label: "שבוע", days: 7 },
+    { key: "month", label: "חודש", days: 30 },
+    { key: "2months", label: "חודשיים", days: 60 },
+    { key: "all", label: "הכל", days: null },
+];
+
+function AnalyticsTab({ leads: allLeads }: { leads: Lead[] }) {
+    const [period, setPeriod] = useState<"week" | "month" | "2months" | "all">("month");
+
+    const leads = useMemo(() => {
+        const days = PERIODS.find(p => p.key === period)?.days;
+        if (!days) return allLeads;
+        const cutoff = Date.now() - days * 86400000;
+        return allLeads.filter(l => new Date(l.created_at).getTime() >= cutoff);
+    }, [allLeads, period]);
+
+    const daily = useMemo(() => {
+        const map: Record<string, number> = {};
+        leads.forEach(l => { const k = l.created_at.slice(0, 10); map[k] = (map[k] || 0) + 1; });
+        return Object.entries(map).sort((a, b) => a[0].localeCompare(b[0]));
+    }, [leads]);
+    const maxDaily = Math.max(...daily.map(d => d[1]), 1);
+
     const bySource = useMemo(() => {
         const map: Record<string, { total: number; booked: number }> = {};
         leads.forEach(l => {
@@ -89,6 +112,18 @@ function AnalyticsTab({ leads }: { leads: Lead[] }) {
     return (
         <div className="p-4 space-y-6 overflow-y-auto h-full" dir="rtl">
 
+            <div className="flex bg-slate-50 border border-slate-200 rounded-xl overflow-hidden text-xs w-fit">
+                {PERIODS.map(p => (
+                    <button
+                        key={p.key}
+                        onClick={() => setPeriod(p.key)}
+                        className={`px-3 py-1.5 font-semibold transition-colors ${period === p.key ? "bg-slate-900 text-white" : "text-slate-500 hover:bg-slate-100"}`}
+                    >
+                        {p.label}
+                    </button>
+                ))}
+            </div>
+
             {/* Summary cards */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {[
@@ -104,6 +139,19 @@ function AnalyticsTab({ leads }: { leads: Lead[] }) {
                     </div>
                 ))}
             </div>
+
+            {daily.length > 0 && (
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+                    <h3 className="font-bold text-slate-800 mb-4">לידים יומיים</h3>
+                    <div className="flex items-end gap-1 h-24">
+                        {daily.map(([date, count]) => (
+                            <div key={date} className="flex-1 flex flex-col items-center justify-end h-full" title={`${new Date(date).toLocaleDateString("he-IL")} — ${count}`}>
+                                <div className="w-full rounded-t" style={{ height: `${Math.max((count / maxDaily) * 88, 4)}px`, background: "var(--primary)" }} />
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {/* Funnel */}
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">

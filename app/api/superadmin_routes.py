@@ -104,8 +104,6 @@ class GlobalStats(BaseModel):
     total_studios: int
     active_studios: int
     new_studios_month: int
-    total_clients: int
-    total_appointments_month: int
     pending_messages: int
 
 class CreateStudioIn(BaseModel):
@@ -233,16 +231,12 @@ def global_stats(admin: User = Depends(require_superadmin), db: Session = Depend
     total_studios = db.scalar(select(func.count(Studio.id)).where(Studio.is_platform == False)) or 0  # noqa: E712
     active_studios = db.scalar(select(func.count(Studio.id)).where(Studio.is_platform == False, Studio.is_active == True)) or 0  # noqa: E712
     new_month = db.scalar(select(func.count(Studio.id)).where(Studio.is_platform == False, Studio.created_at >= month_start)) or 0
-    total_clients = db.scalar(select(func.count(Client.id))) or 0
-    appts_month = db.scalar(select(func.count(Appointment.id)).where(Appointment.starts_at >= month_start)) or 0
     pending_msgs = db.scalar(select(func.count(MessageJob.id)).where(MessageJob.status == "pending")) or 0
 
     return GlobalStats(
         total_studios=total_studios,
         active_studios=active_studios,
         new_studios_month=new_month,
-        total_clients=total_clients,
-        total_appointments_month=appts_month,
         pending_messages=pending_msgs,
     )
 
@@ -2936,11 +2930,6 @@ def platform_analytics(admin: User = Depends(require_superadmin), db: Session = 
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0).astimezone(timezone.utc)
     thirty_days_ago = (now - timedelta(days=30)).astimezone(timezone.utc)
 
-    # Studio counts
-    active_studios = db.scalar(select(func.count(Studio.id)).where(
-        Studio.is_active == True, Studio.is_platform == False  # noqa
-    )) or 0
-
     # MRR (all payments this month)
     mrr_cents = db.scalar(select(func.sum(Payment.amount_cents)).where(
         Payment.status == "paid", Payment.type == "payment",
@@ -2997,7 +2986,6 @@ def platform_analytics(admin: User = Depends(require_superadmin), db: Session = 
     ).all()
 
     return {
-        "active_studios": active_studios,
         "mrr_ils": mrr_cents / 100,
         "appts_today": appts_today,
         "appts_month": appts_month,
