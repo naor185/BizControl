@@ -16,6 +16,7 @@ import QuickWhatsAppModal from "./QuickWhatsAppModal";
 import { useLang } from "./LanguageProvider";
 import { LOCALES } from "@/lib/i18n";
 import { isBusinessSessionValid } from "@/lib/businessSession";
+import { useNewLeadsCount } from "@/lib/useNewLeadsCount";
 import { registerForPushNotifications } from "@/lib/push";
 
 type Me = {
@@ -71,6 +72,7 @@ export default function AppShell({
     const [showPin, setShowPin] = useState(false);
     const [pinMode, setPinMode] = useState<"verify" | "set">("verify");
     const [pendingDepositsCount, setPendingDepositsCount] = useState(0);
+    const newLeadsCount = useNewLeadsCount();
     const [enabledModules, setEnabledModules] = useState<Record<string, boolean> | null>(null);
     const [showWaModal, setShowWaModal] = useState(false);
     const [verifyState, setVerifyState] = useState<"idle" | "sending" | "sent" | "error">("idle");
@@ -237,8 +239,8 @@ export default function AppShell({
                         {MAIN_NAV.filter(item => !item.module || !enabledModules || enabledModules[item.module] !== false).map(item => {
                             const active = pathname === item.href || pathname.startsWith(item.href + "/")
                                 || (item.href === "/clients" && pathname === "/wallet");
-                            const badge = item.href === "/dashboard" && pendingDepositsCount > 0
-                                ? pendingDepositsCount
+                            const badge = item.href === "/dashboard" ? pendingDepositsCount
+                                : item.href === "/overview" ? newLeadsCount
                                 : 0;
                             const Icon = item.icon;
                             return (

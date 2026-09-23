@@ -299,14 +299,8 @@ def _maybe_create_lead(db: Session, studio_id: str, name: str, phone: str | None
         notes=f"הגיע דרך דף נחיתה — {source}" + (f" / {payload.utm_campaign}" if payload.utm_campaign else ""),
     )
     db.add(lead)
-    from app.crud.push import enqueue_push_to_studio_admins
-    enqueue_push_to_studio_admins(
-        db, studio_id,
-        title="ליד חדש",
-        body=name + (f" — {lead.service_interest}" if lead.service_interest else ""),
-        deep_link=f"/leads?lead_id={lead.id}",
-        reminder_type="new_lead",
-    )
+    from app.crud.lead_notifications import notify_new_lead
+    notify_new_lead(db, studio_id, lead.id, name, lead.service_interest)
 
 @router.get("/payment/{appointment_id}", response_model=PublicPaymentInfo)
 def get_public_payment_info(appointment_id: str, db: Session = Depends(get_db)):

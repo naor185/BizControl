@@ -272,6 +272,8 @@ export default function LeadsContent({ heightClass = "h-[560px]" }: { heightClas
     }, [router]);
 
     useEffect(() => { load(); }, [load]);
+    // Tells the dashboard badges (sidebar / section header) that the list changed.
+    useEffect(() => { window.dispatchEvent(new Event("leads-changed")); }, [leads]);
 
     const filtered = useMemo(() => leads.filter(l => {
         const matchSearch = !search || l.name.includes(search) || l.phone?.includes(search) || l.campaign_name?.includes(search);

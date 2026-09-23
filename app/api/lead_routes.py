@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
@@ -15,7 +15,7 @@ from app.models.user import User
 from app.models.lead import Lead
 from app.models.client import Client
 from app.services.lead_attribution_service import record_conversion
-from app.crud.push import enqueue_push_to_studio_admins
+from app.crud.lead_notifications import notify_new_lead
 
 router = APIRouter(prefix="/leads", tags=["Leads"])
 
@@ -107,14 +107,15 @@ def create_lead(
     db.add(lead)
     db.commit()
     db.refresh(lead)
-    enqueue_push_to_studio_admins(
-        db, user.studio_id,
-        title="ליד חדש",
-        body=lead.name + (f" — {lead.service_interest}" if lead.service_interest else ""),
-        deep_link=f"/leads?lead_id={lead.id}",
-        reminder_type="new_lead",
-    )
+    notify_new_lead(db, user.studio_id, lead.id, lead.name, lead.service_interest)
     return _out(lead)
+
+
+@router.get("/new-count")
+def new_leads_count(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Leads still in status "new" — drives the dashboard badges."""
+    n = db.scalar(select(func.count(Lead.id)).where(Lead.studio_id == user.studio_id, Lead.status == "new")) or 0
+    return {"count": n}
 
 
 @router.patch("/{lead_id}", response_model=LeadOut)

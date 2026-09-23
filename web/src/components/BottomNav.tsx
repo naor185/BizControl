@@ -7,6 +7,7 @@ import { clearToken, apiFetch, getCurrentUserRole } from "@/lib/api";
 import { useLang } from "./LanguageProvider";
 import { TranslationKey } from "@/lib/i18n";
 import { useBackButtonClose } from "@/lib/backButtonStack";
+import { useNewLeadsCount } from "@/lib/useNewLeadsCount";
 
 const PRIMARY_NAV: { href: string; labelKey: TranslationKey; icon: string; badge?: boolean }[] = [
     { href: "/calendar",  labelKey: "nav_calendar",  icon: "📅" },
@@ -39,6 +40,7 @@ export default function BottomNav() {
     const [userRole] = useState(() => getCurrentUserRole());
     const isArtist = userRole === "artist" || userRole === "staff";
     const { t } = useLang();
+    const newLeadsCount = useNewLeadsCount();
 
     const isActive = (href: string) =>
         pathname === href || pathname?.startsWith(href + "/");
@@ -110,7 +112,14 @@ export default function BottomNav() {
                                         : "bg-gray-50 text-gray-700 hover:bg-sky-50",
                                 ].join(" ")}
                             >
-                                <span className="text-2xl leading-none">{item.icon}</span>
+                                <span className="relative text-2xl leading-none">
+                                    {item.icon}
+                                    {item.href === "/overview" && newLeadsCount > 0 && (
+                                        <span className="absolute -top-1.5 -left-2.5 bg-rose-500 text-white text-[9px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-1 shadow-sm">
+                                            {newLeadsCount > 99 ? "99+" : newLeadsCount}
+                                        </span>
+                                    )}
+                                </span>
                                 <span className="text-[11px] font-semibold leading-tight">{t(item.labelKey)}</span>
                             </Link>
                         );
@@ -208,6 +217,9 @@ export default function BottomNav() {
                             ].join(" ")}>
                                 {sheetOpen ? "✕" : "☰"}
                             </span>
+                            {!sheetOpen && newLeadsCount > 0 && (
+                                <span className="absolute top-2.5 right-[calc(50%-18px)] w-2.5 h-2.5 rounded-full bg-rose-500 ring-2 ring-white z-10" />
+                            )}
 
                             <span className={[
                                 "text-[10px] font-semibold z-10",

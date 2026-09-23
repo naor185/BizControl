@@ -7,6 +7,7 @@ import AppShell from "@/components/AppShell";
 import SetupChecklist from "@/components/SetupChecklist";
 import LeadsContent from "@/components/LeadsContent";
 import BizFindExposureCard from "@/components/BizFindExposureCard";
+import { useNewLeadsCount } from "@/lib/useNewLeadsCount";
 
 const LEADS_OPEN_KEY = "bizcontrol_overview_leads_open";
 
@@ -20,6 +21,7 @@ function readLeadsOpen(): boolean {
 
 export default function OverviewPage() {
     const [leadsOpen, setLeadsOpen] = useState(readLeadsOpen);
+    const newLeads = useNewLeadsCount();
 
     const toggleLeads = () => {
         const next = !leadsOpen;
@@ -42,6 +44,11 @@ export default function OverviewPage() {
                         >
                             <Target className="h-5 w-5 text-slate-500" />
                             <h3 className="font-bold text-slate-800 text-sm">לידים</h3>
+                            {newLeads > 0 && (
+                                <span className="text-white text-xs font-bold rounded-full px-2 h-5 flex items-center" style={{ background: "var(--accent)" }}>
+                                    {newLeads} {newLeads === 1 ? "חדש" : "חדשים"}
+                                </span>
+                            )}
                             <span className="mr-auto flex items-center gap-1.5 text-xs font-semibold text-slate-400">
                                 {leadsOpen ? "סגור" : "פתח"}
                                 <ChevronDown className={`h-4 w-4 transition-transform ${leadsOpen ? "rotate-180" : ""}`} />

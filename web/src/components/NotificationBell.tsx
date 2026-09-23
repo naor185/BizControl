@@ -15,6 +15,7 @@ type Notif = {
 
 const TYPE_ICON: Record<string, string> = {
     new_member: "👤",
+    new_lead: "🎯",
     upcoming_appointment: "📅",
     new_message: "💬",
     client_optout: "🔕",
