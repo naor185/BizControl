@@ -20,7 +20,6 @@ const MORE_NAV: { href: string; labelKey: TranslationKey; icon: string }[] = [
     { href: "/business",     labelKey: "nav_business",  icon: "🏢" },
     { href: "/dashboard",    labelKey: "nav_dashboard", icon: "📊" },
     { href: "/payments",     labelKey: "nav_payments",  icon: "💳" },
-    { href: "/leads",        labelKey: "nav_leads",     icon: "🎯" },
     { href: "/expenses",     labelKey: "nav_expenses",  icon: "💼" },
     { href: "/products",     labelKey: "nav_products",  icon: "📦" },
     { href: "/team",         labelKey: "nav_team",      icon: "🎨" },

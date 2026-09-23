@@ -6,7 +6,7 @@ import {
     Briefcase, Lock, Unlock, KeyRound, Zap, BarChart3, ShieldCheck, ClipboardList, Timer,
     Wallet, Users, TrendingUp, Phone, Megaphone, Gift, Settings,
     CreditCard, Landmark, Receipt, Banknote, UserCog, MessageSquare, Bell, Target, Mail,
-    Send, Clock, Package, ConciergeBell, Smartphone, LifeBuoy, Crown, Gauge, Eye, Rocket,
+    Send, Clock, Package, ConciergeBell, Smartphone, LifeBuoy, Crown,
     type LucideIcon,
 } from "lucide-react";
 import AppShell from "@/components/AppShell";
@@ -18,15 +18,6 @@ import { apiFetch } from "@/lib/api";
 type PinStatus = { has_pin: boolean; is_locked: boolean; locked_until: string | null };
 
 const SECTION_GROUPS: { groupLabel: string; icon: LucideIcon; items: { href: string; label: string; description: string; icon: LucideIcon; gradient: string; module?: string; feature?: string }[] }[] = [
-    {
-        groupLabel: "דשבורד",
-        icon: Gauge,
-        items: [
-            { href: "/overview", label: "חשיפה בשוק",  description: "צפיות, מועדפים ובקשות תור מ-BizFind",     icon: Eye, gradient: "from-sky-500 to-sky-700" },
-            { href: "/setup",    label: "הקמת העסק",   description: "מה כבר הוגדר ומה עוד חסר בעסק",           icon: Rocket, gradient: "from-emerald-500 to-emerald-700" },
-            { href: "/leads",    label: "לידים",       description: "פניות ולקוחות פוטנציאליים",                icon: Target, gradient: "from-rose-500 to-rose-700" },
-        ],
-    },
     {
         groupLabel: "כספים",
         icon: Wallet,

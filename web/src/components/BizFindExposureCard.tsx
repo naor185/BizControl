@@ -43,7 +43,7 @@ export default function BizFindExposureCard() {
 
     return (
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+            <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                     <Search className="h-5 w-5 text-slate-500" />
                     <div>
@@ -66,17 +66,19 @@ export default function BizFindExposureCard() {
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-x-reverse divide-slate-100">
                 {metrics.map(({ label, value, icon: Icon }) => (
-                    <div key={label} className="px-5 py-4 text-center">
-                        <Icon className="h-5 w-5 text-slate-400 mx-auto mb-1" />
-                        <div className="text-2xl font-black text-slate-800">{value.toLocaleString()}</div>
+                    <div key={label} className="px-4 py-2.5 text-center">
+                        <div className="flex items-center justify-center gap-2">
+                            <Icon className="h-4 w-4 text-slate-400" />
+                            <span className="text-xl font-black text-slate-800">{value.toLocaleString()}</span>
+                        </div>
                         <div className="text-xs text-slate-400 mt-0.5">{label}</div>
                     </div>
                 ))}
             </div>
             {stats.daily_views.length > 0 && (
-                <div className="px-5 pb-4">
-                    <div className="text-xs text-slate-400 mb-2 font-semibold">צפיות יומיות — 30 ימים אחרונים</div>
-                    <ResponsiveContainer width="100%" height={60}>
+                <div className="px-5 pb-3 pt-1 border-t border-slate-100">
+                    <div className="text-[11px] text-slate-400 mb-1 font-semibold">צפיות יומיות — 30 ימים אחרונים</div>
+                    <ResponsiveContainer width="100%" height={36}>
                         <BarChart data={stats.daily_views} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
                             <Bar dataKey="count" radius={[3, 3, 0, 0]} fill="var(--primary)" opacity={0.85} />
                             <Tooltip
@@ -89,7 +91,7 @@ export default function BizFindExposureCard() {
                 </div>
             )}
             {!stats.marketplace_visible && (
-                <div className="px-5 py-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
+                <div className="px-5 py-2 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
                     <span className="text-xs text-slate-600">הפרופיל שלך לא גלוי ב-BizFind — הפעל כדי לקבל לקוחות חדשים</span>
                     <a href="/business" className="text-xs font-bold underline" style={{ color: "var(--primary)" }}>הגדר ←</a>
                 </div>

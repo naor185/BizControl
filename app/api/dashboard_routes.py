@@ -868,7 +868,7 @@ def get_calendar_occupancy(
 # fundamentals (business details, logo, first service/client/appointment)
 # that apply to every studio regardless of preference.
 _DISMISSIBLE_SETUP_ITEM_IDS = {
-    "staff_member", "payment_method", "self_booking", "first_product",
+    "staff_member", "payment_method", "self_booking", "first_product", "google_calendar",
 }
 
 
@@ -904,6 +904,7 @@ def _build_setup_items(db: Session, ctx: AuthContext) -> tuple[list[dict], dict]
     has_payment_method = bool(settings and (settings.bit_link or settings.paybox_link or settings.bank_account))
     has_self_booking = bool(settings and settings.self_booking_enabled)
     has_product = count(Product) > 0
+    has_google_calendar = bool(settings and settings.google_calendar_refresh_token)
 
     all_items = [
         {"id": "business_details",  "label": "עדכנו את פרטי העסק",           "tier": "required",    "done": has_business_details, "href": "/automation?tab=branding", "module": None},
@@ -915,6 +916,7 @@ def _build_setup_items(db: Session, ctx: AuthContext) -> tuple[list[dict], dict]
         {"id": "payment_method",    "label": "הגדירו אמצעי תשלום למקדמות",   "tier": "recommended", "done": has_payment_method,   "href": "/automation?tab=finance",  "module": None},
         {"id": "self_booking",      "label": "הפעילו קביעת תורים עצמאית",    "tier": "recommended", "done": has_self_booking,     "href": "/automation?tab=policy",   "module": None},
         {"id": "first_product",     "label": "הוסיפו מוצר ראשון",            "tier": "recommended", "done": has_product,          "href": "/products",                "module": "products"},
+        {"id": "google_calendar",   "label": "חברו את Google Calendar",      "tier": "recommended", "done": has_google_calendar,  "href": "/automation?tab=integrations", "module": None},
     ]
 
     # Missing key in enabled_modules defaults to True — same "no key = shown"

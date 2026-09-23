@@ -34,7 +34,7 @@ type PinStatus = { has_pin: boolean; is_locked: boolean };
 // (settings, client detail, message templates, anything reached through the
 // "More" sheet, etc.) shows a back arrow on mobile, since the sidebar isn't
 // there to fall back on and neither is any hardware back button on iOS.
-const ROOT_PATHS = new Set(["/overview", "/setup", "/leads", "/calendar", "/pos", "/clients", "/inbox", "/clients/analytics", "/wallet"]);
+const ROOT_PATHS = new Set(["/overview", "/calendar", "/pos", "/clients", "/inbox", "/clients/analytics", "/wallet"]);
 
 const MAIN_NAV: { href: string; label: string; icon: LucideIcon; module?: string }[] = [
     { href: "/overview",  label: "דשבורד",       icon: Gauge },
@@ -236,8 +236,7 @@ export default function AppShell({
                     <nav className="flex-1 p-2.5 space-y-0.5 overflow-y-auto">
                         {MAIN_NAV.filter(item => !item.module || !enabledModules || enabledModules[item.module] !== false).map(item => {
                             const active = pathname === item.href || pathname.startsWith(item.href + "/")
-                                || (item.href === "/clients" && pathname === "/wallet")
-                                || (item.href === "/overview" && (pathname === "/setup" || pathname === "/leads"));
+                                || (item.href === "/clients" && pathname === "/wallet");
                             const badge = item.href === "/dashboard" && pendingDepositsCount > 0
                                 ? pendingDepositsCount
                                 : 0;
