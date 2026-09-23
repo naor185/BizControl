@@ -1210,68 +1210,111 @@ export default function AdminPage() {
                                 <div className="w-12 h-12 rounded-2xl bg-violet-500/20 border border-violet-500/30 flex items-center justify-center text-2xl">🎨</div>
                                 <div>
                                     <h2 className="text-lg font-bold">עיצוב גלובלי</h2>
-                                    <p className="text-slate-400 text-sm mt-0.5">הפלטה והפונטים האלה חלים על כל סטודיו ב-BizControl וב-BizFind — הלוגו נשאר פר-סטודיו, הצבעים לא.</p>
+                                    <p className="text-slate-400 text-sm mt-0.5">חל על כל סטודיו — הלוגו נשאר פר-סטודיו, השאר לא. לא כל שדה משפיע על שתי האפליקציות — ראה תגית ליד כל קבוצה.</p>
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                                {([
-                                    ["theme_primary_color", "ראשי"],
-                                    ["theme_secondary_color", "משני"],
-                                    ["theme_accent_color", "הדגשה"],
-                                    ["theme_background_color", "רקע"],
-                                    ["theme_surface_color", "כרטיסים"],
-                                    ["theme_text_color", "טקסט"],
-                                    ["theme_text_muted_color", "טקסט משני"],
-                                ] as const).map(([key, label]) => (
-                                    <div key={key} className="space-y-1.5">
-                                        <label className="text-xs text-slate-400 block">{label}</label>
-                                        <div className="flex items-center gap-2 bg-black/30 border border-white/10 rounded-xl p-1.5">
-                                            <input
-                                                type="color"
-                                                value={platformForm[key]}
-                                                onChange={e => setPlatformForm(f => ({ ...f, [key]: e.target.value }))}
-                                                className="h-8 w-9 rounded cursor-pointer border-0 p-0 bg-transparent shrink-0"
-                                            />
-                                            <input
-                                                type="text" dir="ltr"
-                                                value={platformForm[key]}
-                                                onChange={e => setPlatformForm(f => ({ ...f, [key]: e.target.value }))}
-                                                className="bg-transparent w-full text-xs outline-none uppercase font-mono text-slate-300 min-w-0"
-                                            />
+                            {/* Brand colors — the only color group BizFind's ThemeProvider actually applies (see customers/src/components/ThemeProvider.tsx) */}
+                            <div className="space-y-2">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs font-bold text-slate-300">צבעי מותג</span>
+                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">BizControl + BizFind</span>
+                                </div>
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                                    {([
+                                        ["theme_primary_color", "ראשי"],
+                                        ["theme_secondary_color", "משני"],
+                                        ["theme_accent_color", "הדגשה"],
+                                    ] as const).map(([key, label]) => (
+                                        <div key={key} className="space-y-1.5">
+                                            <label className="text-xs text-slate-400 block">{label}</label>
+                                            <div className="flex items-center gap-2 bg-black/30 border border-white/10 rounded-xl p-1.5">
+                                                <input
+                                                    type="color"
+                                                    value={platformForm[key]}
+                                                    onChange={e => setPlatformForm(f => ({ ...f, [key]: e.target.value }))}
+                                                    className="h-8 w-9 rounded cursor-pointer border-0 p-0 bg-transparent shrink-0"
+                                                />
+                                                <input
+                                                    type="text" dir="ltr"
+                                                    value={platformForm[key]}
+                                                    onChange={e => setPlatformForm(f => ({ ...f, [key]: e.target.value }))}
+                                                    className="bg-transparent w-full text-xs outline-none uppercase font-mono text-slate-300 min-w-0"
+                                                />
+                                            </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    ))}
+                                </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1.5">
-                                    <label className="text-xs text-slate-400 block">פונט כותרות</label>
-                                    <select
-                                        value={platformForm.theme_heading_font}
-                                        onChange={e => setPlatformForm(f => ({ ...f, theme_heading_font: e.target.value }))}
-                                        className="w-full bg-black/30 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none"
-                                        style={{ colorScheme: "dark" }}
-                                    >
-                                        {["Heebo", "Assistant", "Rubik", "M PLUS Rounded 1c", "Varela Round"].map(f => <option key={f} value={f}>{f}</option>)}
-                                    </select>
+                            {/* Background/surface/text — deliberately NOT applied in BizFind (ThemeProvider.tsx there skips these on purpose: its existing components assume the current dark background, and swapping it without recoloring every component first would make large parts of the app unreadable — see that file's own comment) */}
+                            <div className="space-y-2">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs font-bold text-slate-300">רקע וטקסט</span>
+                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-400 border border-sky-500/30">BizControl בלבד</span>
                                 </div>
-                                <div className="space-y-1.5">
-                                    <label className="text-xs text-slate-400 block">פונט גוף טקסט</label>
-                                    <select
-                                        value={platformForm.theme_body_font}
-                                        onChange={e => setPlatformForm(f => ({ ...f, theme_body_font: e.target.value }))}
-                                        className="w-full bg-black/30 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none"
-                                        style={{ colorScheme: "dark" }}
-                                    >
-                                        {["Heebo", "Assistant", "Rubik", "M PLUS Rounded 1c", "Varela Round"].map(f => <option key={f} value={f}>{f}</option>)}
-                                    </select>
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                                    {([
+                                        ["theme_background_color", "רקע"],
+                                        ["theme_surface_color", "כרטיסים"],
+                                        ["theme_text_color", "טקסט"],
+                                        ["theme_text_muted_color", "טקסט משני"],
+                                    ] as const).map(([key, label]) => (
+                                        <div key={key} className="space-y-1.5">
+                                            <label className="text-xs text-slate-400 block">{label}</label>
+                                            <div className="flex items-center gap-2 bg-black/30 border border-white/10 rounded-xl p-1.5">
+                                                <input
+                                                    type="color"
+                                                    value={platformForm[key]}
+                                                    onChange={e => setPlatformForm(f => ({ ...f, [key]: e.target.value }))}
+                                                    className="h-8 w-9 rounded cursor-pointer border-0 p-0 bg-transparent shrink-0"
+                                                />
+                                                <input
+                                                    type="text" dir="ltr"
+                                                    value={platformForm[key]}
+                                                    onChange={e => setPlatformForm(f => ({ ...f, [key]: e.target.value }))}
+                                                    className="bg-transparent w-full text-xs outline-none uppercase font-mono text-slate-300 min-w-0"
+                                                />
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs font-bold text-slate-300">פונטים</span>
+                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">BizControl + BizFind</span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1.5">
+                                        <label className="text-xs text-slate-400 block">פונט כותרות</label>
+                                        <select
+                                            value={platformForm.theme_heading_font}
+                                            onChange={e => setPlatformForm(f => ({ ...f, theme_heading_font: e.target.value }))}
+                                            className="w-full bg-black/30 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none"
+                                            style={{ colorScheme: "dark" }}
+                                        >
+                                            {["Heebo", "Assistant", "Rubik", "M PLUS Rounded 1c", "Varela Round"].map(f => <option key={f} value={f}>{f}</option>)}
+                                        </select>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-xs text-slate-400 block">פונט גוף טקסט</label>
+                                        <select
+                                            value={platformForm.theme_body_font}
+                                            onChange={e => setPlatformForm(f => ({ ...f, theme_body_font: e.target.value }))}
+                                            className="w-full bg-black/30 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none"
+                                            style={{ colorScheme: "dark" }}
+                                        >
+                                            {["Heebo", "Assistant", "Rubik", "M PLUS Rounded 1c", "Varela Round"].map(f => <option key={f} value={f}>{f}</option>)}
+                                        </select>
+                                    </div>
                                 </div>
                             </div>
 
                             {/* Live preview #1 — public landing page, same isLive={false} mock automation/page.tsx's branding tab already uses */}
                             <div>
-                                <div className="text-xs text-slate-400 mb-2">תצוגה מקדימה — דף נחיתה ציבורי</div>
+                                <div className="text-xs text-slate-400 mb-2">תצוגה מקדימה — דף נחיתה ציבורי (BizControl)</div>
                                 <div className="w-full h-64 relative bg-white rounded-2xl shadow-xl overflow-hidden border border-white/10">
                                     <div className="h-8 bg-slate-100 border-b border-slate-200 flex items-center px-3 gap-1.5">
                                         <div className="w-2.5 h-2.5 rounded-full bg-red-400" />
