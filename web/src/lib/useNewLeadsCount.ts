@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { apiFetch, getToken } from "@/lib/api";
 
-// Number of leads still in status "new". Polled every 30s (same cadence and reason as
+// Number of leads nobody has opened yet (leads.seen_at IS NULL). Polled every 30s (same cadence and reason as
 // NotificationBell — a cheap count endpoint instead of SSE), refreshed when the tab
 // becomes visible again, and skipped while it's hidden. LeadsContent fires "leads-changed"
 // whenever the list is edited so the badges update immediately instead of after 30s.

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -15,6 +15,7 @@ from app.models.user import User
 from app.models.lead import Lead
 from app.models.client import Client
 from app.models.booking_request import BookingRequest
+from app.models.notification import Notification
 from app.models.studio_settings import StudioSettings
 from app.services.lead_attribution_service import record_conversion
 from app.crud.lead_notifications import notify_new_lead
@@ -37,6 +38,7 @@ class LeadOut(BaseModel):
     ad_id: Optional[str]
     created_at: datetime
     updated_at: datetime
+    seen_at: Optional[datetime] = None
     # Set when the lead came from an appointment request (BizFind / public booking page).
     booking_request: Optional[dict] = None
 
@@ -84,6 +86,7 @@ def _request_summaries(db: Session, studio_id, lead_ids: list) -> dict[str, dict
 def _out(l: Lead, booking_request: dict | None = None) -> LeadOut:
     return LeadOut(
         booking_request=booking_request,
+        seen_at=l.seen_at,
         id=str(l.id),
         name=l.name,
         phone=l.phone,
@@ -131,6 +134,7 @@ def create_lead(
         source=payload.source,
         service_interest=payload.service_interest,
         notes=payload.notes,
+        seen_at=datetime.now(timezone.utc),  # created by hand, so nothing "new" to announce
     )
     db.add(lead)
     db.commit()
@@ -141,9 +145,31 @@ def create_lead(
 
 @router.get("/new-count")
 def new_leads_count(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Leads still in status "new" — drives the dashboard badges."""
-    n = db.scalar(select(func.count(Lead.id)).where(Lead.studio_id == user.studio_id, Lead.status == "new")) or 0
+    """Leads nobody has opened yet — drives the dashboard badges."""
+    n = db.scalar(select(func.count(Lead.id)).where(Lead.studio_id == user.studio_id, Lead.seen_at.is_(None))) or 0
     return {"count": n}
+
+
+@router.post("/{lead_id}/seen", status_code=204)
+def mark_lead_seen(
+    lead_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Called when a lead is opened: clears it from the badges and marks its bell entry read."""
+    lead = db.scalar(select(Lead).where(Lead.id == lead_id, Lead.studio_id == user.studio_id))
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    if lead.seen_at is None:
+        lead.seen_at = datetime.now(timezone.utc)
+    for n in db.scalars(select(Notification).where(
+        Notification.studio_id == user.studio_id,
+        Notification.type == "new_lead",
+        Notification.action_url == f"/overview?lead={lead.id}",
+        Notification.is_read.is_(False),
+    )).all():
+        n.is_read = True
+    db.commit()
 
 
 @router.patch("/{lead_id}", response_model=LeadOut)

@@ -19,6 +19,7 @@ type Lead = {
     ad_id: string | null;
     created_at: string;
     updated_at: string;
+    seen_at?: string | null;
     // Present when the lead came from an appointment request (BizFind / public booking page).
     booking_request?: {
         id: string;
@@ -318,6 +319,14 @@ export default function LeadsContent({ heightClass = "h-[560px]" }: { heightClas
         } catch (e: any) { toast.error(e?.message || "שגיאה"); } finally { setSaving(false); }
     };
 
+    // Opening a lead clears it from the "new" badges and its bell entry.
+    const markSeen = (lead: Lead) => {
+        if (lead.seen_at) return;
+        apiFetch(`/api/leads/${lead.id}/seen`, { method: "POST" })
+            .then(() => setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, seen_at: new Date().toISOString() } : l)))
+            .catch(() => { /* badge just stays until the next successful open */ });
+    };
+
     const refreshLead = async (id: string) => {
         const data = await apiFetch<Lead[]>("/api/leads");
         const sorted = data.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
@@ -589,7 +598,7 @@ export default function LeadsContent({ heightClass = "h-[560px]" }: { heightClas
                                         return (
                                             <div
                                                 key={lead.id}
-                                                onClick={() => { setSelected(lead); setShowDetail(true); }}
+                                                onClick={() => { setSelected(lead); setShowDetail(true); markSeen(lead); }}
                                                 className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${isSelected ? "bg-sky-50" : "hover:bg-slate-50"}`}
                                             >
                                                 <div className={`w-11 h-11 rounded-full ${avatarColor(lead.id)} flex items-center justify-center text-white font-bold text-sm flex-shrink-0 relative`}>
@@ -598,7 +607,10 @@ export default function LeadsContent({ heightClass = "h-[560px]" }: { heightClas
                                                 </div>
                                                 <div className="flex-1 min-w-0">
                                                     <div className="flex items-center justify-between gap-2">
-                                                        <span className="font-semibold text-sm text-slate-800 truncate">{lead.name}</span>
+                                                        <span className={`text-sm text-slate-800 truncate ${lead.seen_at ? "font-semibold" : "font-extrabold"}`}>
+                                                            {!lead.seen_at && <span className="inline-block w-2 h-2 rounded-full ml-1.5 align-middle" style={{ background: "var(--accent)" }} />}
+                                                            {lead.name}
+                                                        </span>
                                                         <span className="text-[10px] text-slate-400 flex-shrink-0">{fmtTime(lead.updated_at)}</span>
                                                     </div>
                                                     <div className="flex items-center gap-1.5 mt-0.5">

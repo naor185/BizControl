@@ -67,6 +67,13 @@ def ensure_schema():
         """)
         cur.execute("CREATE INDEX IF NOT EXISTS ix_leads_studio_id ON leads (studio_id)")
         cur.execute("CREATE INDEX IF NOT EXISTS ix_leads_status ON leads (studio_id, status)")
+        # "Unseen" tracking for the new-lead badges. On first creation of the column, leads that
+        # are already past status "new" count as seen; leads still "new" stay unseen.
+        cur.execute("SELECT 1 FROM information_schema.columns WHERE table_name = 'leads' AND column_name = 'seen_at'")
+        _leads_had_seen_at = cur.fetchone() is not None
+        cur.execute("ALTER TABLE leads ADD COLUMN IF NOT EXISTS seen_at TIMESTAMPTZ")
+        if not _leads_had_seen_at:
+            cur.execute("UPDATE leads SET seen_at = NOW() WHERE status <> 'new'")
 
         cur.execute("""
             CREATE TABLE IF NOT EXISTS studio_integrations (

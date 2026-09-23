@@ -36,6 +36,10 @@ class Lead(Base):
     ad_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     external_id: Mapped[str | None] = mapped_column(String(128), nullable=True)  # Meta lead_id for Lead Ads
 
+    # When someone in the studio first opened this lead. NULL = still unseen; drives the
+    # "new leads" badges and the bell entry.
+    seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
