@@ -37,9 +37,6 @@ export default function MetaWizardPage() {
     const [step, setStep] = useState<Step>(1);
     const [pageId, setPageId] = useState("");
     const [igAccountId, setIgAccountId] = useState("");
-    const [accessToken, setAccessToken] = useState("");
-    const [adAccountId, setAdAccountId] = useState("");
-    const [showToken, setShowToken] = useState(false);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [err, setErr] = useState<string | null>(null);
@@ -54,8 +51,6 @@ export default function MetaWizardPage() {
             .then(data => {
                 setPageId(data.facebook_page_id || "");
                 setIgAccountId(data.instagram_account_id || "");
-                setAccessToken(data.meta_page_access_token || "");
-                setAdAccountId(data.meta_ad_account_id || "");
             })
             .catch(() => {})
             .finally(() => setLoading(false));
@@ -77,8 +72,6 @@ export default function MetaWizardPage() {
                 body: JSON.stringify({
                     facebook_page_id: pageId || null,
                     instagram_account_id: igAccountId || null,
-                    meta_page_access_token: accessToken || null,
-                    meta_ad_account_id: adAccountId || null,
                 }),
             });
             setStep(2);
@@ -86,17 +79,6 @@ export default function MetaWizardPage() {
             setErr((e as { message?: string })?.message || "שגיאה בשמירה");
         } finally { setSaving(false); }
     };
-
-    const EyeIcon = ({ open }: { open: boolean }) => open ? (
-        <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-        </svg>
-    ) : (
-        <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-        </svg>
-    );
 
     return (
         <RequireAuth>
@@ -109,7 +91,7 @@ export default function MetaWizardPage() {
                     <div className="mb-8">
                         <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-100 to-blue-100 flex items-center justify-center text-3xl mb-4">📱</div>
                         <h1 className="text-2xl font-bold text-slate-800">אשף חיבור Meta</h1>
-                        <p className="text-slate-500 mt-1">קבל לידים אוטומטית מ-Instagram DMs, Facebook Messenger ו-Lead Ads</p>
+                        <p className="text-slate-500 mt-1">קבל לידים אוטומטית מטפסי Lead Ads של Meta (Facebook / Instagram)</p>
                     </div>
 
                     <Stepper current={step} />
@@ -133,7 +115,6 @@ export default function MetaWizardPage() {
                                             <li>היכנס ל-<strong>developers.facebook.com</strong></li>
                                             <li>צור App חדש → Business → הוסף WhatsApp + Instagram + Messenger</li>
                                             <li>תחת Settings → Basic העתק את <strong>App ID</strong></li>
-                                            <li>צור <strong>System User Token</strong> עם הרשאות: <code className="text-xs bg-blue-100 px-1 rounded">pages_read_engagement, instagram_basic, leads_retrieval</code></li>
                                             <li>מצא את ה-<strong>Page ID</strong> — בדף הפייסבוק → About</li>
                                             <li>מצא את ה-<strong>Instagram Account ID</strong> — ב-Graph API Explorer</li>
                                         </ol>
@@ -152,21 +133,6 @@ export default function MetaWizardPage() {
                                             <p className="text-xs text-slate-400">ניתן למצוא דרך Graph API Explorer עם token</p>
                                         </div>
 
-                                        <div className="space-y-1.5">
-                                            <label className="block text-sm font-semibold text-slate-700">Ad Account ID <span className="text-slate-400 font-normal text-xs">(לאנליטיקות מודעות)</span></label>
-                                            <input type="text" dir="ltr" value={adAccountId} onChange={e => setAdAccountId(e.target.value)} placeholder="act_123456789" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-mono outline-none focus:ring-2 focus:ring-purple-400" />
-                                            <p className="text-xs text-slate-400">נמצא ב-Meta Business Manager → Ad Accounts (מתחיל ב-act_)</p>
-                                        </div>
-
-                                        <div className="space-y-1.5">
-                                            <label className="block text-sm font-semibold text-slate-700">Access Token (System User)</label>
-                                            <div className="relative">
-                                                <input type={showToken ? "text" : "password"} dir="ltr" value={accessToken} onChange={e => setAccessToken(e.target.value)} placeholder="EAAxxxxxxxx..." className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 pr-10 text-sm font-mono outline-none focus:ring-2 focus:ring-blue-400" />
-                                                <button type="button" onClick={() => setShowToken(v => !v)} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-600 hover:text-slate-900" tabIndex={-1}>
-                                                    <EyeIcon open={showToken} />
-                                                </button>
-                                            </div>
-                                        </div>
                                     </div>
 
                                     {err && <p className="text-red-500 text-sm bg-red-50 border border-red-100 rounded-xl px-4 py-2">{err}</p>}
@@ -213,7 +179,7 @@ export default function MetaWizardPage() {
                                         <div className="bg-white rounded-xl border border-blue-100 p-3">
                                             <p className="text-xs font-bold text-slate-600 mb-2">Subscribe לאירועים הבאים:</p>
                                             <div className="flex flex-wrap gap-2">
-                                                {["messages", "messaging_postbacks", "leadgen", "feed"].map(e => (
+                                                {["leadgen"].map(e => (
                                                     <span key={e} className="text-[11px] font-mono bg-blue-50 text-blue-700 px-2 py-1 rounded-lg">{e}</span>
                                                 ))}
                                             </div>
@@ -236,11 +202,9 @@ export default function MetaWizardPage() {
                                     <div className="w-20 h-20 bg-gradient-to-br from-purple-100 to-blue-100 rounded-full flex items-center justify-center text-4xl mx-auto">✅</div>
                                     <div>
                                         <h2 className="text-2xl font-bold text-slate-800 mb-2">Meta מחובר!</h2>
-                                        <p className="text-slate-500">המערכת תקבל לידים אוטומטית מ-Instagram ו-Facebook</p>
+                                        <p className="text-slate-500">המערכת תקבל לידים מטפסי Lead Ads של Meta</p>
                                     </div>
                                     <div className="bg-slate-50 rounded-2xl border border-slate-100 p-5 text-right space-y-2">
-                                        <p className="text-sm text-slate-600 flex items-center gap-2"><span className="text-emerald-500">✓</span> הודעות DM באינסטגרם → ליד אוטומטי</p>
-                                        <p className="text-sm text-slate-600 flex items-center gap-2"><span className="text-emerald-500">✓</span> הודעות Messenger בפייסבוק → ליד אוטומטי</p>
                                         <p className="text-sm text-slate-600 flex items-center gap-2"><span className="text-emerald-500">✓</span> טופס Lead Ads → ליד מיידי עם כל הפרטים</p>
                                     </div>
                                     <button onClick={() => router.push("/leads")} className="bg-sky-600 hover:bg-sky-700 text-white px-10 py-3 rounded-xl font-bold transition-all">

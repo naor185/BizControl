@@ -140,7 +140,6 @@ def ensure_schema():
             "ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS whatsapp_instance_id VARCHAR(255)",
             "ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS facebook_page_id VARCHAR(64)",
             "ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS instagram_account_id VARCHAR(64)",
-            "ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS meta_page_access_token TEXT",
             "ALTER TABLE studio_settings ALTER COLUMN whatsapp_api_key TYPE TEXT",
             "ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS self_booking_enabled BOOLEAN NOT NULL DEFAULT false",
             "ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS self_booking_slot_minutes INTEGER NOT NULL DEFAULT 60",
@@ -702,8 +701,9 @@ def ensure_schema():
         # nothing else depends on this row. Safe to re-run: matches 0 rows
         # once already deleted.
         cur.execute("DELETE FROM modules WHERE id = 'automation_builder'")
-        # Unified inbox removed: its module rows (and, via ON DELETE CASCADE, their plan/studio grants).
-        cur.execute("DELETE FROM modules WHERE id IN ('meta_inbox', 'realtime_inbox', 'quick_replies')")
+        # Unified inbox + marketing analytics removed: their module rows (and, via ON DELETE CASCADE,
+        # their plan/studio grants).
+        cur.execute("DELETE FROM modules WHERE id IN ('meta_inbox', 'realtime_inbox', 'quick_replies', 'marketing_analytics', 'ai_insights')")
 
         # ── Seed fine-grained "permissions" (sub-capabilities nested under a
         # parent module) — the one-time migration target for the legacy
@@ -712,8 +712,6 @@ def ensure_schema():
         # (id, parent_id, category, name, sort_order)
         SUB_MODULES = [
             ("whatsapp_cloud",       "whatsapp",  "communication", "WhatsApp Cloud API (Meta)",        1),
-            ("marketing_analytics",  "analytics", "advanced",      "Analytics שיווקי",                 0),
-            ("ai_insights",          "analytics", "advanced",      "AI Insights",                       1),
             ("lead_attribution",     "analytics", "advanced",      "מעקב לידים (Attribution)",         2),
             ("ai_auto_tag",          "ai_assistant", "ai",         "תיוג AI אוטומטי ללידים",           0),
             # Was previously an ungated endpoint (only a role check, no

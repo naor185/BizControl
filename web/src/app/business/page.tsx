@@ -50,7 +50,6 @@ const SECTION_GROUPS: { groupLabel: string; icon: LucideIcon; items: { href: str
         groupLabel: "אנליטיקה ותובנות",
         icon: TrendingUp,
         items: [
-            { href: "/analytics",          label: "אנליטיקת שיווק",  description: "מודעות, לידים ותובנות AI",      icon: TrendingUp, gradient: "from-fuchsia-500 to-fuchsia-700", module: "analytics" },
             { href: "/analytics/business", label: "אנליטיקה עסקית", description: "הכנסות, תורים ושעות עמוסות", icon: BarChart3, gradient: "from-violet-600 to-fuchsia-700",   module: "analytics" },
         ],
     },

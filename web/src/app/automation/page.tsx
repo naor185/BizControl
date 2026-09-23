@@ -91,7 +91,6 @@ type Settings = {
 
     facebook_page_id?: string | null;
     instagram_account_id?: string | null;
-    meta_page_access_token?: string | null;
 
     theme_primary_color: string;
     theme_secondary_color: string;

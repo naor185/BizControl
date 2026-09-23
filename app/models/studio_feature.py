@@ -16,8 +16,6 @@ from app.models.base import Base
 # `modules` row instead.
 FEATURES = frozenset([
     "whatsapp_cloud",
-    "marketing_analytics",
-    "ai_insights",
     "ai_auto_tag",
     "lead_attribution",
     "voice",

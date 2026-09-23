@@ -181,7 +181,6 @@ class StudioSettings(Base):
     # Meta Social Inbox (Instagram DMs + Facebook Messenger)
     facebook_page_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     instagram_account_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    meta_page_access_token: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Deposit defaults
     deposit_fixed_amount_ils: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")

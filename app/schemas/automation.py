@@ -130,8 +130,6 @@ class AutomationSettingsOut(BaseModel):
     # Meta Social Inbox (Instagram DMs + Facebook Messenger)
     facebook_page_id: str | None = None
     instagram_account_id: str | None = None
-    meta_page_access_token: str | None = None
-    meta_ad_account_id: str | None = None
 
     # Studio identifier (for landing page URL)
     studio_slug: str | None = None
@@ -296,8 +294,6 @@ class AutomationSettingsUpdate(BaseModel):
     # Meta Social Inbox (Instagram DMs + Facebook Messenger)
     facebook_page_id: str | None = None
     instagram_account_id: str | None = None
-    meta_page_access_token: str | None = None
-    meta_ad_account_id: str | None = None
 
     # Reminder toggles
     same_day_reminder_enabled: bool | None = None

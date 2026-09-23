@@ -275,42 +275,6 @@ def run_migrations():
         conn.execute(text("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS club_invite_enabled BOOLEAN NOT NULL DEFAULT true"))
         conn.execute(text("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS club_invite_delay_minutes INTEGER NOT NULL DEFAULT 30"))
         conn.execute(text("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS birthday_automation_enabled BOOLEAN NOT NULL DEFAULT true"))
-        conn.execute(text("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS meta_ad_account_id VARCHAR(64)"))
-        conn.execute(text("""
-            CREATE TABLE IF NOT EXISTS ad_insights (
-                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
-                date_start DATE NOT NULL,
-                date_stop DATE NOT NULL,
-                campaign_id VARCHAR(64) NOT NULL,
-                campaign_name VARCHAR(255) NOT NULL DEFAULT '',
-                ad_set_id VARCHAR(64),
-                ad_set_name VARCHAR(255),
-                ad_id VARCHAR(64),
-                ad_name VARCHAR(255),
-                impressions INTEGER NOT NULL DEFAULT 0,
-                clicks INTEGER NOT NULL DEFAULT 0,
-                reach INTEGER NOT NULL DEFAULT 0,
-                spend_cents INTEGER NOT NULL DEFAULT 0,
-                leads INTEGER NOT NULL DEFAULT 0,
-                link_clicks INTEGER NOT NULL DEFAULT 0,
-                actions JSONB,
-                synced_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-            )
-        """))
-        conn.execute(text("""
-            CREATE TABLE IF NOT EXISTS ai_insights (
-                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
-                type VARCHAR(32) NOT NULL,
-                title VARCHAR(255) NOT NULL,
-                body TEXT NOT NULL,
-                priority VARCHAR(16) NOT NULL DEFAULT 'medium',
-                icon VARCHAR(8),
-                generated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                expires_at TIMESTAMPTZ
-            )
-        """))
         conn.execute(text("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS reminder_3day_wa_template TEXT"))
         conn.execute(text("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS reminder_7day_wa_template TEXT"))
         conn.execute(text("""
