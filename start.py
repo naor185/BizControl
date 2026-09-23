@@ -655,6 +655,18 @@ def ensure_schema():
                 ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name, category=EXCLUDED.category
             """, (mid, name, cat, sort))
 
+        # ── One-time cleanup: the Automation Builder feature (rule engine,
+        # routes, UI) was removed entirely — confirmed zero automation_rules
+        # rows ever existed in production, so this was never real usage.
+        # Deletes the now-orphaned module catalog row; ON DELETE CASCADE on
+        # plan_modules.module_id / studio_modules.module_id (see
+        # app/models/module.py) cleans up its plan-entitlement rows in the
+        # same statement — confirmed via direct query that no studio had an
+        # explicit override and no business_type_template referenced it, so
+        # nothing else depends on this row. Safe to re-run: matches 0 rows
+        # once already deleted.
+        cur.execute("DELETE FROM modules WHERE id = 'automation_builder'")
+
         # ── Seed fine-grained "permissions" (sub-capabilities nested under a
         # parent module) — the one-time migration target for the legacy
         # studio_features table. Always shares its parent's category so the
