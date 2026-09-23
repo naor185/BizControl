@@ -310,6 +310,35 @@ def ensure_schema():
         # Drives slot duration in public_routes.py's booking_slots/create_booking
         # instead of everyone always taking the studio's flat self_booking_slot_minutes.
         cur.execute("ALTER TABLE booking_requests ADD COLUMN IF NOT EXISTS service_id UUID REFERENCES services(id) ON DELETE SET NULL")
+        # Every appointment request is also a lead. The column links the two; the backfill below
+        # turns requests that are still pending into leads exactly once (lead_id IS NULL guard -
+        # it self-clears, and deleting a lead later never re-creates it).
+        cur.execute("ALTER TABLE booking_requests ADD COLUMN IF NOT EXISTS lead_id UUID")
+        # ensure_schema() is ONE transaction: if this data backfill ever failed unguarded it would
+        # roll back every migration in this run (including the lead_id column the code now needs).
+        # A savepoint keeps a failure here from taking anything else down with it.
+        cur.execute("SAVEPOINT bizfind_lead_backfill")
+        try:
+            cur.execute("""
+            WITH pend AS (
+                SELECT id, studio_id, client_name, client_phone, client_email, service_note, created_at,
+                       gen_random_uuid() AS lid
+                FROM booking_requests
+                WHERE status = 'pending' AND lead_id IS NULL
+            ),
+            ins AS (
+                INSERT INTO leads (id, studio_id, name, phone, email, source, status, service_interest, notes, created_at, updated_at)
+                SELECT lid, studio_id, client_name, client_phone, client_email, 'bizfind', 'new',
+                       LEFT(service_note, 255), 'בקשת תור מ-BizFind', created_at, NOW()
+                FROM pend
+                RETURNING id
+            )
+            UPDATE booking_requests br SET lead_id = pend.lid FROM pend WHERE br.id = pend.id
+            """)
+            cur.execute("RELEASE SAVEPOINT bizfind_lead_backfill")
+        except Exception as e:
+            cur.execute("ROLLBACK TO SAVEPOINT bizfind_lead_backfill")
+            print(f"[start] BizFind lead backfill skipped: {e}")
         cur.execute("CREATE INDEX IF NOT EXISTS ix_booking_requests_service_id ON booking_requests (service_id)")
 
         # One-time migration: fold studio_settings.treatment_types (a JSON

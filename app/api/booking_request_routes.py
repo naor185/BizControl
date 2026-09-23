@@ -25,6 +25,7 @@ from app.models.appointment import Appointment
 from app.models.client import Client
 from app.models.studio_settings import StudioSettings
 from app.models.message_job import MessageJob
+from app.models.lead import Lead
 
 router = APIRouter(prefix="/booking-requests", tags=["BookingRequests"])
 
@@ -191,6 +192,10 @@ def approve_request(
     req.reviewed_by_id = current_user.id
     req.reviewed_at = now
     req.appointment_id = appt.id
+    if req.lead_id:
+        linked_lead = db.get(Lead, req.lead_id)
+        if linked_lead:
+            linked_lead.status = "booked"
 
     # Send confirmation to client with public link to view their booking
     local_time = _fmt_local(req.requested_at, settings.timezone or "Asia/Jerusalem")
@@ -260,6 +265,10 @@ def reject_request(
     req.rejection_reason = payload.reason or None
     req.reviewed_by_id = current_user.id
     req.reviewed_at = now
+    if req.lead_id:
+        linked_lead = db.get(Lead, req.lead_id)
+        if linked_lead:
+            linked_lead.status = "lost"
 
     # Notify client
     local_time = _fmt_local(req.requested_at, settings.timezone or "Asia/Jerusalem")

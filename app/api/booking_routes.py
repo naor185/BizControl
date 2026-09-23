@@ -328,6 +328,13 @@ def public_request_appointment(
         ))
 
     db.commit()
+
+    from app.crud.lead_notifications import create_lead_for_booking_request
+    create_lead_for_booking_request(
+        db, studio.id, req_id,
+        name=payload.client_name.strip(), phone=payload.client_phone.strip(),
+        email=payload.client_email, service_note=payload.service_name or payload.notes,
+    )
     return {"ok": True, "message": "הבקשה נשלחה! הסטודיו יצור איתך קשר בקרוב 📞"}
 
 

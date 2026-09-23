@@ -14,6 +14,8 @@ from app.core.auth_deps import get_current_user
 from app.models.user import User
 from app.models.lead import Lead
 from app.models.client import Client
+from app.models.booking_request import BookingRequest
+from app.models.studio_settings import StudioSettings
 from app.services.lead_attribution_service import record_conversion
 from app.crud.lead_notifications import notify_new_lead
 
@@ -35,6 +37,8 @@ class LeadOut(BaseModel):
     ad_id: Optional[str]
     created_at: datetime
     updated_at: datetime
+    # Set when the lead came from an appointment request (BizFind / public booking page).
+    booking_request: Optional[dict] = None
 
 
 class LeadCreate(BaseModel):
@@ -56,8 +60,30 @@ class LeadUpdate(BaseModel):
     notes: Optional[str] = None
 
 
-def _out(l: Lead) -> LeadOut:
+def _request_summaries(db: Session, studio_id, lead_ids: list) -> dict[str, dict]:
+    """lead id -> summary of the appointment request it came from (if any)."""
+    if not lead_ids:
+        return {}
+    from zoneinfo import ZoneInfo
+    settings = db.get(StudioSettings, studio_id)
+    tz = ZoneInfo((settings.timezone if settings and settings.timezone else None) or "Asia/Jerusalem")
+    out: dict[str, dict] = {}
+    for r in db.scalars(select(BookingRequest).where(BookingRequest.studio_id == studio_id, BookingRequest.lead_id.in_(lead_ids))).all():
+        has_slot = r.artist_id is not None
+        out[str(r.lead_id)] = {
+            "id": str(r.id),
+            "status": r.status,
+            "has_slot": has_slot,
+            "requested_at_local": r.requested_at.astimezone(tz).strftime("%d/%m/%Y %H:%M") if has_slot else None,
+            "artist_name": (r.artist.display_name or r.artist.email) if r.artist else None,
+            "service_name": r.service.name if r.service_id and r.service else None,
+        }
+    return out
+
+
+def _out(l: Lead, booking_request: dict | None = None) -> LeadOut:
     return LeadOut(
+        booking_request=booking_request,
         id=str(l.id),
         name=l.name,
         phone=l.phone,
@@ -85,7 +111,9 @@ def list_leads(
     if status:
         q = q.where(Lead.status == status)
     q = q.order_by(Lead.created_at.desc())
-    return [_out(l) for l in db.scalars(q).all()]
+    leads = db.scalars(q).all()
+    summaries = _request_summaries(db, user.studio_id, [l.id for l in leads])
+    return [_out(l, summaries.get(str(l.id))) for l in leads]
 
 
 @router.post("", response_model=LeadOut, status_code=201)
@@ -146,7 +174,7 @@ def update_lead(
 
     db.commit()
     db.refresh(lead)
-    return _out(lead)
+    return _out(lead, _request_summaries(db, user.studio_id, [lead.id]).get(str(lead.id)))
 
 
 @router.delete("/{lead_id}", status_code=204)

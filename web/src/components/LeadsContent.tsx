@@ -3,6 +3,7 @@ import { toast } from "@/lib/toast";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { Check, X } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
 type Lead = {
@@ -18,6 +19,15 @@ type Lead = {
     ad_id: string | null;
     created_at: string;
     updated_at: string;
+    // Present when the lead came from an appointment request (BizFind / public booking page).
+    booking_request?: {
+        id: string;
+        status: string;
+        has_slot: boolean;
+        requested_at_local: string | null;
+        artist_name: string | null;
+        service_name: string | null;
+    } | null;
 };
 
 const STATUSES = [
@@ -35,6 +45,7 @@ const SOURCES = [
     { key: "facebook",  label: "Facebook",  icon: "👍", color: "text-blue-600" },
     { key: "tiktok",    label: "TikTok",    icon: "🎵", color: "text-slate-800" },
     { key: "google",    label: "Google",    icon: "🔍", color: "text-sky-600" },
+    { key: "bizfind",   label: "BizFind",   icon: "🧭", color: "text-violet-600" },
 ];
 
 const stOf  = (k: string) => STATUSES.find(s => s.key === k) ?? STATUSES[0];
@@ -249,6 +260,7 @@ export default function LeadsContent({ heightClass = "h-[560px]" }: { heightClas
     const [leads, setLeads]         = useState<Lead[]>([]);
     const [loading, setLoading]     = useState(true);
     const [selected, setSelected]   = useState<Lead | null>(null);
+    const [reqBusy, setReqBusy]     = useState(false);
     const [tab, setTab]             = useState<"inbox" | "analytics">("inbox");
     const [search, setSearch]       = useState("");
     const [filterSrc, setFilterSrc] = useState("all");
@@ -304,6 +316,38 @@ export default function LeadsContent({ heightClass = "h-[560px]" }: { heightClas
             }
             setModal(null);
         } catch (e: any) { toast.error(e?.message || "שגיאה"); } finally { setSaving(false); }
+    };
+
+    const refreshLead = async (id: string) => {
+        const data = await apiFetch<Lead[]>("/api/leads");
+        const sorted = data.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
+        setLeads(sorted);
+        setSelected(sorted.find(l => l.id === id) ?? null);
+    };
+
+    const handleApproveRequest = async (lead: Lead) => {
+        if (!lead.booking_request) return;
+        setReqBusy(true);
+        try {
+            await apiFetch(`/api/booking-requests/${lead.booking_request.id}/approve`, { method: "PATCH" });
+            toast.success("התור אושר ונוסף ליומן");
+            await refreshLead(lead.id);
+        } catch (e: unknown) { toast.error(e instanceof Error ? e.message : "שגיאה באישור הבקשה"); } finally { setReqBusy(false); }
+    };
+
+    const handleRejectRequest = async (lead: Lead) => {
+        if (!lead.booking_request) return;
+        const reason = window.prompt("סיבת הדחייה (לא חובה) — תישלח ללקוח בוואטסאפ");
+        if (reason === null) return;
+        setReqBusy(true);
+        try {
+            await apiFetch(`/api/booking-requests/${lead.booking_request.id}/reject`, {
+                method: "PATCH",
+                body: JSON.stringify({ reason: reason.trim() || null }),
+            });
+            toast.success("הבקשה נדחתה");
+            await refreshLead(lead.id);
+        } catch (e: unknown) { toast.error(e instanceof Error ? e.message : "שגיאה בדחיית הבקשה"); } finally { setReqBusy(false); }
     };
 
     const handleMove = async (status: string) => {
@@ -380,6 +424,34 @@ export default function LeadsContent({ heightClass = "h-[560px]" }: { heightClas
                     <div className="bg-white border-b border-slate-100 px-4 py-2 flex flex-wrap gap-2">
                         {lead.campaign_name && <span className="text-[11px] bg-violet-50 text-violet-700 font-semibold px-2 py-0.5 rounded-full">📣 {lead.campaign_name}</span>}
                         {lead.service_interest && <span className="text-[11px] bg-sky-50 text-sky-700 font-semibold px-2 py-0.5 rounded-full">🎨 {lead.service_interest}</span>}
+                    </div>
+                )}
+
+                {/* Appointment request (BizFind / booking page) — approve or reject right here */}
+                {lead.booking_request?.has_slot && (
+                    <div className="bg-white border-b border-slate-100 px-4 py-3">
+                        <div className="text-[11px] font-semibold text-slate-400 mb-1">בקשת תור</div>
+                        <div className="text-sm font-bold text-slate-800">
+                            {lead.booking_request.requested_at_local}
+                            {lead.booking_request.artist_name ? ` · ${lead.booking_request.artist_name}` : ""}
+                            {lead.booking_request.service_name ? ` · ${lead.booking_request.service_name}` : ""}
+                        </div>
+                        {lead.booking_request.status === "pending" ? (
+                            <div className="flex gap-2 mt-2">
+                                <button onClick={() => handleApproveRequest(lead)} disabled={reqBusy}
+                                    className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl hover:bg-slate-700 transition-colors disabled:opacity-50">
+                                    <Check className="h-4 w-4" /> אשר תור
+                                </button>
+                                <button onClick={() => handleRejectRequest(lead)} disabled={reqBusy}
+                                    className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-slate-100 text-slate-600 text-xs font-bold rounded-xl hover:bg-slate-200 transition-colors disabled:opacity-50">
+                                    <X className="h-4 w-4" /> דחה
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="text-xs font-semibold text-slate-500 mt-1">
+                                {lead.booking_request.status === "approved" ? "אושר ונקבע ביומן" : "הבקשה נדחתה"}
+                            </div>
+                        )}
                     </div>
                 )}
 

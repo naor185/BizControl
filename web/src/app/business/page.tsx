@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import {
     Briefcase, Lock, Unlock, KeyRound, Zap, BarChart3, ShieldCheck, ClipboardList, Timer,
     Wallet, Users, TrendingUp, Phone, Megaphone, Gift, Settings,
-    CreditCard, Landmark, Receipt, Banknote, UserCog, MessageSquare, Bell, Target, Mail,
+    CreditCard, Landmark, Receipt, Banknote, UserCog, MessageSquare, Target, Mail,
     Send, Clock, Package, ConciergeBell, Smartphone, LifeBuoy, Crown,
     type LucideIcon,
 } from "lucide-react";
@@ -66,7 +66,6 @@ const SECTION_GROUPS: { groupLabel: string; icon: LucideIcon; items: { href: str
         icon: Megaphone,
         items: [
             { href: "/message-log",       label: "יומן הודעות",   description: "כל ההודעות שנשלחו",                     icon: MessageSquare, gradient: "from-pink-500 to-pink-700" },
-            { href: "/booking-requests",  label: "בקשות תורים",   description: "בקשות ממתינות לאישור",                  icon: Bell, gradient: "from-amber-500 to-amber-700" },
             { href: "/message-templates", label: "תבניות הודעות", description: "תבניות לוואטסאפ ומייל",                 icon: Mail, gradient: "from-pink-600 to-rose-700" },
             { href: "/broadcasts",        label: "תפוצות",        description: "הודעות המוניות ומבצעים",                icon: Send, gradient: "from-amber-600 to-orange-700", module: "broadcasts" },
             { href: "/wait-list",         label: "רשימת המתנה",   description: "לקוחות הממתינים לתור פנוי",             icon: Clock, gradient: "from-rose-600 to-pink-700",    module: "wait_list" },

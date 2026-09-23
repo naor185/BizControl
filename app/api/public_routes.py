@@ -574,6 +574,14 @@ def create_booking(
     tz = ZoneInfo(settings.timezone or "Asia/Jerusalem")
     local_time = requested_at.astimezone(tz).strftime("%d/%m/%Y %H:%M")
 
+    from app.crud.lead_notifications import create_lead_for_booking_request
+    create_lead_for_booking_request(
+        db, studio.id, req.id, name=client_name, phone=client_phone,
+        email=str(payload.email) if payload.email else None,
+        service_note=payload.notes or None,
+        requested_local=f"{local_time} · {artist.display_name or artist.email}",
+    )
+
     return {
         "request_id": str(req.id),
         "status": "pending",
@@ -586,7 +594,6 @@ def create_booking(
 
 def _notify_booking_request(db, req: BookingRequest, studio, settings, artist) -> None:
     from app.models.message_job import MessageJob
-    from app.models.notification import Notification
     from app.models.user import User as UserModel
 
     from zoneinfo import ZoneInfo
@@ -603,14 +610,8 @@ def _notify_booking_request(db, req: BookingRequest, studio, settings, artist) -
         f"כנס למערכת לאשר או לדחות."
     )
 
-    # In-app notification (drives BizControl bell icon + SSE counter)
-    db.add(Notification(
-        studio_id=studio.id,
-        type="booking_request",
-        title=f"בקשת תור חדשה מ-{req.client_name}",
-        body=f"{local_time} — {req.service_note or 'ללא הערות'}",
-        action_url="/booking-requests",
-    ))
+    # The in-app (bell) notification + push now come from create_lead_for_booking_request,
+    # because every appointment request is also a lead.
 
     # Notify artist via WhatsApp
     if artist.phone:

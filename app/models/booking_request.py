@@ -40,6 +40,11 @@ class BookingRequest(Base):
     reviewed_by_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
+    # The lead created for this request (every appointment request is a lead - see
+    # app/crud/lead_notifications.create_lead_for_booking_request). No FK on purpose:
+    # deleting the lead must not touch the request, and NULL means "no lead yet".
+    lead_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+
     # Linked appointment (set when approved)
     appointment_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("appointments.id", ondelete="SET NULL"), nullable=True)
 
