@@ -1,7 +1,7 @@
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import select, func, extract, case, or_
+from sqlalchemy import select, func, extract, case, or_, and_
 from datetime import datetime, timezone, timedelta
 import json
 import pytz
@@ -591,9 +591,21 @@ def consultation_conversion(ctx: AuthContext = Depends(require_studio_ctx), db: 
         )
     ).all()
 
+    # Appointment.service_id is NULL on most rows (most appointments were
+    # never linked to a real Service — see the calendar's service-linking
+    # history). A bare `service_id.in_(...)` evaluates to SQL NULL, not
+    # False, for those rows — which poisons `~consult_filter` below via
+    # `NOT (title_match OR NULL)` = NULL, and Postgres's WHERE clause
+    # silently drops rows where the condition is NULL rather than True.
+    # That made every real follow-up appointment (whose service_id is
+    # NULL) vanish from the "converted" count, showing 0% conversion even
+    # for clients with an obvious, real follow-up appointment. Guarding
+    # with `isnot(None)` keeps this term a real boolean (False, not NULL)
+    # whenever service_id is unset, so the OR/NOT stay well-defined.
     consult_filter = or_(
         Appointment.title.ilike("%יעוץ%"),
-        Appointment.service_id.in_(consult_service_ids) if consult_service_ids else False,
+        and_(Appointment.service_id.isnot(None), Appointment.service_id.in_(consult_service_ids))
+        if consult_service_ids else False,
     )
 
     # קבוצת לקוחות ייחודיים + תאריך יעוץ ראשון לכל אחד
