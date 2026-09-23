@@ -636,7 +636,6 @@ def ensure_schema():
             ("analytics",          "advanced",      "Analytics מתקדם",            14),
             ("multi_location",     "advanced",      "ריבוי סניפים",              15),
             ("employee_mgmt",      "core",          "ניהול צוות & שכר",          16),
-            ("automation_builder", "advanced",      "בונה אוטומציות (WHEN/THEN)",17),
             # Nav-level modules (control sidebar visibility)
             ("pos",          "core",    "קופה",           18),
             ("products",     "core",    "מוצרים",          19),
@@ -734,7 +733,7 @@ def ensure_schema():
             "trial":      ["crm", "calendar", "payments", "whatsapp", "email", "sms",
                            "customer_club", "wallet", "ocr", "ai_assistant",
                            "online_booking", "marketplace", "wait_list", "gift_cards",
-                           "analytics", "multi_location", "employee_mgmt", "automation_builder"] + _NAV_MODULES,
+                           "analytics", "multi_location", "employee_mgmt"] + _NAV_MODULES,
             "free":       ["crm", "calendar"] + _NAV_MODULES,
             # bizfind_basic/bizfind_pro are retired (BizFind no longer sells a
             # BizControl-less plan) — kept here only as a safety net so any
@@ -752,15 +751,15 @@ def ensure_schema():
             "studio":     ["crm", "calendar", "payments", "whatsapp", "email", "sms",
                            "customer_club", "wallet", "ocr", "ai_assistant",
                            "online_booking", "marketplace", "wait_list", "gift_cards",
-                           "analytics", "multi_location", "employee_mgmt", "automation_builder"] + _NAV_MODULES,
+                           "analytics", "multi_location", "employee_mgmt"] + _NAV_MODULES,
             "enterprise": ["crm", "calendar", "payments", "whatsapp", "email", "sms",
                            "customer_club", "wallet", "ocr", "ai_assistant",
                            "online_booking", "marketplace", "wait_list", "gift_cards",
-                           "analytics", "multi_location", "employee_mgmt", "automation_builder"] + _NAV_MODULES,
+                           "analytics", "multi_location", "employee_mgmt"] + _NAV_MODULES,
             "platform":   ["crm", "calendar", "payments", "whatsapp", "email", "sms",
                            "customer_club", "wallet", "ocr", "ai_assistant",
                            "online_booking", "marketplace", "wait_list", "gift_cards",
-                           "analytics", "multi_location", "employee_mgmt", "automation_builder"] + _NAV_MODULES,
+                           "analytics", "multi_location", "employee_mgmt"] + _NAV_MODULES,
         }
         # ai_theme_generate had no plan gate at all before (any owner/admin/
         # manager could call it) — added to every plan so the new module row

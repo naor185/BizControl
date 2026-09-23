@@ -6,7 +6,7 @@ import {
     Briefcase, Lock, Unlock, KeyRound, Zap, BarChart3, ShieldCheck, ClipboardList, Timer,
     Wallet, Users, TrendingUp, Phone, Megaphone, Gift, Settings,
     CreditCard, Landmark, Receipt, Banknote, Tag, UserCog, MessageSquare, Bell, Target, Mail,
-    Send, Clock, Package, ConciergeBell, Stamp, Crown, Smartphone, Wrench, LifeBuoy,
+    Send, Clock, Package, ConciergeBell, Stamp, Crown, Smartphone, LifeBuoy,
     type LucideIcon,
 } from "lucide-react";
 import AppShell from "@/components/AppShell";
@@ -82,7 +82,6 @@ const SECTION_GROUPS: { groupLabel: string; icon: LucideIcon; items: { href: str
         icon: Settings,
         items: [
             { href: "/automation",     label: "הגדרות",          description: "מיתוג, אוטומציות, תשלומים, אינטגרציות והגדרות מייל", icon: Settings, gradient: "from-slate-500 to-slate-700" },
-            { href: "/automations",    label: "בונה אוטומציות",  description: "חוקי אוטומציה מותאמים אישית (טריגרים ופעולות)", icon: Wrench, gradient: "from-zinc-500 to-zinc-700" },
             { href: "/help",           label: "מרכז עזרה",       description: "מדריכים, תמיכה ויצירת קשר",                     icon: LifeBuoy, gradient: "from-gray-500 to-gray-700" },
         ],
     },

@@ -372,14 +372,6 @@ def update_client(db: Session, studio_id: UUID, client_id: UUID, data: ClientUpd
 
     if obj.is_club_member and not was_club_member:
         _trigger_club_welcome(db, studio_id, obj)
-        try:
-            from app.services.automation_engine import fire_event as _fire
-            _fire(db, studio_id, "client_joined_club", {
-                "client_name": obj.full_name or "",
-                "client_phone": obj.phone or "",
-            }, client_id=obj.id)
-        except Exception as e:
-            log.warning("fire_event client_joined_club failed for client %s: %s", obj.id, e)
 
     db.commit()
     db.refresh(obj)

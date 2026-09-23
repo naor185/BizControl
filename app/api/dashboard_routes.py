@@ -19,7 +19,6 @@ from app.models.user import User
 from app.models.studio import Studio
 from app.models.service import Service
 from app.models.product import Product
-from app.models.automation_rule import AutomationRule
 from app.core.features import get_studio_modules
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
@@ -958,7 +957,7 @@ def get_calendar_occupancy(
 # fundamentals (business details, logo, first service/client/appointment)
 # that apply to every studio regardless of preference.
 _DISMISSIBLE_SETUP_ITEM_IDS = {
-    "staff_member", "payment_method", "self_booking", "first_product", "first_automation",
+    "staff_member", "payment_method", "self_booking", "first_product",
 }
 
 
@@ -994,7 +993,6 @@ def _build_setup_items(db: Session, ctx: AuthContext) -> tuple[list[dict], dict]
     has_payment_method = bool(settings and (settings.bit_link or settings.paybox_link or settings.bank_account))
     has_self_booking = bool(settings and settings.self_booking_enabled)
     has_product = count(Product) > 0
-    has_automation_rule = count(AutomationRule) > 0
 
     all_items = [
         {"id": "business_details",  "label": "עדכנו את פרטי העסק",           "tier": "required",    "done": has_business_details, "href": "/automation?tab=branding", "module": None},
@@ -1006,7 +1004,6 @@ def _build_setup_items(db: Session, ctx: AuthContext) -> tuple[list[dict], dict]
         {"id": "payment_method",    "label": "הגדירו אמצעי תשלום למקדמות",   "tier": "recommended", "done": has_payment_method,   "href": "/automation?tab=finance",  "module": None},
         {"id": "self_booking",      "label": "הפעילו קביעת תורים עצמאית",    "tier": "recommended", "done": has_self_booking,     "href": "/automation?tab=policy",   "module": None},
         {"id": "first_product",     "label": "הוסיפו מוצר ראשון",            "tier": "recommended", "done": has_product,          "href": "/products",                "module": "products"},
-        {"id": "first_automation",  "label": "צרו אוטומציה ראשונה",          "tier": "recommended", "done": has_automation_rule,  "href": "/automations",             "module": "automation_builder"},
     ]
 
     # Missing key in enabled_modules defaults to True — same "no key = shown"
