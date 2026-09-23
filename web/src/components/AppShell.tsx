@@ -245,14 +245,14 @@ export default function AppShell({
                                     key={item.href}
                                     href={item.href}
                                     className={[
-                                        "flex items-center gap-3 rounded-xl px-3 py-3 text-lg font-medium transition-all",
+                                        "flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-base font-medium transition-all",
                                         active
                                             ? "text-white shadow-sm"
                                             : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
                                     ].join(" ")}
                                     style={active ? { background: "var(--primary)" } : undefined}
                                 >
-                                    <Icon className="h-6 w-6 shrink-0" />
+                                    <Icon className="h-5 w-5 shrink-0" />
                                     <span className="flex-1">{item.label}</span>
                                     {badge > 0 && (
                                         <span className="text-white text-xs font-bold rounded-full min-w-5 h-5 flex items-center justify-center px-1" style={{ background: "var(--accent)" }}>
@@ -273,14 +273,14 @@ export default function AppShell({
                         <button
                             onClick={handleBusinessClick}
                             className={[
-                                "w-full flex items-center gap-3 rounded-xl px-3 py-3 text-lg font-medium transition-all",
+                                "w-full flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-base font-medium transition-all",
                                 pathname.startsWith("/business")
                                     ? "text-white shadow-sm"
                                     : "text-slate-600 hover:bg-slate-100",
                             ].join(" ")}
                             style={pathname.startsWith("/business") ? { background: "var(--secondary)" } : undefined}
                         >
-                            {businessUnlocked ? <Building2 className="h-6 w-6 shrink-0" /> : <Lock className="h-6 w-6 shrink-0" />}
+                            {businessUnlocked ? <Building2 className="h-5 w-5 shrink-0" /> : <Lock className="h-5 w-5 shrink-0" />}
                             <span className="flex-1 text-right">ניהול עסק</span>
                             {!businessUnlocked && (
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="opacity-50">
