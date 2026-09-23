@@ -15,12 +15,9 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select
 
 from app.core.database import get_db
-from app.models.incoming_message import IncomingMessage
 from app.models.studio_settings import StudioSettings
 from app.models.client import Client
 from app.models.lead import Lead
-from app.models.notification import Notification
-from app.services.conversation_service import ConversationService
 
 router = APIRouter(prefix="/webhook", tags=["Webhook"])
 
@@ -119,61 +116,6 @@ def _auto_lead(
         except Exception:
             pass
 
-CHANNEL_LABEL = {"whatsapp": "WhatsApp", "instagram": "Instagram", "facebook": "Facebook"}
-
-def _save(
-    db: Session,
-    studio_id,
-    from_phone: str,
-    from_name: str | None,
-    body: str,
-    channel: str,
-    client_id=None,
-    lead_id=None,
-    external_message_id: str | None = None,
-    attribution: dict | None = None,
-):
-    # Legacy IncomingMessage (keeps existing inbox UI working)
-    msg = IncomingMessage(
-        studio_id=studio_id,
-        client_id=client_id,
-        from_phone=from_phone,
-        from_name=from_name,
-        body=body,
-        channel=channel,
-        received_at=datetime.now(timezone.utc),
-    )
-    db.add(msg)
-
-    # Unified conversation model
-    try:
-        ConversationService.upsert_inbound(
-            db=db,
-            studio_id=studio_id,
-            platform=channel,
-            external_id=from_phone,
-            body=body,
-            display_name=from_name,
-            client_id=client_id,
-            lead_id=lead_id,
-            external_message_id=external_message_id,
-            attribution=attribution,
-        )
-    except Exception as e:
-        log.warning("[webhook] conversation upsert failed: %s", e)
-
-    sender = from_name or from_phone
-    ch_label = CHANNEL_LABEL.get(channel, channel)
-    db.add(Notification(
-        studio_id=studio_id,
-        type="new_message",
-        title=f"הודעה חדשה מ-{ch_label}",
-        body=f"{sender}: {body[:80]}",
-        action_url="/inbox",
-    ))
-    db.commit()
-
-
 # ── Meta Unified Webhook ──────────────────────────────────────────────────────
 
 @router.get("/meta")
@@ -253,10 +195,6 @@ def _handle_whatsapp(db: Session, data: dict):
                 campaign_name = referral.get("headline") or referral.get("source_url")
                 ad_id         = referral.get("source_id")
 
-                client = _match_client(db, settings.studio_id, from_phone)
-                _save(db, settings.studio_id, from_phone, from_name, body, "whatsapp",
-                      client.id if client else None)
-
                 # Auto-create lead for unknowns
                 _auto_lead(db, settings.studio_id, "whatsapp", from_phone, from_name,
                            body, campaign_name=campaign_name, ad_id=ad_id)
@@ -273,18 +211,8 @@ def _handle_instagram(db: Session, data: dict):
                 _handle_leadgen_entry(db, settings.studio_id if settings else None,
                                       leadgen.get("value", {}), source="instagram")
 
-        if not settings:
-            continue
-        for event in entry.get("messaging", []):
-            sender_id = event.get("sender", {}).get("id", "")
-            if sender_id == ig_id:
-                continue
-            msg  = event.get("message", {})
-            body = msg.get("text", "")
-            if not body or msg.get("is_echo"):
-                continue
-            _save(db, settings.studio_id, sender_id, None, body, "instagram")
-            _auto_lead(db, settings.studio_id, "instagram", None, None, body)
+        # Direct messages are intentionally not handled (there is no inbox to show them and
+        # they carry no name/phone to build a lead from) — only Lead Ads forms above do.
 
 
 def _handle_facebook(db: Session, data: dict):
@@ -298,18 +226,7 @@ def _handle_facebook(db: Session, data: dict):
                 _handle_leadgen_entry(db, settings.studio_id if settings else None,
                                       change.get("value", {}), source="facebook")
 
-        if not settings:
-            continue
-        for event in entry.get("messaging", []):
-            sender_id = event.get("sender", {}).get("id", "")
-            if sender_id == page_id:
-                continue
-            msg  = event.get("message", {})
-            body = msg.get("text", "")
-            if not body or msg.get("is_echo"):
-                continue
-            _save(db, settings.studio_id, sender_id, None, body, "facebook")
-            _auto_lead(db, settings.studio_id, "facebook", None, None, body)
+        # Direct messages are intentionally not handled — see _handle_instagram.
 
 
 def _handle_leadgen_entry(db: Session, studio_id, payload: dict, source: str):
@@ -385,9 +302,6 @@ async def green_incoming(instance_id: str, request: Request, db: Session = Depen
         if not body or not raw_phone:
             return {"status": "ignored"}
 
-        client = _match_client(db, settings.studio_id, raw_phone)
-        _save(db, settings.studio_id, raw_phone, from_name, body, "whatsapp",
-              client.id if client else None)
         _auto_lead(db, settings.studio_id, "whatsapp", raw_phone, from_name, body)
 
     except Exception as e:

@@ -11,7 +11,7 @@ import { useToast } from "@/components/ui/toast";
 // require a second press within 2s before actually exiting, so one stray
 // tap doesn't kick you out of the app. Mirrors ROOT_PATHS in AppShell.tsx
 // (the pages BottomNav's tabs already put you one tap away from).
-const ROOT_PATHS = new Set(["/calendar", "/pos", "/clients", "/inbox", "/login"]);
+const ROOT_PATHS = new Set(["/calendar", "/pos", "/clients", "/login"]);
 
 export default function BackButtonHandler() {
     const router = useRouter();

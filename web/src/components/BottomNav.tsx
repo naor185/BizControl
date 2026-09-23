@@ -3,17 +3,16 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { clearToken, apiFetch, getCurrentUserRole } from "@/lib/api";
+import { clearToken, getCurrentUserRole } from "@/lib/api";
 import { useLang } from "./LanguageProvider";
 import { TranslationKey } from "@/lib/i18n";
 import { useBackButtonClose } from "@/lib/backButtonStack";
 import { useNewLeadsCount } from "@/lib/useNewLeadsCount";
 
-const PRIMARY_NAV: { href: string; labelKey: TranslationKey; icon: string; badge?: boolean }[] = [
+const PRIMARY_NAV: { href: string; labelKey: TranslationKey; icon: string }[] = [
     { href: "/calendar",  labelKey: "nav_calendar",  icon: "📅" },
     { href: "/pos",       labelKey: "nav_pos",       icon: "🛒" },
     { href: "/clients",   labelKey: "nav_clients",   icon: "👥" },
-    { href: "/inbox",     labelKey: "nav_inbox",     icon: "💬", badge: true },
 ];
 
 const MORE_NAV: { href: string; labelKey: TranslationKey; icon: string }[] = [
@@ -36,7 +35,6 @@ export default function BottomNav() {
     const pathname = usePathname();
     const router = useRouter();
     const [sheetOpen, setSheetOpen] = useState(false);
-    const [unreadCount, setUnreadCount] = useState(0);
     const [userRole] = useState(() => getCurrentUserRole());
     const isArtist = userRole === "artist" || userRole === "staff";
     const { t } = useLang();
@@ -46,18 +44,6 @@ export default function BottomNav() {
         pathname === href || pathname?.startsWith(href + "/");
 
     const moreActive = MORE_NAV.some(n => isActive(n.href));
-
-    useEffect(() => {
-        const load = async () => {
-            try {
-                const data = await apiFetch<{ unread: number }>("/api/inbox/unread-count");
-                setUnreadCount(data.unread);
-            } catch { /* not logged in yet */ }
-        };
-        load();
-        const tid = setInterval(load, 30_000);
-        return () => clearInterval(tid);
-    }, []);
 
     // Close sheet on navigation
     useEffect(() => { setSheetOpen(false); }, [pathname]);
@@ -145,7 +131,6 @@ export default function BottomNav() {
                 <div className="flex items-stretch h-16">
                     {navItems.map(item => {
                         const active = isActive(item.href);
-                        const showBadge = item.badge && unreadCount > 0;
                         return (
                             <Link
                                 key={item.href}
@@ -163,11 +148,6 @@ export default function BottomNav() {
                                     ].join(" ")}>
                                         {item.icon}
                                     </span>
-                                    {showBadge && (
-                                        <span className="absolute -top-1.5 -left-1.5 bg-green-500 text-white text-[9px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-1 shadow-sm">
-                                            {unreadCount > 99 ? "99+" : unreadCount}
-                                        </span>
-                                    )}
                                 </div>
 
                                 <span className={[

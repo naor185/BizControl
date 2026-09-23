@@ -17,7 +17,6 @@ from app.api.staff_routes import router as staff_router
 from app.api.goal_routes import router as goal_router
 from app.api.product_routes import router as product_router
 from app.api.export_routes import router as export_router
-from app.api.inbox_routes import router as inbox_router
 from app.api.webhook_routes import router as webhook_router
 from app.api.superadmin_routes import router as superadmin_router
 from app.api.lead_routes import router as lead_router
@@ -32,7 +31,6 @@ from app.api.nfc_routes import router as nfc_router
 from app.api.pos_routes import router as pos_router
 from app.api.security_routes import router as security_router
 from app.api.analytics_routes import router as analytics_router
-from app.api.quick_reply_routes import router as quick_reply_router
 from app.api.superadmin_features_routes import router as superadmin_features_router
 from app.api.service_routes import router as service_router
 from app.api.push_routes import router as push_router
@@ -73,7 +71,6 @@ api_router.include_router(staff_router)
 api_router.include_router(goal_router)
 api_router.include_router(product_router)
 api_router.include_router(export_router)
-api_router.include_router(inbox_router)
 api_router.include_router(webhook_router)
 api_router.include_router(superadmin_router)
 api_router.include_router(lead_router)
@@ -89,7 +86,6 @@ api_router.include_router(nfc_router)
 api_router.include_router(pos_router)
 api_router.include_router(security_router)
 api_router.include_router(analytics_router)
-api_router.include_router(quick_reply_router)
 api_router.include_router(superadmin_features_router)
 api_router.include_router(service_router)
 api_router.include_router(push_router)

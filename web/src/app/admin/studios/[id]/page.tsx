@@ -91,14 +91,11 @@ const SOURCE_LABELS: Record<string, string> = {
 };
 
 const FEATURE_LABELS: Record<string, { label: string; desc: string; icon: string }> = {
-    meta_inbox:           { label: "Meta Inbox",          desc: "קבלת ושליחת הודעות WhatsApp/Instagram/Facebook",  icon: "💬" },
     whatsapp_cloud:       { label: "WhatsApp Cloud API",  desc: "WhatsApp Cloud API של Meta (לא Green API)",         icon: "📱" },
     marketing_analytics:  { label: "Marketing Analytics", desc: "נתוני Meta Ads — קמפיינים, הוצאות, חשיפות",        icon: "📣" },
     ai_insights:          { label: "AI Insights",         desc: "תובנות עסקיות מבוססות Claude AI",                   icon: "🤖" },
     ai_auto_tag:          { label: "AI Auto-Tag",         desc: "תיוג אוטומטי של לידים לפי תוכן ההודעה",            icon: "🏷" },
     lead_attribution:     { label: "Lead Attribution",    desc: "מעקב מלא: מודעה → ליד → תור → הכנסה",              icon: "🎯" },
-    realtime_inbox:       { label: "Realtime Inbox",      desc: "עדכון תיבת הדואר בזמן אמת (SSE)",                  icon: "⚡" },
-    quick_replies:        { label: "Quick Replies",       desc: "תשובות מהירות שמורות לנציג",                       icon: "⚡" },
     voice:                { label: "BizControl Voice",    desc: "מודול טלפוניה, לוג שיחות ושיוך ללקוחות",           icon: "📞" },
 };
 

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Calendar, ShoppingCart, LayoutDashboard, Users, MessageSquare, Gauge, Building2, Lock, type LucideIcon } from "lucide-react";
+import { Calendar, ShoppingCart, LayoutDashboard, Users, Gauge, Building2, Lock, type LucideIcon } from "lucide-react";
 import { apiFetch, clearToken, getToken, setToken } from "@/lib/api";
 import ClockWidget from "./ClockWidget";
 import BottomNav from "./BottomNav";
@@ -35,7 +35,7 @@ type PinStatus = { has_pin: boolean; is_locked: boolean };
 // (settings, client detail, message templates, anything reached through the
 // "More" sheet, etc.) shows a back arrow on mobile, since the sidebar isn't
 // there to fall back on and neither is any hardware back button on iOS.
-const ROOT_PATHS = new Set(["/overview", "/calendar", "/pos", "/clients", "/inbox", "/clients/analytics", "/wallet"]);
+const ROOT_PATHS = new Set(["/overview", "/calendar", "/pos", "/clients", "/clients/analytics", "/wallet"]);
 
 const MAIN_NAV: { href: string; label: string; icon: LucideIcon; module?: string }[] = [
     { href: "/overview",  label: "דשבורד",       icon: Gauge },
@@ -43,7 +43,6 @@ const MAIN_NAV: { href: string; label: string; icon: LucideIcon; module?: string
     { href: "/pos",       label: "קופה",         icon: ShoppingCart, module: "pos" },
     { href: "/dashboard", label: "לוח בקרה",    icon: LayoutDashboard },
     { href: "/clients",   label: "לקוחות",       icon: Users, module: "crm" },
-    { href: "/inbox",     label: "תיבת הודעות", icon: MessageSquare },
 ];
 
 export default function AppShell({

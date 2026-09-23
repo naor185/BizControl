@@ -311,16 +311,6 @@ def run_migrations():
                 expires_at TIMESTAMPTZ
             )
         """))
-        conn.execute(text("""
-            CREATE TABLE IF NOT EXISTS quick_replies (
-                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
-                title VARCHAR(100) NOT NULL,
-                body TEXT NOT NULL,
-                shortcut VARCHAR(30),
-                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-            )
-        """))
         conn.execute(text("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS reminder_3day_wa_template TEXT"))
         conn.execute(text("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS reminder_7day_wa_template TEXT"))
         conn.execute(text("""
@@ -480,66 +470,7 @@ def run_migrations():
         conn.execute(text("CREATE INDEX IF NOT EXISTS ix_webhook_logs_studio ON webhook_logs(studio_id)"))
         conn.execute(text("CREATE INDEX IF NOT EXISTS ix_webhook_logs_received ON webhook_logs(received_at DESC)"))
 
-        # ── z12: Unified conversations + messages + lead attribution ──────────
-        conn.execute(text("""
-            CREATE TABLE IF NOT EXISTS conversations (
-                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
-                client_id UUID REFERENCES clients(id) ON DELETE SET NULL,
-                lead_id UUID REFERENCES leads(id) ON DELETE SET NULL,
-                platform VARCHAR(20) NOT NULL,
-                external_id VARCHAR(128) NOT NULL,
-                display_name VARCHAR(255),
-                source_type VARCHAR(32),
-                campaign_id VARCHAR(64),
-                campaign_name VARCHAR(255),
-                ad_id VARCHAR(64),
-                ad_name VARCHAR(255),
-                post_id VARCHAR(128),
-                reel_id VARCHAR(128),
-                referral_url TEXT,
-                status VARCHAR(20) NOT NULL DEFAULT 'open',
-                assigned_to UUID REFERENCES users(id) ON DELETE SET NULL,
-                is_pinned BOOLEAN NOT NULL DEFAULT false,
-                tags JSONB,
-                internal_notes TEXT,
-                first_response_at TIMESTAMPTZ,
-                last_message_at TIMESTAMPTZ,
-                unread_count INTEGER NOT NULL DEFAULT 0,
-                message_count INTEGER NOT NULL DEFAULT 0,
-                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                CONSTRAINT uq_conversation UNIQUE (studio_id, platform, external_id)
-            )
-        """))
-        conn.execute(text("CREATE INDEX IF NOT EXISTS ix_conversations_studio_id ON conversations(studio_id)"))
-        conn.execute(text("CREATE INDEX IF NOT EXISTS ix_conversations_client_id ON conversations(client_id)"))
-        conn.execute(text("CREATE INDEX IF NOT EXISTS ix_conversations_lead_id ON conversations(lead_id)"))
-        conn.execute(text("CREATE INDEX IF NOT EXISTS ix_conversations_last_message ON conversations(studio_id, last_message_at)"))
-        conn.execute(text("CREATE INDEX IF NOT EXISTS ix_conversations_platform ON conversations(studio_id, platform)"))
-
-        conn.execute(text("""
-            CREATE TABLE IF NOT EXISTS messages (
-                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
-                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
-                direction VARCHAR(4) NOT NULL,
-                platform VARCHAR(20) NOT NULL,
-                external_message_id VARCHAR(128),
-                type VARCHAR(20) NOT NULL DEFAULT 'text',
-                body TEXT,
-                media_url TEXT,
-                media_type VARCHAR(32),
-                is_read BOOLEAN NOT NULL DEFAULT false,
-                delivery_status VARCHAR(20),
-                sent_by UUID REFERENCES users(id) ON DELETE SET NULL,
-                sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-            )
-        """))
-        conn.execute(text("CREATE INDEX IF NOT EXISTS ix_messages_conversation_id ON messages(conversation_id)"))
-        conn.execute(text("CREATE INDEX IF NOT EXISTS ix_messages_studio_id ON messages(studio_id)"))
-        conn.execute(text("CREATE INDEX IF NOT EXISTS ix_messages_sent_at ON messages(conversation_id, sent_at)"))
-
+        # ── z12: Lead attribution ─────────────────────────────────────────────
         conn.execute(text("""
             CREATE TABLE IF NOT EXISTS lead_sources (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

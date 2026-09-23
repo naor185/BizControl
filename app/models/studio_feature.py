@@ -15,14 +15,11 @@ from app.models.base import Base
 # project_generic_plans_engine memory. Do not add new flags here; add a
 # `modules` row instead.
 FEATURES = frozenset([
-    "meta_inbox",
     "whatsapp_cloud",
     "marketing_analytics",
     "ai_insights",
     "ai_auto_tag",
     "lead_attribution",
-    "realtime_inbox",
-    "quick_replies",
     "voice",
 ])
 

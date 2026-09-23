@@ -702,6 +702,8 @@ def ensure_schema():
         # nothing else depends on this row. Safe to re-run: matches 0 rows
         # once already deleted.
         cur.execute("DELETE FROM modules WHERE id = 'automation_builder'")
+        # Unified inbox removed: its module rows (and, via ON DELETE CASCADE, their plan/studio grants).
+        cur.execute("DELETE FROM modules WHERE id IN ('meta_inbox', 'realtime_inbox', 'quick_replies')")
 
         # ── Seed fine-grained "permissions" (sub-capabilities nested under a
         # parent module) — the one-time migration target for the legacy
@@ -709,10 +711,7 @@ def ensure_schema():
         # admin tree UI renders each child under the right group.
         # (id, parent_id, category, name, sort_order)
         SUB_MODULES = [
-            ("meta_inbox",           "whatsapp",  "communication", "Meta Inbox (תיבה מאוחדת)",        0),
             ("whatsapp_cloud",       "whatsapp",  "communication", "WhatsApp Cloud API (Meta)",        1),
-            ("realtime_inbox",       "whatsapp",  "communication", "עדכון תיבה בזמן אמת (SSE)",       2),
-            ("quick_replies",        "whatsapp",  "communication", "תגובות מהירות",                    3),
             ("marketing_analytics",  "analytics", "advanced",      "Analytics שיווקי",                 0),
             ("ai_insights",          "analytics", "advanced",      "AI Insights",                       1),
             ("lead_attribution",     "analytics", "advanced",      "מעקב לידים (Attribution)",         2),

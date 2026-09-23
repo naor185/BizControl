@@ -2104,11 +2104,9 @@ def delete_all_studio_clients(studio_id: str, _admin: User = Depends(require_sup
     from app.models.client_points_ledger import ClientPointsLedger
     from app.models.appointment import Appointment
     from app.models.payment import Payment
-    from app.models.incoming_message import IncomingMessage
     # Delete in FK-safe order: dependents before clients
     db.query(ClientPointsLedger).filter(ClientPointsLedger.studio_id == studio_id).delete(synchronize_session=False)
     db.query(MessageJob).filter(MessageJob.studio_id == studio_id).delete(synchronize_session=False)
-    db.query(IncomingMessage).filter(IncomingMessage.studio_id == studio_id).update({"client_id": None}, synchronize_session=False)
     db.query(Payment).filter(Payment.studio_id == studio_id).delete(synchronize_session=False)
     db.query(Appointment).filter(Appointment.studio_id == studio_id).delete(synchronize_session=False)
     db.query(Client).filter(Client.studio_id == studio_id).delete(synchronize_session=False)
