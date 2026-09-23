@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import RequireAuth from "@/components/RequireAuth";
 import AppShell from "@/components/AppShell";
 import { apiFetch, downloadReceipt, downloadPosReceipt, voidPosTransaction, getCurrentUserRole } from "@/lib/api";
+import { Receipt, Banknote, CreditCard, Smartphone, Wallet, Landmark, MoreHorizontal, Calendar, type LucideIcon } from "lucide-react";
 
 import Link from "next/link";
 
@@ -53,34 +54,30 @@ type Entry = {
     posTxnId?: string; // only for POS entries (for receipt download / void)
 };
 
-const METHODS = [
-    { key: "all", label: "הכל", icon: "🧾" },
-    { key: "cash", label: "מזומן", icon: "💵" },
-    { key: "credit_card", label: "אשראי", icon: "💳" },
-    { key: "bit", label: "ביט", icon: "📱" },
-    { key: "paybox", label: "פייבוקס", icon: "📲" },
-    { key: "bank_transfer", label: "העברה בנקאית", icon: "🏦" },
-    { key: "other", label: "אחר", icon: "🧩" },
+const METHODS: { key: string; label: string; icon: LucideIcon }[] = [
+    { key: "all", label: "הכל", icon: Receipt },
+    { key: "cash", label: "מזומן", icon: Banknote },
+    { key: "credit_card", label: "אשראי", icon: CreditCard },
+    { key: "bit", label: "ביט", icon: Smartphone },
+    { key: "paybox", label: "פייבוקס", icon: Wallet },
+    { key: "bank_transfer", label: "העברה בנקאית", icon: Landmark },
+    { key: "other", label: "אחר", icon: MoreHorizontal },
 ];
 
 const METHOD_LABELS: Record<string, string> = {
-    cash: "מזומן 💵",
-    credit_card: "אשראי 💳",
-    bit: "ביט 📱",
-    paybox: "פייבוקס 📲",
-    bank_transfer: "העברה בנקאית 🏦",
+    cash: "מזומן",
+    credit_card: "אשראי",
+    bit: "ביט",
+    paybox: "פייבוקס",
+    bank_transfer: "העברה בנקאית",
     installment: "תשלומים",
     other: "אחר",
 };
 
-const METHOD_COLORS: Record<string, string> = {
-    cash: "bg-green-100 text-green-800",
-    credit_card: "bg-blue-100 text-blue-800",
-    bit: "bg-purple-100 text-purple-800",
-    paybox: "bg-pink-100 text-pink-800",
-    bank_transfer: "bg-amber-100 text-amber-800",
-    other: "bg-slate-100 text-slate-700",
-};
+// One neutral style for every method — no per-method rainbow, matching the
+// rest of the app's move to a monochrome palette. Only the monthly total
+// itself keeps its green/red color (see mTotal below).
+const METHOD_PILL_CLASS = "bg-slate-100 text-slate-600";
 
 const currentMonthKey = (() => {
     const now = new Date();
@@ -289,13 +286,14 @@ export default function Page() {
                     {/* Current month totals */}
                     {!loading && !err && entries.length > 0 && (
                         <div>
-                            <div className="text-xs text-slate-400 font-semibold mb-2 px-1">
-                                📅 {new Date().toLocaleDateString("he-IL", { month: "long", year: "numeric" })} — סיכום חודש נוכחי
+                            <div className="flex items-center gap-1.5 text-xs text-slate-400 font-semibold mb-2 px-1">
+                                <Calendar className="w-3.5 h-3.5" />
+                                {new Date().toLocaleDateString("he-IL", { month: "long", year: "numeric" })} — סיכום חודש נוכחי
                             </div>
                             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
                                 {METHODS.filter(m => m.key !== "all").map(m => (
                                     <div key={m.key} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-2.5 sm:p-4 min-w-0">
-                                        <div className="text-base sm:text-xl mb-0.5 sm:mb-1">{m.icon}</div>
+                                        <m.icon className="w-5 h-5 sm:w-6 sm:h-6 mb-0.5 sm:mb-1 text-slate-400" />
                                         <div className="text-xs text-slate-500 font-medium truncate">{m.label}</div>
                                         <div className="text-base sm:text-lg font-black text-slate-800 mt-0.5 sm:mt-1" dir="ltr">
                                             {fmt(totals[m.key] || 0)}
@@ -308,7 +306,10 @@ export default function Page() {
 
                     <div className="bg-white rounded-3xl border border-slate-100 shadow-xl overflow-hidden">
                         <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/50">
-                            <h3 className="text-xl font-bold text-slate-800 mb-4">היסטוריית עסקאות לפי חודש 🗓️</h3>
+                            <h3 className="flex items-center gap-2 text-xl font-bold text-slate-800 mb-4">
+                                <Calendar className="w-5 h-5 text-slate-400" />
+                                היסטוריית עסקאות לפי חודש
+                            </h3>
 
                             {/* Filter buttons */}
                             <div className="flex flex-wrap gap-2">
@@ -318,17 +319,17 @@ export default function Page() {
                                         key={m.key}
                                         onClick={() => toggleMethod(m.key)}
                                         className={[
-                                            "px-4 py-1.5 rounded-full text-sm font-bold transition-all border",
+                                            "flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-bold transition-all border",
                                             m.key === "all"
                                                 ? selectedMethods.size === 0
-                                                    ? "bg-sky-600 text-white border-slate-900 shadow-lg"
+                                                    ? "bg-slate-900 text-white border-slate-900 shadow-lg"
                                                     : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"
                                                 : selectedMethods.has(m.key)
-                                                    ? "bg-sky-600 text-white border-slate-900 shadow-lg"
+                                                    ? "bg-slate-900 text-white border-slate-900 shadow-lg"
                                                     : "bg-white text-slate-600 border-slate-200 hover:border-slate-400",
                                         ].join(" ")}
                                     >
-                                        {m.icon} {m.label}
+                                        <m.icon className="w-4 h-4" /> {m.label}
                                     </button>
                                 ))}
                             </div>
@@ -352,18 +353,18 @@ export default function Page() {
                                             <button
                                                 type="button"
                                                 onClick={() => toggleMonth(monthKey)}
-                                                className={`w-full px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-right transition-colors ${isCurrentMonth ? "bg-sky-50 hover:bg-sky-100/70" : "bg-slate-50 hover:bg-slate-100/70"}`}
+                                                className={`w-full px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-right transition-colors ${isCurrentMonth ? "bg-slate-100/70 hover:bg-slate-100" : "bg-slate-50 hover:bg-slate-100/70"}`}
                                             >
                                                 <div className="flex items-center gap-3 min-w-0">
                                                     <span className={`text-lg transition-transform duration-200 shrink-0 ${isExpanded ? "rotate-90" : ""}`}>▶</span>
                                                     <div className="min-w-0">
                                                         <div className="flex flex-wrap items-center gap-2">
                                                             <span className="font-bold text-slate-800 text-base shrink-0">{monthLabel(monthKey)}</span>
-                                                            {isCurrentMonth && <span className="text-[10px] bg-sky-600 text-white px-2 py-0.5 rounded-full font-bold shrink-0">חודש נוכחי</span>}
+                                                            {isCurrentMonth && <span className="text-[10px] bg-slate-700 text-white px-2 py-0.5 rounded-full font-bold shrink-0">חודש נוכחי</span>}
                                                         </div>
                                                         <div className="flex flex-wrap gap-2 mt-1.5">
                                                             {Object.entries(mByMethod).map(([method, cents]) => (
-                                                                <span key={method} className={`text-xs px-2 py-0.5 rounded-full font-semibold whitespace-nowrap shrink-0 ${METHOD_COLORS[method] || "bg-slate-100 text-slate-600"}`}>
+                                                                <span key={method} className={`text-xs px-2 py-0.5 rounded-full font-semibold whitespace-nowrap shrink-0 ${METHOD_PILL_CLASS}`}>
                                                                     {METHOD_LABELS[method] || method}: <span dir="ltr">{fmt(cents)}</span>
                                                                 </span>
                                                             ))}
@@ -394,7 +395,7 @@ export default function Page() {
                                                                     <span className="text-sm font-bold text-slate-400 italic shrink-0">אנונימי</span>
                                                                 )}
                                                                 {e.isWalkIn && <span className="bg-slate-100 text-slate-500 text-[10px] px-1.5 py-0.5 rounded font-normal shrink-0">מזדמן</span>}
-                                                                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold shrink-0 ${METHOD_COLORS[e.method] || "bg-slate-100 text-slate-600"}`}>
+                                                                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold shrink-0 ${METHOD_PILL_CLASS}`}>
                                                                     {METHOD_LABELS[e.method] || e.method}
                                                                 </span>
                                                             </div>
@@ -417,7 +418,7 @@ export default function Page() {
                                                                     e.type === "pos_sale" ? "bg-violet-100 text-violet-700" :
                                                                     "bg-emerald-100 text-emerald-700"
                                                                 }`}>
-                                                                    {e.type === "refund" ? "זיכוי" : e.type === "deposit" ? "מקדמה" : e.type === "pos_sale" ? "🛒 קופה" : "תשלום"}
+                                                                    {e.type === "refund" ? "זיכוי" : e.type === "deposit" ? "מקדמה" : e.type === "pos_sale" ? "קופה" : "תשלום"}
                                                                 </span>
                                                                 {e.notes && !e.notes.startsWith("[מערכת]") && (
                                                                     <span className="text-xs text-slate-400 italic truncate max-w-45 hidden sm:inline">{e.notes}</span>
