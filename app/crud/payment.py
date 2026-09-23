@@ -113,10 +113,7 @@ def create_payment(db: Session, studio_id: UUID, data) -> Payment:
         settings = db.get(StudioSettings, studio_id)
         if settings and settings.points_percent_per_payment is not None and settings.points_percent_per_payment > 0 and client.is_club_member:
             amount_ils = obj.amount_cents / 100.0
-            from app.crud.membership_tier import get_client_tier
-            tier = get_client_tier(db, studio_id, client.id)
-            multiplier = tier.points_multiplier if tier else 1.0
-            points_earned = int(amount_ils * (settings.points_percent_per_payment / 100.0) * multiplier)
+            points_earned = int(amount_ils * (settings.points_percent_per_payment / 100.0))
 
             if points_earned > 0:
                 client.loyalty_points = int(client.loyalty_points or 0) + points_earned

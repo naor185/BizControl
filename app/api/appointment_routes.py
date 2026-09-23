@@ -560,11 +560,8 @@ def verify_sent_payment(
                 and _settings
                 and (_settings.points_percent_per_payment or 0) > 0
             ):
-                from app.crud.membership_tier import get_client_tier as _get_tier
-                _tier = _get_tier(db, ctx.studio_id, _client.id)
-                _multiplier = _tier.points_multiplier if _tier else 1.0
                 _amount_ils = appt.deposit_amount_cents / 100.0
-                _pts = int(_amount_ils * (_settings.points_percent_per_payment / 100.0) * _multiplier)
+                _pts = int(_amount_ils * (_settings.points_percent_per_payment / 100.0))
                 if _pts > 0:
                     _client.loyalty_points = int(_client.loyalty_points or 0) + _pts
                     db.add(_Ledger(

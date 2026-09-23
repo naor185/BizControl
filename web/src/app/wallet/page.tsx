@@ -13,7 +13,6 @@ type Design = {
     label_color: string;
     logo_url: string | null;
     show_points: boolean;
-    show_tier: boolean;
     show_barcode: boolean;
     card_title: string | null;
     card_description: string | null;
@@ -31,7 +30,6 @@ const DEFAULT_DESIGN: Design = {
     label_color: "#94a3b8",
     logo_url: null,
     show_points: true,
-    show_tier: true,
     show_barcode: true,
     card_title: null,
     card_description: null,
@@ -127,24 +125,12 @@ function PremiumCardPreview({ d, studioName, studioLogoUrl }: { d: Design; studi
                                 <div className="text-[11px] font-bold truncate mt-0.5">שם הלקוח</div>
                             </div>
 
-                            {(d.show_points || d.show_tier) && (
+                            {d.show_points && (
                                 <div className="flex items-center gap-3">
-                                    {d.show_points && (
-                                        <div>
-                                            <div className="text-[8px] font-bold uppercase tracking-widest opacity-40" style={{ color: d.label_color }}>נקודות</div>
-                                            <div className="text-lg font-black leading-none mt-0.5">1,250</div>
-                                        </div>
-                                    )}
-                                    {d.show_tier && (
-                                        <div className="text-[10px] font-black px-2 py-0.5 rounded-full"
-                                            style={{
-                                                background: `${accent}33`,
-                                                border: `1px solid ${accent}55`,
-                                                color: d.text_color,
-                                            }}>
-                                            ⭐ Gold
-                                        </div>
-                                    )}
+                                    <div>
+                                        <div className="text-[8px] font-bold uppercase tracking-widest opacity-40" style={{ color: d.label_color }}>נקודות</div>
+                                        <div className="text-lg font-black leading-none mt-0.5">1,250</div>
+                                    </div>
                                 </div>
                             )}
                         </div>
@@ -323,7 +309,6 @@ export default function WalletDesignerPage() {
                             <div className="space-y-3">
                                 {([
                                     ["show_points", "הצג נקודות"],
-                                    ["show_tier", "הצג דרגת מועדון"],
                                     ["show_barcode", "הצג QR Code"],
                                 ] as [keyof Design, string][]).map(([key, label]) => (
                                     <div key={key} className="flex items-center justify-between py-1">

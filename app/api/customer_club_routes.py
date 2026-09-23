@@ -64,7 +64,6 @@ class DesignOut(BaseModel):
     logo_url: str | None
     icon_url: str | None
     show_points: bool
-    show_tier: bool
     show_barcode: bool
     card_title: str | None
     card_description: str | None
@@ -78,7 +77,6 @@ class DesignUpdate(BaseModel):
     logo_url: str | None = None
     icon_url: str | None = None
     show_points: bool | None = None
-    show_tier: bool | None = None
     show_barcode: bool | None = None
     card_title: str | None = None
     card_description: str | None = None
@@ -200,7 +198,6 @@ def get_wallet_design(
         logo_url=design.logo_url,
         icon_url=design.icon_url,
         show_points=design.show_points,
-        show_tier=design.show_tier,
         show_barcode=design.show_barcode,
         card_title=design.card_title,
         card_description=design.card_description,
@@ -383,7 +380,6 @@ def update_wallet_design(
         logo_url=design.logo_url,
         icon_url=design.icon_url,
         show_points=design.show_points,
-        show_tier=design.show_tier,
         show_barcode=design.show_barcode,
         card_title=design.card_title,
         card_description=design.card_description,

@@ -6,7 +6,7 @@ import {
     Briefcase, Lock, Unlock, KeyRound, Zap, BarChart3, ShieldCheck, ClipboardList, Timer,
     Wallet, Users, TrendingUp, Phone, Megaphone, Gift, Settings,
     CreditCard, Landmark, Receipt, Banknote, Tag, UserCog, MessageSquare, Bell, Target, Mail,
-    Send, Clock, Package, ConciergeBell, Stamp, Crown, Smartphone, LifeBuoy,
+    Send, Clock, Package, ConciergeBell, Stamp, Smartphone, LifeBuoy,
     type LucideIcon,
 } from "lucide-react";
 import AppShell from "@/components/AppShell";
@@ -73,7 +73,6 @@ const SECTION_GROUPS: { groupLabel: string; icon: LucideIcon; items: { href: str
             { href: "/services",   label: "שירותים",          description: "סוגי טיפול, מחירים ומשך זמן",            icon: ConciergeBell, gradient: "from-sky-600 to-cyan-700", module: "services" },
             { href: "/gift-cards", label: "כרטיסי מתנה",      description: "מכירה ומעקב כרטיסי מתנה",                icon: Gift, gradient: "from-purple-600 to-fuchsia-700", module: "pos" },
             { href: "/stamps",     label: "כרטיסי מועדון",    description: "כרטיסיות חותמות ותוכנית נאמנות",         icon: Stamp, gradient: "from-purple-500 to-purple-700" },
-            { href: "/tiers",      label: "רמות VIP",          description: "דרגות נאמנות, סף ניקוד והטבות",          icon: Crown, gradient: "from-yellow-500 to-amber-700" },
             { href: "/wallet",     label: "ארנק דיגיטלי",      description: "עיצוב כרטיס נאמנות ל-Apple/Google Wallet", icon: Smartphone, gradient: "from-teal-500 to-teal-700" },
         ],
     },

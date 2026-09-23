@@ -83,7 +83,7 @@ def upsert_design(db: Session, studio_id: UUID, updates: dict) -> WalletPassDesi
     design = get_design(db, studio_id)
     allowed = {
         "background_color", "text_color", "strip_color", "label_color",
-        "logo_url", "icon_url", "show_points", "show_tier", "show_barcode",
+        "logo_url", "icon_url", "show_points", "show_barcode",
         "card_title", "card_description",
     }
     for k, v in updates.items():
