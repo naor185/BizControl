@@ -250,11 +250,17 @@ export default function BusinessPage() {
                                                 onClick={() => router.push(section.href)}
                                                 className="group relative bg-white rounded-2xl border border-slate-100 p-5 text-right hover:shadow-xl hover:shadow-slate-200/80 hover:-translate-y-1 transition-all duration-200 overflow-hidden"
                                             >
-                                                {/* Subtle gradient on hover */}
-                                                <div className={`absolute inset-0 bg-gradient-to-br ${section.gradient} opacity-0 group-hover:opacity-5 transition-opacity duration-200 rounded-2xl`} />
+                                                {/* Same monochrome treatment as the sidebar nav icons — no
+                                                    per-tile rainbow badge. The icon color is var(--foreground),
+                                                    which is the same "טקסט" token the superadmin's global design
+                                                    card already controls, so it's editable from there today. */}
+                                                <div
+                                                    className="absolute inset-0 opacity-0 group-hover:opacity-[0.06] transition-opacity duration-200 rounded-2xl"
+                                                    style={{ background: "var(--primary)" }}
+                                                />
 
-                                                <div className={`w-16 h-16 bg-gradient-to-br ${section.gradient} rounded-2xl flex items-center justify-center mb-4 shadow-lg group-hover:scale-110 transition-transform duration-200`}>
-                                                    <section.icon className="w-7 h-7 text-white" />
+                                                <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-200">
+                                                    <section.icon className="w-7 h-7" style={{ color: "var(--foreground)" }} />
                                                 </div>
                                                 <div className="font-bold text-slate-900 text-lg mb-1">{section.label}</div>
                                                 <div className="text-base text-slate-400 leading-relaxed">{section.description}</div>
