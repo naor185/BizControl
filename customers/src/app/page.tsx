@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { API, imgUrl } from "@/lib/api";
+import { usePlatformTheme } from "@/lib/usePlatformTheme";
 
 const DEFAULT_SLIDES = [
     { url: "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=1400&q=85", label: "מסעדות ואוכל" },
@@ -22,6 +23,7 @@ interface HeroProps {
 }
 
 function HeroSection({ q, city, setQ, setCity, locating, onLocate, searchRef }: HeroProps) {
+    const { primary } = usePlatformTheme();
     const [slides, setSlides] = useState(DEFAULT_SLIDES);
     const [current, setCurrent] = useState(0);
     const [paused, setPaused] = useState(false);
@@ -74,7 +76,7 @@ function HeroSection({ q, city, setQ, setCity, locating, onLocate, searchRef }: 
                 </div>
                 <h1 style={{ fontSize: "clamp(2rem,5.5vw,3.4rem)", fontWeight: 900, color: "#fff", lineHeight: 1.15, marginBottom: "0.6rem", textShadow: "0 2px 20px rgba(0,0,0,.4)" }}>
                     כל מה שאתה מחפש,<br />
-                    <span style={{ color: "#93c5fd" }}>קרוב אליך.</span>
+                    <span style={{ color: primary }}>קרוב אליך.</span>
                 </h1>
                 <p style={{ color: "rgba(255,255,255,.85)", fontSize: "clamp(0.88rem,2vw,1.05rem)", lineHeight: 1.6, marginBottom: "2rem", maxWidth: 520, textShadow: "0 1px 8px rgba(0,0,0,.4)" }}>
                     ספרים, סטודיואים, ציפורניים, ספא ועוד — מצא וקבע תור בשניות
@@ -89,7 +91,7 @@ function HeroSection({ q, city, setQ, setCity, locating, onLocate, searchRef }: 
                             value={q} onChange={e => setQ(e.target.value)}
                             placeholder="חפש שירות או עסק..."
                             style={{ width: "100%", background: "#f8faff", border: "1.5px solid #e2e8f0", borderRadius: 12, padding: "0.75rem 2.5rem 0.75rem 0.9rem", color: "#1e293b", fontSize: "0.95rem", outline: "none", boxSizing: "border-box" }}
-                            onFocus={e => (e.target.style.borderColor = "#2563eb")}
+                            onFocus={e => (e.target.style.borderColor = primary)}
                             onBlur={e => (e.target.style.borderColor = "#e2e8f0")}
                         />
                     </div>
@@ -99,12 +101,12 @@ function HeroSection({ q, city, setQ, setCity, locating, onLocate, searchRef }: 
                             value={city} onChange={e => setCity(e.target.value)}
                             placeholder="עיר"
                             style={{ width: "100%", background: "#f8faff", border: "1.5px solid #e2e8f0", borderRadius: 12, padding: "0.75rem 2.5rem 0.75rem 0.9rem", color: "#1e293b", fontSize: "0.95rem", outline: "none", boxSizing: "border-box" }}
-                            onFocus={e => (e.target.style.borderColor = "#2563eb")}
+                            onFocus={e => (e.target.style.borderColor = primary)}
                             onBlur={e => (e.target.style.borderColor = "#e2e8f0")}
                         />
                     </div>
                     <button type="button" onClick={onLocate} disabled={locating} title="קרוב אליי"
-                        style={{ padding: "0.75rem 1rem", background: "#dbeafe", border: "1.5px solid #bfdbfe", borderRadius: 12, cursor: "pointer", fontSize: "1.1rem", flexShrink: 0, color: "#2563eb" }}>
+                        style={{ padding: "0.75rem 1rem", background: `${primary}18`, border: `1.5px solid ${primary}44`, borderRadius: 12, cursor: "pointer", fontSize: "1.1rem", flexShrink: 0, color: primary }}>
                         {locating ? "⏳" : "🎯"}
                     </button>
                 </div>
