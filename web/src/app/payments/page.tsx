@@ -362,10 +362,10 @@ export default function Page() {
                                                             <span className="font-bold text-slate-800 text-base shrink-0">{monthLabel(monthKey)}</span>
                                                             {isCurrentMonth && <span className="text-[10px] bg-slate-700 text-white px-2 py-0.5 rounded-full font-bold shrink-0">חודש נוכחי</span>}
                                                         </div>
-                                                        <div className="flex flex-wrap gap-2 mt-1.5">
+                                                        <div className="flex flex-wrap items-center divide-x divide-slate-200 mt-1.5">
                                                             {Object.entries(mByMethod).map(([method, cents]) => (
-                                                                <span key={method} className={`text-xs px-2 py-0.5 rounded-full font-semibold whitespace-nowrap shrink-0 ${METHOD_PILL_CLASS}`}>
-                                                                    {METHOD_LABELS[method] || method}: <span dir="ltr">{fmt(cents)}</span>
+                                                                <span key={method} className="text-xs font-semibold text-slate-500 whitespace-nowrap shrink-0 px-2.5 first:ps-0">
+                                                                    {METHOD_LABELS[method] || method}: <span dir="ltr" className="text-slate-700">{fmt(cents)}</span>
                                                                 </span>
                                                             ))}
                                                         </div>
