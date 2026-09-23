@@ -732,6 +732,9 @@ def studio_info(current_user: User = Depends(get_current_user), db: Session = De
         "plan_label": plan.display_name if plan else studio.subscription_plan,
         "plan_expires_at": studio.plan_expires_at.isoformat() if studio.plan_expires_at else None,
         "is_active": studio.is_active,
+        # free / trial = nothing paid yet. The plan bar stays on every screen for those studios and
+        # only on the dashboards for studios on a paid plan (enterprise is custom-priced, so price_cents can't tell).
+        "is_paid_plan": studio.subscription_plan not in ("free", "trial"),
     }
 
 

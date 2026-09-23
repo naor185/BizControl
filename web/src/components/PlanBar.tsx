@@ -8,6 +8,8 @@ export type PlanInfo = {
     subscription_plan: string;
     plan_label: string;
     plan_expires_at: string | null;
+    // false for the free / trial plans. Missing (older server) counts as false, i.e. the bar shows everywhere.
+    is_paid_plan?: boolean;
 };
 
 // Height of the bar — AppShell reserves the same amount of room so it never covers page content.
@@ -17,9 +19,10 @@ function fmtDate(iso: string) {
     return new Date(iso).toLocaleDateString("he-IL");
 }
 
-// Always-visible strip at the bottom of every screen: the studio's plan and how much time is left on it.
+// Strip at the bottom of the screen: the studio's plan and how much time is left on it. AppShell shows it
+// on every screen for studios without a paid plan, and only on the dashboards for paying studios.
 // During a trial it also offers buying a full plan and shows what each plan includes (the billing
-// section of the דשבורד page).
+// section of the דשבורד page). Orange with white text; red when 7 days or fewer remain.
 export default function PlanBar({ info }: { info: PlanInfo }) {
     const [now] = useState(() => Date.now());
     const [isNative] = useState(() => isNativeApp());
@@ -41,29 +44,28 @@ export default function PlanBar({ info }: { info: PlanInfo }) {
 
     return (
         <div
-            className="fixed inset-x-0 z-30 bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] md:bottom-0 md:right-60 bg-white/95 backdrop-blur-sm border-t border-slate-200 flex md:grid md:grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 pl-24 text-xs"
+            className={`fixed inset-x-0 z-30 bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] md:bottom-0 md:right-60 border-t text-white flex md:grid md:grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 pl-24 text-xs ${urgent ? "bg-rose-600 border-rose-700" : "bg-orange-600 border-orange-700"}`}
             style={{ height: PLAN_BAR_HEIGHT }}
             dir="rtl"
         >
             <span aria-hidden className="hidden md:block" />
-            <span className={`flex-1 md:flex-none min-w-0 text-center font-semibold truncate ${urgent ? "text-rose-600" : "text-orange-600"}`}>{text}</span>
+            <span className="flex-1 md:flex-none min-w-0 text-center font-semibold truncate">{text}</span>
             <span className="flex items-center gap-3 shrink-0 md:justify-self-end">
                 {isTrial && (isNative ? (
-                    <span className="text-slate-500">לרכישה: biz-control.com</span>
+                    <span className="text-white/90">לרכישה: biz-control.com</span>
                 ) : (
                     <>
                         <Link
                             href="/overview?billing=plans"
-                            className="px-3 py-1 rounded-lg text-white font-bold no-underline hover:opacity-90"
-                            style={{ background: "var(--primary)" }}
+                            className={`px-3 py-1 rounded-lg bg-white font-bold no-underline hover:bg-orange-50 ${urgent ? "text-rose-700" : "text-orange-700"}`}
                         >
                             רכישת מנוי מלא
                         </Link>
-                        <Link href="/overview?billing=plans" className="text-slate-500 hover:text-slate-800 underline">מה כלול בכל מנוי</Link>
+                        <Link href="/overview?billing=plans" className="text-white/90 hover:text-white underline">מה כלול בכל מנוי</Link>
                     </>
                 ))}
                 {!isTrial && (
-                    <Link href="/overview?billing=plans" className="text-slate-500 hover:text-slate-800 underline">פרטי מנוי</Link>
+                    <Link href="/overview?billing=plans" className="text-white/90 hover:text-white underline">פרטי מנוי</Link>
                 )}
             </span>
         </div>
