@@ -15,6 +15,7 @@ from sqlalchemy import text
 from app.core.database import get_db
 from app.core.deps import require_studio_ctx, AuthContext
 from app.core.limiter import limiter
+from app.core.studio_access import raise_if_archived, studio_is_archived, studio_site_live
 from app.db.deps import get_db as _get_db
 from app.utils.logger import get_logger
 
@@ -613,6 +614,7 @@ def search_marketplace(
             Studio.is_active == True,  # noqa
             Studio.is_platform == False,  # noqa
             StudioSettings.marketplace_visible == True,  # noqa
+            studio_site_live(),  # an archived studio (subscription ended) drops out of BizFind
         )
     )
 
@@ -733,7 +735,7 @@ def get_categories(db: Session = Depends(get_db)):
     studio_counts = db.execute(
         select(Studio.business_type, func.count(Studio.id))
         .join(StudioSettings, StudioSettings.studio_id == Studio.id)
-        .where(Studio.is_active == True, StudioSettings.marketplace_visible == True)  # noqa
+        .where(Studio.is_active == True, StudioSettings.marketplace_visible == True, studio_site_live())  # noqa
         .group_by(Studio.business_type)
     ).all()
     for bt, count in studio_counts:
@@ -795,6 +797,7 @@ def get_studio_profile(slug: str, db: Session = Depends(get_db)):
         if unclaimed:
             return unclaimed
         raise HTTPException(404, "Studio not found")
+    raise_if_archived(db, studio)
 
     settings = db.get(StudioSettings, studio.id)
     if not settings or not settings.marketplace_visible:
@@ -991,6 +994,7 @@ def submit_review(request: Request, slug: str, payload: ReviewCreate, db: Sessio
     studio = db.scalar(select(Studio).where(Studio.slug == slug, Studio.is_active == True))  # noqa
     if not studio:
         raise HTTPException(404, "Studio not found")
+    raise_if_archived(db, studio)
 
     review = StudioReview(
         studio_id=studio.id,
@@ -1061,7 +1065,7 @@ def track_page_view(slug: str, db: Session = Depends(get_db)):
     from app.models.studio import Studio
     from sqlalchemy import text as _t
     studio = db.scalar(select(Studio).where(Studio.slug == slug, Studio.is_active == True))  # noqa
-    if not studio:
+    if not studio or studio_is_archived(db, studio):
         return
     db.execute(_t("""
         INSERT INTO marketplace_page_views (id, studio_id, view_date, count)

@@ -427,11 +427,32 @@ def update_studio(studio_id: uuid.UUID, payload: UpdateStudioIn, admin: User = D
     if event_type:
         from app.core.billing import apply_subscription_event
         from app.models.module import Plan as _Plan
+        from app.models.subscription import Subscription as _Sub
         plan_id = payload.subscription_plan if (payload.subscription_plan and db.get(_Plan, payload.subscription_plan)) else None
+
+        # Extending days is how a studio is renewed by hand today, so it has to do what a renewal does:
+        # a trial's own end date moves with it (else the daily sweep would still expire it on the old
+        # date), and a studio that had lapsed gets its access - and its archived public site - back.
+        trial_ends_at = None
+        cancel_at_period_end = None
+        new_end = studio.plan_expires_at if payload.plan_days is not None else None
+        if new_end is not None:
+            sub = db.scalar(select(_Sub).where(_Sub.studio_id == studio.id))
+            if sub is not None and sub.status == "trial":
+                trial_ends_at = new_end
+            elif (
+                sub is not None and event_type == "upgraded" and studio.is_active
+                and sub.status in ("expired", "canceled", "suspended", "past_due", "grace_period")
+                and new_end > datetime.now(timezone.utc)
+            ):
+                event_type = "renewed"
+                cancel_at_period_end = False
         apply_subscription_event(
             db, studio.id, event_type, source="admin",
             plan_id=plan_id,
-            current_period_end=studio.plan_expires_at if payload.plan_days is not None else None,
+            current_period_end=new_end,
+            trial_ends_at=trial_ends_at,
+            cancel_at_period_end=cancel_at_period_end,
         )
     else:
         db.commit()

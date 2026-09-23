@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import LandingPageTemplate from "@/components/LandingPageTemplate";
+import ArchivedNotice from "@/components/ArchivedNotice";
 import { usePlatformTheme } from "@/lib/usePlatformTheme";
 
 // Define the API URL directly since this page is public and doesn't use the standard authenticated api fetcher for everything.
@@ -48,6 +49,7 @@ export default function JoinStudioPage() {
 
         fetch(`${API_BASE}/api/public/studio/${studioId}`)
             .then(res => {
+                if (res.status === 410) throw new Error("archived");
                 if (!res.ok) throw new Error("Studio not found");
                 return res.json();
             })
@@ -92,6 +94,7 @@ export default function JoinStudioPage() {
     };
 
     if (loading) return <div className="min-h-screen flex items-center justify-center">טוען נתונים...</div>;
+    if (err === "archived") return <ArchivedNotice />;
     if (err || !info) return <div className="min-h-screen flex items-center justify-center text-red-500">העסק לא נמצא</div>;
 
     const logoUrl = info.logo_filename

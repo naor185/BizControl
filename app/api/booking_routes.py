@@ -13,6 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.studio_access import raise_if_archived
 from fastapi import Depends
 
 router = APIRouter(prefix="/book", tags=["PublicBooking"])
@@ -31,6 +32,7 @@ def get_booking_info(slug: str, db: Session = Depends(get_db)):
     studio = db.scalar(select(Studio).where(Studio.slug == slug, Studio.is_active == True))  # noqa
     if not studio:
         raise HTTPException(404, "Studio not found")
+    raise_if_archived(db, studio)
 
     settings = db.get(StudioSettings, studio.id)
     if not settings or not getattr(settings, "self_booking_enabled", False):
@@ -99,6 +101,7 @@ def get_available_slots(
     studio = db.scalar(select(Studio).where(Studio.slug == slug, Studio.is_active == True))  # noqa
     if not studio:
         raise HTTPException(404, "Studio not found")
+    raise_if_archived(db, studio)
 
     settings = db.get(StudioSettings, studio.id)
     if not settings or not getattr(settings, "self_booking_enabled", False):
@@ -164,6 +167,7 @@ def create_booking(slug: str, payload: BookingRequest, db: Session = Depends(get
     studio = db.scalar(select(Studio).where(Studio.slug == slug, Studio.is_active == True))  # noqa
     if not studio:
         raise HTTPException(404, "Studio not found")
+    raise_if_archived(db, studio)
 
     settings = db.get(StudioSettings, studio.id)
     if not settings or not getattr(settings, "self_booking_enabled", False):
@@ -289,6 +293,7 @@ def public_request_appointment(
     studio = db.scalar(select(Studio).where(Studio.slug == slug, Studio.is_active == True))  # noqa
     if not studio:
         raise HTTPException(404, "Studio not found")
+    raise_if_archived(db, studio)
 
     req_id = str(_uuid.uuid4())
     db.execute(
@@ -356,6 +361,7 @@ def public_join_wait_list(slug: str, payload: WaitListJoinIn, db: Session = Depe
     studio = db.scalar(select(Studio).where(Studio.slug == slug, Studio.is_active == True))  # noqa
     if not studio:
         raise HTTPException(404, "Studio not found")
+    raise_if_archived(db, studio)
 
     from app.models.wait_list import WaitListEntry
     entry = WaitListEntry(

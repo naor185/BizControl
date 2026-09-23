@@ -54,7 +54,10 @@ export default function BookPage() {
 
     useEffect(() => {
         fetch(`${API}/api/marketplace/${slug}`)
-            .then(r => r.json())
+            .then(r => {
+                if (r.status === 410) throw new Error("archived");
+                return r.json();
+            })
             .then(d => {
                 setStudioName(d.name);
                 setBookingEnabled(!!d.self_booking_enabled);
@@ -62,7 +65,9 @@ export default function BookPage() {
                 setArtists(d.artists);
                 // Auto-select only artist
                 if (d.artists.length === 1) setArtist(d.artists[0]);
-            }).catch(() => setErr("שגיאה בטעינה"));
+            }).catch((e: Error) => setErr(e.message === "archived"
+                ? "העסק אינו זמין להזמנות כרגע — האתר שלו בארכיון. הוא יחזור לפעול ברגע שהעסק יחדש את המנוי."
+                : "שגיאה בטעינה"));
     }, [slug]);
 
     // Load slots when date + artist are ready — sized to the chosen

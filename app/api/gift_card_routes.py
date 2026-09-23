@@ -1176,6 +1176,9 @@ def public_gift_card_shop_info(studio_id: str, db: Session = Depends(get_db)):
     ).fetchone()
     if not row:
         raise HTTPException(404, "עסק לא נמצא")
+    from app.core.studio_access import raise_if_archived
+    from app.models.studio import Studio
+    raise_if_archived(db, db.get(Studio, studio_id))
     return {
         "studio_name": row[0],
         "logo_url": row[1],
@@ -1190,7 +1193,13 @@ def public_gift_card_shop_info(studio_id: str, db: Session = Depends(get_db)):
 @public_router.post("/shop/{studio_id}/view", status_code=204)
 def track_gift_card_page_view(studio_id: str, db: Session = Depends(get_db)):
     """Increment today's view counter for this studio's gift-card purchase
-    page — called once by the public page on load. No auth (public page)."""
+    page — called once by the public page on load. No auth (public page).
+    An archived studio's shop is closed, so its views are not counted."""
+    from app.core.studio_access import studio_is_archived
+    from app.models.studio import Studio
+    studio = db.get(Studio, studio_id)
+    if studio is None or studio_is_archived(db, studio):
+        return
     db.execute(
         text("""
             INSERT INTO gift_card_page_views (id, studio_id, view_date, count)
@@ -1221,6 +1230,9 @@ def public_create_gift_card_order(studio_id: str, body: PublicGiftCardOrderIn, d
     ).fetchone()
     if not studio:
         raise HTTPException(404, "עסק לא נמצא")
+    from app.core.studio_access import raise_if_archived
+    from app.models.studio import Studio
+    raise_if_archived(db, db.get(Studio, studio_id))
     studio_name = studio[0]
 
     settings_row = db.execute(

@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, ChevronDown } from "lucide-react";
+import { Check, ChevronDown, TriangleAlert } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { isNativeApp } from "@/lib/platform";
+import { IF_NOT_RENEWED } from "@/lib/planConsequences";
 
 type BillingStatus = {
     plan: string;
@@ -24,6 +25,7 @@ type Plan = {
 type StudioInfo = { subscription_plan: string; plan_label: string; plan_expires_at: string | null };
 
 const COLLAPSED_MODULES = 8;
+const EXPIRY_WARNING_DAYS = 14;
 
 function fmtDate(iso: string | null) {
     return iso ? new Date(iso).toLocaleDateString("he-IL") : "—";
@@ -127,6 +129,22 @@ export default function BillingContent() {
                 <p className="text-sm text-slate-600">
                     אתה בתקופת ניסיון. כדי להמשיך להשתמש במערכת אחריה, בחר מנוי מהרשימה למטה.
                 </p>
+            )}
+
+            {/* Close to the end and not renewing by itself: say plainly what happens if it lapses */}
+            {status && !status.has_active_subscription && days !== null && days >= 0 && days <= EXPIRY_WARNING_DAYS && (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                    <div className="flex items-center gap-2 font-bold text-amber-900 text-sm mb-2">
+                        <TriangleAlert className="h-4 w-4 shrink-0" />
+                        אם המנוי לא יחודש עד {fmtDate(status.plan_expires_at)}
+                    </div>
+                    <ul className="list-disc list-inside space-y-1.5 text-sm text-amber-900/90 leading-relaxed marker:text-amber-400">
+                        {IF_NOT_RENEWED.map(line => <li key={line}>{line}</li>)}
+                    </ul>
+                    <p className="text-sm text-amber-900 mt-3">
+                        {isNative ? "לחידוש המנוי בקרו ב-biz-control.com בדפדפן" : "לחידוש: WhatsApp 052-8518805 או ncbilutattoo@gmail.com"}
+                    </p>
+                </div>
             )}
 
             {/* What every plan includes */}

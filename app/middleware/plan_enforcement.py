@@ -19,6 +19,7 @@ from starlette.requests import Request
 from starlette.responses import Response
 
 from app.core.security import decode_token
+from app.core.studio_access import ACCESS_OK_STATUSES
 from app.db.session import SessionLocal
 from app.models.studio import Studio
 from app.models.subscription import Subscription
@@ -26,12 +27,6 @@ from app.models.subscription import Subscription
 # Simple in-memory cache: studio_id → (is_ok: bool, expires_at_cache: float)
 _CACHE: Dict[str, Tuple[bool, float]] = {}
 _CACHE_TTL = 300  # 5 minutes
-
-# Statuses that keep full access. past_due/grace_period are intentionally
-# included — a failed renewal charge degrades to a warning, not an instant
-# lockout; the grace_period→suspended transition (handled by the expiry
-# sweep cron) is what eventually blocks access if nothing is resolved.
-_ACCESS_OK_STATUSES = {"trial", "active", "past_due", "grace_period"}
 
 # Prefixes that bypass plan enforcement completely
 _BYPASS_PREFIXES = (
@@ -66,7 +61,7 @@ def _check_studio(studio_id: str) -> str | None:
         else:
             sub = db.query(Subscription).filter(Subscription.studio_id == studio_id).first()
             if sub is not None:
-                result = None if sub.status in _ACCESS_OK_STATUSES else "plan_expired"
+                result = None if sub.status in ACCESS_OK_STATUSES else "plan_expired"
             else:
                 # No subscriptions row yet (shouldn't happen post-migration —
                 # every write path creates one) — fall back to the legacy

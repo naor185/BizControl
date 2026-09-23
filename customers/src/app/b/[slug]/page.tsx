@@ -188,8 +188,9 @@ export default function BusinessPage() {
 
     useEffect(() => {
         fetch(`${API}/api/marketplace/${slug}`)
-            .then(r => r.ok ? r.json() : Promise.reject("לא נמצא"))
-            .then(setP).catch(() => setErr("העסק לא נמצא"));
+            .then(r => r.ok ? r.json() : Promise.reject(r.status))
+            .then(setP)
+            .catch(status => setErr(status === 410 ? "העסק אינו זמין להזמנות כרגע — האתר שלו בארכיון. הוא יחזור לפעול ברגע שהעסק יחדש את המנוי." : "העסק לא נמצא"));
         // Track page view (fire-and-forget)
         fetch(`${API}/api/marketplace/${slug}/view`, { method: "POST" }).catch(() => {});
     }, [slug]);

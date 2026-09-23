@@ -109,6 +109,10 @@ def apply_subscription_event(
         event_metadata=metadata,
     ))
     db.commit()
+    # plan_enforcement caches each studio's access for 5 minutes; without this a renewal (or an expiry)
+    # would not reach that studio's staff until the cache ran out.
+    from app.middleware.plan_enforcement import invalidate_studio_cache
+    invalidate_studio_cache(str(studio_id))
     return sub
 
 

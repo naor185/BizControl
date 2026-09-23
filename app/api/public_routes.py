@@ -11,6 +11,7 @@ from datetime import datetime, date, timedelta, timezone
 from typing import Optional
 
 from app.core.database import get_db
+from app.core.studio_access import raise_if_archived
 from app.models.studio import Studio
 from app.models.user import User
 from app.models.client import Client
@@ -144,6 +145,7 @@ def get_landing_by_slug(slug: str, db: Session = Depends(get_db)):
     studio = db.query(Studio).filter(Studio.slug == slug, Studio.is_active == True).first()  # noqa: E712
     if not studio:
         raise HTTPException(status_code=404, detail="Studio not found")
+    raise_if_archived(db, studio)
     settings = db.get(StudioSettings, studio.id)
     if not settings:
         raise HTTPException(status_code=404, detail="Settings not found")
@@ -170,13 +172,14 @@ def get_public_studio_info(studio_id: str, db: Session = Depends(get_db)):
     studio = db.query(Studio).filter(Studio.id == studio_id).first()
     if not studio:
         raise HTTPException(status_code=404, detail="Studio not found")
+    raise_if_archived(db, studio)
     
     settings = db.get(StudioSettings, studio_id)
     if not settings:
         raise HTTPException(status_code=404, detail="Settings not found")
 
     return PublicStudioInfo(
-        id=studio.id,
+        id=str(studio.id),
         name=studio.name,
         theme_primary_color=settings.theme_primary_color,
         theme_secondary_color=settings.theme_secondary_color,
@@ -199,6 +202,7 @@ def join_studio(studio_id: str, payload: ClientJoinRequest, db: Session = Depend
     studio = db.query(Studio).filter(Studio.id == studio_id).first()
     if not studio:
         raise HTTPException(status_code=404, detail="Studio not found")
+    raise_if_archived(db, studio)
 
     full_name_clean = payload.full_name.strip()
     phone_clean = payload.phone.strip() if payload.phone else None
@@ -383,6 +387,7 @@ def _get_booking_studio(slug: str, db: Session):
     studio = db.scalar(select(Studio).where(Studio.slug == slug, Studio.is_active == True))  # noqa: E712
     if not studio:
         raise HTTPException(status_code=404, detail="Studio not found")
+    raise_if_archived(db, studio)
     settings = db.get(StudioSettings, studio.id)
     if not settings:
         raise HTTPException(status_code=404, detail="Settings not found")
@@ -799,6 +804,7 @@ def join_waitlist(
     studio = db.scalar(select(Studio).where(Studio.slug == slug, Studio.is_active == True))  # noqa
     if not studio:
         raise HTTPException(status_code=404, detail="Studio not found")
+    raise_if_archived(db, studio)
 
     customer = db.execute(
         text("SELECT phone, first_name, last_name FROM marketplace_customers WHERE id = :id"),

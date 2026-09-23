@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import LandingPageTemplate from "@/components/LandingPageTemplate";
+import ArchivedNotice from "@/components/ArchivedNotice";
 import { usePlatformTheme } from "@/lib/usePlatformTheme";
 
 type LandingData = {
@@ -39,6 +40,7 @@ export default function StudioLandingPage() {
     const [data, setData] = useState<LandingData | null>(null);
     const [loading, setLoading] = useState(true);
     const [notFound, setNotFound] = useState(false);
+    const [archived, setArchived] = useState(false);
 
     const [fullName, setFullName] = useState("");
     const [phone, setPhone] = useState("");
@@ -68,6 +70,7 @@ export default function StudioLandingPage() {
         if (!slug) return;
         fetch(`${apiBase}/api/public/landing/${slug}`)
             .then(res => {
+                if (res.status === 410) setArchived(true);
                 if (!res.ok) throw new Error("not found");
                 return res.json();
             })
@@ -128,6 +131,8 @@ export default function StudioLandingPage() {
             </div>
         );
     }
+
+    if (archived) return <ArchivedNotice />;
 
     if (notFound || !data) {
         return (
