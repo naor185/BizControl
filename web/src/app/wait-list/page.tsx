@@ -125,8 +125,8 @@ export default function WaitListPage() {
                                 <div>
                                     <label style={lStyle}>שירות מבוקש</label>
                                     <select value={form.service_id} onChange={e => setForm(f => ({ ...f, service_id: e.target.value }))} style={iStyle}>
-                                        <option value="">כל שירות</option>
-                                        {services.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                        <option value="" style={OPTION_STYLE}>כל שירות</option>
+                                        {services.map(s => <option key={s.id} value={s.id} style={OPTION_STYLE}>{s.name}</option>)}
                                     </select>
                                 </div>
                                 <div>
@@ -192,3 +192,4 @@ export default function WaitListPage() {
 
 const lStyle: React.CSSProperties = { color: "#94a3b8", fontSize: "0.82rem", fontWeight: 600, display: "block", marginBottom: "0.35rem" };
 const iStyle: React.CSSProperties = { background: "rgba(255,255,255,.08)", border: "1px solid rgba(255,255,255,.15)", borderRadius: 10, padding: "0.6rem 0.9rem", color: "#fff", fontSize: "0.9rem", width: "100%", boxSizing: "border-box", colorScheme: "dark" };
+const OPTION_STYLE: React.CSSProperties = { background: "#1e1b4b", color: "#fff" };

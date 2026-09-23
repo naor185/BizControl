@@ -99,7 +99,7 @@ function ServiceModal({
                     <div>
                         <label style={lStyle}>משך זמן</label>
                         <select value={form.duration_minutes} onChange={e => set("duration_minutes", Number(e.target.value))} style={iStyle}>
-                            {DURATION_OPTIONS.map(d => <option key={d} value={d}>{durLabel(d)}</option>)}
+                            {DURATION_OPTIONS.map(d => <option key={d} value={d} style={OPTION_STYLE}>{durLabel(d)}</option>)}
                         </select>
                     </div>
 
@@ -204,6 +204,7 @@ function ServiceModal({
 
 const lStyle: React.CSSProperties = { color: "#94a3b8", fontSize: "0.82rem", fontWeight: 600, display: "block", marginBottom: "0.35rem" };
 const iStyle: React.CSSProperties = { background: "rgba(255,255,255,.08)", border: "1px solid rgba(255,255,255,.15)", borderRadius: 10, padding: "0.6rem 0.9rem", color: "#fff", fontSize: "0.9rem", width: "100%", boxSizing: "border-box", colorScheme: "dark" };
+const OPTION_STYLE: React.CSSProperties = { background: "#1e1b4b", color: "#fff" };
 
 export default function ServicesPage() {
     const [services, setServices] = useState<Service[]>([]);

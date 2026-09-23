@@ -745,8 +745,8 @@ function RequestModal({ slug, studioName, services, primary, onClose }: {
                             <div>
                                 <label style={reqLabel}>שירות מבוקש</label>
                                 <select value={service} onChange={e => setService(e.target.value)} style={reqInput}>
-                                    <option value="">בחר שירות...</option>
-                                    {services.map(s => <option key={s} value={s}>{s}</option>)}
+                                    <option value="" style={OPTION_STYLE}>בחר שירות...</option>
+                                    {services.map(s => <option key={s} value={s} style={OPTION_STYLE}>{s}</option>)}
                                 </select>
                             </div>
                         )}
@@ -775,6 +775,10 @@ const reqLabel: React.CSSProperties = { display: "block", color: "#94a3b8", font
 // and defaults to a light popup (barely-visible text) unless told the
 // surrounding UI is dark.
 const reqInput: React.CSSProperties = { width: "100%", background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.12)", borderRadius: 10, padding: "0.65rem 0.85rem", color: "#f1f5f9", fontSize: "0.9rem", outline: "none", boxSizing: "border-box", colorScheme: "dark" };
+// The colorScheme above is not enough on its own to darken the native <select>
+// popup listbox — browsers largely ignore color-scheme for that chrome. The
+// per-<option> background/color below is what's actually reliably honored.
+const OPTION_STYLE: React.CSSProperties = { background: "#1e1b4b", color: "#f1f5f9" };
 
 // ── UI helpers ────────────────────────────────────────────────────────────────
 

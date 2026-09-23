@@ -11,6 +11,7 @@ export interface PackageData {
 }
 
 const DEFAULT_QUOTA: PlanQuota = { limit_value: null, period_type: "unlimited", on_exceed_action: "block", auto_increase_by: null };
+const OPTION_STYLE = { background: "#1e1b4b", color: "#e2e8f0" };
 const PERIOD_TYPE_LABELS: Record<string, string> = {
     unlimited: "ללא הגבלה", daily: "יומי", weekly: "שבועי", monthly: "חודשי", yearly: "שנתי", lifetime: "לכל החיים",
 };
@@ -229,7 +230,7 @@ export default function ModuleTreeEditor({ planFilter, showSearch = false }: Pro
                                                             <div style={{ display: "flex", gap: "0.4rem", marginBottom: "0.4rem" }}>
                                                                 <select value={qv.period_type} onChange={e => setQuotaField(plan, mod.id, "period_type", e.target.value)}
                                                                     style={{ flex: 1, fontSize: "0.75rem", background: "#1e1b4b", color: "#e2e8f0", border: "1px solid rgba(255,255,255,.15)", borderRadius: 6, padding: "0.25rem", colorScheme: "dark" }}>
-                                                                    {Object.entries(PERIOD_TYPE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                                                                    {Object.entries(PERIOD_TYPE_LABELS).map(([v, l]) => <option key={v} value={v} style={OPTION_STYLE}>{l}</option>)}
                                                                 </select>
                                                                 <input type="number" placeholder="מכסה" value={qv.limit_value ?? ""}
                                                                     onChange={e => setQuotaField(plan, mod.id, "limit_value", e.target.value === "" ? null : Number(e.target.value))}
@@ -239,7 +240,7 @@ export default function ModuleTreeEditor({ planFilter, showSearch = false }: Pro
                                                             <select value={qv.on_exceed_action} onChange={e => setQuotaField(plan, mod.id, "on_exceed_action", e.target.value)}
                                                                 disabled={qv.period_type === "unlimited"}
                                                                 style={{ width: "100%", fontSize: "0.75rem", background: "#1e1b4b", color: "#e2e8f0", border: "1px solid rgba(255,255,255,.15)", borderRadius: 6, padding: "0.25rem", marginBottom: "0.4rem", colorScheme: "dark" }}>
-                                                                {Object.entries(ON_EXCEED_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                                                                {Object.entries(ON_EXCEED_LABELS).map(([v, l]) => <option key={v} value={v} style={OPTION_STYLE}>{l}</option>)}
                                                             </select>
                                                             <button onClick={() => saveQuota(plan, mod.id)} disabled={savingQuota === key}
                                                                 style={{ width: "100%", fontSize: "0.75rem", background: p.color, border: "none", borderRadius: 6, color: "#fff", padding: "0.3rem", cursor: "pointer", opacity: savingQuota === key ? 0.6 : 1 }}>

@@ -108,6 +108,8 @@ const PLAN_LABELS: Record<string, { label: string; color: string }> = {
     platform: { label: "Platform", color: "bg-black text-white" },
 };
 
+const OPTION_STYLE: React.CSSProperties = { background: "#1e1b4b", color: "#fff" };
+
 function ChangePasswordForm() {
     const [cur, setCur] = useState("");
     const [next, setNext] = useState("");
@@ -1295,7 +1297,7 @@ export default function AdminPage() {
                                             className="w-full bg-black/30 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none"
                                             style={{ colorScheme: "dark" }}
                                         >
-                                            {["Heebo", "Assistant", "Rubik", "M PLUS Rounded 1c", "Varela Round"].map(f => <option key={f} value={f}>{f}</option>)}
+                                            {["Heebo", "Assistant", "Rubik", "M PLUS Rounded 1c", "Varela Round"].map(f => <option key={f} value={f} style={OPTION_STYLE}>{f}</option>)}
                                         </select>
                                     </div>
                                     <div className="space-y-1.5">
@@ -1306,7 +1308,7 @@ export default function AdminPage() {
                                             className="w-full bg-black/30 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none"
                                             style={{ colorScheme: "dark" }}
                                         >
-                                            {["Heebo", "Assistant", "Rubik", "M PLUS Rounded 1c", "Varela Round"].map(f => <option key={f} value={f}>{f}</option>)}
+                                            {["Heebo", "Assistant", "Rubik", "M PLUS Rounded 1c", "Varela Round"].map(f => <option key={f} value={f} style={OPTION_STYLE}>{f}</option>)}
                                         </select>
                                     </div>
                                 </div>
@@ -1665,11 +1667,11 @@ export default function AdminPage() {
                                         onChange={e => { setApptsStatus(e.target.value); loadAppts(apptsSearch, e.target.value); }}
                                         className="bg-white/10 border border-white/10 rounded-xl px-3 py-1.5 text-sm text-white outline-none scheme-dark"
                                     >
-                                        <option value="">כל הסטטוסים</option>
-                                        <option value="scheduled">מתוכנן</option>
-                                        <option value="done">הסתיים</option>
-                                        <option value="canceled">בוטל</option>
-                                        <option value="no_show">לא הגיע</option>
+                                        <option value="" style={OPTION_STYLE}>כל הסטטוסים</option>
+                                        <option value="scheduled" style={OPTION_STYLE}>מתוכנן</option>
+                                        <option value="done" style={OPTION_STYLE}>הסתיים</option>
+                                        <option value="canceled" style={OPTION_STYLE}>בוטל</option>
+                                        <option value="no_show" style={OPTION_STYLE}>לא הגיע</option>
                                     </select>
                                     <button onClick={() => loadAppts()} className="text-xs text-slate-400 hover:text-white transition-colors">↻ רענן</button>
                                 </div>
@@ -1753,20 +1755,20 @@ export default function AdminPage() {
                             <div className="flex gap-2">
                                 <select value={leadsFilter.source} onChange={e => { const f = { ...leadsFilter, source: e.target.value }; setLeadsFilter(f); loadLeads(f); }}
                                     className="flex-1 bg-white/5 border border-white/10 rounded-xl px-2 py-1.5 text-xs text-white outline-none scheme-dark">
-                                    <option value="">כל המקורות</option>
-                                    <option value="whatsapp">WhatsApp</option>
-                                    <option value="facebook">Facebook</option>
-                                    <option value="instagram">Instagram</option>
-                                    <option value="manual">ידני</option>
+                                    <option value="" style={OPTION_STYLE}>כל המקורות</option>
+                                    <option value="whatsapp" style={OPTION_STYLE}>WhatsApp</option>
+                                    <option value="facebook" style={OPTION_STYLE}>Facebook</option>
+                                    <option value="instagram" style={OPTION_STYLE}>Instagram</option>
+                                    <option value="manual" style={OPTION_STYLE}>ידני</option>
                                 </select>
                                 <select value={leadsFilter.status} onChange={e => { const f = { ...leadsFilter, status: e.target.value }; setLeadsFilter(f); loadLeads(f); }}
                                     className="flex-1 bg-white/5 border border-white/10 rounded-xl px-2 py-1.5 text-xs text-white outline-none scheme-dark">
-                                    <option value="">כל הסטטוסים</option>
-                                    <option value="new">חדש</option>
-                                    <option value="contacted">נענה</option>
-                                    <option value="interested">מעוניין</option>
-                                    <option value="booked">נקבע תור</option>
-                                    <option value="lost">אבוד</option>
+                                    <option value="" style={OPTION_STYLE}>כל הסטטוסים</option>
+                                    <option value="new" style={OPTION_STYLE}>חדש</option>
+                                    <option value="contacted" style={OPTION_STYLE}>נענה</option>
+                                    <option value="interested" style={OPTION_STYLE}>מעוניין</option>
+                                    <option value="booked" style={OPTION_STYLE}>נקבע תור</option>
+                                    <option value="lost" style={OPTION_STYLE}>אבוד</option>
                                 </select>
                             </div>
 
@@ -2007,10 +2009,10 @@ export default function AdminPage() {
                                             <label className="text-xs text-slate-400 mb-1 block">תפקיד</label>
                                             <select className="w-full bg-white/10 border border-white/10 rounded-lg px-3 py-1.5 text-sm outline-none scheme-dark"
                                                 value={editUserForm.role} onChange={e => setEditUserForm(f => ({ ...f, role: e.target.value }))}>
-                                                <option value="owner">בעלים</option>
-                                                <option value="admin">מנהל</option>
-                                                <option value="artist">אמן/אמנית</option>
-                                                <option value="staff">צוות</option>
+                                                <option value="owner" style={OPTION_STYLE}>בעלים</option>
+                                                <option value="admin" style={OPTION_STYLE}>מנהל</option>
+                                                <option value="artist" style={OPTION_STYLE}>אמן/אמנית</option>
+                                                <option value="staff" style={OPTION_STYLE}>צוות</option>
                                             </select>
                                         </div>
                                         <div>
@@ -2052,9 +2054,9 @@ export default function AdminPage() {
                                         <label className="text-xs text-slate-400 mb-1 block">תפקיד</label>
                                         <select className="w-full bg-white/10 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none scheme-dark"
                                             value={addUserForm.role} onChange={e => setAddUserForm(f => ({ ...f, role: e.target.value }))}>
-                                            <option value="admin">מנהל</option>
-                                            <option value="artist">אמן/אמנית</option>
-                                            <option value="staff">צוות</option>
+                                            <option value="admin" style={OPTION_STYLE}>מנהל</option>
+                                            <option value="artist" style={OPTION_STYLE}>אמן/אמנית</option>
+                                            <option value="staff" style={OPTION_STYLE}>צוות</option>
                                         </select>
                                     </div>
                                     <div>
@@ -2223,10 +2225,10 @@ export default function AdminPage() {
                                     <label className="text-xs text-slate-400 mb-1 block">תוכנית</label>
                                     <select className="w-full bg-white/10 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-white/30 scheme-dark"
                                         value={form.subscription_plan} onChange={e => setForm(f => ({ ...f, subscription_plan: e.target.value }))}>
-                                        <option value="starter">Starter — 99₪/חודש</option>
-                                        <option value="pro">Pro — 199₪/חודש</option>
-                                        <option value="studio">Studio — 349₪/חודש</option>
-                                        <option value="free">חינמי</option>
+                                        <option value="starter" style={OPTION_STYLE}>Starter — 99₪/חודש</option>
+                                        <option value="pro" style={OPTION_STYLE}>Pro — 199₪/חודש</option>
+                                        <option value="studio" style={OPTION_STYLE}>Studio — 349₪/חודש</option>
+                                        <option value="free" style={OPTION_STYLE}>חינמי</option>
                                     </select>
                                 </div>
                                 <div>

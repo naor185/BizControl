@@ -35,6 +35,7 @@ interface AddonDashboardEntry {
     billing_type: string; usage_rate_percent: number | null;
 }
 const BILLING_TYPE_LABELS: Record<string, string> = { one_time: "חד-פעמי", monthly: "חודשי", yearly: "שנתי" };
+const OPTION_STYLE = { background: "#1e1b4b", color: "#fff" };
 
 // "Modules" and "Quotas" are one tab, not two — a quota is set by expanding
 // a module row (⚙️) in the exact same tree, so showing that tree under two
@@ -531,7 +532,7 @@ function AddonEditor({ addon, onChanged }: { addon: AddonRecord; onChanged: () =
                 <div>
                     <label style={{ fontSize: "0.72rem", color: "#94a3b8" }}>סוג חיוב</label>
                     <select style={inputStyle} value={form.billing_type} onChange={e => setForm(f => ({ ...f, billing_type: e.target.value }))}>
-                        {Object.entries(BILLING_TYPE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                        {Object.entries(BILLING_TYPE_LABELS).map(([v, l]) => <option key={v} value={v} style={OPTION_STYLE}>{l}</option>)}
                     </select>
                 </div>
                 <div style={{ display: "flex", alignItems: "flex-end" }}>
@@ -607,8 +608,8 @@ function PreviewTab({ plan }: { plan: PlanRecord }) {
             <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
                 <select value={studioId} onChange={e => { setStudioId(e.target.value); setSelectedAddonIds(null); }}
                     style={{ flex: 1, background: "#1e1b4b", border: "1px solid rgba(255,255,255,.15)", borderRadius: 8, padding: "0.5rem", color: "#fff", fontSize: "0.85rem", colorScheme: "dark" }}>
-                    <option value="">-- בחר עסק --</option>
-                    {studios.map(st => <option key={st.id} value={st.id}>{st.name} ({st.subscription_plan})</option>)}
+                    <option value="" style={OPTION_STYLE}>-- בחר עסק --</option>
+                    {studios.map(st => <option key={st.id} value={st.id} style={OPTION_STYLE}>{st.name} ({st.subscription_plan})</option>)}
                 </select>
                 <button onClick={() => run(null)} disabled={!studioId || loading} style={{ background: "#a78bfa", border: "none", borderRadius: 8, padding: "0.5rem 1.2rem", color: "#1e1b4b", fontWeight: 700, cursor: "pointer", opacity: loading ? 0.6 : 1 }}>
                     {loading ? "..." : "👁️ תצוגה מקדימה"}
@@ -682,7 +683,7 @@ function CompareTab({ plans, defaultOther }: { plans: PlanRecord[]; defaultOther
                 <label style={{ fontSize: "0.8rem", color: "#94a3b8", marginLeft: "0.5rem" }}>השווה מול:</label>
                 <select value={otherId} onChange={e => setOtherId(e.target.value)}
                     style={{ background: "#1e1b4b", border: "1px solid rgba(255,255,255,.15)", borderRadius: 8, padding: "0.4rem 0.7rem", color: "#fff", fontSize: "0.85rem", colorScheme: "dark" }}>
-                    {plans.filter(p => p.id !== a).map(p => <option key={p.id} value={p.id}>{p.display_name}</option>)}
+                    {plans.filter(p => p.id !== a).map(p => <option key={p.id} value={p.id} style={OPTION_STYLE}>{p.display_name}</option>)}
                 </select>
             </div>
             <div style={{ overflowX: "auto" }}>

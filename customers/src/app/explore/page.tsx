@@ -41,6 +41,10 @@ const SORT_OPTIONS: { key: SortKey; label: string }[] = [
     { key: "name",     label: "לפי שם א-ת" },
 ];
 
+// colorScheme alone doesn't reliably darken the native <select> popup listbox —
+// explicit background/color on each <option> is what browsers actually honor.
+const OPTION_STYLE = { background: "#1e1b4b", color: "#f1f5f9" };
+
 function ExploreContent() {
     const [studios, setStudios] = useState<StudioCard[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
@@ -229,7 +233,7 @@ function ExploreContent() {
                     {/* Sort */}
                     <select value={sort} onChange={e => setSort(e.target.value as SortKey)}
                         style={{ background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.1)", borderRadius: 10, padding: "0.4rem 0.7rem", color: "#94a3b8", fontSize: "0.8rem", cursor: "pointer", outline: "none", colorScheme: "dark" }}>
-                        {SORT_OPTIONS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
+                        {SORT_OPTIONS.map(o => <option key={o.key} value={o.key} style={OPTION_STYLE}>{o.label}</option>)}
                     </select>
                     {/* View toggle */}
                     <div style={{ display: "flex", background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.1)", borderRadius: 10, overflow: "hidden" }}>

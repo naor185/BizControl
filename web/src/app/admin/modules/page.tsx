@@ -32,6 +32,8 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 const CATEGORY_ORDER = ["core", "communication", "ai", "marketplace", "advanced", "finance"];
 
+const OPTION_STYLE: React.CSSProperties = { background: "#1e1b4b", color: "#fff" };
+
 function cents(v: number, currency = "ILS") {
     return `${(v / 100).toLocaleString("he-IL", { maximumFractionDigits: 2 })} ${currency}`;
 }
@@ -224,9 +226,9 @@ export default function ModulesAdminPage() {
                         <div style={s.card}>
                             <div style={s.label}>בחר סטודיו</div>
                             <select style={s.select} value={selectedStudio} onChange={e => setSelectedStudio(e.target.value)}>
-                                <option value="">-- בחר סטודיו --</option>
+                                <option value="" style={OPTION_STYLE}>-- בחר סטודיו --</option>
                                 {studios.map(st => (
-                                    <option key={st.id} value={st.id}>{st.name} ({st.subscription_plan})</option>
+                                    <option key={st.id} value={st.id} style={OPTION_STYLE}>{st.name} ({st.subscription_plan})</option>
                                 ))}
                             </select>
                         </div>
@@ -286,9 +288,9 @@ export default function ModulesAdminPage() {
                                     <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.75rem" }}>
                                         <select value={addonToAdd} onChange={e => setAddonToAdd(e.target.value)}
                                             style={{ ...s.select, width: "auto", flex: 1, fontSize: "0.82rem" }}>
-                                            <option value="">-- בחר Add-on להצמדה --</option>
+                                            <option value="" style={OPTION_STYLE}>-- בחר Add-on להצמדה --</option>
                                             {allAddons.filter(a => !studioAddons.some(sa => sa.addon_id === a.id)).map(a => (
-                                                <option key={a.id} value={a.id}>{a.display_name} ({cents(a.price_cents, a.currency)})</option>
+                                                <option key={a.id} value={a.id} style={OPTION_STYLE}>{a.display_name} ({cents(a.price_cents, a.currency)})</option>
                                             ))}
                                         </select>
                                         <button onClick={addAddon} disabled={!addonToAdd || savingAddon}
@@ -356,13 +358,13 @@ export default function ModulesAdminPage() {
                                                             <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginBottom: "0.5rem" }}>
                                                                 <select value={q.period_type_override ?? ""} onChange={e => setQuotaField(qKey, "period_type_override", e.target.value || null)}
                                                                     style={{ ...s.select, width: "auto", fontSize: "0.75rem", padding: "0.3rem 0.5rem" }}>
-                                                                    <option value="">(ירושה מהפלאן)</option>
-                                                                    {Object.entries(PERIOD_TYPE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                                                                    <option value="" style={OPTION_STYLE}>(ירושה מהפלאן)</option>
+                                                                    {Object.entries(PERIOD_TYPE_LABELS).map(([v, l]) => <option key={v} value={v} style={OPTION_STYLE}>{l}</option>)}
                                                                 </select>
                                                                 <select value={q.on_exceed_action_override ?? ""} onChange={e => setQuotaField(qKey, "on_exceed_action_override", e.target.value || null)}
                                                                     style={{ ...s.select, width: "auto", fontSize: "0.75rem", padding: "0.3rem 0.5rem" }}>
-                                                                    <option value="">(ירושה מהפלאן)</option>
-                                                                    {Object.entries(ON_EXCEED_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                                                                    <option value="" style={OPTION_STYLE}>(ירושה מהפלאן)</option>
+                                                                    {Object.entries(ON_EXCEED_LABELS).map(([v, l]) => <option key={v} value={v} style={OPTION_STYLE}>{l}</option>)}
                                                                 </select>
                                                             </div>
                                                             <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginBottom: "0.5rem" }}>
