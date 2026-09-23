@@ -3,6 +3,8 @@ import { toast } from "@/lib/toast";
 
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 
 type VarStatus = Record<string, boolean>;
 
@@ -107,6 +109,10 @@ export default function AdminWalletPage() {
 
     return (
         <div className="max-w-3xl mx-auto py-8 px-4 space-y-8" dir="rtl">
+
+            <Link href="/admin" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-900">
+                <ArrowRight className="h-4 w-4" /> חזרה לאדמין
+            </Link>
 
             {/* Page header */}
             <div className="flex items-start justify-between gap-4">

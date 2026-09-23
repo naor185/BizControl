@@ -1,4 +1,5 @@
 import { mirrorTokensToSecureStorage, clearSecureStorageTokens } from "@/lib/secureTokenStorage";
+import { clearNavHistory } from "@/lib/navHistory";
 
 export const API_BASE = (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_BASE || "").replace(/^http:\/\//, "https://");
 
@@ -23,6 +24,7 @@ export function clearToken() {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(REFRESH_TOKEN_KEY);
     void clearSecureStorageTokens();
+    clearNavHistory();   // the next login starts with no "back"
 }
 
 // Single in-flight refresh promise — prevents race condition where multiple

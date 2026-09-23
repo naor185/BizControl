@@ -3,6 +3,8 @@ import { toast } from "@/lib/toast";
 
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 
 type AIStats = {
     total_conversations: number;
@@ -86,6 +88,10 @@ export default function AdminAIPage() {
 
     return (
         <div className="max-w-5xl mx-auto py-8 px-4 space-y-8" dir="rtl">
+
+            <Link href="/admin" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-900">
+                <ArrowRight className="h-4 w-4" /> חזרה לאדמין
+            </Link>
 
             {/* Header */}
             <div className="flex items-center justify-between">

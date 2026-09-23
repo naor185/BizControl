@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Calendar, ShoppingCart, LayoutDashboard, Users, Gauge, Building2, Lock, type LucideIcon } from "lucide-react";
+import { ArrowLeft, ArrowRight, Calendar, ShoppingCart, LayoutDashboard, Users, Gauge, Building2, Lock, type LucideIcon } from "lucide-react";
 import { apiFetch, clearToken, getToken, setToken } from "@/lib/api";
 import ClockWidget from "./ClockWidget";
 import BottomNav from "./BottomNav";
@@ -19,6 +19,7 @@ import { isBusinessSessionValid } from "@/lib/businessSession";
 import { useNewLeadsCount } from "@/lib/useNewLeadsCount";
 import PlanBar, { PLAN_BAR_HEIGHT, type PlanInfo } from "./PlanBar";
 import { registerForPushNotifications } from "@/lib/push";
+import { recordVisit } from "@/lib/navHistory";
 
 type Me = {
     id: string;
@@ -30,13 +31,6 @@ type Me = {
 };
 
 type PinStatus = { has_pin: boolean; is_locked: boolean };
-
-// The bottom-nav's primary tabs — the only pages with no meaningful "back":
-// tapping a tab icon already gets you there directly. Everywhere else
-// (settings, client detail, message templates, anything reached through the
-// "More" sheet, etc.) shows a back arrow on mobile, since the sidebar isn't
-// there to fall back on and neither is any hardware back button on iOS.
-const ROOT_PATHS = new Set(["/overview", "/calendar", "/pos", "/clients", "/clients/analytics", "/wallet"]);
 
 const MAIN_NAV: { href: string; label: string; icon: LucideIcon; module?: string }[] = [
     { href: "/overview",  label: "דשבורד",       icon: Gauge },
@@ -95,6 +89,13 @@ export default function AppShell({
 
     useEffect(() => {
         setBusinessUnlocked(isBusinessSessionValid());
+    }, [pathname]);
+
+    // "Back" appears on every screen that was reached from another screen of the app (desktop and
+    // phone), and takes you to exactly where you were. It is hidden on the first screen of a session.
+    const [canGoBack, setCanGoBack] = useState(false);
+    useEffect(() => {
+        setCanGoBack(recordVisit(pathname || ""));
     }, [pathname]);
 
     const handleReturnToAdmin = () => {
@@ -375,16 +376,15 @@ export default function AppShell({
                     >
                         <div className="h-14 px-5 flex items-center justify-between">
                             <div className="flex items-center gap-2 min-w-0">
-                                {!ROOT_PATHS.has(pathname || "") && (
+                                {canGoBack && (
                                     <button
                                         type="button"
                                         onClick={() => router.back()}
                                         aria-label={t("login_2fa_back")}
-                                        className="md:hidden -mr-1.5 flex items-center justify-center w-8 h-8 rounded-full text-slate-500 hover:bg-slate-100 active:scale-90 transition-all shrink-0"
+                                        className="shrink-0 flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 active:scale-95 transition-all"
                                     >
-                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
-                                            <path d="M15 18l-6-6 6-6" />
-                                        </svg>
+                                        {dir === "rtl" ? <ArrowRight className="h-4 w-4" /> : <ArrowLeft className="h-4 w-4" />}
+                                        {t("login_2fa_back")}
                                     </button>
                                 )}
                                 {title && <h1 className="text-lg font-bold text-slate-900 truncate">{title}</h1>}
