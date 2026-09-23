@@ -6,7 +6,7 @@ import {
     Briefcase, Lock, Unlock, KeyRound, Zap, BarChart3, ShieldCheck, ClipboardList, Timer,
     Wallet, Users, TrendingUp, Phone, Megaphone, Gift, Settings,
     CreditCard, Landmark, Receipt, Banknote, UserCog, MessageSquare, Bell, Target, Mail,
-    Send, Clock, Package, ConciergeBell, Stamp, Smartphone, LifeBuoy,
+    Send, Clock, Package, ConciergeBell, Smartphone, LifeBuoy, Crown,
     type LucideIcon,
 } from "lucide-react";
 import AppShell from "@/components/AppShell";
@@ -29,6 +29,17 @@ const SECTION_GROUPS: { groupLabel: string; icon: LucideIcon; items: { href: str
         ],
     },
     {
+        groupLabel: "לקוחות",
+        icon: Users,
+        items: [
+            { href: "/clients",           label: "לקוחות",          description: "רשימה, כרטיס לקוח והיסטוריה",                   icon: Users, gradient: "from-sky-500 to-sky-700", module: "crm" },
+            { href: "/clients?tab=club",  label: "מועדון לקוחות",   description: "חברים, נקודות, לוח אלופים וימי הולדת",           icon: Crown, gradient: "from-amber-500 to-amber-700", module: "crm" },
+            { href: "/leads",             label: "לידים",           description: "פניות ולקוחות פוטנציאליים",                      icon: Target, gradient: "from-rose-500 to-rose-700" },
+            { href: "/clients/analytics", label: "אנליטיקת לקוחות", description: "שימור, ערך לקוח, לקוחות שנעלמו ואחוזי המרה",      icon: BarChart3, gradient: "from-violet-500 to-violet-700" },
+            { href: "/wallet",            label: "כרטיס דיגיטלי",    description: "עיצוב כרטיס מועדון ל-Apple/Google Wallet",       icon: Smartphone, gradient: "from-teal-500 to-teal-700" },
+        ],
+    },
+    {
         groupLabel: "צוות ושכר",
         icon: Users,
         items: [
@@ -41,7 +52,7 @@ const SECTION_GROUPS: { groupLabel: string; icon: LucideIcon; items: { href: str
         icon: TrendingUp,
         items: [
             { href: "/analytics",          label: "אנליטיקת שיווק",  description: "מודעות, לידים ותובנות AI",      icon: TrendingUp, gradient: "from-fuchsia-500 to-fuchsia-700", module: "analytics" },
-            { href: "/analytics/business", label: "אנליטיקה עסקית", description: "הכנסות, שימור לקוחות וביצועים", icon: BarChart3, gradient: "from-violet-600 to-fuchsia-700",   module: "analytics" },
+            { href: "/analytics/business", label: "אנליטיקה עסקית", description: "הכנסות, תורים ושעות עמוסות", icon: BarChart3, gradient: "from-violet-600 to-fuchsia-700",   module: "analytics" },
         ],
     },
     {
@@ -52,26 +63,23 @@ const SECTION_GROUPS: { groupLabel: string; icon: LucideIcon; items: { href: str
         ],
     },
     {
-        groupLabel: "תקשורת ולידים",
+        groupLabel: "תקשורת",
         icon: Megaphone,
         items: [
             { href: "/message-log",       label: "יומן הודעות",   description: "כל ההודעות שנשלחו",                     icon: MessageSquare, gradient: "from-pink-500 to-pink-700" },
             { href: "/booking-requests",  label: "בקשות תורים",   description: "בקשות ממתינות לאישור",                  icon: Bell, gradient: "from-amber-500 to-amber-700" },
-            { href: "/leads",             label: "לידים",         description: "מעקב פניות ולקוחות פוטנציאליים",        icon: Target, gradient: "from-rose-500 to-rose-700" },
             { href: "/message-templates", label: "תבניות הודעות", description: "תבניות לוואטסאפ ומייל",                 icon: Mail, gradient: "from-pink-600 to-rose-700" },
             { href: "/broadcasts",        label: "תפוצות",        description: "הודעות המוניות ומבצעים",                icon: Send, gradient: "from-amber-600 to-orange-700", module: "broadcasts" },
             { href: "/wait-list",         label: "רשימת המתנה",   description: "לקוחות הממתינים לתור פנוי",             icon: Clock, gradient: "from-rose-600 to-pink-700",    module: "wait_list" },
         ],
     },
     {
-        groupLabel: "מוצרים ומועדון",
+        groupLabel: "מוצרים ושירותים",
         icon: Gift,
         items: [
             { href: "/products",   label: "מוצרים ומלאי",     description: "קטלוג מוצרים, מחירים ומלאי",             icon: Package, gradient: "from-sky-500 to-sky-700", module: "products" },
             { href: "/services",   label: "שירותים",          description: "סוגי טיפול, מחירים ומשך זמן",            icon: ConciergeBell, gradient: "from-sky-600 to-cyan-700", module: "services" },
             { href: "/gift-cards", label: "כרטיסי מתנה",      description: "מכירה ומעקב כרטיסי מתנה",                icon: Gift, gradient: "from-purple-600 to-fuchsia-700", module: "pos" },
-            { href: "/stamps",     label: "כרטיסי מועדון",    description: "כרטיסיות חותמות ותוכנית נאמנות",         icon: Stamp, gradient: "from-purple-500 to-purple-700" },
-            { href: "/wallet",     label: "ארנק דיגיטלי",      description: "עיצוב כרטיס נאמנות ל-Apple/Google Wallet", icon: Smartphone, gradient: "from-teal-500 to-teal-700" },
         ],
     },
     {

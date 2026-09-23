@@ -505,25 +505,11 @@ def get_analytics(ctx: AuthContext = Depends(require_studio_ctx), db: Session = 
     day_map = {int(r.dow): r.cnt for r in day_rows}
     busiest_days = [{"day": day_names[d], "count": day_map.get(d, 0)} for d in range(7)]
 
-    # ── New vs returning clients (last 30 days) ───────────────────────────────
-    thirty_ago = now - timedelta(days=30)
-    new_clients = db.scalar(
-        select(func.count(Client.id)).where(
-            Client.studio_id == ctx.studio_id,
-            Client.created_at >= thirty_ago,
-        )
-    ) or 0
-    total_clients = db.scalar(
-        select(func.count(Client.id)).where(Client.studio_id == ctx.studio_id)
-    ) or 0
-    returning = max(0, total_clients - new_clients)
-
     return {
         "revenue_by_month": revenue_by_month,
         "appts_by_month": appts_by_month,
         "artists": artists,
         "busiest_days": busiest_days,
-        "new_vs_returning": {"new": new_clients, "returning": returning},
     }
 
 
@@ -661,7 +647,7 @@ def consultation_conversion(
 def advanced_analytics(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
     """
     Comprehensive business analytics:
-    KPIs, retention trend, hourly heatmap, revenue by service, top clients, avg value trend.
+    Revenue + appointments KPIs, hourly heatmap, revenue by service, avg value trend (client metrics live in /api/clients/analytics).
     """
     from sqlalchemy import text as _t
     sid = str(ctx.studio_id)
@@ -717,45 +703,7 @@ def advanced_analytics(ctx: AuthContext = Depends(require_studio_ctx), db: Sessi
     ) or 0
     appts_growth = round((appts_this - appts_prev) / appts_prev * 100) if appts_prev > 0 else 0
 
-    # LTV: avg total paid per active client
-    ltv_row = db.execute(_t("""
-        SELECT AVG(client_total) FROM (
-            SELECT client_id, SUM(amount_cents) AS client_total
-            FROM payments
-            WHERE studio_id = :sid AND status = 'paid' AND type != 'refund'
-            GROUP BY client_id
-        ) sub
-    """), {"sid": sid}).scalar() or 0
-
-    # Retention: % clients with ≥2 appointments in last 3 months
     three_mo_ago = now - timedelta(days=90)
-    retention_row = db.execute(_t("""
-        SELECT
-            COUNT(*) FILTER (WHERE appt_count >= 2) AS retained,
-            COUNT(*) AS total_active
-        FROM (
-            SELECT client_id, COUNT(*) AS appt_count
-            FROM appointments
-            WHERE studio_id = :sid AND status != 'canceled'
-              AND starts_at >= :since
-            GROUP BY client_id
-        ) sub
-    """), {"sid": sid, "since": three_mo_ago}).fetchone()
-    retained = retention_row[0] or 0
-    total_active = retention_row[1] or 0
-    retention_rate = round(retained / total_active * 100) if total_active > 0 else 0
-
-    # Churn: clients with last appointment > 60 days ago
-    sixty_ago = now - timedelta(days=60)
-    churn_count = db.execute(_t("""
-        SELECT COUNT(*) FROM (
-            SELECT client_id, MAX(starts_at) AS last_appt
-            FROM appointments
-            WHERE studio_id = :sid AND status NOT IN ('canceled','no_show')
-            GROUP BY client_id
-            HAVING MAX(starts_at) < :cutoff
-        ) sub
-    """), {"sid": sid, "cutoff": sixty_ago}).scalar() or 0
 
     # Avg appt value last 30 days
     thirty_ago = now - timedelta(days=30)
@@ -766,44 +714,6 @@ def advanced_analytics(ctx: AuthContext = Depends(require_studio_ctx), db: Sessi
           AND created_at >= :since
           AND (notes IS NULL OR notes NOT ILIKE '[מערכת]%%')
     """), {"sid": sid, "since": thirty_ago}).scalar() or 0
-
-    # ── Retention trend (last 6 months) ───────────────────────────────────────
-    retention_trend = []
-    for i in range(5, -1, -1):
-        m = now.month - i
-        y = now.year
-        while m <= 0:
-            m += 12; y -= 1
-        ms = tz.localize(datetime(y, m, 1))
-        me = tz.localize(datetime(y, m + 1, 1)) if m < 12 else tz.localize(datetime(y + 1, 1, 1))
-        label = ms.strftime("%m/%y")
-
-        rows = db.execute(_t("""
-            SELECT
-                COUNT(DISTINCT client_id) FILTER (WHERE is_new) AS new_c,
-                COUNT(DISTINCT client_id) FILTER (WHERE NOT is_new) AS ret_c
-            FROM (
-                SELECT
-                    a.client_id,
-                    (SELECT MIN(starts_at) FROM appointments a2
-                     WHERE a2.client_id = a.client_id AND a2.studio_id = :sid
-                       AND a2.status != 'canceled') >= :ms AS is_new
-                FROM appointments a
-                WHERE a.studio_id = :sid AND a.status != 'canceled'
-                  AND a.starts_at >= :ms AND a.starts_at < :me
-            ) sub
-        """), {"sid": sid, "ms": ms, "me": me}).fetchone()
-
-        new_c = rows[0] or 0
-        ret_c = rows[1] or 0
-        total = new_c + ret_c
-        retention_trend.append({
-            "month": label,
-            "new": new_c,
-            "returning": ret_c,
-            "total": total,
-            "retention_pct": round(ret_c / total * 100) if total > 0 else 0,
-        })
 
     # ── Hourly heatmap (last 90 days) ─────────────────────────────────────────
     hour_rows = db.execute(_t("""
@@ -846,19 +756,6 @@ def advanced_analytics(ctx: AuthContext = Depends(require_studio_ctx), db: Sessi
         LIMIT 10
     """), {"sid": sid, "since": three_mo_ago}).fetchall()
 
-    # ── Top clients by revenue (all time) ─────────────────────────────────────
-    top_clients = db.execute(_t("""
-        SELECT c.full_name, COUNT(DISTINCT a.id) AS appts,
-               COALESCE(SUM(p.amount_cents), 0) AS rev
-        FROM clients c
-        LEFT JOIN appointments a ON a.client_id = c.id AND a.status != 'canceled'
-        LEFT JOIN payments p ON p.client_id = c.id AND p.status='paid' AND p.type!='refund'
-        WHERE c.studio_id = :sid AND c.is_active = true
-        GROUP BY c.id, c.full_name
-        ORDER BY rev DESC
-        LIMIT 10
-    """), {"sid": sid}).fetchall()
-
     # ── Avg appointment value trend (6 months) ────────────────────────────────
     avg_trend = []
     for i in range(5, -1, -1):
@@ -880,21 +777,13 @@ def advanced_analytics(ctx: AuthContext = Depends(require_studio_ctx), db: Sessi
             "revenue_growth_pct": rev_growth,
             "appts_this_month": appts_this,
             "appts_growth_pct": appts_growth,
-            "retention_rate_pct": retention_rate,
-            "ltv_ils": round(ltv_row / 100),
             "avg_appt_value_ils": round(avg_value_row / 100),
-            "churn_count": int(churn_count),
         },
-        "retention_trend": retention_trend,
         "hourly_heatmap": hourly_list,
         "heatmap_grid": list(heatmap.values()),
         "revenue_by_service": [
             {"service": r[0], "count": r[1], "revenue_ils": round(r[2] / 100)}
             for r in svc_rows
-        ],
-        "top_clients": [
-            {"name": r[0], "appointments": r[1], "revenue_ils": round(r[2] / 100)}
-            for r in top_clients
         ],
         "avg_value_trend": avg_trend,
     }

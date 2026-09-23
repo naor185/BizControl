@@ -81,7 +81,8 @@ export default function Sidebar() {
             {/* Main nav */}
             <nav className="flex-1 px-3 py-4 space-y-0.5">
                 {mainItems.map((it) => {
-                    const active = pathname === it.href || pathname.startsWith(it.href + "/");
+                    const active = pathname === it.href || pathname.startsWith(it.href + "/")
+                        || (it.href === "/clients" && (pathname === "/leads" || pathname === "/wallet"));
                     const isInbox = it.href === "/inbox";
                     return (
                         <Link

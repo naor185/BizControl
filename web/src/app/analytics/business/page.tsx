@@ -5,7 +5,7 @@ import RequireAuth from "@/components/RequireAuth";
 import { apiFetch } from "@/lib/api";
 import {
     BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip,
-    ResponsiveContainer, CartesianGrid, Cell, Legend,
+    ResponsiveContainer, CartesianGrid, Cell,
 } from "recharts";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -15,17 +15,12 @@ interface Kpis {
     revenue_growth_pct: number;
     appts_this_month: number;
     appts_growth_pct: number;
-    retention_rate_pct: number;
-    ltv_ils: number;
     avg_appt_value_ils: number;
-    churn_count: number;
 }
 interface AdvancedData {
     kpis: Kpis;
-    retention_trend: { month: string; new: number; returning: number; total: number; retention_pct: number }[];
     hourly_heatmap: { hour: number; label: string; count: number }[];
     revenue_by_service: { service: string; count: number; revenue_ils: number }[];
-    top_clients: { name: string; appointments: number; revenue_ils: number }[];
     avg_value_trend: { month: string; avg_ils: number }[];
 }
 
@@ -86,52 +81,13 @@ export default function BusinessAnalyticsPage() {
                         {/* ── KPIs ── */}
                         <section>
                             <h2 className="text-base font-bold text-slate-700 mb-3">📈 סיכום החודש</h2>
-                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                            <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
                                 <KpiCard title="הכנסות החודש" value={fmt(data.kpis.revenue_this_month_ils)}
                                     growth={data.kpis.revenue_growth_pct} icon="💰" color="#7c3aed" />
                                 <KpiCard title="תורים החודש" value={String(data.kpis.appts_this_month)}
                                     growth={data.kpis.appts_growth_pct} icon="📅" color="#0ea5e9" />
-                                <KpiCard title="שיעור Retention" value={`${data.kpis.retention_rate_pct}%`}
-                                    sub="לקוחות חזרו ב-3 חודשים" icon="🔄" color="#10b981" />
-                                <KpiCard title="LTV ממוצע ללקוח" value={fmt(data.kpis.ltv_ils)}
-                                    sub="הכנסה כוללת ממוצעת" icon="👑" color="#f59e0b" />
-                            </div>
-                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mt-3">
                                 <KpiCard title="ממוצע לתור (30 יום)" value={fmt(data.kpis.avg_appt_value_ils)}
                                     icon="🧾" color="#6366f1" />
-                                <KpiCard title="לקוחות ב-Churn" value={String(data.kpis.churn_count)}
-                                    sub="לא הגיעו 60+ ימים" icon="⚠️" color="#ef4444" />
-                            </div>
-                        </section>
-
-                        {/* ── Retention Trend ── */}
-                        <section>
-                            <h2 className="text-base font-bold text-slate-700 mb-3">🔄 לקוחות חדשים מול חוזרים — 6 חודשים</h2>
-                            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
-                                <ResponsiveContainer width="100%" height={220}>
-                                    <BarChart data={data.retention_trend} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-                                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                                        <XAxis dataKey="month" tick={{ fontSize: 12, fill: "#94a3b8" }} />
-                                        <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} allowDecimals={false} />
-                                        <Tooltip
-                                            formatter={(v, name) => [Number(v), name === "new" ? "חדשים" : "חוזרים"]}
-                                            contentStyle={{ borderRadius: 10, fontSize: 12 }}
-                                        />
-                                        <Legend formatter={v => v === "new" ? "חדשים" : "חוזרים"} />
-                                        <Bar dataKey="returning" stackId="a" fill="#7c3aed" radius={[0,0,0,0]} name="returning" />
-                                        <Bar dataKey="new" stackId="a" fill="#c4b5fd" radius={[6,6,0,0]} name="new" />
-                                    </BarChart>
-                                </ResponsiveContainer>
-                                {/* Retention % line overlay info */}
-                                <div className="flex gap-4 mt-3 flex-wrap">
-                                    {data.retention_trend.map(r => (
-                                        <div key={r.month} className="text-center">
-                                            <div className="text-xs text-slate-400">{r.month}</div>
-                                            <div className="text-sm font-bold text-violet-700">{r.retention_pct}%</div>
-                                            <div className="text-[10px] text-slate-400">retention</div>
-                                        </div>
-                                    ))}
-                                </div>
                             </div>
                         </section>
 
@@ -211,39 +167,6 @@ export default function BusinessAnalyticsPage() {
                                         </div>
                                     </>
                                 )}
-                            </div>
-                        </section>
-
-                        {/* ── Top Clients ── */}
-                        <section>
-                            <h2 className="text-base font-bold text-slate-700 mb-3">👑 לקוחות מובילים — לפי הכנסה</h2>
-                            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-x-auto">
-                                <table className="min-w-[34rem] w-full text-right text-sm">
-                                    <thead>
-                                        <tr className="bg-slate-50 text-slate-500 text-xs font-bold border-b border-slate-100">
-                                            <th className="px-5 py-3">#</th>
-                                            <th className="px-5 py-3">שם</th>
-                                            <th className="px-5 py-3 text-center">תורים</th>
-                                            <th className="px-5 py-3">הכנסה כוללת</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-50">
-                                        {data.top_clients.length === 0 ? (
-                                            <tr><td colSpan={4} className="text-center text-slate-400 py-8">אין נתונים</td></tr>
-                                        ) : data.top_clients.map((c, i) => (
-                                            <tr key={i} className="hover:bg-slate-50/60 transition-colors">
-                                                <td className="px-5 py-3">
-                                                    <span className={`text-xs font-black w-6 h-6 rounded-full flex items-center justify-center ${i === 0 ? "bg-amber-400 text-white" : i === 1 ? "bg-slate-300 text-slate-700" : i === 2 ? "bg-amber-700/30 text-amber-900" : "bg-slate-100 text-slate-500"}`}>
-                                                        {i + 1}
-                                                    </span>
-                                                </td>
-                                                <td className="px-5 py-3 font-semibold text-slate-800">{c.name || "—"}</td>
-                                                <td className="px-5 py-3 text-center text-slate-500">{c.appointments}</td>
-                                                <td className="px-5 py-3 font-bold text-violet-700">{fmt(c.revenue_ils)}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
                             </div>
                         </section>
 

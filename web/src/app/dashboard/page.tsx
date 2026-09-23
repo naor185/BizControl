@@ -51,19 +51,11 @@ type DailyPayment = {
     payment_verified_at: string | null;
 };
 
-type ConsultationConversion = {
-    total_consultations: number;
-    converted: number;
-    not_converted: number;
-    conversion_rate: number;
-};
-
 type Analytics = {
     revenue_by_month: { month: string; revenue: number }[];
     appts_by_month: { month: string; count: number }[];
     artists: { name: string; appointments: number; revenue: number }[];
     busiest_days: { day: string; count: number }[];
-    new_vs_returning: { new: number; returning: number };
 };
 
 const fmt = (n: number) =>
@@ -90,10 +82,6 @@ export default function Page() {
     const [depositMethod, setDepositMethod] = useState("bit");
     const [depositSendReceipt, setDepositSendReceipt] = useState(true);
     const [depositReceipt, setDepositReceipt] = useState<{ invoiceId: string; docNum?: number } | null>(null);
-    const [consultationConv, setConsultationConv] = useState<ConsultationConversion | null>(null);
-    type ConsultPeriod = "week" | "month" | "2months";
-    const [consultPeriod, setConsultPeriod] = useState<ConsultPeriod>("month");
-    const [consultLoading, setConsultLoading] = useState(false);
     type OccupancyPeriod = { booked_minutes: number; total_minutes: number; percent: number; count: number };
     type OccupancyData = { this_week: OccupancyPeriod; last_week: OccupancyPeriod; this_month: OccupancyPeriod; last_month: OccupancyPeriod; work_hours_per_day: number };
     const [occupancy, setOccupancy] = useState<OccupancyData | null>(null);
@@ -206,21 +194,8 @@ export default function Page() {
         } catch { /* silent */ }
     };
 
-    const fetchConsultationConv = async (period: ConsultPeriod) => {
-        setConsultLoading(true);
-        try {
-            const convData = await apiFetch<ConsultationConversion>(`/api/dashboard/consultation-conversion?period=${period}`);
-            setConsultationConv(convData);
-        } catch {
-            setConsultationConv(null);
-        } finally {
-            setConsultLoading(false);
-        }
-    };
-
     useEffect(() => { fetchData(); }, []);
     useEffect(() => { if (tab === "analytics" && !analytics) fetchAnalytics(); }, [tab]);
-    useEffect(() => { if (tab === "analytics") fetchConsultationConv(consultPeriod); }, [tab, consultPeriod]);
 
     const handlePaymentSuccess = () => { setIsPaymentModalOpen(false); fetchData(); };
 
@@ -691,105 +666,18 @@ export default function Page() {
                                     </ResponsiveContainer>
                                 </div>
 
-                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                    {/* Busiest days */}
-                                    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-                                        <h3 className="font-bold text-slate-800 mb-4">ימים עמוסים — 90 ימים אחרונים</h3>
-                                        <ResponsiveContainer width="100%" height={180}>
-                                            <BarChart data={analytics.busiest_days} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
-                                                <XAxis dataKey="day" tick={{ fontSize: 11, fill: "#94a3b8" }} />
-                                                <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} allowDecimals={false} />
-                                                <Tooltip formatter={(v) => [Number(v), "תורים"]} />
-                                                <Bar dataKey="count" radius={[4, 4, 0, 0]} fill="#111827" />
-                                            </BarChart>
-                                        </ResponsiveContainer>
-                                    </div>
-
-                                    {/* New vs returning */}
-                                    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-                                        <h3 className="font-bold text-slate-800 mb-4">לקוחות — 30 ימים אחרונים</h3>
-                                        <div className="flex flex-col gap-4 mt-2">
-                                            {[
-                                                { label: "לקוחות חדשים", value: analytics.new_vs_returning.new, color: "bg-slate-900" },
-                                                { label: "לקוחות קיימים", value: analytics.new_vs_returning.returning, color: "bg-slate-300" },
-                                            ].map(item => {
-                                                const total = analytics.new_vs_returning.new + analytics.new_vs_returning.returning;
-                                                const pct = total > 0 ? Math.round((item.value / total) * 100) : 0;
-                                                return (
-                                                    <div key={item.label}>
-                                                        <div className="flex justify-between text-sm mb-1.5">
-                                                            <span className="font-medium text-slate-700">{item.label}</span>
-                                                            <span className="font-bold text-slate-900">{item.value} <span className="text-slate-400 font-normal">({pct}%)</span></span>
-                                                        </div>
-                                                        <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden">
-                                                            <div className={`h-full ${item.color} rounded-full transition-all duration-700`} style={{ width: `${pct}%` }} />
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
+                                {/* Busiest days */}
+                                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+                                    <h3 className="font-bold text-slate-800 mb-4">ימים עמוסים — 90 ימים אחרונים</h3>
+                                    <ResponsiveContainer width="100%" height={180}>
+                                        <BarChart data={analytics.busiest_days} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+                                            <XAxis dataKey="day" tick={{ fontSize: 11, fill: "#94a3b8" }} />
+                                            <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} allowDecimals={false} />
+                                            <Tooltip formatter={(v) => [Number(v), "תורים"]} />
+                                            <Bar dataKey="count" radius={[4, 4, 0, 0]} fill="#111827" />
+                                        </BarChart>
+                                    </ResponsiveContainer>
                                 </div>
-
-                                {/* Consultation conversion */}
-                                {consultationConv && (
-                                    <div className={`bg-white rounded-2xl border border-slate-100 shadow-sm p-6 transition-opacity ${consultLoading ? "opacity-50" : ""}`}>
-                                        <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-                                            <h3 className="font-bold text-slate-800">אחוזי המרה — יעוצים לתורים</h3>
-                                            <div className="flex bg-slate-50 border border-slate-200 rounded-xl overflow-hidden text-xs">
-                                                {([
-                                                    { key: "week", label: "שבוע" },
-                                                    { key: "month", label: "חודש" },
-                                                    { key: "2months", label: "חודשיים" },
-                                                ] as const).map(p => (
-                                                    <button
-                                                        key={p.key}
-                                                        onClick={() => setConsultPeriod(p.key)}
-                                                        className={`px-3 py-1.5 font-semibold transition-colors ${consultPeriod === p.key ? "bg-slate-900 text-white" : "text-slate-500 hover:bg-slate-100"}`}
-                                                    >
-                                                        {p.label}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        </div>
-                                        {consultationConv.total_consultations === 0 ? (
-                                            <div className="text-center text-slate-400 text-sm py-8">אין פגישות יעוץ בתקופה שנבחרה</div>
-                                        ) : (
-                                            <>
-                                                <div className="flex items-center gap-6 mb-4">
-                                                    <div className="text-center">
-                                                        <div className="text-4xl font-bold text-slate-900">{consultationConv.conversion_rate}%</div>
-                                                        <div className="text-xs text-slate-400 mt-1">אחוז המרה</div>
-                                                    </div>
-                                                    <div className="flex-1 space-y-3">
-                                                        {[
-                                                            { label: "קבעו תור אחרי יעוץ", value: consultationConv.converted, color: "bg-slate-900" },
-                                                            { label: "לא קבעו עדיין", value: consultationConv.not_converted, color: "bg-slate-200" },
-                                                        ].map(item => {
-                                                            const pct = consultationConv.total_consultations > 0
-                                                                ? Math.round((item.value / consultationConv.total_consultations) * 100)
-                                                                : 0;
-                                                            return (
-                                                                <div key={item.label}>
-                                                                    <div className="flex justify-between text-sm mb-1">
-                                                                        <span className="text-slate-600">{item.label}</span>
-                                                                        <span className="font-bold text-slate-800">{item.value} <span className="text-slate-400 font-normal">({pct}%)</span></span>
-                                                                    </div>
-                                                                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                                                                        <div className={`h-full ${item.color} rounded-full transition-all duration-700`} style={{ width: `${pct}%` }} />
-                                                                    </div>
-                                                                </div>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                </div>
-                                                <div className="text-xs text-slate-400 border-t border-slate-100 pt-3">
-                                                    סה״כ {consultationConv.total_consultations} פגישות יעוץ נרשמו בתקופה שנבחרה
-                                                </div>
-                                            </>
-                                        )}
-                                    </div>
-                                )}
 
                                 {/* Artist performance */}
                                 {analytics.artists.length > 0 && (

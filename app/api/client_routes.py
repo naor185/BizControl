@@ -195,6 +195,108 @@ def club_leaderboard(
     }
 
 
+@router.get("/analytics")
+def client_analytics(
+    ctx: AuthContext = Depends(require_studio_ctx),
+    db: Session = Depends(get_db),
+):
+    """Client-focused KPIs + 6-month new-vs-returning trend (single source for both)."""
+    from datetime import datetime, timedelta
+    import pytz
+    from sqlalchemy import text as _t
+    from app.models.studio_settings import StudioSettings
+
+    sid = str(ctx.studio_id)
+    settings = db.get(StudioSettings, ctx.studio_id)
+    tz = pytz.timezone(settings.timezone if settings and settings.timezone else "Asia/Jerusalem")
+    now = datetime.now(tz)
+
+    # LTV: average total paid per client (all time, refunds excluded)
+    ltv_cents = db.execute(_t("""
+        SELECT AVG(client_total) FROM (
+            SELECT client_id, SUM(amount_cents) AS client_total
+            FROM payments
+            WHERE studio_id = :sid AND status = 'paid' AND type != 'refund'
+            GROUP BY client_id
+        ) sub
+    """), {"sid": sid}).scalar() or 0
+
+    # Retention: % of clients with 2+ appointments in the last 90 days
+    retention_row = db.execute(_t("""
+        SELECT
+            COUNT(*) FILTER (WHERE appt_count >= 2) AS retained,
+            COUNT(*) AS total_active
+        FROM (
+            SELECT client_id, COUNT(*) AS appt_count
+            FROM appointments
+            WHERE studio_id = :sid AND status != 'canceled'
+              AND starts_at >= :since
+            GROUP BY client_id
+        ) sub
+    """), {"sid": sid, "since": now - timedelta(days=90)}).fetchone()
+    retained = retention_row[0] or 0
+    total_active = retention_row[1] or 0
+    retention_rate = round(retained / total_active * 100) if total_active > 0 else 0
+
+    # Churn: clients whose last real appointment was more than 60 days ago
+    churn_count = db.execute(_t("""
+        SELECT COUNT(*) FROM (
+            SELECT client_id, MAX(starts_at) AS last_appt
+            FROM appointments
+            WHERE studio_id = :sid AND status NOT IN ('canceled','no_show')
+            GROUP BY client_id
+            HAVING MAX(starts_at) < :cutoff
+        ) sub
+    """), {"sid": sid, "cutoff": now - timedelta(days=60)}).scalar() or 0
+
+    # New vs returning per month: "new" = the client's FIRST-EVER appointment fell in that month
+    retention_trend = []
+    for i in range(5, -1, -1):
+        m = now.month - i
+        y = now.year
+        while m <= 0:
+            m += 12
+            y -= 1
+        ms = tz.localize(datetime(y, m, 1))
+        me = tz.localize(datetime(y, m + 1, 1)) if m < 12 else tz.localize(datetime(y + 1, 1, 1))
+
+        rows = db.execute(_t("""
+            SELECT
+                COUNT(DISTINCT client_id) FILTER (WHERE is_new) AS new_c,
+                COUNT(DISTINCT client_id) FILTER (WHERE NOT is_new) AS ret_c
+            FROM (
+                SELECT
+                    a.client_id,
+                    (SELECT MIN(starts_at) FROM appointments a2
+                     WHERE a2.client_id = a.client_id AND a2.studio_id = :sid
+                       AND a2.status != 'canceled') >= :ms AS is_new
+                FROM appointments a
+                WHERE a.studio_id = :sid AND a.status != 'canceled'
+                  AND a.starts_at >= :ms AND a.starts_at < :me
+            ) sub
+        """), {"sid": sid, "ms": ms, "me": me}).fetchone()
+
+        new_c = rows[0] or 0
+        ret_c = rows[1] or 0
+        total = new_c + ret_c
+        retention_trend.append({
+            "month": ms.strftime("%m/%y"),
+            "new": new_c,
+            "returning": ret_c,
+            "total": total,
+            "retention_pct": round(ret_c / total * 100) if total > 0 else 0,
+        })
+
+    return {
+        "kpis": {
+            "retention_rate_pct": retention_rate,
+            "ltv_ils": round(ltv_cents / 100),
+            "churn_count": int(churn_count),
+        },
+        "retention_trend": retention_trend,
+    }
+
+
 @router.get("/{client_id}", response_model=ClientOut)
 def get_one(
     client_id: UUID,

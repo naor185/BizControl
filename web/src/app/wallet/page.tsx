@@ -4,6 +4,7 @@ import { toast } from "@/lib/toast";
 import { useEffect, useState } from "react";
 import RequireAuth from "@/components/RequireAuth";
 import AppShell from "@/components/AppShell";
+import ClientsTabs from "@/components/ClientsTabs";
 import { apiFetch, API_BASE } from "@/lib/api";
 
 type Design = {
@@ -231,7 +232,8 @@ export default function WalletDesignerPage() {
 
     return (
         <RequireAuth>
-            <AppShell title="עיצוב כרטיס מועדון 💳">
+            <AppShell title="לקוחות">
+                <div className="pb-4"><ClientsTabs /></div>
                 <div className="grid lg:grid-cols-[1fr_380px] gap-10 items-start">
 
                     {/* ── Controls ── */}

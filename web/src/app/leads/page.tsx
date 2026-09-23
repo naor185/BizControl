@@ -5,6 +5,7 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import RequireAuth from "@/components/RequireAuth";
 import AppShell from "@/components/AppShell";
+import ClientsTabs from "@/components/ClientsTabs";
 import { apiFetch } from "@/lib/api";
 
 type Lead = {
@@ -302,7 +303,8 @@ export default function LeadsPage() {
     };
 
     if (loading) return (
-        <RequireAuth><AppShell title="לידים">
+        <RequireAuth><AppShell title="לקוחות">
+            <ClientsTabs />
             <div className="flex items-center justify-center h-64 text-slate-400">טוען...</div>
         </AppShell></RequireAuth>
     );
@@ -410,8 +412,9 @@ export default function LeadsPage() {
 
     return (
         <RequireAuth>
-            <AppShell title="לידים CRM">
-                <div className="flex flex-col h-[calc(100vh-64px)]" dir="rtl">
+            <AppShell title="לקוחות">
+                <div className="pb-3"><ClientsTabs /></div>
+                <div className="flex flex-col h-[calc(100vh-128px)]" dir="rtl">
 
                     {/* Top tabs */}
                     <div className="bg-white border-b border-slate-100 flex items-center justify-between px-4 py-2 gap-3 flex-shrink-0">
