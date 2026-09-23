@@ -60,7 +60,7 @@ export default function ExplorePage() {
     }, [load]);
 
     return (
-        <div dir="rtl" style={{ minHeight: "100vh", background: "#0f172a", color: "#fff", fontFamily: "sans-serif" }}>
+        <div dir="rtl" style={{ minHeight: "100vh", background: "#0f172a", color: "#fff" }}>
             {/* Hero */}
             <div style={{ background: "linear-gradient(135deg,#1e1b4b,#312e81)", padding: "3rem 2rem", textAlign: "center" }}>
                 <h1 style={{ fontSize: "2.5rem", fontWeight: 900, marginBottom: "0.5rem", background: "linear-gradient(135deg,#a78bfa,#60a5fa)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>

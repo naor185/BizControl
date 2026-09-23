@@ -173,6 +173,7 @@ const CAT_LIGHT: Record<string, { bg: string; color: string }> = {
 };
 
 export default function HomePage() {
+    const { primary } = usePlatformTheme();
     const [studios, setStudios] = useState<StudioCard[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
     const [q, setQ] = useState("");
@@ -255,7 +256,7 @@ export default function HomePage() {
     const showResults = isSearching || initialLoaded;
 
     return (
-        <div dir="rtl" style={{ minHeight: "100vh", background: "#ffffff", fontFamily: "system-ui,sans-serif", color: "#1e293b" }}>
+        <div dir="rtl" style={{ minHeight: "100vh", background: "#ffffff", color: "#1e293b" }}>
 
             {/* ── Location Permission Modal ── */}
             {showLocationModal && (
@@ -263,14 +264,14 @@ export default function HomePage() {
                     onClick={e => { if (e.target === e.currentTarget) dismissLocationModal(); }}>
                     <div style={{ background: "#fff", borderRadius: "28px 28px 0 0", padding: "2.25rem 2rem 2.5rem", width: "100%", maxWidth: 520, textAlign: "center", animation: "slideUp .3s ease" }}>
                         <style>{`@keyframes slideUp { from { transform: translateY(100%); opacity: 0; } to { transform: none; opacity: 1; } }`}</style>
-                        <div style={{ width: 72, height: 72, borderRadius: "50%", background: "linear-gradient(135deg,#2563eb,#1d4ed8)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "2rem", margin: "0 auto 1.25rem" }}>📍</div>
+                        <div style={{ width: 72, height: 72, borderRadius: "50%", background: `linear-gradient(135deg,${primary},#1d4ed8)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "2rem", margin: "0 auto 1.25rem" }}>📍</div>
                         <div style={{ fontWeight: 900, fontSize: "1.25rem", color: "#0f172a", marginBottom: "0.6rem" }}>BizFind רוצה לגשת למיקום שלך</div>
                         <div style={{ color: "#64748b", fontSize: "0.92rem", lineHeight: 1.65, marginBottom: "2rem" }}>
                             כדי להציג עסקים, ספרים, סטודיואים וספא<br />
                             <strong>קרובים אליך</strong> — בדיוק כמו Wolt.
                         </div>
                         <button type="button" onClick={requestLocationFromModal}
-                            style={{ width: "100%", background: "linear-gradient(135deg,#2563eb,#1d4ed8)", color: "#fff", border: "none", borderRadius: 16, padding: "1rem", fontSize: "1rem", fontWeight: 800, cursor: "pointer", marginBottom: "0.85rem", boxShadow: "0 4px 16px rgba(37,99,235,.35)" }}>
+                            style={{ width: "100%", background: `linear-gradient(135deg,${primary},#1d4ed8)`, color: "#fff", border: "none", borderRadius: 16, padding: "1rem", fontSize: "1rem", fontWeight: 800, cursor: "pointer", marginBottom: "0.85rem", boxShadow: `0 4px 16px ${primary}59` }}>
                             📍 אפשר גישה למיקום
                         </button>
                         <button type="button" onClick={dismissLocationModal}
@@ -288,8 +289,8 @@ export default function HomePage() {
                     <span style={{ fontWeight: 900, fontSize: "1.05rem", color: "#1e293b" }}>BizFind</span>
                 </div>
                 <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-                    <Link href="/explore" style={{ fontSize: "0.82rem", color: "#2563eb", textDecoration: "none", fontWeight: 600 }}>חיפוש מתקדם</Link>
-                    <Link href="/studio/login" style={{ fontSize: "0.82rem", background: "#2563eb", color: "#fff", textDecoration: "none", fontWeight: 700, padding: "0.35rem 0.85rem", borderRadius: 8 }}>כניסה לעסקים</Link>
+                    <Link href="/explore" style={{ fontSize: "0.82rem", color: primary, textDecoration: "none", fontWeight: 600 }}>חיפוש מתקדם</Link>
+                    <Link href="/studio/login" style={{ fontSize: "0.82rem", background: primary, color: "#fff", textDecoration: "none", fontWeight: 700, padding: "0.35rem 0.85rem", borderRadius: 8 }}>כניסה לעסקים</Link>
                 </div>
             </header>
 
@@ -313,7 +314,7 @@ export default function HomePage() {
             <div style={{ background: "#fff", borderBottom: "1px solid #f1f5f9", padding: "0.85rem 1.25rem", overflowX: "auto" }}>
                 <div style={{ display: "flex", gap: "0.5rem", minWidth: "max-content" }}>
                     <button type="button" onClick={() => setSelectedType("")}
-                        style={{ padding: "0.45rem 1rem", borderRadius: 20, border: `1.5px solid ${!selectedType ? "#2563eb" : "#e2e8f0"}`, cursor: "pointer", fontWeight: 700, fontSize: "0.82rem", background: !selectedType ? "#2563eb" : "#fff", color: !selectedType ? "#fff" : "#64748b", transition: "all .2s" }}>
+                        style={{ padding: "0.45rem 1rem", borderRadius: 20, border: `1.5px solid ${!selectedType ? primary : "#e2e8f0"}`, cursor: "pointer", fontWeight: 700, fontSize: "0.82rem", background: !selectedType ? primary : "#fff", color: !selectedType ? "#fff" : "#64748b", transition: "all .2s" }}>
                         🌐 הכל
                     </button>
                     {categories.map(cat => {
@@ -362,7 +363,7 @@ export default function HomePage() {
                             <h2 style={{ fontWeight: 800, fontSize: "1rem", color: "#1e293b" }}>
                                 {isSearching ? `${studios.length} תוצאות` : "🌟 עסקים מובילים"}
                             </h2>
-                            {loading && <div style={{ width: 18, height: 18, border: "2.5px solid #bfdbfe", borderTopColor: "#2563eb", borderRadius: "50%", animation: "spin .7s linear infinite" }} />}
+                            {loading && <div style={{ width: 18, height: 18, border: `2.5px solid ${primary}44`, borderTopColor: primary, borderRadius: "50%", animation: "spin .7s linear infinite" }} />}
                         </div>
                     )}
 
@@ -372,7 +373,7 @@ export default function HomePage() {
                             <div>לא נמצאו עסקים. נסה חיפוש אחר.</div>
                             {isSearching && (
                                 <button type="button" onClick={() => { setQ(""); setCity(""); setSelectedType(""); }}
-                                    style={{ marginTop: "1rem", background: "#dbeafe", border: "1px solid #bfdbfe", color: "#2563eb", padding: "0.5rem 1.1rem", borderRadius: 10, cursor: "pointer", fontWeight: 600 }}>
+                                    style={{ marginTop: "1rem", background: `${primary}18`, border: `1px solid ${primary}44`, color: primary, padding: "0.5rem 1.1rem", borderRadius: 10, cursor: "pointer", fontWeight: 600 }}>
                                     נקה חיפוש
                                 </button>
                             )}
@@ -389,15 +390,17 @@ export default function HomePage() {
 }
 
 function Chip({ label, onRemove }: { label: string; onRemove: () => void }) {
+    const { primary } = usePlatformTheme();
     return (
-        <span style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem", background: "#dbeafe", border: "1px solid #bfdbfe", color: "#1d4ed8", padding: "0.25rem 0.6rem", borderRadius: 20, fontSize: "0.78rem", fontWeight: 600 }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem", background: `${primary}18`, border: `1px solid ${primary}44`, color: primary, padding: "0.25rem 0.6rem", borderRadius: 20, fontSize: "0.78rem", fontWeight: 600 }}>
             {label}
-            <button type="button" onClick={onRemove} style={{ background: "none", border: "none", color: "#2563eb", cursor: "pointer", padding: 0, lineHeight: 1, fontSize: "0.85rem" }}>×</button>
+            <button type="button" onClick={onRemove} style={{ background: "none", border: "none", color: primary, cursor: "pointer", padding: 0, lineHeight: 1, fontSize: "0.85rem" }}>×</button>
         </span>
     );
 }
 
 function StudioCard({ s }: { s: StudioCard }) {
+    const { primary } = usePlatformTheme();
     const [hovered, setHovered] = useState(false);
     const gradient = CAT_GRADIENTS[s.business_type] || CAT_GRADIENTS.other;
     const light = CAT_LIGHT[s.business_type] || CAT_LIGHT.other;
@@ -409,11 +412,11 @@ function StudioCard({ s }: { s: StudioCard }) {
                 onMouseLeave={() => setHovered(false)}
                 style={{
                     background: "#fff",
-                    border: `1.5px solid ${hovered ? "#bfdbfe" : "#e2e8f0"}`,
+                    border: `1.5px solid ${hovered ? `${primary}44` : "#e2e8f0"}`,
                     borderRadius: 20, overflow: "hidden",
                     transform: hovered ? "translateY(-4px)" : "none",
                     transition: "all .25s",
-                    boxShadow: hovered ? "0 12px 32px rgba(37,99,235,.12)" : "0 2px 8px rgba(0,0,0,.04)",
+                    boxShadow: hovered ? `0 12px 32px ${primary}1f` : "0 2px 8px rgba(0,0,0,.04)",
                 }}
             >
                 {/* Cover */}

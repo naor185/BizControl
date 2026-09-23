@@ -110,7 +110,7 @@ function RegisterInner() {
     const inputStyle = {
         width: "100%", border: "1.5px solid #e2e8f0", borderRadius: 12,
         padding: "0.75rem 1rem", fontSize: "1rem", outline: "none",
-        fontFamily: "system-ui,sans-serif", color: "#1e293b", background: "#fff",
+        color: "#1e293b", background: "#fff",
         boxSizing: "border-box" as const,
     };
     const labelStyle = { display: "block", fontSize: "0.85rem", fontWeight: 700, color: "#374151", marginBottom: "0.45rem" };
@@ -347,7 +347,7 @@ function RegisterInner() {
 
 export default function RegisterPage() {
     return (
-        <div dir="rtl" style={{ minHeight: "100vh", background: "linear-gradient(135deg,#f5f3ff,#ede9fe,#e0e7ff)", display: "flex", alignItems: "center", justifyContent: "center", padding: "2rem 1rem", fontFamily: "system-ui,sans-serif" }}>
+        <div dir="rtl" style={{ minHeight: "100vh", background: "linear-gradient(135deg,#f5f3ff,#ede9fe,#e0e7ff)", display: "flex", alignItems: "center", justifyContent: "center", padding: "2rem 1rem" }}>
             <div style={{ width: "100%", maxWidth: 480 }}>
 
                 {/* Logo */}

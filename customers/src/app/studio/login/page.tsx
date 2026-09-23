@@ -48,7 +48,7 @@ export default function StudioLoginPage() {
     if (checkingSession) return null;
 
     return (
-        <div dir="rtl" style={{ minHeight: "100vh", background: "linear-gradient(135deg,#f5f3ff,#ede9fe,#e0e7ff)", display: "flex", alignItems: "center", justifyContent: "center", padding: "2rem 1rem", fontFamily: "system-ui,sans-serif" }}>
+        <div dir="rtl" style={{ minHeight: "100vh", background: "linear-gradient(135deg,#f5f3ff,#ede9fe,#e0e7ff)", display: "flex", alignItems: "center", justifyContent: "center", padding: "2rem 1rem" }}>
             <div style={{ width: "100%", maxWidth: 420 }}>
 
                 {/* Logo */}

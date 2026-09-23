@@ -18,7 +18,7 @@ const STEPS = [
 
 export default function ForBusinessPage() {
     return (
-        <div dir="rtl" style={{ fontFamily: "system-ui,sans-serif", color: "#1e293b", background: "#fff" }}>
+        <div dir="rtl" style={{ color: "#1e293b", background: "#fff" }}>
 
             {/* Header */}
             <header style={{ background: "#fff", borderBottom: "1px solid #e2e8f0", padding: "0 1.5rem", height: 64, display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 50 }}>

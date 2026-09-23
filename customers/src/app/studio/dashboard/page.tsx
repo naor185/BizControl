@@ -17,7 +17,7 @@ export default function StudioDashboardRedirect() {
         <div style={{
             minHeight: "100vh", display: "flex", alignItems: "center",
             justifyContent: "center", background: "#f8fafc",
-            fontFamily: "system-ui, sans-serif", flexDirection: "column", gap: "1rem",
+            flexDirection: "column", gap: "1rem",
         }}>
             <div style={{
                 width: 44, height: 44, borderRadius: "50%",

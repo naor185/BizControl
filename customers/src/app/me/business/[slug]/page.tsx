@@ -92,7 +92,7 @@ export default function BusinessDetailPage() {
     }, [slug]);
 
     return (
-        <div dir="rtl" style={{ minHeight: "100vh", background: "#0f172a", color: "#f1f5f9", padding: "1.5rem 1rem 5rem", fontFamily: "system-ui,sans-serif" }}>
+        <div dir="rtl" style={{ minHeight: "100vh", background: "#0f172a", color: "#f1f5f9", padding: "1.5rem 1rem 5rem" }}>
             {/* Header */}
             <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "1.5rem" }}>
                 <Link href="/me" style={{ color: "#94a3b8", textDecoration: "none", fontSize: "1.2rem" }}>←</Link>

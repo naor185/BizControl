@@ -235,7 +235,7 @@ export default function BusinessPage() {
 
     return (
         <>
-        <div dir="rtl" style={{ minHeight: "100vh", background: "#0f172a", color: "#f1f5f9", fontFamily: "system-ui,sans-serif" }}>
+        <div dir="rtl" style={{ minHeight: "100vh", background: "#0f172a", color: "#f1f5f9" }}>
 
             {/* ── Lightbox ── */}
             {lightbox && (
