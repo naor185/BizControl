@@ -41,12 +41,13 @@ export default function PlanBar({ info }: { info: PlanInfo }) {
 
     return (
         <div
-            className="fixed inset-x-0 z-30 bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] md:bottom-0 md:right-60 bg-white/95 backdrop-blur-sm border-t border-slate-200 flex items-center gap-3 px-4 pl-24 text-xs"
+            className="fixed inset-x-0 z-30 bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] md:bottom-0 md:right-60 bg-white/95 backdrop-blur-sm border-t border-slate-200 flex md:grid md:grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 pl-24 text-xs"
             style={{ height: PLAN_BAR_HEIGHT }}
             dir="rtl"
         >
-            <span className={`font-semibold truncate ${urgent ? "text-rose-600" : "text-slate-600"}`}>{text}</span>
-            <span className="mr-auto flex items-center gap-3 shrink-0">
+            <span aria-hidden className="hidden md:block" />
+            <span className={`flex-1 md:flex-none min-w-0 text-center font-semibold truncate ${urgent ? "text-rose-600" : "text-orange-600"}`}>{text}</span>
+            <span className="flex items-center gap-3 shrink-0 md:justify-self-end">
                 {isTrial && (isNative ? (
                     <span className="text-slate-500">לרכישה: biz-control.com</span>
                 ) : (
