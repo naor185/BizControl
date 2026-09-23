@@ -379,17 +379,8 @@ def patch(appointment_id: UUID, payload: AppointmentUpdate, ctx: AuthContext = D
     except Exception as e:
         log.warning("Failed to handle reschedule jobs for %s: %s", appointment_id, e)
 
-    # Add stamp when appointment transitions to "done"
     new_status = payload.model_dump(exclude_unset=True).get("status")
     if new_status == "done" and prev_status != "done" and existing_appt and existing_appt.client_id:
-        try:
-            from app.crud.stamp_card import add_stamp_for_appointment, grant_stamp_reward
-            rewards = add_stamp_for_appointment(db, ctx.studio_id, existing_appt.client_id)
-            for r in rewards:
-                grant_stamp_reward(db, ctx.studio_id, existing_appt.client_id, r["card"])
-        except Exception as e:
-            log.warning("Stamp card error: %s", e)
-
         # Send non-member club invitation if client is not a club member
         try:
             from app.models.client import Client

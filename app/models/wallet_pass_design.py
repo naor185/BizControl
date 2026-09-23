@@ -29,7 +29,6 @@ class WalletPassDesign(Base):
 
     # Fields visibility
     show_points: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
-    show_tier: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
     show_barcode: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
 
     # Display name on card (defaults to studio name)

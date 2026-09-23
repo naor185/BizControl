@@ -26,8 +26,6 @@ const PAGE_LABELS: Record<string, string> = {
     "/team": "צוות",
     "/wallet": "עיצוב כרטיס מועדון",
     "/automation": "אוטומציה",
-    "/tiers": "רמות חברות",
-    "/stamps": "כרטיסי חותמת",
     "/leads": "לידים",
     "/billing": "חיוב",
 };

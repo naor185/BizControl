@@ -930,7 +930,7 @@ export default function StudioDetailPage() {
                             { id: "expenses",     label: "הוצאות",           icon: "💼", section: "ניהול" },
                             { id: "obligations",  label: "התחייבויות",      icon: "💳", section: "ניהול" },
                             { id: "employee_mgmt",label: "צוות",             icon: "🎨", section: "ניהול" },
-                            { id: "customer_club",label: "חותמות + VIP",    icon: "🎁", section: "ניהול" },
+                            { id: "customer_club",label: "מועדון לקוחות",   icon: "🎁", section: "ניהול" },
                         ] as const).map(item => {
                             const enabled = navModules[item.id] !== false;
                             const saving = togglingNav === item.id;
