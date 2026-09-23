@@ -99,6 +99,14 @@ class StaffRepository:
             c_pay = Decimal("0.00")
             if user.pay_type == "commission" and user.commission_rate > 0:
                 # Sum payments from appointments where user is the artist
+                # Payment.type != "refund" matters: a refund is stored as a
+                # SECOND, separate positive-amount Payment row (see
+                # payment_routes.py's refund handler) rather than negating
+                # the original — every other revenue query in this codebase
+                # (dashboard_routes.py, client_routes.py, crud/payment.py)
+                # excludes refund rows for exactly this reason. Without it,
+                # a refunded appointment's amount was summed twice (original
+                # + refund), overpaying commission on fully-refunded work.
                 commission_stmt = select(
                     func.sum(Payment.amount_cents)
                 ).join(
@@ -108,6 +116,7 @@ class StaffRepository:
                         Appointment.artist_id == user.id,
                         Payment.studio_id == studio_id,
                         Payment.status == "paid",
+                        Payment.type != "refund",
                         Payment.created_at >= start_date,
                         Payment.created_at <= end_date
                     )

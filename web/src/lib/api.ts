@@ -428,9 +428,10 @@ export interface ClockStatus {
 export interface PayrollItem {
     user_id: string;
     display_name: string;
-    pay_type: "hourly" | "commission" | "none";
+    pay_type: "hourly" | "commission" | "global" | "none";
     hourly_rate: number;
     commission_rate: number;
+    global_salary: number;
     total_hours: number;
     hourly_pay: number;
     commission_pay: number;

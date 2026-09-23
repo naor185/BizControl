@@ -1,5 +1,6 @@
 "use client";
 import { toast } from "@/lib/toast";
+import { Palette, Crown, User } from "lucide-react";
 
 import { useEffect, useState } from "react";
 import AppShell from "@/components/AppShell";
@@ -330,8 +331,9 @@ export default function TeamPage() {
                                     <label className="block text-sm font-semibold text-slate-700 mb-2">תפקיד</label>
                                     <div className="grid grid-cols-2 gap-2">
                                         {([
-                                            { value: "artist", label: "🎨 אמן/ת", desc: "גישה ליומן שלהם בלבד" },
-                                            { value: "admin",  label: "👑 סגן מנהל", desc: "גישה לכל הניהול" },
+                                            { value: "artist", icon: Palette, label: "אמן/ת", desc: "גישה ליומן שלהם בלבד" },
+                                            { value: "staff",  icon: User,    label: "איש/אשת צוות", desc: "עובד/ת ללא ניהול" },
+                                            { value: "admin",  icon: Crown,   label: "סגן מנהל", desc: "גישה לכל הניהול" },
                                         ] as const).map(opt => (
                                             <button
                                                 key={opt.value}
@@ -340,10 +342,11 @@ export default function TeamPage() {
                                                 className={[
                                                     "flex flex-col items-start gap-0.5 p-3 rounded-xl border-2 text-right transition-all",
                                                     role === opt.value
-                                                        ? "border-sky-600 bg-sky-600 text-white"
+                                                        ? "border-slate-900 bg-slate-900 text-white"
                                                         : "border-slate-200 bg-white text-slate-700 hover:border-slate-400",
                                                 ].join(" ")}
                                             >
+                                                <opt.icon className="w-4 h-4 mb-0.5" />
                                                 <span className="text-sm font-bold">{opt.label}</span>
                                                 <span className={`text-[11px] ${role === opt.value ? "text-slate-300" : "text-slate-400"}`}>{opt.desc}</span>
                                             </button>

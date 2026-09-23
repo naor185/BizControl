@@ -109,14 +109,15 @@ export default function StaffPage() {
                                                     <td className="px-8 py-5 font-bold text-slate-800">{item.display_name}</td>
                                                     <td className="px-8 py-5">
                                                         <span className={`px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-tighter ${
-                                                            item.pay_type === 'hourly' ? 'bg-blue-50 text-blue-600' : 
-                                                            item.pay_type === 'commission' ? 'bg-purple-50 text-purple-600' : 'bg-slate-50 text-slate-400'
+                                                            item.pay_type === 'hourly' ? 'bg-blue-50 text-blue-600' :
+                                                            item.pay_type === 'commission' ? 'bg-purple-50 text-purple-600' :
+                                                            item.pay_type === 'global' ? 'bg-teal-50 text-teal-600' : 'bg-slate-50 text-slate-400'
                                                         }`}>
-                                                            {item.pay_type === 'hourly' ? 'שעתי' : item.pay_type === 'commission' ? 'עמלות' : 'ללא'}
+                                                            {item.pay_type === 'hourly' ? 'שעתי' : item.pay_type === 'commission' ? 'עמלות' : item.pay_type === 'global' ? 'משכורת קבועה' : 'ללא'}
                                                         </span>
                                                     </td>
                                                     <td className="px-8 py-5 text-slate-600 font-mono">{item.total_hours.toFixed(1)}</td>
-                                                    <td className="px-8 py-5 text-slate-600" dir="ltr">₪{item.hourly_pay.toLocaleString()}</td>
+                                                    <td className="px-8 py-5 text-slate-600" dir="ltr">₪{(item.pay_type === 'global' ? item.global_salary : item.hourly_pay).toLocaleString()}</td>
                                                     <td className="px-8 py-5 text-slate-600" dir="ltr">₪{item.commission_pay.toLocaleString()}</td>
                                                     <td className="px-8 py-5">
                                                         <div className="text-lg font-black text-emerald-600" dir="ltr">₪{item.total_pay.toLocaleString()}</div>
