@@ -6,7 +6,7 @@ import {
     Briefcase, Lock, Unlock, KeyRound, Zap, BarChart3, ShieldCheck, ClipboardList, Timer,
     Wallet, Users, TrendingUp, Phone, Megaphone, Gift, Settings,
     CreditCard, Receipt, Banknote, UserCog, MessageSquare, Target, Mail,
-    Send, Clock, Package, ConciergeBell, Smartphone, LifeBuoy, Crown,
+    Send, Clock, Package, ConciergeBell, Smartphone, LifeBuoy, Crown, FileUp,
     type LucideIcon,
 } from "lucide-react";
 import AppShell from "@/components/AppShell";
@@ -36,6 +36,7 @@ const SECTION_GROUPS: { groupLabel: string; icon: LucideIcon; items: { href: str
             { href: "/clients?tab=club",  label: "מועדון לקוחות",   description: "חברים, נקודות, לוח אלופים וימי הולדת",           icon: Crown, gradient: "from-amber-500 to-amber-700", module: "crm" },
             { href: "/clients/analytics", label: "אנליטיקת לקוחות", description: "שימור, ערך לקוח, לקוחות שנעלמו ואחוזי המרה",      icon: BarChart3, gradient: "from-violet-500 to-violet-700" },
             { href: "/wallet",            label: "כרטיס דיגיטלי",    description: "עיצוב כרטיס מועדון ל-Apple/Google Wallet",       icon: Smartphone, gradient: "from-teal-500 to-teal-700" },
+            { href: "/migration",         label: "ייבוא נתונים",     description: "העברת לקוחות ושירותים ממערכת אחרת או מקובץ Excel", icon: FileUp, gradient: "from-emerald-500 to-emerald-700", module: "migration" },
         ],
     },
     {

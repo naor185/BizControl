@@ -251,6 +251,31 @@ def start_scheduler():
             db.close()
 
     scheduler.add_job(tick_cleanup_handoffs, "cron", hour=3, minute=0, id="handoff_cleanup", replace_existing=True)
+
+    def tick_migrations():
+        """Advance imports that are mid-scan or mid-import (also resumes them after a restart)."""
+        from app.migration.engine import tick
+        try:
+            tick()
+        except Exception:
+            logging.getLogger("bizcontrol.migration").exception("migration tick failed")
+
+    def tick_migration_purge():
+        """Raw source rows of finished imports are deleted after 30 days."""
+        from app.migration.engine import purge_old_raw
+        db = SessionLocal()
+        try:
+            purge_old_raw(db)
+        except Exception:
+            db.rollback()
+            logging.getLogger("bizcontrol.migration").exception("migration purge failed")
+        finally:
+            db.close()
+
+    scheduler.add_job(tick_migrations, "interval", seconds=15, id="migrations_tick", replace_existing=True,
+                      max_instances=1, coalesce=True)
+    scheduler.add_job(tick_migration_purge, "cron", hour=3, minute=30, timezone="Asia/Jerusalem",
+                      id="migrations_purge", replace_existing=True)
     scheduler.start()
 
 def stop_scheduler():

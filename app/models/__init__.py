@@ -32,6 +32,7 @@ from app.models.device_token import DeviceToken
 from app.models.customer_device_token import CustomerDeviceToken
 from app.models.staff_reminder_rule import StaffReminderRule
 from app.models.staff_reminder_log import StaffReminderSentLog
+from app.models.migration import Migration, MigrationRow, ExternalRecord, MigrationEvent
 
 __all__ = [
     "Base", "Studio", "User", "StudioSettings", "RefreshToken",
@@ -43,4 +44,5 @@ __all__ = [
     "FinancialObligation",
     "DeviceToken", "CustomerDeviceToken",
     "StaffReminderRule", "StaffReminderSentLog",
+    "Migration", "MigrationRow", "ExternalRecord", "MigrationEvent",
 ]

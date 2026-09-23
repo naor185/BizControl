@@ -1940,6 +1940,108 @@ def ensure_schema():
         """)
         cur.execute("CREATE INDEX IF NOT EXISTS ix_staff_reminder_sent_log_rule ON staff_reminder_sent_log (rule_id)")
 
+        # ── Universal Migration Engine (app/models/migration.py, app/migration/) ──
+        cur.execute("CREATE SEQUENCE IF NOT EXISTS migration_code_seq")
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS migrations (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                code VARCHAR(32) NOT NULL UNIQUE,
+                source VARCHAR(32) NOT NULL,
+                connector_version VARCHAR(16) NOT NULL,
+                entity_type VARCHAR(24) NOT NULL,
+                status VARCHAR(16) NOT NULL DEFAULT 'draft',
+                created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+                file_name VARCHAR(255),
+                settings JSONB NOT NULL DEFAULT '{}',
+                summary JSONB,
+                error TEXT,
+                heartbeat_at TIMESTAMPTZ,
+                started_at TIMESTAMPTZ,
+                completed_at TIMESTAMPTZ,
+                rolled_back_at TIMESTAMPTZ,
+                raw_purged_at TIMESTAMPTZ,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_migrations_studio ON migrations (studio_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_migrations_status ON migrations (status)")
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS migration_rows (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                migration_id UUID NOT NULL REFERENCES migrations(id) ON DELETE CASCADE,
+                studio_id UUID NOT NULL,
+                row_number INTEGER NOT NULL,
+                raw JSONB,
+                data JSONB,
+                issues JSONB,
+                external_id VARCHAR(128),
+                phone_key VARCHAR(40),
+                email_key VARCHAR(254),
+                name_key VARCHAR(200),
+                scanned BOOLEAN NOT NULL DEFAULT false,
+                match_status VARCHAR(20),
+                match_target_id UUID,
+                match_reason VARCHAR(48),
+                decision VARCHAR(8),
+                status VARCHAR(12) NOT NULL DEFAULT 'pending',
+                action VARCHAR(10),
+                local_id UUID,
+                applied JSONB,
+                link_created BOOLEAN NOT NULL DEFAULT false,
+                error TEXT,
+                CONSTRAINT uq_migration_row UNIQUE (migration_id, row_number)
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_migration_rows_migration ON migration_rows (migration_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_migration_rows_studio ON migration_rows (studio_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_migration_rows_match ON migration_rows (migration_id, match_status)")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_migration_rows_status ON migration_rows (migration_id, status)")
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS external_records (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                source VARCHAR(32) NOT NULL,
+                entity_type VARCHAR(24) NOT NULL,
+                external_id VARCHAR(128) NOT NULL,
+                local_id UUID NOT NULL,
+                migration_id UUID REFERENCES migrations(id) ON DELETE SET NULL,
+                created_by_migration BOOLEAN NOT NULL DEFAULT false,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                CONSTRAINT uq_external_record UNIQUE (studio_id, source, entity_type, external_id)
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_external_records_local ON external_records (local_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_external_records_migration ON external_records (migration_id)")
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS migration_events (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                migration_id UUID NOT NULL REFERENCES migrations(id) ON DELETE CASCADE,
+                studio_id UUID NOT NULL,
+                user_id UUID,
+                level VARCHAR(8) NOT NULL DEFAULT 'info',
+                code VARCHAR(48) NOT NULL,
+                message TEXT NOT NULL DEFAULT '',
+                data JSONB,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_migration_events_migration ON migration_events (migration_id)")
+
+        # The "migration" module. Granted to every plan once, when the module row is first created —
+        # not on every startup, so a superadmin who later removes it from a plan is not overridden.
+        cur.execute("SELECT 1 FROM modules WHERE id = 'migration'")
+        _migration_module_is_new = cur.fetchone() is None
+        cur.execute("""
+            INSERT INTO modules (id, name, category, sort_order)
+            VALUES ('migration', 'ייבוא נתונים ממערכות אחרות', 'core', 25)
+            ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, category = EXCLUDED.category
+        """)
+        if _migration_module_is_new:
+            cur.execute("INSERT INTO plan_modules (plan, module_id) SELECT id, 'migration' FROM plans ON CONFLICT DO NOTHING")
+
         conn.commit()
         cur.close()
         conn.close()
