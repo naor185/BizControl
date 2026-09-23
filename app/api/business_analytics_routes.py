@@ -23,6 +23,27 @@ def _month_range(year: int, month: int):
     return start, end
 
 
+def _localize_month_bounds(db: Session, studio_id, year: int, month: int) -> tuple[datetime, datetime]:
+    """
+    Month-boundary datetimes for filtering tz-aware columns (Payment.paid_at,
+    Appointment.starts_at). Hardcoding tzinfo=timezone.utc here silently
+    misattributes activity near local midnight to the wrong month for any
+    studio not on UTC — same bug class already fixed in payroll
+    (staff_routes.py's _localize_payroll_range) and consultation_conversion.
+    Localize to the studio's real timezone instead (same
+    "settings.timezone or Asia/Jerusalem" convention used throughout).
+    """
+    from calendar import monthrange
+    import pytz
+    from app.models.studio_settings import StudioSettings
+
+    settings = db.get(StudioSettings, studio_id)
+    tz = pytz.timezone(settings.timezone if settings and settings.timezone else "Asia/Jerusalem")
+    month_start = tz.localize(datetime(year, month, 1))
+    month_end = tz.localize(datetime(year, month, monthrange(year, month)[1], 23, 59, 59))
+    return month_start, month_end
+
+
 # ── Revenue trend (last 12 months) ───────────────────────────────────────────
 
 @router.get("/revenue-trend")
@@ -37,9 +58,7 @@ def revenue_trend(
     for i in range(months - 1, -1, -1):
         dt = (now.replace(day=1) - timedelta(days=i * 28)).replace(day=1)
         y, m = dt.year, dt.month
-        from calendar import monthrange
-        month_start = datetime(y, m, 1, tzinfo=timezone.utc)
-        month_end = datetime(y, m, monthrange(y, m)[1], 23, 59, 59, tzinfo=timezone.utc)
+        month_start, month_end = _localize_month_bounds(db, ctx.studio_id, y, m)
 
         revenue = db.scalar(
             select(func.sum(Payment.amount_cents)).where(
@@ -95,10 +114,8 @@ def revenue_by_service(
     from app.models.payment import Payment
     from app.models.appointment import Appointment
     from app.models.service import Service
-    from calendar import monthrange
 
-    month_start = datetime(year, month, 1, tzinfo=timezone.utc)
-    month_end = datetime(year, month, monthrange(year, month)[1], 23, 59, 59, tzinfo=timezone.utc)
+    month_start, month_end = _localize_month_bounds(db, ctx.studio_id, year, month)
 
     rows = db.execute(
         select(
@@ -153,10 +170,8 @@ def revenue_by_artist(
     from app.models.payment import Payment
     from app.models.appointment import Appointment
     from app.models.user import User
-    from calendar import monthrange
 
-    month_start = datetime(year, month, 1, tzinfo=timezone.utc)
-    month_end = datetime(year, month, monthrange(year, month)[1], 23, 59, 59, tzinfo=timezone.utc)
+    month_start, month_end = _localize_month_bounds(db, ctx.studio_id, year, month)
 
     rows = db.execute(
         select(
@@ -244,10 +259,8 @@ def retention_analysis(
     """New vs returning clients for the month."""
     from app.models.appointment import Appointment
     from app.models.client import Client
-    from calendar import monthrange
 
-    month_start = datetime(year, month, 1, tzinfo=timezone.utc)
-    month_end = datetime(year, month, monthrange(year, month)[1], 23, 59, 59, tzinfo=timezone.utc)
+    month_start, month_end = _localize_month_bounds(db, ctx.studio_id, year, month)
 
     # Clients with an appointment this month
     this_month_clients = set(db.scalars(
@@ -309,6 +322,7 @@ def top_clients(
             Client.studio_id == ctx.studio_id,
             Payment.studio_id == ctx.studio_id,
             Payment.status == "paid",
+            Payment.type != "refund",
         )
         .group_by(Client.id, Client.full_name, Client.phone)
         .order_by(func.sum(Payment.amount_cents).desc())
