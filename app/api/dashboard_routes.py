@@ -579,9 +579,18 @@ def get_loyalty_stats(
 
 
 @router.get("/consultation-conversion")
-def consultation_conversion(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+def consultation_conversion(
+    period: str = Query("month", pattern="^(week|month|2months)$"),
+    ctx: AuthContext = Depends(require_studio_ctx),
+    db: Session = Depends(get_db),
+):
     """אחוזי המרה: לקוחות שביצעו פגישת יעוץ ולאחר מכן קבעו תור אמיתי."""
     from app.models.service import Service
+
+    settings = db.get(StudioSettings, ctx.studio_id)
+    tz = pytz.timezone(settings.timezone if settings and settings.timezone else "Asia/Jerusalem")
+    period_days = {"week": 7, "month": 30, "2months": 60}[period]
+    since = datetime.now(tz) - timedelta(days=period_days)
 
     # כל תורי היעוץ — לפי כותרת המכילה 'יעוץ' או שם שירות המכיל 'יעוץ'
     consult_service_ids = db.scalars(
@@ -617,6 +626,7 @@ def consultation_conversion(ctx: AuthContext = Depends(require_studio_ctx), db: 
             Appointment.status.notin_(["canceled", "no_show"]),
         )
         .group_by(Appointment.client_id)
+        .having(func.min(Appointment.starts_at) >= since)
     ).all()
 
     total = len(consult_rows)

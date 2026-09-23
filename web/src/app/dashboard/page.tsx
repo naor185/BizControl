@@ -91,6 +91,9 @@ export default function Page() {
     const [depositSendReceipt, setDepositSendReceipt] = useState(true);
     const [depositReceipt, setDepositReceipt] = useState<{ invoiceId: string; docNum?: number } | null>(null);
     const [consultationConv, setConsultationConv] = useState<ConsultationConversion | null>(null);
+    type ConsultPeriod = "week" | "month" | "2months";
+    const [consultPeriod, setConsultPeriod] = useState<ConsultPeriod>("month");
+    const [consultLoading, setConsultLoading] = useState(false);
     type OccupancyPeriod = { booked_minutes: number; total_minutes: number; percent: number; count: number };
     type OccupancyData = { this_week: OccupancyPeriod; last_week: OccupancyPeriod; this_month: OccupancyPeriod; last_month: OccupancyPeriod; work_hours_per_day: number };
     const [occupancy, setOccupancy] = useState<OccupancyData | null>(null);
@@ -198,17 +201,26 @@ export default function Page() {
 
     const fetchAnalytics = async () => {
         try {
-            const [data, convData] = await Promise.all([
-                apiFetch<Analytics>("/api/dashboard/analytics"),
-                apiFetch<ConsultationConversion>("/api/dashboard/consultation-conversion").catch(() => null),
-            ]);
+            const data = await apiFetch<Analytics>("/api/dashboard/analytics");
             setAnalytics(data);
-            setConsultationConv(convData);
         } catch { /* silent */ }
+    };
+
+    const fetchConsultationConv = async (period: ConsultPeriod) => {
+        setConsultLoading(true);
+        try {
+            const convData = await apiFetch<ConsultationConversion>(`/api/dashboard/consultation-conversion?period=${period}`);
+            setConsultationConv(convData);
+        } catch {
+            setConsultationConv(null);
+        } finally {
+            setConsultLoading(false);
+        }
     };
 
     useEffect(() => { fetchData(); }, []);
     useEffect(() => { if (tab === "analytics" && !analytics) fetchAnalytics(); }, [tab]);
+    useEffect(() => { if (tab === "analytics") fetchConsultationConv(consultPeriod); }, [tab, consultPeriod]);
 
     const handlePaymentSuccess = () => { setIsPaymentModalOpen(false); fetchData(); };
 
@@ -720,39 +732,62 @@ export default function Page() {
                                 </div>
 
                                 {/* Consultation conversion */}
-                                {consultationConv && consultationConv.total_consultations > 0 && (
-                                    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-                                        <h3 className="font-bold text-slate-800 mb-4">אחוזי המרה — יעוצים לתורים</h3>
-                                        <div className="flex items-center gap-6 mb-4">
-                                            <div className="text-center">
-                                                <div className="text-4xl font-bold text-slate-900">{consultationConv.conversion_rate}%</div>
-                                                <div className="text-xs text-slate-400 mt-1">אחוז המרה</div>
-                                            </div>
-                                            <div className="flex-1 space-y-3">
-                                                {[
-                                                    { label: "קבעו תור אחרי יעוץ", value: consultationConv.converted, color: "bg-slate-900" },
-                                                    { label: "לא קבעו עדיין", value: consultationConv.not_converted, color: "bg-slate-200" },
-                                                ].map(item => {
-                                                    const pct = consultationConv.total_consultations > 0
-                                                        ? Math.round((item.value / consultationConv.total_consultations) * 100)
-                                                        : 0;
-                                                    return (
-                                                        <div key={item.label}>
-                                                            <div className="flex justify-between text-sm mb-1">
-                                                                <span className="text-slate-600">{item.label}</span>
-                                                                <span className="font-bold text-slate-800">{item.value} <span className="text-slate-400 font-normal">({pct}%)</span></span>
-                                                            </div>
-                                                            <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                                                                <div className={`h-full ${item.color} rounded-full transition-all duration-700`} style={{ width: `${pct}%` }} />
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })}
+                                {consultationConv && (
+                                    <div className={`bg-white rounded-2xl border border-slate-100 shadow-sm p-6 transition-opacity ${consultLoading ? "opacity-50" : ""}`}>
+                                        <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+                                            <h3 className="font-bold text-slate-800">אחוזי המרה — יעוצים לתורים</h3>
+                                            <div className="flex bg-slate-50 border border-slate-200 rounded-xl overflow-hidden text-xs">
+                                                {([
+                                                    { key: "week", label: "שבוע" },
+                                                    { key: "month", label: "חודש" },
+                                                    { key: "2months", label: "חודשיים" },
+                                                ] as const).map(p => (
+                                                    <button
+                                                        key={p.key}
+                                                        onClick={() => setConsultPeriod(p.key)}
+                                                        className={`px-3 py-1.5 font-semibold transition-colors ${consultPeriod === p.key ? "bg-slate-900 text-white" : "text-slate-500 hover:bg-slate-100"}`}
+                                                    >
+                                                        {p.label}
+                                                    </button>
+                                                ))}
                                             </div>
                                         </div>
-                                        <div className="text-xs text-slate-400 border-t border-slate-100 pt-3">
-                                            סה״כ {consultationConv.total_consultations} פגישות יעוץ נרשמו במערכת
-                                        </div>
+                                        {consultationConv.total_consultations === 0 ? (
+                                            <div className="text-center text-slate-400 text-sm py-8">אין פגישות יעוץ בתקופה שנבחרה</div>
+                                        ) : (
+                                            <>
+                                                <div className="flex items-center gap-6 mb-4">
+                                                    <div className="text-center">
+                                                        <div className="text-4xl font-bold text-slate-900">{consultationConv.conversion_rate}%</div>
+                                                        <div className="text-xs text-slate-400 mt-1">אחוז המרה</div>
+                                                    </div>
+                                                    <div className="flex-1 space-y-3">
+                                                        {[
+                                                            { label: "קבעו תור אחרי יעוץ", value: consultationConv.converted, color: "bg-slate-900" },
+                                                            { label: "לא קבעו עדיין", value: consultationConv.not_converted, color: "bg-slate-200" },
+                                                        ].map(item => {
+                                                            const pct = consultationConv.total_consultations > 0
+                                                                ? Math.round((item.value / consultationConv.total_consultations) * 100)
+                                                                : 0;
+                                                            return (
+                                                                <div key={item.label}>
+                                                                    <div className="flex justify-between text-sm mb-1">
+                                                                        <span className="text-slate-600">{item.label}</span>
+                                                                        <span className="font-bold text-slate-800">{item.value} <span className="text-slate-400 font-normal">({pct}%)</span></span>
+                                                                    </div>
+                                                                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                                                                        <div className={`h-full ${item.color} rounded-full transition-all duration-700`} style={{ width: `${pct}%` }} />
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                                <div className="text-xs text-slate-400 border-t border-slate-100 pt-3">
+                                                    סה״כ {consultationConv.total_consultations} פגישות יעוץ נרשמו בתקופה שנבחרה
+                                                </div>
+                                            </>
+                                        )}
                                     </div>
                                 )}
 
