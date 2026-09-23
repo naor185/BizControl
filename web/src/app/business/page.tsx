@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import {
     Briefcase, Lock, Unlock, KeyRound, Zap, BarChart3, ShieldCheck, ClipboardList, Timer,
     Wallet, Users, TrendingUp, Phone, Megaphone, Gift, Settings,
-    CreditCard, Landmark, Receipt, Banknote, Tag, UserCog, MessageSquare, Bell, Target, Mail,
+    CreditCard, Landmark, Receipt, Banknote, UserCog, MessageSquare, Bell, Target, Mail,
     Send, Clock, Package, ConciergeBell, Stamp, Smartphone, LifeBuoy,
     type LucideIcon,
 } from "lucide-react";
@@ -23,11 +23,9 @@ const SECTION_GROUPS: { groupLabel: string; icon: LucideIcon; items: { href: str
         icon: Wallet,
         items: [
             { href: "/payments",    label: "תשלומים",         description: "היסטוריית תשלומים ואישורים",                   icon: CreditCard, gradient: "from-violet-500 to-violet-700" },
-            { href: "/expenses",    label: "הוצאות עסקיות",   description: "הוצאות, קטגוריות ודוחות",                      icon: BarChart3, gradient: "from-orange-500 to-orange-700" },
-            { href: "/billing",     label: "מנוי וחיוב",      description: "תוכנית מנוי ופרטי חיוב",                       icon: Landmark, gradient: "from-indigo-500 to-indigo-700" },
             { href: "/invoices",    label: "חשבוניות",        description: "חשבוניות, קבלות ומסמכים כספיים",               icon: Receipt, gradient: "from-emerald-500 to-emerald-700" },
+            { href: "/expenses",    label: "הוצאות עסקיות",   description: "הוצאות, קטגוריות ודוחות",                      icon: BarChart3, gradient: "from-orange-500 to-orange-700" },
             { href: "/obligations", label: "התחייבויות",      description: "התחייבויות ותשלומים עתידיים",                  icon: Banknote, gradient: "from-red-500 to-red-700", module: "obligations" },
-            { href: "/deposits",    label: "רשימת פיקדונות",  description: "פיקדונות שממתינים לגבייה או וויתור",           icon: Tag, gradient: "from-lime-600 to-emerald-700" },
         ],
     },
     {
@@ -81,6 +79,7 @@ const SECTION_GROUPS: { groupLabel: string; icon: LucideIcon; items: { href: str
         icon: Settings,
         items: [
             { href: "/automation",     label: "הגדרות",          description: "מיתוג, אוטומציות, תשלומים, אינטגרציות והגדרות מייל", icon: Settings, gradient: "from-slate-500 to-slate-700" },
+            { href: "/billing",        label: "מנוי וחיוב",      description: "תוכנית מנוי ופרטי חיוב",                       icon: Landmark, gradient: "from-indigo-500 to-indigo-700" },
             { href: "/help",           label: "מרכז עזרה",       description: "מדריכים, תמיכה ויצירת קשר",                     icon: LifeBuoy, gradient: "from-gray-500 to-gray-700" },
         ],
     },

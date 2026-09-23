@@ -737,7 +737,7 @@ def ensure_schema():
         """)
 
         # ── Seed plan → module defaults (idempotent) ──────────────────────────
-        _NAV_MODULES = ["pos", "products", "expenses", "obligations", "services", "broadcasts"]
+        _NAV_MODULES = ["pos", "products", "expenses", "services", "broadcasts"]
         PLAN_MODULES = {
             # "trial" (14-day free trial at signup) is meant to get full access —
             # was previously missing from this dict, which resolved every
@@ -785,6 +785,23 @@ def ensure_schema():
                     INSERT INTO plan_modules (plan, module_id) VALUES (%s, %s)
                     ON CONFLICT DO NOTHING
                 """, (plan, mod))
+
+        # "obligations" (התחייבויות) used to be a default core module on
+        # every plan via _NAV_MODULES — now opt-in only, granted per studio
+        # by the superadmin via a studio_modules override, not by plan.
+        # Removing it from _NAV_MODULES above only stops it being RE-seeded;
+        # the plan_modules rows already inserted on earlier startups need an
+        # explicit delete to actually revoke the default (ON CONFLICT DO
+        # NOTHING above never removes anything). Every studio currently
+        # getting it only via a plan default loses it; the one below
+        # (Nctattoo, the studio owner's own) gets it back via its own
+        # explicit override so nothing regresses there.
+        cur.execute("DELETE FROM plan_modules WHERE module_id = 'obligations'")
+        cur.execute("""
+            INSERT INTO studio_modules (id, studio_id, module_id, is_enabled)
+            VALUES (gen_random_uuid(), 'f390d761-c9ca-425d-88c3-647b4ccee2d2', 'obligations', true)
+            ON CONFLICT (studio_id, module_id) DO UPDATE SET is_enabled = true
+        """)
 
         # Quota config for ai_theme_generate — same 3/month cap for every
         # plan, matching the old global hardcoded check in automation_routes.py.
