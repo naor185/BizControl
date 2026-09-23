@@ -26,7 +26,7 @@ from app.core.deps import AuthContext, require_studio_ctx
 from app.core.billing import apply_subscription_event, get_payment_provider
 from app.models.studio import Studio
 from app.models.subscription import Subscription
-from app.models.module import Plan
+from app.models.module import Module, Plan, PlanModule
 
 router = APIRouter(prefix="/billing", tags=["Billing"])
 
@@ -99,6 +99,53 @@ def billing_status(ctx: AuthContext = Depends(require_studio_ctx), db: Session =
     }
 
 
+# ── Plans (real specs) ────────────────────────────────────────────────────────
+
+_PERIOD_LABELS = {"daily": "ליום", "weekly": "לשבוע", "monthly": "לחודש", "yearly": "לשנה", "lifetime": "בסך הכול"}
+_CATEGORY_ORDER = {"core": 0, "communication": 1, "ai": 2, "marketplace": 3, "finance": 4, "advanced": 5}
+
+
+@router.get("/plans")
+def billing_plans(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+    """
+    The plans a studio can buy, with what each one actually includes — read from the same
+    plan_modules table the Plan Management Center edits, not from hand-written marketing
+    copy. purchasable_now is False while the plan has no Stripe price id (checkout would refuse).
+    """
+    plans = db.scalars(
+        select(Plan).where(
+            Plan.is_active == True,  # noqa: E712
+            Plan.is_visible == True,  # noqa: E712
+            Plan.scope_bizcontrol == True,  # noqa: E712
+            Plan.is_purchasable == True,  # noqa: E712
+        ).order_by(Plan.sort_order)
+    ).all()
+
+    out = []
+    for p in plans:
+        rows = db.execute(
+            select(Module.name, Module.category, Module.sort_order, PlanModule.limit_value, PlanModule.period_type)
+            .join(PlanModule, PlanModule.module_id == Module.id)
+            .where(PlanModule.plan == p.id, Module.parent_module_id.is_(None), Module.is_available == True)  # noqa: E712
+        ).all()
+        rows = sorted(rows, key=lambda r: (_CATEGORY_ORDER.get(r.category, 99), r.sort_order, r.name))
+        modules = []
+        for r in rows:
+            limit = None
+            if r.period_type != "unlimited" and r.limit_value is not None:
+                limit = f"עד {r.limit_value} {_PERIOD_LABELS.get(r.period_type, '')}".strip()
+            modules.append({"name": r.name, "limit": limit})
+        out.append({
+            "key": p.id,
+            "label": p.display_name,
+            "price_ils": p.price_cents // 100,
+            "period_days": p.billing_period_days,
+            "purchasable_now": bool(p.stripe_price_id),
+            "modules": modules,
+        })
+    return out
+
+
 # ── Checkout ──────────────────────────────────────────────────────────────────
 
 @router.post("/checkout")
@@ -124,14 +171,14 @@ def create_checkout(
 
     # If already has a subscription → send to the portal instead of a second checkout
     if studio.stripe_subscription_id:
-        url = provider.create_portal_session(studio, return_url=f"{base}/billing")
+        url = provider.create_portal_session(studio, return_url=f"{base}/overview?billing=portal")
         return {"url": url, "mode": "portal"}
 
     try:
         url = provider.create_checkout(
             studio, plan,
-            success_url=f"{base}/billing?success=1&plan={payload.plan}",
-            cancel_url=f"{base}/billing?canceled=1",
+            success_url=f"{base}/overview?billing=success&plan={payload.plan}",
+            cancel_url=f"{base}/overview?billing=canceled",
         )
     finally:
         db.commit()  # provider.create_checkout may have set studio.stripe_customer_id
@@ -149,7 +196,7 @@ def customer_portal(request: Request, ctx: AuthContext = Depends(require_studio_
     if not studio or not studio.stripe_customer_id:
         raise HTTPException(status_code=400, detail="No billing account found")
 
-    url = get_payment_provider().create_portal_session(studio, return_url=f"{_return_base(request)}/billing")
+    url = get_payment_provider().create_portal_session(studio, return_url=f"{_return_base(request)}/overview?billing=portal")
     return {"url": url}
 
 

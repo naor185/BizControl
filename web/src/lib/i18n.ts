@@ -21,7 +21,6 @@ export const translations = {
         nav_payroll:    "דוחות שכר",
         nav_messages:   "יומן הודעות",
         nav_payments:   "תשלומים",
-        nav_billing:    "מנוי ותשלום",
         nav_settings:   "הגדרות",
         nav_help:       "מרכז עזרה",
         nav_leads:      "לידים",
@@ -70,12 +69,6 @@ export const translations = {
         appt_canceled:  "בוטל",
         appt_no_show:   "לא הגיע",
         // Billing
-        billing_title:  "מנוי ותשלום",
-        billing_plan:   "תכנית נוכחית",
-        billing_manage: "נהל מנוי",
-        billing_upgrade: "שדרג",
-        billing_start:  "התחל עכשיו",
-        billing_current: "תכנית נוכחית",
         // Portal
         portal_welcome:  "שלום,",
         portal_points:   "נקודות",
@@ -102,7 +95,6 @@ export const translations = {
         nav_payroll:    "Payroll",
         nav_messages:   "Message Log",
         nav_payments:   "Payments",
-        nav_billing:    "Subscription",
         nav_settings:   "Settings",
         nav_help:       "Help",
         nav_leads:      "Leads",
@@ -151,12 +143,6 @@ export const translations = {
         appt_canceled:  "Canceled",
         appt_no_show:   "No Show",
         // Billing
-        billing_title:  "Subscription & Billing",
-        billing_plan:   "Current Plan",
-        billing_manage: "Manage Subscription",
-        billing_upgrade: "Upgrade",
-        billing_start:  "Get Started",
-        billing_current: "Current Plan",
         // Portal
         portal_welcome:  "Hello,",
         portal_points:   "Points",
@@ -183,7 +169,6 @@ export const translations = {
         nav_payroll:    "الرواتب",
         nav_messages:   "سجل الرسائل",
         nav_payments:   "المدفوعات",
-        nav_billing:    "الاشتراك",
         nav_settings:   "الإعدادات",
         nav_help:       "المساعدة",
         nav_leads:      "العملاء المحتملون",
@@ -232,12 +217,6 @@ export const translations = {
         appt_canceled:  "ملغى",
         appt_no_show:   "لم يحضر",
         // Billing
-        billing_title:  "الاشتراك والفواتير",
-        billing_plan:   "الخطة الحالية",
-        billing_manage: "إدارة الاشتراك",
-        billing_upgrade: "ترقية",
-        billing_start:  "ابدأ الآن",
-        billing_current: "الخطة الحالية",
         // Portal
         portal_welcome:  "مرحباً،",
         portal_points:   "نقاط",

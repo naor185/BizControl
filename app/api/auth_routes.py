@@ -720,13 +720,16 @@ def resend_verification(request: Request, current_user: User = Depends(get_curre
 
 @router.get("/studio-info")
 def studio_info(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Lightweight endpoint — returns studio plan + expiry for trial banner."""
+    """Lightweight endpoint — studio plan + expiry, drives the always-visible plan bar."""
     from app.models.studio import Studio
+    from app.models.module import Plan
     studio = db.get(Studio, current_user.studio_id)
     if not studio:
         raise HTTPException(status_code=404, detail="Studio not found")
+    plan = db.get(Plan, studio.subscription_plan)
     return {
         "subscription_plan": studio.subscription_plan,
+        "plan_label": plan.display_name if plan else studio.subscription_plan,
         "plan_expires_at": studio.plan_expires_at.isoformat() if studio.plan_expires_at else None,
         "is_active": studio.is_active,
     }

@@ -17,6 +17,7 @@ import { useLang } from "./LanguageProvider";
 import { LOCALES } from "@/lib/i18n";
 import { isBusinessSessionValid } from "@/lib/businessSession";
 import { useNewLeadsCount } from "@/lib/useNewLeadsCount";
+import PlanBar, { PLAN_BAR_HEIGHT, type PlanInfo } from "./PlanBar";
 import { registerForPushNotifications } from "@/lib/push";
 
 type Me = {
@@ -62,7 +63,7 @@ export default function AppShell({
     const [langOpen, setLangOpen] = useState(false);
 
     const [me, setMe] = useState<Me | null>(null);
-    const [trialDaysLeft, setTrialDaysLeft] = useState<number | null>(null);
+    const [planInfo, setPlanInfo] = useState<PlanInfo | null>(null);
     const [locations, setLocations] = useState<{ id: string; name: string; location_name: string; logo_url?: string; primary_color: string }[]>([]);
     const [switchingLocation, setSwitchingLocation] = useState(false);
     const [isImpersonating, setIsImpersonating] = useState(false);
@@ -116,17 +117,14 @@ export default function AppShell({
                     apiFetch<any[]>("/api/appointments/pending-deposits").catch(() => []),
                     apiFetch<any[]>("/api/locations").catch(() => []),
                     apiFetch<Record<string, boolean>>("/api/modules/me").catch(() => null),
-                    apiFetch<{ subscription_plan: string; plan_expires_at: string | null }>("/api/auth/studio-info").catch(() => null),
+                    apiFetch<PlanInfo>("/api/auth/studio-info").catch(() => null),
                 ]);
                 setMe(data);
                 setPinStatus(pin);
                 setPendingDepositsCount(deposits.length);
                 if (locs.length > 1) setLocations(locs);
                 setEnabledModules(mods);
-                if (studioInfo?.plan_expires_at && studioInfo.subscription_plan === "trial") {
-                    const days = Math.ceil((new Date(studioInfo.plan_expires_at).getTime() - Date.now()) / 86_400_000);
-                    if (days >= 0 && days <= 14) setTrialDaysLeft(days);
-                }
+                if (studioInfo) setPlanInfo(studioInfo);
             } catch { /* silent */ }
         })();
     }, []);
@@ -171,23 +169,6 @@ export default function AppShell({
 
     return (
         <div className="min-h-screen bg-slate-50" dir={dir}>
-            {/* Trial banner */}
-            {trialDaysLeft !== null && (
-                <div className="text-white text-sm font-semibold px-4 py-2.5 flex items-center justify-between z-50 relative" style={{ background: "linear-gradient(to right, var(--primary), var(--secondary))" }}>
-                    <span className="flex items-center gap-2">
-                        <span>🔬</span>
-                        <span>
-                            {trialDaysLeft === 0
-                                ? "ניסיון חינמי מסתיים היום!"
-                                : `ניסיון חינמי — נותרו ${trialDaysLeft} ימים`}
-                        </span>
-                    </span>
-                    <Link href="/billing" className="bg-white px-3 py-1 rounded-lg text-xs font-bold hover:opacity-90 transition-opacity no-underline" style={{ color: "var(--primary)" }}>
-                        שדרגו עכשיו ←
-                    </Link>
-                </div>
-            )}
-
             {/* Email verification banner (soft — does not block usage) */}
             {me?.email_verified === false && (
                 <div className="bg-amber-500 text-white text-sm font-semibold px-4 py-2.5 flex items-center justify-between gap-2 z-50 relative">
@@ -443,11 +424,15 @@ export default function AppShell({
                         </div>
                     </header>
 
-                    <main className={fullBleed ? "h-[calc(100dvh-3.5rem-env(safe-area-inset-top,0px))] overflow-hidden" : "p-5 pb-28 md:pb-6"}>{children}</main>
+                    <main
+                        className={fullBleed ? "overflow-hidden" : planInfo ? "p-5 pb-40 md:pb-16" : "p-5 pb-28 md:pb-6"}
+                        style={fullBleed ? { height: `calc(100dvh - 3.5rem - env(safe-area-inset-top, 0px)${planInfo ? ` - ${PLAN_BAR_HEIGHT}` : ""})` } : undefined}
+                    >{children}</main>
                 </div>
             </div>
 
             <AIAssistant />
+            {planInfo && <PlanBar info={planInfo} />}
             <BottomNav />
             <ToastContainer />
             <GlobalToast />

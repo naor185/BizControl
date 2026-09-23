@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import {
     Briefcase, Lock, Unlock, KeyRound, Zap, BarChart3, ShieldCheck, ClipboardList, Timer,
     Wallet, Users, TrendingUp, Phone, Megaphone, Gift, Settings,
-    CreditCard, Landmark, Receipt, Banknote, UserCog, MessageSquare, Target, Mail,
+    CreditCard, Receipt, Banknote, UserCog, MessageSquare, Target, Mail,
     Send, Clock, Package, ConciergeBell, Smartphone, LifeBuoy, Crown,
     type LucideIcon,
 } from "lucide-react";
@@ -84,7 +84,6 @@ const SECTION_GROUPS: { groupLabel: string; icon: LucideIcon; items: { href: str
         icon: Settings,
         items: [
             { href: "/automation",     label: "הגדרות",          description: "מיתוג, אוטומציות, תשלומים, אינטגרציות והגדרות מייל", icon: Settings, gradient: "from-slate-500 to-slate-700" },
-            { href: "/billing",        label: "מנוי וחיוב",      description: "תוכנית מנוי ופרטי חיוב",                       icon: Landmark, gradient: "from-indigo-500 to-indigo-700" },
             { href: "/help",           label: "מרכז עזרה",       description: "מדריכים, תמיכה ויצירת קשר",                     icon: LifeBuoy, gradient: "from-gray-500 to-gray-700" },
         ],
     },

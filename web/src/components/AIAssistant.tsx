@@ -29,7 +29,6 @@ const PAGE_LABELS: Record<string, string> = {
     "/leads": "לידים",
     "/overview": "דשבורד",
     "/setup": "הקמת העסק",
-    "/billing": "חיוב",
 };
 
 function getPageLabel(pathname: string): string {
