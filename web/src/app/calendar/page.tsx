@@ -13,38 +13,28 @@ import BottomSheet from "@/components/ui/bottom-sheet";
 import { HIDE_BOOKING_BANNER_KEY } from "@/lib/localPrefs";
 import StaffReminderRulesSettings from "@/components/StaffReminderRulesSettings";
 
-const IL_HOLIDAYS = [
-    { date: "2025-09-22", name: "🍎 ראש השנה א׳",   info: 'ראש השנה תשפ"ו' },
-    { date: "2025-09-23", name: "🍎 ראש השנה ב׳",   info: 'ראש השנה — יום שני' },
-    { date: "2025-10-01", name: "🤍 יום כיפור",      info: 'יום הכיפורים תשפ"ו' },
-    { date: "2025-10-06", name: "🌿 סוכות א׳",       info: 'חג הסוכות א׳' },
-    { date: "2025-10-13", name: "🌿 הושענא רבה",     info: 'הושענא רבה' },
-    { date: "2025-10-14", name: "🌿 שמחת תורה",      info: 'שמיני עצרת / שמחת תורה' },
-    { date: "2025-12-14", name: "🕎 חנוכה א׳",       info: 'חנוכה — נר ראשון' },
-    { date: "2025-12-15", name: "🕎 חנוכה ב׳",       info: 'חנוכה — נר שני' },
-    { date: "2025-12-16", name: "🕎 חנוכה ג׳",       info: 'חנוכה — נר שלישי' },
-    { date: "2025-12-17", name: "🕎 חנוכה ד׳",       info: 'חנוכה — נר רביעי' },
-    { date: "2025-12-18", name: "🕎 חנוכה ה׳",       info: 'חנוכה — נר חמישי' },
-    { date: "2025-12-19", name: "🕎 חנוכה ו׳",       info: 'חנוכה — נר שישי' },
-    { date: "2025-12-20", name: "🕎 חנוכה ז׳",       info: 'חנוכה — נר שביעי' },
-    { date: "2025-12-21", name: "🕎 חנוכה ח׳",       info: 'זאת חנוכה — נר שמיני' },
-    { date: "2026-02-13", name: '🌳 ט"ו בשבט',       info: 'ט"ו בשבט תשפ"ו — חג האילנות' },
-    { date: "2026-03-04", name: "🎭 פורים",           info: 'פורים תשפ"ו' },
-    { date: "2026-03-05", name: "🎭 שושן פורים",      info: 'שושן פורים תשפ"ו' },
-    { date: "2026-04-01", name: "🫓 ערב פסח",         info: 'ערב פסח תשפ"ו' },
-    { date: "2026-04-02", name: "🫓 פסח א׳",          info: 'פסח — יום ראשון' },
-    { date: "2026-04-08", name: "🫓 פסח ז׳",          info: 'פסח — יום שביעי' },
-    { date: "2026-04-09", name: "🫓 אסרו חג",         info: 'אסרו חג פסח' },
-    { date: "2026-04-16", name: "🕯️ יום השואה",      info: 'יום הזיכרון לשואה ולגבורה' },
-    { date: "2026-05-05", name: "🪖 יום הזיכרון",    info: 'יום הזיכרון לחללי מערכות ישראל' },
-    { date: "2026-05-06", name: "🇮🇱 יום העצמאות",   info: 'יום העצמאות ה-78 למדינת ישראל' },
-    { date: "2026-05-14", name: '🔥 ל"ג בעומר',       info: 'ל"ג בעומר תשפ"ו' },
-    { date: "2026-05-22", name: "📜 שבועות א׳",       info: 'שבועות תשפ"ו — יום ראשון' },
-    { date: "2026-05-23", name: "📜 שבועות ב׳",       info: 'שבועות — יום שני' },
-    { date: "2026-08-01", name: "😢 תשעה באב",        info: 'תשעה באב תשפ"ו' },
-    { date: "2026-09-11", name: "🍎 ראש השנה א׳",   info: 'ראש השנה תשפ"ז' },
-    { date: "2026-09-12", name: "🍎 ראש השנה ב׳",   info: 'ראש השנה תשפ"ז — יום שני' },
-];
+// Emoji for a Jewish-calendar event (hebcal gives the English name + flag bits).
+function holidayEmoji(desc: string, f: number, F: Record<string, number>): string {
+    const d = desc.toLowerCase();
+    if (f & F.PARSHA_HASHAVUA) return "📖";
+    if (f & F.ROSH_CHODESH) return "🌙";
+    if (d.includes("rosh hashana")) return "🍎";
+    if (d.includes("yom kippur")) return "🤍";
+    if (d.includes("sukkot") || d.includes("hoshana")) return "🌿";
+    if (d.includes("shmini atzeret") || d.includes("simchat torah")) return "📜";
+    if (d.includes("chanukah")) return "🕎";
+    if (d.includes("tu bishvat")) return "🌳";
+    if (d.includes("purim")) return "🎭";
+    if (d.includes("pesach")) return "🫓";
+    if (d.includes("shavuot")) return "🌾";
+    if (d.includes("lag b")) return "🔥";
+    if (d.includes("tish") && d.includes("av")) return "🖤";
+    if (d.includes("yom hashoah") || d.includes("yom hazikaron")) return "🕯️";
+    if (d.includes("yom haatzma") || d.includes("yom ha'atzma")) return "🇮🇱";
+    if (d.includes("yom yerushalayim")) return "🏙️";
+    if (f & (F.MINOR_FAST | F.MAJOR_FAST)) return "🕯️";
+    return "✡️";
+}
 
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
@@ -196,7 +186,7 @@ export default function CalendarPage() {
         if (saved !== null) setShowHolidays(saved === "true");
     }, []);
     const [currentDateRange, setCurrentDateRange] = useState("");
-    const [holidayPopup, setHolidayPopup] = useState<{ name: string; info: string } | null>(null);
+    const [holidayPopup, setHolidayPopup] = useState<{ emoji: string; name: string; info: string } | null>(null);
 
     useEffect(() => {
         // Set the real value once mounted (client-only, post-hydration — safe).
@@ -432,21 +422,54 @@ export default function CalendarPage() {
             .catch(() => {});
     }, []);
 
+    // Jewish calendar, computed for the range on screen (not a fixed list) so every holiday, fast, Rosh
+    // Chodesh, weekly Torah portion and Israeli national/memorial day is exact for any year, forever.
+    // Loaded on demand — it is a big library and only this page needs it.
+    const [hebcal, setHebcal] = useState<typeof import("@hebcal/core") | null>(null);
+    useEffect(() => {
+        import("@hebcal/core").then(setHebcal).catch(() => { /* holidays simply don't show */ });
+    }, []);
+
     const holidayEvents = useMemo(() => {
-        if (!showHolidays) return [];
-        return IL_HOLIDAYS.map(h => ({
-            id: `holiday-${h.date}`,
-            title: h.name,
-            start: h.date,
-            allDay: true,
-            display: "block" as const,
-            backgroundColor: "#e0f2fe",
-            borderColor: "#7dd3fc",
-            textColor: "#0369a1",
-            classNames: ["holiday-event"],
-            extendedProps: { isHoliday: true, holidayInfo: h.info, holidayName: h.name },
-        }));
-    }, [showHolidays]);
+        if (!showHolidays || !hebcal) return [];
+        const { HebrewCalendar, Locale, flags: F } = hebcal;
+        const heb = (t: string) => Locale.hebrewStripNikkud(t);
+        const pad = (n: number) => String(n).padStart(2, "0");
+        const styleFor = (f: number) => {
+            if (f & F.CHAG) return { bg: "#e0f2fe", border: "#7dd3fc", text: "#0369a1" };          // yom tov
+            if (f & (F.MINOR_FAST | F.MAJOR_FAST)) return { bg: "#f1f5f9", border: "#cbd5e1", text: "#475569" };   // fasts
+            if (f & F.ROSH_CHODESH) return { bg: "#eef2ff", border: "#c7d2fe", text: "#4338ca" };
+            if (f & F.MODERN_HOLIDAY) return { bg: "#ecfeff", border: "#a5f3fc", text: "#0e7490" };   // Israeli days
+            if (f & (F.PARSHA_HASHAVUA | F.SPECIAL_SHABBAT)) return { bg: "#f8fafc", border: "#e2e8f0", text: "#64748b" };
+            return { bg: "#f0f9ff", border: "#bae6fd", text: "#0369a1" };                             // erev, chol hamoed, chanukah, minor
+        };
+        return HebrewCalendar.calendar({ start: new Date(from), end: new Date(to), il: true, sedrot: true }).map(ev => {
+            const f = ev.getFlags();
+            const hd = ev.getDate();
+            const g = hd.greg();
+            const iso = `${g.getFullYear()}-${pad(g.getMonth() + 1)}-${pad(g.getDate())}`;
+            const name = heb(ev.render("he"));
+            const emoji = holidayEmoji(ev.getDesc(), f, F as unknown as Record<string, number>);
+            const c = styleFor(f);
+            return {
+                id: `holiday-${iso}-${ev.getDesc()}`,
+                title: `${emoji} ${name}`,
+                start: iso,
+                allDay: true,
+                display: "block" as const,
+                backgroundColor: c.bg,
+                borderColor: c.border,
+                textColor: c.text,
+                classNames: ["holiday-event"],
+                extendedProps: {
+                    isHoliday: true,
+                    holidayEmoji: emoji,
+                    holidayName: name,
+                    holidayInfo: `${heb(hd.renderGematriya())} · ${g.getDate()}.${g.getMonth() + 1}.${g.getFullYear()}`,
+                },
+            };
+        });
+    }, [showHolidays, hebcal, from, to]);
 
     // Format appointments for FullCalendar
     const events = useMemo(() => {
@@ -595,7 +618,7 @@ export default function CalendarPage() {
         if (isDraggingEvent.current) return;
         const app = clickInfo.event.extendedProps;
         if (app.isHoliday) {
-            setHolidayPopup({ name: app.holidayName, info: app.holidayInfo });
+            setHolidayPopup({ emoji: app.holidayEmoji, name: app.holidayName, info: app.holidayInfo });
             return;
         }
         if (app.isTask) {
@@ -2157,8 +2180,8 @@ export default function CalendarPage() {
                 {holidayPopup && (
                     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={() => setHolidayPopup(null)}>
                         <div className="bg-white rounded-3xl shadow-2xl p-6 max-w-xs w-full text-center animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
-                            <div className="text-4xl mb-2">{holidayPopup.name.split(" ")[0]}</div>
-                            <h3 className="text-lg font-bold text-slate-900 mb-1">{holidayPopup.name.slice(2)}</h3>
+                            <div className="text-4xl mb-2">{holidayPopup.emoji}</div>
+                            <h3 className="text-lg font-bold text-slate-900 mb-1">{holidayPopup.name}</h3>
                             <p className="text-sm text-slate-500 mb-4">{holidayPopup.info}</p>
                             <div className="flex gap-2">
                                 <button

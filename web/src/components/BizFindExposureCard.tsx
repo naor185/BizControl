@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BarChart, Bar, Tooltip, ResponsiveContainer } from "recharts";
+import { BarChart, Bar, Tooltip, ResponsiveContainer, XAxis } from "recharts";
 import { ClipboardList, Eye, Heart, Search, TrendingUp, type LucideIcon } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { BIZFIND_URL } from "@/lib/config";
@@ -80,6 +80,7 @@ export default function BizFindExposureCard() {
                     <div className="text-[11px] text-slate-400 mb-1 font-semibold">צפיות יומיות — 30 ימים אחרונים</div>
                     <ResponsiveContainer width="100%" height={36}>
                         <BarChart data={stats.daily_views} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+                            <XAxis dataKey="date" hide />
                             <Bar dataKey="count" radius={[3, 3, 0, 0]} fill="var(--primary)" opacity={0.85} />
                             <Tooltip
                                 formatter={(v) => [Number(v), "צפיות"]}
