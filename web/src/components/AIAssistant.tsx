@@ -27,6 +27,8 @@ const PAGE_LABELS: Record<string, string> = {
     "/wallet": "עיצוב כרטיס מועדון",
     "/automation": "אוטומציה",
     "/leads": "לידים",
+    "/overview": "דשבורד",
+    "/setup": "הקמת העסק",
     "/billing": "חיוב",
 };
 

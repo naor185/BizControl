@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import RequireAuth from "@/components/RequireAuth";
 import AppShell from "@/components/AppShell";
+import DashboardTabs from "@/components/DashboardTabs";
 import { apiFetch, SetupProgress, dismissSetupItem, restoreSetupItem } from "@/lib/api";
 import { toast } from "@/lib/toast";
 
@@ -72,7 +73,8 @@ export default function SetupProgressPage() {
 
     return (
         <RequireAuth>
-            <AppShell title="🚀 הקמת העסק">
+            <AppShell title="דשבורד">
+                <div className="pb-4"><DashboardTabs /></div>
                 <div dir="rtl" style={{ maxWidth: 720, margin: "0 auto", padding: "1.5rem 1rem 4rem" }}>
                     {loading || !progress ? (
                         <div style={{ textAlign: "center", padding: "4rem", color: "#94a3b8" }}>⏳ טוען...</div>

@@ -16,6 +16,7 @@ const PRIMARY_NAV: { href: string; labelKey: TranslationKey; icon: string; badge
 ];
 
 const MORE_NAV: { href: string; labelKey: TranslationKey; icon: string }[] = [
+    { href: "/overview",     labelKey: "nav_overview",  icon: "🧭" },
     { href: "/business",     labelKey: "nav_business",  icon: "🏢" },
     { href: "/dashboard",    labelKey: "nav_dashboard", icon: "📊" },
     { href: "/payments",     labelKey: "nav_payments",  icon: "💳" },

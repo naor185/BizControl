@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Calendar, ShoppingCart, LayoutDashboard, Users, MessageSquare, Rocket, Building2, Lock, type LucideIcon } from "lucide-react";
+import { Calendar, ShoppingCart, LayoutDashboard, Users, MessageSquare, Gauge, Building2, Lock, type LucideIcon } from "lucide-react";
 import { apiFetch, clearToken, getToken, setToken } from "@/lib/api";
 import ClockWidget from "./ClockWidget";
 import BottomNav from "./BottomNav";
@@ -34,15 +34,15 @@ type PinStatus = { has_pin: boolean; is_locked: boolean };
 // (settings, client detail, message templates, anything reached through the
 // "More" sheet, etc.) shows a back arrow on mobile, since the sidebar isn't
 // there to fall back on and neither is any hardware back button on iOS.
-const ROOT_PATHS = new Set(["/calendar", "/pos", "/clients", "/inbox", "/clients/analytics", "/leads", "/wallet"]);
+const ROOT_PATHS = new Set(["/overview", "/setup", "/leads", "/calendar", "/pos", "/clients", "/inbox", "/clients/analytics", "/wallet"]);
 
 const MAIN_NAV: { href: string; label: string; icon: LucideIcon; module?: string }[] = [
+    { href: "/overview",  label: "דשבורד",       icon: Gauge },
     { href: "/calendar",  label: "יומן תורים",  icon: Calendar, module: "calendar" },
     { href: "/pos",       label: "קופה",         icon: ShoppingCart, module: "pos" },
     { href: "/dashboard", label: "לוח בקרה",    icon: LayoutDashboard },
     { href: "/clients",   label: "לקוחות",       icon: Users, module: "crm" },
     { href: "/inbox",     label: "תיבת הודעות", icon: MessageSquare },
-    { href: "/setup",     label: "הקמת העסק",   icon: Rocket },
 ];
 
 export default function AppShell({
@@ -236,7 +236,8 @@ export default function AppShell({
                     <nav className="flex-1 p-2.5 space-y-0.5 overflow-y-auto">
                         {MAIN_NAV.filter(item => !item.module || !enabledModules || enabledModules[item.module] !== false).map(item => {
                             const active = pathname === item.href || pathname.startsWith(item.href + "/")
-                                || (item.href === "/clients" && (pathname === "/leads" || pathname === "/wallet"));
+                                || (item.href === "/clients" && pathname === "/wallet")
+                                || (item.href === "/overview" && (pathname === "/setup" || pathname === "/leads"));
                             const badge = item.href === "/dashboard" && pendingDepositsCount > 0
                                 ? pendingDepositsCount
                                 : 0;
