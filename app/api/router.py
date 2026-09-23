@@ -40,7 +40,6 @@ from app.api.push_routes import router as push_router
 from app.api.wait_list_routes import router as wait_list_router
 from app.api.booking_routes import router as booking_router
 from app.api.marketplace_routes import router as marketplace_router
-from app.api.business_analytics_routes import router as biz_analytics_router
 from app.api.location_routes import router as location_router
 from app.api.module_me_routes import router as module_me_router
 from app.api.invite_routes import router as invite_router
@@ -99,7 +98,6 @@ api_router.include_router(push_router)
 api_router.include_router(wait_list_router)
 api_router.include_router(booking_router)
 api_router.include_router(marketplace_router)
-api_router.include_router(biz_analytics_router)
 api_router.include_router(location_router)
 api_router.include_router(module_me_router)
 api_router.include_router(invite_router)

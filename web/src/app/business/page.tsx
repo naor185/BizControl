@@ -40,8 +40,8 @@ const SECTION_GROUPS: { groupLabel: string; icon: LucideIcon; items: { href: str
         groupLabel: "אנליטיקה ותובנות",
         icon: TrendingUp,
         items: [
-            { href: "/analytics",          label: "אנליטיקות",       description: "מגמות, ביצועים ודוחות",         icon: TrendingUp, gradient: "from-fuchsia-500 to-fuchsia-700", module: "analytics" },
-            { href: "/analytics/business", label: "אנליטיקה עסקית", description: "תובנות עסקיות מתקדמות",         icon: BarChart3, gradient: "from-violet-600 to-fuchsia-700",   module: "analytics" },
+            { href: "/analytics",          label: "אנליטיקת שיווק",  description: "מודעות, לידים ותובנות AI",      icon: TrendingUp, gradient: "from-fuchsia-500 to-fuchsia-700", module: "analytics" },
+            { href: "/analytics/business", label: "אנליטיקה עסקית", description: "הכנסות, שימור לקוחות וביצועים", icon: BarChart3, gradient: "from-violet-600 to-fuchsia-700",   module: "analytics" },
         ],
     },
     {
