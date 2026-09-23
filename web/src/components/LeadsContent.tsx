@@ -69,13 +69,14 @@ const PERIODS: { key: "week" | "month" | "2months" | "all"; label: string; days:
 
 function AnalyticsTab({ leads: allLeads }: { leads: Lead[] }) {
     const [period, setPeriod] = useState<"week" | "month" | "2months" | "all">("month");
+    const [now] = useState(() => Date.now());
 
     const leads = useMemo(() => {
         const days = PERIODS.find(p => p.key === period)?.days;
         if (!days) return allLeads;
-        const cutoff = Date.now() - days * 86400000;
+        const cutoff = now - days * 86400000;
         return allLeads.filter(l => new Date(l.created_at).getTime() >= cutoff);
-    }, [allLeads, period]);
+    }, [allLeads, period, now]);
 
     const daily = useMemo(() => {
         const map: Record<string, number> = {};
