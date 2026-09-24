@@ -173,22 +173,31 @@ def test_dispatcher_sends_service_messages_whatever_the_marketing_flags(sent):
     assert len(sent) == 4
 
 
-# The unsubscribe flag may be READ only by the marketing rule. Anywhere else it would stop service
-# messages again. (Setting it — the unsubscribe link, the client card switch — and declaring it is fine.)
-OPT_OUT_FLAG_ALLOWED = {
-    "services/marketing.py",   # the rule
-    "models/client.py", "schemas/client.py", "main.py",   # the column itself
-    "crud/client.py",          # the client card switch sets it
-    "api/invite_routes.py",    # the unsubscribe link sets it
+# The two marketing flags may be READ only by the marketing rule — anywhere else they would stop
+# service messages again. Declaring and setting them is fine: these are the files that do.
+FLAG_ALLOWED = {
+    "whatsapp_opted_out": {
+        "services/marketing.py",   # the rule
+        "models/client.py", "schemas/client.py", "main.py",   # the column itself
+        "crud/client.py",          # the client card switch sets it
+        "api/invite_routes.py",    # the unsubscribe link sets it
+    },
+    "marketing_consent": {
+        "services/marketing.py",   # the rule
+        "models/client.py", "schemas/client.py",   # the column itself
+        "api/public_routes.py",    # the club sign-up form sets it
+        "api/client_routes.py",    # the walk-in client is created without it
+        "migration/normalize.py", "migration/universal.py", "migration/writers.py",   # data import sets it
+    },
 }
 
 
-def test_only_the_marketing_rule_reads_the_unsubscribe_flag():
-    users = {p.relative_to(APP).as_posix() for p in APP.rglob("*.py")
-             if "whatsapp_opted_out" in p.read_text(encoding="utf-8")}
+@pytest.mark.parametrize("flag", sorted(FLAG_ALLOWED))
+def test_only_the_marketing_rule_reads_the_marketing_flags(flag):
+    users = {p.relative_to(APP).as_posix() for p in APP.rglob("*.py") if flag in p.read_text(encoding="utf-8")}
     assert "services/marketing.py" in users
-    unexpected = sorted(users - OPT_OUT_FLAG_ALLOWED)
-    assert not unexpected, f"these read whatsapp_opted_out — use app/services/marketing.py instead: {unexpected}"
+    unexpected = sorted(users - FLAG_ALLOWED[flag])
+    assert not unexpected, f"these read {flag} — use app/services/marketing.py instead: {unexpected}"
 
 
 def test_daily_birthday_sweep_runs_and_only_reaches_clients_who_may_receive_marketing(monkeypatch):

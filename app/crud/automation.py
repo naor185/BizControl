@@ -394,7 +394,7 @@ def enqueue_cancel_message(db: Session, appt: Appointment) -> None:
 
     # WhatsApp
     wa_template = settings.cancel_wa_template or "מצטערים, התור שלך בוטל. נשמח לקבוע תור חדש בהקדם!"
-    if client.phone and client.marketing_consent is not False:
+    if client.phone:   # a service message — goes out whatever the marketing consent
         body = smart_format(wa_template, context)
         db.add(MessageJob(
             studio_id=appt.studio_id,
@@ -409,8 +409,7 @@ def enqueue_cancel_message(db: Session, appt: Appointment) -> None:
 
     # Email
     email_template = settings.cancel_email_template or "מצטערים, התור שלך בוטל. נשמח לקבוע תור חדש בהקדם!"
-    if client.email and client.marketing_consent is not False \
-            and _email_ok(db, appt.studio_id, "email_cancel_enabled"):
+    if client.email and _email_ok(db, appt.studio_id, "email_cancel_enabled"):
         body = smart_format(email_template, context)
         db.add(MessageJob(
             studio_id=appt.studio_id,
@@ -789,10 +788,6 @@ def enqueue_aftercare_if_needed(db: Session, appt: Appointment) -> None:
     settings = db.get(StudioSettings, appt.studio_id)
     client = db.get(Client, appt.client_id)
     if not settings or not client:
-        return
-
-    # אם לא רוצים לשלוח בלי הסכמה
-    if client.marketing_consent is False:
         return
 
     # Dedup: אם כבר נשלחה הודעת post_payment לאותו תור — לא לשלוח aftercare נוסף

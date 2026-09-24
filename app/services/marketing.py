@@ -9,14 +9,15 @@ column names:
 - clients.whatsapp_opted_out is set by the personal unsubscribe link (invite_routes.optout_via_invite),
   whose page tells the client "לא תקבל/י יותר הודעות שיווקיות אוטומטיות", and by the switch on the
   client card. The same link is in the marketing e-mails ("להסרה מרשימת הדיוור"), so it covers every
-  channel. It stops marketing ONLY — the owner decided (2026-09-24) that reminders and every other
-  service message still go out; this is the only place that reads it (a test enforces that).
+  channel.
+
+Both flags stop MARKETING ONLY — the owner decided (2026-09-24) that reminders, confirmations,
+cancellation notices, aftercare, receipts and every other service message always go out. This module
+is the only place that reads them to decide what is sent (a test enforces that).
 
 Marketing = a message whose purpose is promotion rather than the client's own booking or purchase:
-broadcasts (תפוצות), club invitations, birthday benefits. Service messages (confirmations, reminders,
-cancellations, receipts, waitlist, aftercare, …) are deliberately NOT governed here — their existing
-checks are unchanged. Every message type must be listed in exactly one of the two sets below; a test
-fails when a new type appears unclassified.
+broadcasts (תפוצות), club invitations, birthday benefits. Every message type must be listed in exactly
+one of the two sets below; a test fails when a new type appears unclassified.
 """
 from __future__ import annotations
 

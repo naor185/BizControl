@@ -69,7 +69,7 @@ CLIENT = EntitySpec("clients", "לקוחות", True, (
     FieldSpec("marketing_consent", "מאשר דיוור", "bool",
               synonyms=("marketingconsent", "optin", "subscribed", "newsletter", "acceptsmarketing", "marketing",
                         "מאשרדיוור", "הסכמהלדיוור", "דיוור", "מאשרפרסום", "מאשרשיווק"),
-              help="לקוח עם 'לא' לא יקבל הודעות שיווקיות (תפוצות, הזמנה למועדון, הטבת יום הולדת), וגם לא הודעת ביטול תור והודעה אחרי טיפול"),
+              help="לקוח עם 'לא' לא יקבל הודעות שיווקיות (תפוצות, הזמנה למועדון, הטבת יום הולדת). תזכורות, אישורי תור וקבלות נשלחים תמיד"),
 ))
 
 SERVICE = EntitySpec("services", "שירותים", True, (
