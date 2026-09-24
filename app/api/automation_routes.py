@@ -15,26 +15,14 @@ from app.schemas.automation import AutomationSettingsOut, AutomationSettingsUpda
 
 router = APIRouter(prefix="/studio/automation", tags=["Automation"])
 
-_DEFAULT_AFTERCARE = (
-    "היי {client_name}! 🎉\n\n"
-    "לאחר סיום הקעקוע נשארים עם הניילון/מדבקה למשך כשעתיים.\n"
-    "לאחר מכן ניתן להסיר את הניילון או המדבקה ולשטוף בעדינות עם מים פושרים וסבון.\n\n"
-    "יום לאחר הקעקוע מתחילים למרוח את החמאה/המשחה פעמיים ביום - בוקר וערב למשך שלושה שבועות.\n"
-    "יש למרוח שכבה דקה ומאוזנת: לא יותר מדי ולא מעט מדי.\n\n"
-    "במקרים של יובש גבוה ניתן למרוח עד 3 פעמים ביום.\n\n"
-    "בזמן ההחלמה:\n"
-    "❌ לא לגרד\n"
-    "❌ לא לקלף\n"
-    "🚫 להימנע מבריכה, ים, ג׳קוזי וסאונה למשך שבועיים\n\n"
-    "לאחר כחודש וחצי מומלץ להגיע לביקורת כדי לוודא החלמה מלאה של הקעקוע. 🙏"
-)
-
-def _settings_to_out(settings, studio) -> AutomationSettingsOut:
+def _settings_to_out(settings, studio, db) -> AutomationSettingsOut:
+    from app.services.business_types import message_default
     out = AutomationSettingsOut.model_validate(settings)
     out.studio_slug = studio.slug if studio else None
     out.studio_name = studio.name if studio else None
     if not out.aftercare_message:
-        out.aftercare_message = _DEFAULT_AFTERCARE
+        # the default of the business's own field — tattoo care only for a tattoo studio (was: for everyone)
+        out.aftercare_message = message_default(db, settings.studio_id, "aftercare")
     return out
 
 @router.get("", response_model=AutomationSettingsOut)
@@ -48,7 +36,7 @@ def get_settings(ctx: AuthContext = Depends(require_studio_ctx), db: Session = D
         db.commit()
         db.refresh(settings)
     studio = db.get(Studio, ctx.studio_id)
-    return _settings_to_out(settings, studio)
+    return _settings_to_out(settings, studio, db)
 
 @router.patch("", response_model=AutomationSettingsOut)
 def patch_settings(payload: AutomationSettingsUpdate, ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
@@ -64,6 +52,13 @@ def patch_settings(payload: AutomationSettingsUpdate, ctx: AuthContext = Depends
     # longer configure their own Resend credentials, even via a direct API call.
     data.pop("resend_api_key", None)
     data.pop("resend_from_email", None)
+    # The screen shows the field's default aftercare text when the owner has none; saving it back unchanged
+    # must not turn it into the owner's own text (that is how a clinic ended up with tattoo instructions).
+    if "aftercare_message" in data:
+        from app.services.business_types import message_default
+        submitted = (data["aftercare_message"] or "").strip()
+        if not submitted or submitted == message_default(db, ctx.studio_id, "aftercare").strip():
+            data["aftercare_message"] = None
     for k, v in data.items():
         setattr(settings, k, v)
 
@@ -71,7 +66,7 @@ def patch_settings(payload: AutomationSettingsUpdate, ctx: AuthContext = Depends
     db.refresh(settings)
     from app.models.studio import Studio
     studio = db.get(Studio, ctx.studio_id)
-    return _settings_to_out(settings, studio)
+    return _settings_to_out(settings, studio, db)
 
 class TriggerWelcomeIn(BaseModel):
     client_id: str

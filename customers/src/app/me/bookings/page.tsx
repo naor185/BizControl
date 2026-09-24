@@ -64,9 +64,9 @@ export default function BookingsPage() {
                 <div style={{ textAlign: "center", padding: "4rem 1rem", color: "#64748b" }}>
                     <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>📅</div>
                     <div style={{ fontWeight: 700, marginBottom: "0.5rem" }}>אין תורים עדיין</div>
-                    <div style={{ fontSize: "0.85rem" }}>קבע תור בסטודיו שאתה אוהב</div>
+                    <div style={{ fontSize: "0.85rem" }}>קבע תור בעסק שאתה אוהב</div>
                     <Link href="/" style={{ display: "inline-block", marginTop: "1.5rem", background: "linear-gradient(135deg,#7c3aed,#4c1d95)", color: "#fff", textDecoration: "none", padding: "0.65rem 1.5rem", borderRadius: 12, fontWeight: 700, fontSize: "0.9rem" }}>
-                        🔍 חפש סטודיו
+                        🔍 חפש עסק
                     </Link>
                 </div>
             )}
@@ -113,7 +113,7 @@ function BookingCard({ b }: { b: Booking }) {
                 </div>
             )}
             <Link href={`/b/${b.studio_slug}`} style={{ display: "inline-block", marginTop: "0.75rem", fontSize: "0.78rem", color: "#a78bfa", textDecoration: "none", fontWeight: 600 }}>
-                לדף הסטודיו ←
+                לדף העסק ←
             </Link>
         </div>
     );

@@ -11,9 +11,9 @@ const API = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
 // the ones already unified in the backend) — an admin's price change here
 // would never have shown up on the page a prospect actually sees.
 const BIZCONTROL_FEATURES: Record<string, string[]> = {
-    starter: ["כל פיצ׳רי BizFind Pro", "יומן + ניהול תורים", "CRM לקוחות", "תשלומים", "עד 2 אמנים"],
-    pro: ["כל פיצ׳רי Starter", "עד 5 אמנים", "AI הודעות", "אנליטיקה מלאה", "תזכורות אוטומטיות"],
-    studio: ["כל פיצ׳רי Pro", "אמנים ללא הגבלה", "דף הזמנה עצמית", "ייצוא Excel", "תמיכה מועדפת"],
+    starter: ["כל פיצ׳רי BizFind Pro", "יומן + ניהול תורים", "CRM לקוחות", "תשלומים", "עד 2 אנשי צוות"],
+    pro: ["כל פיצ׳רי Starter", "עד 5 אנשי צוות", "AI הודעות", "אנליטיקה מלאה", "תזכורות אוטומטיות"],
+    studio: ["כל פיצ׳רי Pro", "אנשי צוות ללא הגבלה", "דף הזמנה עצמית", "ייצוא Excel", "תמיכה מועדפת"],
 };
 const BIZCONTROL_BADGE: Record<string, string | null> = { starter: null, pro: "הכי פופולרי", studio: null };
 

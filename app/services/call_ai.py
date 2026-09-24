@@ -24,7 +24,7 @@ from app.services.ai.orchestrator import _get_client
 
 log = logging.getLogger(__name__)
 
-_SUMMARY_PROMPT = """אתה מנתח שיחות טלפון עבור עסק (סטודיו קעקועים/יופי). קיבלת תמלול של שיחה בין נציג/ת העסק ללקוח.
+_SUMMARY_PROMPT = """אתה מנתח שיחות טלפון עבור עסק בתחום: {business_field}. קיבלת תמלול של שיחה בין נציג/ת העסק ללקוח.
 נתח את התמלול והחזר אך ורק JSON תקין (בלי טקסט נוסף, בלי markdown) במבנה הבא:
 {
   "intent": "מה הלקוח רצה/ביקש",
@@ -84,7 +84,7 @@ def transcribe_recording(recording_url: str) -> str | None:
         return None
 
 
-def summarize_transcript(transcript: str) -> dict | None:
+def summarize_transcript(transcript: str, business_field: str = "לא ידוע") -> dict | None:
     try:
         client, model = _get_client()
     except RuntimeError:
@@ -95,7 +95,9 @@ def summarize_transcript(transcript: str) -> dict | None:
         sync_client = openai.OpenAI(api_key=client.api_key, base_url=str(client.base_url))
         resp = sync_client.chat.completions.create(
             model=model,
-            messages=[{"role": "user", "content": _SUMMARY_PROMPT.format(transcript=transcript[:8000])}],
+            # replace(), not format(): the prompt's JSON braces made format() raise KeyError on every call
+            messages=[{"role": "user", "content": _SUMMARY_PROMPT.replace("{business_field}", business_field)
+                                                                  .replace("{transcript}", transcript[:8000])}],
             temperature=0.2,
             response_format={"type": "json_object"},
         )
@@ -116,7 +118,10 @@ def process_call_recording(db: Session, call: Call) -> None:
         if transcript:
             call.transcript = transcript
             db.commit()
-            summary = summarize_transcript(transcript)
+            from app.models.studio import Studio
+            from app.services.business_types import describe, type_lookup
+            studio = db.get(Studio, call.studio_id)
+            summary = summarize_transcript(transcript, describe(type_lookup(db), studio.business_type if studio else None)["label"])
             if summary:
                 call.ai_summary = summary
                 db.commit()

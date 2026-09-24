@@ -82,9 +82,24 @@ def _get_client() -> tuple[AsyncOpenAI, str]:
     raise RuntimeError("לא מוגדר GROQ_API_KEY / GEMINI_API_KEY / OPENAI_API_KEY")
 
 
-def _build_system_prompt(studio_name: str, user_role: str, current_page: str) -> str:
+def business_context(db, studio_id) -> tuple[str, str]:
+    """The business's field and its words, for ויקי's system prompt — so it never assumes a tattoo studio."""
+    from app.models.studio import Studio as _Studio
+    from app.services.business_types import describe, studio_terms, type_lookup
+    studio = db.get(_Studio, studio_id)
+    field = describe(type_lookup(db), studio.business_type if studio else None)["label"]
+    w = studio_terms(db, studio_id)
+    words = (f"נותן/ת השירות: {w['staff']} ({w['staff_plural']}), השירות: {w['service']} "
+             f"({w['service_plural']}), הלקוח/ה: {w['client']} ({w['client_plural']}), המקום: {w['place']}")
+    return field, words
+
+
+def _build_system_prompt(studio_name: str, user_role: str, current_page: str,
+                         business_field: str = "לא ידוע", business_words: str = "") -> str:
     return SYSTEM_PROMPT.format(
         studio_name=studio_name,
+        business_field=business_field,
+        business_words=business_words,
         user_role=user_role,
         current_page=current_page or "לא ידוע",
         current_datetime=datetime.now(pytz.timezone("Asia/Jerusalem")).strftime("%d/%m/%Y %H:%M"),
@@ -147,7 +162,8 @@ async def chat_stream(
 
     # ── 2. Studio info ────────────────────────────────────────────────────────
     studio = db.get(Studio, studio_id)
-    studio_name = studio.name if studio else "הסטודיו"
+    studio_name = studio.name if studio else "העסק"
+    business_field, business_words = business_context(db, studio_id)
 
     # ── 3. Conversation ───────────────────────────────────────────────────────
     conv = get_or_create_conversation(db, studio_id, user_id, conversation_id)
@@ -168,7 +184,7 @@ async def chat_stream(
     yield f"data: {json.dumps({'type': 'conversation_id', 'id': str(conv.id)})}\n\n"
 
     # ── 4. Build messages ─────────────────────────────────────────────────────
-    system_prompt = _build_system_prompt(studio_name, user_role, current_page)
+    system_prompt = _build_system_prompt(studio_name, user_role, current_page, business_field, business_words)
     messages: list[dict] = [
         {"role": "system", "content": system_prompt},
         *history,

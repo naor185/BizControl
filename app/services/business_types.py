@@ -63,6 +63,34 @@ def describe(lookup: dict[str, dict], key: str | None) -> dict:
                                                              "color": "#475569", "directory_only": False}
 
 
+def studio_terms(db, studio_id) -> dict[str, str]:
+    """The words this business uses: the generic words, its field's words over them, then the owner's own
+    over those. Every key of TERM_LABELS is always present."""
+    from app.data.business_types import GENERIC_TERMS, TERM_LABELS
+    from app.models.module import BusinessTypeTemplate
+    from app.models.studio import Studio
+    from app.models.studio_settings import StudioSettings
+    studio = db.get(Studio, studio_id)
+    t = db.get(BusinessTypeTemplate, studio.business_type) if studio and studio.business_type else None
+    settings = db.get(StudioSettings, studio_id)
+    words = dict(GENERIC_TERMS)
+    for layer in ((t.terms if t else None) or {}, (settings.business_terms if settings else None) or {}):
+        words.update({k: v for k, v in layer.items() if k in TERM_LABELS and isinstance(v, str) and v.strip()})
+    return words
+
+
+def message_default(db, studio_id, key: str) -> str:
+    """The default text of a message for this business's field (e.g. "aftercare") — the field's own text,
+    or the generic one. Used when the owner has not written their own."""
+    from app.data.business_types import GENERIC_MESSAGES
+    from app.models.module import BusinessTypeTemplate
+    from app.models.studio import Studio
+    studio = db.get(Studio, studio_id)
+    t = db.get(BusinessTypeTemplate, studio.business_type) if studio and studio.business_type else None
+    own = ((t.message_defaults if t else None) or {}).get(key)
+    return own if isinstance(own, str) and own.strip() else GENERIC_MESSAGES.get(key, "")
+
+
 def resolve_with_note(db, value, other_text: str | None = None) -> tuple[str, str | None]:
     """(type, note) for a signup or profile form: the chosen type, and — when it is "other" — what the
     owner wrote to describe their business. An older form sent that text as the value itself."""

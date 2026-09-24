@@ -725,7 +725,7 @@ function RequestModal({ slug, studioName, services, primary, onClose }: {
                     <div style={{ textAlign: "center", padding: "2rem 0" }}>
                         <div style={{ fontSize: "3rem", marginBottom: "0.75rem" }}>✅</div>
                         <div style={{ fontWeight: 800, fontSize: "1.1rem", marginBottom: "0.5rem" }}>הבקשה נשלחה!</div>
-                        <div style={{ color: "#64748b", fontSize: "0.88rem", marginBottom: "1.5rem" }}>הסטודיו יצור איתך קשר בקרוב 📞</div>
+                        <div style={{ color: "#64748b", fontSize: "0.88rem", marginBottom: "1.5rem" }}>העסק יצור איתך קשר בקרוב 📞</div>
                         <button type="button" onClick={onClose}
                             style={{ background: primary, color: "#fff", border: "none", borderRadius: 12, padding: "0.75rem 2rem", fontWeight: 800, cursor: "pointer" }}>
                             סגור

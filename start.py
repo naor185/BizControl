@@ -524,8 +524,12 @@ def ensure_schema():
             ADD COLUMN IF NOT EXISTS is_directory_only BOOLEAN NOT NULL DEFAULT false,
             ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true,
             ADD COLUMN IF NOT EXISTS aliases JSONB NOT NULL DEFAULT '[]',
-            ADD COLUMN IF NOT EXISTS osm_tag VARCHAR(64)
+            ADD COLUMN IF NOT EXISTS osm_tag VARCHAR(64),
+            ADD COLUMN IF NOT EXISTS terms JSONB NOT NULL DEFAULT '{}',
+            ADD COLUMN IF NOT EXISTS message_defaults JSONB NOT NULL DEFAULT '{}'
         """)
+        # the owner's own words for their business (app/services/business_types.studio_terms)
+        cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS business_terms JSONB NOT NULL DEFAULT '{}'")
 
         # ── Subscription state engine (Plans Engine step 4) ────────────────────
         # Source of truth for "is this studio's access active right now" —
@@ -1012,9 +1016,11 @@ def ensure_schema():
         for _t in BUSINESS_TYPES:
             cur.execute("""
                 INSERT INTO business_type_templates (business_type, display_name, default_modules, default_services,
-                                                     icon, color, sort_order, is_directory_only, aliases, osm_tag)
+                                                     icon, color, sort_order, is_directory_only, aliases, osm_tag, terms,
+                                                     message_defaults)
                 VALUES (%(key)s, %(label)s, %(modules)s, %(services)s,
-                        %(icon)s, %(color)s, %(sort)s, %(directory_only)s, %(aliases)s, %(osm_tag)s)
+                        %(icon)s, %(color)s, %(sort)s, %(directory_only)s, %(aliases)s, %(osm_tag)s, %(terms)s,
+                        %(messages)s)
                 ON CONFLICT (business_type) DO UPDATE SET
                     display_name = CASE WHEN business_type_templates.display_name = %(previous_label)s
                                         THEN EXCLUDED.display_name ELSE business_type_templates.display_name END,
@@ -1023,15 +1029,34 @@ def ensure_schema():
                     sort_order = COALESCE(business_type_templates.sort_order, EXCLUDED.sort_order),
                     aliases = CASE WHEN business_type_templates.aliases = '[]'::jsonb
                                    THEN EXCLUDED.aliases ELSE business_type_templates.aliases END,
-                    osm_tag = COALESCE(business_type_templates.osm_tag, EXCLUDED.osm_tag)
+                    osm_tag = COALESCE(business_type_templates.osm_tag, EXCLUDED.osm_tag),
+                    terms = CASE WHEN business_type_templates.terms = '{}'::jsonb
+                                 THEN EXCLUDED.terms ELSE business_type_templates.terms END,
+                    message_defaults = CASE WHEN business_type_templates.message_defaults = '{}'::jsonb
+                                            THEN EXCLUDED.message_defaults ELSE business_type_templates.message_defaults END
             """, {
                 "key": _t["key"], "label": _t["label"], "icon": _t["icon"], "color": _t["color"],
                 "sort": _t["sort"], "directory_only": bool(_t.get("directory_only")), "osm_tag": _t.get("osm_tag"),
                 "modules": _json.dumps(_t["modules"], ensure_ascii=False),
                 "services": _json.dumps(_t["services"], ensure_ascii=False),
                 "aliases": _json.dumps(_t["aliases"], ensure_ascii=False),
+                "terms": _json.dumps(_t.get("terms", {}), ensure_ascii=False),
+                "messages": _json.dumps(_t.get("messages", {}), ensure_ascii=False),
                 "previous_label": PREVIOUS_LABELS.get(_t["key"], _t["label"]),
             })
+
+        # Texts the old settings screen saved as if the owner wrote them: the tattoo aftercare instructions
+        # (saved even at a clinic) go, so the field's default applies; the deposit-approved template names
+        # the staff in the business's own word ({staff_title}) instead of "✂️ אמן/ית". Only texts still
+        # exactly equal to what the screen saved are touched — an owner's own text is left alone.
+        from app.data.business_types import LEGACY_SAVED_ONLY_IF_UNCHANGED as _LEGACY
+        cur.execute("UPDATE studio_settings SET aftercare_message = NULL WHERE aftercare_message = %s",
+                    (_LEGACY["aftercare_message"],))
+        _old_dep = _LEGACY["deposit_approved_wa_template"]
+        _new_dep = "\n".join("👥 {staff_title}: {artist_name}" if "{artist_name}" in _line else _line
+                             for _line in _old_dep.split("\n"))
+        cur.execute("UPDATE studio_settings SET deposit_approved_wa_template = %s WHERE deposit_approved_wa_template = %s",
+                    (_new_dep, _old_dep))
 
         # Businesses whose type is not a known type (free text from an older signup form) get the type
         # their text names, or "other" — a studio then keeps the text it wrote in business_type_note.

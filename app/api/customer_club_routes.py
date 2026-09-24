@@ -137,7 +137,7 @@ def scan_card(
     if not card:
         raise HTTPException(status_code=404, detail="כרטיס לא נמצא, מבוטל, או QR לא תקין")
     if str(card.studio_id) != str(ctx.studio_id):
-        raise HTTPException(status_code=403, detail="כרטיס שייך לסטודיו אחר")
+        raise HTTPException(status_code=403, detail="כרטיס שייך לעסק אחר")
 
     client = db.get(Client, card.client_id)
     if not client or not client.is_active:
@@ -307,7 +307,7 @@ def send_birthday_coupon_now(
 
     settings = db.get(StudioSettings, ctx.studio_id)
     if not settings:
-        raise HTTPException(status_code=500, detail="הגדרות סטודיו לא נמצאו")
+        raise HTTPException(status_code=500, detail="הגדרות העסק לא נמצאו")
 
     tag = f"[birthday-{target_year}-{target_month:02d}]"
 

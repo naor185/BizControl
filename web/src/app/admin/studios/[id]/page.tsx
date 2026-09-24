@@ -106,7 +106,7 @@ const PLAN_LABELS: Record<string, { label: string; color: string }> = {
 };
 
 const ROLE_LABELS: Record<string, string> = {
-    owner: "בעלים", admin: "אדמין", artist: "אמן/ת", staff: "צוות",
+    owner: "בעלים", admin: "אדמין", artist: "נותן/ת שירות", staff: "צוות",
 };
 
 function daysUntil(iso: string | null): number | null {

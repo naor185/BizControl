@@ -1,6 +1,7 @@
 "use client";
 import { toast } from "@/lib/toast";
-import { Palette, Crown, User } from "lucide-react";
+import { Briefcase, Crown, User } from "lucide-react";
+import { useTerms } from "@/lib/useTerms";
 
 import { useEffect, useState } from "react";
 import AppShell from "@/components/AppShell";
@@ -37,6 +38,7 @@ const COLOR_PRESETS = [
 ];
 
 export default function TeamPage() {
+    const terms = useTerms();   // the service giver's title in this business's words, not "אמן"
     const [artists, setArtists] = useState<Artist[]>([]);
     const [loading, setLoading] = useState(true);
     const [err, setErr] = useState<string | null>(null);
@@ -236,7 +238,7 @@ export default function TeamPage() {
                                                         {artist.role === "owner"  ? "בעלים" :
                                                          artist.role === "admin"  ? "סגן מנהל" :
                                                          artist.role === "staff"  ? "עובד/ת" :
-                                                                                    "אמן/ת"}
+                                                                                    terms.staff}
                                                     </span>
                                                 </td>
                                                 <td className="p-4">
@@ -331,7 +333,7 @@ export default function TeamPage() {
                                     <label className="block text-sm font-semibold text-slate-700 mb-2">תפקיד</label>
                                     <div className="grid grid-cols-2 gap-2">
                                         {([
-                                            { value: "artist", icon: Palette, label: "אמן/ת", desc: "גישה ליומן שלהם בלבד" },
+                                            { value: "artist", icon: Briefcase, label: terms.staff, desc: "גישה ליומן שלהם בלבד" },
                                             { value: "staff",  icon: User,    label: "איש/אשת צוות", desc: "עובד/ת ללא ניהול" },
                                             { value: "admin",  icon: Crown,   label: "סגן מנהל", desc: "גישה לכל הניהול" },
                                         ] as const).map(opt => (

@@ -389,6 +389,58 @@ def get_business_type_options(
     }
 
 
+def _terms_out(db: Session, studio_id) -> dict:
+    from app.data.business_types import GENERIC_TERMS, TERM_LABELS
+    from app.models.module import BusinessTypeTemplate
+    from app.models.studio_settings import StudioSettings
+    from app.services.business_types import studio_terms
+    studio = db.get(Studio, studio_id)
+    t = db.get(BusinessTypeTemplate, studio.business_type) if studio else None
+    field = {**GENERIC_TERMS, **{k: v for k, v in ((t.terms if t else None) or {}).items() if k in TERM_LABELS}}
+    settings = db.get(StudioSettings, studio_id)
+    samples = [s.get("name") for s in ((t.default_services if t else None) or []) if s.get("price")]
+    return {
+        "terms": studio_terms(db, studio_id),                    # what the business uses
+        "field": field,                                          # its field's words
+        "own": dict((settings.business_terms if settings else None) or {}),   # what the owner changed
+        "labels": TERM_LABELS,
+        "example_service": samples[0] if samples else None,     # for "לדוגמה: …" hints, from the field's sample services
+    }
+
+
+@router.get("/terms")
+def get_business_terms(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+    """The words this business uses — its field's, with the owner's own changes."""
+    return _terms_out(db, ctx.studio_id)
+
+
+@router.patch("/terms")
+def set_business_terms(payload: dict, ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+    """The owner's own words. An empty word, or one equal to the field's, goes back to the field's word."""
+    if ctx.role not in ("owner", "admin"):
+        raise HTTPException(status_code=403, detail="Forbidden")
+    from app.data.business_types import TERM_LABELS
+    from app.models.studio_settings import StudioSettings
+    settings = db.get(StudioSettings, ctx.studio_id)
+    if not settings:
+        raise HTTPException(status_code=404, detail="Studio settings not found")
+    field = _terms_out(db, ctx.studio_id)["field"]
+    own = dict(settings.business_terms or {})
+    for key, value in (payload.get("own") or {}).items():
+        if key not in TERM_LABELS:
+            raise HTTPException(status_code=400, detail=f"מילה לא מוכרת: {key}")
+        value = (value or "").strip()
+        if len(value) > 30:
+            raise HTTPException(status_code=400, detail="מילה ארוכה מדי (עד 30 תווים)")
+        if not value or value == field.get(key):
+            own.pop(key, None)
+        else:
+            own[key] = value
+    settings.business_terms = own
+    db.commit()
+    return _terms_out(db, ctx.studio_id)
+
+
 @router.patch("/business-type")
 def set_business_type(
     payload: dict,

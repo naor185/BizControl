@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import AppShell from "@/components/AppShell";
 import RequireAuth from "@/components/RequireAuth";
 import { apiFetch } from "@/lib/api";
+import { fillTerms, useTerms } from "@/lib/useTerms";
 import { toast } from "@/lib/toast";
 
 // ── Placeholder definitions ────────────────────────────────────────────────────
@@ -12,9 +13,10 @@ const PLACEHOLDERS = [
     { key: "{service_name}",           label: "שם שירות" },
     { key: "{appointment_date}",       label: "תאריך תור" },
     { key: "{appointment_time}",       label: "שעת תור" },
-    { key: "{artist_name}",            label: "שם אמן/מטפל" },
-    { key: "{studio_name}",            label: "שם הסטודיו" },
-    { key: "{studio_address}",         label: "כתובת הסטודיו" },
+    { key: "{artist_name}",            label: "שם {staff}" },
+    { key: "{staff_title}",            label: "המילה \"{staff}\"" },
+    { key: "{studio_name}",            label: "שם העסק" },
+    { key: "{studio_address}",         label: "כתובת העסק" },
     { key: "{map_link}",               label: "🗺️ קישור מפה" },
     { key: "{portfolio_link}",         label: "🖼️ תיק עבודות" },
     { key: "{bit_link}",               label: "💳 קישור ביט" },
@@ -171,7 +173,7 @@ const GROUPS: SectionGroup[] = [
                 id: "booking_request_approved", title: "בקשת תור — אושרה", icon: "👍",
                 templateKey: "booking_request_approved_wa_template",
                 bizfind: true,
-                description: "נשלחת ללקוח כאשר בקשת התור שלו אושרה על-ידי הסטודיו",
+                description: "נשלחת ללקוח כאשר בקשת התור שלו אושרה על-ידי העסק",
                 hints: ["client_name","artist_name","appointment_date","service_note","booking_link"],
             },
             {
@@ -239,6 +241,7 @@ const GROUPS: SectionGroup[] = [
 
 // ── Template editor ────────────────────────────────────────────────────────────
 function PlaceholderBar({ hints, onInsert }: { hints: string[]; onInsert: (ph: string) => void }) {
+    const terms = useTerms();
     const relevant = PLACEHOLDERS.filter(p => hints.includes(p.key.replace(/[{}]/g, "")));
     const other = PLACEHOLDERS.filter(p => !hints.includes(p.key.replace(/[{}]/g, "")));
     return (
@@ -248,7 +251,7 @@ function PlaceholderBar({ hints, onInsert }: { hints: string[]; onInsert: (ph: s
                 {relevant.map(p => (
                     <button key={p.key} type="button" onClick={() => onInsert(p.key)}
                         style={{ padding: "0.2rem 0.55rem", borderRadius: 7, border: "1px solid rgba(167,139,250,.4)", background: "rgba(167,139,250,.12)", color: "#a78bfa", cursor: "pointer", fontSize: "0.7rem", fontWeight: 700 }}>
-                        {p.label}
+                        {fillTerms(p.label, terms)}
                     </button>
                 ))}
                 {other.length > 0 && (
@@ -260,7 +263,7 @@ function PlaceholderBar({ hints, onInsert }: { hints: string[]; onInsert: (ph: s
                             {other.map(p => (
                                 <button key={p.key} type="button" onClick={() => onInsert(p.key)}
                                     style={{ padding: "0.2rem 0.55rem", borderRadius: 7, border: "1px solid rgba(100,116,139,.3)", background: "rgba(100,116,139,.08)", color: "#94a3b8", cursor: "pointer", fontSize: "0.7rem" }}>
-                                    {p.label}
+                                    {fillTerms(p.label, terms)}
                                 </button>
                             ))}
                         </div>

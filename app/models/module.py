@@ -183,3 +183,5 @@ class BusinessTypeTemplate(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
     aliases: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list, server_default="[]")
     osm_tag: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    terms: Mapped[dict[str, str]] = mapped_column(JSONB, nullable=False, default=dict, server_default="{}")   # the field's words
+    message_defaults: Mapped[dict[str, str]] = mapped_column(JSONB, nullable=False, default=dict, server_default="{}")   # the field's default texts

@@ -521,7 +521,8 @@ def add_studio_user(studio_id: uuid.UUID, payload: AddUserIn, admin: User = Depe
     frontend_url = os.getenv("FRONTEND_URL", "https://bizcontrol-seven.vercel.app")
     token = create_set_password_token(str(user.id))
     set_pw_link = f"{frontend_url}/set-password?token={token}"
-    role_he = {"admin": "מנהל", "artist": "אמן/אמנית", "staff": "צוות"}.get(payload.role, payload.role)
+    from app.services.business_types import studio_terms   # the invited person's title in *this* business's words
+    role_he = {"admin": "מנהל", "artist": studio_terms(db, studio.id)["staff"], "staff": "צוות"}.get(payload.role, payload.role)
     _send_email_bg(
         host=os.getenv("PLATFORM_SMTP_HOST", ""),
         port=int(os.getenv("PLATFORM_SMTP_PORT", "587")),

@@ -158,7 +158,7 @@ export default function StudioEmailSettingsPage() {
                                 value={settings.business_signature || ""}
                                 onChange={e => setSettings(p => ({ ...p, business_signature: e.target.value }))}
                                 rows={5}
-                                placeholder={"בברכה,\nסטודיו הקעקועים של נועם\n\nטלפון: 050-0000000\nכתובת: הרצל 100 ראשון לציון"}
+                                placeholder={"בברכה,\nנועם כהן\n\nטלפון: 050-0000000\nכתובת: הרצל 100 ראשון לציון"}
                                 className="w-full border border-slate-200 rounded-xl px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black/10 resize-none"
                             />
                         </div>

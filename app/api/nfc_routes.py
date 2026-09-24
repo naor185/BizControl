@@ -83,11 +83,11 @@ def nfc_scan(
         )
     )
     if not tag:
-        raise HTTPException(status_code=404, detail="תג NFC לא מוכר בסטודיו זה")
+        raise HTTPException(status_code=404, detail="תג NFC לא מוכר בעסק זה")
 
     user = db.get(User, tag.user_id)
     if not user or user.studio_id != ctx.studio_id:
-        raise HTTPException(status_code=403, detail="עובד לא שייך לסטודיו זה")
+        raise HTTPException(status_code=403, detail="עובד לא שייך לעסק זה")
 
     now = datetime.now(timezone.utc)
 

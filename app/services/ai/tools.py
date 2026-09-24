@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.models.appointment import Appointment
 from app.models.client import Client
+from app.services.business_types import studio_terms
 from app.models.payment import Payment
 from app.models.user import User
 
@@ -25,7 +26,7 @@ TOOLS_SCHEMA = [
         "type": "function",
         "function": {
             "name": "get_today_appointments",
-            "description": "מחזיר את רשימת התורים להיום בסטודיו — כמה יש, מי הלקוחות, ומה הסטטוס.",
+            "description": "מחזיר את רשימת התורים להיום בעסק — כמה יש, מי הלקוחות, ומה הסטטוס.",
             "parameters": {"type": "object", "properties": {}, "required": []},
         },
     },
@@ -62,7 +63,7 @@ TOOLS_SCHEMA = [
         "type": "function",
         "function": {
             "name": "get_dashboard_stats",
-            "description": "מחזיר סטטיסטיקות כלליות של הסטודיו: מספר לקוחות, הכנסה חודשית, תורים היום.",
+            "description": "מחזיר סטטיסטיקות כלליות של העסק: מספר לקוחות, הכנסה חודשית, תורים היום.",
             "parameters": {"type": "object", "properties": {}, "required": []},
         },
     },
@@ -78,7 +79,7 @@ TOOLS_SCHEMA = [
         "type": "function",
         "function": {
             "name": "get_inactive_clients",
-            "description": "מחזיר לקוחות שלא ביקרו בסטודיו מזמן — לזיהוי לקוחות לא פעילים.",
+            "description": "מחזיר לקוחות שלא ביקרו בעסק מזמן — לזיהוי לקוחות לא פעילים.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -92,7 +93,7 @@ TOOLS_SCHEMA = [
         "type": "function",
         "function": {
             "name": "get_top_artists",
-            "description": "מחזיר סטטיסטיקות ביצועים לכל עובד/אמן בסטודיו לחודש מסוים.",
+            "description": "מחזיר סטטיסטיקות ביצועים לכל איש/אשת צוות בעסק לחודש מסוים.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -136,7 +137,7 @@ TOOLS_SCHEMA = [
         "type": "function",
         "function": {
             "name": "get_wait_list",
-            "description": "מציג את רשימת הממתינים לתור בסטודיו.",
+            "description": "מציג את רשימת הממתינים לתור בעסק.",
             "parameters": {"type": "object", "properties": {}, "required": []},
         },
     },
@@ -156,7 +157,7 @@ TOOLS_SCHEMA = [
                     "service_name": {"type": "string",  "description": "שם השירות"},
                     "starts_at":    {"type": "string",  "description": "תאריך ושעת התחלה בפורמט ISO 8601 (לדוגמה: 2026-06-15T10:00:00)"},
                     "duration_minutes": {"type": "integer", "description": "משך התור בדקות (ברירת מחדל: 60)"},
-                    "artist_name":  {"type": "string",  "description": "שם האמן/עובד (אופציונלי)"},
+                    "artist_name":  {"type": "string",  "description": "שם איש/אשת הצוות (אופציונלי)"},
                     "notes":        {"type": "string",  "description": "הערות נוספות (אופציונלי)"},
                 },
                 "required": ["client_name", "client_phone", "starts_at"],
@@ -333,7 +334,7 @@ def get_dashboard_stats(studio_id: UUID, db: Session, **_) -> dict:
     appts = get_today_appointments(studio_id, db)
 
     answer = (
-        f"סטטיסטיקות הסטודיו: {total_clients} לקוחות פעילים ({club_members} חברי מועדון), "
+        f"סטטיסטיקות העסק: {total_clients} לקוחות פעילים ({club_members} חברי מועדון), "
         f"היום {appts['total']} תורים ({appts['scheduled']} מתוכננים), "
         f"הכנסות החודש ₪{rev['net_revenue']:,.2f}."
     )
@@ -435,11 +436,12 @@ def get_top_artists(studio_id: UUID, db: Session, year: int | None = None, month
         {"name": r.display_name or "—", "revenue": round(r.total_cents / 100, 2)}
         for r in rows
     ]
+    staff_plural = studio_terms(db, studio_id)["staff_plural"]   # the business's word — אמנים, מדריכים, מטפלים…
     if not artists:
-        answer = f"אין נתוני הכנסות לאמנים ב{_month_name(month)} {year}."
+        answer = f"אין נתוני הכנסות ל{staff_plural} ב{_month_name(month)} {year}."
     else:
         top = artists[0]
-        answer = f"ביצועי אמנים ב{_month_name(month)} {year}: המוביל הוא {top['name']} עם ₪{top['revenue']:,.2f}."
+        answer = f"ביצועי {staff_plural} ב{_month_name(month)} {year}: המוביל הוא {top['name']} עם ₪{top['revenue']:,.2f}."
         if len(artists) > 1:
             rest = ", ".join(f"{a['name']} ₪{a['revenue']:,.2f}" for a in artists[1:])
             answer += f" | {rest}"
@@ -676,7 +678,7 @@ def schedule_appointment(
             f"👤 לקוח: {client_name}\n"
             f"📅 תאריך: {date_label} בשעה {time_label}\n"
             f"💼 שירות: {service.name if service else service_name or 'תור'}\n"
-            + (f"🎨 אמן: {artist.display_name}\n" if artist else "")
+            + (f"👥 {studio_terms(db, studio_id)['staff']}: {artist.display_name}\n" if artist else "")
             + f"\nהתור הוסף ליומן — ניתן לראות אותו בלוח השנה."
         )
         return {

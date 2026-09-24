@@ -242,7 +242,7 @@ def generate_receipt_pdf(
     c.setFont(font_reg, 8)
     c.setFillColor(colors.HexColor("#9ca3af"))
     c.drawCentredString(W / 2, 30, h("מסמך זה הופק אוטומטית על ידי מערכת BizControl"))
-    c.drawCentredString(W / 2, 16, h(f"סטודיו: {studio_slug} | {studio_name}"))
+    c.drawCentredString(W / 2, 16, h(f"עסק: {studio_slug} | {studio_name}"))
 
     c.showPage()
     c.save()
@@ -393,7 +393,7 @@ def generate_invoice_pdf(
     c.setFont(font_reg, 8)
     c.setFillColor(colors.HexColor("#9ca3af"))
     c.drawCentredString(W / 2, 30, h("מסמך זה הופק אוטומטית על ידי מערכת BizControl"))
-    c.drawCentredString(W / 2, 16, h(f"סטודיו: {studio_slug} | {studio_name}"))
+    c.drawCentredString(W / 2, 16, h(f"עסק: {studio_slug} | {studio_name}"))
 
     c.showPage()
     c.save()

@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime, date
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Numeric, String, func, Integer, Text
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
@@ -124,6 +124,8 @@ class StudioSettings(Base):
 
     # Landing Pages
     landing_page_active_template: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
+    # The owner's own words for their business, over their field's (app/services/business_types.studio_terms)
+    business_terms: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default="{}")
     landing_page_title: Mapped[str | None] = mapped_column(String(255), nullable=True)
     landing_page_description: Mapped[str | None] = mapped_column(Text, nullable=True)
     

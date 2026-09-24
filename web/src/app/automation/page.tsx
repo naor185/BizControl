@@ -5,6 +5,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import RequireAuth from "@/components/RequireAuth";
 import AppShell from "@/components/AppShell";
+import BusinessTypeIcon from "@/components/BusinessTypeIcon";
+import BusinessWords from "@/components/BusinessWords";
+import { refreshTerms } from "@/lib/useTerms";
 import { apiFetch } from "@/lib/api";
 import confetti from "canvas-confetti";
 import LandingPageTemplate from "@/components/LandingPageTemplate";
@@ -218,11 +221,6 @@ function WebhookUrlBox({ provider, instanceId }: { provider: "green_api" | "meta
 }
 
 // ── Business Type Icons map ───────────────────────────────────────────────────
-const BT_ICONS: Record<string, string> = {
-    tattoo: "🎨", barber: "✂️", nails: "💅", laser: "⚡",
-    pilates: "🏃", spa: "🧖", medical: "🏥", other: "🏢",
-};
-
 // ── Marketplace Tab Component ─────────────────────────────────────────────────
 function MarketplaceTab({ settings, handleChange, apiFetch }: { settings: any; handleChange: (k: any, v: any) => void; apiFetch: typeof import("@/lib/api").apiFetch }) {
     const [pendingReviews, setPendingReviews] = useState<{ id: string; client_name: string; rating: number; comment: string | null; created_at: string }[]>([]);
@@ -235,7 +233,7 @@ function MarketplaceTab({ settings, handleChange, apiFetch }: { settings: any; h
     const [uploading, setUploading] = useState(false);
 
     // Business type
-    const [btOptions, setBtOptions] = useState<{ value: string; label: string }[]>([]);
+    const [btOptions, setBtOptions] = useState<{ value: string; label: string; icon: string }[]>([]);
     const [currentBt, setCurrentBt] = useState<string>("");
     const [btSaving, setBtSaving] = useState(false);
 
@@ -247,7 +245,7 @@ function MarketplaceTab({ settings, handleChange, apiFetch }: { settings: any; h
     useEffect(() => {
         loadReviews();
         loadGallery();
-        apiFetch<{ current: string; options: { value: string; label: string }[] }>("/api/studio/upload/business-type-options")
+        apiFetch<{ current: string; options: { value: string; label: string; icon: string }[] }>("/api/studio/upload/business-type-options")
             .then(d => { setCurrentBt(d.current); setBtOptions(d.options); })
             .catch(() => {});
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -335,6 +333,7 @@ function MarketplaceTab({ settings, handleChange, apiFetch }: { settings: any; h
                 method: "PATCH",
                 body: JSON.stringify({ business_type: bt }),
             });
+            refreshTerms();   // another field has other words
         } catch { } finally { setBtSaving(false); }
     };
 
@@ -359,7 +358,7 @@ function MarketplaceTab({ settings, handleChange, apiFetch }: { settings: any; h
                                     : "border-slate-200 hover:border-violet-300 text-slate-600"
                             }`}
                         >
-                            <span className="text-2xl">{BT_ICONS[opt.value] || "🏢"}</span>
+                            <BusinessTypeIcon name={opt.icon} size={24} />
                             <span>{opt.label}</span>
                         </button>
                     ))}
@@ -367,12 +366,15 @@ function MarketplaceTab({ settings, handleChange, apiFetch }: { settings: any; h
                 {btSaving && <p className="text-xs text-violet-500 mt-2">שומר...</p>}
             </div>
 
+            {/* The field's words, which the owner can change for their business */}
+            <BusinessWords reloadKey={btSaving ? "" : currentBt} />
+
             {/* Profile toggle + public link */}
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
                 <div className="flex items-center justify-between mb-4">
                     <div>
                         <h3 className="text-lg font-bold text-slate-800">🗺️ פרופיל ציבורי ב-Marketplace</h3>
-                        <p className="text-sm text-slate-500 mt-0.5">לקוחות יגלו את הסטודיו שלך בחיפוש</p>
+                        <p className="text-sm text-slate-500 mt-0.5">לקוחות יגלו את העסק שלך בחיפוש</p>
                     </div>
                     <button
                         type="button"
@@ -426,7 +428,7 @@ function MarketplaceTab({ settings, handleChange, apiFetch }: { settings: any; h
                             rows={3}
                             value={settings.marketplace_description || ""}
                             onChange={e => handleChange("marketplace_description", e.target.value)}
-                            placeholder="ספר על הסטודיו, הסגנון והחוויה שאתה מציע..."
+                            placeholder="ספר על העסק, הסגנון והחוויה שאתה מציע..."
                             className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-violet-400 resize-none"
                         />
                     </div>
@@ -658,7 +660,7 @@ export default function AutomationSettingsPage() {
             .then((data) => {
                 setSettings({
                     ...data,
-                    aftercare_message: data.aftercare_message || "היי {client_name}! 🎉\n\nלאחר סיום הקעקוע נשארים עם הניילון/מדבקה למשך כשעתיים.\nלאחר מכן ניתן להסיר את הניילון או המדבקה ולשטוף בעדינות עם מים פושרים וסבון.\n\nיום לאחר הקעקוע מתחילים למרוח את החמאה/המשחה פעמיים ביום - בוקר וערב למשך שלושה שבועות.\nיש למרוח שכבה דקה ומאוזנת: לא יותר מדי ולא מעט מדי.\n\nבמקרים של יובש גבוה ניתן למרוח עד 3 פעמים ביום.\n\nבזמן ההחלמה:\n❌ לא לגרד\n❌ לא לקלף\n🚫 להימנע מבריכה, ים, ג׳קוזי וסאונה למשך שבועיים\n\nלאחר כחודש וחצי מומלץ להגיע לביקורת כדי לוודא החלמה מלאה של הקעקוע. 🙏",
+                    aftercare_message: data.aftercare_message ?? "",   // the server returns the field's own default — no tattoo text hardcoded here
                     aftercare_delay_minutes: data.aftercare_delay_minutes ?? 30,
                     points_per_done_appointment: data.points_per_done_appointment ?? 0,
                     points_on_signup: data.points_on_signup ?? 50,
@@ -722,7 +724,7 @@ export default function AutomationSettingsPage() {
                     bank_branch: data.bank_branch ?? "",
                     bank_account: data.bank_account ?? "",
                     deposit_request_wa_template: data.deposit_request_wa_template ?? "היי {client_name}! 🎉 התור שלך ל-{appointment_title} נקבע ל-{appointment_date} בשעה {appointment_time}.\n\nלאישור התור נדרשת מקדמה של {deposit_amount}₪ עד 24 שעות.\nניתן לשלם דרך:\n💳 ביט: {bit_link}\n💳 פייבוקס: {paybox_link}\n🏦 העברה בנקאית: {bank_details}\n\nאחרי העברת המקדמה שלח/י אישור ונאשר את התור.\n\nלשאלות: {contact_phone}",
-                    deposit_approved_wa_template: data.deposit_approved_wa_template ?? "✅ {client_name}, המקדמה אושרה!\n\nהתור שלך מאושר ונעול:\n📅 תאריך: {appointment_date}\n🕐 שעה: {appointment_time}\n✂️ אמן/ית: {artist_name}\n📍 כתובת: {studio_address}\n🗺️ ניווט: {map_link}\n🖼️ תיק עבודות: {portfolio_link}\n\n*מדיניות ביטולים:* ביטול עד {cancellation_free_days} ימים לפני — החזר מלא. פחות מ-{cancellation_free_days} ימים — ללא החזר מקדמה. שינוי תור אפשרי עד {deposit_lock_days} ימים לפני.\n\nמחכים לך! 🙏",
+                    deposit_approved_wa_template: data.deposit_approved_wa_template ?? "✅ {client_name}, המקדמה אושרה!\n\nהתור שלך מאושר ונעול:\n📅 תאריך: {appointment_date}\n🕐 שעה: {appointment_time}\n👥 {staff_title}: {artist_name}\n📍 כתובת: {studio_address}\n🗺️ ניווט: {map_link}\n🖼️ תיק עבודות: {portfolio_link}\n\n*מדיניות ביטולים:* ביטול עד {cancellation_free_days} ימים לפני — החזר מלא. פחות מ-{cancellation_free_days} ימים — ללא החזר מקדמה. שינוי תור אפשרי עד {deposit_lock_days} ימים לפני.\n\nמחכים לך! 🙏",
                     points_redeem_wa_template: data.points_redeem_wa_template ?? "🎁 {client_name}, מימשת {points_used} נקודות בשווי {discount_amount}₪!\n\nנקודות שנותרו: {loyalty_points} נקודות.\nתודה שאתה/את חלק מהמועדון שלנו ❤️",
                     non_member_wa_template: data.non_member_wa_template ?? "היי {client_name}! 👋\n\nשמחים שביקרת אצלנו!\nהצטרף/י למועדון הלקוחות שלנו וקבל/י {points_on_signup} נקודות מתנה לביקור הבא 🎉\n\nהרשמה: {join_link}",
                     points_balance_wa_template: data.points_balance_wa_template ?? "היי {client_name}! 🌟\n\nיתרת הנקודות שלך במועדון: *{loyalty_points} נקודות*\n\nנשמח לראותך שוב בקרוב! 💫",
@@ -980,7 +982,7 @@ export default function AutomationSettingsPage() {
 
                     {/* Header describing the section */}
                     <div className="mb-8">
-                        <h1 className="text-3xl font-bold text-slate-800 tracking-tight">הגדרות סטודיו</h1>
+                        <h1 className="text-3xl font-bold text-slate-800 tracking-tight">הגדרות העסק</h1>
                         <p className="text-slate-500 mt-2 text-lg">ניהול מראה המערכת, דפי נחיתה, חוקי מועדון לקוחות וחיבורים חיצוניים.</p>
                     </div>
 
@@ -1050,7 +1052,7 @@ export default function AutomationSettingsPage() {
 
                                             {/* Upload controls */}
                                             <div className="flex-1 space-y-3 text-right">
-                                                <p className="text-sm font-semibold text-slate-700">הלוגו של הסטודיו שלך</p>
+                                                <p className="text-sm font-semibold text-slate-700">הלוגו של העסק שלך</p>
                                                 <p className="text-xs text-slate-500 leading-relaxed">הלוגו מופיע בדפי הנחיתה, בממשק הכניסה ובהודעות ללקוחות. מומלץ תמונה מרובעת (PNG/JPG) ברזולוציה 400×400 לפחות.</p>
 
                                                 <label className="cursor-pointer flex items-center justify-center gap-2 w-full py-3 rounded-xl border-2 border-dashed border-slate-300 hover:border-sky-400 hover:bg-sky-50 text-slate-600 hover:text-sky-600 font-medium text-sm transition-all">
@@ -1082,7 +1084,7 @@ export default function AutomationSettingsPage() {
                                 <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/10 rounded-bl-full -z-10"></div>
                                 <h3 className="text-2xl font-bold text-slate-800 mb-2">צבעי המותג</h3>
                                 <p className="text-slate-500 text-sm">
-                                    צבעי המותג וה-Font כעת אחידים לכל המערכת ומנוהלים ברמת הפלטפורמה — לא ניתנים יותר לעריכה פר-סטודיו.
+                                    צבעי המותג וה-Font כעת אחידים לכל המערכת ומנוהלים ברמת הפלטפורמה — לא ניתנים יותר לעריכה לכל עסק בנפרד.
                                     הלוגו שלך נשאר אישי ומופיע בכל מקום כרגיל.
                                 </p>
                             </div>
@@ -1090,11 +1092,11 @@ export default function AutomationSettingsPage() {
                             {/* Studio Info — moved from policy tab */}
                             <div className="bg-white rounded-2xl border border-slate-100 shadow-xl shadow-slate-200/40 p-6 md:p-10 relative overflow-hidden">
                                 <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/10 rounded-bl-full -z-10"></div>
-                                <h3 className="text-2xl font-bold text-slate-800 mb-2">פרטי הסטודיו</h3>
+                                <h3 className="text-2xl font-bold text-slate-800 mb-2">פרטי העסק</h3>
                                 <p className="text-slate-500 text-sm mb-8">פרטים אלו ישולבו אוטומטית בהודעות ללקוחות (כתובת, מפה, תיק עבודות).</p>
                                 <div className="space-y-5">
                                     <div>
-                                        <label className="block text-sm font-semibold text-slate-700 mb-1">כתובת הסטודיו</label>
+                                        <label className="block text-sm font-semibold text-slate-700 mb-1">כתובת העסק</label>
                                         <input type="text" value={settings.studio_address || ""} onChange={e => handleChange("studio_address", e.target.value)}
                                             placeholder="לדוג׳: רחוב הרצל 12, תל אביב"
                                             className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-orange-500 text-sm" />
@@ -1117,7 +1119,7 @@ export default function AutomationSettingsPage() {
                             {/* Calendar Hours — moved from automation tab */}
                             <div className="bg-white rounded-2xl border border-slate-100 shadow-xl shadow-slate-200/40 p-6 md:p-10 relative overflow-hidden">
                                 <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-bl-full -z-10"></div>
-                                <h3 className="text-2xl font-bold text-slate-800 mb-2">שעות פעילות הסטודיו ביומן</h3>
+                                <h3 className="text-2xl font-bold text-slate-800 mb-2">שעות פעילות העסק ביומן</h3>
                                 <p className="text-slate-500 text-sm mb-6">טווח השעות שיוצג ביומן התורים כדי לשמור על תצוגה נקייה.</p>
                                 <div className="flex items-center gap-6">
                                     <div className="flex items-center gap-3">
@@ -1199,7 +1201,7 @@ export default function AutomationSettingsPage() {
                                                     type="text"
                                                     value={aiPrompt}
                                                     onChange={(e) => setAiPrompt(e.target.value)}
-                                                    placeholder="לדוגמה: סטודיו באווירה אפלה ואקסקלוסיבית..."
+                                                    placeholder="לדוגמה: אווירה נעימה, שירות אישי ו-10 שנות ניסיון..."
                                                     className="flex-1 bg-white border border-indigo-200 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-indigo-500 text-sm disabled:opacity-50"
                                                     disabled={isAiLoading || settings.ai_generations_count >= 3}
                                                 />
@@ -1364,7 +1366,7 @@ export default function AutomationSettingsPage() {
                                         <div className="mb-4 bg-white border border-slate-200 rounded-xl p-3 flex flex-col gap-2">
                                             <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">לינק הצטרפות אישי</label>
                                             <div className="flex items-center gap-2">
-                                                <input readOnly value={settings.studio_slug ? `${typeof window !== "undefined" ? window.location.origin : ""}/s/${settings.studio_slug}` : "לא הוגדר slug לסטודיו"} className="flex-1 bg-slate-50 text-slate-600 font-mono text-sm px-3 py-2 rounded-lg border border-slate-200 outline-none" dir="ltr" />
+                                                <input readOnly value={settings.studio_slug ? `${typeof window !== "undefined" ? window.location.origin : ""}/s/${settings.studio_slug}` : "לא הוגדר קישור לעסק"} className="flex-1 bg-slate-50 text-slate-600 font-mono text-sm px-3 py-2 rounded-lg border border-slate-200 outline-none" dir="ltr" />
                                                 <button onClick={() => { const link = `${typeof window !== "undefined" ? window.location.origin : ""}/s/${settings.studio_slug}`; navigator.clipboard.writeText(link); setMsg("הקישור הועתק!"); setTimeout(() => setMsg(null), 2000); }} className="px-3 py-2 bg-pink-50 text-pink-600 hover:bg-pink-100 font-bold rounded-lg text-sm transition-colors ring-1 ring-pink-200">העתק</button>
                                             </div>
                                         </div>
@@ -2298,7 +2300,7 @@ export default function AutomationSettingsPage() {
                         {saving && (
                             <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                         )}
-                        <span className="relative z-10">{saving ? "שומר שינויים..." : "שמור הגדרות סטודיו"}</span>
+                        <span className="relative z-10">{saving ? "שומר שינויים..." : "שמור הגדרות העסק"}</span>
                         {!saving && <span className="text-xl group-hover:translate-x-1 transition-transform">✨</span>}
                         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-shimmer"></div>
                     </button>

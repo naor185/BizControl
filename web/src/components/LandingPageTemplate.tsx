@@ -143,7 +143,7 @@ export default function LandingPageTemplate({
     logoUrl,
     title,
     description,
-    studioName = "הסטודיו",
+    studioName = "העסק",
     templateId,
     bgImage = null,
     titleFont = "Heebo",

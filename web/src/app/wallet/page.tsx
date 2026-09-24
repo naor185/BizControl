@@ -190,7 +190,7 @@ function StatusPill({ configured, label }: { configured: boolean; label: string 
 
 export default function WalletDesignerPage() {
     const [design, setDesign] = useState<Design>(DEFAULT_DESIGN);
-    const [studioName, setStudioName] = useState("הסטודיו שלי");
+    const [studioName, setStudioName] = useState("העסק שלי");
     const [studioLogoUrl, setStudioLogoUrl] = useState<string | null>(null);
     const [walletStatus, setWalletStatus] = useState<WalletStatus>({ apple_configured: false, google_configured: false });
     const [saving, setSaving] = useState(false);

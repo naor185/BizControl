@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import AppShell from "@/components/AppShell";
 import RequireAuth from "@/components/RequireAuth";
 import { apiFetch } from "@/lib/api";
+import { useTerms } from "@/lib/useTerms";
 import { toast } from "@/lib/toast";
 
 interface Service {
@@ -37,6 +38,7 @@ function durLabel(m: number) { return m < 60 ? `${m} דק'` : m % 60 === 0 ? `${
 function ServiceModal({
     service, staff, onClose, onSaved,
 }: { service?: Service; staff: StaffMember[]; onClose: () => void; onSaved: () => void }) {
+    const terms = useTerms();   // the example comes from the business's field, not "קעקוע קטן"
     const isEdit = !!service;
     const [form, setForm] = useState({
         name: service?.name || "",
@@ -92,7 +94,7 @@ function ServiceModal({
                     {/* Name */}
                     <div style={{ gridColumn: "1/-1" }}>
                         <label style={lStyle}>שם השירות *</label>
-                        <input value={form.name} onChange={e => set("name", e.target.value)} style={iStyle} placeholder="לדוגמה: קעקוע קטן" />
+                        <input value={form.name} onChange={e => set("name", e.target.value)} style={iStyle} placeholder={terms.example_service ? `לדוגמה: ${terms.example_service}` : "שם השירות"} />
                     </div>
 
                     {/* Duration */}
@@ -262,7 +264,7 @@ export default function ServicesPage() {
                                 🛎️ קטלוג שירותים
                             </h1>
                             <p style={{ color: "#94a3b8", fontSize: "0.9rem", marginTop: "0.3rem" }}>
-                                הגדר שירותים, משכי זמן ומחירים לסטודיו שלך
+                                הגדר שירותים, משכי זמן ומחירים לעסק שלך
                             </p>
                         </div>
                         <div style={{ display: "flex", gap: "0.75rem" }}>

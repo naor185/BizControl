@@ -93,7 +93,7 @@ export default function PublicPaymentPage() {
             <div className="w-24 h-24 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center text-4xl mb-8 animate-bounce">✓</div>
             <h1 className="text-3xl font-extrabold text-slate-900 mb-4">הדיווח התקבל בהצלחה!</h1>
             <p className="text-lg text-slate-600 max-w-md leading-relaxed">
-                תודה {info.client_name}, הודענו לסטודיו שביצעת את התשלום. <br />
+                תודה {info.client_name}, הודענו לעסק שביצעת את התשלום. <br />
                 התור שלך ל-<strong>{info.appointment_title}</strong> ב-{date.toLocaleDateString('he-IL')} ממתין לאישור סופי.
             </p>
             <div className="mt-12 text-slate-400 text-sm">ניתן לסגור את הדף.</div>
@@ -174,7 +174,7 @@ export default function PublicPaymentPage() {
 
                             <div className="pt-8 border-t border-slate-100 space-y-4">
                                 <div className="text-right space-y-2">
-                                    <label className="text-sm font-bold text-slate-700 mr-1">הערות לסטודיו (אופציונלי):</label>
+                                    <label className="text-sm font-bold text-slate-700 mr-1">הערות לעסק (אופציונלי):</label>
                                     <textarea
                                         className="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm outline-none focus:ring-2 focus:ring-slate-900 transition-all"
                                         placeholder="למשל: שילמתי מחשבון של מישהו אחר..."
@@ -189,7 +189,7 @@ export default function PublicPaymentPage() {
                                     disabled={confirming}
                                     className="w-full bg-sky-600 text-white py-4 rounded-2xl font-black text-lg shadow-xl shadow-sky-600/20 hover:bg-slate-800 disabled:opacity-50 transition-all"
                                 >
-                                    {confirming ? "מעדכן..." : "לחצתי ושילמתי - עדכן את הסטודיו! ✅"}
+                                    {confirming ? "מעדכן..." : "לחצתי ושילמתי - עדכן את העסק! ✅"}
                                 </button>
                                 <p className="text-[11px] text-slate-400 leading-relaxed">
                                     בלחיצה על הכפתור, המערכת תשלח הודעה אוטומטית לעסק. אישור סופי יישלח אליך לאחר אימות התשלום.

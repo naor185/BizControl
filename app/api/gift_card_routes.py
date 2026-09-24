@@ -548,7 +548,7 @@ def create_gift_card(
         text("SELECT name FROM studios WHERE id = :sid"),
         {"sid": str(ctx.studio_id)}
     ).fetchone()
-    studio_name = studio[0] if studio else "הסטודיו"
+    studio_name = studio[0] if studio else "העסק"
 
     code = _gen_code()
     # Ensure uniqueness (retry on collision)
@@ -643,7 +643,7 @@ def preview_gift_card_voucher(
         """),
         {"sid": str(ctx.studio_id)}
     ).fetchone()
-    studio_name = studio_row[0] if studio_row else "הסטודיו שלי"
+    studio_name = studio_row[0] if studio_row else "העסק שלי"
     logo_image = _fetch_studio_logo(studio_row[1] if studio_row else None, studio_row[2] if studio_row else None)
     chosen_theme = theme or (studio_row[3] if studio_row else None) or "black_gold"
 
@@ -917,7 +917,7 @@ def approve_gift_card_payment(
         """),
         {"sid": str(ctx.studio_id)}
     ).fetchone()
-    studio_name = studio_row[0] if studio_row else "הסטודיו"
+    studio_name = studio_row[0] if studio_row else "העסק"
     logo_image = _fetch_studio_logo(studio_row[1] if studio_row else None, studio_row[2] if studio_row else None)
     voucher_theme = (studio_row[3] if studio_row else None) or "black_gold"
 

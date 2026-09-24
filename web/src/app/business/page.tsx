@@ -14,6 +14,7 @@ import RequireAuth from "@/components/RequireAuth";
 import PinModal from "@/components/PinModal";
 import { isBusinessSessionValid, clearBusinessSession } from "@/lib/businessSession";
 import { apiFetch } from "@/lib/api";
+import { fillTerms, useTerms } from "@/lib/useTerms";
 
 type PinStatus = { has_pin: boolean; is_locked: boolean; locked_until: string | null };
 
@@ -43,8 +44,8 @@ const SECTION_GROUPS: { groupLabel: string; icon: LucideIcon; items: { href: str
         groupLabel: "צוות ושכר",
         icon: Users,
         items: [
-            { href: "/team",         label: "ניהול צוות", description: "אמנים, תפקידים ושיטת תשלום",                     icon: UserCog, gradient: "from-cyan-500 to-cyan-700" },
-            { href: "/team/payroll", label: "דוח שכר",     description: "מי, כמה ומתי — חישוב שכר חודשי לכל אמן + PDF",   icon: Wallet, gradient: "from-blue-500 to-blue-700" },
+            { href: "/team",         label: "ניהול צוות", description: "{staff_plural}, תפקידים ושיטת תשלום",                     icon: UserCog, gradient: "from-cyan-500 to-cyan-700" },
+            { href: "/team/payroll", label: "דוח שכר",     description: "מי, כמה ומתי — חישוב שכר חודשי לכל עובד/ת + PDF",   icon: Wallet, gradient: "from-blue-500 to-blue-700" },
         ],
     },
     {
@@ -91,6 +92,7 @@ const SECTION_GROUPS: { groupLabel: string; icon: LucideIcon; items: { href: str
 ];
 
 export default function BusinessPage() {
+    const terms = useTerms();   // the business's words in the descriptions
     const router = useRouter();
     const [unlocked, setUnlocked] = useState(false);
     const [pinStatus, setPinStatus] = useState<PinStatus | null>(null);
@@ -265,7 +267,7 @@ export default function BusinessPage() {
                                                     <section.icon className="w-7 h-7" style={{ color: "var(--foreground)" }} />
                                                 </div>
                                                 <div className="font-bold text-slate-900 text-lg mb-1">{section.label}</div>
-                                                <div className="text-base text-slate-400 leading-relaxed">{section.description}</div>
+                                                <div className="text-base text-slate-400 leading-relaxed">{fillTerms(section.description, terms)}</div>
 
                                                 {/* Arrow */}
                                                 <div className="absolute top-4 left-4 text-slate-200 group-hover:text-violet-400 group-hover:translate-x-0.5 transition-all duration-200 text-lg">

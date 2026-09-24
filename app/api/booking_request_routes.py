@@ -206,9 +206,11 @@ def approve_request(
     custom_tpl = getattr(settings, "booking_request_approved_wa_template", None)
     if custom_tpl:
         from app.crud.automation import format_template
+        from app.services.business_types import studio_terms
         confirm_msg = format_template(custom_tpl, {
             "client_name": req.client_name,
             "artist_name": artist_name,
+            "staff_title": studio_terms(db, req.studio_id)["staff"],   # the business's word, e.g. מטפל/ת
             "appointment_date": local_time,
             "service_note": req.service_note or "",
             "booking_link": booking_link,

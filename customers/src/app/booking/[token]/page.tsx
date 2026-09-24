@@ -64,7 +64,7 @@ export default function BookingStatusPage() {
                     {data.studio_logo && (
                         <img src={data.studio_logo} alt={data.studio_name || ""} className="w-14 h-14 rounded-full object-cover mx-auto mb-3 border-2 border-white/40" />
                     )}
-                    <h1 className="text-lg font-bold">{data.studio_name || "הסטודיו"}</h1>
+                    <h1 className="text-lg font-bold">{data.studio_name || "העסק"}</h1>
                     <p className="text-indigo-200 text-sm mt-0.5">פרטי הזמנה</p>
                 </div>
 
@@ -92,7 +92,7 @@ export default function BookingStatusPage() {
 
                 {data.status === "pending" && (
                     <div className="px-6 pb-5">
-                        <p className="text-center text-xs text-gray-400">הסטודיו יאשר את הבקשה בהקדם. תקבל הודעה בוואטסאפ.</p>
+                        <p className="text-center text-xs text-gray-400">העסק יאשר את הבקשה בהקדם. תקבל הודעה בוואטסאפ.</p>
                     </div>
                 )}
 

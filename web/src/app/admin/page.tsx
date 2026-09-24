@@ -1979,7 +1979,7 @@ export default function AdminPage() {
                                                 <div className="flex items-center gap-2">
                                                     <span className="font-semibold text-sm">{u.display_name}</span>
                                                     <span className={`text-xs px-2 py-0.5 rounded-full ${u.role === "owner" ? "bg-purple-500/20 text-purple-300" : u.role === "admin" ? "bg-blue-500/20 text-blue-300" : u.role === "artist" ? "bg-pink-500/20 text-pink-300" : "bg-slate-500/20 text-slate-400"}`}>
-                                                        {u.role === "owner" ? "בעלים" : u.role === "admin" ? "מנהל" : u.role === "artist" ? "אמן" : "צוות"}
+                                                        {u.role === "owner" ? "בעלים" : u.role === "admin" ? "מנהל" : u.role === "artist" ? "נותן/ת שירות" : "צוות"}
                                                     </span>
                                                     {!u.is_active && <span className="text-xs text-red-400">מושבת</span>}
                                                 </div>
@@ -2020,7 +2020,7 @@ export default function AdminPage() {
                                                 value={editUserForm.role} onChange={e => setEditUserForm(f => ({ ...f, role: e.target.value }))}>
                                                 <option value="owner" style={OPTION_STYLE}>בעלים</option>
                                                 <option value="admin" style={OPTION_STYLE}>מנהל</option>
-                                                <option value="artist" style={OPTION_STYLE}>אמן/אמנית</option>
+                                                <option value="artist" style={OPTION_STYLE}>נותן/ת שירות</option>
                                                 <option value="staff" style={OPTION_STYLE}>צוות</option>
                                             </select>
                                         </div>
@@ -2064,7 +2064,7 @@ export default function AdminPage() {
                                         <select className="w-full bg-white/10 border border-white/10 rounded-xl px-3 py-2 text-sm outline-none scheme-dark"
                                             value={addUserForm.role} onChange={e => setAddUserForm(f => ({ ...f, role: e.target.value }))}>
                                             <option value="admin" style={OPTION_STYLE}>מנהל</option>
-                                            <option value="artist" style={OPTION_STYLE}>אמן/אמנית</option>
+                                            <option value="artist" style={OPTION_STYLE}>נותן/ת שירות</option>
                                             <option value="staff" style={OPTION_STYLE}>צוות</option>
                                         </select>
                                     </div>

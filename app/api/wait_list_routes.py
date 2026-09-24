@@ -186,7 +186,7 @@ def _send_wait_list_notification(db: Session, entry: WaitListEntry, studio_id) -
         return
 
     import os as _os
-    studio_name = studio.name if studio else "הסטודיו"
+    studio_name = studio.name if studio else "העסק"
     name = entry.client_name or "שלום"
     slug = studio.slug if studio else ""
     bizfind_url = _os.environ.get("BIZFIND_URL", "https://find-biz.com")

@@ -31,7 +31,7 @@ export const translations = {
         // Auth
         login_title:    "התחברות למערכת",
         login_subtitle: "הזן את פרטי הגישה שלך",
-        login_slug:     "מזהה סטודיו (לא חובה לבעלי עסק)",
+        login_slug:     "מזהה עסק (לא חובה לבעלי עסק)",
         login_email:    "אימייל",
         login_password: "סיסמה",
         login_remember: "זכור אותי",
@@ -75,7 +75,7 @@ export const translations = {
         portal_upcoming: "קרובים",
         portal_history:  "היסטוריה",
         portal_cancel:   "ביטול תור",
-        portal_artist:   "אמן",
+        portal_artist:   "נותן/ת השירות",
         portal_price:    "מחיר",
         portal_deposit:  "מקדמה",
         portal_remaining: "נשאר",

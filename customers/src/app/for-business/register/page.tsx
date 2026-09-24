@@ -239,7 +239,7 @@ function RegisterInner() {
                     <div style={{ display: "grid", gap: "1rem" }}>
                         <div>
                             <label style={labelStyle}>שם העסק *</label>
-                            <input style={inputStyle} placeholder="לדוגמה: סטודיו נעמי" value={form.business_name} onChange={e => set("business_name", e.target.value)} maxLength={120} />
+                            <input style={inputStyle} placeholder="שם העסק כפי שהלקוחות מכירים אותו" value={form.business_name} onChange={e => set("business_name", e.target.value)} maxLength={120} />
                         </div>
                         <div>
                             <label style={labelStyle}>קטגוריה *</label>

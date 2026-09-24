@@ -680,7 +680,7 @@ def create_invoice(
         {"sid": ctx.studio_id}
     ).fetchone()
     if not studio:
-        raise HTTPException(404, "סטודיו לא נמצא")
+        raise HTTPException(404, "העסק לא נמצא")
 
     # Resolve client info
     client_name = body.client_name

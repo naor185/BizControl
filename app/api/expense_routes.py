@@ -301,7 +301,7 @@ async def scan_invoice(
         if not is_module_enabled(db, ctx.studio_id, plan, "invoice_ai_scan"):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="סריקת חשבוניות AI אינה מופעלת לסטודיו זה. צרו קשר עם התמיכה.",
+                detail="סריקת חשבוניות AI אינה מופעלת לעסק זה. צרו קשר עם התמיכה.",
             )
         quota_result = check_quota(db, ctx.studio_id, plan, "invoice_ai_scan")  # raises 429 on block
 

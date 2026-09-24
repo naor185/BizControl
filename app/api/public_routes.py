@@ -608,6 +608,7 @@ def create_booking(
 
 def _notify_booking_request(db, req: BookingRequest, studio, settings, artist) -> None:
     from app.models.message_job import MessageJob
+    from app.services.business_types import studio_terms   # the business's words — אמן/ית, מניקוריסטית, מטפל/ת…
     from app.models.user import User as UserModel
 
     from zoneinfo import ZoneInfo
@@ -619,7 +620,7 @@ def _notify_booking_request(db, req: BookingRequest, studio, settings, artist) -
         f"🔔 בקשת תור חדשה!\n"
         f"👤 {req.client_name} ({req.client_phone})\n"
         f"📅 {local_time}\n"
-        f"🎨 אמן: {artist.display_name or artist.email}\n"
+        f"👥 {studio_terms(db, studio.id)['staff']}: {artist.display_name or artist.email}\n"
         f"📝 {req.service_note or 'ללא הערות'}\n\n"
         f"כנס למערכת לאשר או לדחות."
     )

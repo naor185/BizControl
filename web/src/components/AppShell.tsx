@@ -200,7 +200,7 @@ export default function AppShell({
                 <div className="bg-amber-400 text-amber-950 text-sm font-bold px-4 py-2.5 flex items-center justify-between z-50 relative">
                     <span className="flex items-center gap-2">
                         <span>👁️</span>
-                        <span>מצב צפייה — אתה רואה את המערכת כבעל הסטודיו</span>
+                        <span>מצב צפייה — אתה רואה את המערכת כבעל העסק</span>
                     </span>
                     <button
                         onClick={handleReturnToAdmin}

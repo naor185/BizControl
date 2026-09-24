@@ -7,7 +7,6 @@ from __future__ import annotations
 import json
 import uuid
 
-import anthropic
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 
@@ -16,37 +15,29 @@ from app.utils.logger import get_logger
 
 log = get_logger(__name__)
 
-_client: anthropic.Anthropic | None = None
+_client = None
 
 
-def _get_client() -> anthropic.Anthropic:
+def _get_client():
     global _client
     if _client is None:
+        import anthropic   # imported here: the package is not in requirements.txt (see the webhook caller)
         _client = anthropic.Anthropic()
     return _client
 
 
-SERVICE_KEYWORDS = {
-    "קעקוע קטן": ["קעקוע קטן", "קטנה", "מיני", "tiny", "small"],
-    "שרוול": ["שרוול", "sleeve", "כל היד"],
-    "גב": ["גב", "back"],
-    "צוואר": ["צוואר", "neck"],
-    "פירסינג": ["פירסינג", "piercing", "עגיל", "נוז"],
-    "תיקון": ["תיקון", "לתקן", "touch up", "touch-up"],
-    "מחיקה": ["מחיקה", "להסיר", "הסרה", "removal", "laser"],
-    "ייעוץ": ["ייעוץ", "consultation", "שאלה", "לשאול"],
-}
-
-
-def _classify_sync(message: str) -> dict:
-    """Synchronous Claude call — fast Haiku model."""
-    prompt = f"""סווג הודעה זו מלקוח פוטנציאלי לסטודיו קעקועים.
+def _classify_sync(message: str, business_field: str, services: list[str]) -> dict:
+    """Synchronous Claude call — fast Haiku model. Told the business's own field and services, so a
+    lead is never tagged with another field's service (a clinic's lead as a tattoo)."""
+    services_line = ", ".join(services) if services else "לא הוגדרו"
+    prompt = f"""סווג הודעה זו מלקוח פוטנציאלי לעסק בתחום: {business_field}.
+השירותים של העסק: {services_line}
 
 הודעה: "{message[:300]}"
 
 החזר JSON בלבד (ללא טקסט נוסף):
 {{
-  "service_interest": "שם השירות המבוקש בעברית (או null אם לא ברור)",
+  "service_interest": "השירות המבוקש — אחד מהשירותים של העסק אם מתאים, אחרת בעברית קצרה (או null אם לא ברור)",
   "temperature": "hot|warm|cold",
   "notes": "הערה קצרה אם יש (אופציונלי)"
 }}
@@ -83,7 +74,14 @@ def tag_lead(db: Session, lead_id: uuid.UUID, message: str) -> None:
     if not lead or lead.service_interest:
         return
 
-    result = _classify_sync(message)
+    from app.models.service import Service
+    from app.services.business_types import describe, type_lookup
+    from app.models.studio import Studio
+    studio = db.get(Studio, lead.studio_id)
+    field = describe(type_lookup(db), studio.business_type if studio else None)["label"]
+    services = list(db.scalars(select(Service.name).where(Service.studio_id == lead.studio_id,
+                                                         Service.is_active.is_(True))).all())[:30]
+    result = _classify_sync(message, field, services)
     if not result:
         return
 

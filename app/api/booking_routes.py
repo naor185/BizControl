@@ -340,7 +340,7 @@ def public_request_appointment(
         name=payload.client_name.strip(), phone=payload.client_phone.strip(),
         email=payload.client_email, service_note=payload.service_name or payload.notes,
     )
-    return {"ok": True, "message": "הבקשה נשלחה! הסטודיו יצור איתך קשר בקרוב 📞"}
+    return {"ok": True, "message": "הבקשה נשלחה! העסק יצור איתך קשר בקרוב 📞"}
 
 
 # ── Public wait-list join ─────────────────────────────────────────────────────

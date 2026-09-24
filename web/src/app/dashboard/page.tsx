@@ -5,6 +5,7 @@ import RequireAuth from "@/components/RequireAuth";
 import AppShell from "@/components/AppShell";
 import { apiFetch, DashboardStats } from "@/lib/api";
 import PaymentModal from "@/components/PaymentModal";
+import { useTerms } from "@/lib/useTerms";
 import {
     BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip,
     ResponsiveContainer,
@@ -61,6 +62,7 @@ const fmt = (n: number) =>
 
 
 export default function Page() {
+    const terms = useTerms();   // the business's words, not "אמנים"
     const [stats, setStats] = useState<DashboardStats | null>(null);
     const [dailyPayments, setDailyPayments] = useState<DailyPayment[]>([]);
     const [pendingPayments, setPendingPayments] = useState<PendingPayment[]>([]);
@@ -599,7 +601,7 @@ export default function Page() {
                                 {analytics.artists.length > 0 && (
                                     <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
                                         <div className="px-6 py-4 border-b border-slate-100">
-                                            <h3 className="font-bold text-slate-800">ביצועי אמנים</h3>
+                                            <h3 className="font-bold text-slate-800">ביצועי {terms.staff_plural}</h3>
                                         </div>
                                         <div className="divide-y divide-slate-50">
                                             {analytics.artists.map((a, i) => (

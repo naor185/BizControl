@@ -5,6 +5,7 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Check, X } from "lucide-react";
 import { apiFetch } from "@/lib/api";
+import { useTerms } from "@/lib/useTerms";
 
 type Lead = {
     id: string;
@@ -258,6 +259,7 @@ function AnalyticsTab({ leads: allLeads }: { leads: Lead[] }) {
 // ── Main Page ──────────────────────────────────────────────────────────────────
 export default function LeadsContent({ heightClass = "h-[560px]" }: { heightClass?: string }) {
     const router = useRouter();
+    const terms = useTerms();   // the example comes from the business's field
     const [leads, setLeads]         = useState<Lead[]>([]);
     const [loading, setLoading]     = useState(true);
     const [selected, setSelected]   = useState<Lead | null>(null);
@@ -669,7 +671,7 @@ export default function LeadsContent({ heightClass = "h-[560px]" }: { heightClas
                                     </div>
                                     <div>
                                         <label className="text-xs text-slate-500 block mb-1">שירות מבוקש</label>
-                                        <input value={form.service_interest} onChange={e => setForm(f => ({ ...f, service_interest: e.target.value }))} placeholder="קעקוע, פירסינג..." className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-right focus:outline-none focus:ring-2 focus:ring-sky-300" />
+                                        <input value={form.service_interest} onChange={e => setForm(f => ({ ...f, service_interest: e.target.value }))} placeholder={terms.example_service ? `לדוגמה: ${terms.example_service}` : "השירות שמעניין את הלקוח"} className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-right focus:outline-none focus:ring-2 focus:ring-sky-300" />
                                     </div>
                                 </div>
                                 <div>

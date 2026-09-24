@@ -116,7 +116,7 @@ class PlanEnforcementMiddleware(BaseHTTPMiddleware):
         if error_code:
             body = json.dumps({
                 "detail": error_code,
-                "message": "תוכנית המנוי של הסטודיו פגה. אנא פנה לחידוש."
+                "message": "תוכנית המנוי של העסק פגה. אנא פנה לחידוש."
             })
             return Response(
                 content=body,

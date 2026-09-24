@@ -419,7 +419,7 @@ def process_due_jobs(db: Session, limit: int = 20) -> int:
             if job.channel == "email":
                 # All emails go through the central Email Center — no per-studio
                 # Resend key path anymore.
-                subject = getattr(job, "subject", None) or "הודעה מהסטודיו"
+                subject = getattr(job, "subject", None) or "הודעה מהעסק"
                 from app.services.email_center import send_email as _ec_send
                 from app.models.studio import Studio as _Studio
                 _studio = db.get(_Studio, job.studio_id)

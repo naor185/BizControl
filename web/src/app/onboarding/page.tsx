@@ -157,7 +157,7 @@ export default function OnboardingPage() {
                             <div className="space-y-4">
                                 <div>
                                     <label className={labelCls}>שם העסק *</label>
-                                    <input className={inputCls} value={businessName} onChange={e => setBusinessName(e.target.value)} placeholder="סטודיו נעמי" maxLength={120} />
+                                    <input className={inputCls} value={businessName} onChange={e => setBusinessName(e.target.value)} placeholder="שם העסק כפי שהלקוחות מכירים אותו" maxLength={120} />
                                 </div>
                                 <div>
                                     <label className={labelCls}>קטגוריה *</label>

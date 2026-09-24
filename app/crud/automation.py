@@ -11,6 +11,7 @@ from app.models.client_points_ledger import ClientPointsLedger
 from app.models.message_job import MessageJob
 from app.models.studio import Studio
 from app.services.email_center import studio_email_allowed as _email_ok
+from app.services.business_types import studio_terms
 from app.crud.push import enqueue_push_to_studio_admins, enqueue_push_to_customer_by_phone
 
 def format_template(template: str, context: dict) -> str:
@@ -36,7 +37,7 @@ def smart_format(template: str, context: dict) -> str:
         if context.get("client_name"):
             lines.append(f"👤 {context['client_name']}")
         if context.get("appointment_title"):
-            lines.append(f"🎨 {context['appointment_title']}")
+            lines.append(f"💼 {context['appointment_title']}")
         if context.get("appointment_date") and context.get("appointment_time"):
             lines.append(f"📅 {context['appointment_date']} בשעה {context['appointment_time']}")
         elif context.get("appointment_date"):
@@ -58,7 +59,7 @@ def smart_format(template: str, context: dict) -> str:
     return format_template(template, context)
 
 
-def _build_context(settings: StudioSettings, client: Client, appt: Appointment, artist_name: str = "") -> dict:
+def _build_context(settings: StudioSettings, client: Client, appt: Appointment, artist_name: str = "", db: Session | None = None) -> dict:
     base_url = os.getenv("FRONTEND_URL", "https://bizcontrol-seven.vercel.app")
     deposit_amount = appt.deposit_amount_cents / 100 if appt.deposit_amount_cents else 0
     bank_details = ""
@@ -72,6 +73,8 @@ def _build_context(settings: StudioSettings, client: Client, appt: Appointment, 
         "payment_link": f"{base_url}/pay/{appt.id}",
         "deposit_amount": f"{deposit_amount:.0f}" if deposit_amount == int(deposit_amount) else f"{deposit_amount:.2f}",
         "artist_name": artist_name,
+        # the business's word for the one giving the service (אמן/ית, מניקוריסטית, מטפל/ת…) — {staff_title}
+        "staff_title": studio_terms(db, appt.studio_id)["staff"] if db is not None else "נותן/ת השירות",
         "studio_address": settings.studio_address or "",
         "map_link": settings.studio_map_link or "",
         "portfolio_link": settings.studio_portfolio_link or "",
@@ -93,7 +96,7 @@ def enqueue_confirmation_message(db: Session, appt: Appointment, artist_name: st
     if not settings or not client:
         return
 
-    context = _build_context(settings, client, appt, artist_name)
+    context = _build_context(settings, client, appt, artist_name, db)
     now = datetime.now(timezone.utc)
     has_deposit = bool(appt.deposit_amount_cents and appt.deposit_amount_cents > 0)
 
@@ -229,7 +232,7 @@ def enqueue_deposit_approved_message(db: Session, appt: Appointment, artist_name
     if not settings or not client:
         return
 
-    context = _build_context(settings, client, appt, artist_name)
+    context = _build_context(settings, client, appt, artist_name, db)
     now = datetime.now(timezone.utc)
 
     wa_template = settings.deposit_approved_wa_template
@@ -257,7 +260,12 @@ def enqueue_deposit_approved_message(db: Session, appt: Appointment, artist_name
     # Email branch
     if client.email and _email_ok(db, appt.studio_id, "email_deposit_approved_enabled"):
         from app.utils.email_templates import _email_base
-        email_body = settings.deposit_approved_wa_template  # reuse if studio set one
+        email_body = None
+        if settings.deposit_approved_wa_template:
+            # the studio's WhatsApp text, filled in and laid out for e-mail — it used to go out raw, every
+            # {client_name}/{appointment_date}… unfilled
+            from html import escape as _esc_html
+            email_body = "<p>" + _esc_html(smart_format(settings.deposit_approved_wa_template, context)).replace(chr(10), "<br>") + "</p>"
         if not email_body:
             _map_html = ('<p><a href="' + context["map_link"] + '" style="color:#3b82f6;">🗺️ ניווט למיקום</a></p>') if context.get("map_link") else ""
             email_body = (
@@ -265,7 +273,7 @@ def enqueue_deposit_approved_message(db: Session, appt: Appointment, artist_name
                 f"<p>✅ המקדמה שלך אושרה! אנו מחכים לראותך.</p>"
                 f"<table style='border-collapse:collapse;margin:16px 0;font-size:14px;'>"
                 f"<tr><td style='padding:6px 12px 6px 0;color:#64748b;'>📅 תאריך:</td><td style='font-weight:bold;'>{context['appointment_date']} בשעה {context['appointment_time']}</td></tr>"
-                f"<tr><td style='padding:6px 12px 6px 0;color:#64748b;'>✂️ אמן/ית:</td><td style='font-weight:bold;'>{context['artist_name']}</td></tr>"
+                f"<tr><td style='padding:6px 12px 6px 0;color:#64748b;'>👥 {studio_terms(db, appt.studio_id)['staff']}:</td><td style='font-weight:bold;'>{context['artist_name']}</td></tr>"
                 f"<tr><td style='padding:6px 12px 6px 0;color:#64748b;'>📍 כתובת:</td><td style='font-weight:bold;'>{context['studio_address']}</td></tr>"
                 f"</table>"
                 f"{_map_html}"
@@ -471,8 +479,10 @@ def enqueue_post_payment_message(db: Session, appt: Appointment, amount_cents: i
 
     # ── Aftercare block — substitute {client_name} first ─────
     aftercare_block = ""
-    if settings.aftercare_message:
-        aftercare_text = format_template(settings.aftercare_message.strip(), {"client_name": client.full_name or ""})
+    from app.services.business_types import message_default
+    _aftercare = (settings.aftercare_message or "").strip() or message_default(db, appt.studio_id, "aftercare").strip()
+    if _aftercare:
+        aftercare_text = format_template(_aftercare, {"client_name": client.full_name or ""})
         aftercare_block = f"\n\n{aftercare_text}"
 
     # ── Points block — only for club members ─────────────────
@@ -755,10 +765,16 @@ def maybe_enqueue_points_celebration(db: Session, studio_id, client, amount_rede
     return True
 
 
-def build_aftercare_message(settings: StudioSettings, client: Client, points_added: int, points_total: int) -> str:
+def build_aftercare_message(settings: StudioSettings, client: Client, points_added: int, points_total: int,
+                            db: Session | None = None) -> str:
     parts: list[str] = []
-    if settings.aftercare_message:
-        parts.append(settings.aftercare_message.strip())
+    text = (settings.aftercare_message or "").strip()
+    if not text and db is not None:
+        from app.services.business_types import message_default
+        text = message_default(db, settings.studio_id, "aftercare").strip()   # the field's own default
+    if text:
+        # {client_name} used to go out unfilled ("היי {client_name}!")
+        parts.append(format_template(text, {"client_name": client.full_name or ""}))
 
     # Links
     if settings.review_link_google:
@@ -827,7 +843,7 @@ def enqueue_aftercare_if_needed(db: Session, appt: Appointment) -> None:
     delay = int(settings.aftercare_delay_minutes or 0)
     scheduled_at = (appt.done_at or now) + timedelta(minutes=delay)
 
-    body = build_aftercare_message(settings, client, points_added=points, points_total=client.loyalty_points)
+    body = build_aftercare_message(settings, client, points_added=points, points_total=client.loyalty_points, db=db)
 
     # חייב טלפון כדי לשלוח
     if not client.phone:

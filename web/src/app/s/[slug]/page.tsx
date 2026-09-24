@@ -139,8 +139,8 @@ export default function StudioLandingPage() {
             <div className="min-h-screen flex items-center justify-center bg-slate-50" dir="rtl">
                 <div className="text-center space-y-4">
                     <p className="text-6xl">🔍</p>
-                    <h1 className="text-2xl font-bold text-slate-800">הסטודיו לא נמצא</h1>
-                    <p className="text-slate-500">הקישור לא תקין או שהסטודיו אינו פעיל</p>
+                    <h1 className="text-2xl font-bold text-slate-800">העסק לא נמצא</h1>
+                    <p className="text-slate-500">הקישור לא תקין או שהעסק אינו פעיל</p>
                 </div>
             </div>
         );
