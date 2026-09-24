@@ -55,6 +55,43 @@ def test_every_message_type_in_the_code_is_classified():
     assert not unclassified_prefixes, f"classify these prefixes in app/services/marketing.py: {unclassified_prefixes}"
 
 
+# Messages queued WITHOUT a reminder_type are treated as service messages by the dispatcher. These are
+# the only places allowed to do that — all of them service (the client's own booking, payment, club
+# sign-up, or a message to staff). A new one must either set a classified reminder_type or be added
+# here on purpose.
+UNTYPED_SERVICE_SITES = {
+    ("api/booking_request_routes.py", "approve_request"),
+    ("api/booking_request_routes.py", "reject_request"),
+    ("api/client_routes.py", "send_points_balance"),
+    ("api/public_routes.py", "_notify_booking_request"),
+    ("crud/automation.py", "enqueue_confirmation_message"),
+    ("crud/automation.py", "enqueue_deposit_approved_message"),
+    ("crud/automation.py", "enqueue_reschedule_message"),
+    ("crud/automation.py", "enqueue_cancel_message"),
+    ("crud/automation.py", "enqueue_aftercare_if_needed"),
+    ("crud/client.py", "_handle_new_club_member"),   # the club welcome e-mail
+}
+
+
+def test_messages_without_a_type_are_only_known_service_messages():
+    found = set()
+    for path in APP.rglob("*.py"):
+        src = path.read_text(encoding="utf-8")
+        for m in re.finditer(r"MessageJob\(", src):
+            i, depth = m.end(), 1
+            while depth and i < len(src):
+                depth += {"(": 1, ")": -1}.get(src[i], 0)
+                i += 1
+            call = src[m.start():i]
+            if "=" not in call or "reminder_type" in call:
+                continue   # a query, or a typed message (covered by the registry test above)
+            fns = re.findall(r"^\s*def (\w+)", src[:m.start()], re.M)
+            found.add((path.relative_to(APP).as_posix(), fns[-1] if fns else "?"))
+    assert found, "found no untyped messages — the scan is broken"
+    unexpected = sorted(found - UNTYPED_SERVICE_SITES)
+    assert not unexpected, f"these queue a message without reminder_type — give it a classified type: {unexpected}"
+
+
 def test_broadcast_audience_requires_consent_and_no_opt_out():
     sql = str(broadcast_recipients_query(uuid.uuid4(), "all").compile(dialect=postgresql.dialect()))
     assert "clients.marketing_consent IS true" in sql
