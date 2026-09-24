@@ -11,7 +11,35 @@ from app.models.message_job import MessageJob
 from app.models.studio import Studio
 from app.models.studio_settings import StudioSettings
 from app.services import message_worker
-from tests.conftest import SENT
+from tests.conftest import SENT, register_and_login
+
+
+def test_the_single_marketing_switch_on_the_client_card(client, db_session):
+    """One switch "מקבל/ת הודעות שיווקיות": off stops marketing, on (after the client agreed) restores it
+    even for a client who never ticked the box — and the broadcast count follows it."""
+    h = register_and_login(client, slug="switch", email="owner@switch.com")
+    r = client.post("/api/clients", headers=h, json={"full_name": "נועה", "phone": "0503334444"})
+    cid = r.json()["id"]
+    assert r.json()["receives_marketing"] is True
+
+    def state():
+        p = client.get(f"/api/clients/{cid}/profile", headers=h).json()["client"]["receives_marketing"]
+        n = client.post("/api/broadcasts", headers=h, json={"title": "t", "body": "b", "audience": "all",
+                                                             "scheduled_at": "2099-01-01T00:00:00+00:00"}).json()
+        client.delete(f"/api/broadcasts/{n['id']}", headers=h)
+        return p, n["recipient_count"]
+
+    assert client.patch(f"/api/clients/{cid}", headers=h, json={"receives_marketing": False}).status_code == 200
+    assert state() == (False, 0)
+
+    c = db_session.get(Client, cid)
+    c.marketing_consent = False            # also never agreed on the sign-up form
+    db_session.commit()
+    assert client.patch(f"/api/clients/{cid}", headers=h, json={"receives_marketing": True}).status_code == 200
+    assert state() == (True, 1)
+    db_session.expire_all()
+    c = db_session.get(Client, cid)
+    assert c.marketing_consent is True and c.whatsapp_opted_out is False
 
 
 def test_birthday_benefit_goes_out_once_with_a_working_unsubscribe_link(db_session):

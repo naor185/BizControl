@@ -199,14 +199,13 @@ def test_dispatcher_sends_service_messages_whatever_the_marketing_flags(sent):
 # service messages again. Declaring and setting them is fine: these are the files that do.
 FLAG_ALLOWED = {
     "whatsapp_opted_out": {
-        "services/marketing.py",   # the rule
-        "models/client.py", "schemas/client.py", "main.py",   # the column itself
-        "crud/client.py",          # the client card switch sets it
+        "services/marketing.py",   # the rule, and the client card switch (set_receives_marketing)
+        "models/client.py", "main.py",   # the column itself
         "api/invite_routes.py",    # the unsubscribe link sets it
     },
     "marketing_consent": {
-        "services/marketing.py",   # the rule
-        "models/client.py", "schemas/client.py",   # the column itself
+        "services/marketing.py",   # the rule, and the client card switch (set_receives_marketing)
+        "models/client.py",        # the column itself
         "api/public_routes.py",    # the club sign-up form sets it
         "api/client_routes.py",    # the walk-in client is created without it
         "migration/normalize.py", "migration/universal.py", "migration/writers.py",   # data import sets it

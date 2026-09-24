@@ -23,7 +23,7 @@ class ClientUpdate(BaseModel):
     notes: str | None = None
     is_active: bool | None = None
     is_club_member: bool | None = None
-    whatsapp_opted_out: bool | None = None
+    receives_marketing: bool | None = None   # the single switch on the client card (app/services/marketing.py)
     loyalty_points: int | None = Field(default=None, ge=0)
 
 class ClientOut(ClientBase):
@@ -33,7 +33,7 @@ class ClientOut(ClientBase):
     cancellation_count: int
     no_show_count: int
     is_walk_in: bool = False
-    whatsapp_opted_out: bool = False
+    receives_marketing: bool = True
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -80,14 +80,13 @@ class ClientProfileClient(BaseModel):
     email: EmailStr | None
     birth_date: date | None
     notes: str | None
-    marketing_consent: bool
     is_active: bool
     is_club_member: bool
     loyalty_points: int
     cancellation_count: int
     no_show_count: int
     is_walk_in: bool = False
-    whatsapp_opted_out: bool = False
+    receives_marketing: bool = True
     created_at: datetime
 
     model_config = {"from_attributes": True}

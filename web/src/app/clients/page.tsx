@@ -17,7 +17,7 @@ type Client = {
     created_at?: string;
     is_club_member?: boolean;
     birth_date?: string | null;
-    whatsapp_opted_out?: boolean;
+    receives_marketing?: boolean;
 };
 
 type ClubMember = {
@@ -311,7 +311,7 @@ function PageInner() {
                                                                 <div>
                                                                     <div className="font-semibold text-slate-800 group-hover:text-black flex items-center gap-1.5">
                                                                         <span>{c.full_name || c.id.slice(0, 8)}</span>
-                                                                        {c.whatsapp_opted_out && <span title="הוסר/ה מהודעות שיווקיות">🔕</span>}
+                                                                        {c.receives_marketing === false && <span title="לא מקבל/ת הודעות שיווקיות">🔕</span>}
                                                                     </div>
                                                                     {c.is_club_member && <span className="text-[10px] bg-amber-100 text-amber-700 font-bold px-1.5 py-0.5 rounded-full">מועדון 👑</span>}
                                                                 </div>
@@ -343,7 +343,7 @@ function PageInner() {
                                                 <div className="flex-1 min-w-0">
                                                     <div className="font-semibold text-slate-800 truncate flex items-center gap-2">
                                                         {c.full_name || c.id.slice(0, 8)}
-                                                        {c.whatsapp_opted_out && <span title="הוסר/ה מהודעות שיווקיות">🔕</span>}
+                                                        {c.receives_marketing === false && <span title="לא מקבל/ת הודעות שיווקיות">🔕</span>}
                                                         {c.is_club_member && <span className="text-[10px] bg-amber-100 text-amber-700 font-bold px-1.5 py-0.5 rounded-full">👑</span>}
                                                     </div>
                                                     <div className="text-xs text-slate-400 mt-0.5 font-mono" dir="ltr">{c.phone || "אין טלפון"}</div>

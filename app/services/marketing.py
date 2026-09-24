@@ -86,6 +86,21 @@ def may_receive_marketing(client: Client | None) -> bool:
     return refusal_reason(client) is None
 
 
+def receives_marketing(client: Client) -> bool:
+    """The client's own choice, shown as the single switch on the client card: agreed to marketing and
+    did not unsubscribe. (Whether the client is active is checked separately, by may_receive_marketing.)"""
+    return bool(client.marketing_consent) and not client.whatsapp_opted_out
+
+
+def set_receives_marketing(client: Client, on: bool) -> None:
+    """The client card switch. On = the client agreed (again) — both flags allow marketing.
+    Off = the client asked to stop, recorded like the unsubscribe link does."""
+    if on:
+        client.marketing_consent, client.whatsapp_opted_out = True, False
+    else:
+        client.whatsapp_opted_out = True
+
+
 def unsubscribe_link(db, studio_id, client_id, commit: bool = True) -> str:
     """The client's personal unsubscribe link (invite_routes.optout_via_invite). The only place it is built."""
     from app.api.invite_routes import create_invite_token

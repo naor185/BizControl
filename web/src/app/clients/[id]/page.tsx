@@ -35,8 +35,7 @@ type ClientBasic = {
     phone?: string | null;
     email?: string | null;
     notes?: string | null;
-    whatsapp_opted_out?: boolean;
-    marketing_consent?: boolean;
+    receives_marketing?: boolean;
     is_club_member?: boolean;
     birth_date?: string | null;
     created_at: string;
@@ -327,13 +326,15 @@ export default function ClientProfilePage() {
         }
     };
 
-    const handleToggleOptOut = async () => {
+    const handleToggleMarketing = async () => {
         if (!profile) return;
-        const newVal = !profile.client.whatsapp_opted_out;
+        const newVal = !profile.client.receives_marketing;
+        // Turning it back on overrides the client's own "no" — only when the client agreed.
+        if (newVal && !window.confirm("להחזיר את הלקוח/ה לקבלת הודעות שיווקיות?\nעשה/י זאת רק אם הלקוח/ה אישר/ה.")) return;
         try {
             await apiFetch(`/api/clients/${id}`, {
                 method: "PATCH",
-                body: JSON.stringify({ whatsapp_opted_out: newVal }),
+                body: JSON.stringify({ receives_marketing: newVal }),
             });
             loadData();
         } catch (e: any) {
@@ -769,27 +770,26 @@ export default function ClientProfilePage() {
                                 )}
                             </div>
 
-                            {/* Marketing opt-out — covers marketing only; service messages always go out */}
+                            {/* The single marketing switch — marketing only; service messages always go out */}
                             <div className="rounded-xl border bg-white p-5 shadow-sm">
                                 <div className="flex items-center justify-between">
                                     <div>
                                         <h3 className="text-base font-semibold text-slate-800">הודעות שיווקיות</h3>
-                                        <p className={`text-xs mt-0.5 font-medium ${profile.client.whatsapp_opted_out ? "text-rose-500" : "text-emerald-600"}`}>
-                                            {profile.client.whatsapp_opted_out ? "⛔ הוסר/ה מהודעות שיווקיות" : "✅ לא הוסר/ה מהודעות שיווקיות"}
+                                        <p className={`text-xs mt-0.5 font-medium ${profile.client.receives_marketing ? "text-emerald-600" : "text-rose-500"}`}>
+                                            {profile.client.receives_marketing ? "✅ מקבל/ת הודעות שיווקיות" : "⛔ לא מקבל/ת הודעות שיווקיות"}
                                         </p>
-                                        {profile.client.marketing_consent === false && (
-                                            <p className="text-xs mt-0.5 font-medium text-amber-600">לא אישר/ה דיוור — הודעות שיווקיות לא יישלחו</p>
-                                        )}
                                         <p className="text-xs mt-0.5 text-slate-400">תזכורות, אישורי תור וקבלות נשלחים תמיד</p>
                                     </div>
                                     <button
                                         type="button"
                                         dir="ltr"
-                                        onClick={handleToggleOptOut}
-                                        title={profile.client.whatsapp_opted_out ? "לחץ לחידוש הודעות שיווקיות" : "לחץ להסרה מהודעות שיווקיות"}
-                                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${profile.client.whatsapp_opted_out ? "bg-slate-300" : "bg-emerald-500"}`}
+                                        role="switch"
+                                        aria-checked={!!profile.client.receives_marketing}
+                                        onClick={handleToggleMarketing}
+                                        title={profile.client.receives_marketing ? "לחץ להפסקת הודעות שיווקיות" : "לחץ לחידוש הודעות שיווקיות"}
+                                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${profile.client.receives_marketing ? "bg-emerald-500" : "bg-slate-300"}`}
                                     >
-                                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${profile.client.whatsapp_opted_out ? "translate-x-1" : "translate-x-6"}`} />
+                                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${profile.client.receives_marketing ? "translate-x-6" : "translate-x-1"}`} />
                                     </button>
                                 </div>
                             </div>

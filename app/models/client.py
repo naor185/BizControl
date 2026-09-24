@@ -34,3 +34,9 @@ class Client(Base):
     whatsapp_opted_out: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    @property
+    def receives_marketing(self) -> bool:
+        """The single "מקבל/ת הודעות שיווקיות" switch — defined in app/services/marketing.py."""
+        from app.services.marketing import receives_marketing
+        return receives_marketing(self)
