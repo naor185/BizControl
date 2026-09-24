@@ -60,7 +60,8 @@ def write_client(db: Session, m: Migration, row: MigrationRow, options: dict) ->
     d = row.data or {}
     if row.decision == "create":
         # Same as a client added by hand (the column default) unless the source says otherwise. In this
-        # system False blocks the cancellation notice and the aftercare message (crud/automation.py).
+        # system False blocks all marketing (app/services/marketing.py) and also the cancellation notice
+        # and the aftercare message (crud/automation.py).
         consent = d.get("marketing_consent")
         c = Client(
             studio_id=m.studio_id, full_name=d["full_name"], phone=d.get("phone"), email=d.get("email"),
