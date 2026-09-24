@@ -81,18 +81,47 @@ def test_the_ai_is_told_the_businesss_field_and_words(db_session, monkeypatch):
 
     import app.services.auto_tag_service as tag
     seen = {}
-
-    class _Fake:
-        class messages:
-            @staticmethod
-            def create(**kw):
-                seen["prompt"] = kw["messages"][0]["content"]
-                return SimpleNamespace(content=[SimpleNamespace(text='{"service_interest": null, "temperature": "warm"}')])
-
-    monkeypatch.setattr(tag, "_get_client", lambda: _Fake)
+    monkeypatch.setattr(tag, "complete_json", lambda prompt, max_tokens=0: seen.update(prompt=prompt) or {"temperature": "warm"})
     tag._classify_sync("כמה עולה אימון אישי?", "מכון כושר ואימונים", ["אימון אישי", "אימון זוגי"])
     assert "מכון כושר ואימונים" in seen["prompt"] and "אימון אישי" in seen["prompt"] and "קעקוע" not in seen["prompt"]
 
     from app.services.call_ai import _SUMMARY_PROMPT
     rendered = _SUMMARY_PROMPT.replace("{business_field}", "מרפאת שיניים ושיננית").replace("{transcript}", "שלום")
     assert "מרפאת שיניים ושיננית" in rendered and '"intent"' in rendered and "קעקוע" not in rendered
+
+
+def test_lead_tagging_runs_only_where_its_module_is_on(db_session, monkeypatch):
+    import app.services.auto_tag_service as tag
+    from app.models.lead import Lead
+    from app.models.module import StudioModule
+    calls = []
+    monkeypatch.setattr(tag, "complete_json", lambda prompt, max_tokens=0: calls.append(prompt) or
+                        {"service_interest": "אימון אישי", "temperature": "hot"})
+    gym = _studio(db_session, "gym-tag", "gym")
+    lead = Lead(studio_id=gym.id, name="נועה", phone="0501112222", source="whatsapp")
+    db_session.add(lead)
+    db_session.commit()
+    tag.tag_lead(db_session, lead.id, "כמה עולה אימון אישי?")
+    assert calls == [] and db_session.get(Lead, lead.id).service_interest is None       # module off: no AI call
+
+    from app.models.module import Module
+    for mid, name, parent in (("ai_assistant", "עוזר AI (ויקי)", None), ("ai_auto_tag", "תיוג AI אוטומטי ללידים", "ai_assistant")):
+        if not db_session.get(Module, mid):   # as in production: tagging sits under ויקי
+            db_session.add(Module(id=mid, name=name, category="ai", parent_module_id=parent))
+            db_session.flush()
+    db_session.add_all([StudioModule(studio_id=gym.id, module_id="ai_assistant", is_enabled=True),
+                        StudioModule(studio_id=gym.id, module_id="ai_auto_tag", is_enabled=True)])
+    db_session.commit()
+    tag.tag_lead(db_session, lead.id, "כמה עולה אימון אישי?")
+    db_session.expire_all()
+    assert len(calls) == 1 and db_session.get(Lead, lead.id).service_interest == "אימון אישי"
+
+
+def test_aftercare_speaks_of_points_only_to_a_club_member_who_earned_some(db_session):
+    from app.crud.automation import build_aftercare_message
+    from app.models.client import Client
+    studio = _studio(db_session, "pts", "tattoo")
+    settings = db_session.get(StudioSettings, studio.id)
+    assert "נקודות" not in build_aftercare_message(settings, Client(full_name="א", is_club_member=True), 0, 120, db=db_session)
+    assert "נקודות" not in build_aftercare_message(settings, Client(full_name="א", is_club_member=False), 5, 120, db=db_session)
+    assert "צברת 5 נקודות" in build_aftercare_message(settings, Client(full_name="א", is_club_member=True), 5, 120, db=db_session)

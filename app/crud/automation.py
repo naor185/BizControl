@@ -786,7 +786,10 @@ def build_aftercare_message(settings: StudioSettings, client: Client, points_add
     if settings.review_link_whatsapp:
         parts.append(f"\n💬 WhatsApp:\n{settings.review_link_whatsapp.strip()}")
 
-    parts.append(f"\n🎁 נקודות:\nצברת {points_added} נקודות. סה״כ: {points_total}")
+    # Only a club member who actually earned points hears about them — points are no longer given for a
+    # completed appointment (only as payment cashback), so this used to say "צברת 0 נקודות" to everyone.
+    if client.is_club_member and points_added > 0:
+        parts.append(f"\n🎁 נקודות:\nצברת {points_added} נקודות. סה״כ: {points_total}")
     return "\n".join(parts).strip()
 
 def enqueue_aftercare_if_needed(db: Session, appt: Appointment) -> None:

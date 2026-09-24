@@ -13,14 +13,13 @@ Best-effort throughout: every step is wrapped so a failure degrades gracefully
 from __future__ import annotations
 
 import io
-import json
 import logging
 
 import requests
 from sqlalchemy.orm import Session
 
 from app.models.call import Call
-from app.services.ai.orchestrator import _get_client
+from app.services.ai.orchestrator import _get_client, complete_json
 
 log = logging.getLogger(__name__)
 
@@ -85,27 +84,9 @@ def transcribe_recording(recording_url: str) -> str | None:
 
 
 def summarize_transcript(transcript: str, business_field: str = "לא ידוע") -> dict | None:
-    try:
-        client, model = _get_client()
-    except RuntimeError:
-        return None
-
-    try:
-        import openai
-        sync_client = openai.OpenAI(api_key=client.api_key, base_url=str(client.base_url))
-        resp = sync_client.chat.completions.create(
-            model=model,
-            # replace(), not format(): the prompt's JSON braces made format() raise KeyError on every call
-            messages=[{"role": "user", "content": _SUMMARY_PROMPT.replace("{business_field}", business_field)
-                                                                  .replace("{transcript}", transcript[:8000])}],
-            temperature=0.2,
-            response_format={"type": "json_object"},
-        )
-        content = resp.choices[0].message.content or "{}"
-        return json.loads(content)
-    except Exception as e:
-        log.warning("[call_ai] summary generation failed: %s", e)
-        return None
+    # replace(), not format(): the prompt's JSON braces made format() raise KeyError on every call
+    return complete_json(_SUMMARY_PROMPT.replace("{business_field}", business_field)
+                                        .replace("{transcript}", transcript[:8000]))
 
 
 def process_call_recording(db: Session, call: Call) -> None:

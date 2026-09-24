@@ -94,6 +94,30 @@ def business_context(db, studio_id) -> tuple[str, str]:
     return field, words
 
 
+def complete_json(prompt: str, max_tokens: int = 600) -> dict | None:
+    """One synchronous JSON answer from the configured AI provider (Groq / Gemini / OpenAI — the same keys
+    ויקי uses). None when no provider is configured or the call fails. Shared by call analysis and lead
+    tagging so both use the same provider and error handling."""
+    try:
+        client, model = _get_client()
+    except RuntimeError:
+        return None
+    try:
+        import openai
+        sync_client = openai.OpenAI(api_key=client.api_key, base_url=str(client.base_url))
+        resp = sync_client.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.2,
+            max_tokens=max_tokens,
+            response_format={"type": "json_object"},
+        )
+        return json.loads(resp.choices[0].message.content or "{}")
+    except Exception as e:
+        _logger.warning("[ai] json completion failed: %s", e)
+        return None
+
+
 def _build_system_prompt(studio_name: str, user_role: str, current_page: str,
                          business_field: str = "לא ידוע", business_words: str = "") -> str:
     return SYSTEM_PROMPT.format(

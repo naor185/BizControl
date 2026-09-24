@@ -1,29 +1,22 @@
 """
-Auto-tags a lead based on the first message content using Claude Haiku.
-Called from the webhook when a new lead is created.
-Tags: service interest + lead temperature.
+Auto-tags a lead from its first message: the service it asks about and how warm it is.
+Called in the background from the webhook when a new lead is created.
+
+Uses the same AI provider as ויקי (Groq / Gemini / OpenAI — app/services/ai/orchestrator.complete_json).
+It used Anthropic before, whose package is not installed, so it never ran. It runs only for a studio
+whose "ai_auto_tag" module (under ויקי) is on — the superadmin decides per plan or studio.
 """
 from __future__ import annotations
-import json
 import uuid
 
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 
 from app.models.lead import Lead
+from app.services.ai.orchestrator import complete_json
 from app.utils.logger import get_logger
 
 log = get_logger(__name__)
-
-_client = None
-
-
-def _get_client():
-    global _client
-    if _client is None:
-        import anthropic   # imported here: the package is not in requirements.txt (see the webhook caller)
-        _client = anthropic.Anthropic()
-    return _client
 
 
 def _classify_sync(message: str, business_field: str, services: list[str]) -> dict:
@@ -47,22 +40,7 @@ temperature:
 - warm = מתעניין, שואל שאלות כלליות
 - cold = סתם התעניינות, לא בדחיפות"""
 
-    try:
-        client = _get_client()
-        msg = client.messages.create(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=128,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        raw = msg.content[0].text.strip()
-        if raw.startswith("```"):
-            raw = raw.split("```")[1]
-            if raw.startswith("json"):
-                raw = raw[4:]
-        return json.loads(raw)
-    except Exception as e:
-        log.warning("[auto_tag] classification failed: %s", e)
-        return {}
+    return complete_json(prompt, max_tokens=150) or {}
 
 
 def tag_lead(db: Session, lead_id: uuid.UUID, message: str) -> None:
@@ -74,10 +52,14 @@ def tag_lead(db: Session, lead_id: uuid.UUID, message: str) -> None:
     if not lead or lead.service_interest:
         return
 
-    from app.models.service import Service
-    from app.services.business_types import describe, type_lookup
+    from app.core.features import is_module_enabled
     from app.models.studio import Studio
     studio = db.get(Studio, lead.studio_id)
+    if not studio or not is_module_enabled(db, studio.id, studio.subscription_plan, "ai_auto_tag"):
+        return   # off unless the superadmin turned "תיוג AI אוטומטי ללידים" on for this plan/studio
+
+    from app.models.service import Service
+    from app.services.business_types import describe, type_lookup
     field = describe(type_lookup(db), studio.business_type if studio else None)["label"]
     services = list(db.scalars(select(Service.name).where(Service.studio_id == lead.studio_id,
                                                          Service.is_active.is_(True))).all())[:30]
