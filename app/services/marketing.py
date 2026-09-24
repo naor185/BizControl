@@ -21,6 +21,8 @@ one of the two sets below; a test fails when a new type appears unclassified.
 """
 from __future__ import annotations
 
+import os
+
 from sqlalchemy import Select, select
 
 from app.models.client import Client
@@ -82,6 +84,32 @@ def refusal_reason(client: Client | None) -> str | None:
 
 def may_receive_marketing(client: Client | None) -> bool:
     return refusal_reason(client) is None
+
+
+def unsubscribe_link(db, studio_id, client_id, commit: bool = True) -> str:
+    """The client's personal unsubscribe link (invite_routes.optout_via_invite). The only place it is built."""
+    from app.api.invite_routes import create_invite_token
+    frontend_url = os.getenv("FRONTEND_URL", "https://bizcontrol-seven.vercel.app").rstrip("/")
+    return f"{frontend_url}/optout/{create_invite_token(db, str(studio_id), str(client_id), commit=commit)}"
+
+
+def ensure_unsubscribe_option(db, job) -> None:
+    """Every marketing message carries the client's unsubscribe link, whatever path or custom template
+    produced it (the owner's rule: the first marketing message already lets the client opt out).
+    Called by the dispatcher right before sending; a message that already has a link is left alone,
+    a {optout_link} placeholder is filled in, otherwise a footer is added."""
+    body = job.body or ""
+    if "/optout/" in body or not job.client_id or job.channel not in ("whatsapp", "email"):
+        return
+    link = unsubscribe_link(db, job.studio_id, job.client_id, commit=False)   # the dispatcher holds row locks
+    if "{optout_link}" in body:
+        job.body = body.replace("{optout_link}", link)
+    elif job.channel == "email":
+        footer = (f"<p style='color:#94a3b8;font-size:12px;margin-top:24px;text-align:center;'>להסרה מהודעות שיווקיות: "
+                  f"<a href='{link}' style='color:#94a3b8;'>לחץ כאן</a></p>")
+        job.body = body.replace("</body>", footer + "</body>", 1) if "</body>" in body else body + footer
+    else:
+        job.body = f"{body}\n\nלהסרה מהודעות שיווקיות: {link}"
 
 
 def marketing_audience_conditions() -> tuple:

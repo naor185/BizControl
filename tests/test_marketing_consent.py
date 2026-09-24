@@ -139,6 +139,7 @@ def sent(monkeypatch):
     monkeypatch.setattr(message_worker, "send_whatsapp_message", lambda to, body, *a, **k: out.append(("whatsapp", to)))
     import app.services.email_center as ec
     monkeypatch.setattr(ec, "send_email", lambda db, **kw: out.append(("email", kw["to_email"])) or True)
+    monkeypatch.setattr(marketing, "unsubscribe_link", lambda db, sid, cid, commit=True: f"https://x.test/optout/{str(cid)[:8]}")
     return out
 
 
@@ -153,10 +154,31 @@ def test_dispatcher_blocks_marketing_to_clients_who_may_not_receive_it(sent):
     }
     message_worker.process_due_jobs(_FakeDB(jobs.values(), [ok, no_consent, opted_out]))
     assert jobs["ok_broadcast"].status == "sent"
+    assert "/optout/" in jobs["ok_broadcast"].body, "a marketing message goes out with an unsubscribe link"
     for k in ("no_consent_broadcast", "opted_out_broadcast", "no_consent_birthday_email", "no_consent_club_invite"):
         assert jobs[k].status == "canceled", k
         assert jobs[k].last_error.startswith("הודעה שיווקית לא נשלחה"), k
     assert sent == [("whatsapp", ok.phone)]
+
+
+def test_every_marketing_message_gets_an_unsubscribe_link(sent):
+    c = client()
+    wa = _job(c, "birthday-2026-09")
+    mail = _job(c, "birthday_email-2026-09", channel="email")
+    mail.body = "<html><body><p>מזל טוב</p></body></html>"
+    placed = _job(c, "club_invite")
+    placed.body = "הצטרפו! להסרה: {optout_link}"
+    already = _job(c, "broadcast")
+    already.body = "מבצע\n\nלהסרה מרשימת התפוצה: https://x.test/optout/abc"
+    for j in (wa, mail, placed, already):
+        marketing.ensure_unsubscribe_option(None, j)
+    assert wa.body.startswith("שלום") and "להסרה מהודעות שיווקיות: https://x.test/optout/" in wa.body
+    assert mail.body.index("/optout/") < mail.body.index("</body>")
+    assert placed.body.startswith("הצטרפו! להסרה: https://x.test/optout/") and "{optout_link}" not in placed.body
+    assert already.body.count("/optout/") == 1
+    service = _job(c, "1day")
+    message_worker.process_due_jobs(_FakeDB([service], [c]))
+    assert service.status == "sent" and "/optout/" not in service.body, "service messages get no unsubscribe footer"
 
 
 def test_dispatcher_sends_service_messages_whatever_the_marketing_flags(sent):

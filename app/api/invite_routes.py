@@ -28,8 +28,10 @@ router = APIRouter(prefix="/public/invite", tags=["Invite"])
 _CODE_CHARS = string.ascii_letters + string.digits
 
 
-def create_invite_token(db: Session, studio_id: str, client_id: str) -> str:
-    """Return this client's opt-out code, creating one if they don't have it yet."""
+def create_invite_token(db: Session, studio_id: str, client_id: str, commit: bool = True) -> str:
+    """Return this client's opt-out code, creating one if they don't have it yet.
+    commit=False keeps the new code inside the caller's transaction (a savepoint guards the insert),
+    for callers that must not commit halfway — the message dispatcher holds row locks."""
     existing = db.execute(
         text("SELECT code FROM client_optout_links WHERE studio_id = :sid AND client_id = :cid"),
         {"sid": str(studio_id), "cid": str(client_id)}
@@ -37,17 +39,21 @@ def create_invite_token(db: Session, studio_id: str, client_id: str) -> str:
     if existing:
         return existing[0]
 
+    insert = text("INSERT INTO client_optout_links (code, studio_id, client_id) VALUES (:code, :sid, :cid)")
     for _ in range(5):
         code = "".join(secrets.choice(_CODE_CHARS) for _ in range(8))
+        params = {"code": code, "sid": str(studio_id), "cid": str(client_id)}
         try:
-            db.execute(
-                text("INSERT INTO client_optout_links (code, studio_id, client_id) VALUES (:code, :sid, :cid)"),
-                {"code": code, "sid": str(studio_id), "cid": str(client_id)}
-            )
-            db.commit()
+            if commit:
+                db.execute(insert, params)
+                db.commit()
+            else:
+                with db.begin_nested():
+                    db.execute(insert, params)
             return code
         except IntegrityError:
-            db.rollback()
+            if commit:
+                db.rollback()
             continue
     raise RuntimeError("Could not generate a unique opt-out code")
 

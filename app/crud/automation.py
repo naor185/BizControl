@@ -614,13 +614,12 @@ def maybe_enqueue_club_invite(db: Session, studio_id, client, appointment_id=Non
         return False
 
     from app.models.studio import Studio
-    from app.api.invite_routes import create_invite_token
+    from app.services.marketing import unsubscribe_link
     frontend_url = _os.getenv("FRONTEND_URL", "https://bizcontrol-seven.vercel.app").rstrip("/")
     studio = db.get(Studio, studio_id)
     slug = studio.slug if studio else None
     join_link = f"{frontend_url}/s/{slug}" if slug else ""
-    optout_token = create_invite_token(db, str(studio_id), str(client.id))
-    optout_link = f"{frontend_url}/optout/{optout_token}"
+    optout_link = unsubscribe_link(db, studio_id, client.id)
     points_on_signup = int(getattr(settings, "points_on_signup", 50) or 50)
 
     template = getattr(settings, "non_member_wa_template", None) or (

@@ -178,11 +178,8 @@ def send_test(
 
     if "{optout_link}" in preview_body:
         if client:
-            import os as _os
-            from app.api.invite_routes import create_invite_token
-            frontend_url = _os.getenv("FRONTEND_URL", "https://bizcontrol-seven.vercel.app").rstrip("/")
-            token = create_invite_token(db, str(ctx.studio_id), str(client.id))
-            real_link = f"{frontend_url}/optout/{token}"
+            from app.services.marketing import unsubscribe_link
+            real_link = unsubscribe_link(db, ctx.studio_id, client.id)
             preview_body = preview_body.replace("{optout_link}", f"להסרה מרשימת התפוצה: {real_link}")
         else:
             preview_body = preview_body.replace(

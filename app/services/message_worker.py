@@ -11,7 +11,7 @@ from app.models.client import Client
 from app.models.studio import Studio
 from app.models.notification import Notification
 from app.crud.push import enqueue_push_to_customer_by_phone
-from app.services.marketing import is_marketing, may_receive_marketing, refusal_reason
+from app.services.marketing import ensure_unsubscribe_option, is_marketing, may_receive_marketing, refusal_reason
 
 _CHANNEL_LABEL = {"whatsapp": "וואטסאפ", "email": "מייל", "push": "פוש"}
 
@@ -414,6 +414,7 @@ def process_due_jobs(db: Session, limit: int = 20) -> int:
                     job.last_error = f"הודעה שיווקית לא נשלחה: {refusal}"
                     count += 1
                     continue
+                ensure_unsubscribe_option(db, job)   # every marketing message lets the client opt out
 
             if job.channel == "email":
                 # All emails go through the central Email Center — no per-studio

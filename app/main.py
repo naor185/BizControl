@@ -167,16 +167,13 @@ def start_scheduler():
 
     def tick_broadcasts():
         """Process scheduled broadcasts — create MessageJob per recipient."""
-        import os as _os
         from datetime import datetime as _dt, timezone as _tz
         from sqlalchemy import select as _sel, update as _upd
         from app.models.broadcast import Broadcast
-        from app.models.client import Client
         from app.models.message_job import MessageJob
         from app.models.studio_settings import StudioSettings
-        from app.api.invite_routes import create_invite_token
+        from app.services.marketing import unsubscribe_link
         _log = logging.getLogger("bizcontrol.broadcasts")
-        frontend_url = _os.getenv("FRONTEND_URL", "https://bizcontrol-seven.vercel.app").rstrip("/")
         db = SessionLocal()
         try:
             now = _dt.now(_tz.utc)
@@ -201,8 +198,7 @@ def start_scheduler():
                     # never goes out without a way to unsubscribe. If the studio
                     # placed {optout_link} in the text, fill it in there; otherwise
                     # append a default footer.
-                    optout_token = create_invite_token(db, str(b.studio_id), str(client.id))
-                    optout_link = f"{frontend_url}/optout/{optout_token}"
+                    optout_link = unsubscribe_link(db, b.studio_id, client.id)
                     if "{optout_link}" in personalized_body:
                         personalized_body = personalized_body.replace("{optout_link}", f"להסרה מרשימת התפוצה: {optout_link}")
                     else:
