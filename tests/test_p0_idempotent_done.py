@@ -41,26 +41,29 @@ def test_done_is_idempotent(client, db_session):
     assert r.status_code == 201, r.text
     appt_id = r.json()["id"]
 
+    def messages():
+        db_session.expire_all()
+        return sorted((j.reminder_type or "-", j.channel) for j in db_session.query(MessageJob).filter(
+            MessageJob.studio_id == studio.id, MessageJob.client_id == client_id).all())
+
+    def ledger_rows():
+        return db_session.query(ClientPointsLedger).filter(
+            ClientPointsLedger.studio_id == studio.id,
+            ClientPointsLedger.client_id == client_id,
+            ClientPointsLedger.appointment_id == appt_id,
+        ).count()
+
     # מסמנים done פעם ראשונה
     r = client.patch(f"/api/appointments/{appt_id}", headers=h, json={"status": "done"})
     assert r.status_code == 200, r.text
+    after_first = messages()
+    assert after_first, "סימון done אמור ליצור הודעות (הודעה אחרי טיפול וכו')"
 
     # מסמנים done שוב (לא אמור להכפיל)
     r = client.patch(f"/api/appointments/{appt_id}", headers=h, json={"status": "done"})
     assert r.status_code == 200, r.text
 
-    # בדיקה DB: רק רשומה אחת בלדג'ר + רק job אחד
-    ledger_count = db_session.query(ClientPointsLedger).filter(
-        ClientPointsLedger.studio_id == studio.id,
-        ClientPointsLedger.client_id == client_id,
-        ClientPointsLedger.appointment_id == appt_id,
-    ).count()
-
-    jobs_count = db_session.query(MessageJob).filter(
-        MessageJob.studio_id == studio.id,
-        MessageJob.client_id == client_id,
-        MessageJob.appointment_id == appt_id,
-    ).count()
-
-    assert ledger_count == 1
-    assert jobs_count == 1
+    # הסימון השני לא מוסיף אף הודעה
+    assert messages() == after_first
+    # נקודות לא ניתנות על סימון done — רק כקאשבק על תשלום (הוסר בכוונה ב-2026-05-19, d7af31ce)
+    assert ledger_rows() == 0
