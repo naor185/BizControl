@@ -11,6 +11,7 @@ from app.models.client import Client
 from app.models.studio import Studio
 from app.models.notification import Notification
 from app.crud.push import enqueue_push_to_customer_by_phone
+from app.services.marketing import is_marketing, may_receive_marketing, refusal_reason
 
 _CHANNEL_LABEL = {"whatsapp": "וואטסאפ", "email": "מייל", "push": "פוש"}
 
@@ -399,6 +400,17 @@ def process_due_jobs(db: Session, limit: int = 20) -> int:
                     job.status = "canceled"
                     job.last_error = "Client already joined club — invite skipped"
                     db.commit()
+                    count += 1
+                    continue
+
+            # Marketing goes only to clients who may receive it — checked here, at send time, for every
+            # channel and whichever path queued it (app/services/marketing.py). Service messages are not
+            # affected by this check.
+            if is_marketing(getattr(job, "reminder_type", None)) and job.client_id:
+                refusal = refusal_reason(db.get(Client, job.client_id))
+                if refusal:
+                    job.status = "canceled"
+                    job.last_error = f"הודעה שיווקית לא נשלחה: {refusal}"
                     count += 1
                     continue
 
@@ -886,7 +898,8 @@ def sweep_birthday_messages(db: Session, studio_id=None) -> int:
         if not getattr(settings, "birthday_automation_enabled", True):
             continue
 
-        if client.whatsapp_opted_out:
+        # A birthday benefit is marketing: only to clients who may receive it (app/services/marketing.py).
+        if not may_receive_marketing(client):
             continue
 
         existing = db.scalar(

@@ -98,19 +98,9 @@ def create_broadcast(
     if payload.audience not in ("all", "club", "non_club"):
         raise HTTPException(400, "audience חייב להיות all / club / non_club")
 
-    from app.models.client import Client
-    q = select(Client).where(
-        Client.studio_id == ctx.studio_id,
-        Client.is_active == True,
-        Client.phone != None,
-        Client.whatsapp_opted_out == False,
-    )
-    if payload.audience == "club":
-        q = q.where(Client.is_club_member == True)
-    elif payload.audience == "non_club":
-        q = q.where(Client.is_club_member == False)
-
-    count = len(db.scalars(q).all())
+    # The same query the scheduler sends to (main.tick_broadcasts): only clients who may receive marketing.
+    from app.services.marketing import broadcast_recipients_query
+    count = len(db.scalars(broadcast_recipients_query(ctx.studio_id, payload.audience)).all())
 
     b = Broadcast(
         studio_id=ctx.studio_id,

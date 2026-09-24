@@ -592,7 +592,8 @@ def maybe_enqueue_club_invite(db: Session, studio_id, client, appointment_id=Non
 
     if not client or not client.phone:
         return False
-    if getattr(client, "whatsapp_opted_out", False):
+    from app.services.marketing import may_receive_marketing
+    if not may_receive_marketing(client):   # an invitation to the club is marketing
         return False
     if client.is_club_member:
         return False

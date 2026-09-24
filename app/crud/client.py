@@ -172,7 +172,8 @@ def _handle_new_club_member(db: Session, studio_id: UUID, client: Client):
     # WhatsApp text customers received when a studio had no custom
     # birthday_wa_template — every default-template birthday message opened
     # with a literal "[birthday-2026-09]" line.
-    if client.birth_date and client.phone and not getattr(client, "whatsapp_opted_out", False):
+    from app.services.marketing import may_receive_marketing
+    if client.birth_date and client.phone and may_receive_marketing(client):   # a birthday benefit is marketing
         now = datetime.now(timezone.utc)
         if client.birth_date.month == now.month:
             try:

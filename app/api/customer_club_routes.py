@@ -296,6 +296,10 @@ def send_birthday_coupon_now(
         raise HTTPException(status_code=400, detail="הלקוח אינו חבר מועדון")
     if not client.birth_date:
         raise HTTPException(status_code=400, detail="אין תאריך לידה ללקוח")
+    from app.services.marketing import refusal_reason
+    refusal = refusal_reason(client)   # a birthday coupon is marketing
+    if refusal:
+        raise HTTPException(status_code=400, detail=refusal)
 
     now = datetime.now(timezone.utc)
     target_month = month or client.birth_date.month
@@ -347,8 +351,8 @@ def send_birthday_coupon_now(
     else:
         wa_template = f"{tag}\n{wa_template}"
 
-    if not client.phone or client.whatsapp_opted_out:
-        raise HTTPException(status_code=400, detail="ללקוח אין טלפון או שהוא ביטל הסכמה לוואטסאפ")
+    if not client.phone:
+        raise HTTPException(status_code=400, detail="ללקוח אין טלפון")
 
     wa_body = format_template(wa_template, context)
     db.add(MessageJob(
@@ -359,6 +363,7 @@ def send_birthday_coupon_now(
         body=wa_body,
         scheduled_at=now,
         status="pending",
+        reminder_type="birthday_manual",   # marks it as marketing for the dispatcher (app/services/marketing.py)
     ))
     db.commit()
     return {"ok": True, "coupon_code": coupon.code}

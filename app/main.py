@@ -189,17 +189,10 @@ def start_scheduler():
             for b in due:
                 b.status = "processing"
                 db.commit()
-                q = _sel(Client).where(
-                    Client.studio_id == b.studio_id,
-                    Client.is_active == True,
-                    Client.phone != None,
-                    Client.whatsapp_opted_out == False,
-                )
-                if b.audience == "club":
-                    q = q.where(Client.is_club_member == True)
-                elif b.audience == "non_club":
-                    q = q.where(Client.is_club_member == False)
-                clients = db.scalars(q).all()
+                # Only clients who may receive marketing (app/services/marketing.py); the dispatcher
+                # re-checks each message at send time.
+                from app.services.marketing import broadcast_recipients_query
+                clients = db.scalars(broadcast_recipients_query(b.studio_id, b.audience)).all()
                 for client in clients:
                     client_name = getattr(client, "name", None) or getattr(client, "full_name", None) or ""
                     personalized_body = b.body.replace("{client_name}", client_name) if "{client_name}" in b.body else b.body
