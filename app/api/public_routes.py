@@ -140,6 +140,15 @@ def get_public_platform_theme(db: Session = Depends(get_db)):
     )
 
 
+@router.get("/business-types")
+def get_public_business_types(include_directory: bool = Query(True), db: Session = Depends(get_db)):
+    """The one list of business types (תחומי עסק) — for both signups and BizFind. BizControl's
+    signup passes include_directory=false: directory-only types (a shop without appointments) are
+    listed on BizFind only."""
+    from app.services.business_types import list_business_types
+    return list_business_types(db, include_directory=include_directory)
+
+
 @router.get("/landing/{slug}", response_model=PublicLandingInfo)
 def get_landing_by_slug(slug: str, db: Session = Depends(get_db)):
     studio = db.query(Studio).filter(Studio.slug == slug, Studio.is_active == True).first()  # noqa: E712

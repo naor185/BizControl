@@ -381,13 +381,11 @@ def get_business_type_options(
     ctx: AuthContext = Depends(require_studio_ctx),
     db: Session = Depends(get_db)
 ):
+    from app.services.business_types import list_business_types
     studio = db.get(Studio, ctx.studio_id)
-    rows = db.execute(
-        text("SELECT business_type, display_name FROM business_type_templates ORDER BY display_name")
-    ).fetchall()
     return {
         "current": studio.business_type if studio else "other",
-        "options": [{"value": r[0], "label": r[1]} for r in rows]
+        "options": [{"value": t["key"], "label": t["label"], "icon": t["icon"]} for t in list_business_types(db)],
     }
 
 
@@ -399,7 +397,11 @@ def set_business_type(
 ):
     if ctx.role not in ("owner", "admin"):
         raise HTTPException(status_code=403, detail="Forbidden")
-    bt = payload.get("business_type", "other")
+    from app.services.business_types import resolve_business_type
+    try:
+        bt = resolve_business_type(db, payload.get("business_type"), strict=True)   # only a type from the list
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     studio = db.get(Studio, ctx.studio_id)
     if not studio:
         raise HTTPException(status_code=404, detail="Studio not found")

@@ -16,32 +16,11 @@ type Business = {
     created_at: string | null;
 };
 
-// Category and OSM tag are coupled here on purpose — picking one always sets
-// the other. Two independent dropdowns let you pick category="tattoo" with
-// osm_tag="healthcare=clinic" and silently import health funds labeled as
-// tattoo studios (a real bug this caused). "custom" is the escape hatch for
-// anything not in this list — it reveals free-text fields for both.
-const PRESETS = [
-    { category: "tattoo", categoryLabel: "סטודיו קעקועים", osmTag: "shop=tattoo", osmLabel: "קעקועים" },
-    { category: "barber", categoryLabel: "ספר / ברברשופ", osmTag: "shop=hairdresser", osmLabel: "מספרות / ברברשופים" },
-    { category: "nails", categoryLabel: "ציפורניים", osmTag: "shop=beauty", osmLabel: "מכוני יופי (כולל ציפורניים)" },
-    { category: "spa", categoryLabel: "ספא / קוסמטיקה", osmTag: "shop=beauty", osmLabel: "מכוני יופי / קוסמטיקה" },
-    { category: "laser", categoryLabel: "לייזר", osmTag: "shop=beauty", osmLabel: "מכוני יופי (כולל לייזר)" },
-    { category: "massage", categoryLabel: "עיסוי ורפלקסולוגיה", osmTag: "shop=massage", osmLabel: "עיסוי" },
-    { category: "pilates", categoryLabel: "פילאטיס / כושר", osmTag: "leisure=fitness_centre", osmLabel: "חדרי כושר / פילאטיס" },
-    { category: "gym", categoryLabel: "מכון כושר", osmTag: "leisure=fitness_centre", osmLabel: "חדרי כושר" },
-    { category: "medical", categoryLabel: "קליניקה / מרפאה", osmTag: "healthcare=clinic", osmLabel: "קליניקות" },
-    { category: "dental", categoryLabel: "מרפאת שיניים", osmTag: "amenity=dentist", osmLabel: "מרפאות שיניים" },
-    { category: "pharmacy", categoryLabel: "בית מרקחת", osmTag: "amenity=pharmacy", osmLabel: "בתי מרקחת" },
-    { category: "clothing", categoryLabel: "חנות בגדים", osmTag: "shop=clothes", osmLabel: "חנויות בגדים" },
-    { category: "photography", categoryLabel: "צילום", osmTag: "shop=photo", osmLabel: "צילום" },
-    { category: "florist", categoryLabel: "פרחים", osmTag: "shop=florist", osmLabel: "פרחים" },
-    { category: "custom", categoryLabel: "✏️ מותאם אישית", osmTag: "", osmLabel: "✏️ מותאם אישית" },
-];
-
-const CATEGORY_LABELS: Record<string, string> = Object.fromEntries(
-    PRESETS.filter(p => p.category !== "custom").map(p => [p.category, p.categoryLabel])
-);
+// The business types — and the OpenStreetMap tag each one is imported with — come from the one list
+// (Super Admin > business types). Picking a type sets its tag, so a type is not imported with another
+// type's tag by mistake (importing health funds labeled as tattoo studios was a real bug); the tag can
+// still be changed on purpose. A type that does not exist yet is added in the business types page first.
+type BusinessTypeRow = { business_type: string; display_name: string; osm_tag: string | null; is_active: boolean };
 
 const CLAIM_STATUS_LABELS: Record<string, string> = {
     unclaimed: "⚪ לא נתבע",
@@ -53,13 +32,25 @@ export default function BusinessImportPage() {
     const router = useRouter();
 
     const [city, setCity] = useState("");
-    const [presetIndex, setPresetIndex] = useState(1); // barber
-    const [customCategory, setCustomCategory] = useState("");
-    const [customOsmTag, setCustomOsmTag] = useState("");
-    const preset = PRESETS[presetIndex];
-    const isCustom = preset.category === "custom";
-    const category = isCustom ? customCategory.trim() : preset.category;
-    const osmTag = isCustom ? customOsmTag.trim() : preset.osmTag;
+    const [types, setTypes] = useState<BusinessTypeRow[]>([]);
+    const [category, setCategory] = useState("");
+    const [osmTag, setOsmTag] = useState("");
+    const typeLabel = (key: string) => types.find(t => t.business_type === key)?.display_name || key;
+    const pickType = (key: string, from: BusinessTypeRow[] = types) => {
+        setCategory(key);
+        setOsmTag(from.find(t => t.business_type === key)?.osm_tag || "");
+    };
+    useEffect(() => {
+        apiFetch<BusinessTypeRow[]>("/api/admin/business-types")
+            .then(rows => {
+                const active = rows.filter(r => r.is_active);
+                setTypes(active);
+                const first = active.find(r => r.osm_tag) || active[0];
+                if (first) pickType(first.business_type, active);
+            })
+            .catch(() => setTypes([]));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
     const [limit, setLimit] = useState(50);
     const [importing, setImporting] = useState(false);
     const [result, setResult] = useState<{ found: number; created: number; skipped: number } | null>(null);
@@ -95,14 +86,14 @@ export default function BusinessImportPage() {
     async function handleImport(e: React.FormEvent) {
         e.preventDefault();
         if (!city.trim()) { setError("הזן שם עיר"); return; }
-        if (!category || !osmTag) { setError("מלא קטגוריה ותגית OSM (במצב מותאם אישית)"); return; }
+        if (!category || !osmTag.trim()) { setError("בחר סוג עסק והזן תגית OSM"); return; }
         setImporting(true);
         setError("");
         setResult(null);
         try {
             const data = await apiFetch<{ found: number; created: number; skipped: number }>("/api/admin/businesses/import", {
                 method: "POST",
-                body: JSON.stringify({ city: city.trim(), category, osm_tag: osmTag, limit }),
+                body: JSON.stringify({ city: city.trim(), category, osm_tag: osmTag.trim(), limit }),
             });
             setResult(data);
             await loadList();
@@ -184,38 +175,24 @@ export default function BusinessImportPage() {
                     <div style={{ flex: "1 1 220px" }}>
                         <label style={{ display: "block", fontSize: "0.78rem", fontWeight: 600, color: "#64748b", marginBottom: "0.3rem" }}>סוג עסק *</label>
                         <select
-                            value={presetIndex}
-                            onChange={e => setPresetIndex(Number(e.target.value))}
+                            value={category}
+                            onChange={e => pickType(e.target.value)}
                             style={{ width: "100%", border: "1.5px solid #e2e8f0", borderRadius: 8, padding: "0.55rem 0.75rem", fontSize: "0.9rem", boxSizing: "border-box" }}
                         >
-                            {PRESETS.map((p, i) => <option key={i} value={i}>{p.categoryLabel}</option>)}
+                            {types.map(t => <option key={t.business_type} value={t.business_type}>{t.display_name}</option>)}
                         </select>
-                        {!isCustom && <div style={{ fontSize: "0.72rem", color: "#94a3b8", marginTop: "0.25rem" }}>מחפש ב-OSM: {preset.osmLabel}</div>}
+                        <div style={{ fontSize: "0.72rem", color: "#94a3b8", marginTop: "0.25rem" }}>סוג חסר? מוסיפים אותו בניהול תחומי העסק</div>
                     </div>
-                    {isCustom && (
-                        <>
-                            <div style={{ flex: "1 1 180px" }}>
-                                <label style={{ display: "block", fontSize: "0.78rem", fontWeight: 600, color: "#64748b", marginBottom: "0.3rem" }}>קטגוריה פנימית (מפתח)</label>
-                                <input
-                                    value={customCategory}
-                                    onChange={e => setCustomCategory(e.target.value)}
-                                    placeholder="לדוגמה: bakery"
-                                    dir="ltr"
-                                    style={{ width: "100%", border: "1.5px solid #e2e8f0", borderRadius: 8, padding: "0.55rem 0.75rem", fontSize: "0.9rem", boxSizing: "border-box" }}
-                                />
-                            </div>
-                            <div style={{ flex: "1 1 180px" }}>
-                                <label style={{ display: "block", fontSize: "0.78rem", fontWeight: 600, color: "#64748b", marginBottom: "0.3rem" }}>תגית OSM (key=value)</label>
-                                <input
-                                    value={customOsmTag}
-                                    onChange={e => setCustomOsmTag(e.target.value)}
-                                    placeholder="לדוגמה: shop=bakery"
-                                    dir="ltr"
-                                    style={{ width: "100%", border: "1.5px solid #e2e8f0", borderRadius: 8, padding: "0.55rem 0.75rem", fontSize: "0.9rem", boxSizing: "border-box" }}
-                                />
-                            </div>
-                        </>
-                    )}
+                    <div style={{ flex: "1 1 180px" }}>
+                        <label style={{ display: "block", fontSize: "0.78rem", fontWeight: 600, color: "#64748b", marginBottom: "0.3rem" }}>תגית OSM (key=value)</label>
+                        <input
+                            value={osmTag}
+                            onChange={e => setOsmTag(e.target.value)}
+                            placeholder="לדוגמה: shop=bakery"
+                            dir="ltr"
+                            style={{ width: "100%", border: "1.5px solid #e2e8f0", borderRadius: 8, padding: "0.55rem 0.75rem", fontSize: "0.9rem", boxSizing: "border-box" }}
+                        />
+                    </div>
                     <div style={{ flex: "0 0 100px" }}>
                         <label style={{ display: "block", fontSize: "0.78rem", fontWeight: 600, color: "#64748b", marginBottom: "0.3rem" }}>מקסימום</label>
                         <input
@@ -308,7 +285,7 @@ export default function BusinessImportPage() {
                                             )}
                                         </td>
                                         <td style={{ padding: "0.5rem", fontWeight: 600, color: "#1e293b" }}>{b.name}</td>
-                                        <td style={{ padding: "0.5rem", color: "#64748b" }}>{CATEGORY_LABELS[b.category] || b.category}</td>
+                                        <td style={{ padding: "0.5rem", color: "#64748b" }}>{typeLabel(b.category)}</td>
                                         <td style={{ padding: "0.5rem", color: "#64748b" }}>{b.city || "—"}</td>
                                         <td style={{ padding: "0.5rem", color: "#64748b" }}>{b.address || "—"}</td>
                                         <td style={{ padding: "0.5rem", color: "#64748b", direction: "ltr", textAlign: "right" }}>{b.phone || "—"}</td>

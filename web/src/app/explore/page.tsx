@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { usePlatformTheme } from "@/lib/usePlatformTheme";
+import BusinessTypeIcon from "@/components/BusinessTypeIcon";
 
 const API = (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_BASE || "").replace(/\/$/, "");
 function imgUrl(url?: string) { if (!url) return ""; return url.startsWith("http") ? url : `${API}${url}`; }
@@ -120,14 +121,14 @@ export default function ExplorePage() {
                                             <img src={imgUrl(s.logo_url)} alt="" style={{ width: 70, height: 70, borderRadius: 16, objectFit: "cover" }} />
                                         )}
                                         {!s.cover_url && !s.logo_url && (
-                                            <span style={{ fontSize: "3rem" }}>{s.business_type_icon}</span>
+                                            <BusinessTypeIcon name={s.business_type_icon} size={48} color="#ffffff" strokeWidth={1.5} />
                                         )}
                                     </div>
                                     <div style={{ padding: "1.25rem" }}>
                                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.5rem" }}>
                                             <div>
                                                 <div style={{ fontWeight: 800, fontSize: "1.05rem", color: "#fff" }}>{s.name}</div>
-                                                <div style={{ color: "#94a3b8", fontSize: "0.8rem" }}>{s.business_type_icon} {s.business_type_label}</div>
+                                                <div style={{ color: "#94a3b8", fontSize: "0.8rem", display: "flex", alignItems: "center", gap: "0.3rem" }}><BusinessTypeIcon name={s.business_type_icon} size={13} /> {s.business_type_label}</div>
                                             </div>
                                             {s.logo_url && s.cover_url && (
                                                 <img src={imgUrl(s.logo_url)} alt="" style={{ width: 40, height: 40, borderRadius: 10, objectFit: "cover" }} />

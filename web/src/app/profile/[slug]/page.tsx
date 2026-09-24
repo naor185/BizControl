@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { usePlatformTheme } from "@/lib/usePlatformTheme";
+import BusinessTypeIcon from "@/components/BusinessTypeIcon";
 
 const API = (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_BASE || "").replace(/\/$/, "");
 
@@ -114,14 +115,14 @@ export default function ProfilePage() {
                         {p.logo_url ? (
                             <img src={imgUrl(p.logo_url)} alt="" style={{ width: 80, height: 80, borderRadius: 18, objectFit: "cover", border: "3px solid rgba(167,139,250,.4)", flexShrink: 0 }} />
                         ) : (
-                            <div style={{ width: 80, height: 80, borderRadius: 18, background: `${primary}33`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "2.2rem", border: "3px solid rgba(167,139,250,.3)", flexShrink: 0 }}>
-                                {p.business_type_icon}
+                            <div style={{ width: 80, height: 80, borderRadius: 18, background: `${primary}33`, display: "flex", alignItems: "center", justifyContent: "center", border: "3px solid rgba(167,139,250,.3)", flexShrink: 0 }}>
+                                <BusinessTypeIcon name={p.business_type_icon} size={36} color={primary} strokeWidth={1.5} />
                             </div>
                         )}
                         <div style={{ flex: 1, paddingBottom: "0.25rem" }}>
                             <h1 style={{ fontSize: "1.75rem", fontWeight: 900, margin: "0 0 0.2rem", color: "#f1f5f9" }}>{p.name}</h1>
                             <div style={{ color: "#94a3b8", fontSize: "0.88rem", display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
-                                <span>{p.business_type_icon} {p.business_type_label}</span>
+                                <span style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem" }}><BusinessTypeIcon name={p.business_type_icon} size={14} /> {p.business_type_label}</span>
                                 {p.city && <span>· 📍 {p.city}</span>}
                             </div>
                             {p.avg_rating != null && (

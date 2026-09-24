@@ -3,18 +3,12 @@ import { useEffect, useRef } from "react";
 
 interface StudioCard {
     id: string; slug: string; name: string;
-    business_type: string; business_type_label: string; business_type_icon: string;
+    business_type: string; business_type_label: string; business_type_icon: string; business_type_color: string;
     logo_url?: string; city?: string;
     self_booking_enabled: boolean; avg_rating?: number; review_count: number;
 }
 
 interface Props { studios: StudioCard[]; }
-
-const CAT_COLORS: Record<string, string> = {
-    barber: "#0ea5e9", tattoo: "#7c3aed", nails: "#ec4899",
-    spa: "#10b981", pilates: "#f59e0b", laser: "#6366f1",
-    medical: "#14b8a6", other: "#64748b",
-};
 
 const cityCache = new Map<string, [number, number]>();
 
@@ -92,7 +86,7 @@ export default function MapView({ studios }: Props) {
                 geocodeCity(city).then(coords => {
                     if (!coords || !mapInstance.current) return;
                     const cityStudios = byCity.get(city) || [];
-                    const color = CAT_COLORS[cityStudios[0]?.business_type || "other"] || "#64748b";
+                    const color = cityStudios[0]?.business_type_color || "#475569";   // the type's color, from the one list
 
                     const icon = L.divIcon({
                         html: `<div style="background:${color};color:#fff;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.3)">${cityStudios.length}</div>`,

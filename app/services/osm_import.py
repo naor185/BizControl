@@ -15,12 +15,6 @@ from sqlalchemy.orm import Session
 
 OVERPASS_URL = "https://overpass-api.de/api/interpreter"
 
-VALID_CATEGORIES = {
-    "tattoo", "barber", "nails", "laser", "pilates", "spa", "medical",
-    "massage", "clothing", "pharmacy", "gym", "dental", "photography", "florist",
-    "other",
-}
-
 
 def slugify(name: str) -> str:
     slug = name.lower().strip()
@@ -96,13 +90,12 @@ def import_osm_businesses(db: Session, city: str, category: str, osm_tag: str, l
     Safe to re-run — dedupes by (source, external_id), never touches a business
     once it's no longer 'unclaimed'. Returns {found, created, skipped}.
 
-    category isn't restricted to VALID_CATEGORIES — those are just the ones
-    with a label/icon/gradient already wired up in the UI. A custom key
-    still works, it just renders with the generic "אחר"/🏢 fallback until
-    someone adds it to BUSINESS_TYPE_LABELS."""
-    category = category.strip()
-    if not category or not category.replace("_", "").isalnum() or not category.isascii():
-        raise ValueError("קטגוריה חייבת להיות מפתח באנגלית (אותיות/מספרים/קו תחתון), לדוגמה: bakery")
+    category must be an existing business type (app/services/business_types.py) — a new one is
+    added first in Super Admin > business types, so every listing has a real name, icon and color."""
+    from app.services.business_types import type_rows
+    category = (category or "").strip()
+    if category not in {t.business_type for t in type_rows(db)}:
+        raise ValueError(f"'{category}' אינו תחום עסק קיים — הוסף אותו קודם בניהול תחומי העסק")
 
     found = fetch_osm_businesses(city, osm_tag, limit)
     created, skipped = 0, 0
@@ -154,8 +147,8 @@ def import_osm_businesses(db: Session, city: str, category: str, osm_tag: str, l
 def _try_eager_google_match(db: Session, business_id: str, name: str, address: str | None, city: str, category: str) -> None:
     try:
         from app.services.google_places import find_place_id
-        from app.api.marketplace_routes import BUSINESS_TYPE_LABELS
-        category_label = BUSINESS_TYPE_LABELS.get(category, category)
+        from app.services.business_types import describe, type_lookup
+        category_label = describe(type_lookup(db), category)["label"]
         place_id = find_place_id(name, address, city, category_label)
         if place_id:
             db.execute(text("""

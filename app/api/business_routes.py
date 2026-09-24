@@ -25,6 +25,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.limiter import limiter
 from app.core.security import JWT_SECRET
+from app.services.business_types import resolve_business_type
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/businesses", tags=["Businesses"])
@@ -334,7 +335,7 @@ def complete_claim(business_id: str, payload: CompleteClaimIn, db: Session = Dep
         name=biz.name,
         slug=slug,
         subscription_plan="trial",
-        business_type=biz.category,
+        business_type=resolve_business_type(db, biz.category),
         is_active=True,
         plan_expires_at=expires,
         is_platform=False,

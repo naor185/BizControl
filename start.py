@@ -514,6 +514,18 @@ def ensure_schema():
                 default_services JSONB NOT NULL DEFAULT '[]'
             )
         """)
+        # The one list of business types (app/services/business_types.py): how each type is shown,
+        # the older names it is recognised by, and its BizFind import tag.
+        cur.execute("""
+            ALTER TABLE business_type_templates
+            ADD COLUMN IF NOT EXISTS icon VARCHAR(48),
+            ADD COLUMN IF NOT EXISTS color VARCHAR(16),
+            ADD COLUMN IF NOT EXISTS sort_order INTEGER,
+            ADD COLUMN IF NOT EXISTS is_directory_only BOOLEAN NOT NULL DEFAULT false,
+            ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true,
+            ADD COLUMN IF NOT EXISTS aliases JSONB NOT NULL DEFAULT '[]',
+            ADD COLUMN IF NOT EXISTS osm_tag VARCHAR(64)
+        """)
 
         # ── Subscription state engine (Plans Engine step 4) ────────────────────
         # Source of truth for "is this studio's access active right now" —
@@ -990,50 +1002,60 @@ def ensure_schema():
             ON CONFLICT (studio_id) DO NOTHING
         """)
 
-        # ── Seed business type templates (idempotent) ─────────────────────────
+        # ── Business types (app/data/business_types.py) ───────────────────────
+        # The table is the source of truth and the superadmin edits it, so this adds a missing type and
+        # fills a still-empty field — it never overwrites a value someone changed. (Before 2026-09-24 it
+        # rewrote name, modules and services on every start.) A label still equal to its old default is
+        # upgraded once.
         import json as _json
-        BT = [
-            ("tattoo", "סטודיו קעקועים", ["crm","calendar","payments","whatsapp","customer_club","ocr"],
-             [{"name":"ייעוץ","duration_minutes":60,"price":0,"color":"#8b5cf6"},
-              {"name":"קעקוע קטן","duration_minutes":120,"price":300,"color":"#7c3aed"},
-              {"name":"קעקוע בינוני","duration_minutes":240,"price":600,"color":"#6d28d9"},
-              {"name":"קעקוע גדול","duration_minutes":360,"price":900,"color":"#5b21b6"}]),
-            ("barber", "ספר / ברברשופ", ["crm","calendar","payments","whatsapp","online_booking","wait_list"],
-             [{"name":"תספורת","duration_minutes":30,"price":60,"color":"#0ea5e9"},
-              {"name":"זקן","duration_minutes":20,"price":40,"color":"#0284c7"},
-              {"name":"תספורת + זקן","duration_minutes":45,"price":90,"color":"#0369a1"}]),
-            ("nails", "ציפורניים", ["crm","calendar","payments","whatsapp","online_booking"],
-             [{"name":"מניקור","duration_minutes":45,"price":80,"color":"#ec4899"},
-              {"name":"פדיקור","duration_minutes":60,"price":100,"color":"#db2777"},
-              {"name":"לק ג'ל","duration_minutes":60,"price":120,"color":"#be185d"},
-              {"name":"בנייה","duration_minutes":90,"price":200,"color":"#9d174d"}]),
-            ("laser", "קליניקת לייזר", ["crm","calendar","payments","whatsapp","email","online_booking"],
-             [{"name":"לייזר שפם","duration_minutes":30,"price":150,"color":"#f59e0b"},
-              {"name":"לייזר ביקיני","duration_minutes":45,"price":250,"color":"#d97706"},
-              {"name":"לייזר גב","duration_minutes":60,"price":350,"color":"#b45309"}]),
-            ("pilates", "פילאטיס / כושר", ["crm","calendar","payments","whatsapp","online_booking","wait_list","customer_club"],
-             [{"name":"שיעור אישי","duration_minutes":60,"price":200,"color":"#10b981"},
-              {"name":"שיעור קבוצתי","duration_minutes":60,"price":80,"color":"#059669"},
-              {"name":"מנוי חודשי","duration_minutes":0,"price":600,"color":"#047857"}]),
-            ("spa", "ספא / קוסמטיקה", ["crm","calendar","payments","whatsapp","online_booking","customer_club"],
-             [{"name":"פנים בסיסי","duration_minutes":60,"price":200,"color":"#6366f1"},
-              {"name":"עיסוי שוודי","duration_minutes":60,"price":250,"color":"#4f46e5"},
-              {"name":"עיסוי רקמות עמוק","duration_minutes":90,"price":320,"color":"#4338ca"}]),
-            ("medical", "קליניקה / מרפאה", ["crm","calendar","payments","whatsapp","email"],
-             [{"name":"ייעוץ","duration_minutes":30,"price":350,"color":"#14b8a6"},
-              {"name":"טיפול","duration_minutes":60,"price":500,"color":"#0d9488"}]),
-            ("other", "אחר", ["crm","calendar","payments","whatsapp"],
-             [{"name":"שירות","duration_minutes":60,"price":0,"color":"#64748b"}]),
-        ]
-        for bt, dn, mods, svcs in BT:
+        from app.data.business_types import BUSINESS_TYPES, PREVIOUS_LABELS
+        for _t in BUSINESS_TYPES:
             cur.execute("""
-                INSERT INTO business_type_templates (business_type, display_name, default_modules, default_services)
-                VALUES (%s, %s, %s, %s)
-                ON CONFLICT (business_type) DO UPDATE
-                    SET display_name=EXCLUDED.display_name,
-                        default_modules=EXCLUDED.default_modules,
-                        default_services=EXCLUDED.default_services
-            """, (bt, dn, _json.dumps(mods, ensure_ascii=False), _json.dumps(svcs, ensure_ascii=False)))
+                INSERT INTO business_type_templates (business_type, display_name, default_modules, default_services,
+                                                     icon, color, sort_order, is_directory_only, aliases, osm_tag)
+                VALUES (%(key)s, %(label)s, %(modules)s, %(services)s,
+                        %(icon)s, %(color)s, %(sort)s, %(directory_only)s, %(aliases)s, %(osm_tag)s)
+                ON CONFLICT (business_type) DO UPDATE SET
+                    display_name = CASE WHEN business_type_templates.display_name = %(previous_label)s
+                                        THEN EXCLUDED.display_name ELSE business_type_templates.display_name END,
+                    icon = COALESCE(business_type_templates.icon, EXCLUDED.icon),
+                    color = COALESCE(business_type_templates.color, EXCLUDED.color),
+                    sort_order = COALESCE(business_type_templates.sort_order, EXCLUDED.sort_order),
+                    aliases = CASE WHEN business_type_templates.aliases = '[]'::jsonb
+                                   THEN EXCLUDED.aliases ELSE business_type_templates.aliases END,
+                    osm_tag = COALESCE(business_type_templates.osm_tag, EXCLUDED.osm_tag)
+            """, {
+                "key": _t["key"], "label": _t["label"], "icon": _t["icon"], "color": _t["color"],
+                "sort": _t["sort"], "directory_only": bool(_t.get("directory_only")), "osm_tag": _t.get("osm_tag"),
+                "modules": _json.dumps(_t["modules"], ensure_ascii=False),
+                "services": _json.dumps(_t["services"], ensure_ascii=False),
+                "aliases": _json.dumps(_t["aliases"], ensure_ascii=False),
+                "previous_label": PREVIOUS_LABELS.get(_t["key"], _t["label"]),
+            })
+
+        # Businesses whose type is not a known type (free text from an older signup form) get the type
+        # their text names, or "other" — a studio then keeps the text it wrote in business_type_note.
+        cur.execute("ALTER TABLE studios ADD COLUMN IF NOT EXISTS business_type_note VARCHAR(120)")
+        from app.services.business_types import OTHER, match_business_type
+        cur.execute("SELECT business_type, display_name, aliases FROM business_type_templates")
+        _types = cur.fetchall()
+        for _table, _col in (("studios", "business_type"), ("businesses", "category")):
+            cur.execute("SELECT to_regclass(%s)", (_table,))
+            if cur.fetchone()[0] is None:      # businesses is created further down on a fresh database
+                continue
+            cur.execute(f"""SELECT DISTINCT {_col} FROM {_table}
+                            WHERE {_col} IS NULL OR {_col} NOT IN (SELECT business_type FROM business_type_templates)""")
+            for (_val,) in cur.fetchall():
+                _matched = match_business_type(_val, _types)
+                _key = _matched or OTHER
+                if _val is None:
+                    cur.execute(f"UPDATE {_table} SET {_col} = %s WHERE {_col} IS NULL", (_key,))
+                    continue
+                if _table == "studios" and _matched is None and _val.strip():   # the owner's own words
+                    cur.execute("""UPDATE studios SET business_type_note = LEFT(%s, 120)
+                                   WHERE business_type = %s AND business_type_note IS NULL""", (_val.strip(), _val))
+                cur.execute(f"UPDATE {_table} SET {_col} = %s WHERE {_col} = %s", (_key, _val))
+                print(f"[start] {_table}.{_col}: {_val!r} -> {_key}")
 
         # Zero out loyalty points for non-club-member clients (one-time cleanup)
         cur.execute("""

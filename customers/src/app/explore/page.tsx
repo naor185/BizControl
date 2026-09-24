@@ -2,34 +2,18 @@
 import { useState, useEffect, useCallback, useRef, Suspense } from "react";
 import Link from "next/link";
 import { API, imgUrl } from "@/lib/api";
+import BusinessTypeIcon, { typeGradient } from "@/components/BusinessTypeIcon";
 
 interface StudioCard {
     id: string; slug: string; name: string;
-    business_type: string; business_type_label: string; business_type_icon: string;
+    business_type: string; business_type_label: string; business_type_icon: string; business_type_color: string;
     logo_url?: string; cover_url?: string; city?: string; description?: string;
     primary_color: string; self_booking_enabled: boolean;
     avg_rating?: number; review_count: number;
     is_claimed?: boolean;
 }
-interface Category { id: string; label: string; icon: string; count: number; }
+interface Category { id: string; label: string; icon: string; color: string; count: number; }
 
-const CAT_GRADIENTS: Record<string, string> = {
-    barber: "linear-gradient(135deg,#0ea5e9,#0284c7)",
-    tattoo: "linear-gradient(135deg,#7c3aed,#4c1d95)",
-    nails:  "linear-gradient(135deg,#ec4899,#be185d)",
-    spa:    "linear-gradient(135deg,#10b981,#065f46)",
-    pilates:"linear-gradient(135deg,#f59e0b,#b45309)",
-    laser:  "linear-gradient(135deg,#6366f1,#4338ca)",
-    medical:"linear-gradient(135deg,#14b8a6,#0f766e)",
-    massage:"linear-gradient(135deg,#22c55e,#15803d)",
-    clothing:"linear-gradient(135deg,#f472b6,#be185d)",
-    pharmacy:"linear-gradient(135deg,#ef4444,#b91c1c)",
-    gym:    "linear-gradient(135deg,#eab308,#a16207)",
-    dental: "linear-gradient(135deg,#38bdf8,#0369a1)",
-    photography:"linear-gradient(135deg,#a855f7,#6b21a8)",
-    florist:"linear-gradient(135deg,#f97316,#c2410c)",
-    other:  "linear-gradient(135deg,#64748b,#334155)",
-};
 
 type SortKey = "default" | "rating" | "reviews" | "name";
 type ViewMode = "grid" | "list";
@@ -185,8 +169,8 @@ function ExploreContent() {
                                 </button>
                                 {categories.map(c => (
                                     <button key={c.id} type="button" onClick={() => setSelectedType(prev => prev === c.id ? "" : c.id)}
-                                        style={{ padding: "0.35rem 0.8rem", borderRadius: 16, border: "none", cursor: "pointer", fontWeight: 700, fontSize: "0.78rem", background: selectedType === c.id ? "#7c3aed" : "rgba(255,255,255,.08)", color: selectedType === c.id ? "#fff" : "#94a3b8", whiteSpace: "nowrap" }}>
-                                        {c.icon} {c.label}
+                                        style={{ padding: "0.35rem 0.8rem", borderRadius: 16, border: "none", cursor: "pointer", fontWeight: 700, fontSize: "0.78rem", background: selectedType === c.id ? "#7c3aed" : "rgba(255,255,255,.08)", color: selectedType === c.id ? "#fff" : "#94a3b8", whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: "0.3rem" }}>
+                                        <BusinessTypeIcon name={c.icon} size={13} /> {c.label}
                                     </button>
                                 ))}
                             </div>
@@ -217,7 +201,7 @@ function ExploreContent() {
                     {categories.map(c => (
                         <button key={c.id} type="button" onClick={() => setSelectedType(prev => prev === c.id ? "" : c.id)}
                             style={{ display: "flex", alignItems: "center", gap: "0.35rem", padding: "0.4rem 0.9rem", borderRadius: 20, border: `1px solid ${selectedType === c.id ? "rgba(167,139,250,.5)" : "rgba(255,255,255,.08)"}`, background: selectedType === c.id ? "rgba(124,58,237,.25)" : "transparent", cursor: "pointer", color: selectedType === c.id ? "#c4b5fd" : "#94a3b8", fontSize: "0.8rem", fontWeight: 600, whiteSpace: "nowrap", transition: "all .2s" }}>
-                            <span>{c.icon}</span><span>{c.label}</span>
+                            <BusinessTypeIcon name={c.icon} size={14} /><span>{c.label}</span>
                         </button>
                     ))}
                 </div>
@@ -285,16 +269,16 @@ function GridCard({ s }: { s: StudioCard }) {
         <Link href={`/b/${s.slug}`} style={{ textDecoration: "none", display: "block" }}>
             <div onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
                 style={{ background: "rgba(255,255,255,.04)", border: `1px solid ${hovered ? "rgba(167,139,250,.4)" : "rgba(255,255,255,.08)"}`, borderRadius: 20, overflow: "hidden", transform: hovered ? "translateY(-3px)" : "none", transition: "all .25s", boxShadow: hovered ? "0 8px 24px rgba(0,0,0,.3)" : "none" }}>
-                <div style={{ height: 140, position: "relative", background: showCover ? undefined : (CAT_GRADIENTS[s.business_type] || CAT_GRADIENTS.other) }}>
+                <div style={{ height: 140, position: "relative", background: showCover ? undefined : typeGradient(s.business_type_color) }}>
                     {showCover && <img src={imgUrl(s.cover_url)} alt="" onError={() => setImgFailed(true)} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", transform: hovered ? "scale(1.04)" : "scale(1)", transition: "transform .3s" }} />}
-                    {!showCover && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "3rem" }}>{s.logo_url ? <img src={imgUrl(s.logo_url)} alt="" style={{ width: 68, height: 68, borderRadius: 14, objectFit: "cover" }} /> : s.business_type_icon}</div>}
+                    {!showCover && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "3rem" }}>{s.logo_url ? <img src={imgUrl(s.logo_url)} alt="" style={{ width: 68, height: 68, borderRadius: 14, objectFit: "cover" }} /> : <BusinessTypeIcon name={s.business_type_icon} size={44} color="#ffffff" strokeWidth={1.5} />}</div>}
                     {showCover && <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom,transparent 50%,rgba(0,0,0,.55))" }} />}
                     {s.self_booking_enabled && <div style={{ position: "absolute", top: 8, left: 8, background: "rgba(74,222,128,.9)", color: "#052e16", fontSize: "0.66rem", fontWeight: 800, padding: "0.2rem 0.55rem", borderRadius: 7 }}>📅 אונליין</div>}
                     {s.is_claimed === false && <div style={{ position: "absolute", top: 8, right: 8, background: "rgba(15,23,42,.85)", color: "#fbbf24", fontSize: "0.62rem", fontWeight: 700, padding: "0.2rem 0.5rem", borderRadius: 7 }}>⚪ לא מאומת</div>}
                 </div>
                 <div style={{ padding: "0.9rem" }}>
                     <div style={{ fontWeight: 800, fontSize: "0.92rem", marginBottom: "0.2rem" }}>{s.name}</div>
-                    <div style={{ fontSize: "0.75rem", color: "#64748b", marginBottom: "0.35rem" }}>{s.business_type_icon} {s.business_type_label}{s.city ? ` · 📍 ${s.city}` : ""}</div>
+                    <div style={{ fontSize: "0.75rem", color: "#64748b", marginBottom: "0.35rem", display: "flex", alignItems: "center", gap: "0.25rem" }}><BusinessTypeIcon name={s.business_type_icon} size={12} /> {s.business_type_label}{s.city ? ` · 📍 ${s.city}` : ""}</div>
                     {s.avg_rating != null && s.review_count > 0 && (
                         <div style={{ display: "flex", alignItems: "center", gap: "0.25rem", fontSize: "0.75rem" }}>
                             <span style={{ color: "#fbbf24" }}>★</span>
@@ -315,13 +299,13 @@ function ListCard({ s }: { s: StudioCard }) {
                 onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(167,139,250,.4)"; (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,.06)"; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(255,255,255,.08)"; (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,.04)"; }}>
                 {/* Thumbnail */}
-                <div style={{ width: 60, height: 60, borderRadius: 14, flexShrink: 0, overflow: "hidden", background: CAT_GRADIENTS[s.business_type] || CAT_GRADIENTS.other, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    {s.logo_url ? <img src={imgUrl(s.logo_url)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ fontSize: "1.8rem" }}>{s.business_type_icon}</span>}
+                <div style={{ width: 60, height: 60, borderRadius: 14, flexShrink: 0, overflow: "hidden", background: typeGradient(s.business_type_color), display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    {s.logo_url ? <img src={imgUrl(s.logo_url)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <BusinessTypeIcon name={s.business_type_icon} size={28} color="#ffffff" strokeWidth={1.5} />}
                 </div>
                 {/* Info */}
                 <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 800, fontSize: "0.92rem", marginBottom: "0.15rem" }}>{s.name}</div>
-                    <div style={{ fontSize: "0.75rem", color: "#64748b" }}>{s.business_type_icon} {s.business_type_label}{s.city ? ` · 📍 ${s.city}` : ""}</div>
+                    <div style={{ fontSize: "0.75rem", color: "#64748b", display: "flex", alignItems: "center", gap: "0.25rem" }}><BusinessTypeIcon name={s.business_type_icon} size={12} /> {s.business_type_label}{s.city ? ` · 📍 ${s.city}` : ""}</div>
                     {s.is_claimed === false && <span style={{ display: "inline-block", marginTop: "0.2rem", background: "rgba(251,191,36,.12)", color: "#fbbf24", fontSize: "0.68rem", fontWeight: 700, padding: "0.12rem 0.45rem", borderRadius: 6 }}>⚪ לא מאומת</span>}
                     {s.description && <div style={{ fontSize: "0.76rem", color: "#94a3b8", marginTop: "0.15rem", overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{s.description}</div>}
                 </div>

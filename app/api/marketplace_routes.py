@@ -18,6 +18,7 @@ from app.core.limiter import limiter
 from app.core.studio_access import raise_if_archived, studio_is_archived, studio_site_live
 from app.db.deps import get_db as _get_db
 from app.utils.logger import get_logger
+from app.services.business_types import describe, resolve_with_note, type_lookup
 
 log = get_logger(__name__)
 
@@ -91,6 +92,7 @@ def marketplace_login(request: Request, payload: MarketplaceLoginIn, db: Session
 class BizFindRegisterIn(BaseModel):
     business_name: str = Field(min_length=2, max_length=120)
     category: str = Field(min_length=1, max_length=60)
+    category_other: Optional[str] = Field(None, max_length=60)   # the owner's words when the type is "other"
     city: str = Field(min_length=1, max_length=60)
     owner_name: str = Field(min_length=2, max_length=80)
     email: EmailStr
@@ -169,13 +171,16 @@ def bizfind_register(payload: BizFindRegisterIn, db: Session = Depends(get_db)):
     # 30 for paid plans), just read from the real table now.
     days = plan.trial_days if payload.plan_key == "trial" else plan.billing_period_days
     expires = datetime.now(timezone.utc) + timedelta(days=days)
+    # a type from the one list (an older form's name maps to its type); "other" keeps the owner's words
+    business_type, business_type_note = resolve_with_note(db, payload.category, payload.category_other)
 
     studio = Studio(
         id=uuid.uuid4(),
         name=payload.business_name.strip(),
         slug=slug,
         subscription_plan=plan.id,
-        business_type=payload.category.strip(),
+        business_type=business_type,
+        business_type_note=business_type_note,
         is_active=True,
         plan_expires_at=expires,
         is_platform=False,
@@ -442,6 +447,7 @@ class OnboardingProfileIn(BaseModel):
     phone: Optional[str] = None
     whatsapp: Optional[str] = None
     category: Optional[str] = None
+    category_other: Optional[str] = None
     completed_onboarding: Optional[bool] = None
 
 
@@ -473,7 +479,7 @@ def patch_my_studio_profile(
     if payload.whatsapp is not None:
         settings.marketplace_whatsapp = payload.whatsapp.strip() or None
     if payload.category is not None:
-        studio.business_type = payload.category.strip() or None
+        studio.business_type, studio.business_type_note = resolve_with_note(db, payload.category, payload.category_other)
 
     db.commit()
     return {"ok": True}
@@ -564,31 +570,11 @@ def _get_gallery(db: Session, studio_id) -> list[str]:
     ).fetchall()
     return [r[0] for r in rows]
 
-BUSINESS_TYPE_LABELS = {
-    "tattoo":          "סטודיו קעקועים",
-    "barber":          "ספר / ברברשופ",
-    "nails":           "ציפורניים",
-    "laser":           "לייזר",
-    "pilates":         "פילאטיס / כושר",
-    "spa":             "ספא / קוסמטיקה",
-    "medical":         "קליניקה / מרפאה",
-    "massage":         "עיסוי ורפלקסולוגיה",
-    "clothing":        "חנות בגדים",
-    "pharmacy":        "בית מרקחת",
-    "gym":             "מכון כושר",
-    "dental":          "מרפאת שיניים",
-    "photography":     "צילום",
-    "florist":         "פרחים",
-    "other":           "אחר",
-}
-
-BUSINESS_TYPE_ICONS = {
-    "tattoo":  "🎨", "barber":  "✂️", "nails":  "💅",
-    "laser":   "⚡", "pilates": "🏃", "spa":    "🧖",
-    "medical": "🏥", "massage": "💆", "clothing": "👗",
-    "pharmacy": "💊", "gym": "🏋️", "dental": "🦷",
-    "photography": "📷", "florist": "💐", "other":   "🏢",
-}
+def _type_fields(lookup: dict, key: str | None) -> dict:
+    """How a stored business type is shown on BizFind — from the one list (app/services/business_types.py)."""
+    t = describe(lookup, key)
+    return {"business_type": t["key"], "business_type_label": t["label"],
+            "business_type_icon": t["icon"], "business_type_color": t["color"]}
 
 
 # ── Search / List ─────────────────────────────────────────────────────────────
@@ -629,6 +615,7 @@ def search_marketplace(
     rows = db.execute(stmt).all()
 
     result = []
+    types = type_lookup(db)
     for studio, settings in rows:
         # Avg rating
         avg_rating = db.scalar(
@@ -648,9 +635,7 @@ def search_marketplace(
             "id": str(studio.id),
             "slug": studio.slug,
             "name": studio.name,
-            "business_type": studio.business_type or "other",
-            "business_type_label": BUSINESS_TYPE_LABELS.get(studio.business_type or "other", "אחר"),
-            "business_type_icon": BUSINESS_TYPE_ICONS.get(studio.business_type or "other", "🏢"),
+            **_type_fields(types, studio.business_type),
             "logo_url": studio.logo_url,
             "cover_url": settings.marketplace_cover_url,
             "city": settings.marketplace_city,
@@ -696,9 +681,7 @@ def search_marketplace(
                 "id": str(b.id),
                 "slug": b.slug,
                 "name": b.name,
-                "business_type": b.category,
-                "business_type_label": BUSINESS_TYPE_LABELS.get(b.category, "אחר"),
-                "business_type_icon": BUSINESS_TYPE_ICONS.get(b.category, "🏢"),
+                **_type_fields(types, b.category),
                 "logo_url": None,
                 "cover_url": f"/api/businesses/{b.id}/photo/0" if b.has_google else None,
                 "city": b.city,
@@ -747,14 +730,15 @@ def get_categories(db: Session = Depends(get_db)):
     for category, count in business_counts:
         counts[category or "other"] = counts.get(category or "other", 0) + count
 
+    types = type_lookup(db)
+    merged: dict[str, int] = {}
+    for bt, count in counts.items():   # an unknown stored value counts as "other", like it is shown
+        key = describe(types, bt)["key"]
+        merged[key] = merged.get(key, 0) + count
     return [
-        {
-            "id": bt,
-            "label": BUSINESS_TYPE_LABELS.get(bt, "אחר"),
-            "icon": BUSINESS_TYPE_ICONS.get(bt, "🏢"),
-            "count": count,
-        }
-        for bt, count in counts.items()
+        {"id": key, "label": describe(types, key)["label"], "icon": describe(types, key)["icon"],
+         "color": describe(types, key)["color"], "count": count}
+        for key, count in merged.items()
     ]
 
 
@@ -834,9 +818,7 @@ def get_studio_profile(slug: str, db: Session = Depends(get_db)):
         "id": str(studio.id),
         "slug": studio.slug,
         "name": studio.name,
-        "business_type": studio.business_type or "other",
-        "business_type_label": BUSINESS_TYPE_LABELS.get(studio.business_type or "other", "אחר"),
-        "business_type_icon": BUSINESS_TYPE_ICONS.get(studio.business_type or "other", "🏢"),
+        **_type_fields(type_lookup(db), studio.business_type),
         "logo_url": studio.logo_url,
         "cover_url": settings.marketplace_cover_url,
         "primary_color": studio.primary_color or "#7c3aed",
@@ -903,7 +885,8 @@ def _get_unclaimed_business_profile(db: Session, slug: str) -> Optional[dict]:
     address = row.address
     phone = row.phone
     google_reviews: list[dict] = []
-    category_label = BUSINESS_TYPE_LABELS.get(row.category, "אחר")
+    category_type = _type_fields(type_lookup(db), row.category)
+    category_label = category_type["business_type_label"]
 
     src = db.execute(
         text("SELECT external_id FROM business_sources WHERE business_id=:bid AND source='google'"),
@@ -943,9 +926,7 @@ def _get_unclaimed_business_profile(db: Session, slug: str) -> Optional[dict]:
         "business_id": business_id,
         "slug": row.slug,
         "name": row.name,
-        "business_type": row.category,
-        "business_type_label": category_label,
-        "business_type_icon": BUSINESS_TYPE_ICONS.get(row.category, "🏢"),
+        **category_type,
         "logo_url": None,
         "cover_url": photo_urls[0] if photo_urls else None,
         "primary_color": "#7c3aed",

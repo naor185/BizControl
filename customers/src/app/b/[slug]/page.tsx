@@ -5,6 +5,7 @@ import Link from "next/link";
 import { API, imgUrl } from "@/lib/api";
 import { setStudioToken, goToBizControl } from "@/lib/handoff";
 import { usePlatformTheme } from "@/lib/usePlatformTheme";
+import BusinessTypeIcon from "@/components/BusinessTypeIcon";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -303,13 +304,13 @@ export default function BusinessPage() {
                     {p!.logo_url ? (
                         <img src={imgUrl(p!.logo_url)} alt="" style={{ width: 80, height: 80, borderRadius: 20, objectFit: "cover", border: `3px solid ${primary}66`, flexShrink: 0, boxShadow: `0 4px 24px ${primary}44` }} />
                     ) : (
-                        <div style={{ width: 80, height: 80, borderRadius: 20, background: `${primary}22`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "2.5rem", border: `2px solid ${primary}44`, flexShrink: 0 }}>{p!.business_type_icon}</div>
+                        <div style={{ width: 80, height: 80, borderRadius: 20, background: `${primary}22`, display: "flex", alignItems: "center", justifyContent: "center", border: `2px solid ${primary}44`, flexShrink: 0 }}><BusinessTypeIcon name={p!.business_type_icon} size={40} color={primary} strokeWidth={1.5} /></div>
                     )}
 
                     <div style={{ flex: 1, minWidth: 0 }}>
                         <h1 style={{ fontSize: "1.55rem", fontWeight: 900, color: "#f1f5f9", margin: "0 0 0.25rem", lineHeight: 1.2 }}>{p!.name}</h1>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem", alignItems: "center" }}>
-                            <span style={{ fontSize: "0.8rem", color: "#94a3b8" }}>{p!.business_type_icon} {p!.business_type_label}</span>
+                            <span style={{ fontSize: "0.8rem", color: "#94a3b8", display: "inline-flex", alignItems: "center", gap: "0.3rem" }}><BusinessTypeIcon name={p!.business_type_icon} size={13} /> {p!.business_type_label}</span>
                             {p!.city && <><span style={{ color: "#475569" }}>·</span><span style={{ fontSize: "0.8rem", color: "#94a3b8" }}>📍 {p!.city}</span></>}
                             {openStatus && (
                                 <span style={{ fontSize: "0.72rem", fontWeight: 700, padding: "0.18rem 0.55rem", borderRadius: 20, background: openStatus.open ? "rgba(74,222,128,.12)" : "rgba(239,68,68,.1)", color: openStatus.open ? "#4ade80" : "#f87171", border: `1px solid ${openStatus.open ? "rgba(74,222,128,.3)" : "rgba(239,68,68,.25)"}` }}>

@@ -28,6 +28,8 @@ class Studio(Base):
     is_platform: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     business_type: Mapped[str] = mapped_column(String(64), nullable=False, default="other")
+    # What the owner wrote when no type fitted ("אחר") — kept so new types can be added from real demand.
+    business_type_note: Mapped[str | None] = mapped_column(String(120), nullable=True)
 
     # Multi-location: studios with the same organization_id are branches
     organization_id: Mapped[uuid.UUID | None] = mapped_column(

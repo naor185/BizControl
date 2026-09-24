@@ -2081,13 +2081,117 @@ def get_plan_modules(_admin: User = Depends(require_superadmin), db: Session = D
     return result
 
 
+def _business_type_out(r) -> dict:
+    return {"business_type": r.business_type, "display_name": r.display_name,
+            "icon": r.icon, "color": r.color, "sort_order": r.sort_order,
+            "is_directory_only": r.is_directory_only, "is_active": r.is_active,
+            "aliases": r.aliases or [], "osm_tag": r.osm_tag,
+            "default_modules": r.default_modules, "default_services": r.default_services}
+
+
 @router.get("/business-types", tags=["SuperAdmin"])
 def get_business_types(_admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
-    """Get all business type templates."""
+    """The business types (תחומי עסק) — the one list, inactive ones included."""
+    from app.services.business_types import type_rows
+    return [_business_type_out(r) for r in type_rows(db, include_inactive=True)]
+
+
+class BusinessTypeIn(BaseModel):
+    display_name: Optional[str] = None
+    icon: Optional[str] = None
+    color: Optional[str] = None
+    sort_order: Optional[int] = None
+    is_directory_only: Optional[bool] = None
+    is_active: Optional[bool] = None
+    aliases: Optional[list[str]] = None
+    osm_tag: Optional[str] = None
+
+
+def _apply_business_type(r, payload: BusinessTypeIn) -> None:
+    import re as _re
+    data = payload.model_dump(exclude_unset=True)
+    if "display_name" in data:
+        if not (data["display_name"] or "").strip():
+            raise HTTPException(400, "חסר שם לתחום")
+        r.display_name = data["display_name"].strip()
+    if "icon" in data:
+        if not _re.fullmatch(r"[a-z0-9]+(-[a-z0-9]+)*", data["icon"] or ""):
+            raise HTTPException(400, "שם אייקון לא תקין (שם אייקון של Lucide, למשל scissors)")
+        r.icon = data["icon"]
+    if "color" in data:
+        if not _re.fullmatch(r"#[0-9a-fA-F]{6}", data["color"] or ""):
+            raise HTTPException(400, "צבע לא תקין (למשל #7c3aed)")
+        r.color = data["color"].lower()
+    if "sort_order" in data:
+        r.sort_order = data["sort_order"]
+    if "is_directory_only" in data:
+        r.is_directory_only = bool(data["is_directory_only"])
+    if "is_active" in data:
+        if not data["is_active"] and r.business_type == "other":
+            raise HTTPException(400, "אי אפשר לכבות את 'אחר' — אליו משויכים עסקים שהתחום שלהם לא מוכר")
+        r.is_active = bool(data["is_active"])
+    if "aliases" in data:
+        r.aliases = sorted({a.strip() for a in (data["aliases"] or []) if a and a.strip()})
+    if "osm_tag" in data:
+        r.osm_tag = (data["osm_tag"] or "").strip() or None
+
+
+class BusinessTypeCreate(BusinessTypeIn):
+    business_type: str
+    display_name: str
+
+
+@router.post("/business-types", tags=["SuperAdmin"])
+def create_business_type(payload: BusinessTypeCreate, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    """A new business type, added without code. Its name and aliases must not collide with an existing type."""
+    import re as _re
     from app.models.module import BusinessTypeTemplate
-    rows = db.query(BusinessTypeTemplate).all()
-    return [{"business_type": r.business_type, "display_name": r.display_name,
-             "default_modules": r.default_modules, "default_services": r.default_services} for r in rows]
+    from app.services.business_types import match_business_type, type_rows
+    key = (payload.business_type or "").strip().lower()
+    if not _re.fullmatch(r"[a-z][a-z0-9_]{1,40}", key):
+        raise HTTPException(400, "מזהה התחום באנגלית: אותיות קטנות, ספרות וקו תחתון (למשל yoga_studio)")
+    if db.get(BusinessTypeTemplate, key):
+        raise HTTPException(400, "תחום עם המזהה הזה כבר קיים")
+    existing = [(t.business_type, t.display_name, t.aliases) for t in type_rows(db, include_inactive=True)]
+    for name in [payload.display_name, *(payload.aliases or [])]:
+        clash = match_business_type(name, existing)
+        if clash:
+            raise HTTPException(400, f"'{name}' כבר מזוהה עם התחום {clash}")
+    r = BusinessTypeTemplate(business_type=key, display_name=payload.display_name.strip(),
+                             default_modules=["crm", "calendar", "payments", "whatsapp"], default_services=[],
+                             icon="store", color="#475569", sort_order=500, aliases=[])
+    _apply_business_type(r, payload)
+    db.add(r)
+    _audit(db, admin, "create_business_type", None, {"business_type": key})
+    db.commit()
+    return _business_type_out(r)
+
+
+@router.get("/business-types/other-notes", tags=["SuperAdmin"])
+def business_type_other_notes(_admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    """Businesses that chose "אחר" and what they wrote about their business — real demand for a new type."""
+    rows = db.query(Studio).filter(Studio.business_type == "other", Studio.business_type_note.isnot(None),
+                                   Studio.is_platform.is_(False)).order_by(Studio.created_at.desc()).limit(200).all()
+    return [{"studio_id": str(s.id), "name": s.name, "note": s.business_type_note,
+             "created_at": s.created_at.isoformat() if s.created_at else None} for s in rows]
+
+
+@router.patch("/business-types/{key}", tags=["SuperAdmin"])
+def update_business_type(key: str, payload: BusinessTypeIn, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    from app.models.module import BusinessTypeTemplate
+    from app.services.business_types import match_business_type, type_rows
+    r = db.get(BusinessTypeTemplate, key)
+    if not r:
+        raise HTTPException(404, "התחום לא נמצא")
+    others = [(t.business_type, t.display_name, t.aliases) for t in type_rows(db, include_inactive=True) if t.business_type != key]
+    for name in [payload.display_name, *(payload.aliases or [])]:
+        clash = match_business_type(name, others) if name else None
+        if clash:
+            raise HTTPException(400, f"'{name}' כבר מזוהה עם התחום {clash}")
+    _apply_business_type(r, payload)
+    _audit(db, admin, "update_business_type", None, {"business_type": key, **payload.model_dump(exclude_unset=True)})
+    db.commit()
+    return _business_type_out(r)
 
 
 @router.put("/studios/{studio_id}/business-type", tags=["SuperAdmin"])
@@ -2102,7 +2206,11 @@ def set_studio_business_type(
     studio = db.query(Studio).filter_by(id=studio_id).first()
     if not studio:
         raise HTTPException(status_code=404, detail="Studio not found")
-    bt = payload.get("business_type", "other")
+    from app.services.business_types import resolve_business_type
+    try:
+        bt = resolve_business_type(db, payload.get("business_type"), strict=True)   # only a type from the list
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     studio.business_type = bt
     # Optionally load defaults
     if payload.get("load_defaults"):

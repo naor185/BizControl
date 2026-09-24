@@ -10,6 +10,7 @@ import {
 } from "recharts";
 import PasswordInput from "@/components/PasswordInput";
 import LandingPageTemplate from "@/components/LandingPageTemplate";
+import { Tags } from "lucide-react";
 
 type Stats = {
     total_studios: number;
@@ -862,6 +863,12 @@ export default function AdminPage() {
                         className="px-4 py-2 rounded-xl text-sm font-semibold transition-colors text-slate-400 hover:text-white"
                     >
                         🗺️ ייבוא עסקים
+                    </a>
+                    <a
+                        href="/admin/business-types"
+                        className="px-4 py-2 rounded-xl text-sm font-semibold transition-colors text-slate-400 hover:text-white inline-flex items-center gap-1.5"
+                    >
+                        <Tags className="h-4 w-4" /> תחומי עסק
                     </a>
                 </div>
 

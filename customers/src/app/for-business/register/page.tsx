@@ -15,11 +15,9 @@ const PLAN_META: Record<string, { label: string; price: string; scope: string; c
     studio:         { label: "BizControl Studio",     price: "₪499/חודש",scope: "BizFind + BizControl", color: "#16a34a", icon: "⚡" },
 };
 
-const CATEGORIES = [
-    "קעקועים", "ספרות", "קוסמטיקה ויופי", "פדיקור ומניקור", "עיצוב שיער",
-    "מכון כושר", "עיסוי ורפלקסולוגיה", "פילאטיס ויוגה", "קליניקה / בריאות",
-    "שיניים", "פסיכולוגיה / קואצ׳ינג", "אחר",
-];
+// The business types come from the one list (GET /api/public/business-types) — BizFind lists every
+// type, including shops without appointments.
+type BusinessType = { key: string; label: string };
 
 // ── Step indicator ────────────────────────────────────────────────────────────
 
@@ -61,6 +59,10 @@ function RegisterInner() {
     const [loading, setLoading] = useState(false);
     const [err, setErr] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
+    const [types, setTypes] = useState<BusinessType[]>([]);
+    useEffect(() => {
+        fetch(`${API}/api/public/business-types`).then(r => r.json()).then(setTypes).catch(() => setTypes([]));
+    }, []);
 
     const plan = PLAN_META[planKey] || PLAN_META["trial"];
     const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
@@ -70,7 +72,7 @@ function RegisterInner() {
 
     const canStep1 = planKey !== "";
     const canStep2 = form.business_name.trim().length >= 2 && form.category
-        && (form.category !== "אחר" || form.category_other.trim().length >= 2)
+        && (form.category !== "other" || form.category_other.trim().length >= 2)
         && form.city.trim();
     const passwordsMatch = form.password === form.password_confirm;
     const phoneDigits = form.phone.replace(/\D/g, "");
@@ -87,7 +89,8 @@ function RegisterInner() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     business_name: form.business_name.trim(),
-                    category: form.category === "אחר" ? form.category_other.trim() : form.category,
+                    category: form.category,
+                    category_other: form.category === "other" ? form.category_other.trim() : undefined,
                     city: form.city.trim(),
                     owner_name: form.owner_name.trim(),
                     email: form.email.trim(),
@@ -242,9 +245,9 @@ function RegisterInner() {
                             <label style={labelStyle}>קטגוריה *</label>
                             <select style={inputStyle} value={form.category} onChange={e => set("category", e.target.value)}>
                                 <option value="">בחרו קטגוריה</option>
-                                {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                                {types.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}
                             </select>
-                            {form.category === "אחר" && (
+                            {form.category === "other" && (
                                 <input
                                     style={{ ...inputStyle, marginTop: "0.5rem" }}
                                     placeholder="פרטו את קטגוריית העסק"

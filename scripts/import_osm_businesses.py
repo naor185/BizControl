@@ -17,7 +17,7 @@ load_dotenv()
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
-from app.services.osm_import import import_osm_businesses, VALID_CATEGORIES
+from app.services.osm_import import import_osm_businesses
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
@@ -25,7 +25,7 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--city", required=True, help='OSM administrative area name, e.g. "שוהם"')
-    parser.add_argument("--category", required=True, help=f"Internal category key: {', '.join(sorted(VALID_CATEGORIES))}")
+    parser.add_argument("--category", required=True, help="An existing business type key (Super Admin > business types), e.g. barber")
     parser.add_argument("--osm-tag", required=True, help='OSM tag to search, e.g. "shop=hairdresser"')
     parser.add_argument("--limit", type=int, default=50)
     args = parser.parse_args()

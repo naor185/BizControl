@@ -12,7 +12,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -167,7 +167,8 @@ class StudioUsageCounter(Base):
 
 
 class BusinessTypeTemplate(Base):
-    """Default configuration (modules + sample services) per business type."""
+    """A business type (תחום עסק) — the one list every screen reads (app/services/business_types.py).
+    Seeded from app/data/business_types.py; the superadmin edits it."""
     __tablename__ = "business_type_templates"
 
     business_type: Mapped[str] = mapped_column(String(64), primary_key=True)
@@ -175,3 +176,10 @@ class BusinessTypeTemplate(Base):
     default_modules: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
     default_services: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False, default=list)
     # default_services: [{name, duration_minutes, price, color}]
+    icon: Mapped[str | None] = mapped_column(String(48), nullable=True)          # Lucide icon name
+    color: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    sort_order: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    is_directory_only: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+    aliases: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list, server_default="[]")
+    osm_tag: Mapped[str | None] = mapped_column(String(64), nullable=True)

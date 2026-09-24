@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { API, imgUrl } from "@/lib/api";
 import { usePlatformTheme } from "@/lib/usePlatformTheme";
+import BusinessTypeIcon, { typeGradient, typeTint } from "@/components/BusinessTypeIcon";
 
 const DEFAULT_SLIDES = [
     { url: "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=1400&q=85", label: "מסעדות ואוכל" },
@@ -143,34 +144,13 @@ function HeroSection({ q, city, setQ, setCity, locating, onLocate, searchRef }: 
 
 interface StudioCard {
     id: string; slug: string; name: string;
-    business_type: string; business_type_label: string; business_type_icon: string;
+    business_type: string; business_type_label: string; business_type_icon: string; business_type_color: string;
     logo_url?: string; cover_url?: string; city?: string; description?: string;
     primary_color: string; self_booking_enabled: boolean;
     avg_rating?: number; review_count: number;
 }
-interface Category { id: string; label: string; icon: string; count: number; }
+interface Category { id: string; label: string; icon: string; color: string; count: number; }
 
-const CAT_GRADIENTS: Record<string, string> = {
-    barber:  "linear-gradient(135deg,#0ea5e9,#0284c7)",
-    tattoo:  "linear-gradient(135deg,#7c3aed,#4c1d95)",
-    nails:   "linear-gradient(135deg,#ec4899,#be185d)",
-    spa:     "linear-gradient(135deg,#10b981,#065f46)",
-    pilates: "linear-gradient(135deg,#f59e0b,#b45309)",
-    laser:   "linear-gradient(135deg,#6366f1,#4338ca)",
-    medical: "linear-gradient(135deg,#14b8a6,#0f766e)",
-    other:   "linear-gradient(135deg,#64748b,#334155)",
-};
-
-const CAT_LIGHT: Record<string, { bg: string; color: string }> = {
-    barber:  { bg: "#e0f2fe", color: "#0284c7" },
-    tattoo:  { bg: "#ede9fe", color: "#7c3aed" },
-    nails:   { bg: "#fce7f3", color: "#db2777" },
-    spa:     { bg: "#d1fae5", color: "#059669" },
-    pilates: { bg: "#fef3c7", color: "#d97706" },
-    laser:   { bg: "#e0e7ff", color: "#4338ca" },
-    medical: { bg: "#ccfbf1", color: "#0d9488" },
-    other:   { bg: "#f1f5f9", color: "#475569" },
-};
 
 export default function HomePage() {
     const { primary } = usePlatformTheme();
@@ -318,12 +298,12 @@ export default function HomePage() {
                         🌐 הכל
                     </button>
                     {categories.map(cat => {
-                        const light = CAT_LIGHT[cat.id] || CAT_LIGHT.other;
+                        const light = typeTint(cat.color);
                         const active = selectedType === cat.id;
                         return (
                             <button key={cat.id} type="button" onClick={() => selectType(cat.id)}
-                                style={{ padding: "0.45rem 1rem", borderRadius: 20, border: `1.5px solid ${active ? light.color : "#e2e8f0"}`, cursor: "pointer", fontWeight: 700, fontSize: "0.82rem", background: active ? light.bg : "#fff", color: active ? light.color : "#64748b", transition: "all .2s", whiteSpace: "nowrap" }}>
-                                {cat.icon} {cat.label}
+                                style={{ padding: "0.45rem 1rem", borderRadius: 20, border: `1.5px solid ${active ? light.color : "#e2e8f0"}`, cursor: "pointer", fontWeight: 700, fontSize: "0.82rem", background: active ? light.bg : "#fff", color: active ? light.color : "#64748b", transition: "all .2s", whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: "0.3rem" }}>
+                                <BusinessTypeIcon name={cat.icon} size={14} /> {cat.label}
                                 <span style={{ opacity: 0.6, marginRight: "0.3rem", fontSize: "0.72rem" }}>({cat.count})</span>
                             </button>
                         );
@@ -339,13 +319,13 @@ export default function HomePage() {
                         <h2 style={{ fontWeight: 800, fontSize: "1rem", color: "#1e293b", marginBottom: "1rem" }}>גלה לפי קטגוריה</h2>
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(120px,1fr))", gap: "0.65rem" }}>
                             {categories.slice(0, 8).map(cat => {
-                                const light = CAT_LIGHT[cat.id] || CAT_LIGHT.other;
+                                const light = typeTint(cat.color);
                                 return (
                                     <button key={cat.id} type="button" onClick={() => selectType(cat.id)}
                                         style={{ background: light.bg, border: `1.5px solid ${light.color}22`, borderRadius: 18, padding: "1.1rem 0.75rem", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: "0.4rem", transition: "transform .2s, box-shadow .2s", boxShadow: "0 1px 4px rgba(0,0,0,.06)" }}
                                         onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-3px)"; (e.currentTarget as HTMLButtonElement).style.boxShadow = `0 8px 20px ${light.color}33`; }}
                                         onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform = ""; (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 1px 4px rgba(0,0,0,.06)"; }}>
-                                        <span style={{ fontSize: "1.75rem" }}>{cat.icon}</span>
+                                        <BusinessTypeIcon name={cat.icon} size={28} color={light.color} />
                                         <span style={{ color: light.color, fontWeight: 700, fontSize: "0.8rem" }}>{cat.label}</span>
                                         <span style={{ color: `${light.color}99`, fontSize: "0.68rem" }}>{cat.count} עסקים</span>
                                     </button>
@@ -402,8 +382,8 @@ function Chip({ label, onRemove }: { label: string; onRemove: () => void }) {
 function StudioCard({ s }: { s: StudioCard }) {
     const { primary } = usePlatformTheme();
     const [hovered, setHovered] = useState(false);
-    const gradient = CAT_GRADIENTS[s.business_type] || CAT_GRADIENTS.other;
-    const light = CAT_LIGHT[s.business_type] || CAT_LIGHT.other;
+    const gradient = typeGradient(s.business_type_color);
+    const light = typeTint(s.business_type_color);
 
     return (
         <Link href={`/b/${s.slug}`} style={{ textDecoration: "none", display: "block" }}>
@@ -428,7 +408,7 @@ function StudioCard({ s }: { s: StudioCard }) {
                         <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
                             {s.logo_url
                                 ? <img src={imgUrl(s.logo_url)} alt="" style={{ width: 72, height: 72, borderRadius: 16, objectFit: "cover", boxShadow: "0 4px 16px rgba(0,0,0,.2)" }} />
-                                : <span style={{ fontSize: "3.5rem" }}>{s.business_type_icon}</span>
+                                : <BusinessTypeIcon name={s.business_type_icon} size={52} color="#ffffff" strokeWidth={1.5} />
                             }
                         </div>
                     )}
@@ -447,7 +427,7 @@ function StudioCard({ s }: { s: StudioCard }) {
                 <div style={{ padding: "1rem" }}>
                     <div style={{ fontWeight: 800, fontSize: "0.95rem", color: "#0f172a", marginBottom: "0.2rem" }}>{s.name}</div>
                     <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: "0.78rem", marginBottom: "0.4rem" }}>
-                        <span style={{ background: light.bg, color: light.color, padding: "0.15rem 0.5rem", borderRadius: 6, fontWeight: 600, fontSize: "0.72rem" }}>{s.business_type_icon} {s.business_type_label}</span>
+                        <span style={{ background: light.bg, color: light.color, padding: "0.15rem 0.5rem", borderRadius: 6, fontWeight: 600, fontSize: "0.72rem", display: "inline-flex", alignItems: "center", gap: "0.25rem" }}><BusinessTypeIcon name={s.business_type_icon} size={12} /> {s.business_type_label}</span>
                         {s.city && <span style={{ color: "#94a3b8" }}>📍 {s.city}</span>}
                     </div>
                     {s.description && (
