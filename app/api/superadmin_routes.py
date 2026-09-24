@@ -2087,6 +2087,7 @@ def _business_type_out(r) -> dict:
             "icon": r.icon, "color": r.color, "sort_order": r.sort_order,
             "is_directory_only": r.is_directory_only, "is_active": r.is_active,
             "aliases": r.aliases or [], "osm_tag": r.osm_tag,
+            "terms": r.terms or {}, "message_defaults": r.message_defaults or {},
             "default_modules": r.default_modules, "default_services": r.default_services}
 
 
@@ -2106,6 +2107,12 @@ class BusinessTypeIn(BaseModel):
     is_active: Optional[bool] = None
     aliases: Optional[list[str]] = None
     osm_tag: Optional[str] = None
+    terms: Optional[dict[str, str]] = None              # the field's words; a word left empty is removed
+    message_defaults: Optional[dict[str, str]] = None   # the field's default texts ({"aftercare": …})
+
+
+# Message texts a field may define (app/services/business_types.message_default)
+_FIELD_MESSAGE_KEYS = ("aftercare",)
 
 
 def _apply_business_type(r, payload: BusinessTypeIn) -> None:
@@ -2135,6 +2142,33 @@ def _apply_business_type(r, payload: BusinessTypeIn) -> None:
         r.aliases = sorted({a.strip() for a in (data["aliases"] or []) if a and a.strip()})
     if "osm_tag" in data:
         r.osm_tag = (data["osm_tag"] or "").strip() or None
+    if "terms" in data:
+        from app.data.business_types import TERM_LABELS
+        words = dict(r.terms or {})
+        for k, v in (data["terms"] or {}).items():
+            if k not in TERM_LABELS:
+                raise HTTPException(400, f"מילה לא מוכרת: {k}")
+            v = (v or "").strip()
+            if len(v) > 30:
+                raise HTTPException(400, "מילה ארוכה מדי (עד 30 תווים)")
+            if v:
+                words[k] = v
+            else:
+                words.pop(k, None)   # back to the generic word
+        r.terms = words
+    if "message_defaults" in data:
+        texts = dict(r.message_defaults or {})
+        for k, v in (data["message_defaults"] or {}).items():
+            if k not in _FIELD_MESSAGE_KEYS:
+                raise HTTPException(400, f"הודעה לא מוכרת: {k}")
+            v = (v or "").strip()
+            if len(v) > 2000:
+                raise HTTPException(400, "הנוסח ארוך מדי (עד 2000 תווים)")
+            if v:
+                texts[k] = v
+            else:
+                texts.pop(k, None)   # back to the generic text
+        r.message_defaults = texts
 
 
 class BusinessTypeCreate(BusinessTypeIn):
@@ -2177,6 +2211,35 @@ def business_type_other_notes(_admin: User = Depends(require_superadmin), db: Se
              "created_at": s.created_at.isoformat() if s.created_at else None} for s in rows]
 
 
+@router.get("/business-types/word-changes", tags=["SuperAdmin"])
+def business_type_word_changes(_admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    """What owners renamed for their own business, grouped by field, word and new word — when several
+    businesses of a field make the same change, it is a candidate for the field's default."""
+    from app.data.business_types import GENERIC_TERMS, TERM_LABELS
+    from app.models.module import BusinessTypeTemplate
+    from app.models.studio_settings import StudioSettings
+    types = {t.business_type: t for t in db.query(BusinessTypeTemplate).all()}
+    groups: dict[tuple, list[str]] = {}
+    rows = (db.query(Studio.name, Studio.business_type, StudioSettings.business_terms)
+            .join(StudioSettings, StudioSettings.studio_id == Studio.id)
+            .filter(Studio.is_platform.is_(False)).all())
+    for name, bt, own in rows:
+        for k, v in (own or {}).items():
+            if k in TERM_LABELS and isinstance(v, str) and v.strip():
+                groups.setdefault((bt, k, v.strip()), []).append(name)
+    changes = []
+    for (bt, k, word), names in groups.items():
+        t = types.get(bt)
+        field_word = ((t.terms if t else None) or {}).get(k) or GENERIC_TERMS[k]
+        changes.append({"business_type": bt, "type_label": t.display_name if t else bt, "term": k,
+                        "term_label": TERM_LABELS[k], "field_word": field_word, "owner_word": word,
+                        "count": len(names), "studios": sorted(names)[:10]})
+    changes.sort(key=lambda c: (-c["count"], c["type_label"], c["term"]))
+    from app.data.business_types import GENERIC_MESSAGES
+    return {"changes": changes, "term_labels": TERM_LABELS, "generic_terms": GENERIC_TERMS,
+            "message_keys": {"aftercare": "הודעה אחרי טיפול"}, "generic_messages": GENERIC_MESSAGES}
+
+
 @router.patch("/business-types/{key}", tags=["SuperAdmin"])
 def update_business_type(key: str, payload: BusinessTypeIn, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
     from app.models.module import BusinessTypeTemplate
@@ -2190,6 +2253,15 @@ def update_business_type(key: str, payload: BusinessTypeIn, admin: User = Depend
         if clash:
             raise HTTPException(400, f"'{name}' כבר מזוהה עם התחום {clash}")
     _apply_business_type(r, payload)
+    if payload.terms:
+        # an owner's word that is now the field's own is no longer a change of theirs
+        from app.models.studio_settings import StudioSettings
+        for st in (db.query(StudioSettings).join(Studio, Studio.id == StudioSettings.studio_id)
+                   .filter(Studio.business_type == key).all()):
+            own = dict(st.business_terms or {})
+            kept = {k: v for k, v in own.items() if (r.terms or {}).get(k) != v}
+            if kept != own:
+                st.business_terms = kept
     _audit(db, admin, "update_business_type", None, {"business_type": key, **payload.model_dump(exclude_unset=True)})
     db.commit()
     return _business_type_out(r)

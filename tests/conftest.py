@@ -171,6 +171,8 @@ def client(db_session):
 
     app.dependency_overrides[core_db.get_db] = override_get_db
     app.dependency_overrides[db_deps.get_db] = override_get_db
+    from app.core.limiter import limiter
+    limiter.reset()   # each test starts with fresh rate-limit counters (login allows 10 a minute)
     with TestClient(app) as c:
         yield c
     app.dependency_overrides.clear()
