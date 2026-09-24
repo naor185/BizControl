@@ -32,6 +32,14 @@ npm run build     # next build --webpack
 npm run lint      # eslint
 ```
 
+### Tests
+```bash
+docker compose up -d db     # local Postgres on localhost:5433 — tests never touch production
+# a venv with requirements.txt + requirements-dev.txt (on the owner's PC: C:\Users\naor1\.bizcontrol\venv)
+C:\Users\naor1\.bizcontrol\venv\Scripts\python -m pytest
+```
+`tests/conftest.py` refuses any non-local database. Each DB test builds a fresh schema in the `bizcontrol_test` database (ORM models + `start.py`) and drops it; e-mail/WhatsApp senders are replaced and a test that tries to send fails.
+
 ### Deploy
 ```bash
 git add -A && git commit -m "..." && git push
