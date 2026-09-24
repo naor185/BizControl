@@ -8,8 +8,6 @@ export type PlanInfo = {
     subscription_plan: string;
     plan_label: string;
     plan_expires_at: string | null;
-    // false for the free / trial plans. Missing (older server) counts as false, i.e. the bar shows everywhere.
-    is_paid_plan?: boolean;
 };
 
 // Height of the bar — AppShell reserves the same amount of room so it never covers page content.
@@ -20,9 +18,9 @@ function fmtDate(iso: string) {
 }
 
 // Strip at the bottom of the screen: the studio's plan and how much time is left on it. AppShell shows it
-// on every screen for studios without a paid plan, and only on the dashboards for paying studios.
-// During a trial it also offers buying a full plan and shows what each plan includes (the billing
-// section of the דשבורד page). Orange with white text; red when 7 days or fewer remain.
+// only on the דשבורד page (/overview). During a trial it also offers buying a full plan and shows what
+// each plan includes (the billing section of that page). Orange with white text; red when 7 days or
+// fewer remain.
 export default function PlanBar({ info }: { info: PlanInfo }) {
     const [now] = useState(() => Date.now());
     const [isNative] = useState(() => isNativeApp());

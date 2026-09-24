@@ -91,10 +91,9 @@ export default function AppShell({
         setBusinessUnlocked(isBusinessSessionValid());
     }, [pathname]);
 
-    // The plan bar: on every screen while the studio has no paid plan (free / trial), and only on the two
-    // dashboards once it does. The room it takes at the bottom is reserved only while it is shown.
-    const onDashboard = pathname === "/overview" || pathname === "/dashboard";
-    const showPlanBar = !!planInfo && (planInfo.is_paid_plan !== true || onDashboard);
+    // The plan bar appears only on the "דשבורד" page (/overview), whatever the plan — nowhere else.
+    // The room it takes at the bottom is reserved only while it is shown.
+    const showPlanBar = !!planInfo && pathname === "/overview";
 
     // "Back" appears on every screen that was reached from another screen of the app (desktop and
     // phone), and takes you to exactly where you were. It is hidden on the first screen of a session.
