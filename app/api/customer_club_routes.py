@@ -26,6 +26,7 @@ from app.crud.customer_club import (
 )
 from app.models.client import Client
 from app.models.birthday_coupon import BirthdayCoupon
+from app.services.marketing import may_receive_marketing, refusal_reason
 from datetime import datetime, timezone
 
 from app.core.features import require_module
@@ -260,7 +261,7 @@ def birthday_status(
             "birth_date": c.birth_date.isoformat() if c.birth_date else None,
             "birth_day": c.birth_date.day if c.birth_date else None,
             "is_club_member": bool(c.is_club_member),
-            "whatsapp_opted_out": bool(c.whatsapp_opted_out),
+            "may_receive_marketing": may_receive_marketing(c),   # a birthday benefit is marketing (app/services/marketing.py)
             # Coupon info
             "coupon_code": coupon.code if coupon else None,
             "coupon_status": coupon.status if coupon else ("not_sent" if not c.is_club_member else "pending"),
@@ -296,7 +297,6 @@ def send_birthday_coupon_now(
         raise HTTPException(status_code=400, detail="הלקוח אינו חבר מועדון")
     if not client.birth_date:
         raise HTTPException(status_code=400, detail="אין תאריך לידה ללקוח")
-    from app.services.marketing import refusal_reason
     refusal = refusal_reason(client)   # a birthday coupon is marketing
     if refusal:
         raise HTTPException(status_code=400, detail=refusal)

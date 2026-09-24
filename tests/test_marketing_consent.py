@@ -159,15 +159,69 @@ def test_dispatcher_blocks_marketing_to_clients_who_may_not_receive_it(sent):
     assert sent == [("whatsapp", ok.phone)]
 
 
-def test_dispatcher_leaves_service_messages_as_they_were(sent):
+def test_dispatcher_sends_service_messages_whatever_the_marketing_flags(sent):
     no_consent, opted_out = client(consent=False), client(opted_out=True)
     reminder = _job(no_consent, "1day")
     cancel_notice = _job(no_consent, "appointment_cancelled")
+    # the owner's decision (2026-09-24): unsubscribing stops marketing only — a reminder is a must
     opted_out_reminder = _job(opted_out, "1day")
-    message_worker.process_due_jobs(_FakeDB([reminder, cancel_notice, opted_out_reminder], [no_consent, opted_out]))
-    assert reminder.status == "sent" and cancel_notice.status == "sent"
-    # existing rule, unchanged: an opted-out client gets no WhatsApp at all
-    assert opted_out_reminder.status == "canceled" and opted_out_reminder.last_error == "Client opted out of WhatsApp"
+    opted_out_confirmation = _job(opted_out, None)   # confirmations are queued without a type
+    message_worker.process_due_jobs(_FakeDB([reminder, cancel_notice, opted_out_reminder, opted_out_confirmation],
+                                            [no_consent, opted_out]))
+    for j in (reminder, cancel_notice, opted_out_reminder, opted_out_confirmation):
+        assert j.status == "sent", (j.reminder_type, j.status, j.last_error)
+    assert len(sent) == 4
+
+
+# The unsubscribe flag may be READ only by the marketing rule. Anywhere else it would stop service
+# messages again. (Setting it — the unsubscribe link, the client card switch — and declaring it is fine.)
+OPT_OUT_FLAG_ALLOWED = {
+    "services/marketing.py",   # the rule
+    "models/client.py", "schemas/client.py", "main.py",   # the column itself
+    "crud/client.py",          # the client card switch sets it
+    "api/invite_routes.py",    # the unsubscribe link sets it
+}
+
+
+def test_only_the_marketing_rule_reads_the_unsubscribe_flag():
+    users = {p.relative_to(APP).as_posix() for p in APP.rglob("*.py")
+             if "whatsapp_opted_out" in p.read_text(encoding="utf-8")}
+    assert "services/marketing.py" in users
+    unexpected = sorted(users - OPT_OUT_FLAG_ALLOWED)
+    assert not unexpected, f"these read whatsapp_opted_out — use app/services/marketing.py instead: {unexpected}"
+
+
+def test_daily_birthday_sweep_runs_and_only_reaches_clients_who_may_receive_marketing(monkeypatch):
+    """Regression: the sweep read client.name (Client has no such field) and crashed on the first
+    eligible client from 2026-05-23 until 2026-09-24 — no automatic birthday message went out."""
+    import app.crud.birthday_coupon as bc
+    import app.services.email_center as ec
+    monkeypatch.setattr(bc, "get_or_create_birthday_coupon", lambda db, **kw: SimpleNamespace(code="TAL10"))
+    monkeypatch.setattr(ec, "studio_email_allowed", lambda *a, **k: False)
+    settings = SimpleNamespace(birthday_automation_enabled=True, birthday_benefit_percent=10, birthday_wa_template=None)
+    ok, no_consent = client(), client(consent=False)
+    ok.full_name, ok.birth_date = "טל", datetime(1990, 3, 14).date()
+    no_consent.birth_date = ok.birth_date
+    added = []
+
+    class _DB:
+        def execute(self, _stmt):
+            return SimpleNamespace(all=lambda: [(ok, settings), (no_consent, settings)])
+
+        def scalar(self, _stmt):
+            return None
+
+        def add(self, obj):
+            added.append(obj)
+
+        def commit(self):
+            pass
+
+    assert message_worker.sweep_birthday_messages(_DB()) == 1
+    (job,) = added
+    assert job.client_id == ok.id and job.channel == "whatsapp"
+    assert job.reminder_type.startswith("birthday-") and is_marketing(job.reminder_type)
+    assert "טל" in job.body and "TAL10" in job.body
 
 
 def test_marketing_module_is_the_only_definition():

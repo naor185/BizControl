@@ -95,7 +95,8 @@ def optout_page_info(token: str, db: Session = Depends(get_db)):
 
 @router.post("/{token}/optout")
 def optout_via_invite(token: str, db: Session = Depends(get_db)):
-    """Opt the client out of all automated WhatsApp messages."""
+    """Opt the client out of marketing messages, on every channel (app/services/marketing.py).
+    Service messages — confirmations, reminders, receipts — still go out."""
     decoded = _resolve_code(db, token)
     if not decoded:
         raise HTTPException(status_code=404, detail="קישור לא תקין")

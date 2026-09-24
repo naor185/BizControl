@@ -36,6 +36,7 @@ type ClientBasic = {
     email?: string | null;
     notes?: string | null;
     whatsapp_opted_out?: boolean;
+    marketing_consent?: boolean;
     is_club_member?: boolean;
     birth_date?: string | null;
     created_at: string;
@@ -768,20 +769,24 @@ export default function ClientProfilePage() {
                                 )}
                             </div>
 
-                            {/* WhatsApp opt-out */}
+                            {/* Marketing opt-out — covers marketing only; service messages always go out */}
                             <div className="rounded-xl border bg-white p-5 shadow-sm">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <h3 className="text-base font-semibold text-slate-800">הודעות וואטסאפ</h3>
+                                        <h3 className="text-base font-semibold text-slate-800">הודעות שיווקיות</h3>
                                         <p className={`text-xs mt-0.5 font-medium ${profile.client.whatsapp_opted_out ? "text-rose-500" : "text-emerald-600"}`}>
-                                            {profile.client.whatsapp_opted_out ? "⛔ הודעות מושבתות ללקוח זה" : "✅ הלקוח מקבל הודעות אוטומטיות"}
+                                            {profile.client.whatsapp_opted_out ? "⛔ הוסר/ה מהודעות שיווקיות" : "✅ לא הוסר/ה מהודעות שיווקיות"}
                                         </p>
+                                        {profile.client.marketing_consent === false && (
+                                            <p className="text-xs mt-0.5 font-medium text-amber-600">לא אישר/ה דיוור — הודעות שיווקיות לא יישלחו</p>
+                                        )}
+                                        <p className="text-xs mt-0.5 text-slate-400">תזכורות, אישורי תור וקבלות נשלחים תמיד</p>
                                     </div>
                                     <button
                                         type="button"
                                         dir="ltr"
                                         onClick={handleToggleOptOut}
-                                        title={profile.client.whatsapp_opted_out ? "לחץ להפעלת הודעות" : "לחץ לביטול הודעות"}
+                                        title={profile.client.whatsapp_opted_out ? "לחץ לחידוש הודעות שיווקיות" : "לחץ להסרה מהודעות שיווקיות"}
                                         className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${profile.client.whatsapp_opted_out ? "bg-slate-300" : "bg-emerald-500"}`}
                                     >
                                         <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${profile.client.whatsapp_opted_out ? "translate-x-1" : "translate-x-6"}`} />

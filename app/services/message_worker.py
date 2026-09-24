@@ -404,21 +404,14 @@ def process_due_jobs(db: Session, limit: int = 20) -> int:
                     continue
 
             # Marketing goes only to clients who may receive it — checked here, at send time, for every
-            # channel and whichever path queued it (app/services/marketing.py). Service messages are not
-            # affected by this check.
+            # channel and whichever path queued it (app/services/marketing.py). Service messages
+            # (confirmations, reminders, receipts…) always go out: the client's unsubscribe covers
+            # marketing only, as the unsubscribe page promises.
             if is_marketing(getattr(job, "reminder_type", None)) and job.client_id:
                 refusal = refusal_reason(db.get(Client, job.client_id))
                 if refusal:
                     job.status = "canceled"
                     job.last_error = f"הודעה שיווקית לא נשלחה: {refusal}"
-                    count += 1
-                    continue
-
-            if job.channel == "whatsapp" and job.client_id:
-                client = db.get(Client, job.client_id)
-                if client and getattr(client, "whatsapp_opted_out", False):
-                    job.status = "canceled"
-                    job.last_error = "Client opted out of WhatsApp"
                     count += 1
                     continue
 
@@ -751,9 +744,6 @@ def sweep_same_day_reminders(db: Session) -> int:
         if not getattr(settings, "same_day_reminder_enabled", True):
             continue
 
-        if client.whatsapp_opted_out:
-            continue
-
         if _already_enqueued(db, appt.id, "same_day"):
             continue
 
@@ -919,7 +909,7 @@ def sweep_birthday_messages(db: Session, studio_id=None) -> int:
             month=target_month,
             year=target_year,
             discount_percent=discount_percent,
-            client_name=client.name or client.full_name or "",
+            client_name=client.full_name or "",
         )
 
         context = {
@@ -1032,8 +1022,6 @@ def sweep_deposit_reminders(db: Session) -> int:
 
         client = db.get(Client, appt.client_id)
         if not client or not client.phone:
-            continue
-        if getattr(client, "whatsapp_opted_out", False):
             continue
 
         settings = db.get(StudioSettings, appt.studio_id)

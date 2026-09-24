@@ -438,9 +438,6 @@ def _enqueue_gift_card_receipt_link(db: Session, studio_id, invoice_id: str, cli
     from sqlalchemy import select as _select
     from app.models.message_job import MessageJob
 
-    if getattr(client, "whatsapp_opted_out", False):
-        return
-
     already = db.scalar(
         _select(MessageJob).where(
             MessageJob.reminder_type == "gift_card_receipt_link",

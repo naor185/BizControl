@@ -333,8 +333,6 @@ def _enqueue_receipt_link(db, studio_id, invoice_id: str, appt, client) -> None:
 
     if not client or not getattr(client, "phone", None):
         return
-    if getattr(client, "whatsapp_opted_out", False):
-        return
 
     # Dedup — only one receipt link per invoice
     already = db.scalar(

@@ -7,8 +7,10 @@ column names:
 - clients.marketing_consent is the checkbox on the club sign-up form (LandingPageTemplate):
   "אני מאשר/ת קבלת עדכונים, הטבות והודעות שיווקיות מ-<studio>". False = did not agree to marketing.
 - clients.whatsapp_opted_out is set by the personal unsubscribe link (invite_routes.optout_via_invite),
-  whose page tells the client "לא תקבל/י יותר הודעות שיווקיות אוטומטיות". The same link is in the
-  marketing e-mails ("להסרה מרשימת הדיוור"), so it covers every channel.
+  whose page tells the client "לא תקבל/י יותר הודעות שיווקיות אוטומטיות", and by the switch on the
+  client card. The same link is in the marketing e-mails ("להסרה מרשימת הדיוור"), so it covers every
+  channel. It stops marketing ONLY — the owner decided (2026-09-24) that reminders and every other
+  service message still go out; this is the only place that reads it (a test enforces that).
 
 Marketing = a message whose purpose is promotion rather than the client's own booking or purchase:
 broadcasts (תפוצות), club invitations, birthday benefits. Service messages (confirmations, reminders,

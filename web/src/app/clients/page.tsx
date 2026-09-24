@@ -92,7 +92,7 @@ function PageInner() {
     type BirthdayClient = {
         client_id: string; full_name: string; phone: string | null;
         birth_date: string | null; birth_day: number | null;
-        is_club_member: boolean; whatsapp_opted_out: boolean;
+        is_club_member: boolean; may_receive_marketing: boolean;
         coupon_code: string | null; coupon_status: string; coupon_discount: number | null;
         coupon_expires_at: string | null; redeemed_at: string | null;
         message_sent: boolean; message_status: string | null;
@@ -311,7 +311,7 @@ function PageInner() {
                                                                 <div>
                                                                     <div className="font-semibold text-slate-800 group-hover:text-black flex items-center gap-1.5">
                                                                         <span>{c.full_name || c.id.slice(0, 8)}</span>
-                                                                        {c.whatsapp_opted_out && <span title="ביטל/ה קבלת הודעות">🔕</span>}
+                                                                        {c.whatsapp_opted_out && <span title="הוסר/ה מהודעות שיווקיות">🔕</span>}
                                                                     </div>
                                                                     {c.is_club_member && <span className="text-[10px] bg-amber-100 text-amber-700 font-bold px-1.5 py-0.5 rounded-full">מועדון 👑</span>}
                                                                 </div>
@@ -343,7 +343,7 @@ function PageInner() {
                                                 <div className="flex-1 min-w-0">
                                                     <div className="font-semibold text-slate-800 truncate flex items-center gap-2">
                                                         {c.full_name || c.id.slice(0, 8)}
-                                                        {c.whatsapp_opted_out && <span title="ביטל/ה קבלת הודעות">🔕</span>}
+                                                        {c.whatsapp_opted_out && <span title="הוסר/ה מהודעות שיווקיות">🔕</span>}
                                                         {c.is_club_member && <span className="text-[10px] bg-amber-100 text-amber-700 font-bold px-1.5 py-0.5 rounded-full">👑</span>}
                                                     </div>
                                                     <div className="text-xs text-slate-400 mt-0.5 font-mono" dir="ltr">{c.phone || "אין טלפון"}</div>
@@ -585,7 +585,7 @@ function PageInner() {
                                                     const sendDate = birthdayThisOccurrence ? new Date(birthdayThisOccurrence) : null;
                                                     if (sendDate) sendDate.setDate(sendDate.getDate() - 2);
                                                     const birthdayPassed = birthdayThisOccurrence !== null && birthdayThisOccurrence <= today;
-                                                    const canSendNow = c.is_club_member && !c.message_sent && !c.whatsapp_opted_out && c.coupon_status !== "redeemed";
+                                                    const canSendNow = c.is_club_member && !c.message_sent && c.may_receive_marketing && c.coupon_status !== "redeemed";
                                                     const statusConfig: Record<string, { label: string; cls: string }> = {
                                                         active:   { label: "פעיל",    cls: "bg-emerald-50 text-emerald-700 border-emerald-200" },
                                                         redeemed: { label: "✅ מומש",  cls: "bg-blue-50 text-blue-700 border-blue-200" },
@@ -593,6 +593,8 @@ function PageInner() {
                                                         not_sent: { label: "לא נשלח", cls: "bg-slate-50 text-slate-400 border-slate-200" },
                                                         pending:  c.message_sent
                                                             ? { label: "✅ נשלח", cls: "bg-emerald-50 text-emerald-700 border-emerald-200" }
+                                                            : !c.may_receive_marketing
+                                                            ? { label: "לא יישלח — לא מאשר/ת שיווק", cls: "bg-slate-50 text-slate-500 border-slate-200" }
                                                             : birthdayPassed
                                                             ? { label: "לא קיבל", cls: "bg-red-50 text-red-600 border-red-200" }
                                                             : sendDate && sendDate <= today
@@ -605,7 +607,7 @@ function PageInner() {
                                                             <td className="px-4 py-3 font-medium text-slate-800">
                                                                 {c.full_name}
                                                                 {!c.is_club_member && <span className="mr-1 text-xs text-slate-400">(לא חבר)</span>}
-                                                                {c.whatsapp_opted_out && <span className="mr-1 text-xs text-red-400">🚫</span>}
+                                                                {!c.may_receive_marketing && <span className="mr-1 text-xs text-red-400" title="לא מקבל/ת הודעות שיווקיות">🚫</span>}
                                                                 {c.redeemed_at && (
                                                                     <div className="text-xs text-blue-500 mt-0.5">
                                                                         מומש: {new Date(c.redeemed_at).toLocaleDateString("he-IL")}
@@ -673,7 +675,7 @@ function PageInner() {
                                             <span>חברי מועדון: <strong className="text-amber-600">{bdData.filter(c => c.is_club_member).length}</strong></span>
                                             <span>נשלח: <strong className="text-emerald-600">{bdData.filter(c => c.message_sent).length}</strong></span>
                                             <span>מומש: <strong className="text-blue-600">{bdData.filter(c => c.coupon_status === "redeemed").length}</strong></span>
-                                            <span>לא קיבל (לא חבר/opted out): <strong className="text-red-500">{bdData.filter(c => !c.is_club_member || c.whatsapp_opted_out).length}</strong></span>
+                                            <span>לא מקבל (לא חבר / לא מאשר שיווק): <strong className="text-red-500">{bdData.filter(c => !c.is_club_member || !c.may_receive_marketing).length}</strong></span>
                                         </div>
                                     )}
                                 </div>

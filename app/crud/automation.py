@@ -452,10 +452,6 @@ def enqueue_post_payment_message(db: Session, appt: Appointment, amount_cents: i
     if not settings or not client:
         return
 
-    # לקוח שביקש הסרה לא מקבל הודעה
-    if getattr(client, "whatsapp_opted_out", False):
-        return
-
     # ── Dedup: skip if post-payment thank-you already sent for this appointment ──
     already = db.scalar(
         _select(MessageJob).where(
@@ -696,8 +692,6 @@ def maybe_enqueue_points_celebration(db: Session, studio_id, client, amount_rede
     """
     if not client or not client.phone:
         return False
-    if getattr(client, "whatsapp_opted_out", False):
-        return False
 
     settings = db.get(StudioSettings, studio_id)
     if not settings or not getattr(settings, "points_celebration_enabled", True):
@@ -795,10 +789,6 @@ def enqueue_aftercare_if_needed(db: Session, appt: Appointment) -> None:
     settings = db.get(StudioSettings, appt.studio_id)
     client = db.get(Client, appt.client_id)
     if not settings or not client:
-        return
-
-    # לקוח שביקש הסרה
-    if getattr(client, "whatsapp_opted_out", False):
         return
 
     # אם לא רוצים לשלוח בלי הסכמה
