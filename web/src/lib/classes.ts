@@ -9,8 +9,25 @@ export type ClassSession = {
     room_id: string | null; room_name: string | null; instructor_id: string | null; instructor_name: string | null;
     capacity: number; booked: number; status: "scheduled" | "canceled" | "auto_canceled" | "done";
     detached: boolean; cancel_reason: string | null;
-    clients?: { id: string; full_name: string; phone: string | null }[];
+    bookings?: Booking[];
 };
+
+export type BookingStatus = "booked" | "attended" | "no_show" | "late_canceled";
+export type Booking = {
+    id: string; client_id: string; full_name: string; phone: string | null; status: BookingStatus; over_capacity: boolean;
+};
+
+/** Who may do what with a class — mirrors CLASS_ACTIONS on the server (app/core/permissions.py). */
+export function classPermissions(role: string | null, userId: string | null, instructorId: string | null) {
+    const manager = role === "owner" || role === "admin" || role === "superadmin";
+    return {
+        configure: manager,
+        change: manager,
+        book: manager || role === "staff",
+        override: manager,
+        mark: manager || role === "staff" || (role === "artist" && !!userId && userId === instructorId),
+    };
+}
 
 export type ClassTemplate = {
     id: string; name: string; service_id: string | null; color: string | null;
@@ -28,7 +45,7 @@ export type DryRun = {
     sessions?: number;
 };
 
-export type StaffMember = { id: string; display_name: string | null; email: string; role: string; is_active?: boolean };
+export type StaffMember = { id: string; display_name?: string | null; email: string; role?: string; is_active?: boolean };
 
 // 0 = Sunday … 6 = Saturday — the Israeli week
 export const DAY_SHORT = ["א׳", "ב׳", "ג׳", "ד׳", "ה׳", "ו׳", "ש׳"];

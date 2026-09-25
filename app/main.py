@@ -275,6 +275,22 @@ def start_scheduler():
 
     scheduler.add_job(tick_class_sessions, "cron", hour=2, minute=30, timezone="Asia/Jerusalem",
                       misfire_grace_time=6 * 3600, id="class_sessions_tick", replace_existing=True)
+
+    def tick_class_checks():
+        """Before each class: the reminder, and the minimum-participants check (app/services/class_bookings.py)."""
+        from app.services.class_bookings import sweep_min_participants, sweep_reminders
+        db = SessionLocal()
+        try:
+            sweep_min_participants(db)      # first: a class cancelled here gets no reminder
+            sweep_reminders(db)
+        except Exception:
+            db.rollback()
+            logging.getLogger("bizcontrol.classes").exception("class checks tick failed")
+        finally:
+            db.close()
+
+    scheduler.add_job(tick_class_checks, "interval", minutes=10, id="class_checks_tick", replace_existing=True,
+                      max_instances=1, coalesce=True)
     scheduler.add_job(tick_migrations, "interval", seconds=15, id="migrations_tick", replace_existing=True,
                       max_instances=1, coalesce=True)
     scheduler.add_job(tick_migration_purge, "cron", hour=3, minute=30, timezone="Asia/Jerusalem",

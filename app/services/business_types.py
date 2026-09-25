@@ -109,3 +109,25 @@ def resolve_business_type(db, value, *, strict: bool = False) -> str:
     if strict:
         raise ValueError("תחום העסק לא מוכר")
     return OTHER
+
+
+def enable_field_modules(db, studio_id, business_type: str | None) -> list[str]:
+    """Turns on the modules that come with the business's field — in the type's default modules and
+    not sold in any plan (e.g. group classes for pilates and gyms). Modules a plan sells stay with the
+    plan; a module the superadmin already set for this business (on or off) is left as it is.
+    Returns the modules turned on. The owner's decision, 2026-09-25: a new pilates business sees its
+    classes from signup."""
+    from sqlalchemy import select
+    from app.models.module import BusinessTypeTemplate, Module, PlanModule, StudioModule
+    tmpl = db.get(BusinessTypeTemplate, business_type) if business_type else None
+    if not tmpl:
+        return []
+    sold = set(db.scalars(select(PlanModule.module_id).distinct()).all())
+    already = set(db.scalars(select(StudioModule.module_id).where(StudioModule.studio_id == studio_id)).all())
+    turned_on = []
+    for mid in tmpl.default_modules or []:
+        if mid in sold or mid in already or mid in turned_on or not db.get(Module, mid):
+            continue
+        db.add(StudioModule(studio_id=studio_id, module_id=mid, is_enabled=True))
+        turned_on.append(mid)
+    return turned_on

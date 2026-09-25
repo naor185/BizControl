@@ -88,13 +88,17 @@ class ClassSession(Base):
     canceled_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     source: Mapped[str] = mapped_column(String(16), nullable=False, default="system", server_default="system")
     source_ref: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    # background jobs, once per session: the reminder went out; the minimum-participants check ran
+    reminded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    min_checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
 
 
 class ClassBooking(Base):
-    """A client booked into one session. Booking itself (limits, attendance, entries) comes in stage 3;
-    the table is here so a cancelled or changed session reaches the people booked into it."""
+    """A client booked into one session (app/services/class_bookings.py). booked → attended / no_show
+    (attendance), or canceled / late_canceled (inside the free-cancel window). A late-cancelled client
+    who books again gets the same row back."""
     __tablename__ = "class_bookings"
     # a client is booked into a session once (a cancelled booking does not block booking again)
     __table_args__ = (Index("uq_class_booking_active", "session_id", "client_id", unique=True,
@@ -110,3 +114,8 @@ class ClassBooking(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     canceled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     cancel_reason: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    canceled_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    # booked beyond the spots by the owner or a manager — kept on record
+    over_capacity: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    marked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)   # attendance
+    marked_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)

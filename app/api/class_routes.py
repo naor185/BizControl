@@ -1,7 +1,9 @@
 """
-Group classes (stage 2): rooms, class templates (a class every week, or a short course) and the schedule —
-one session changed or cancelled on its own. Behind the "classes" module; rooms also need "rooms".
-Setting things up needs classes.configure; changing or cancelling one session needs sessions.change.
+Group classes: rooms, class templates (a class every week, or a short course) and the schedule — one
+session changed or cancelled on its own (stage 2) — and bookings: booking a client in, cancelling,
+attendance (stage 3, app/services/class_bookings.py). Behind the "classes" module; rooms also need
+"rooms". Setting things up needs classes.configure; changing or cancelling one session needs
+sessions.change; bookings need bookings.manage; attendance needs attendance.mark.
 Every save can run first with dry_run: true — the screen shows clashes and how many booked clients a
 change reaches before anything is saved. app/services/classes.py does the work.
 """
@@ -20,10 +22,11 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.deps import AuthContext, require_studio_ctx
 from app.core.features import require_module
-from app.core.permissions import require_action
+from app.core.permissions import may, require_action
 from app.models.classes import ClassSession, ClassTemplate, Room
 from app.models.service import Service
 from app.models.user import User
+from app.services import class_bookings as bookings
 from app.services import classes as svc
 from app.services import policies
 
@@ -222,6 +225,11 @@ def _template_rules(db: Session, studio_id, template_id) -> dict:
     return {r.key: r.value for r in rows}
 
 
+def _is_course(t: ClassTemplate) -> bool:
+    """A course: an end date or several sessions. One session is a one-time class, not a course."""
+    return bool(t.ends_on or (t.sessions_count and t.sessions_count > 1))
+
+
 def _templates_out(db: Session, studio_id, tpls: list[ClassTemplate]) -> list[dict]:
     rooms = {r.id: r for r in db.scalars(select(Room).where(Room.studio_id == studio_id)).all()}
     users = {u.id: u for u in db.scalars(select(User).where(User.studio_id == studio_id)).all()}
@@ -242,7 +250,7 @@ def _templates_out(db: Session, studio_id, tpls: list[ClassTemplate]) -> list[di
             "capacity": t.capacity, "weekdays": list(t.weekdays), "start_time": t.start_time.strftime("%H:%M"),
             "duration_minutes": t.duration_minutes, "starts_on": t.starts_on.isoformat(),
             "ends_on": t.ends_on.isoformat() if t.ends_on else None, "sessions_count": t.sessions_count,
-            "is_course": bool(t.ends_on or t.sessions_count), "is_active": t.is_active,
+            "is_course": _is_course(t), "is_active": t.is_active,
             "next_session": mine[0].starts_at.isoformat() if mine else None,
             "future_sessions": len(mine), "future_booked_sessions": sum(1 for s in mine if counts.get(s.id)),
             "rules": _template_rules(db, studio_id, t.id),
@@ -333,7 +341,7 @@ def _sessions_out(db: Session, studio_id, sessions: list[ClassSession], with_cli
         row = {
             "id": str(s.id), "template_id": str(s.template_id) if s.template_id else None,
             "name": t.name if t else "שיעור", "color": (t.color if t else None) or "#6366f1",
-            "is_course": bool(t and (t.ends_on or t.sessions_count)),
+            "is_course": bool(t and _is_course(t)),
             "occurs_on": s.occurs_on.isoformat(), "starts_at": s.starts_at.isoformat(), "ends_at": s.ends_at.isoformat(),
             "room_id": str(s.room_id) if s.room_id else None, "room_name": room.name if room else None,
             "instructor_id": str(s.instructor_id) if s.instructor_id else None,
@@ -342,10 +350,19 @@ def _sessions_out(db: Session, studio_id, sessions: list[ClassSession], with_cli
             "cancel_reason": s.cancel_reason,
         }
         if with_clients:
-            row["clients"] = [{"id": str(c.id), "full_name": c.full_name, "phone": c.phone}
-                              for c in svc.booked_clients(db, s.id)]
+            row["bookings"] = _bookings_out(db, s.id)
         out.append(row)
     return out
+
+
+def _bookings_out(db: Session, session_id) -> list[dict]:
+    """Who is on the class list — booked, attended, no-show, and late cancellations (still shown)."""
+    from app.models.classes import ClassBooking
+    from app.models.client import Client
+    rows = db.execute(select(ClassBooking, Client).join(Client, Client.id == ClassBooking.client_id).where(
+        ClassBooking.session_id == session_id, ClassBooking.status != "canceled").order_by(ClassBooking.created_at)).all()
+    return [{"id": str(b.id), "client_id": str(c.id), "full_name": c.full_name, "phone": c.phone,
+             "status": b.status, "over_capacity": b.over_capacity} for b, c in rows]
 
 
 def _aware(moment: datetime) -> datetime:
@@ -442,3 +459,86 @@ def cancel_session(session_id: uuid.UUID, body: CancelIn, ctx: AuthContext = Dep
     messages = svc.cancel_session(db, s, user_id=ctx.user_id, reason=(body.reason or "").strip() or None)
     db.commit()
     return {**_sessions_out(db, ctx.studio_id, [s])[0], "messages": messages}
+
+
+# ── bookings (stage 3) ───────────────────────────────────────────────────────
+
+class BookIn(BaseModel):
+    client_id: uuid.UUID
+    over_capacity: bool = False        # beyond the spots — owner or manager only, kept on record
+
+
+def _booking_error(db: Session, e: Exception):
+    db.rollback()
+    raise HTTPException(409 if isinstance(e, bookings.FullError) else 400, str(e))
+
+
+@router.post("/sessions/{session_id}/bookings")
+def book_client(session_id: uuid.UUID, body: BookIn, ctx: AuthContext = Depends(require_action("bookings.manage")),
+                db: Session = Depends(get_db)):
+    from app.models.client import Client
+    s = _get(db, ClassSession, ctx.studio_id, session_id, "השיעור לא נמצא")
+    client = _get(db, Client, ctx.studio_id, body.client_id, "הלקוח לא נמצא")
+    if body.over_capacity and not may(ctx.role, "limits.override"):
+        raise HTTPException(403, "רישום מעל מספר המקומות — רק לבעלים או למנהל")
+    try:
+        bookings.book(db, s, client, user_id=ctx.user_id, over_capacity_ok=body.over_capacity)
+    except bookings.BookingError as e:
+        _booking_error(db, e)
+    db.commit()
+    return _sessions_out(db, ctx.studio_id, [s], with_clients=True)[0]
+
+
+class BookingCancelIn(BaseModel):
+    waive_late: bool = False           # not counted as a late cancellation (e.g. a justified reason)
+
+
+@router.post("/bookings/{booking_id}/cancel")
+def cancel_booking(booking_id: uuid.UUID, body: BookingCancelIn, ctx: AuthContext = Depends(require_action("bookings.manage")),
+                   db: Session = Depends(get_db)):
+    from app.models.classes import ClassBooking
+    b = _get(db, ClassBooking, ctx.studio_id, booking_id, "ההרשמה לא נמצאה")
+    try:
+        bookings.cancel(db, b, user_id=ctx.user_id, waive_late=body.waive_late)
+    except bookings.BookingError as e:
+        _booking_error(db, e)
+    db.commit()
+    return _sessions_out(db, ctx.studio_id, [db.get(ClassSession, b.session_id)], with_clients=True)[0]
+
+
+class AttendanceIn(BaseModel):
+    status: str                        # attended | no_show | booked (undo)
+
+
+def _may_mark(ctx: AuthContext, s: ClassSession) -> None:
+    """The one giving the service marks attendance in their own classes only."""
+    if ctx.role == "artist" and s.instructor_id != ctx.user_id:
+        raise HTTPException(403, "אפשר לסמן נוכחות רק בשיעורים שלך")
+
+
+@router.post("/bookings/{booking_id}/attendance")
+def mark_attendance(booking_id: uuid.UUID, body: AttendanceIn, ctx: AuthContext = Depends(require_action("attendance.mark")),
+                    db: Session = Depends(get_db)):
+    from app.models.classes import ClassBooking
+    b = _get(db, ClassBooking, ctx.studio_id, booking_id, "ההרשמה לא נמצאה")
+    s = db.get(ClassSession, b.session_id)
+    _may_mark(ctx, s)
+    try:
+        bookings.mark(db, b, body.status, user_id=ctx.user_id)
+    except bookings.BookingError as e:
+        _booking_error(db, e)
+    db.commit()
+    return _sessions_out(db, ctx.studio_id, [s], with_clients=True)[0]
+
+
+@router.post("/sessions/{session_id}/attendance")
+def mark_all(session_id: uuid.UUID, ctx: AuthContext = Depends(require_action("attendance.mark")),
+             db: Session = Depends(get_db)):
+    s = _get(db, ClassSession, ctx.studio_id, session_id, "השיעור לא נמצא")
+    _may_mark(ctx, s)
+    try:
+        bookings.mark_all_attended(db, s, user_id=ctx.user_id)
+    except bookings.BookingError as e:
+        _booking_error(db, e)
+    db.commit()
+    return _sessions_out(db, ctx.studio_id, [s], with_clients=True)[0]

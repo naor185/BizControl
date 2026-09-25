@@ -200,6 +200,8 @@ def bizfind_register(payload: BizFindRegisterIn, db: Session = Depends(get_db)):
         marketplace_visible=True,
     )
     db.add(settings)
+    from app.services.business_types import enable_field_modules
+    enable_field_modules(db, studio.id, business_type)   # e.g. group classes for pilates / a gym
 
     import secrets
     verify_token = secrets.token_urlsafe(32)

@@ -5,22 +5,23 @@ import {
     ChevronRight, ChevronLeft, Users, DoorOpen, UserRound, Ban, PencilLine, Loader2, TriangleAlert, GraduationCap,
 } from "lucide-react";
 import BottomSheet from "@/components/ui/bottom-sheet";
+import SessionBookings from "@/components/classes/SessionBookings";
 import { apiFetch } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import type { Terms } from "@/lib/useTerms";
 import {
     type ClassSession, type Room, type StaffMember, type DryRun,
-    DAY_LONG, ilTime, ilDate, ilDay, weekStart, shiftDay, dayLabel, clashLine, staffName,
+    DAY_LONG, ilTime, ilDate, ilDay, weekStart, shiftDay, dayLabel, clashLine, staffName, classPermissions,
 } from "@/lib/classes";
 
-// The week's classes, day by day (Sunday first). A class opens in a sheet: its details, who is booked,
-// and — for owner/admin — changing or cancelling this one class. Both ask the server first (dry_run)
+// The week's classes, day by day (Sunday first). A class opens in a sheet: its details, the class list
+// (booking a client in, attendance, cancelling), and — for owner/admin — changing or cancelling it. Both ask the server first (dry_run)
 // and show clashes and how many booked clients will get a message before anything is saved.
 
 const todayIso = () => new Date().toISOString();
 
-export default function ClassSchedule({ rooms, staff, terms, canChange, openSessionId }: {
-    rooms: Room[]; staff: StaffMember[]; terms: Terms; canChange: boolean; openSessionId?: string | null;
+export default function ClassSchedule({ rooms, staff, terms, role, userId, openSessionId }: {
+    rooms: Room[]; staff: StaffMember[]; terms: Terms; role: string | null; userId: string | null; openSessionId?: string | null;
 }) {
     const [week, setWeek] = useState(() => weekStart(todayIso()));
     const [room, setRoom] = useState("");
@@ -108,7 +109,7 @@ export default function ClassSchedule({ rooms, staff, terms, canChange, openSess
             )}
 
             {openId && (
-                <SessionSheet id={openId} rooms={rooms} staff={staff} terms={terms} canChange={canChange}
+                <SessionSheet id={openId} rooms={rooms} staff={staff} terms={terms} role={role} userId={userId}
                     onClose={() => setOpenId(null)} onChanged={load} />
             )}
         </div>
@@ -146,26 +147,31 @@ function SessionRow({ s, onOpen }: { s: ClassSession; onOpen: () => void }) {
 
 type Mode = "view" | "change" | "cancel";
 
-function SessionSheet({ id, rooms, staff, terms, canChange, onClose, onChanged }: {
-    id: string; rooms: Room[]; staff: StaffMember[]; terms: Terms; canChange: boolean; onClose: () => void; onChanged: () => void;
+/** One class: its details, the class list (SessionBookings), and — for owner/admin — change or cancel it.
+ *  Used by the schedule and by the calendar. */
+export function SessionSheet({ id, rooms, staff, terms, role, userId, onClose, onChanged }: {
+    id: string; rooms: Room[]; staff: StaffMember[]; terms: Terms; role: string | null; userId: string | null;
+    onClose: () => void; onChanged: () => void;
 }) {
     const [s, setS] = useState<ClassSession | null>(null);
+    const [missing, setMissing] = useState<string | null>(null);
     const [mode, setMode] = useState<Mode>("view");
 
     const reload = useCallback(() => {
-        apiFetch<ClassSession>(`/api/classes/sessions/${id}`).then(setS).catch(e => {
-            toast.error(e instanceof Error ? e.message : "השיעור לא נמצא");
-            onClose();
-        });
-    }, [id, onClose]);
+        apiFetch<ClassSession>(`/api/classes/sessions/${id}`).then(setS)
+            .catch(e => setMissing(e instanceof Error ? e.message : "השיעור לא נמצא"));
+    }, [id]);
     useEffect(() => { reload(); }, [reload]);
 
     const done = (msg: string) => { toast.success(msg); setMode("view"); reload(); onChanged(); };
     const open = s && s.status === "scheduled" && new Date(s.starts_at) > new Date();
+    const perms = classPermissions(role, userId, s?.instructor_id ?? null);
 
     return (
         <BottomSheet open onClose={onClose} title={s ? s.name : "שיעור"} className="sm:max-w-lg">
-            {!s ? (
+            {missing ? (
+                <p className="px-5 py-8 text-sm text-slate-600 text-center">{missing}</p>
+            ) : !s ? (
                 <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 text-indigo-500 animate-spin" aria-label="טוען" /></div>
             ) : (
                 <div className="px-5 py-4 space-y-4 overflow-y-auto min-h-0">
@@ -175,7 +181,6 @@ function SessionSheet({ id, rooms, staff, terms, canChange, onClose, onChanged }
                         </p>
                         {s.room_name && <p className="flex items-center gap-2 text-slate-600"><DoorOpen className="w-4 h-4" aria-hidden />חדר: {s.room_name}</p>}
                         {s.instructor_name && <p className="flex items-center gap-2 text-slate-600"><UserRound className="w-4 h-4" aria-hidden />{terms.staff}: {s.instructor_name}</p>}
-                        <p className="flex items-center gap-2 text-slate-600 tabular-nums"><Users className="w-4 h-4" aria-hidden />רשומים: {s.booked} מתוך {s.capacity}</p>
                         {s.is_course && <p className="flex items-center gap-2 text-slate-600"><GraduationCap className="w-4 h-4" aria-hidden />חלק מקורס</p>}
                         {s.detached && s.status === "scheduled" && <p className="text-xs text-slate-500">השיעור הזה שונה בנפרד — שינויים בשיעור הקבוע לא חלים עליו.</p>}
                         {s.status !== "scheduled" && s.status !== "done" && (
@@ -187,15 +192,8 @@ function SessionSheet({ id, rooms, staff, terms, canChange, onClose, onChanged }
 
                     {mode === "view" && (
                         <>
-                            <div>
-                                <p className="text-xs font-semibold text-slate-500 mb-1.5">{terms.client_plural} רשומים</p>
-                                {s.clients && s.clients.length > 0 ? (
-                                    <ul className="text-sm text-slate-800 space-y-1">
-                                        {s.clients.map(c => <li key={c.id}>{c.full_name}</li>)}
-                                    </ul>
-                                ) : <p className="text-sm text-slate-400">אין רשומים</p>}
-                            </div>
-                            {canChange && open && (
+                            <SessionBookings s={s} terms={terms} perms={perms} onChanged={next => { setS(next); onChanged(); }} />
+                            {perms.change && open && (
                                 <div className="flex flex-wrap gap-2 pt-1">
                                     <button type="button" onClick={() => setMode("change")}
                                         className="inline-flex items-center gap-1.5 min-h-11 px-4 rounded-xl border border-slate-200 text-sm font-semibold text-slate-700 hover:border-indigo-400">

@@ -100,6 +100,13 @@ export function getCurrentUserRole(): string | null {
     return typeof role === "string" ? role : null;
 }
 
+export function getCurrentUserId(): string | null {
+    const token = getToken();
+    if (!token) return null;
+    const id = decodeJwtPayload(token)?.user_id;
+    return typeof id === "string" ? id : null;
+}
+
 // Used at app boot to decide whether it's worth proactively refreshing
 // before rendering, rather than waiting for the first API call to hit a 401
 // (see RequireAuth) — the app can otherwise sit at a "1 second from

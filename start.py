@@ -2233,6 +2233,14 @@ def ensure_schema():
         cur.execute("CREATE INDEX IF NOT EXISTS ix_class_bookings_client_id ON class_bookings (client_id)")
         cur.execute("""CREATE UNIQUE INDEX IF NOT EXISTS uq_class_booking_active ON class_bookings (session_id, client_id)
                        WHERE status <> 'canceled'""")
+        # stage 3: bookings — attendance, over-capacity record, the background jobs' once-per-session marks
+        for _col in ("canceled_by UUID REFERENCES users(id) ON DELETE SET NULL",
+                     "over_capacity BOOLEAN NOT NULL DEFAULT false",
+                     "marked_at TIMESTAMPTZ",
+                     "marked_by UUID REFERENCES users(id) ON DELETE SET NULL"):
+            cur.execute(f"ALTER TABLE class_bookings ADD COLUMN IF NOT EXISTS {_col}")
+        cur.execute("ALTER TABLE class_sessions ADD COLUMN IF NOT EXISTS reminded_at TIMESTAMPTZ")
+        cur.execute("ALTER TABLE class_sessions ADD COLUMN IF NOT EXISTS min_checked_at TIMESTAMPTZ")
 
         conn.commit()
         cur.close()

@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import AppShell from "@/components/AppShell";
 import RequireAuth from "@/components/RequireAuth";
-import { apiFetch, getCurrentUserRole } from "@/lib/api";
+import { apiFetch, getCurrentUserId, getCurrentUserRole } from "@/lib/api";
 import { toLocalDateStr } from "@/lib/format";
 import PaymentModal from "@/components/PaymentModal";
 import { statusMeta } from "@/lib/appointment-status";
@@ -12,8 +12,12 @@ import AppointmentCard from "@/components/AppointmentCard";
 import BottomSheet from "@/components/ui/bottom-sheet";
 import { HIDE_BOOKING_BANNER_KEY } from "@/lib/localPrefs";
 import StaffReminderRulesSettings from "@/components/StaffReminderRulesSettings";
-import { Users } from "lucide-react";
+import { Users, UsersRound, CalendarPlus, Pin } from "lucide-react";
 import type { ClassSession, Room } from "@/lib/classes";
+import { SessionSheet } from "@/components/classes/ClassSchedule";
+import { TemplateSheet, type TemplatePreset } from "@/components/classes/ClassTemplates";
+import type { ClassPolicy } from "@/components/classes/ClassPolicies";
+import { useTerms } from "@/lib/useTerms";
 
 // What the "הצגת חגים" panel lets you switch on/off, one group at a time.
 type HolidayCat = "chagim" | "modern" | "fasts" | "roshChodesh" | "parsha";
@@ -321,8 +325,15 @@ export default function CalendarPage() {
     const [filterArtistNames, setFilterArtistNames] = useState<string[]>([]);
     const [filterTreatments, setFilterTreatments] = useState<string[]>([]);
     const [filterStatuses, setFilterStatuses] = useState<string[]>([]);
-    // Group classes (the "classes" module) show here read-only — a click opens them in /classes.
+    // Group classes (the "classes" module): shown in their color; a click opens the class right here (its
+    // class list, attendance, change/cancel); a click on an empty slot can also start a new class.
+    const terms = useTerms();
     const [classesOn, setClassesOn] = useState(false);
+    const [classModules, setClassModules] = useState<Record<string, boolean> | null>(null);
+    const [openClassId, setOpenClassId] = useState<string | null>(null);
+    const [classPreset, setClassPreset] = useState<TemplatePreset | null>(null);
+    const [classPolicies, setClassPolicies] = useState<ClassPolicy[] | null>(null);
+    const canSetUpClasses = myRole === "owner" || myRole === "admin" || myRole === "superadmin";
     const [classSessions, setClassSessions] = useState<ClassSession[]>([]);
     const [classRooms, setClassRooms] = useState<Room[]>([]);
     const [filterRoomIds, setFilterRoomIds] = useState<string[]>([]);
@@ -434,16 +445,31 @@ export default function CalendarPage() {
         apiFetch<Record<string, boolean>>("/api/modules/me").then(m => {
             if (!m?.classes) return;
             setClassesOn(true);
+            setClassModules(m);
             if (m.rooms) apiFetch<Room[]>("/api/classes/rooms").then(setClassRooms).catch(() => {});
         }).catch(() => {});
     }, []);
 
-    useEffect(() => {
+    const loadClassSessions = useCallback(() => {
         if (!classesOn) return;
         apiFetch<ClassSession[]>(`/api/classes/sessions?start=${encodeURIComponent(from)}&end=${encodeURIComponent(to)}`)
             .then(setClassSessions)
             .catch(() => setClassSessions([]));
     }, [classesOn, from, to]);
+    useEffect(() => { loadClassSessions(); }, [loadClassSessions]);
+
+    // A new class from an empty slot: its day, start time and length come from the slot.
+    const openNewClass = (info: { startStr?: string; start?: Date; end?: Date } | null) => {
+        const day = info?.startStr?.split("T")[0] || toLocalDateStr(new Date());
+        const start = info?.startStr?.match(/T(\d{2}:\d{2})/)?.[1] ?? "18:00";
+        const picked = info?.start && info?.end && info.startStr?.includes("T")
+            ? Math.round((new Date(info.end).getTime() - new Date(info.start).getTime()) / 60000) : 0;
+        const minutes = picked > 30 ? picked : 60;      // a single click is one 30-minute slot — a class is longer
+        const preset = { day, start_time: start, duration_minutes: minutes };
+        if (classPolicies) { setClassPreset(preset); return; }
+        apiFetch<ClassPolicy[]>("/api/classes/settings").catch(() => [] as ClassPolicy[])
+            .then(p => { setClassPolicies(p); setClassPreset(preset); });
+    };
 
     const classEvents = useMemo(() => classSessions
         .filter(s => filterRoomIds.length === 0 || (s.room_id !== null && filterRoomIds.includes(s.room_id)))
@@ -697,7 +723,7 @@ export default function CalendarPage() {
         if (isDraggingEvent.current) return;
         const app = clickInfo.event.extendedProps;
         if (app.isClass) {
-            router.push(`/classes?session=${app.sessionId}`);
+            setOpenClassId(app.sessionId);
             return;
         }
         if (app.isHoliday) {
@@ -2131,7 +2157,7 @@ export default function CalendarPage() {
                 {showTypeChooser && (
                     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-150"
                         onClick={() => setShowTypeChooser(false)}>
-                        <div className="bg-white rounded-3xl shadow-2xl p-6 w-full max-w-xs animate-in zoom-in-95 duration-200"
+                        <div className={`bg-white rounded-3xl shadow-2xl p-6 w-full ${classesOn && canSetUpClasses ? "max-w-sm" : "max-w-xs"} animate-in zoom-in-95 duration-200`}
                             onClick={e => e.stopPropagation()} dir="rtl">
                             <h3 className="text-lg font-bold text-slate-800 mb-1 text-center">מה תרצה להוסיף?</h3>
                             <p className="text-xs text-slate-400 text-center mb-5">בחר סוג האירוע ביומן</p>
@@ -2140,7 +2166,7 @@ export default function CalendarPage() {
                                     onClick={() => { setShowTypeChooser(false); openAppointmentModal(pendingSelectInfo); }}
                                     className="flex-1 flex flex-col items-center gap-2 p-4 rounded-2xl border-2 border-sky-200 bg-sky-50 hover:bg-sky-100 transition-colors"
                                 >
-                                    <span className="text-3xl">✂️</span>
+                                    <CalendarPlus className="w-7 h-7 text-sky-600" aria-hidden />
                                     <span className="text-sm font-bold text-sky-700">קביעת תור</span>
                                 </button>
                                 <button
@@ -2156,12 +2182,32 @@ export default function CalendarPage() {
                                     }}
                                     className="flex-1 flex flex-col items-center gap-2 p-4 rounded-2xl border-2 border-violet-200 bg-violet-50 hover:bg-violet-100 transition-colors"
                                 >
-                                    <span className="text-3xl">📌</span>
+                                    <Pin className="w-7 h-7 text-violet-600" aria-hidden />
                                     <span className="text-sm font-bold text-violet-700">משימה / תזכורת</span>
                                 </button>
+                                {classesOn && canSetUpClasses && (
+                                    <button
+                                        onClick={() => { setShowTypeChooser(false); openNewClass(pendingSelectInfo); }}
+                                        className="flex-1 flex flex-col items-center gap-2 p-4 rounded-2xl border-2 border-indigo-200 bg-indigo-50 hover:bg-indigo-100 transition-colors"
+                                    >
+                                        <UsersRound className="w-7 h-7 text-indigo-600" aria-hidden />
+                                        <span className="text-sm font-bold text-indigo-700">שיעור</span>
+                                    </button>
+                                )}
                             </div>
                         </div>
                     </div>
+                )}
+
+                {openClassId && (
+                    <SessionSheet id={openClassId} rooms={classRooms} staff={artists} terms={terms}
+                        role={myRole} userId={getCurrentUserId()}
+                        onClose={() => setOpenClassId(null)} onChanged={loadClassSessions} />
+                )}
+                {classPreset && classPolicies && (
+                    <TemplateSheet tpl={null} preset={classPreset} rooms={classRooms} staff={artists} services={services}
+                        policies={classPolicies} terms={terms} modules={classModules}
+                        onClose={() => setClassPreset(null)} onSaved={() => { setClassPreset(null); loadClassSessions(); }} />
                 )}
 
                 {/* Task Modal */}

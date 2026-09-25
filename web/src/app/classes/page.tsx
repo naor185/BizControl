@@ -10,7 +10,7 @@ import ClassSchedule from "@/components/classes/ClassSchedule";
 import ClassTemplates from "@/components/classes/ClassTemplates";
 import ClassRooms from "@/components/classes/ClassRooms";
 import type { ClassPolicy } from "@/components/classes/ClassPolicies";
-import { apiFetch, getCurrentUserRole } from "@/lib/api";
+import { apiFetch, getCurrentUserId, getCurrentUserRole } from "@/lib/api";
 import { useTerms } from "@/lib/useTerms";
 import type { Room, StaffMember } from "@/lib/classes";
 
@@ -33,7 +33,8 @@ function Classes() {
     const [policies, setPolicies] = useState<ClassPolicy[]>([]);
     const [ready, setReady] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [canManage, setCanManage] = useState(false);
+    const [role, setRole] = useState<string | null>(null);
+    const [userId, setUserId] = useState<string | null>(null);
 
     const loadRooms = useCallback((on: boolean) => {
         if (!on) return;
@@ -43,7 +44,8 @@ function Classes() {
     useEffect(() => {
         apiFetch<Record<string, boolean>>("/api/modules/me").catch(() => null).then(m => {
             setModules(m);
-            setCanManage(MANAGERS.has(getCurrentUserRole() ?? ""));
+            setRole(getCurrentUserRole());
+            setUserId(getCurrentUserId());
             if (m && m.classes === false) { setError("off"); return; }
             loadRooms(!m || m.rooms !== false);
             return Promise.all([
@@ -68,6 +70,7 @@ function Classes() {
     }
 
     const roomsOn = !modules || modules.rooms !== false;
+    const canManage = MANAGERS.has(role ?? "");
     const tabs: { id: Tab; label: string; icon: LucideIcon }[] = [
         { id: "schedule", label: "לוח שיעורים", icon: CalendarDays },
         { id: "templates", label: "שיעורים קבועים", icon: Repeat },
@@ -91,7 +94,7 @@ function Classes() {
             </div>
 
             {tab === "schedule" && (
-                <ClassSchedule rooms={rooms} staff={staff} terms={terms} canChange={canManage} openSessionId={params.get("session")} />
+                <ClassSchedule rooms={rooms} staff={staff} terms={terms} role={role} userId={userId} openSessionId={params.get("session")} />
             )}
             {tab === "templates" && (
                 <ClassTemplates rooms={rooms} staff={staff} services={services} policies={policies} terms={terms}

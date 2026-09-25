@@ -55,6 +55,9 @@ export default function ClassTemplates({ rooms, staff, services, policies, terms
                             <h3 className="flex items-center gap-2 text-base font-bold text-slate-900">
                                 <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: t.color || "#6366f1" }} aria-hidden />
                                 <span className="truncate">{t.name}</span>
+                                {t.sessions_count === 1 && (
+                                    <span className="text-[11px] font-semibold text-slate-700 bg-slate-100 rounded-full px-2 py-0.5 shrink-0">פעם אחת</span>
+                                )}
                                 {t.is_course && (
                                     <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-violet-800 bg-violet-100 rounded-full px-2 py-0.5 shrink-0">
                                         <GraduationCap className="w-3 h-3" aria-hidden />
@@ -102,26 +105,35 @@ const label = "block text-xs font-semibold text-slate-600";
 type Form = {
     name: string; service_id: string; color: string; room_id: string; instructor_id: string;
     capacity: number | ""; weekdays: number[]; start_time: string; duration_minutes: number | "";
-    starts_on: string; course: "" | "count" | "date"; sessions_count: number | ""; ends_on: string;
+    starts_on: string; course: "" | "once" | "count" | "date"; sessions_count: number | ""; ends_on: string;
     rules: Record<string, number | boolean | string | null>;
 };
 
-function initial(t: ClassTemplate | null): Form {
+/** Where a new class starts when opened from a slot in the calendar. */
+export type TemplatePreset = { day: string; start_time: string; duration_minutes: number };
+
+const weekdayOf = (day: string) => new Date(`${day}T12:00:00Z`).getUTCDay();
+
+function initial(t: ClassTemplate | null, preset?: TemplatePreset): Form {
     const today = new Date().toISOString().slice(0, 10);
     return {
         name: t?.name ?? "", service_id: t?.service_id ?? "", color: t?.color ?? COLORS[0],
         room_id: t?.room_id ?? "", instructor_id: t?.instructor_id ?? "", capacity: t?.capacity ?? "",
-        weekdays: t?.weekdays ?? [], start_time: t?.start_time ?? "18:00", duration_minutes: t?.duration_minutes ?? 60,
-        starts_on: t?.starts_on ?? today, course: t?.sessions_count ? "count" : t?.ends_on ? "date" : "",
+        weekdays: t?.weekdays ?? (preset ? [weekdayOf(preset.day)] : []),
+        start_time: t?.start_time ?? preset?.start_time ?? "18:00",
+        duration_minutes: t?.duration_minutes ?? preset?.duration_minutes ?? 60,
+        starts_on: t?.starts_on ?? preset?.day ?? today,
+        course: t?.sessions_count === 1 ? "once" : t?.sessions_count ? "count" : t?.ends_on ? "date" : "",
         sessions_count: t?.sessions_count ?? "", ends_on: t?.ends_on ?? "", rules: { ...(t?.rules ?? {}) },
     };
 }
 
-function TemplateSheet({ tpl, rooms, staff, services, policies, terms, modules, onClose, onSaved }: {
-    tpl: ClassTemplate | null; rooms: Room[]; staff: StaffMember[]; services: Service[]; policies: ClassPolicy[];
-    terms: Terms; modules: Record<string, boolean> | null; onClose: () => void; onSaved: () => void;
+/** Create or edit a recurring class (or a one-time class, or a course). Also opened from the calendar. */
+export function TemplateSheet({ tpl, preset, rooms, staff, services, policies, terms, modules, onClose, onSaved }: {
+    tpl: ClassTemplate | null; preset?: TemplatePreset; rooms: Room[]; staff: StaffMember[]; services: Service[];
+    policies: ClassPolicy[]; terms: Terms; modules: Record<string, boolean> | null; onClose: () => void; onSaved: () => void;
 }) {
-    const [f, setF] = useState<Form>(() => initial(tpl));
+    const [f, setF] = useState<Form>(() => initial(tpl, preset));
     const [check, setCheck] = useState<DryRun | null>(null);
     const [busy, setBusy] = useState(false);
     const [rulesOpen, setRulesOpen] = useState(() => Object.keys(tpl?.rules ?? {}).length > 0);
@@ -139,16 +151,17 @@ function TemplateSheet({ tpl, rooms, staff, services, policies, terms, modules, 
         set({ room_id: id, capacity: r && (f.capacity === "" || f.capacity > r.capacity) ? r.capacity : f.capacity });
     };
 
-    const missing = !f.name.trim() ? "שם" : !f.weekdays.length ? "ימים" : !f.start_time ? "שעה"
+    const once = f.course === "once";
+    const missing = !f.name.trim() ? "שם" : !once && !f.weekdays.length ? "ימים" : !f.start_time ? "שעה"
         : f.duration_minutes === "" ? "משך" : f.capacity === "" && !f.room_id ? "מקומות"
         : f.course === "count" && f.sessions_count === "" ? "מספר מפגשים" : f.course === "date" && !f.ends_on ? "תאריך סיום" : null;
 
     const payload = (extra: object) => JSON.stringify({
         name: f.name.trim(), service_id: f.service_id || null, color: f.color || null,
         room_id: f.room_id || null, instructor_id: f.instructor_id || null,
-        capacity: f.capacity === "" ? null : f.capacity, weekdays: f.weekdays, start_time: f.start_time,
-        duration_minutes: f.duration_minutes === "" ? null : f.duration_minutes, starts_on: f.starts_on,
-        sessions_count: f.course === "count" ? f.sessions_count : null, ends_on: f.course === "date" ? f.ends_on : null,
+        capacity: f.capacity === "" ? null : f.capacity, weekdays: once ? [weekdayOf(f.starts_on)] : f.weekdays,
+        start_time: f.start_time, duration_minutes: f.duration_minutes === "" ? null : f.duration_minutes, starts_on: f.starts_on,
+        sessions_count: once ? 1 : f.course === "count" ? f.sessions_count : null, ends_on: f.course === "date" ? f.ends_on : null,
         rules: f.rules, ...extra,
     });
 
@@ -211,7 +224,7 @@ function TemplateSheet({ tpl, rooms, staff, services, policies, terms, modules, 
                     <input value={f.name} onChange={e => set({ name: e.target.value })} maxLength={160} className={`${field} mt-1`} placeholder="פילאטיס מכשירים" />
                 </label>
 
-                <fieldset>
+                {!once && <fieldset>
                     <legend className={label}>ימים</legend>
                     <div className="mt-1 flex flex-wrap gap-1.5">
                         {DAY_SHORT.map((d, i) => {
@@ -225,7 +238,7 @@ function TemplateSheet({ tpl, rooms, staff, services, policies, terms, modules, 
                             );
                         })}
                     </div>
-                </fieldset>
+                </fieldset>}
 
                 <div className="grid grid-cols-2 gap-3">
                     <label className={label}>שעת התחלה
@@ -254,15 +267,15 @@ function TemplateSheet({ tpl, rooms, staff, services, policies, terms, modules, 
                             {staff.map(u => <option key={u.id} value={u.id}>{staffName(u)}</option>)}
                         </select>
                     </label>
-                    <label className={`${label} col-span-2 sm:col-span-1`}>מתחיל מתאריך
+                    <label className={`${label} col-span-2 sm:col-span-1`}>{once ? "תאריך" : "מתחיל מתאריך"}
                         <input type="date" value={f.starts_on} onChange={e => set({ starts_on: e.target.value })} className={`${field} mt-1`} dir="ltr" />
                     </label>
                 </div>
 
                 <fieldset>
                     <legend className={label}>חוזר</legend>
-                    <div className="mt-1 grid gap-2 sm:grid-cols-3">
-                        {([["", "כל שבוע, בלי סוף"], ["count", "קורס: מספר מפגשים"], ["date", "קורס: עד תאריך"]] as const).map(([v, text]) => (
+                    <div className="mt-1 grid gap-2 grid-cols-2">
+                        {([["", "כל שבוע, בלי סוף"], ["once", "פעם אחת"], ["count", "קורס: מספר מפגשים"], ["date", "קורס: עד תאריך"]] as const).map(([v, text]) => (
                             <button key={v} type="button" role="radio" aria-checked={f.course === v} onClick={() => set({ course: v })}
                                 className={`min-h-11 rounded-xl border px-3 text-sm text-right ${f.course === v ? "border-indigo-500 bg-indigo-50 text-indigo-800 font-semibold" : "border-slate-200 text-slate-700"}`}>
                                 {text}

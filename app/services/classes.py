@@ -31,6 +31,7 @@ from app.services import notifications, policies
 
 IL = pytz.timezone("Asia/Jerusalem")
 BOOKED = "booked"          # still coming — the people a change or cancellation must reach
+HOLDS_SPOT = ("booked", "attended", "no_show")     # the bookings that take one of the session's spots
 
 
 def now_utc() -> datetime:
@@ -127,17 +128,22 @@ def generate(db: Session, tpl: ClassTemplate) -> int:
     return res.rowcount or 0
 
 
+def classes_on(db: Session, studio_id, cache: dict) -> bool:
+    """Is the classes module on for this business — for the background jobs (cached per run)."""
+    if studio_id not in cache:
+        from app.core.features import is_module_enabled
+        from app.models.studio import Studio
+        st = db.get(Studio, studio_id)
+        cache[studio_id] = bool(st) and is_module_enabled(db, st.id, st.subscription_plan or "free", "classes")
+    return cache[studio_id]
+
+
 def generate_all(db: Session) -> int:
     """The nightly job: every active template of every business whose classes module is on."""
-    from app.core.features import is_module_enabled
-    from app.models.studio import Studio
-    allowed: dict = {}
+    on: dict = {}
     added = 0
     for tpl in db.scalars(select(ClassTemplate).where(ClassTemplate.is_active.is_(True))).all():
-        if tpl.studio_id not in allowed:
-            st = db.get(Studio, tpl.studio_id)
-            allowed[tpl.studio_id] = bool(st) and is_module_enabled(db, st.id, st.subscription_plan or "free", "classes")
-        if allowed[tpl.studio_id]:
+        if classes_on(db, tpl.studio_id, on):
             added += generate(db, tpl)
             db.commit()
     return added
@@ -207,7 +213,7 @@ def booked_counts(db: Session, session_ids) -> dict:
     if not session_ids:
         return {}
     rows = db.execute(select(ClassBooking.session_id, func.count()).where(
-        ClassBooking.session_id.in_(list(session_ids)), ClassBooking.status == BOOKED).group_by(ClassBooking.session_id)).all()
+        ClassBooking.session_id.in_(list(session_ids)), ClassBooking.status.in_(HOLDS_SPOT)).group_by(ClassBooking.session_id)).all()
     return dict(rows)
 
 
@@ -222,20 +228,24 @@ def _context(db: Session, s: ClassSession) -> dict:
 
 
 def cancel_session(db: Session, s: ClassSession, *, user_id=None, reason: str | None = None,
-                   origin: str = "user", note: str = "השיעור בוטל.") -> int:
-    """Cancels one session: its bookings end and every booked client gets a message (always on).
-    Returns how many messages were queued."""
+                   origin: str = "user", note: str = "השיעור בוטל.", automatic: bool = False) -> int:
+    """Cancels one session: its bookings end and every booked client gets a message (always on) —
+    "class_changed", or "class_auto_cancel" when the minimum-participants check cancels it
+    (automatic). Returns how many messages were queued."""
     if s.status != "scheduled":
         raise ValueError("השיעור כבר בוטל")
     ctx, clients = _context(db, s), booked_clients(db, s.id)
     now = now_utc()
-    s.status, s.canceled_at, s.canceled_by, s.cancel_reason = "canceled", now, user_id, (reason or None)
+    s.status = "auto_canceled" if automatic else "canceled"
+    s.canceled_at, s.canceled_by, s.cancel_reason = now, user_id, (reason or None)
     for b in db.scalars(select(ClassBooking).where(ClassBooking.session_id == s.id, ClassBooking.status == BOOKED)).all():
         b.status, b.canceled_at, b.cancel_reason = "canceled", now, "session_canceled"
     db.flush()
     text_ = f"{note} {reason}".strip() if reason else note
-    return notifications.notify(db, s.studio_id, "class_changed", origin=origin, about=f"session:{s.id}:canceled",
-                                context={**ctx, "change_note": text_}, clients=clients)
+    # entry_note: what happened to the client's entry — filled once memberships exist (stage 4)
+    return notifications.notify(db, s.studio_id, "class_auto_cancel" if automatic else "class_changed", origin=origin,
+                                about=f"session:{s.id}:canceled", context={**ctx, "change_note": text_, "entry_note": ""},
+                                clients=clients)
 
 
 def change_session(db: Session, s: ClassSession, *, starts_at: datetime | None = None, ends_at: datetime | None = None,
