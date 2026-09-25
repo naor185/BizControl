@@ -53,6 +53,9 @@ POLICIES: dict[str, Policy] = {p.key: p for p in (
     Policy("reminder_hours", "תזכורת לפני שיעור", "int", 3, (STUDIO,), 0, 72, unit="שעות לפני השיעור",
            help="הערך 0 — בלי תזכורת."),
     Policy("weeks_ahead", "כמה שבועות מראש נוצרים שיעורים", "int", 8, (STUDIO,), 1, 26, unit="שבועות"),
+    Policy("client_booking", "לקוחות נרשמים בעצמם ב-BizFind", "bool", True, (STUDIO,),
+           help="רק מי שכבר לקוח/ה של העסק ויש לו/ה מנוי שמכסה את השיעור. ההרשמה נפתחת ונסגרת לפי ההגדרות כאן.",
+           module="memberships"),
 )}
 
 

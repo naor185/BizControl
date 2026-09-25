@@ -766,6 +766,16 @@ def search_cities(q: str = Query(..., min_length=1, max_length=40), limit: int =
 
 # ── Studio profile ────────────────────────────────────────────────────────────
 
+def _classes_open(db: Session, studio) -> bool:
+    from app.services.class_self_booking import open_to_clients
+    try:
+        return open_to_clients(db, studio)
+    except Exception:                        # never let the profile page fail over this — but say so
+        import logging
+        logging.getLogger(__name__).exception("has_classes failed for studio %s", getattr(studio, "id", None))
+        return False
+
+
 @router.get("/{slug}")
 def get_studio_profile(slug: str, db: Session = Depends(get_db)):
     """Full public profile: info, services, reviews."""
@@ -839,6 +849,7 @@ def get_studio_profile(slug: str, db: Session = Depends(get_db)):
         "portfolio_link": settings.studio_portfolio_link,
         "review_link_google": settings.review_link_google,
         "self_booking_enabled": settings.self_booking_enabled,
+        "has_classes": _classes_open(db, studio),          # clients book group classes here (their membership)
         "services": [
             {
                 "id": str(s.id), "name": s.name, "duration_minutes": s.duration_minutes,

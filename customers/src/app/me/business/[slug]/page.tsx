@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { API, apiFetch, imgUrl, getToken } from "@/lib/api";
+import { CalendarDays, ChevronLeft } from "lucide-react";
+import { type Mine, whenText } from "@/lib/classes";
 
 interface Business {
     client_id: string;
@@ -45,6 +47,7 @@ export default function BusinessDetailPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [downloadingPass, setDownloadingPass] = useState(false);
+    const [classes, setClasses] = useState<Mine | null>(null);   // only when the business takes class bookings
 
     const downloadAppleWallet = async (url: string) => {
         setDownloadingPass(true);
@@ -89,6 +92,7 @@ export default function BusinessDetailPage() {
             })
             .catch(() => setError("שגיאה בטעינת הנתונים"))
             .finally(() => setLoading(false));
+        apiFetch<Mine>(`/api/marketplace/classes/${encodeURIComponent(slug)}/mine`).then(setClasses).catch(() => setClasses(null));
     }, [slug]);
 
     return (
@@ -157,6 +161,24 @@ export default function BusinessDetailPage() {
                                 </a>
                             )}
                         </div>
+                    )}
+
+                    {/* Group classes: my membership and my next class */}
+                    {classes && classes.is_client && (
+                        <Link href={`/b/${business.studio_slug}/classes`}
+                            style={{ background: "rgba(255,255,255,.04)", border: "1px solid rgba(167,139,250,.3)", borderRadius: 16, padding: "1rem", display: "flex", alignItems: "center", gap: "0.8rem", marginBottom: "2rem", color: "inherit", textDecoration: "none" }}>
+                            <CalendarDays size={24} color="#a78bfa" style={{ flexShrink: 0 }} aria-hidden />
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontWeight: 800 }}>
+                                    שיעורים{classes.memberships[0] ? ` · ${classes.memberships[0].name}` : ""}
+                                    {classes.memberships[0]?.entries_left != null ? ` · נותרו ${classes.memberships[0].entries_left}` : ""}
+                                </div>
+                                <div style={{ color: "#94a3b8", fontSize: "0.8rem", marginTop: 2 }}>
+                                    {classes.upcoming[0] ? `הבא: ${classes.upcoming[0].name}, ${whenText(classes.upcoming[0].starts_at)}` : "לוח השיעורים והרשמה"}
+                                </div>
+                            </div>
+                            <ChevronLeft size={20} color="#64748b" aria-hidden />
+                        </Link>
                     )}
 
                     {/* Receipts */}

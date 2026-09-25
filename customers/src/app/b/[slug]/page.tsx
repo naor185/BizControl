@@ -6,6 +6,7 @@ import { API, imgUrl } from "@/lib/api";
 import { setStudioToken, goToBizControl } from "@/lib/handoff";
 import { usePlatformTheme } from "@/lib/usePlatformTheme";
 import BusinessTypeIcon from "@/components/BusinessTypeIcon";
+import { CalendarDays } from "lucide-react";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -16,6 +17,7 @@ interface Profile {
     phone?: string; whatsapp?: string; instagram?: string; hours?: string;
     portfolio_link?: string; review_link_google?: string;
     self_booking_enabled: boolean;
+    has_classes?: boolean;          // clients book the business's group classes here (with their membership)
     services: { id: string; name: string; duration_minutes: number; price_ils: number; color: string; description?: string; is_bookable_online: boolean }[];
     artists: { id: string; name: string }[];
     reviews: { id: string; client_name: string; rating: number; comment?: string; created_at: string }[];
@@ -343,6 +345,12 @@ export default function BusinessPage() {
                             📋 בקש תור
                         </button>
                     ))}
+                    {p!.has_classes && (
+                        <Link href={`/b/${slug}/classes`}
+                            style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "rgba(255,255,255,.06)", border: `1px solid ${primary}66`, color: "#f1f5f9", textDecoration: "none", padding: "0.7rem 1.2rem", borderRadius: 14, fontWeight: 800, fontSize: "0.9rem" }}>
+                            <CalendarDays size={17} aria-hidden /> שיעורים
+                        </Link>
+                    )}
                     {p!.whatsapp && (
                         <a href={`https://wa.me/${p!.whatsapp.replace(/\D/g, "")}`} target="_blank" rel="noopener"
                             style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "rgba(37,211,102,.12)", border: "1px solid rgba(37,211,102,.3)", color: "#25d366", textDecoration: "none", padding: "0.7rem 1.1rem", borderRadius: 14, fontWeight: 700, fontSize: "0.86rem" }}>

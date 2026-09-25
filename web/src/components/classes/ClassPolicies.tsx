@@ -20,7 +20,7 @@ export type ClassPolicy = {
 };
 
 const GROUPS: { title: string; icon: LucideIcon; keys: string[] }[] = [
-    { title: "הרשמה", icon: CalendarClock, keys: ["booking_opens_days", "booking_closes_minutes", "weeks_ahead"] },
+    { title: "הרשמה", icon: CalendarClock, keys: ["client_booking", "booking_opens_days", "booking_closes_minutes", "weeks_ahead"] },
     { title: "ביטולים", icon: CalendarX2, keys: ["free_cancel_hours"] },
     { title: "רשימת המתנה", icon: ListOrdered, keys: ["waitlist_max", "waitlist_mode", "waitlist_confirm_minutes"] },
     { title: "מינימום משתתפים", icon: UsersRound, keys: ["min_participants", "min_check_hours", "auto_cancel_below_min"] },
