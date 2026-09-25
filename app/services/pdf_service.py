@@ -433,27 +433,28 @@ def generate_payroll_pdf(
     y -= 25
 
     # ── Table ───────────────────────────────────────────────
-    col_w = [(W - 4 * cm) / 6] * 6
+    col_w = [(W - 4 * cm) / 7] * 7
 
-    headers = [h(t) for t in ["שם", "שעות", "שכר שעתי", "עמלה", "סה\"כ", "סוג שכר"]]
+    headers = [h(t) for t in ["שם", "שעות", "שכר שעתי/קבוע", "עמלה", "שיעורים", "סה\"כ", "סוג שכר"]]
     table_data = [headers]
 
     for item in items:
-        pay_type_label = {"hourly": "שעתי", "commission": "עמלה", "none": "ללא"}.get(
+        pay_type_label = {"hourly": "שעתי", "commission": "עמלה", "global": "משכורת קבועה", "none": "ללא"}.get(
             item.get("pay_type", "none"), item.get("pay_type", "")
         )
         table_data.append([
             h(item.get("display_name", "")),
             f"{float(item.get('total_hours', 0)):.1f}",
-            f"₪{float(item.get('hourly_pay', 0)):.2f}",
+            f"₪{float(item.get('global_salary', 0) if item.get('pay_type') == 'global' else item.get('hourly_pay', 0)):.2f}",
             f"₪{float(item.get('commission_pay', 0)):.2f}",
+            f"₪{float(item.get('class_pay', 0)):.2f}",       # teaching group classes
             f"₪{float(item.get('total_pay', 0)):.2f}",
             h(pay_type_label),
         ])
 
     # Grand total row
     table_data.append([
-        h("סה\"כ"), "", "", "", f"₪{float(grand_total):.2f}", ""
+        h("סה\"כ"), "", "", "", "", f"₪{float(grand_total):.2f}", ""
     ])
 
     tbl = Table(table_data, colWidths=col_w, rowHeights=22)
@@ -471,7 +472,7 @@ def generate_payroll_pdf(
         # Grand total row
         ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#f0fdf4")),
         ("FONTNAME", (0, -1), (-1, -1), font_bold),
-        ("TEXTCOLOR", (4, -1), (4, -1), colors.HexColor("#166534")),
+        ("TEXTCOLOR", (5, -1), (5, -1), colors.HexColor("#166534")),
     ]))
 
     tbl_w, tbl_h = tbl.wrapOn(c, W - 4 * cm, H)

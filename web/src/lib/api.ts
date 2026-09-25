@@ -444,6 +444,10 @@ export interface PayrollItem {
     total_hours: number;
     hourly_pay: number;
     commission_pay: number;
+    class_pay_mode: "none" | "per_class" | "per_participant" | "both" | "percent";   // teaching group classes
+    class_count: number;
+    class_participants: number;
+    class_pay: number;
     total_pay: number;
 }
 

@@ -11,13 +11,24 @@ from uuid import UUID
 
 router = APIRouter(prefix="/users/artists", tags=["Artists"])
 
+# What someone without the right to see pay gets instead of each colleague's pay: the defaults.
+_PAY_FIELDS = ("pay_type", "hourly_rate", "commission_rate", "global_salary", "class_pay_mode", "class_pay_per_class",
+               "class_pay_per_participant", "class_pay_minimum", "class_pay_percent", "class_pay_counts")
+_NO_PAY = {f: UserOut.model_fields[f].default for f in _PAY_FIELDS}
+
 @router.get("", response_model=list[UserOut])
 def list_artists_endpoint(
     ctx: AuthContext = Depends(require_studio_ctx),
     db: Session = Depends(get_db),
 ):
-    """Get a list of artists in the studio."""
-    return list_artists(db, ctx.studio_id)
+    """Get a list of artists in the studio. Everyone's pay only for the owner and the managers — the other
+    screens use this list for names and colors."""
+    from app.api.staff_routes import PAY_VIEWERS
+    users = list_artists(db, ctx.studio_id)
+    if ctx.role in PAY_VIEWERS:
+        return users
+    return [UserOut.model_validate(u).model_copy(update=_NO_PAY) for u in users]
+
 
 @router.post(
     "",

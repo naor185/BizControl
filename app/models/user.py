@@ -27,6 +27,8 @@ class User(Base):
         UniqueConstraint("studio_id", "email", name="uq_users_studio_email"),
         CheckConstraint("role IN ('owner','admin','artist','staff','superadmin')", name="ck_users_role"),
         CheckConstraint("pay_type IN ('hourly','commission','none','global')", name="ck_users_pay_type"),
+        CheckConstraint("class_pay_mode IN ('none','per_class','per_participant','both','percent')", name="ck_users_class_pay_mode"),
+        CheckConstraint("class_pay_counts IN ('attended','booked')", name="ck_users_class_pay_counts"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -45,6 +47,15 @@ class User(Base):
     hourly_rate: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False, server_default="0.00")
     commission_rate: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False, server_default="0.00")
     global_salary: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False, server_default="0.00")
+    # Pay for teaching group classes, on top of pay_type — the owner's choice (app/services/class_payroll.py):
+    # a sum per class, per participant (with an optional minimum per class), both, or a percentage of the
+    # class's single-entry payments; participants = marked attended, or everyone booked.
+    class_pay_mode: Mapped[str] = mapped_column(String(16), nullable=False, default="none", server_default="none")
+    class_pay_per_class: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False, default=0, server_default="0.00")
+    class_pay_per_participant: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False, default=0, server_default="0.00")
+    class_pay_minimum: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False, default=0, server_default="0.00")
+    class_pay_percent: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False, default=0, server_default="0.00")
+    class_pay_counts: Mapped[str] = mapped_column(String(12), nullable=False, default="attended", server_default="attended")
 
     phone: Mapped[str | None] = mapped_column(String(32), nullable=True)
     totp_secret: Mapped[str | None] = mapped_column(String(64), nullable=True)

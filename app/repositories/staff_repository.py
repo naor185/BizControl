@@ -127,6 +127,9 @@ class StaffRepository:
                 c_pay = (total_amount * (user.commission_rate / Decimal(100))).quantize(Decimal("0.01"))
 
             g_pay = user.global_salary if user.pay_type == "global" else Decimal("0.00")
+            # teaching group classes — the owner's choice, on top of the regular pay (app/services/class_payroll.py)
+            from app.services.class_payroll import class_pay
+            classes = class_pay(self.session, studio_id, user, start_date, end_date)
             results.append({
                 "user_id": user.id,
                 "display_name": user.display_name or user.email,
@@ -137,7 +140,9 @@ class StaffRepository:
                 "total_hours": h_hours,
                 "hourly_pay": h_pay,
                 "commission_pay": c_pay,
-                "total_pay": h_pay + c_pay + g_pay,
+                "class_pay_mode": user.class_pay_mode or "none",
+                **classes,
+                "total_pay": h_pay + c_pay + g_pay + classes["class_pay"],
             })
             
         return results

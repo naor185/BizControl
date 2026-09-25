@@ -19,6 +19,9 @@ from app.services.pdf_service import generate_payroll_pdf
 
 router = APIRouter(prefix="/staff", tags=["Staff & Payroll"])
 
+# Everyone's pay is for the owner and the managers only — the report and its PDF alike.
+PAY_VIEWERS = ("owner", "admin", "superadmin")
+
 
 def _localize_payroll_range(db: Session, studio_id, start_date: datetime, end_date: datetime) -> tuple[datetime, datetime]:
     """
@@ -89,6 +92,8 @@ def get_payroll(
     db: Session = Depends(get_db),
 ):
     """Calculate payroll for all staff in the studio for the given period."""
+    if ctx.role not in PAY_VIEWERS:
+        raise HTTPException(status_code=403, detail="Forbidden")
     start_date, end_date = _localize_payroll_range(db, ctx.studio_id, start_date, end_date)
     items = repo.get_user_payroll_summary(ctx.studio_id, start_date, end_date)
     from decimal import Decimal
@@ -110,7 +115,7 @@ def download_payroll_pdf(
     repo: StaffRepository = Depends(get_staff_repo),
     db: Session = Depends(get_db),
 ):
-    if ctx.role not in ("owner", "admin"):
+    if ctx.role not in PAY_VIEWERS:
         raise HTTPException(status_code=403, detail="Forbidden")
 
     start_date, end_date = _localize_payroll_range(db, ctx.studio_id, start_date, end_date)

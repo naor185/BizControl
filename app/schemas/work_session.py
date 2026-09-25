@@ -43,6 +43,10 @@ class StaffPayrollItem(BaseModel):
     total_hours: float = 0.0
     hourly_pay: Decimal = Decimal("0.00")
     commission_pay: Decimal = Decimal("0.00")
+    class_pay_mode: str = "none"                  # teaching group classes (app/services/class_payroll.py)
+    class_count: int = 0
+    class_participants: int = 0
+    class_pay: Decimal = Decimal("0.00")
     total_pay: Decimal = Decimal("0.00")
 
 

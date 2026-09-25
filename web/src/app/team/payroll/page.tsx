@@ -43,6 +43,9 @@ export default function StaffPage() {
         fetchPayroll();
     }, [month, year]);
 
+    // the classes column only where someone is paid for teaching classes
+    const hasClasses = !!payroll?.items.some(i => i.class_pay_mode && i.class_pay_mode !== "none");
+
     return (
         <RequireAuth>
             <AppShell title="ניהול צוות ושכר">
@@ -100,6 +103,7 @@ export default function StaffPage() {
                                                 <th className="px-8 py-4">שעות</th>
                                                 <th className="px-8 py-4">שכר שעתי</th>
                                                 <th className="px-8 py-4">עמלות</th>
+                                                {hasClasses && <th className="px-8 py-4">שיעורים</th>}
                                                 <th className="px-8 py-4 text-emerald-600">סה״כ לתשלום</th>
                                             </tr>
                                         </thead>
@@ -119,6 +123,16 @@ export default function StaffPage() {
                                                     <td className="px-8 py-5 text-slate-600 font-mono">{item.total_hours.toFixed(1)}</td>
                                                     <td className="px-8 py-5 text-slate-600" dir="ltr">₪{(item.pay_type === 'global' ? item.global_salary : item.hourly_pay).toLocaleString()}</td>
                                                     <td className="px-8 py-5 text-slate-600" dir="ltr">₪{item.commission_pay.toLocaleString()}</td>
+                                                    {hasClasses && (
+                                                        <td className="px-8 py-5 text-slate-600">
+                                                            {item.class_pay_mode === "none" ? <span className="text-slate-300">—</span> : (
+                                                                <>
+                                                                    <div dir="ltr" className="text-right">₪{Number(item.class_pay).toLocaleString()}</div>
+                                                                    <div className="text-[11px] text-slate-400">{item.class_count} שיעורים · {item.class_participants} משתתפים</div>
+                                                                </>
+                                                            )}
+                                                        </td>
+                                                    )}
                                                     <td className="px-8 py-5">
                                                         <div className="text-lg font-black text-emerald-600" dir="ltr">₪{item.total_pay.toLocaleString()}</div>
                                                     </td>

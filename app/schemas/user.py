@@ -14,8 +14,27 @@ class UserBase(BaseModel):
     hourly_rate: float = 0.0
     commission_rate: float = 0.0
     global_salary: float = 0.0
+    class_pay_mode: str = "none"          # teaching group classes (app/services/class_payroll.py)
+    class_pay_per_class: float = 0.0
+    class_pay_per_participant: float = 0.0
+    class_pay_minimum: float = 0.0
+    class_pay_percent: float = 0.0
+    class_pay_counts: str = "attended"
 
-class ArtistCreate(BaseModel):
+ClassPayMode = Literal["none", "per_class", "per_participant", "both", "percent"]
+ClassPayCounts = Literal["attended", "booked"]
+
+
+class ClassPayFields(BaseModel):
+    """The owner's pay for teaching group classes — on a new or an edited staff member."""
+    class_pay_mode: ClassPayMode | None = None
+    class_pay_per_class: float | None = Field(default=None, ge=0)
+    class_pay_per_participant: float | None = Field(default=None, ge=0)
+    class_pay_minimum: float | None = Field(default=None, ge=0)
+    class_pay_percent: float | None = Field(default=None, ge=0, le=100)
+    class_pay_counts: ClassPayCounts | None = None
+
+class ArtistCreate(ClassPayFields):
     email: EmailStr
     password: str = Field(min_length=6)
     display_name: str = Field(..., min_length=1, max_length=120)
@@ -26,7 +45,7 @@ class ArtistCreate(BaseModel):
     commission_rate: float | None = 0.0
     global_salary: float | None = 0.0
 
-class ArtistUpdate(BaseModel):
+class ArtistUpdate(ClassPayFields):
     is_active: bool | None = None
     display_name: str | None = None
     role: Literal["artist", "admin", "staff"] | None = None

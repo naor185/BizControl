@@ -16,6 +16,18 @@ def list_artists(db: Session, studio_id: UUID) -> list[User]:
     ).order_by(User.created_at.desc())
     return list(db.scalars(stmt).all())
 
+CLASS_PAY_FIELDS = ("class_pay_mode", "class_pay_per_class", "class_pay_per_participant", "class_pay_minimum",
+                    "class_pay_percent", "class_pay_counts")
+
+
+def _set_class_pay(user: User, data) -> None:
+    """The owner's pay for teaching group classes — only the fields sent."""
+    for field in CLASS_PAY_FIELDS:
+        value = getattr(data, field, None)
+        if value is not None:
+            setattr(user, field, value)
+
+
 def create_artist(db: Session, studio_id: UUID, data: ArtistCreate) -> User:
     hashed = ph.hash(data.password)
     user = User(
@@ -31,6 +43,7 @@ def create_artist(db: Session, studio_id: UUID, data: ArtistCreate) -> User:
         commission_rate=data.commission_rate or 0.0,
         global_salary=data.global_salary or 0.0,
     )
+    _set_class_pay(user, data)
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -62,6 +75,7 @@ def update_artist(db: Session, studio_id: UUID, user_id: UUID, data: ArtistUpdat
         user.commission_rate = data.commission_rate
     if data.global_salary is not None:
         user.global_salary = data.global_salary
+    _set_class_pay(user, data)
     if data.password is not None:
         user.password_hash = ph.hash(data.password)
 

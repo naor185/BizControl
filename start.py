@@ -2390,6 +2390,24 @@ def ensure_schema():
         cur.execute("""CREATE UNIQUE INDEX IF NOT EXISTS uq_wait_list_class_client ON wait_list (session_id, client_id)
                        WHERE session_id IS NOT NULL AND status IN ('waiting', 'notified')""")
         cur.execute("ALTER TABLE class_bookings ADD COLUMN IF NOT EXISTS from_waitlist BOOLEAN NOT NULL DEFAULT false")
+        # Classes extras 1 — pay for teaching group classes (users.class_pay_*, app/services/class_payroll.py)
+        cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS class_pay_mode VARCHAR(16) NOT NULL DEFAULT 'none'")
+        cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS class_pay_per_class NUMERIC(10,2) NOT NULL DEFAULT 0.00")
+        cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS class_pay_per_participant NUMERIC(10,2) NOT NULL DEFAULT 0.00")
+        cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS class_pay_minimum NUMERIC(10,2) NOT NULL DEFAULT 0.00")
+        cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS class_pay_percent NUMERIC(5,2) NOT NULL DEFAULT 0.00")
+        cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS class_pay_counts VARCHAR(12) NOT NULL DEFAULT 'attended'")
+        cur.execute("""
+            DO $$ BEGIN
+                IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ck_users_class_pay_mode') THEN
+                    ALTER TABLE users ADD CONSTRAINT ck_users_class_pay_mode
+                        CHECK (class_pay_mode IN ('none','per_class','per_participant','both','percent'));
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ck_users_class_pay_counts') THEN
+                    ALTER TABLE users ADD CONSTRAINT ck_users_class_pay_counts CHECK (class_pay_counts IN ('attended','booked'));
+                END IF;
+            END $$;
+        """)
         cur.execute("""
             DO $$ BEGIN
                 IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ck_payments_subject') THEN

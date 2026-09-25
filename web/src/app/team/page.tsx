@@ -21,7 +21,39 @@ type Artist = {
     hourly_rate: number;
     commission_rate: number;
     global_salary: number;
+} & ClassPay;
+
+// Pay for teaching group classes — the owner's choice, on top of the regular pay (app/services/class_payroll.py)
+type ClassPayMode = "none" | "per_class" | "per_participant" | "both" | "percent";
+type ClassPay = {
+    class_pay_mode: ClassPayMode;
+    class_pay_per_class: number;
+    class_pay_per_participant: number;
+    class_pay_minimum: number;
+    class_pay_percent: number;
+    class_pay_counts: "attended" | "booked";
 };
+const NO_CLASS_PAY: ClassPay = {
+    class_pay_mode: "none", class_pay_per_class: 0, class_pay_per_participant: 0, class_pay_minimum: 0,
+    class_pay_percent: 0, class_pay_counts: "attended",
+};
+const CLASS_PAY_MODES: { value: ClassPayMode; label: string }[] = [
+    { value: "none", label: "בלי" },
+    { value: "per_class", label: "סכום לשיעור" },
+    { value: "per_participant", label: "לכל משתתף" },
+    { value: "both", label: "סכום + לכל משתתף" },
+    { value: "percent", label: "אחוז מהכניסות הבודדות" },
+];
+
+function classPaySummary(a: ClassPay): string | null {
+    switch (a.class_pay_mode) {
+        case "per_class": return `שיעורים: ₪${a.class_pay_per_class} לשיעור`;
+        case "per_participant": return `שיעורים: ₪${a.class_pay_per_participant} למשתתף${Number(a.class_pay_minimum) ? ` (מינימום ₪${a.class_pay_minimum})` : ""}`;
+        case "both": return `שיעורים: ₪${a.class_pay_per_class} + ₪${a.class_pay_per_participant} למשתתף`;
+        case "percent": return `שיעורים: ${a.class_pay_percent}% מהכניסות הבודדות`;
+        default: return null;
+    }
+}
 
 // Preset colors for artists
 const COLOR_PRESETS = [
@@ -58,6 +90,8 @@ export default function TeamPage() {
     const [hourlyRate, setHourlyRate] = useState<number | "">("");
     const [commissionRate, setCommissionRate] = useState<number | "">("");
     const [globalSalary, setGlobalSalary] = useState<number | "">("");
+    const [classPay, setClassPay] = useState<ClassPay>(NO_CLASS_PAY);
+    const [classesOn, setClassesOn] = useState(false);
 
     // Deletion state
     const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
@@ -78,6 +112,7 @@ export default function TeamPage() {
 
     useEffect(() => {
         loadArtists();
+        apiFetch<Record<string, boolean>>("/api/modules/me").then(m => setClassesOn(!!m?.classes)).catch(() => setClassesOn(false));
     }, []);
 
     const openCreateModal = () => {
@@ -92,6 +127,7 @@ export default function TeamPage() {
         setHourlyRate("");
         setCommissionRate("");
         setGlobalSalary("");
+        setClassPay(NO_CLASS_PAY);
         setIsModalOpen(true);
     };
 
@@ -107,6 +143,14 @@ export default function TeamPage() {
         setHourlyRate(artist.hourly_rate || "");
         setCommissionRate(artist.commission_rate || "");
         setGlobalSalary(artist.global_salary || "");
+        setClassPay({
+            class_pay_mode: artist.class_pay_mode || "none",
+            class_pay_per_class: Number(artist.class_pay_per_class) || 0,
+            class_pay_per_participant: Number(artist.class_pay_per_participant) || 0,
+            class_pay_minimum: Number(artist.class_pay_minimum) || 0,
+            class_pay_percent: Number(artist.class_pay_percent) || 0,
+            class_pay_counts: artist.class_pay_counts || "attended",
+        });
         setIsModalOpen(true);
     };
 
@@ -126,6 +170,7 @@ export default function TeamPage() {
                 hourly_rate: hourlyRate === "" ? 0 : hourlyRate,
                 commission_rate: commissionRate === "" ? 0 : commissionRate,
                 global_salary: globalSalary === "" ? 0 : globalSalary,
+                ...(classesOn ? classPay : {}),
             };
 
             if (editingUserId) {
@@ -248,6 +293,9 @@ export default function TeamPage() {
                                                          artist.pay_type === "global" ? `גלובלי: ₪${artist.global_salary}/חודש` :
                                                          "ללא שכר"}
                                                     </div>
+                                                    {classesOn && classPaySummary(artist) && (
+                                                        <div className="text-[11px] text-slate-500 mt-0.5">{classPaySummary(artist)}</div>
+                                                    )}
                                                 </td>
                                                 <td className="p-4 text-center">
                                                     {artist.is_active ?
@@ -436,6 +484,8 @@ export default function TeamPage() {
                                     )}
                                 </div>
 
+                                {classesOn && <ClassPaySection value={classPay} onChange={setClassPay} />}
+
                                 <div className="pt-4 border-t border-slate-100">
                                     <label className="block text-sm font-semibold text-slate-700 mb-1">אימייל (לכניסה למערכת)</label>
                                     <input
@@ -524,5 +574,67 @@ export default function TeamPage() {
                 )}
             </AppShell>
         </RequireAuth>
+    );
+}
+
+
+function ClassPaySection({ value: v, onChange }: { value: ClassPay; onChange: (v: ClassPay) => void }) {
+    const set = (patch: Partial<ClassPay>) => onChange({ ...v, ...patch });
+    const money = (label: string, key: "class_pay_per_class" | "class_pay_per_participant" | "class_pay_minimum", hint?: string) => (
+        <div>
+            <label htmlFor={key} className="block text-xs font-bold text-slate-500 mb-1">{label}</label>
+            {hint && <p className="text-[11px] text-slate-400 mb-1">{hint}</p>}
+            <input id={key} type="number" min={0} inputMode="decimal" dir="ltr" value={v[key] || ""}
+                onChange={e => set({ [key]: e.target.value === "" ? 0 : Math.max(0, Number(e.target.value)) })}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-sky-600" placeholder="₪" />
+        </div>
+    );
+    const byParticipant = v.class_pay_mode === "per_participant" || v.class_pay_mode === "both";
+    return (
+        <div className="pt-4 border-t border-slate-100">
+            <p className="block text-sm font-semibold text-slate-700 mb-1" id="class-pay-label">תשלום על שיעורים קבוצתיים</p>
+            <p className="text-[11px] text-slate-400 mb-2">בנוסף לשכר הרגיל. נספרים שיעורים שכבר התקיימו ושהוא/היא העביר/ה — גם כמחליף/ה.</p>
+            <div role="radiogroup" aria-labelledby="class-pay-label" className="flex flex-wrap gap-2 mb-3">
+                {CLASS_PAY_MODES.map(m => (
+                    <button key={m.value} type="button" role="radio" aria-checked={v.class_pay_mode === m.value}
+                        onClick={() => set({ class_pay_mode: m.value })}
+                        className={`min-h-9 px-3 text-xs font-bold rounded-xl border transition-all ${v.class_pay_mode === m.value
+                            ? "bg-sky-600 text-white border-sky-600 shadow-md" : "bg-white text-slate-500 border-slate-200 hover:border-slate-300"}`}>
+                        {m.label}
+                    </button>
+                ))}
+            </div>
+            {v.class_pay_mode !== "none" && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {(v.class_pay_mode === "per_class" || v.class_pay_mode === "both") && money("סכום לכל שיעור (₪)", "class_pay_per_class")}
+                    {byParticipant && money("סכום לכל משתתף (₪)", "class_pay_per_participant")}
+                    {v.class_pay_mode === "per_participant" && money("מינימום לשיעור (₪)", "class_pay_minimum", "לא חובה — כשהגיעו מעט משתתפים")}
+                    {v.class_pay_mode === "percent" && (
+                        <div className="sm:col-span-2">
+                            <label htmlFor="class_pay_percent" className="block text-xs font-bold text-slate-500 mb-1">אחוז מהתשלומים על כניסות בודדות לשיעור (%)</label>
+                            <p className="text-[11px] text-slate-400 mb-1">תשלום על מנוי לא שייך לשיעור אחד, ולכן לא נספר. גם חיוב על ביטול מאוחר לא.</p>
+                            <input id="class_pay_percent" type="number" min={0} max={100} inputMode="decimal" dir="ltr" value={v.class_pay_percent || ""}
+                                onChange={e => set({ class_pay_percent: e.target.value === "" ? 0 : Math.min(100, Math.max(0, Number(e.target.value))) })}
+                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-sky-600" placeholder="%" />
+                        </div>
+                    )}
+                    {byParticipant && (
+                        <div className="sm:col-span-2">
+                            <p className="block text-xs font-bold text-slate-500 mb-1" id="class-pay-counts">איך סופרים משתתפים</p>
+                            <div role="radiogroup" aria-labelledby="class-pay-counts" className="flex flex-wrap gap-2">
+                                {([["attended", "מי שסומן/ה שהגיע/ה"], ["booked", "כל מי שנרשם/ה (גם בלי סימון)"]] as const).map(([val, label]) => (
+                                    <button key={val} type="button" role="radio" aria-checked={v.class_pay_counts === val}
+                                        onClick={() => set({ class_pay_counts: val })}
+                                        className={`min-h-9 px-3 text-xs font-semibold rounded-xl border ${v.class_pay_counts === val
+                                            ? "border-sky-600 bg-sky-50 text-sky-800" : "border-slate-200 text-slate-500"}`}>
+                                        {label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
     );
 }
