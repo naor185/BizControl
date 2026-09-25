@@ -32,7 +32,11 @@ class Policy:
     unit: str = ""
     help: str = ""
     module: str = "classes"         # shown to the owner only when this module is on
+    requires: tuple[str, ...] = ()  # …and these too
+    presets: tuple[tuple[int, str], ...] = ()   # ready-made values offered next to a number (the owner may type another)
 
+
+_POINTS_PRESETS = ((0, "בלי נקודות"), (2, "2%"), (5, "5%"), (10, "10%"))
 
 POLICIES: dict[str, Policy] = {p.key: p for p in (
     Policy("free_cancel_hours", "חלון ביטול חינם", "int", 6, (STUDIO, TEMPLATE), 0, 168, unit="שעות לפני השיעור",
@@ -56,7 +60,16 @@ POLICIES: dict[str, Policy] = {p.key: p for p in (
     Policy("client_booking", "לקוחות נרשמים בעצמם ב-BizFind", "bool", True, (STUDIO,),
            help="רק מי שכבר לקוח/ה של העסק ויש לו/ה מנוי שמכסה את השיעור. ההרשמה נפתחת ונסגרת לפי ההגדרות כאן.",
            module="memberships"),
+    # Club points on class payments — the owner's percentages (a point is worth ₪1, as on any payment); 0 = none.
+    Policy("club_points_membership_percent", "נקודות מועדון על קניית מנוי", "int", 0, (STUDIO,), 0, 100, unit="% מהתשלום",
+           help="חבר/ת מועדון שמשלם/ת על מנוי מקבל/ת נקודות לפי האחוז הזה. מחיקת התשלום מורידה אותן.",
+           module="customer_club", requires=("memberships",), presets=_POINTS_PRESETS),
+    Policy("club_points_entry_percent", "נקודות מועדון על כניסה בודדת", "int", 0, (STUDIO,), 0, 100, unit="% מהתשלום",
+           help="על תשלום לשיעור בלי מנוי. חיוב על ביטול מאוחר או על אי-הגעה לא מזכה בנקודות.",
+           module="customer_club", presets=_POINTS_PRESETS),
 )}
+
+CLUB_POINTS = ("club_points_membership_percent", "club_points_entry_percent")
 
 
 def validate(key: str, value) -> object:
@@ -112,6 +125,33 @@ def studio_policies(db: Session, studio_id) -> dict:
     """Every setting at the business level: its value (own or default) and whether the owner set it."""
     own = {r.key: r.value for r in _rows(db, studio_id) if r.scope_type == STUDIO and r.scope_id is None}
     return {k: {"value": own.get(k, p.default), "is_default": k not in own} for k, p in POLICIES.items()}
+
+
+def shown(db: Session, studio_id) -> list[Policy]:
+    """The settings this business has — each one's modules are in its plan (the club's points only with the club)."""
+    from app.services.memberships import _module
+    on: dict[str, bool] = {}
+
+    def enabled(module: str) -> bool:        # one check per module
+        if module not in on:
+            on[module] = _module(db, studio_id, module)
+        return on[module]
+
+    return [p for p in POLICIES.values() if all(enabled(m) for m in (p.module, *p.requires))]
+
+
+def presets(db: Session, studio_id, p: Policy) -> list[tuple[int, str]]:
+    """The ready-made values offered for a number — for the club's points, also the business's own
+    percentage on a regular payment."""
+    out = list(p.presets)
+    if p.key in CLUB_POINTS:
+        from app.models.studio_settings import StudioSettings
+        s = db.get(StudioSettings, studio_id)
+        regular = int(s.points_percent_per_payment or 0) if s else 0
+        if regular:
+            out = [(v, l) for v, l in out if v != regular]
+            out.insert(1, (regular, f"כמו בתשלום רגיל ({regular}%)"))
+    return out
 
 
 def set_policy(db: Session, studio_id, key: str, value, *, scope_type: str = STUDIO, scope_id=None,

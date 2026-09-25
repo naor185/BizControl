@@ -133,3 +133,47 @@ def test_the_deposit_approved_email_has_every_placeholder_filled(db_session, mon
         body = jobs[ch].body
         assert "{client_name}" not in body and "{appointment_date}" not in body and "{staff_title}" not in body, ch
         assert "רותם" in body and "מטפל/ת: דנה" in body and "אמן" not in body, ch
+
+
+def test_the_day_before_reminder_email_is_the_owners_own_text(db_session):
+    from app.services.message_worker import sweep_upcoming_reminders
+    clinic = _studio(db_session, "c9", "medical", reminder_email_template="היי {client_name}, נתראה מחר ב-{appointment_time}!")
+    appt = _appointment(db_session, clinic)
+    appt.starts_at, appt.ends_at = datetime.now(timezone.utc) + timedelta(hours=24), datetime.now(timezone.utc) + timedelta(hours=25)
+    db_session.commit()
+    sweep_upcoming_reminders(db_session)
+    body = db_session.scalar(select(MessageJob.body).where(MessageJob.appointment_id == appt.id, MessageJob.channel == "email"))
+    assert body.startswith("היי רותם, נתראה מחר ב-") and "{" not in body
+
+
+def test_the_points_redemption_message_is_the_owners_own_text(db_session):
+    from app.crud.automation import maybe_enqueue_points_celebration
+    clinic = _studio(db_session, "c10", "medical",
+                     points_redeem_wa_template="{client_name}, מימשת {points_used} נקודות (₪{discount_amount}). נשארו {loyalty_points}.")
+    cl = Client(studio_id=clinic.id, full_name="רותם", phone="0501234567", loyalty_points=12)
+    db_session.add(cl)
+    db_session.commit()
+    assert maybe_enqueue_points_celebration(db_session, clinic.id, cl, 40000)
+    body = db_session.scalar(select(MessageJob.body).where(MessageJob.client_id == cl.id))
+    assert body == "רותם, מימשת 400 נקודות (₪400). נשארו 12."
+
+
+def test_an_email_written_as_plain_lines_keeps_them_and_its_links(db_session, monkeypatch):
+    import app.services.email_center as ec
+    from app.services.message_worker import process_due_jobs
+    sent = []
+    monkeypatch.setattr(ec, "send_email", lambda db, **kw: sent.append(kw["html_content"]) or True)
+    clinic = _studio(db_session, "c11", "medical")
+    cl = Client(studio_id=clinic.id, full_name="רותם", email="rotem@c11.com")
+    db_session.add(cl)
+    db_session.flush()
+    db_session.add(MessageJob(studio_id=clinic.id, client_id=cl.id, channel="email", to_phone=cl.email, status="pending",
+                              body="היי רותם,\nנתראה מחר.\nמפה: https://maps.example.com/x?a=1&b=2",
+                              scheduled_at=datetime.now(timezone.utc) - timedelta(minutes=1), reminder_type="1day_email"))
+    db_session.commit()
+    process_due_jobs(db_session)
+    assert len(sent) == 1
+    assert "היי רותם,<br>נתראה מחר.<br>" in sent[0] and '<a href="https://maps.example.com/x?a=1&amp;b=2">' in sent[0]
+    html = '<div dir="rtl"><p>כבר מעוצב</p></div>'
+    from app.utils.email_templates import text_as_email_html
+    assert text_as_email_html(html) == html                  # an e-mail already laid out is left alone

@@ -403,6 +403,11 @@ def process_due_jobs(db: Session, limit: int = 20) -> int:
                     count += 1
                     continue
 
+            if job.channel == "email":
+                # a body written as plain lines keeps them — before a marketing footer turns it into HTML
+                from app.utils.email_templates import text_as_email_html
+                job.body = text_as_email_html(job.body)
+
             # Marketing goes only to clients who may receive it — checked here, at send time, for every
             # channel and whichever path queued it (app/services/marketing.py). Service messages
             # (confirmations, reminders, receipts…) always go out: the client's unsubscribe covers
@@ -517,6 +522,7 @@ def _sweep_reminders_for_window(
     wa_default: str = "",
     wa_deposit_default: str = "",
     email_default: str = "",
+    email_template_attr: str = "",
 ) -> int:
     """Generic reminder sweep for any time window ahead of now."""
     now = datetime.now(timezone.utc)
@@ -579,8 +585,10 @@ def _sweep_reminders_for_window(
             ))
             count += 1
 
-        if email_default and client.email:
-            email_body = format_template(email_default, ctx)
+        # the owner's own e-mail text (the message templates screen) → the built-in e-mail
+        email_template = (getattr(settings, email_template_attr, None) if email_template_attr else None) or email_default
+        if email_template and client.email:
+            email_body = format_template(email_template, ctx)
             db.add(MessageJob(
                 studio_id=appt.studio_id,
                 client_id=client.id,
@@ -617,6 +625,7 @@ def sweep_upcoming_reminders(db: Session) -> int:
         reminder_type="1day",
         enabled_attr="reminder_1_day_enabled",
         wa_template_attr="reminder_wa_template",
+        email_template_attr="reminder_email_template",
         wa_default=(
             "היי {client_name} 👋\n"
             "תזכורת ידידותית — מחר יש לך תור!\n\n"

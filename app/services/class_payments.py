@@ -5,7 +5,9 @@ They go into the existing payments table (the plan's decision 9: extend payments
 a payment for a membership, or for a class booking — a single entry, or a fee the owner's rules
 recorded. So every revenue report counts them by the payment's date, and they get an invoice/receipt
 through the existing invoicing. What only belongs to an appointment — the thank-you after a treatment,
-marking the appointment done, staff commission, club cashback — is left out on purpose.
+marking the appointment done, staff commission — is left out on purpose. Club points are the owner's choice
+(the class settings, shown only when the business's plan has the club): a percentage for a membership and one
+for a single entry, 0 = none; a fee earns none. Deleting the payment takes them back, as on any payment.
 """
 from __future__ import annotations
 
@@ -67,6 +69,9 @@ def record(db: Session, studio_id, client, *, amount_cents: int, method: str, me
     db.add(p)
     if fee:
         fee.status, fee.paid_at = "paid", svc.now_utc()
+    db.flush()
+    if not fee:
+        club_points(db, studio_id, client, p, for_membership=membership is not None)
     db.commit()
     try:
         from app.crud.payment import _auto_create_invoice
@@ -74,6 +79,18 @@ def record(db: Session, studio_id, client, *, amount_cents: int, method: str, me
     except Exception:
         _log.exception("[auto-invoice] FAILED for class payment %s", p.id)
     return p
+
+
+def club_points(db: Session, studio_id, client, p: Payment, *, for_membership: bool) -> int:
+    """The owner's club points for a membership or single-entry payment — to a club member, when the business's
+    plan has the club. Given like the points on any payment, so deleting the payment takes them back."""
+    from app.crud.payment import award_points
+    from app.services import policies
+    from app.services.memberships import _module
+    if not client.is_club_member or not _module(db, studio_id, "customer_club"):
+        return 0
+    percent = policies.get_policy(db, studio_id, "club_points_membership_percent" if for_membership else "club_points_entry_percent")
+    return award_points(db, studio_id, client, p, percent)
 
 
 def paid_for_membership(db: Session, membership_ids) -> dict:

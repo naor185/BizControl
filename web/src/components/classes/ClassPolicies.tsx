@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import {
-    CalendarClock, CalendarX2, ListOrdered, UsersRound, BellRing, SlidersHorizontal, RotateCcw, Loader2,
+    CalendarClock, CalendarX2, ListOrdered, UsersRound, BellRing, Gift, SlidersHorizontal, RotateCcw, Loader2,
     type LucideIcon,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
@@ -15,6 +15,7 @@ import { toast } from "@/lib/toast";
 export type ClassPolicy = {
     key: string; label: string; kind: "int" | "bool" | "choice"; unit: string; help: string;
     min: number | null; max: number | null; choices: { value: string; label: string }[];
+    presets?: { value: number; label: string }[];      // ready-made values for a number; the owner may type another
     default: number | boolean | string; module: string; levels: string[];
     value: number | boolean | string; is_default: boolean;
 };
@@ -25,6 +26,7 @@ const GROUPS: { title: string; icon: LucideIcon; keys: string[] }[] = [
     { title: "רשימת המתנה", icon: ListOrdered, keys: ["waitlist_max", "waitlist_mode", "waitlist_confirm_minutes"] },
     { title: "מינימום משתתפים", icon: UsersRound, keys: ["min_participants", "min_check_hours", "auto_cancel_below_min"] },
     { title: "תזכורות", icon: BellRing, keys: ["reminder_hours"] },
+    { title: "מועדון לקוחות", icon: Gift, keys: ["club_points_membership_percent", "club_points_entry_percent"] },
 ];
 
 type Draft = Record<string, number | boolean | string>;
@@ -32,7 +34,8 @@ type Draft = Record<string, number | boolean | string>;
 function shown(p: ClassPolicy, v: ClassPolicy["value"]): string {
     if (p.kind === "bool") return v ? "פעיל" : "כבוי";
     if (p.kind === "choice") return (p.choices.find(c => c.value === v)?.label ?? String(v)).split(" — ")[0];
-    return `${v} ${p.unit}`.trim();
+    const preset = p.presets?.find(x => x.value === v);
+    return preset && !preset.label.includes("%") ? preset.label : `${v} ${p.unit}`.trim();
 }
 
 function problem(p: ClassPolicy, v: unknown): string | null {
@@ -148,6 +151,19 @@ function PolicyRow({ policy: p, value, disabled, onChange }: {
             <div className="shrink-0">
                 {p.kind === "int" && (
                     <div>
+                        {!!p.presets?.length && (
+                            <div className="flex flex-wrap gap-1.5 mb-2 sm:max-w-80" aria-label={`ערכים מוכנים: ${p.label}`}>
+                                {p.presets.map(x => {
+                                    const on = value === x.value;
+                                    return (
+                                        <button key={x.value} type="button" aria-pressed={on} disabled={disabled} onClick={() => onChange(x.value)}
+                                            className={`min-h-9 px-3 rounded-full border text-xs font-semibold transition-colors disabled:opacity-60 ${on ? "border-indigo-500 bg-indigo-50 text-indigo-800" : "border-slate-200 text-slate-600 hover:border-slate-300"}`}>
+                                            {x.label}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        )}
                         <div className="flex items-center gap-2">
                             <input id={id} type="number" inputMode="numeric" dir="ltr" disabled={disabled}
                                 min={p.min ?? undefined} max={p.max ?? undefined}

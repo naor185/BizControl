@@ -1,4 +1,19 @@
 """Shared branded HTML email templates for all platform emails."""
+import re
+from html import escape
+
+_HTML_TAG = re.compile(r"<\s*/?\s*(p|div|br|h[1-6]|table|tr|td|a|strong|b|i|em|span|ul|ol|li|html|body|img|hr)\b", re.I)
+_URL = re.compile(r"https?://[^\s<]+")
+
+
+def text_as_email_html(text: str) -> str:
+    """A text written as plain lines — an owner's own message, a class notice — as an e-mail body: its line
+    breaks kept and its links clickable (sent as it is, e-mail programs run it into one line). A body that is
+    already HTML is returned unchanged."""
+    if not text or _HTML_TAG.search(text):
+        return text
+    body = _URL.sub(lambda m: f'<a href="{m.group(0)}">{m.group(0)}</a>', escape(text)).replace("\n", "<br>")
+    return f'<div dir="rtl" style="font-family:Arial,sans-serif;font-size:15px;line-height:1.7;color:#111;">{body}</div>'
 
 
 def _email_base(title: str, body_html: str) -> str:

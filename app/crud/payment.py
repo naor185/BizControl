@@ -8,6 +8,18 @@ from app.models.appointment import Appointment
 from app.models.client import Client
 from app.models.lead import Lead
 
+def award_points(db: Session, studio_id, client: Client, payment: Payment, percent, appointment_id=None) -> int:
+    """Club points for a paid payment — the percent of its amount, a point worth ₪1 — recorded as
+    "Cashback for payment <id>", so deleting the payment takes them back (delete_payment)."""
+    from app.models.client_points_ledger import ClientPointsLedger
+    points = int(payment.amount_cents / 100.0 * (percent / 100.0))
+    if points > 0:
+        client.loyalty_points = int(client.loyalty_points or 0) + points
+        db.add(ClientPointsLedger(studio_id=studio_id, client_id=client.id, appointment_id=appointment_id,
+                                  delta_points=points, reason=f"Cashback for payment {payment.id}"))
+    return points
+
+
 def create_payment(db: Session, studio_id: UUID, data) -> Payment:
     # ensure appointment belongs to studio
     appt = db.scalar(select(Appointment).where(Appointment.id == data.appointment_id, Appointment.studio_id == studio_id))
@@ -106,24 +118,11 @@ def create_payment(db: Session, studio_id: UUID, data) -> Payment:
     points_earned = 0
     if obj.status == "paid" and obj.type in ("payment", "deposit"):
         from app.models.studio_settings import StudioSettings
-        from app.models.client_points_ledger import ClientPointsLedger
-        from app.models.message_job import MessageJob
-        from datetime import datetime, timezone
 
         settings = db.get(StudioSettings, studio_id)
         if settings and settings.points_percent_per_payment is not None and settings.points_percent_per_payment > 0 and client.is_club_member:
-            amount_ils = obj.amount_cents / 100.0
-            points_earned = int(amount_ils * (settings.points_percent_per_payment / 100.0))
-
+            points_earned = award_points(db, studio_id, client, obj, settings.points_percent_per_payment, appointment_id=appt.id)
             if points_earned > 0:
-                client.loyalty_points = int(client.loyalty_points or 0) + points_earned
-                db.add(ClientPointsLedger(
-                    studio_id=studio_id,
-                    client_id=client.id,
-                    appointment_id=appt.id,
-                    delta_points=points_earned,
-                    reason=f"Cashback for payment {obj.id}"
-                ))
                 db.commit()
 
     # Auto-mark appointment as done when final payment received

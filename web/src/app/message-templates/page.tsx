@@ -226,8 +226,8 @@ const GROUPS: SectionGroup[] = [
             {
                 id: "points_redeem", title: "מימוש נקודות", icon: "🏆",
                 templateKey: "points_redeem_wa_template",
-                description: "נשלחת כאשר לקוח ממש נקודות נאמנות",
-                hints: ["client_name","points_used","discount_amount","loyalty_points"],
+                description: "נשלחת עם כרטיס החגיגה, כשלקוח מממש נקודות מעל הסכום שנקבע בהגדרות המועדון",
+                hints: ["client_name","points_used","discount_amount","loyalty_points","studio_name"],
             },
             {
                 id: "points_balance", title: "יתרת נקודות", icon: "⭐",

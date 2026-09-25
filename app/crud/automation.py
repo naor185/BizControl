@@ -259,13 +259,12 @@ def enqueue_deposit_approved_message(db: Session, appt: Appointment, artist_name
 
     # Email branch
     if client.email and _email_ok(db, appt.studio_id, "email_deposit_approved_enabled"):
-        from app.utils.email_templates import _email_base
+        from app.utils.email_templates import _email_base, text_as_email_html
         email_body = None
         if settings.deposit_approved_wa_template:
             # the studio's WhatsApp text, filled in and laid out for e-mail — it used to go out raw, every
             # {client_name}/{appointment_date}… unfilled
-            from html import escape as _esc_html
-            email_body = "<p>" + _esc_html(smart_format(settings.deposit_approved_wa_template, context)).replace(chr(10), "<br>") + "</p>"
+            email_body = text_as_email_html(smart_format(settings.deposit_approved_wa_template, context))
         if not email_body:
             _map_html = ('<p><a href="' + context["map_link"] + '" style="color:#3b82f6;">🗺️ ניווט למיקום</a></p>') if context.get("map_link") else ""
             email_body = (
@@ -750,12 +749,20 @@ def maybe_enqueue_points_celebration(db: Session, studio_id, client, amount_rede
     except Exception:
         log.exception("celebration card build/save failed for client %s", client.id)
 
+    # the owner's own text ("מימוש נקודות" on the message templates screen) — 1 point = ₪1
+    own = (getattr(settings, "points_redeem_wa_template", None) or "").strip()
+    body = format_template(own, {
+        "client_name": client.full_name or "", "points_used": str(amount_redeemed_cents // 100),
+        "discount_amount": f"{amount_redeemed_cents / 100:.0f}", "loyalty_points": str(int(client.loyalty_points or 0)),
+        "studio_name": studio_name,
+    }) if own else f"🎉 חסכת ₪{amount_redeemed_cents / 100:.0f} היום בזכות המועדון! תודה שאת/ה חלק מהמשפחה של {studio_name} 💫"
+
     db.add(MessageJob(
         studio_id=studio_id,
         client_id=client.id,
         channel="whatsapp",
         to_phone=client.phone,
-        body=f"🎉 חסכת ₪{amount_redeemed_cents / 100:.0f} היום בזכות המועדון! תודה שאת/ה חלק מהמשפחה של {studio_name} 💫",
+        body=body,
         media_url=image_url,
         scheduled_at=datetime.now(timezone.utc),
         status="pending",
