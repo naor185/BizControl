@@ -350,7 +350,9 @@ def _sessions_out(db: Session, studio_id, sessions: list[ClassSession], with_cli
             "cancel_reason": s.cancel_reason,
         }
         if with_clients:
+            from app.services.penalties import class_price
             row["bookings"] = _bookings_out(db, s.id)
+            row["price_cents"] = class_price(db, s)            # the class's service price — for a single entry
         out.append(row)
     return out
 
@@ -369,13 +371,16 @@ def _bookings_out(db: Session, session_id) -> list[dict]:
     members = {m.id: m for m in db.scalars(select(Membership).where(Membership.id.in_(mids))).all()} if mids else {}
     bals = ms.balance(db, [i for i, m in members.items() if m.rules.get("kind") == "punch"])
     fees = penalties.fee_of(db, [b.id for b, _ in rows])
+    from app.services.class_payments import paid_for_bookings
+    paid = paid_for_bookings(db, [b.id for b, _ in rows if b.drop_in])
     out = []
     for b, c in rows:
         fee = fees.get(b.id)
         out.append({"id": str(b.id), "client_id": str(c.id), "full_name": c.full_name, "phone": c.phone,
                     "status": b.status, "over_capacity": b.over_capacity, "drop_in": b.drop_in, "justified": b.justified,
                     "membership": ms.label(members.get(b.membership_id), bals.get(b.membership_id)),
-                    "fee": {"id": str(fee.id), "amount_cents": fee.amount_cents, "status": fee.status} if fee else None})
+                    "fee": {"id": str(fee.id), "amount_cents": fee.amount_cents, "status": fee.status} if fee else None,
+                    "paid_cents": paid.get(b.id, 0)})
     return out
 
 

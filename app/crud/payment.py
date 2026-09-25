@@ -601,6 +601,13 @@ def delete_payment(db: Session, studio_id: UUID, payment_id: UUID, with_appointm
     # 4. Cascade-delete linked invoices/credit-notes (invoice_items cascade via FK)
     _cascade_delete_linked_invoices(db, payment_id)
 
+    # 4b. A payment for a class fee: the fee is open again
+    if obj.class_booking_id:
+        from app.models.memberships import ClassFee
+        fee = db.scalar(select(ClassFee).where(ClassFee.booking_id == obj.class_booking_id, ClassFee.status == "paid"))
+        if fee:
+            fee.status, fee.paid_at = "pending", None
+
     # 5. Delete the payment itself
     appt_id = obj.appointment_id
     db.delete(obj)

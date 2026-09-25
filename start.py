@@ -2347,6 +2347,21 @@ def ensure_schema():
         """)
         cur.execute("CREATE INDEX IF NOT EXISTS ix_class_fees_studio_id ON class_fees (studio_id)")
         cur.execute("CREATE INDEX IF NOT EXISTS ix_class_fees_client_id ON class_fees (client_id)")
+        # A payment for a membership or a class booking, not only an appointment (the plan's decision 9:
+        # extend payments, no parallel table). Every report was checked (commit message, stage 4 part 3).
+        cur.execute("ALTER TABLE payments ALTER COLUMN appointment_id DROP NOT NULL")
+        cur.execute("ALTER TABLE payments ADD COLUMN IF NOT EXISTS membership_id UUID REFERENCES memberships(id)")
+        cur.execute("ALTER TABLE payments ADD COLUMN IF NOT EXISTS class_booking_id UUID REFERENCES class_bookings(id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_payments_membership_id ON payments (membership_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_payments_class_booking_id ON payments (class_booking_id)")
+        cur.execute("""
+            DO $$ BEGIN
+                IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ck_payments_subject') THEN
+                    ALTER TABLE payments ADD CONSTRAINT ck_payments_subject
+                        CHECK (appointment_id IS NOT NULL OR membership_id IS NOT NULL OR class_booking_id IS NOT NULL);
+                END IF;
+            END $$;
+        """)
 
         conn.commit()
         cur.close()

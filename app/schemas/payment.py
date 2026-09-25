@@ -24,7 +24,8 @@ class PaymentCreate(BaseModel):
 
     type: str = Field(pattern="^(deposit|payment|refund)$")
     status: str = Field(default="paid", pattern="^(pending|paid|void)$")
-    method: str = Field(default="cash", pattern="^(cash|bit|credit|paypal|bank|bank_transfer|paybox|installment|other)$")
+    # credit_card: what the payment screen sends for a card (the database always allowed it)
+    method: str = Field(default="cash", pattern="^(cash|bit|credit|credit_card|paypal|bank|bank_transfer|paybox|installment|other)$")
 
     points_redeemed: int = Field(default=0, ge=0)
 
@@ -41,7 +42,9 @@ class PaymentCreate(BaseModel):
 class PaymentOut(BaseModel):
     id: UUID
     studio_id: UUID
-    appointment_id: UUID
+    appointment_id: UUID | None           # a membership / class payment has none
+    membership_id: UUID | None = None
+    class_booking_id: UUID | None = None
     client_id: UUID
     amount_cents: int
     currency: str

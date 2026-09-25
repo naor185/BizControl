@@ -5,12 +5,13 @@ import { Plus, Loader2, RefreshCw, PencilLine, X } from "lucide-react";
 import BottomSheet from "@/components/ui/bottom-sheet";
 import ClientSearch, { type FoundClient } from "@/components/classes/ClientSearch";
 import MembershipTypes, { describeType } from "@/components/classes/MembershipTypes";
+import PayForm from "@/components/classes/PayForm";
 import { apiFetch } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import type { Terms } from "@/lib/useTerms";
 import {
     type Fee, type MembershipDetail, type MembershipRow, type MembershipType,
-    STATUS_LABEL, fullDate, ilDate, ilTime, shekels,
+    STATUS_LABEL, fullDate, ilDate, ilTime, methodLabel, shekels,
 } from "@/lib/classes";
 
 // Memberships: who has what (balance, dates, status), selling one, a membership's entry log, a manual
@@ -41,7 +42,7 @@ export default function ClassMemberships({ terms, canSell, canChange, canConfigu
             </div>
             {section === "memberships" && <MembershipList terms={terms} canSell={canSell} canChange={canChange} />}
             {section === "types" && <MembershipTypes canConfigure={canConfigure} />}
-            {section === "fees" && <Fees canWaive={canChange} />}
+            {section === "fees" && <Fees canWaive={canChange} canPay={canSell} />}
         </div>
     );
 }
@@ -201,6 +202,7 @@ function MembershipSheet({ id, canSell, canChange, onClose, onChanged }: {
 }) {
     const [m, setM] = useState<MembershipDetail | null>(null);
     const [fixing, setFixing] = useState(false);
+    const [paying, setPaying] = useState(false);
     const [delta, setDelta] = useState(1);
     const [reason, setReason] = useState("");
     const [busy, setBusy] = useState(false);
@@ -213,6 +215,7 @@ function MembershipSheet({ id, canSell, canChange, onClose, onChanged }: {
             await apiFetch(path, { method: "POST", body: JSON.stringify(body) });
             toast.success(msg);
             setFixing(false);
+            setPaying(false);
             setReason("");
             reload();
             onChanged();
@@ -244,6 +247,30 @@ function MembershipSheet({ id, canSell, canChange, onClose, onChanged }: {
                                 </div>
                             ))}
                         </div>
+                    )}
+                    <div className="flex items-center justify-between gap-2 rounded-xl bg-slate-50 px-3 py-2">
+                        <p className="text-slate-700 tabular-nums">
+                            שולם {shekels(m.paid_cents)}{m.price_cents > 0 ? ` מתוך ${shekels(m.price_cents)}` : ""}
+                            {m.price_cents > m.paid_cents && <span className="text-rose-700"> · נותר {shekels(m.price_cents - m.paid_cents)}</span>}
+                        </p>
+                        {canSell && !paying && (
+                            <button type="button" onClick={() => setPaying(true)}
+                                className="min-h-9 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold">רישום תשלום</button>
+                        )}
+                    </div>
+                    {paying && (
+                        <PayForm defaultAmountCents={Math.max(0, m.price_cents - m.paid_cents)} busy={busy} onCancel={() => setPaying(false)}
+                            onPay={p => act(`/api/classes/memberships/${m.id}/payments`, p, "התשלום נרשם")} />
+                    )}
+                    {m.payments.length > 0 && (
+                        <ul className="text-xs text-slate-600 space-y-0.5">
+                            {m.payments.map(p => (
+                                <li key={p.id} className="flex justify-between tabular-nums">
+                                    <span>{shekels(p.amount_cents)} · {methodLabel(p.method)}</span>
+                                    <span dir="ltr">{ilDate(p.created_at)}</span>
+                                </li>
+                            ))}
+                        </ul>
                     )}
                     <div className="flex flex-wrap gap-2">
                         {canSell && (
@@ -311,9 +338,11 @@ function MembershipSheet({ id, canSell, canChange, onClose, onChanged }: {
     );
 }
 
-function Fees({ canWaive }: { canWaive: boolean }) {
+function Fees({ canWaive, canPay }: { canWaive: boolean; canPay: boolean }) {
     const [fees, setFees] = useState<Fee[] | null>(null);
     const [waiving, setWaiving] = useState<string | null>(null);
+    const [paying, setPaying] = useState<string | null>(null);
+    const [busy, setBusy] = useState(false);
     const [reason, setReason] = useState("");
     const load = useCallback(() => { apiFetch<Fee[]>("/api/classes/fees").then(setFees).catch(() => setFees([])); }, []);
     useEffect(() => { load(); }, [load]);
@@ -327,6 +356,20 @@ function Fees({ canWaive }: { canWaive: boolean }) {
             load();
         } catch (e) {
             toast.error(e instanceof Error ? e.message : "הפעולה נכשלה");
+        }
+    };
+
+    const pay = async (id: string, p: { method: string; send_receipt: boolean }) => {
+        setBusy(true);
+        try {
+            await apiFetch(`/api/classes/fees/${id}/pay`, { method: "POST", body: JSON.stringify(p) });
+            toast.success("התשלום נרשם — החיוב שולם");
+            setPaying(null);
+            load();
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : "הפעולה נכשלה");
+        } finally {
+            setBusy(false);
         }
     };
 
@@ -350,11 +393,19 @@ function Fees({ canWaive }: { canWaive: boolean }) {
                                     <p className="text-xs text-slate-500 truncate">{f.reason}</p>
                                 </div>
                                 <span className="text-sm font-bold text-rose-700 tabular-nums">{shekels(f.amount_cents)}</span>
-                                {canWaive && waiving !== f.id && (
+                                {canPay && paying !== f.id && waiving !== f.id && (
+                                    <button type="button" onClick={() => setPaying(f.id)}
+                                        className="min-h-9 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold">תשלום</button>
+                                )}
+                                {canWaive && waiving !== f.id && paying !== f.id && (
                                     <button type="button" onClick={() => { setWaiving(f.id); setReason(""); }}
                                         className="min-h-9 px-3 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 hover:border-slate-400">מחילה</button>
                                 )}
                             </div>
+                            {paying === f.id && (
+                                <PayForm defaultAmountCents={f.amount_cents} fixedAmount busy={busy} onCancel={() => setPaying(null)}
+                                    onPay={p => pay(f.id, { method: p.method, send_receipt: p.send_receipt })} />
+                            )}
                             {waiving === f.id && (
                                 <div className="flex gap-2">
                                     <input value={reason} onChange={e => setReason(e.target.value)} maxLength={200} autoFocus placeholder="סיבת המחילה"

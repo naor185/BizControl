@@ -12,7 +12,7 @@ import Link from "next/link";
 type Payment = {
     id: string;
     client_id: string;
-    appointment_id: string;
+    appointment_id: string | null;       // a membership / class payment has none
     amount_cents: number;
     currency: string;
     type: string;

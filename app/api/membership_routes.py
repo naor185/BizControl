@@ -22,6 +22,7 @@ from app.core.permissions import require_action
 from app.models.classes import ClassBooking, ClassSession, ClassTemplate
 from app.models.client import Client
 from app.models.memberships import KINDS, ClassFee, Membership, MembershipEntry, MembershipType, PenaltyRule
+from app.services import class_payments as payments
 from app.services import classes as svc
 from app.services import memberships as ms
 from app.services import penalties, policies
@@ -120,6 +121,7 @@ def update_type(type_id: uuid.UUID, body: TypeIn, ctx: AuthContext = Depends(req
 def _memberships_out(db: Session, rows: list[Membership]) -> list[dict]:
     clients = {c.id: c for c in db.scalars(select(Client).where(Client.id.in_({m.client_id for m in rows}))).all()} if rows else {}
     bals = ms.balance(db, [m.id for m in rows if m.rules.get("kind") == "punch"])
+    paid = payments.paid_for_membership(db, [m.id for m in rows])
     today = svc.today_il()
     out = []
     for m in rows:
@@ -130,7 +132,7 @@ def _memberships_out(db: Session, rows: list[Membership]) -> list[dict]:
                     "kind_label": ms.KIND_LABELS.get(m.rules.get("kind"), ""), "weekly_limit": m.rules.get("entries") if m.rules.get("kind") == "weekly" else None,
                     "status": ms.status_now(m, bal, today), "starts_on": m.starts_on.isoformat(),
                     "ends_on": m.ends_on.isoformat() if m.ends_on else None, "price_cents": m.price_cents,
-                    "balance": bal, "notes": m.notes})
+                    "balance": bal, "notes": m.notes, "paid_cents": paid.get(m.id, 0)})
     return out
 
 
@@ -191,7 +193,33 @@ def get_membership(membership_id: uuid.UUID, ctx: AuthContext = Depends(require_
                         .where(ClassBooking.membership_id == m.id).order_by(ClassSession.starts_at.desc()).limit(50)).all()
     out["bookings"] = [{"id": str(b.id), "class_name": name or "שיעור", "starts_at": s.starts_at.isoformat(),
                         "status": b.status, "entry_state": b.entry_state} for b, s, name in booked]
+    from app.models.payment import Payment
+    out["payments"] = [{"id": str(p.id), "amount_cents": p.amount_cents, "method": p.method, "type": p.type,
+                        "created_at": p.created_at.isoformat()}
+                       for p in db.scalars(select(Payment).where(Payment.membership_id == m.id, Payment.status == "paid")
+                                           .order_by(Payment.created_at)).all()]
     return out
+
+
+class PaymentIn(BaseModel):
+    amount_cents: int = Field(gt=0, le=10_000_000)
+    method: str = "cash"
+    external_ref: Optional[str] = Field(None, max_length=120)
+    notes: Optional[str] = Field(None, max_length=300)
+    send_receipt: bool = True
+
+
+@router.post("/memberships/{membership_id}/payments")
+def pay_membership(membership_id: uuid.UUID, body: PaymentIn, ctx: AuthContext = Depends(require_action("memberships.sell")),
+                   db: Session = Depends(get_db)):
+    """Records a payment for a membership (recorded, not collected) — with its invoice/receipt."""
+    m = _get(db, Membership, ctx.studio_id, membership_id, "המנוי לא נמצא")
+    try:
+        payments.record(db, ctx.studio_id, db.get(Client, m.client_id), amount_cents=body.amount_cents, method=body.method,
+                        membership=m, notes=body.notes, external_ref=body.external_ref, send_receipt=body.send_receipt)
+    except ValueError as e:
+        _fail(db, e)
+    return get_membership(membership_id, ctx, db)
 
 
 class AdjustIn(BaseModel):
@@ -298,6 +326,39 @@ def list_fees(status: str = "pending", client_id: Optional[uuid.UUID] = None,
 
 class WaiveIn(BaseModel):
     reason: str = Field(min_length=1, max_length=200)
+
+
+class FeePayIn(BaseModel):
+    method: str = "cash"
+    external_ref: Optional[str] = Field(None, max_length=120)
+    send_receipt: bool = True
+
+
+@rules_router.post("/fees/{fee_id}/pay")
+def pay_fee(fee_id: uuid.UUID, body: FeePayIn, ctx: AuthContext = Depends(require_action("bookings.manage")),
+            db: Session = Depends(get_db)):
+    """Records the payment of a fee (its full amount) — the fee becomes paid."""
+    f = _get(db, ClassFee, ctx.studio_id, fee_id, "החיוב לא נמצא")
+    try:
+        payments.record(db, ctx.studio_id, db.get(Client, f.client_id), amount_cents=f.amount_cents, method=body.method,
+                        booking=db.get(ClassBooking, f.booking_id), for_fee=True, external_ref=body.external_ref,
+                        send_receipt=body.send_receipt)
+    except ValueError as e:
+        _fail(db, e)
+    return {"id": str(f.id), "status": f.status}
+
+
+@rules_router.post("/bookings/{booking_id}/payments")
+def pay_booking(booking_id: uuid.UUID, body: PaymentIn, ctx: AuthContext = Depends(require_action("bookings.manage")),
+                db: Session = Depends(get_db)):
+    """Records the payment for a single entry (a booking without a membership)."""
+    b = _get(db, ClassBooking, ctx.studio_id, booking_id, "ההרשמה לא נמצאה")
+    try:
+        payments.record(db, ctx.studio_id, db.get(Client, b.client_id), amount_cents=body.amount_cents, method=body.method,
+                        booking=b, notes=body.notes, external_ref=body.external_ref, send_receipt=body.send_receipt)
+    except ValueError as e:
+        _fail(db, e)
+    return {"booking_id": str(b.id), "paid_cents": payments.paid_for_bookings(db, [b.id]).get(b.id, 0)}
 
 
 @rules_router.post("/fees/{fee_id}/waive")

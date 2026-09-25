@@ -710,7 +710,7 @@ def advanced_analytics(ctx: AuthContext = Depends(require_studio_ctx), db: Sessi
     avg_value_row = db.execute(_t("""
         SELECT COALESCE(AVG(amount_cents), 0)
         FROM payments
-        WHERE studio_id = :sid AND status = 'paid' AND type != 'refund'
+        WHERE studio_id = :sid AND status = 'paid' AND type != 'refund' AND appointment_id IS NOT NULL
           AND created_at >= :since
           AND (notes IS NULL OR notes NOT ILIKE '[מערכת]%%')
     """), {"sid": sid, "since": thirty_ago}).scalar() or 0
@@ -765,7 +765,7 @@ def advanced_analytics(ctx: AuthContext = Depends(require_studio_ctx), db: Sessi
         me = tz.localize(datetime(y, m + 1, 1)) if m < 12 else tz.localize(datetime(y + 1, 1, 1))
         avg = db.execute(_t("""
             SELECT COALESCE(AVG(amount_cents), 0) FROM payments
-            WHERE studio_id = :sid AND status='paid' AND type!='refund'
+            WHERE studio_id = :sid AND status='paid' AND type!='refund' AND appointment_id IS NOT NULL
               AND created_at >= :ms AND created_at < :me
               AND (notes IS NULL OR notes NOT ILIKE '[מערכת]%%')
         """), {"sid": sid, "ms": ms, "me": me}).scalar() or 0

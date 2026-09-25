@@ -300,3 +300,76 @@ def test_the_front_desk_sells_but_does_not_correct_and_businesses_do_not_see_eac
     h2, _, _ = _business(client, db_session, slug="gym-b")
     assert client.get(f"/api/classes/memberships/{card['id']}", headers=h2).status_code == 404
     assert client.post("/api/classes/memberships", headers=h2, json={"client_id": str(c.id), "type_id": kind["id"]}).status_code == 404
+
+
+# ── payments (recorded, never collected) ─────────────────────────────────────
+
+def test_a_membership_payment_is_income_by_its_date_gets_a_receipt_and_skews_nothing(client, db_session, clock):
+    from sqlalchemy import text
+    h, s, t = _business(client, db_session)
+    c = _client(db_session, s, 1)
+    card = _sell(client, h, c, _type(client, h))
+    detail = client.post(f"/api/classes/memberships/{card['id']}/payments", headers=h,
+                         json={"amount_cents": 60000, "method": "bit", "send_receipt": False}).json()
+    assert detail["paid_cents"] == 60000 and [p["amount_cents"] for p in detail["payments"]] == [60000]
+
+    listed = client.get("/api/payments", headers=h)
+    assert listed.status_code == 200                                       # no appointment — the list still works
+    row = next(p for p in listed.json() if p["membership_id"] == card["id"])
+    assert row["appointment_id"] is None
+    assert client.get("/api/dashboard/stats", headers=h).json()["total_revenue_cents"] == 60000
+    advanced = client.get("/api/dashboard/advanced", headers=h).json()
+    assert advanced["kpis"]["avg_appt_value_ils"] == 0                      # not an appointment's value
+    invoice = db_session.execute(text("SELECT doc_type FROM invoices WHERE source_id = :pid"), {"pid": row["id"]}).fetchone()
+    assert invoice is not None                                              # its receipt, through the usual invoicing
+
+
+def test_a_fee_and_a_single_entry_are_paid_and_deleting_the_fees_payment_opens_it_again(client, db_session, clock):
+    from app.models.payment import Payment
+    h, s, t = _business(client, db_session)
+    first = _sessions(db_session, t["id"])[0]
+    c, walk_in = _client(db_session, s, 1), _client(db_session, s, 2)
+    _sell(client, h, c, _type(client, h))
+    client.put("/api/classes/penalty-rules", headers=h, json={"rules": [{"event": "no_show", "action": "fixed", "amount_cents": 5000}]})
+    booking = _booking(_book(client, h, first, c), c)["id"]
+    single = _booking(_book(client, h, first, walk_in, drop_in=True), walk_in)["id"]
+    clock["now"] = SUNDAY_18
+    client.post(f"/api/classes/bookings/{booking}/attendance", headers=h, json={"status": "no_show"})
+    fee = client.get("/api/classes/fees", headers=h).json()[0]
+    assert client.post(f"/api/classes/fees/{fee['id']}/pay", headers=h, json={"method": "cash", "send_receipt": False}).json()["status"] == "paid"
+    assert client.get("/api/classes/fees", headers=h).json() == []
+
+    paid = client.post(f"/api/classes/bookings/{single}/payments", headers=h,
+                       json={"amount_cents": 8000, "method": "cash", "send_receipt": False}).json()
+    assert paid["paid_cents"] == 8000
+    session = client.get(f"/api/classes/sessions/{first.id}", headers=h).json()
+    assert session["price_cents"] == 8000 and _booking(session, walk_in)["paid_cents"] == 8000
+    assert _booking(session, c)["paid_cents"] == 0                          # a fee's payment is not a single entry's
+
+    fee_payment = db_session.scalar(select(Payment).where(Payment.class_booking_id == booking))
+    db_session.scalar(select(User).where(User.studio_id == s.id)).role = "superadmin"
+    db_session.commit()
+    assert client.delete(f"/api/payments/{fee_payment.id}", headers=h).status_code == 204
+    assert [f["status"] for f in client.get("/api/classes/fees", headers=h).json()] == ["pending"]
+
+
+def test_a_payment_is_always_for_something(db_session):
+    from app.models.payment import Payment
+    s = Studio(name="x", slug="x-pay")
+    db_session.add(s)
+    db_session.flush()
+    c = Client(studio_id=s.id, full_name="x", phone="0500000000")
+    db_session.add(c)
+    db_session.flush()
+    db_session.add(Payment(studio_id=s.id, client_id=c.id, amount_cents=100, type="payment", status="paid", method="cash"))
+    with pytest.raises(IntegrityError):
+        db_session.flush()
+    db_session.rollback()
+
+
+def test_a_card_payment_from_the_payment_screen_is_accepted():
+    """The payment screen sends "credit_card" for a card; the server refused it (found 2026-09-25)."""
+    import uuid
+    from app.schemas.payment import PaymentCreate
+    p = PaymentCreate(appointment_id=uuid.uuid4(), client_id=uuid.uuid4(), amount_cents=100, type="payment", method="credit_card")
+    assert p.method == "credit_card"

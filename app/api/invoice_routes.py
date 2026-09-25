@@ -575,6 +575,9 @@ def backfill_missing_invoices(
 
             appt = db.get(_Appointment, payment_obj.appointment_id) if payment_obj.appointment_id else None
             client = db.get(_Client, payment_obj.client_id) if payment_obj.client_id else None
+            if appt is None and (payment_obj.membership_id or payment_obj.class_booking_id):
+                from app.services.class_payments import invoice_subject
+                appt = invoice_subject(db, payment_obj)       # the membership / class, for the description
 
             if not client or not appt:
                 failed.append({"payment_id": payment_id, "reason": "missing client or appointment"})

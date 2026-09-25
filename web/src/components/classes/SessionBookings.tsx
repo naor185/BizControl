@@ -7,6 +7,7 @@ import { toast } from "@/lib/toast";
 import type { Terms } from "@/lib/useTerms";
 import { type Booking, type BookingStatus, type ClassSession, shekels } from "@/lib/classes";
 import ClientSearch, { type FoundClient } from "@/components/classes/ClientSearch";
+import PayForm from "@/components/classes/PayForm";
 
 // The class list inside a class: who is booked (and what covers each: a membership, a single entry),
 // adding a client, attendance, cancelling a booking, and marking a late cancel or a no-show as justified.
@@ -30,6 +31,7 @@ export default function SessionBookings({ s, terms, perms, onChanged }: {
     const [busy, setBusy] = useState<string | null>(null);
     const [adding, setAdding] = useState(false);
     const [cancelling, setCancelling] = useState<Booking | null>(null);
+    const [paying, setPaying] = useState<Booking | null>(null);
     const [now] = useState(() => Date.now());   // when the class was opened — decides which buttons show
     const list = s.bookings ?? [];
     const open = s.status === "scheduled";
@@ -44,6 +46,20 @@ export default function SessionBookings({ s, terms, perms, onChanged }: {
         } catch (e) {
             toast.error(e instanceof Error ? e.message : "הפעולה נכשלה");
             return false;
+        } finally {
+            setBusy(null);
+        }
+    };
+
+    const paySingle = async (b: Booking, p: { amount_cents: number; method: string; send_receipt: boolean }) => {
+        setBusy(b.id);
+        try {
+            await apiFetch(`/api/classes/bookings/${b.id}/payments`, { method: "POST", body: JSON.stringify(p) });
+            onChanged(await apiFetch<ClassSession>(`/api/classes/sessions/${s.id}`));
+            setPaying(null);
+            toast.success("התשלום נרשם");
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : "הפעולה נכשלה");
         } finally {
             setBusy(null);
         }
@@ -82,7 +98,11 @@ export default function SessionBookings({ s, terms, perms, onChanged }: {
                                         {st && <span className={`${chip} ${st.cls}`}>{st.label}</span>}
                                         {b.justified && <span className={`${chip} text-slate-700 bg-slate-100`}>מוצדק</span>}
                                         {b.membership && <span className={`${chip} text-indigo-800 bg-indigo-50`}>{b.membership}</span>}
-                                        {b.drop_in && <span className={`${chip} text-slate-700 bg-slate-100`}>כניסה בודדת</span>}
+                                        {b.drop_in && (
+                                            <span className={`${chip} ${b.paid_cents > 0 ? "text-emerald-800 bg-emerald-50" : "text-slate-700 bg-slate-100"}`}>
+                                                כניסה בודדת{b.paid_cents > 0 ? ` · שולם ${shekels(b.paid_cents)}` : ""}
+                                            </span>
+                                        )}
                                         {b.over_capacity && <span className={`${chip} text-slate-700 bg-slate-100`}>מעל המקומות</span>}
                                         {b.fee && (
                                             <span className={`${chip} ${b.fee.status === "pending" ? "text-rose-800 bg-rose-50" : "text-slate-500 bg-slate-100 line-through"}`}>
@@ -91,6 +111,12 @@ export default function SessionBookings({ s, terms, perms, onChanged }: {
                                         )}
                                     </p>
                                 </div>
+                                {perms.book && b.drop_in && b.paid_cents === 0 && b.status !== "late_canceled" && (
+                                    <button type="button" onClick={() => setPaying(b)} disabled={busy !== null}
+                                        className="min-h-9 px-2 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shrink-0">
+                                        תשלום
+                                    </button>
+                                )}
                                 {perms.book && penalized && (
                                     <button type="button" onClick={() => run(b.id, `/api/classes/bookings/${b.id}/justify`)} disabled={busy !== null}
                                         title="לא ייספר ולא יחויב, והכניסה תחזור"
@@ -121,6 +147,14 @@ export default function SessionBookings({ s, terms, perms, onChanged }: {
                         );
                     })}
                 </ul>
+            )}
+
+            {paying && (
+                <div className="space-y-1">
+                    <p className="text-xs font-semibold text-slate-600">תשלום על כניסה בודדת: {paying.full_name}</p>
+                    <PayForm defaultAmountCents={s.price_cents ?? 0} busy={busy !== null} onCancel={() => setPaying(null)}
+                        onPay={p => paySingle(paying, p)} />
+                </div>
             )}
 
             {cancelling && (

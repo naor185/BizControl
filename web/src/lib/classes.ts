@@ -10,6 +10,7 @@ export type ClassSession = {
     capacity: number; booked: number; status: "scheduled" | "canceled" | "auto_canceled" | "done";
     detached: boolean; cancel_reason: string | null;
     bookings?: Booking[];
+    price_cents?: number;        // the class's service price — for a single entry
 };
 
 export type BookingStatus = "booked" | "attended" | "no_show" | "late_canceled";
@@ -17,6 +18,7 @@ export type Booking = {
     id: string; client_id: string; full_name: string; phone: string | null; status: BookingStatus; over_capacity: boolean;
     drop_in: boolean; justified: boolean; membership: string | null;
     fee: { id: string; amount_cents: number; status: "pending" | "paid" | "waived" } | null;
+    paid_cents: number;          // paid for a single entry (not counting a fee)
 };
 
 // ── memberships (stage 4) ──
@@ -31,11 +33,20 @@ export type MembershipRow = {
     id: string; client_id: string; client_name: string; client_phone: string | null; type_id: string | null;
     name: string; kind: MembershipKind; kind_label: string; weekly_limit: number | null; status: MembershipStatus;
     starts_on: string; ends_on: string | null; price_cents: number; balance: Balance | null; notes: string | null;
+    paid_cents: number;
 };
 export type MembershipDetail = MembershipRow & {
     entries: { at: string; stage: "opening" | "adjust" | "reserve" | "close"; outcome: "consume" | "return" | null; amount: number; reason: string | null; class_name: string | null; class_at: string | null }[];
     bookings: { id: string; class_name: string; starts_at: string; status: string; entry_state: string | null }[];
+    payments: { id: string; amount_cents: number; method: string; type: string; created_at: string }[];
 };
+
+/** Payment methods — the same values and words as the appointment payment screen. */
+export const PAYMENT_METHODS: { value: string; label: string }[] = [
+    { value: "cash", label: "מזומן" }, { value: "credit_card", label: "אשראי" }, { value: "bit", label: "ביט" },
+    { value: "paybox", label: "פייבוקס" }, { value: "bank_transfer", label: "העברה בנקאית" },
+];
+export const methodLabel = (m: string) => PAYMENT_METHODS.find(x => x.value === m)?.label ?? m;
 export type PenaltyEvent = "late_cancel" | "no_show";
 export type PenaltyAction = "nothing" | "warn" | "consume" | "fixed" | "percent" | "full";
 export type PenaltyRule = {
