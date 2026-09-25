@@ -63,7 +63,7 @@ def eligibility(db: Session, session: ClassSession, client) -> dict:
 
 
 def book(db: Session, session: ClassSession, client, *, user_id=None, origin: str = "user",
-         over_capacity_ok: bool = False, drop_in: bool = False) -> ClassBooking:
+         over_capacity_ok: bool = False, drop_in: bool = False, notify_booked: bool = True) -> ClassBooking:
     """Books a client into a session and sends the confirmation (class_booked). When the business uses
     memberships, a membership must cover the class — or the staff record a paid single entry (drop_in)."""
     s = db.execute(select(ClassSession).where(ClassSession.id == session.id).with_for_update()).scalar_one()
@@ -77,7 +77,8 @@ def book(db: Session, session: ClassSession, client, *, user_id=None, origin: st
                                                     ClassBooking.status != "canceled"))
     if existing and existing.status != "late_canceled":
         raise BookingError(f"{client.full_name}: כבר ברשימה של השיעור")
-    taken = holding(db, s.id)
+    from app.services.class_waitlist import held_for_others
+    taken = holding(db, s.id) + held_for_others(db, s.id, client.id)     # a spot offered to a waiter is theirs
     over = taken >= s.capacity
     if over and not over_capacity_ok:
         raise FullError("השיעור מלא")
@@ -99,9 +100,14 @@ def book(db: Session, session: ClassSession, client, *, user_id=None, origin: st
     db.flush()
     if membership is not None:
         ms.reserve(db, b, membership, user_id=user_id, origin=origin)
+    from app.models.wait_list import WaitListEntry
+    for e in db.scalars(select(WaitListEntry).where(WaitListEntry.session_id == s.id, WaitListEntry.client_id == client.id,
+                                                    WaitListEntry.status.in_(("waiting", "notified")))).all():
+        e.status, e.confirmed_at, e.booking_id = "confirmed", now, b.id      # was waiting — now booked
     ctx = svc._context(db, s)
-    notifications.notify(db, s.studio_id, "class_booked", origin=origin, about=f"booking:{b.id}:{now.isoformat()}",
-                         context=ctx, clients=[client])
+    if notify_booked:                      # the waitlist sends its own message (waitlist_promoted)
+        notifications.notify(db, s.studio_id, "class_booked", origin=origin, about=f"booking:{b.id}:{now.isoformat()}",
+                             context=ctx, clients=[client])
     if not over and taken + 1 >= s.capacity:
         notifications.notify(db, s.studio_id, "class_full", origin=origin, about=f"session:{s.id}:full", context=ctx)
     return b
@@ -115,7 +121,7 @@ def cancel(db: Session, booking: ClassBooking, *, user_id=None, origin: str = "u
     from app.models.client import Client
     s = db.get(ClassSession, booking.session_id)
     now = svc.now_utc()
-    late = (not waive_late and s.status == "scheduled"
+    late = (not waive_late and not booking.from_waitlist and s.status == "scheduled"     # from the waitlist: free
             and policies.is_late_cancel(db, s.studio_id, s.starts_at, now, template_id=s.template_id))
     booking.status = "late_canceled" if late else "canceled"
     booking.canceled_at, booking.canceled_by = now, user_id
@@ -129,6 +135,8 @@ def cancel(db: Session, booking: ClassBooking, *, user_id=None, origin: str = "u
                          about=f"booking:{booking.id}:cancel:{now.isoformat()}",
                          context={**svc._context(db, s), "entry_note": ms.entry_note(db, booking)},
                          clients=[db.get(Client, booking.client_id)])
+    from app.services.class_waitlist import promote
+    promote(db, s)                          # the freed spot goes to the first in line
     return booking.status
 
 

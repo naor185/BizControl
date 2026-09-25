@@ -153,7 +153,7 @@ def start_scheduler():
             cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
             db.execute(
                 _upd(_WL)
-                .where(_WL.status == "notified", _WL.notified_at < cutoff)
+                .where(_WL.status == "notified", _WL.notified_at < cutoff, _WL.session_id.is_(None))   # classes: their own window
                 .values(status="expired")
             )
             db.commit()
@@ -281,10 +281,12 @@ def start_scheduler():
     def tick_class_checks():
         """Before each class: the reminder, and the minimum-participants check (app/services/class_bookings.py)."""
         from app.services.class_bookings import sweep_min_participants, sweep_reminders
+        from app.services.class_waitlist import sweep as sweep_waitlist
         db = SessionLocal()
         try:
             sweep_min_participants(db)      # first: a class cancelled here gets no reminder
             sweep_reminders(db)
+            sweep_waitlist(db)              # offers not confirmed in time pass on; started classes clear their line
         except Exception:
             db.rollback()
             logging.getLogger("bizcontrol.classes").exception("class checks tick failed")

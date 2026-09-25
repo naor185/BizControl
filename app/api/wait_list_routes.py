@@ -48,7 +48,7 @@ def list_wait_list(
     ctx: AuthContext = Depends(require_studio_ctx),
     db: Session = Depends(get_db),
 ):
-    q = select(WaitListEntry).where(WaitListEntry.studio_id == ctx.studio_id)
+    q = select(WaitListEntry).where(WaitListEntry.studio_id == ctx.studio_id, WaitListEntry.session_id.is_(None))
     if status_filter:
         q = q.where(WaitListEntry.status == status_filter)
     else:
@@ -141,6 +141,7 @@ def notify_wait_list_on_cancellation(db: Session, studio_id, service_id=None) ->
     q = select(WaitListEntry).where(
         WaitListEntry.studio_id == studio_id,
         WaitListEntry.status == "waiting",
+        WaitListEntry.session_id.is_(None),            # not a group class's waitlist
     ).order_by(WaitListEntry.created_at.asc())
 
     if service_id:

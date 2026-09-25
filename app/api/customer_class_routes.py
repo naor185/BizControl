@@ -23,8 +23,10 @@ from app.models.studio import Studio
 from app.models.user import User
 from app.services import class_bookings as bookings
 from app.services import class_self_booking as selfb
+from app.services import class_waitlist as wl
 from app.services import classes as svc
 from app.services import memberships as ms
+from app.services import policies
 
 router = APIRouter(prefix="/marketplace/classes", tags=["MarketplaceClasses"])
 NOT_A_CLIENT = "ההרשמה לשיעורים פתוחה ללקוחות העסק עם מנוי"
@@ -77,22 +79,32 @@ def schedule(slug: str, week: Optional[date] = None, customer_id: str = Depends(
     sessions = db.scalars(select(ClassSession).where(ClassSession.studio_id == studio.id, ClassSession.status == "scheduled",
                                                      ClassSession.starts_at >= lo, ClassSession.starts_at < hi)
                           .order_by(ClassSession.starts_at)).all()
-    counts = svc.booked_counts(db, [s.id for s in sessions])
     mine = selfb.my_bookings(db, client, [s.id for s in sessions])
     tpls, rooms, staff = _names(db, studio.id, sessions)
+    waiting_on = wl.enabled(db, studio.id)
     now = svc.now_utc()
     out = []
     for s in sessions:
         t, b = tpls.get(s.template_id), mine.get(s.id)
-        spots = max(0, s.capacity - counts.get(s.id, 0))
+        spots = wl.spots_left(db, s, client.id if client else None)
         why = selfb.why_not(db, s, client, spots_left=spots, booked=b is not None)
+        line = wl.queue(db, s.id) if waiting_on else []
+        me = next(((i, e) for i, e in enumerate(line, start=1) if client and e.client_id == client.id), None)
+        # waiting is for someone who could book if there were a spot (a membership that covers it…)
+        can_wait = (waiting_on and why == "השיעור מלא" and me is None and s.starts_at - now >= wl.CUTOFF
+                    and len(line) < (policies.get_policy(db, studio.id, "waitlist_max", template_id=s.template_id) or 0)
+                    and selfb.why_not(db, s, client, spots_left=1, booked=False) is None)
         until = selfb.free_cancel_until(db, s)
         out.append({"id": str(s.id), "name": t.name if t else "שיעור", "color": (t.color if t else None) or "#6366f1",
                     "starts_at": s.starts_at.isoformat(), "ends_at": s.ends_at.isoformat(),
                     "room_name": rooms.get(s.room_id), "instructor_name": staff.get(s.instructor_id),
                     "spots_left": spots, "my_booking": {"id": str(b.id), "status": b.status} if b else None,
                     "can_book": b is None and why is None, "why_not": None if b else why,
-                    "free_cancel_until": until.isoformat(), "late_if_cancel_now": now > until})
+                    "free_cancel_until": until.isoformat(), "late_if_cancel_now": now > until,
+                    "waitlist": {"can_join": can_wait, "count": len(line),
+                                 "mine": {"id": str(me[1].id), "position": me[0], "status": me[1].status,
+                                          "offer_expires_at": me[1].offer_expires_at.isoformat() if me[1].offer_expires_at else None}
+                                 if me else None}})
     return {"studio": {"name": studio.name, "slug": studio.slug}, "is_client": client is not None,
             "week": start.isoformat(), "memberships": _memberships(db, client), "sessions": out}
 
@@ -119,7 +131,18 @@ def mine(slug: str, customer_id: str = Depends(_get_customer_id), db: Session = 
         else:
             history.append(item)
     upcoming.sort(key=lambda x: x["starts_at"])
-    return {"is_client": True, "memberships": _memberships(db, client), "upcoming": upcoming, "history": history[:30]}
+    from app.models.wait_list import WaitListEntry
+    waits = []
+    for e, s in db.execute(select(WaitListEntry, ClassSession).join(ClassSession, ClassSession.id == WaitListEntry.session_id)
+                           .where(WaitListEntry.client_id == client.id, WaitListEntry.status.in_(wl.ACTIVE))
+                           .order_by(ClassSession.starts_at)).all():
+        t = db.get(ClassTemplate, s.template_id) if s.template_id else None
+        position = next((i for i, x in enumerate(wl.queue(db, s.id), start=1) if x.id == e.id), None)
+        waits.append({"id": str(e.id), "session_id": str(s.id), "name": t.name if t else "שיעור", "starts_at": s.starts_at.isoformat(),
+                      "status": e.status, "position": position,
+                      "offer_expires_at": e.offer_expires_at.isoformat() if e.offer_expires_at else None})
+    return {"is_client": True, "memberships": _memberships(db, client), "upcoming": upcoming, "history": history[:30],
+            "waitlist": waits}
 
 
 @router.post("/{slug}/sessions/{session_id}/book")
@@ -139,6 +162,59 @@ def book(slug: str, session_id: uuid.UUID, customer_id: str = Depends(_get_custo
     try:
         bookings.book(db, s, client, origin="user")
     except ValueError as e:                 # e.g. the last spot was just taken
+        db.rollback()
+        raise HTTPException(400, str(e).split(" — ")[0])
+    db.commit()
+    return {"ok": True, "message": "נרשמת! אישור נשלח אליך."}
+
+
+@router.post("/{slug}/sessions/{session_id}/waitlist")
+def join_waitlist(slug: str, session_id: uuid.UUID, customer_id: str = Depends(_get_customer_id), db: Session = Depends(get_db)):
+    studio, client = _open(db, slug, customer_id)
+    if client is None:
+        raise HTTPException(403, NOT_A_CLIENT)
+    s = db.get(ClassSession, session_id)
+    if not s or s.studio_id != studio.id:
+        raise HTTPException(404, "השיעור לא נמצא")
+    why = selfb.why_not(db, s, client, spots_left=1, booked=False)     # as if there were a spot
+    if why:                                  # everything but the spots must let this client book
+        raise HTTPException(400, why)
+    try:
+        wl.join(db, s, client)
+    except ValueError as e:
+        db.rollback()
+        raise HTTPException(400, str(e))
+    db.commit()
+    return {"ok": True, "message": "נכנסת לרשימת ההמתנה. נודיע לך אם יתפנה מקום."}
+
+
+def _my_entry(db: Session, studio, client, entry_id):
+    from app.models.wait_list import WaitListEntry
+    e = db.get(WaitListEntry, entry_id)
+    if client is None or not e or e.studio_id != studio.id or e.client_id != client.id or e.session_id is None:
+        raise HTTPException(404, "לא נמצא ברשימת ההמתנה")
+    return e
+
+
+@router.post("/{slug}/waitlist/{entry_id}/leave")
+def leave_waitlist(slug: str, entry_id: uuid.UUID, customer_id: str = Depends(_get_customer_id), db: Session = Depends(get_db)):
+    studio, client = _open(db, slug, customer_id)
+    try:
+        wl.leave(db, _my_entry(db, studio, client, entry_id))
+    except ValueError as e:
+        db.rollback()
+        raise HTTPException(400, str(e))
+    db.commit()
+    return {"ok": True}
+
+
+@router.post("/{slug}/waitlist/{entry_id}/confirm")
+def confirm_waitlist(slug: str, entry_id: uuid.UUID, customer_id: str = Depends(_get_customer_id), db: Session = Depends(get_db)):
+    """The client takes the spot the waitlist offered them."""
+    studio, client = _open(db, slug, customer_id)
+    try:
+        wl.confirm(db, _my_entry(db, studio, client, entry_id), origin="user")
+    except ValueError as e:
         db.rollback()
         raise HTTPException(400, str(e).split(" — ")[0])
     db.commit()

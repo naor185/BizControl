@@ -3,12 +3,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { ChevronRight, ChevronLeft, Users, MapPin, UserRound, CalendarCheck, Ticket, Loader2 } from "lucide-react";
+import { ChevronRight, ChevronLeft, Users, MapPin, UserRound, CalendarCheck, Ticket, Loader2, Hourglass } from "lucide-react";
 import { apiFetch, getToken } from "@/lib/api";
 import { usePlatformTheme } from "@/lib/usePlatformTheme";
 import AuthModal from "@/components/AuthModal";
 import {
-    type Mine, type MineItem, type MyMembership, type Schedule, type ScheduleItem,
+    type Mine, type MineItem, type MyMembership, type MyWaitItem, type Schedule, type ScheduleItem,
     DAY_LONG, dayLabel, fullDate, ilDay, ilTime, shiftDay, weekdayOf, whenText,
 } from "@/lib/classes";
 
@@ -66,6 +66,19 @@ export default function ClassesPage() {
         } catch (e) {
             setNotice({ text: e instanceof Error ? e.message : "הפעולה נכשלה", ok: false });
             setConfirm(null);
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const waitAction = async (path: string, ok: string) => {
+        setBusy(true);
+        try {
+            const r = await apiFetch<{ message?: string }>(`/api/marketplace/classes/${slug}/${path}`, { method: "POST" });
+            setNotice({ text: r.message || ok, ok: true });
+            load();
+        } catch (e) {
+            setNotice({ text: e instanceof Error ? e.message : "הפעולה נכשלה", ok: false });
         } finally {
             setBusy(false);
         }
@@ -145,7 +158,10 @@ export default function ClassesPage() {
                             </h2>
                             <div style={{ display: "flex", flexDirection: "column", gap: "0.55rem" }}>
                                 {data.sessions.filter(s => ilDay(s.starts_at) === day).map(s => (
-                                    <SessionCard key={s.id} s={s} primary={primary}
+                                    <SessionCard key={s.id} s={s} primary={primary} busy={busy}
+                                        onWait={() => waitAction(`sessions/${s.id}/waitlist`, "נכנסת לרשימת ההמתנה")}
+                                        onLeave={id => waitAction(`waitlist/${id}/leave`, "יצאת מרשימת ההמתנה")}
+                                        onTake={id => waitAction(`waitlist/${id}/confirm`, "נרשמת!")}
                                         onBook={() => setConfirm({ kind: "book", item: s })}
                                         onCancel={() => s.my_booking && setConfirm({ kind: "cancel", id: s.my_booking.id, name: s.name, startsAt: s.starts_at, late: s.late_if_cancel_now })} />
                                 ))}
@@ -154,7 +170,9 @@ export default function ClassesPage() {
                     ))}
                 </>
             ) : (
-                <MyClasses mine={mine} primary={primary}
+                <MyClasses mine={mine} primary={primary} busy={busy}
+                    onLeave={id => waitAction(`waitlist/${id}/leave`, "יצאת מרשימת ההמתנה")}
+                    onTake={id => waitAction(`waitlist/${id}/confirm`, "נרשמת!")}
                     onCancel={(b: MineItem) => setConfirm({ kind: "cancel", id: b.id, name: b.name, startsAt: b.starts_at, late: !!b.late_if_cancel_now })} />
             )}
 
@@ -251,8 +269,12 @@ function Memberships({ list, isClient, primary, studio }: { list: MyMembership[]
     );
 }
 
-function SessionCard({ s, primary, onBook, onCancel }: { s: ScheduleItem; primary: string; onBook: () => void; onCancel: () => void }) {
+function SessionCard({ s, primary, busy, onBook, onCancel, onWait, onLeave, onTake }: {
+    s: ScheduleItem; primary: string; busy: boolean; onBook: () => void; onCancel: () => void;
+    onWait: () => void; onLeave: (id: string) => void; onTake: (id: string) => void;
+}) {
     const booked = s.my_booking?.status === "booked";
+    const wait = s.waitlist?.mine;
     return (
         <div style={{ ...card, padding: "0.85rem 1rem", display: "flex", alignItems: "center", gap: "0.8rem", ...(booked ? { borderColor: `${primary}88` } : {}) }}>
             <div style={{ flex: 1, minWidth: 0 }}>
@@ -266,10 +288,20 @@ function SessionCard({ s, primary, onBook, onCancel }: { s: ScheduleItem; primar
                     {s.instructor_name && <span style={{ display: "inline-flex", gap: 4, alignItems: "center" }}><UserRound size={13} />{s.instructor_name}</span>}
                     {s.room_name && <span style={{ display: "inline-flex", gap: 4, alignItems: "center" }}><MapPin size={13} />{s.room_name}</span>}
                     <span style={{ display: "inline-flex", gap: 4, alignItems: "center", color: s.spots_left === 0 ? "#fca5a5" : muted }}>
-                        <Users size={13} />{s.spots_left === 0 ? "מלא" : s.spots_left <= 3 ? `נשארו ${s.spots_left} מקומות` : `${s.spots_left} מקומות פנויים`}
+                        <Users size={13} />{s.spots_left === 0 ? "מלא" : s.spots_left === 1 ? "נשאר מקום אחד" : s.spots_left <= 3 ? `נשארו ${s.spots_left} מקומות` : `${s.spots_left} מקומות פנויים`}
                     </span>
                 </div>
-                {!s.can_book && !s.my_booking && s.why_not && <div style={{ color: "#94a3b8", fontSize: "0.76rem", marginTop: 4 }}>{s.why_not}</div>}
+                {!s.can_book && !s.my_booking && !wait && !s.waitlist?.can_join && s.why_not && <div style={{ color: "#94a3b8", fontSize: "0.76rem", marginTop: 4 }}>{s.why_not}</div>}
+                {wait?.status === "waiting" && (
+                    <div style={{ color: "#fcd34d", fontSize: "0.78rem", marginTop: 4, display: "inline-flex", gap: 4, alignItems: "center" }}>
+                        <Hourglass size={13} />ברשימת ההמתנה · מקום {wait.position}
+                    </div>
+                )}
+                {wait?.status === "notified" && wait.offer_expires_at && (
+                    <div style={{ color: "#86efac", fontSize: "0.8rem", fontWeight: 700, marginTop: 4 }}>
+                        התפנה מקום! שמור לך עד <span dir="ltr">{ilTime(wait.offer_expires_at)}</span>
+                    </div>
+                )}
             </div>
             {booked ? (
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
@@ -281,6 +313,21 @@ function SessionCard({ s, primary, onBook, onCancel }: { s: ScheduleItem; primar
                 </div>
             ) : s.my_booking ? (
                 <span style={{ fontSize: "0.75rem", color: muted }}>{STATUS_TEXT[s.my_booking.status]}</span>
+            ) : wait?.status === "notified" ? (
+                <button type="button" disabled={busy} onClick={() => onTake(wait.id)}
+                    style={{ minHeight: 44, padding: "0 1.1rem", borderRadius: 12, border: "none", background: "#16a34a", color: "#fff", fontWeight: 800, cursor: "pointer", flexShrink: 0 }}>
+                    אישור
+                </button>
+            ) : wait ? (
+                <button type="button" disabled={busy} onClick={() => onLeave(wait.id)}
+                    style={{ minHeight: 36, padding: "0 0.8rem", borderRadius: 10, border: "1px solid rgba(255,255,255,.15)", background: "transparent", color: "#cbd5e1", fontSize: "0.8rem", cursor: "pointer" }}>
+                    יציאה
+                </button>
+            ) : s.waitlist?.can_join ? (
+                <button type="button" disabled={busy} onClick={onWait}
+                    style={{ minHeight: 44, padding: "0 0.9rem", borderRadius: 12, border: `1px solid ${primary}`, background: "transparent", color: "#e2e8f0", fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>
+                    רשימת המתנה
+                </button>
             ) : s.can_book ? (
                 <button type="button" onClick={onBook}
                     style={{ minHeight: 44, padding: "0 1.1rem", borderRadius: 12, border: "none", background: primary, color: "#fff", fontWeight: 800, cursor: "pointer", flexShrink: 0 }}>
@@ -291,10 +338,41 @@ function SessionCard({ s, primary, onBook, onCancel }: { s: ScheduleItem; primar
     );
 }
 
-function MyClasses({ mine, primary, onCancel }: { mine: Mine | null; primary: string; onCancel: (b: MineItem) => void }) {
+function MyClasses({ mine, primary, busy, onCancel, onLeave, onTake }: {
+    mine: Mine | null; primary: string; busy: boolean; onCancel: (b: MineItem) => void;
+    onLeave: (id: string) => void; onTake: (id: string) => void;
+}) {
     if (!mine) return <div style={{ display: "flex", justifyContent: "center", padding: "2rem" }}><Loader2 className="spin" size={24} color={primary} /></div>;
     return (
         <>
+            {mine.waitlist && mine.waitlist.length > 0 && (
+                <>
+                    <h2 style={{ fontSize: "0.85rem", color: muted, fontWeight: 700, margin: "0 0 0.5rem" }}>ברשימת ההמתנה</h2>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", marginBottom: "1.4rem" }}>
+                        {mine.waitlist.map((w: MyWaitItem) => (
+                            <div key={w.id} style={{ ...card, padding: "0.85rem 1rem", display: "flex", alignItems: "center", gap: "0.8rem" }}>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ fontWeight: 700 }}>{w.name}</div>
+                                    <div style={{ color: w.status === "notified" ? "#86efac" : muted, fontSize: "0.8rem", marginTop: 2 }}>
+                                        {w.status === "notified" && w.offer_expires_at ? `התפנה מקום! שמור לך עד ${ilTime(w.offer_expires_at)}` : `${whenText(w.starts_at)} · מקום ${w.position} בתור`}
+                                    </div>
+                                </div>
+                                {w.status === "notified" ? (
+                                    <button type="button" disabled={busy} onClick={() => onTake(w.id)}
+                                        style={{ minHeight: 40, padding: "0 0.9rem", borderRadius: 10, border: "none", background: "#16a34a", color: "#fff", fontWeight: 800, cursor: "pointer" }}>
+                                        אישור
+                                    </button>
+                                ) : (
+                                    <button type="button" disabled={busy} onClick={() => onLeave(w.id)}
+                                        style={{ minHeight: 40, padding: "0 0.9rem", borderRadius: 10, border: "1px solid rgba(255,255,255,.15)", background: "transparent", color: "#cbd5e1", cursor: "pointer" }}>
+                                        יציאה
+                                    </button>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </>
+            )}
             <h2 style={{ fontSize: "0.85rem", color: muted, fontWeight: 700, margin: "0 0 0.5rem" }}>הקרובים</h2>
             {mine.upcoming.length === 0 ? <p style={{ color: muted, fontSize: "0.88rem", margin: "0 0 1.2rem" }}>אין שיעורים קרובים.</p> : (
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", marginBottom: "1.4rem" }}>

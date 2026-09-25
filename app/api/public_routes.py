@@ -831,6 +831,7 @@ def join_waitlist(
             WaitListEntry.studio_id == studio.id,
             WaitListEntry.client_phone == phone,
             WaitListEntry.status.in_(["waiting", "notified"]),
+            WaitListEntry.session_id.is_(None),
         )
     )
     if existing:

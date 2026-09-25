@@ -11,6 +11,9 @@ export type ClassSession = {
     detached: boolean; cancel_reason: string | null;
     bookings?: Booking[];
     price_cents?: number;        // the class's service price — for a single entry
+    waitlist_enabled?: boolean;
+    waitlist?: { id: string; client_id: string; full_name: string; position: number; status: "waiting" | "notified"; offer_expires_at: string | null }[];
+    spots_left?: number;         // spots minus those held for someone offered from the waitlist
 };
 
 export type BookingStatus = "booked" | "attended" | "no_show" | "late_canceled";

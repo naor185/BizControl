@@ -753,6 +753,7 @@ def my_waitlist(db: Session = Depends(get_db), customer_id: str = Depends(_get_c
         JOIN studios s ON s.id = wl.studio_id
         WHERE wl.client_phone = :phone
           AND wl.status IN ('waiting', 'notified')
+          AND wl.session_id IS NULL
         ORDER BY wl.created_at DESC
         LIMIT 20
     """), {"phone": phone}).fetchall()

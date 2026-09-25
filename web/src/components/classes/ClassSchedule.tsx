@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import BottomSheet from "@/components/ui/bottom-sheet";
 import SessionBookings from "@/components/classes/SessionBookings";
+import SessionWaitlist from "@/components/classes/SessionWaitlist";
 import { apiFetch } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import type { Terms } from "@/lib/useTerms";
@@ -193,6 +194,7 @@ export function SessionSheet({ id, rooms, staff, terms, role, userId, onClose, o
                     {mode === "view" && (
                         <>
                             <SessionBookings s={s} terms={terms} perms={perms} onChanged={next => { setS(next); onChanged(); }} />
+                            <SessionWaitlist s={s} canManage={perms.book} onChanged={next => { setS(next); onChanged(); }} />
                             {perms.change && open && (
                                 <div className="flex flex-wrap gap-2 pt-1">
                                     <button type="button" onClick={() => setMode("change")}

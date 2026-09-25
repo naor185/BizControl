@@ -350,8 +350,15 @@ def _sessions_out(db: Session, studio_id, sessions: list[ClassSession], with_cli
             "cancel_reason": s.cancel_reason,
         }
         if with_clients:
+            from app.services import class_waitlist as wl
             from app.services.penalties import class_price
             row["bookings"] = _bookings_out(db, s.id)
+            row["waitlist_enabled"] = wl.enabled(db, s.studio_id)
+            row["waitlist"] = [{"id": str(e.id), "client_id": str(e.client_id), "full_name": e.client_name,
+                                "position": i, "status": e.status,
+                                "offer_expires_at": e.offer_expires_at.isoformat() if e.offer_expires_at else None}
+                               for i, e in enumerate(wl.queue(db, s.id), start=1)]
+            row["spots_left"] = wl.spots_left(db, s)
             row["price_cents"] = class_price(db, s)            # the class's service price — for a single entry
         out.append(row)
     return out
@@ -499,9 +506,10 @@ def booking_eligibility(session_id: uuid.UUID, client_id: uuid.UUID, ctx: AuthCo
 
 
 def _booking_error(db: Session, e: Exception):
+    from app.services.class_waitlist import WaitlistError
     from app.services.memberships import MembershipError
     db.rollback()
-    if not isinstance(e, (bookings.BookingError, MembershipError)):
+    if not isinstance(e, (bookings.BookingError, MembershipError, WaitlistError)):
         raise e
     raise HTTPException(409 if isinstance(e, bookings.FullError) else 400, str(e))
 
@@ -562,6 +570,78 @@ def mark_attendance(booking_id: uuid.UUID, body: AttendanceIn, ctx: AuthContext 
         _booking_error(db, e)
     db.commit()
     return _sessions_out(db, ctx.studio_id, [s], with_clients=True)[0]
+
+
+class WaitIn(BaseModel):
+    client_id: uuid.UUID
+
+
+@router.post("/sessions/{session_id}/waitlist")
+def join_waitlist(session_id: uuid.UUID, body: WaitIn, ctx: AuthContext = Depends(require_action("bookings.manage")),
+                  db: Session = Depends(get_db)):
+    from app.models.client import Client
+    from app.services import class_waitlist as wl
+    s = _get(db, ClassSession, ctx.studio_id, session_id, "השיעור לא נמצא")
+    client = _get(db, Client, ctx.studio_id, body.client_id, "הלקוח לא נמצא")
+    try:
+        wl.join(db, s, client)
+    except ValueError as e:
+        _booking_error(db, e)
+    db.commit()
+    return _sessions_out(db, ctx.studio_id, [s], with_clients=True)[0]
+
+
+def _entry(db: Session, ctx: AuthContext, entry_id):
+    from app.models.wait_list import WaitListEntry
+    e = db.get(WaitListEntry, entry_id)
+    if not e or e.studio_id != ctx.studio_id or e.session_id is None:
+        raise HTTPException(404, "לא נמצא ברשימת ההמתנה")
+    return e
+
+
+@router.post("/waitlist/{entry_id}/leave")
+def leave_waitlist(entry_id: uuid.UUID, ctx: AuthContext = Depends(require_action("bookings.manage")),
+                   db: Session = Depends(get_db)):
+    from app.services import class_waitlist as wl
+    e = _entry(db, ctx, entry_id)
+    try:
+        wl.leave(db, e)
+    except ValueError as err:
+        _booking_error(db, err)
+    db.commit()
+    return _sessions_out(db, ctx.studio_id, [db.get(ClassSession, e.session_id)], with_clients=True)[0]
+
+
+class MoveIn(BaseModel):
+    position: int = Field(ge=1, le=500)
+
+
+@router.post("/waitlist/{entry_id}/move")
+def move_in_waitlist(entry_id: uuid.UUID, body: MoveIn, ctx: AuthContext = Depends(require_action("bookings.manage")),
+                     db: Session = Depends(get_db)):
+    from app.services import class_waitlist as wl
+    e = _entry(db, ctx, entry_id)
+    wl.move(db, e, body.position)
+    db.commit()
+    return _sessions_out(db, ctx.studio_id, [db.get(ClassSession, e.session_id)], with_clients=True)[0]
+
+
+class ConfirmIn(BaseModel):
+    drop_in: bool = False
+
+
+@router.post("/waitlist/{entry_id}/confirm")
+def confirm_waitlist(entry_id: uuid.UUID, body: ConfirmIn, ctx: AuthContext = Depends(require_action("bookings.manage")),
+                     db: Session = Depends(get_db)):
+    """The staff take an offered spot for the client (a single entry if nothing covers the class)."""
+    from app.services import class_waitlist as wl
+    e = _entry(db, ctx, entry_id)
+    try:
+        wl.confirm(db, e, drop_in=body.drop_in, user_id=ctx.user_id)
+    except ValueError as err:
+        _booking_error(db, err)
+    db.commit()
+    return _sessions_out(db, ctx.studio_id, [db.get(ClassSession, e.session_id)], with_clients=True)[0]
 
 
 @router.post("/bookings/{booking_id}/justify")

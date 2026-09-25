@@ -554,6 +554,7 @@ def get_wait_list(studio_id: UUID, db: Session, **_) -> dict:
         select(WaitListEntry).where(
             WaitListEntry.studio_id == studio_id,
             WaitListEntry.status.in_(["waiting", "notified"]),
+            WaitListEntry.session_id.is_(None),
         ).order_by(WaitListEntry.created_at).limit(10)
     ).all()
 

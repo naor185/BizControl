@@ -166,7 +166,8 @@ export default function SessionBookings({ s, terms, perms, onChanged }: {
 
             {canAdd && !cancelling && (adding ? (
                 <AddClient s={s} terms={terms} canOverride={perms.override} busy={busy !== null} onClose={() => setAdding(false)}
-                    onBook={(clientId, extra) => run(`add-${clientId}`, `/api/classes/sessions/${s.id}/bookings`, { client_id: clientId, ...extra })} />
+                    onBook={(clientId, extra) => run(`add-${clientId}`, `/api/classes/sessions/${s.id}/bookings`, { client_id: clientId, ...extra })}
+                    onWait={clientId => run(`wait-${clientId}`, `/api/classes/sessions/${s.id}/waitlist`, { client_id: clientId })} />
             ) : (
                 <button type="button" onClick={() => setAdding(true)}
                     className="inline-flex items-center gap-1.5 min-h-11 px-3 rounded-xl border border-dashed border-slate-300 text-sm font-semibold text-slate-700 hover:border-indigo-400 hover:text-indigo-700">
@@ -199,14 +200,17 @@ function CancelBooking({ b, busy, onBack, onConfirm }: { b: Booking; busy: boole
 
 /** Pick a client; the server says what covers them. Not covered → the reason, and a single paid entry.
  *  Full → owner/manager may book beyond the spots. */
-function AddClient({ s, terms, canOverride, busy, onClose, onBook }: {
+function AddClient({ s, terms, canOverride, busy, onClose, onBook, onWait }: {
     s: ClassSession; terms: Terms; canOverride: boolean; busy: boolean; onClose: () => void;
     onBook: (clientId: string, extra: { over_capacity?: boolean; drop_in?: boolean }) => Promise<boolean>;
+    onWait: (clientId: string) => Promise<boolean>;
 }) {
     const [picked, setPicked] = useState<FoundClient | null>(null);
     const [check, setCheck] = useState<Eligibility | null>(null);
     const inList = new Set((s.bookings ?? []).filter(b => b.status !== "late_canceled").map(b => b.client_id));
-    const full = s.booked >= s.capacity;
+    const waiting = new Set((s.waitlist ?? []).map(w => w.client_id));
+    const full = (s.spots_left ?? s.capacity - s.booked) <= 0;
+    const canWait = !!s.waitlist_enabled && full;
 
     const pick = async (c: FoundClient) => {
         setPicked(c);
@@ -222,6 +226,9 @@ function AddClient({ s, terms, canOverride, busy, onClose, onBook }: {
     const book = async (extra: { over_capacity?: boolean; drop_in?: boolean }) => {
         if (picked && await onBook(picked.id, extra)) { setPicked(null); onClose(); }
     };
+    const waitFor = async () => {
+        if (picked && await onWait(picked.id)) { setPicked(null); onClose(); }
+    };
 
     const notCovered = check && check.required && !check.membership;
     return (
@@ -231,7 +238,8 @@ function AddClient({ s, terms, canOverride, busy, onClose, onBook }: {
                     {picked ? (
                         <p className="text-sm font-semibold text-slate-900 min-h-11 flex items-center">{picked.full_name}</p>
                     ) : (
-                        <ClientSearch terms={terms} busy={busy} onPick={pick} note={id => (inList.has(id) ? "ברשימה" : null)} />
+                        <ClientSearch terms={terms} busy={busy} onPick={pick}
+                            note={id => (inList.has(id) ? "ברשימה" : waiting.has(id) ? "בהמתנה" : null)} />
                     )}
                 </div>
                 <button type="button" onClick={onClose} aria-label="סגירה" className="w-11 h-11 flex items-center justify-center text-slate-500">
@@ -243,7 +251,7 @@ function AddClient({ s, terms, canOverride, busy, onClose, onBook }: {
                 <div className="space-y-2 text-sm text-slate-800">
                     {check.membership && <p>מכוסה ע״י: <span className="font-semibold">{check.membership}</span></p>}
                     {notCovered && <p className="text-amber-900 bg-amber-50 rounded-lg px-2 py-1.5">{check.reason}</p>}
-                    {full && <p>השיעור מלא ({s.booked}/{s.capacity}).</p>}
+                    {full && <p>השיעור מלא ({s.booked}/{s.capacity}){canWait ? " — אפשר להוסיף לרשימת ההמתנה." : "."}</p>}
                     <div className="flex flex-wrap gap-2">
                         {full && canOverride && (
                             <button type="button" disabled={busy} onClick={() => book({ over_capacity: true, drop_in: !!notCovered })}
@@ -257,7 +265,13 @@ function AddClient({ s, terms, canOverride, busy, onClose, onBook }: {
                                 לרשום ככניסה בודדת
                             </button>
                         )}
-                        {full && !canOverride && <p className="text-slate-500">רישום מעל המקומות — רק לבעלים או למנהל.</p>}
+                        {full && canWait && (
+                            <button type="button" disabled={busy} onClick={() => waitFor()}
+                                className="min-h-11 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold disabled:opacity-40">
+                                הוספה לרשימת ההמתנה
+                            </button>
+                        )}
+                        {full && !canOverride && !canWait && <p className="text-slate-500">רישום מעל המקומות — רק לבעלים או למנהל.</p>}
                         <button type="button" onClick={() => { setPicked(null); setCheck(null); }} className="min-h-11 px-3 text-sm text-slate-600">
                             {terms.client} אחר/ת
                         </button>

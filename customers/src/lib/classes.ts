@@ -13,7 +13,11 @@ export type ScheduleItem = {
     room_name: string | null; instructor_name: string | null; spots_left: number;
     my_booking: { id: string; status: "booked" | "attended" | "no_show" | "late_canceled" } | null;
     can_book: boolean; why_not: string | null; free_cancel_until: string; late_if_cancel_now: boolean;
+    waitlist: { can_join: boolean; count: number; mine: MyWait | null };
 };
+
+export type MyWait = { id: string; position: number; status: "waiting" | "notified"; offer_expires_at: string | null };
+export type MyWaitItem = MyWait & { session_id: string; name: string; starts_at: string };
 
 export type Schedule = {
     studio: { name: string; slug: string }; is_client: boolean; week: string;
@@ -24,7 +28,7 @@ export type MineItem = {
     id: string; session_id: string; name: string; starts_at: string; ends_at: string; room_name: string | null;
     status: "booked" | "attended" | "no_show" | "late_canceled"; free_cancel_until?: string; late_if_cancel_now?: boolean;
 };
-export type Mine = { is_client: boolean; memberships: MyMembership[]; upcoming: MineItem[]; history: MineItem[] };
+export type Mine = { is_client: boolean; memberships: MyMembership[]; upcoming: MineItem[]; history: MineItem[]; waitlist: MyWaitItem[] };
 
 export const DAY_LONG = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
 const TZ = "Asia/Jerusalem";

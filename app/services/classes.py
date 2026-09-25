@@ -246,6 +246,8 @@ def cancel_session(db: Session, s: ClassSession, *, user_id=None, reason: str | 
         ms.settle(db, b, "return", reason="השיעור בוטל", user_id=user_id)
         entry = ms.entry_note(db, b)
         notes[b.client_id] = {"entry_note": entry, "change_note": f"{text_} {entry}".strip()}
+    from app.services.class_waitlist import clear
+    clear(db, s.id, status="canceled")      # a cancelled class has no waitlist
     db.flush()
     return notifications.notify(db, s.studio_id, "class_auto_cancel" if automatic else "class_changed", origin=origin,
                                 about=f"session:{s.id}:canceled", context={**ctx, "change_note": text_, "entry_note": ""},
@@ -281,11 +283,15 @@ def change_session(db: Session, s: ClassSession, *, starts_at: datetime | None =
         user = db.get(User, instructor_id) if instructor_id else None
         if user:
             lines.append(f"{studio_terms(db, s.studio_id)['staff']}: {user.display_name or user.email}")
+    more_spots = capacity is not None and capacity > s.capacity
     if capacity is not None and capacity != s.capacity:
         s.capacity = capacity
     if detach:
         s.detached = True
     db.flush()
+    if more_spots:
+        from app.services.class_waitlist import promote
+        promote(db, s)                      # more spots: the waitlist moves up
     if not lines:
         return 0
     note = "\n".join(lines)

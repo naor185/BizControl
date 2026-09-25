@@ -128,3 +128,5 @@ class ClassBooking(Base):
     justified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     policy_action: Mapped[str | None] = mapped_column(String(10), nullable=True)
     swapped_from_booking_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)   # class swap, later
+    # came from the waitlist (stage 6) — then it can be cancelled free of charge
+    from_waitlist: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")

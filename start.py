@@ -2380,6 +2380,16 @@ def ensure_schema():
         """)
         cur.execute("CREATE INDEX IF NOT EXISTS ix_membership_events_studio_id ON membership_events (studio_id)")
         cur.execute("CREATE INDEX IF NOT EXISTS ix_membership_events_membership_id ON membership_events (membership_id)")
+
+        # ── Classes & memberships — stage 6: the class waitlist (the existing wait_list, extended) ────
+        cur.execute("ALTER TABLE wait_list ADD COLUMN IF NOT EXISTS session_id UUID REFERENCES class_sessions(id) ON DELETE CASCADE")
+        cur.execute("ALTER TABLE wait_list ADD COLUMN IF NOT EXISTS position INTEGER")
+        cur.execute("ALTER TABLE wait_list ADD COLUMN IF NOT EXISTS offer_expires_at TIMESTAMPTZ")
+        cur.execute("ALTER TABLE wait_list ADD COLUMN IF NOT EXISTS booking_id UUID REFERENCES class_bookings(id) ON DELETE SET NULL")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_wait_list_session_id ON wait_list (session_id)")
+        cur.execute("""CREATE UNIQUE INDEX IF NOT EXISTS uq_wait_list_class_client ON wait_list (session_id, client_id)
+                       WHERE session_id IS NOT NULL AND status IN ('waiting', 'notified')""")
+        cur.execute("ALTER TABLE class_bookings ADD COLUMN IF NOT EXISTS from_waitlist BOOLEAN NOT NULL DEFAULT false")
         cur.execute("""
             DO $$ BEGIN
                 IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ck_payments_subject') THEN
