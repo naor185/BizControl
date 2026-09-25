@@ -264,9 +264,11 @@ def start_scheduler():
     def tick_class_sessions():
         """Keeps every class schedule filled weeks_ahead weeks ahead (app/services/classes.py)."""
         from app.services.classes import generate_all
+        from app.services.memberships import refresh_statuses
         db = SessionLocal()
         try:
             generate_all(db)
+            refresh_statuses(db)            # memberships: pending → active on their day, → expired at the end
         except Exception:
             db.rollback()
             logging.getLogger("bizcontrol.classes").exception("class sessions tick failed")

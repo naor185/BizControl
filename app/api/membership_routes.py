@@ -1,0 +1,311 @@
+"""
+Memberships (stage 4): membership types, selling a membership to a client, its entry log, a manual
+correction and renewal — behind the "memberships" module. The owner's late-cancel / no-show rules and
+the fees they record are behind "classes" only (a business without memberships can charge a no-show
+too). app/services/memberships.py and app/services/penalties.py do the work.
+"""
+from __future__ import annotations
+
+import uuid
+from datetime import date
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.core.database import get_db
+from app.core.deps import AuthContext, require_studio_ctx
+from app.core.features import require_module
+from app.core.permissions import require_action
+from app.models.classes import ClassBooking, ClassSession, ClassTemplate
+from app.models.client import Client
+from app.models.memberships import KINDS, ClassFee, Membership, MembershipEntry, MembershipType, PenaltyRule
+from app.services import classes as svc
+from app.services import memberships as ms
+from app.services import penalties, policies
+
+router = APIRouter(prefix="/classes", tags=["Memberships"],
+                   dependencies=[Depends(require_module("classes")), Depends(require_module("memberships"))])
+rules_router = APIRouter(prefix="/classes", tags=["Memberships"], dependencies=[Depends(require_module("classes"))])
+
+
+def _get(db: Session, model, studio_id, obj_id, missing: str):
+    obj = db.get(model, obj_id)
+    if not obj or obj.studio_id != studio_id:
+        raise HTTPException(404, missing)
+    return obj
+
+
+def _fail(db: Session, e: ValueError):
+    db.rollback()
+    raise HTTPException(400, str(e))
+
+
+# ── membership types ─────────────────────────────────────────────────────────
+
+class TypeIn(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    kind: str
+    price_cents: int = Field(0, ge=0, le=10_000_000)
+    duration_days: Optional[int] = Field(None, ge=1, le=3650)
+    entries: Optional[int] = Field(None, ge=1, le=500)
+    covers_all: bool = True
+    covered_templates: list[uuid.UUID] = []
+    is_active: bool = True
+
+
+def _check_type(db: Session, studio_id, v: dict) -> dict:
+    kind = v.get("kind")
+    if kind not in KINDS:
+        raise HTTPException(400, "סוג מנוי לא מוכר")
+    if kind in ("unlimited", "weekly") and not v.get("duration_days"):
+        raise HTTPException(400, "לכמה ימים המנוי?")
+    if kind == "weekly" and not (v.get("entries") and v["entries"] <= 14):
+        raise HTTPException(400, "כמה כניסות בשבוע? (עד 14)")
+    if kind == "punch" and not v.get("entries"):
+        raise HTTPException(400, "כמה כניסות בכרטיסייה?")
+    if kind == "unlimited":
+        v["entries"] = None
+    if not v.get("covers_all"):
+        ids = list(dict.fromkeys(v.get("covered_templates") or []))
+        if not ids:
+            raise HTTPException(400, "בחר אילו שיעורים המנוי כולל")
+        found = set(db.scalars(select(ClassTemplate.id).where(ClassTemplate.studio_id == studio_id, ClassTemplate.id.in_(ids))).all())
+        if found != set(ids):
+            raise HTTPException(400, "שיעור לא נמצא")
+        v["covered_templates"] = ids
+    else:
+        v["covered_templates"] = []
+    v["name"] = v["name"].strip()
+    return v
+
+
+def _type_out(t: MembershipType) -> dict:
+    return {"id": str(t.id), "name": t.name, "kind": t.kind, "kind_label": ms.KIND_LABELS[t.kind],
+            "price_cents": t.price_cents, "duration_days": t.duration_days, "entries": t.entries,
+            "covers_all": t.covers_all, "covered_templates": [str(x) for x in t.covered_templates or []],
+            "is_active": t.is_active}
+
+
+@router.get("/membership-types")
+def list_types(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+    rows = db.scalars(select(MembershipType).where(MembershipType.studio_id == ctx.studio_id)
+                      .order_by(MembershipType.is_active.desc(), MembershipType.name)).all()
+    return [_type_out(t) for t in rows]
+
+
+@router.post("/membership-types")
+def create_type(body: TypeIn, ctx: AuthContext = Depends(require_action("classes.configure")), db: Session = Depends(get_db)):
+    t = MembershipType(studio_id=ctx.studio_id, **_check_type(db, ctx.studio_id, body.model_dump()))
+    db.add(t)
+    db.commit()
+    return _type_out(t)
+
+
+@router.patch("/membership-types/{type_id}")
+def update_type(type_id: uuid.UUID, body: TypeIn, ctx: AuthContext = Depends(require_action("classes.configure")),
+                db: Session = Depends(get_db)):
+    """Memberships already sold keep the rules they were sold with."""
+    t = _get(db, MembershipType, ctx.studio_id, type_id, "סוג המנוי לא נמצא")
+    for k, v in _check_type(db, ctx.studio_id, body.model_dump()).items():
+        setattr(t, k, v)
+    db.commit()
+    return _type_out(t)
+
+
+# ── memberships ──────────────────────────────────────────────────────────────
+
+def _memberships_out(db: Session, rows: list[Membership]) -> list[dict]:
+    clients = {c.id: c for c in db.scalars(select(Client).where(Client.id.in_({m.client_id for m in rows}))).all()} if rows else {}
+    bals = ms.balance(db, [m.id for m in rows if m.rules.get("kind") == "punch"])
+    today = svc.today_il()
+    out = []
+    for m in rows:
+        c, bal = clients.get(m.client_id), bals.get(m.id)
+        out.append({"id": str(m.id), "client_id": str(m.client_id), "client_name": c.full_name if c else "",
+                    "client_phone": c.phone if c else None, "type_id": str(m.type_id) if m.type_id else None,
+                    "name": m.rules.get("name"), "kind": m.rules.get("kind"),
+                    "kind_label": ms.KIND_LABELS.get(m.rules.get("kind"), ""), "weekly_limit": m.rules.get("entries") if m.rules.get("kind") == "weekly" else None,
+                    "status": ms.status_now(m, bal, today), "starts_on": m.starts_on.isoformat(),
+                    "ends_on": m.ends_on.isoformat() if m.ends_on else None, "price_cents": m.price_cents,
+                    "balance": bal, "notes": m.notes})
+    return out
+
+
+ORDER = {"active": 0, "ending": 1, "pending": 2, "frozen": 3, "expired": 4, "canceled": 5}
+
+
+@router.get("/memberships")
+def list_memberships(client_id: Optional[uuid.UUID] = None, current_only: bool = True,
+                     ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+    q = select(Membership).where(Membership.studio_id == ctx.studio_id)
+    if client_id:
+        q = q.where(Membership.client_id == client_id)
+    out = _memberships_out(db, list(db.scalars(q.order_by(Membership.created_at.desc()).limit(500)).all()))
+    if current_only and not client_id:
+        out = [m for m in out if m["status"] in ("active", "ending", "pending", "frozen")]
+    return sorted(out, key=lambda m: (ORDER.get(m["status"], 9), m["ends_on"] or "9999"))
+
+
+class SellIn(BaseModel):
+    client_id: uuid.UUID
+    type_id: uuid.UUID
+    starts_on: Optional[date] = None
+    price_cents: Optional[int] = Field(None, ge=0, le=10_000_000)
+    notes: Optional[str] = Field(None, max_length=500)
+
+
+@router.post("/memberships")
+def sell_membership(body: SellIn, ctx: AuthContext = Depends(require_action("memberships.sell")), db: Session = Depends(get_db)):
+    client = _get(db, Client, ctx.studio_id, body.client_id, "הלקוח לא נמצא")
+    t = _get(db, MembershipType, ctx.studio_id, body.type_id, "סוג המנוי לא נמצא")
+    if not t.is_active:
+        raise HTTPException(400, "סוג המנוי הזה לא נמכר כרגע")
+    if body.starts_on and body.starts_on < svc.today_il():
+        raise HTTPException(400, "תאריך ההתחלה כבר עבר")
+    try:
+        m = ms.sell(db, client, t, starts_on=body.starts_on, price_cents=body.price_cents, notes=body.notes, user_id=ctx.user_id)
+    except ValueError as e:
+        _fail(db, e)
+    db.commit()
+    return _memberships_out(db, [m])[0]
+
+
+@router.get("/memberships/{membership_id}")
+def get_membership(membership_id: uuid.UUID, ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+    m = _get(db, Membership, ctx.studio_id, membership_id, "המנוי לא נמצא")
+    out = _memberships_out(db, [m])[0]
+    lines = db.execute(select(MembershipEntry, ClassSession, ClassTemplate.name)
+                       .outerjoin(ClassBooking, ClassBooking.id == MembershipEntry.booking_id)
+                       .outerjoin(ClassSession, ClassSession.id == ClassBooking.session_id)
+                       .outerjoin(ClassTemplate, ClassTemplate.id == ClassSession.template_id)
+                       .where(MembershipEntry.membership_id == m.id).order_by(MembershipEntry.created_at)).all()
+    out["entries"] = [{"at": e.created_at.isoformat(), "stage": e.stage, "outcome": e.outcome, "amount": e.amount,
+                       "reason": e.reason, "class_name": name,
+                       "class_at": s.starts_at.isoformat() if s else None} for e, s, name in lines]
+    booked = db.execute(select(ClassBooking, ClassSession, ClassTemplate.name)
+                        .join(ClassSession, ClassSession.id == ClassBooking.session_id)
+                        .outerjoin(ClassTemplate, ClassTemplate.id == ClassSession.template_id)
+                        .where(ClassBooking.membership_id == m.id).order_by(ClassSession.starts_at.desc()).limit(50)).all()
+    out["bookings"] = [{"id": str(b.id), "class_name": name or "שיעור", "starts_at": s.starts_at.isoformat(),
+                        "status": b.status, "entry_state": b.entry_state} for b, s, name in booked]
+    return out
+
+
+class AdjustIn(BaseModel):
+    delta: int = Field(ge=-500, le=500)
+    reason: str = Field(min_length=1, max_length=160)
+
+
+@router.post("/memberships/{membership_id}/adjust")
+def adjust_entries(membership_id: uuid.UUID, body: AdjustIn, ctx: AuthContext = Depends(require_action("memberships.change")),
+                   db: Session = Depends(get_db)):
+    m = _get(db, Membership, ctx.studio_id, membership_id, "המנוי לא נמצא")
+    try:
+        ms.adjust(db, m, body.delta, body.reason, user_id=ctx.user_id)
+    except ValueError as e:
+        _fail(db, e)
+    db.commit()
+    return _memberships_out(db, [m])[0]
+
+
+class RenewIn(BaseModel):
+    starts_on: Optional[date] = None
+
+
+@router.post("/memberships/{membership_id}/renew")
+def renew_membership(membership_id: uuid.UUID, body: RenewIn, ctx: AuthContext = Depends(require_action("memberships.sell")),
+                     db: Session = Depends(get_db)):
+    m = _get(db, Membership, ctx.studio_id, membership_id, "המנוי לא נמצא")
+    try:
+        new = ms.renew(db, m, starts_on=body.starts_on, user_id=ctx.user_id)
+    except ValueError as e:
+        _fail(db, e)
+    db.commit()
+    return _memberships_out(db, [new])[0]
+
+
+# ── the owner's late-cancel / no-show rules (behind "classes" only) ──────────
+
+def _scope(db: Session, studio_id, scope_type: str, scope_id) -> None:
+    if scope_type == policies.STUDIO:
+        if scope_id is not None:
+            raise HTTPException(400, "רמה לא תקינה")
+        return
+    model = {policies.TEMPLATE: ClassTemplate, policies.MEMBERSHIP: MembershipType}.get(scope_type)
+    if model is None or scope_id is None:
+        raise HTTPException(400, "רמה לא תקינה")
+    _get(db, model, studio_id, scope_id, "לא נמצא")
+
+
+def _rule_out(r: PenaltyRule) -> dict:
+    return {"id": str(r.id), "event": r.event, "from_count": r.from_count, "within_days": r.within_days,
+            "action": r.action, "amount_cents": r.amount_cents, "percent": r.percent}
+
+
+@rules_router.get("/penalty-rules")
+def get_rules(scope_type: str = policies.STUDIO, scope_id: Optional[uuid.UUID] = None,
+              ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+    _scope(db, ctx.studio_id, scope_type, scope_id)
+    q = select(PenaltyRule).where(PenaltyRule.studio_id == ctx.studio_id, PenaltyRule.scope_type == scope_type)
+    q = q.where(PenaltyRule.scope_id.is_(None)) if scope_id is None else q.where(PenaltyRule.scope_id == scope_id)
+    return [_rule_out(r) for r in db.scalars(q.order_by(PenaltyRule.event, PenaltyRule.from_count)).all()]
+
+
+class RulesIn(BaseModel):
+    scope_type: str = policies.STUDIO
+    scope_id: Optional[uuid.UUID] = None
+    rules: list[dict]
+
+
+@rules_router.put("/penalty-rules")
+def set_rules(body: RulesIn, ctx: AuthContext = Depends(require_action("classes.configure")), db: Session = Depends(get_db)):
+    """Replaces the rules of one level. An empty list = this level follows the level above."""
+    _scope(db, ctx.studio_id, body.scope_type, body.scope_id)
+    try:
+        clean = [penalties.validate_rule(r) for r in body.rules[:20]]
+    except ValueError as e:
+        _fail(db, e)
+    q = select(PenaltyRule).where(PenaltyRule.studio_id == ctx.studio_id, PenaltyRule.scope_type == body.scope_type)
+    q = q.where(PenaltyRule.scope_id.is_(None)) if body.scope_id is None else q.where(PenaltyRule.scope_id == body.scope_id)
+    for old in db.scalars(q).all():
+        db.delete(old)
+    db.flush()
+    for r in clean:
+        db.add(PenaltyRule(studio_id=ctx.studio_id, scope_type=body.scope_type, scope_id=body.scope_id, **r))
+    db.commit()
+    return get_rules(body.scope_type, body.scope_id, ctx, db)
+
+
+# ── fees (debts the rules recorded) ──────────────────────────────────────────
+
+@rules_router.get("/fees")
+def list_fees(status: str = "pending", client_id: Optional[uuid.UUID] = None,
+              ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+    q = (select(ClassFee, Client.full_name).join(Client, Client.id == ClassFee.client_id)
+         .where(ClassFee.studio_id == ctx.studio_id))
+    if status != "all":
+        q = q.where(ClassFee.status == status)
+    if client_id:
+        q = q.where(ClassFee.client_id == client_id)
+    return [{"id": str(f.id), "client_id": str(f.client_id), "client_name": name, "booking_id": str(f.booking_id),
+             "event": f.event, "amount_cents": f.amount_cents, "reason": f.reason, "status": f.status,
+             "waive_reason": f.waive_reason, "created_at": f.created_at.isoformat()}
+            for f, name in db.execute(q.order_by(ClassFee.created_at.desc()).limit(300)).all()]
+
+
+class WaiveIn(BaseModel):
+    reason: str = Field(min_length=1, max_length=200)
+
+
+@rules_router.post("/fees/{fee_id}/waive")
+def waive(fee_id: uuid.UUID, body: WaiveIn, ctx: AuthContext = Depends(require_action("memberships.change")),
+          db: Session = Depends(get_db)):
+    f = _get(db, ClassFee, ctx.studio_id, fee_id, "החיוב לא נמצא")
+    if f.status != "pending":
+        raise HTTPException(400, "החיוב כבר לא פתוח")
+    penalties.waive_fee(db, f.booking_id, body.reason.strip(), user_id=ctx.user_id)
+    db.commit()
+    return {"id": str(f.id), "status": f.status}

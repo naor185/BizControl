@@ -107,8 +107,11 @@ def test_a_late_cancellation_is_kept_and_can_be_waived_or_taken_back(client, db_
     assert str(c2.id) not in {b["client_id"] for b in waived["bookings"]}
     assert len([j for j in _jobs(db_session, s, "booking_cancelled") if j.channel == "whatsapp"]) == 3
 
-    back = _book(client, h, first, c1).json()                              # the late cancellation taken back
-    assert [(b["id"], b["status"]) for b in back["bookings"]] == [(ids[c1.id], "booked")]
+    back = _book(client, h, first, c1).json()                              # the late cancellation taken back:
+    assert [(b["client_id"], b["status"]) for b in back["bookings"]] == [(str(c1.id), "booked")]
+    old = db_session.get(ClassBooking, ids[c1.id])                          # it no longer counts
+    db_session.refresh(old)
+    assert (old.status, old.cancel_reason) == ("canceled", "rebooked")
 
 
 # ── attendance ───────────────────────────────────────────────────────────────

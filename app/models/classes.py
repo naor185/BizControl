@@ -119,3 +119,12 @@ class ClassBooking(Base):
     over_capacity: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     marked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)   # attendance
     marked_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    # memberships (stage 4): the membership that covers it and what happened to its entry (reserved →
+    # consumed / returned; empty for unlimited), a paid single entry instead of a membership (drop_in),
+    # a late cancel or no-show the staff marked as justified, and the owner's rule that applied
+    membership_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("memberships.id", ondelete="SET NULL"), nullable=True, index=True)
+    entry_state: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    drop_in: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    justified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    policy_action: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    swapped_from_booking_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)   # class swap, later

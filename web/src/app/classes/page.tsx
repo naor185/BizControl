@@ -3,12 +3,13 @@
 import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { CalendarDays, Repeat, DoorOpen, SlidersHorizontal, Loader2, Info, type LucideIcon } from "lucide-react";
+import { CalendarDays, Repeat, DoorOpen, SlidersHorizontal, Loader2, Info, IdCard, type LucideIcon } from "lucide-react";
 import AppShell from "@/components/AppShell";
 import RequireAuth from "@/components/RequireAuth";
 import ClassSchedule from "@/components/classes/ClassSchedule";
 import ClassTemplates from "@/components/classes/ClassTemplates";
 import ClassRooms from "@/components/classes/ClassRooms";
+import ClassMemberships from "@/components/classes/ClassMemberships";
 import type { ClassPolicy } from "@/components/classes/ClassPolicies";
 import { apiFetch, getCurrentUserId, getCurrentUserRole } from "@/lib/api";
 import { useTerms } from "@/lib/useTerms";
@@ -19,7 +20,7 @@ import type { Room, StaffMember } from "@/lib/classes";
 // (the calendar links here).
 const MANAGERS = new Set(["owner", "admin", "superadmin"]);
 
-type Tab = "schedule" | "templates" | "rooms";
+type Tab = "schedule" | "templates" | "rooms" | "memberships";
 type Service = { id: string; name: string; duration_minutes: number; color: string };
 
 function Classes() {
@@ -71,9 +72,11 @@ function Classes() {
 
     const roomsOn = !modules || modules.rooms !== false;
     const canManage = MANAGERS.has(role ?? "");
+    const membershipsOn = !modules || modules.memberships !== false;
     const tabs: { id: Tab; label: string; icon: LucideIcon }[] = [
         { id: "schedule", label: "לוח שיעורים", icon: CalendarDays },
         { id: "templates", label: "שיעורים קבועים", icon: Repeat },
+        ...(membershipsOn ? [{ id: "memberships" as Tab, label: "מנויים", icon: IdCard }] : []),
         ...(roomsOn ? [{ id: "rooms" as Tab, label: "חדרים", icon: DoorOpen }] : []),
     ];
 
@@ -99,6 +102,9 @@ function Classes() {
             {tab === "templates" && (
                 <ClassTemplates rooms={rooms} staff={staff} services={services} policies={policies} terms={terms}
                     canConfigure={canManage} modules={modules} />
+            )}
+            {tab === "memberships" && membershipsOn && (
+                <ClassMemberships terms={terms} canSell={canManage || role === "staff"} canChange={canManage} canConfigure={canManage} />
             )}
             {tab === "rooms" && roomsOn && (
                 <ClassRooms rooms={rooms} canConfigure={canManage} onChange={() => loadRooms(true)} />

@@ -54,6 +54,7 @@ from app.api.migration_routes import router as migration_router
 from app.api.admin_migration_routes import router as admin_migration_router
 from app.api.class_settings_routes import router as class_settings_router
 from app.api.class_routes import router as class_router
+from app.api.membership_routes import router as membership_router, rules_router as penalty_rules_router
 
 api_router = APIRouter()
 api_router.include_router(studio_router)
@@ -112,4 +113,6 @@ api_router.include_router(call_webhook_router)
 api_router.include_router(migration_router)
 api_router.include_router(class_settings_router)
 api_router.include_router(class_router)
+api_router.include_router(membership_router)
+api_router.include_router(penalty_rules_router)
 api_router.include_router(admin_migration_router)

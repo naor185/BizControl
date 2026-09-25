@@ -234,18 +234,22 @@ def cancel_session(db: Session, s: ClassSession, *, user_id=None, reason: str | 
     (automatic). Returns how many messages were queued."""
     if s.status != "scheduled":
         raise ValueError("השיעור כבר בוטל")
+    from app.services import memberships as ms
     ctx, clients = _context(db, s), booked_clients(db, s.id)
     now = now_utc()
     s.status = "auto_canceled" if automatic else "canceled"
     s.canceled_at, s.canceled_by, s.cancel_reason = now, user_id, (reason or None)
+    text_ = f"{note} {reason}".strip() if reason else note
+    notes = {}                  # each client hears what happened to their own entry
     for b in db.scalars(select(ClassBooking).where(ClassBooking.session_id == s.id, ClassBooking.status == BOOKED)).all():
         b.status, b.canceled_at, b.cancel_reason = "canceled", now, "session_canceled"
+        ms.settle(db, b, "return", reason="השיעור בוטל", user_id=user_id)
+        entry = ms.entry_note(db, b)
+        notes[b.client_id] = {"entry_note": entry, "change_note": f"{text_} {entry}".strip()}
     db.flush()
-    text_ = f"{note} {reason}".strip() if reason else note
-    # entry_note: what happened to the client's entry — filled once memberships exist (stage 4)
     return notifications.notify(db, s.studio_id, "class_auto_cancel" if automatic else "class_changed", origin=origin,
                                 about=f"session:{s.id}:canceled", context={**ctx, "change_note": text_, "entry_note": ""},
-                                clients=clients)
+                                clients=clients, per_client=notes)
 
 
 def change_session(db: Session, s: ClassSession, *, starts_at: datetime | None = None, ends_at: datetime | None = None,

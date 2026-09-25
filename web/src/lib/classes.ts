@@ -15,7 +15,53 @@ export type ClassSession = {
 export type BookingStatus = "booked" | "attended" | "no_show" | "late_canceled";
 export type Booking = {
     id: string; client_id: string; full_name: string; phone: string | null; status: BookingStatus; over_capacity: boolean;
+    drop_in: boolean; justified: boolean; membership: string | null;
+    fee: { id: string; amount_cents: number; status: "pending" | "paid" | "waived" } | null;
 };
+
+// ── memberships (stage 4) ──
+export type MembershipKind = "unlimited" | "weekly" | "punch";
+export type MembershipType = {
+    id: string; name: string; kind: MembershipKind; kind_label: string; price_cents: number;
+    duration_days: number | null; entries: number | null; covers_all: boolean; covered_templates: string[]; is_active: boolean;
+};
+export type Balance = { total: number; reserved: number; consumed: number; available: number };
+export type MembershipStatus = "pending" | "active" | "frozen" | "ending" | "expired" | "canceled";
+export type MembershipRow = {
+    id: string; client_id: string; client_name: string; client_phone: string | null; type_id: string | null;
+    name: string; kind: MembershipKind; kind_label: string; weekly_limit: number | null; status: MembershipStatus;
+    starts_on: string; ends_on: string | null; price_cents: number; balance: Balance | null; notes: string | null;
+};
+export type MembershipDetail = MembershipRow & {
+    entries: { at: string; stage: "opening" | "adjust" | "reserve" | "close"; outcome: "consume" | "return" | null; amount: number; reason: string | null; class_name: string | null; class_at: string | null }[];
+    bookings: { id: string; class_name: string; starts_at: string; status: string; entry_state: string | null }[];
+};
+export type PenaltyEvent = "late_cancel" | "no_show";
+export type PenaltyAction = "nothing" | "warn" | "consume" | "fixed" | "percent" | "full";
+export type PenaltyRule = {
+    id?: string; event: PenaltyEvent; from_count: number; within_days: number | null; action: PenaltyAction;
+    amount_cents: number | null; percent: number | null;
+};
+export type Fee = {
+    id: string; client_id: string; client_name: string; booking_id: string; event: PenaltyEvent; amount_cents: number;
+    reason: string; status: "pending" | "paid" | "waived"; waive_reason: string | null; created_at: string;
+};
+
+export const STATUS_LABEL: Record<MembershipStatus, string> = {
+    pending: "מתחיל בקרוב", active: "פעיל", frozen: "מוקפא", ending: "נעצר בסוף התקופה", expired: "הסתיים", canceled: "בוטל",
+};
+
+/** "₪80" — whole shekels without decimals */
+export function shekels(cents: number): string {
+    const v = cents / 100;
+    return `₪${Number.isInteger(v) ? v : v.toFixed(2)}`;
+}
+
+/** "29/12/2026" for a "YYYY-MM-DD" day */
+export function fullDate(day: string): string {
+    const [y, m, d] = day.split("-").map(Number);
+    return `${d}/${m}/${y}`;
+}
 
 /** Who may do what with a class — mirrors CLASS_ACTIONS on the server (app/core/permissions.py). */
 export function classPermissions(role: string | null, userId: string | null, instructorId: string | null) {

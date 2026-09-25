@@ -78,7 +78,7 @@ export default function ClassPolicies({ policies, canEdit, onSaved }: {
     };
 
     return (
-        <div className="space-y-4 pb-24">
+        <div className="space-y-4">
             {!canEdit && (
                 <p className="text-sm text-slate-500 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
                     אפשר לראות את הכללים. שינוי — רק לבעלים או למנהל.

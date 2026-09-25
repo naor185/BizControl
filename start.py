@@ -2242,6 +2242,112 @@ def ensure_schema():
         cur.execute("ALTER TABLE class_sessions ADD COLUMN IF NOT EXISTS reminded_at TIMESTAMPTZ")
         cur.execute("ALTER TABLE class_sessions ADD COLUMN IF NOT EXISTS min_checked_at TIMESTAMPTZ")
 
+        # ── Classes & memberships — stage 4: memberships (app/models/memberships.py) ──────────────────
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS membership_types (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                name VARCHAR(120) NOT NULL,
+                kind VARCHAR(16) NOT NULL,
+                price_cents INTEGER NOT NULL DEFAULT 0,
+                duration_days INTEGER,
+                entries INTEGER,
+                covers_all BOOLEAN NOT NULL DEFAULT true,
+                covered_templates UUID[] NOT NULL DEFAULT '{}',
+                is_active BOOLEAN NOT NULL DEFAULT true,
+                source VARCHAR(16) NOT NULL DEFAULT 'user',
+                source_ref VARCHAR(120),
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_membership_types_studio_id ON membership_types (studio_id)")
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS memberships (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+                type_id UUID REFERENCES membership_types(id) ON DELETE SET NULL,
+                status VARCHAR(16) NOT NULL DEFAULT 'active',
+                starts_on DATE NOT NULL,
+                ends_on DATE,
+                rules JSONB NOT NULL DEFAULT '{}'::jsonb,
+                price_cents INTEGER NOT NULL DEFAULT 0,
+                renewal_expected_on DATE,
+                notes TEXT,
+                source VARCHAR(16) NOT NULL DEFAULT 'user',
+                source_ref VARCHAR(120),
+                created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_memberships_studio_id ON memberships (studio_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_memberships_client_id ON memberships (client_id)")
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS membership_entry_ledger (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                membership_id UUID NOT NULL REFERENCES memberships(id) ON DELETE CASCADE,
+                booking_id UUID REFERENCES class_bookings(id) ON DELETE SET NULL,
+                stage VARCHAR(10) NOT NULL,
+                outcome VARCHAR(10),
+                amount INTEGER NOT NULL DEFAULT 1,
+                reason VARCHAR(160),
+                source VARCHAR(16) NOT NULL DEFAULT 'user',
+                created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_membership_entry_ledger_studio_id ON membership_entry_ledger (studio_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_membership_entry_ledger_membership_id ON membership_entry_ledger (membership_id)")
+        cur.execute("""CREATE UNIQUE INDEX IF NOT EXISTS uq_membership_entry_booking_stage ON membership_entry_ledger (booking_id, stage)
+                       WHERE booking_id IS NOT NULL AND stage IN ('reserve', 'close')""")
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS booking_policy_rules (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                scope_type VARCHAR(20) NOT NULL,
+                scope_id UUID,
+                event VARCHAR(16) NOT NULL,
+                from_count INTEGER NOT NULL DEFAULT 1,
+                within_days INTEGER,
+                action VARCHAR(10) NOT NULL,
+                amount_cents INTEGER,
+                percent INTEGER,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_booking_policy_rules_studio_id ON booking_policy_rules (studio_id)")
+        for _col in ("membership_id UUID REFERENCES memberships(id) ON DELETE SET NULL",
+                     "entry_state VARCHAR(10)",
+                     "drop_in BOOLEAN NOT NULL DEFAULT false",
+                     "justified BOOLEAN NOT NULL DEFAULT false",
+                     "policy_action VARCHAR(10)",
+                     "swapped_from_booking_id UUID"):
+            cur.execute(f"ALTER TABLE class_bookings ADD COLUMN IF NOT EXISTS {_col}")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_class_bookings_membership_id ON class_bookings (membership_id)")
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS class_fees (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+                booking_id UUID NOT NULL UNIQUE REFERENCES class_bookings(id) ON DELETE CASCADE,
+                rule_id UUID REFERENCES booking_policy_rules(id) ON DELETE SET NULL,
+                event VARCHAR(16) NOT NULL,
+                amount_cents INTEGER NOT NULL,
+                reason VARCHAR(200) NOT NULL,
+                status VARCHAR(10) NOT NULL DEFAULT 'pending',
+                waived_by UUID REFERENCES users(id) ON DELETE SET NULL,
+                waived_at TIMESTAMPTZ,
+                waive_reason VARCHAR(200),
+                paid_at TIMESTAMPTZ,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_class_fees_studio_id ON class_fees (studio_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_class_fees_client_id ON class_fees (client_id)")
+
         conn.commit()
         cur.close()
         conn.close()

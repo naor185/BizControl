@@ -169,10 +169,11 @@ def _claim(db: Session, table: str, studio_id, key: str) -> bool:
 
 
 def notify(db: Session, studio_id, event: str, *, origin: str, about: str, context: dict,
-           clients: list | None = None, staff_user_ids: list | None = None) -> int:
+           clients: list | None = None, staff_user_ids: list | None = None, per_client: dict | None = None) -> int:
     """Queue this event's messages. Returns how many were queued (0 when the origin, the business's
     choice or an earlier identical event says not to). `about` names the thing the event is about
-    (a booking id, a session id…) — with the recipient and channel it makes the dedup key."""
+    (a booking id, a session id…) — with the recipient and channel it makes the dedup key. per_client
+    adds to one client's context (client id → values), e.g. what happened to that client's entry."""
     if event not in EVENTS:
         raise ValueError(f"unknown notification event: {event}")
     if origin not in ORIGINS:
@@ -193,7 +194,7 @@ def notify(db: Session, studio_id, event: str, *, origin: str, about: str, conte
 
     if ev.audience == "client":
         for n, client in enumerate(clients or []):
-            ctx = {**base, "client_name": client.full_name or ""}
+            ctx = {**base, "client_name": client.full_name or "", **(per_client or {}).get(client.id, {})}
             for channel in CLIENT_CHANNELS:
                 on, body = channel_setting(db, studio_id, event, channel)
                 to = client.phone if channel == "whatsapp" else client.email

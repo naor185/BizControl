@@ -6,6 +6,7 @@ import AppShell from "@/components/AppShell";
 import RequireAuth from "@/components/RequireAuth";
 import ClassPolicies, { type ClassPolicy } from "@/components/classes/ClassPolicies";
 import ClassNotifications, { type NotifEvent } from "@/components/classes/ClassNotifications";
+import PenaltyRules from "@/components/classes/PenaltyRules";
 import { apiFetch, getCurrentUserRole } from "@/lib/api";
 import { useTerms } from "@/lib/useTerms";
 
@@ -78,7 +79,19 @@ function ClassSettings() {
             </div>
 
             {tab === "rules" ? (
-                <ClassPolicies policies={policies.filter(p => moduleOn(p.module))} canEdit={canEdit} onSaved={setPolicies} />
+                <div className="space-y-4 pb-24">{/* room for the "unsaved changes" bar */}
+                    <ClassPolicies policies={policies.filter(p => moduleOn(p.module))} canEdit={canEdit} onSaved={setPolicies} />
+                    <section className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 space-y-3">
+                        <div>
+                            <h3 className="text-base font-bold text-slate-800">ביטול מאוחר ואי-הגעה</h3>
+                            <p className="text-xs text-slate-500 mt-1">
+                                מה קורה כשמבטלים בתוך חלון הביטול או לא מגיעים. אפשר לקבוע כללים אחרים לשיעור מסוים או לסוג מנוי — מתוך ההגדרות שלהם.
+                            </p>
+                        </div>
+                        <PenaltyRules canEdit={canEdit}
+                            emptyNote="אין כללים — ביטול מאוחר ואי-הגעה מנצלים את הכניסה (בכרטיסייה), בלי חיוב." />
+                    </section>
+                </div>
             ) : (
                 <ClassNotifications events={events.filter(e => moduleOn(e.module))} canEdit={canEdit} terms={terms} onChange={setEvents} />
             )}

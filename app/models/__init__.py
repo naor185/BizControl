@@ -36,6 +36,7 @@ from app.models.migration import Migration, MigrationRow, ExternalRecord, Migrat
 from app.models.notification_template import NotificationTemplate
 from app.models.policy_setting import PolicySetting
 from app.models.classes import Room, ClassTemplate, ClassSession, ClassBooking
+from app.models.memberships import MembershipType, Membership, MembershipEntry, PenaltyRule, ClassFee
 
 __all__ = [
     "Base", "Studio", "User", "StudioSettings", "RefreshToken",

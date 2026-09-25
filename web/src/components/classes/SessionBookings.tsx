@@ -1,18 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { UserPlus, CheckCheck, X, Loader2, Search } from "lucide-react";
+import { useState } from "react";
+import { UserPlus, CheckCheck, X, Loader2, ShieldCheck } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import type { Terms } from "@/lib/useTerms";
-import type { Booking, BookingStatus, ClassSession } from "@/lib/classes";
+import { type Booking, type BookingStatus, type ClassSession, shekels } from "@/lib/classes";
+import ClientSearch, { type FoundClient } from "@/components/classes/ClientSearch";
 
-// The class list inside a class: who is booked, adding a client, attendance and cancelling a booking.
-// The server decides (spots, the free-cancel window, who may) — this only asks and shows the answer.
-// Attendance opens an hour before the class, as on the server.
+// The class list inside a class: who is booked (and what covers each: a membership, a single entry),
+// adding a client, attendance, cancelling a booking, and marking a late cancel or a no-show as justified.
+// The server decides everything (spots, membership, the free-cancel window, the owner's rules, who may)
+// — this asks and shows the answer. Attendance opens an hour before the class, as on the server.
 
 type Perms = { book: boolean; override: boolean; mark: boolean };
-type Found = { id: string; full_name: string; phone: string | null };
+type Eligibility = { required: boolean; membership: string | null; reason: string | null };
 
 const STATUS: Record<BookingStatus, { label: string; cls: string } | null> = {
     booked: null,
@@ -20,6 +22,7 @@ const STATUS: Record<BookingStatus, { label: string; cls: string } | null> = {
     no_show: { label: "לא הגיע/ה", cls: "text-rose-800 bg-rose-100" },
     late_canceled: { label: "ביטול מאוחר", cls: "text-amber-800 bg-amber-100" },
 };
+const chip = "text-[11px] font-semibold rounded-full px-1.5";
 
 export default function SessionBookings({ s, terms, perms, onChanged }: {
     s: ClassSession; terms: Terms; perms: Perms; onChanged: (s: ClassSession) => void;
@@ -27,9 +30,9 @@ export default function SessionBookings({ s, terms, perms, onChanged }: {
     const [busy, setBusy] = useState<string | null>(null);
     const [adding, setAdding] = useState(false);
     const [cancelling, setCancelling] = useState<Booking | null>(null);
+    const [now] = useState(() => Date.now());   // when the class was opened — decides which buttons show
     const list = s.bookings ?? [];
     const open = s.status === "scheduled";
-    const [now] = useState(() => Date.now());   // when the class was opened — decides which buttons show
     const attendance = perms.mark && (open || s.status === "done") && now >= new Date(s.starts_at).getTime() - 60 * 60 * 1000;
     const canAdd = perms.book && open && now < new Date(s.ends_at).getTime();
 
@@ -69,27 +72,41 @@ export default function SessionBookings({ s, terms, perms, onChanged }: {
             ) : (
                 <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200">
                     {list.map(b => {
-                        const chip = STATUS[b.status];
+                        const st = STATUS[b.status];
+                        const penalized = (b.status === "late_canceled" || b.status === "no_show") && !b.justified;
                         return (
                             <li key={b.id} className="px-3 py-2 flex items-center gap-2 min-h-12">
                                 <div className="min-w-0 flex-1">
                                     <p className={`text-sm text-slate-900 truncate ${b.status === "late_canceled" ? "line-through decoration-slate-400" : ""}`}>{b.full_name}</p>
-                                    {(chip || b.over_capacity) && (
-                                        <p className="flex gap-1 mt-0.5">
-                                            {chip && <span className={`text-[11px] font-semibold rounded-full px-1.5 ${chip.cls}`}>{chip.label}</span>}
-                                            {b.over_capacity && <span className="text-[11px] font-semibold rounded-full px-1.5 text-slate-700 bg-slate-100">מעל המקומות</span>}
-                                        </p>
-                                    )}
+                                    <p className="flex flex-wrap gap-1 mt-0.5">
+                                        {st && <span className={`${chip} ${st.cls}`}>{st.label}</span>}
+                                        {b.justified && <span className={`${chip} text-slate-700 bg-slate-100`}>מוצדק</span>}
+                                        {b.membership && <span className={`${chip} text-indigo-800 bg-indigo-50`}>{b.membership}</span>}
+                                        {b.drop_in && <span className={`${chip} text-slate-700 bg-slate-100`}>כניסה בודדת</span>}
+                                        {b.over_capacity && <span className={`${chip} text-slate-700 bg-slate-100`}>מעל המקומות</span>}
+                                        {b.fee && (
+                                            <span className={`${chip} ${b.fee.status === "pending" ? "text-rose-800 bg-rose-50" : "text-slate-500 bg-slate-100 line-through"}`}>
+                                                חיוב {shekels(b.fee.amount_cents)}{b.fee.status === "waived" ? " · נמחל" : ""}
+                                            </span>
+                                        )}
+                                    </p>
                                 </div>
+                                {perms.book && penalized && (
+                                    <button type="button" onClick={() => run(b.id, `/api/classes/bookings/${b.id}/justify`)} disabled={busy !== null}
+                                        title="לא ייספר ולא יחויב, והכניסה תחזור"
+                                        className="inline-flex items-center gap-1 min-h-9 px-2 rounded-lg text-xs font-semibold border border-slate-200 text-slate-600 hover:border-slate-400 shrink-0">
+                                        <ShieldCheck className="w-3.5 h-3.5" aria-hidden /> מוצדק
+                                    </button>
+                                )}
                                 {attendance && b.status !== "late_canceled" && (
                                     <div className="flex gap-1 shrink-0" role="group" aria-label={`נוכחות: ${b.full_name}`}>
-                                        {(["attended", "no_show"] as const).map(st => (
-                                            <button key={st} type="button" aria-pressed={b.status === st} disabled={busy !== null}
-                                                onClick={() => markOne(b, st)}
-                                                className={`min-h-9 px-2 rounded-lg text-xs font-semibold border ${b.status === st
-                                                    ? (st === "attended" ? "bg-emerald-600 border-emerald-600 text-white" : "bg-rose-600 border-rose-600 text-white")
+                                        {(["attended", "no_show"] as const).map(st2 => (
+                                            <button key={st2} type="button" aria-pressed={b.status === st2} disabled={busy !== null}
+                                                onClick={() => markOne(b, st2)}
+                                                className={`min-h-9 px-2 rounded-lg text-xs font-semibold border ${b.status === st2
+                                                    ? (st2 === "attended" ? "bg-emerald-600 border-emerald-600 text-white" : "bg-rose-600 border-rose-600 text-white")
                                                     : "border-slate-200 text-slate-600 hover:border-slate-400"}`}>
-                                                {st === "attended" ? "הגיע/ה" : "לא הגיע/ה"}
+                                                {st2 === "attended" ? "הגיע/ה" : "לא הגיע/ה"}
                                             </button>
                                         ))}
                                     </div>
@@ -115,7 +132,7 @@ export default function SessionBookings({ s, terms, perms, onChanged }: {
 
             {canAdd && !cancelling && (adding ? (
                 <AddClient s={s} terms={terms} canOverride={perms.override} busy={busy !== null} onClose={() => setAdding(false)}
-                    onBook={async (clientId, over) => run(`add-${clientId}`, `/api/classes/sessions/${s.id}/bookings`, { client_id: clientId, over_capacity: over })} />
+                    onBook={(clientId, extra) => run(`add-${clientId}`, `/api/classes/sessions/${s.id}/bookings`, { client_id: clientId, ...extra })} />
             ) : (
                 <button type="button" onClick={() => setAdding(true)}
                     className="inline-flex items-center gap-1.5 min-h-11 px-3 rounded-xl border border-dashed border-slate-300 text-sm font-semibold text-slate-700 hover:border-indigo-400 hover:text-indigo-700">
@@ -146,65 +163,72 @@ function CancelBooking({ b, busy, onBack, onConfirm }: { b: Booking; busy: boole
     );
 }
 
+/** Pick a client; the server says what covers them. Not covered → the reason, and a single paid entry.
+ *  Full → owner/manager may book beyond the spots. */
 function AddClient({ s, terms, canOverride, busy, onClose, onBook }: {
     s: ClassSession; terms: Terms; canOverride: boolean; busy: boolean; onClose: () => void;
-    onBook: (clientId: string, over: boolean) => Promise<boolean>;
+    onBook: (clientId: string, extra: { over_capacity?: boolean; drop_in?: boolean }) => Promise<boolean>;
 }) {
-    const [q, setQ] = useState("");
-    const [found, setFound] = useState<Found[]>([]);
-    const [full, setFull] = useState<Found | null>(null);
+    const [picked, setPicked] = useState<FoundClient | null>(null);
+    const [check, setCheck] = useState<Eligibility | null>(null);
     const inList = new Set((s.bookings ?? []).filter(b => b.status !== "late_canceled").map(b => b.client_id));
+    const full = s.booked >= s.capacity;
 
-    useEffect(() => {
-        const term = q.trim();
-        const t = setTimeout(() => {
-            if (term.length < 2) { setFound([]); return; }
-            apiFetch<Found[]>(`/api/clients?q=${encodeURIComponent(term)}&limit=8`).then(setFound).catch(() => setFound([]));
-        }, 250);
-        return () => clearTimeout(t);
-    }, [q]);
-
-    const pick = async (c: Found) => {
-        if (s.booked >= s.capacity) { setFull(c); return; }
-        if (await onBook(c.id, false)) { setQ(""); setFound([]); }
+    const pick = async (c: FoundClient) => {
+        setPicked(c);
+        setCheck(null);
+        try {
+            const r = await apiFetch<Eligibility>(`/api/classes/sessions/${s.id}/eligibility?client_id=${c.id}`);
+            setCheck(r);
+            if (!full && (!r.required || r.membership) && await onBook(c.id, {})) { setPicked(null); onClose(); }
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : "הבדיקה נכשלה");
+        }
+    };
+    const book = async (extra: { over_capacity?: boolean; drop_in?: boolean }) => {
+        if (picked && await onBook(picked.id, extra)) { setPicked(null); onClose(); }
     };
 
+    const notCovered = check && check.required && !check.membership;
     return (
         <div className="rounded-xl border border-slate-200 p-3 space-y-2">
-            <div className="flex items-center gap-2">
-                <label className="relative flex-1">
-                    <span className="sr-only">חיפוש {terms.client}</span>
-                    <Search className="w-4 h-4 text-slate-400 absolute top-1/2 -translate-y-1/2 right-3" aria-hidden />
-                    <input value={q} onChange={e => { setQ(e.target.value); setFull(null); }} autoFocus placeholder="שם או טלפון"
-                        className="w-full min-h-11 rounded-xl border border-slate-200 pr-9 pl-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
-                </label>
+            <div className="flex items-start gap-2">
+                <div className="flex-1">
+                    {picked ? (
+                        <p className="text-sm font-semibold text-slate-900 min-h-11 flex items-center">{picked.full_name}</p>
+                    ) : (
+                        <ClientSearch terms={terms} busy={busy} onPick={pick} note={id => (inList.has(id) ? "ברשימה" : null)} />
+                    )}
+                </div>
                 <button type="button" onClick={onClose} aria-label="סגירה" className="w-11 h-11 flex items-center justify-center text-slate-500">
                     <X className="w-4 h-4" aria-hidden />
                 </button>
             </div>
-            {full ? (
-                <div className="text-sm text-slate-800 space-y-2">
-                    <p>השיעור מלא ({s.booked}/{s.capacity}).</p>
-                    {canOverride ? (
-                        <button type="button" disabled={busy} onClick={async () => { if (await onBook(full.id, true)) { setFull(null); setQ(""); } }}
-                            className="min-h-11 px-4 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-sm font-bold disabled:opacity-40">
-                            לרשום את {full.full_name} מעל המקומות
-                        </button>
-                    ) : <p className="text-slate-500">רישום מעל המקומות — רק לבעלים או למנהל.</p>}
-                </div>
-            ) : (
-                <ul className="max-h-56 overflow-y-auto">
-                    {found.map(c => (
-                        <li key={c.id}>
-                            <button type="button" disabled={busy || inList.has(c.id)} onClick={() => pick(c)}
-                                className="w-full flex items-center justify-between gap-2 px-2 min-h-11 rounded-lg text-right hover:bg-slate-50 disabled:opacity-50">
-                                <span className="text-sm text-slate-900 truncate">{c.full_name}</span>
-                                <span className="text-xs text-slate-500 tabular-nums" dir="ltr">{inList.has(c.id) ? "ברשימה" : c.phone}</span>
+            {picked && !check && <Loader2 className="w-4 h-4 text-indigo-500 animate-spin" aria-label="בודק" />}
+            {picked && check && (
+                <div className="space-y-2 text-sm text-slate-800">
+                    {check.membership && <p>מכוסה ע״י: <span className="font-semibold">{check.membership}</span></p>}
+                    {notCovered && <p className="text-amber-900 bg-amber-50 rounded-lg px-2 py-1.5">{check.reason}</p>}
+                    {full && <p>השיעור מלא ({s.booked}/{s.capacity}).</p>}
+                    <div className="flex flex-wrap gap-2">
+                        {full && canOverride && (
+                            <button type="button" disabled={busy} onClick={() => book({ over_capacity: true, drop_in: !!notCovered })}
+                                className="min-h-11 px-4 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-sm font-bold disabled:opacity-40">
+                                לרשום מעל המקומות{notCovered ? " (כניסה בודדת)" : ""}
                             </button>
-                        </li>
-                    ))}
-                    {q.trim().length >= 2 && found.length === 0 && <li className="px-2 py-2 text-sm text-slate-400">לא נמצאו</li>}
-                </ul>
+                        )}
+                        {!full && notCovered && (
+                            <button type="button" disabled={busy} onClick={() => book({ drop_in: true })}
+                                className="min-h-11 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold disabled:opacity-40">
+                                לרשום ככניסה בודדת
+                            </button>
+                        )}
+                        {full && !canOverride && <p className="text-slate-500">רישום מעל המקומות — רק לבעלים או למנהל.</p>}
+                        <button type="button" onClick={() => { setPicked(null); setCheck(null); }} className="min-h-11 px-3 text-sm text-slate-600">
+                            {terms.client} אחר/ת
+                        </button>
+                    </div>
+                </div>
             )}
         </div>
     );

@@ -356,13 +356,27 @@ def _sessions_out(db: Session, studio_id, sessions: list[ClassSession], with_cli
 
 
 def _bookings_out(db: Session, session_id) -> list[dict]:
-    """Who is on the class list — booked, attended, no-show, and late cancellations (still shown)."""
+    """Who is on the class list — booked, attended, no-show, and late cancellations (still shown) —
+    with the membership that covers each and any fee a rule recorded."""
     from app.models.classes import ClassBooking
     from app.models.client import Client
+    from app.models.memberships import Membership
+    from app.services import memberships as ms
+    from app.services import penalties
     rows = db.execute(select(ClassBooking, Client).join(Client, Client.id == ClassBooking.client_id).where(
         ClassBooking.session_id == session_id, ClassBooking.status != "canceled").order_by(ClassBooking.created_at)).all()
-    return [{"id": str(b.id), "client_id": str(c.id), "full_name": c.full_name, "phone": c.phone,
-             "status": b.status, "over_capacity": b.over_capacity} for b, c in rows]
+    mids = {b.membership_id for b, _ in rows if b.membership_id}
+    members = {m.id: m for m in db.scalars(select(Membership).where(Membership.id.in_(mids))).all()} if mids else {}
+    bals = ms.balance(db, [i for i, m in members.items() if m.rules.get("kind") == "punch"])
+    fees = penalties.fee_of(db, [b.id for b, _ in rows])
+    out = []
+    for b, c in rows:
+        fee = fees.get(b.id)
+        out.append({"id": str(b.id), "client_id": str(c.id), "full_name": c.full_name, "phone": c.phone,
+                    "status": b.status, "over_capacity": b.over_capacity, "drop_in": b.drop_in, "justified": b.justified,
+                    "membership": ms.label(members.get(b.membership_id), bals.get(b.membership_id)),
+                    "fee": {"id": str(fee.id), "amount_cents": fee.amount_cents, "status": fee.status} if fee else None})
+    return out
 
 
 def _aware(moment: datetime) -> datetime:
@@ -466,10 +480,24 @@ def cancel_session(session_id: uuid.UUID, body: CancelIn, ctx: AuthContext = Dep
 class BookIn(BaseModel):
     client_id: uuid.UUID
     over_capacity: bool = False        # beyond the spots — owner or manager only, kept on record
+    drop_in: bool = False              # a paid single entry instead of a membership
+
+
+@router.get("/sessions/{session_id}/eligibility")
+def booking_eligibility(session_id: uuid.UUID, client_id: uuid.UUID, ctx: AuthContext = Depends(require_studio_ctx),
+                        db: Session = Depends(get_db)):
+    """What covers this client for this class — shown before booking."""
+    from app.models.client import Client
+    s = _get(db, ClassSession, ctx.studio_id, session_id, "השיעור לא נמצא")
+    client = _get(db, Client, ctx.studio_id, client_id, "הלקוח לא נמצא")
+    return bookings.eligibility(db, s, client)
 
 
 def _booking_error(db: Session, e: Exception):
+    from app.services.memberships import MembershipError
     db.rollback()
+    if not isinstance(e, (bookings.BookingError, MembershipError)):
+        raise e
     raise HTTPException(409 if isinstance(e, bookings.FullError) else 400, str(e))
 
 
@@ -482,8 +510,8 @@ def book_client(session_id: uuid.UUID, body: BookIn, ctx: AuthContext = Depends(
     if body.over_capacity and not may(ctx.role, "limits.override"):
         raise HTTPException(403, "רישום מעל מספר המקומות — רק לבעלים או למנהל")
     try:
-        bookings.book(db, s, client, user_id=ctx.user_id, over_capacity_ok=body.over_capacity)
-    except bookings.BookingError as e:
+        bookings.book(db, s, client, user_id=ctx.user_id, over_capacity_ok=body.over_capacity, drop_in=body.drop_in)
+    except ValueError as e:              # BookingError / MembershipError — a message for the staff
         _booking_error(db, e)
     db.commit()
     return _sessions_out(db, ctx.studio_id, [s], with_clients=True)[0]
@@ -500,7 +528,7 @@ def cancel_booking(booking_id: uuid.UUID, body: BookingCancelIn, ctx: AuthContex
     b = _get(db, ClassBooking, ctx.studio_id, booking_id, "ההרשמה לא נמצאה")
     try:
         bookings.cancel(db, b, user_id=ctx.user_id, waive_late=body.waive_late)
-    except bookings.BookingError as e:
+    except ValueError as e:              # BookingError / MembershipError — a message for the staff
         _booking_error(db, e)
     db.commit()
     return _sessions_out(db, ctx.studio_id, [db.get(ClassSession, b.session_id)], with_clients=True)[0]
@@ -525,10 +553,24 @@ def mark_attendance(booking_id: uuid.UUID, body: AttendanceIn, ctx: AuthContext 
     _may_mark(ctx, s)
     try:
         bookings.mark(db, b, body.status, user_id=ctx.user_id)
-    except bookings.BookingError as e:
+    except ValueError as e:              # BookingError / MembershipError — a message for the staff
         _booking_error(db, e)
     db.commit()
     return _sessions_out(db, ctx.studio_id, [s], with_clients=True)[0]
+
+
+@router.post("/bookings/{booking_id}/justify")
+def justify_booking(booking_id: uuid.UUID, ctx: AuthContext = Depends(require_action("bookings.manage")),
+                    db: Session = Depends(get_db)):
+    """A late cancellation or a no-show accepted as justified: not counted, no fee, the entry goes back."""
+    from app.models.classes import ClassBooking
+    b = _get(db, ClassBooking, ctx.studio_id, booking_id, "ההרשמה לא נמצאה")
+    try:
+        bookings.justify(db, b, user_id=ctx.user_id)
+    except ValueError as e:              # BookingError / MembershipError — a message for the staff
+        _booking_error(db, e)
+    db.commit()
+    return _sessions_out(db, ctx.studio_id, [db.get(ClassSession, b.session_id)], with_clients=True)[0]
 
 
 @router.post("/sessions/{session_id}/attendance")
@@ -538,7 +580,7 @@ def mark_all(session_id: uuid.UUID, ctx: AuthContext = Depends(require_action("a
     _may_mark(ctx, s)
     try:
         bookings.mark_all_attended(db, s, user_id=ctx.user_id)
-    except bookings.BookingError as e:
+    except ValueError as e:              # BookingError / MembershipError — a message for the staff
         _booking_error(db, e)
     db.commit()
     return _sessions_out(db, ctx.studio_id, [s], with_clients=True)[0]

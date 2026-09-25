@@ -8,6 +8,7 @@ import { toast } from "@/lib/toast";
 import type { Terms } from "@/lib/useTerms";
 import type { ClassPolicy } from "@/components/classes/ClassPolicies";
 import { DryRunNotice } from "@/components/classes/ClassSchedule";
+import PenaltyRules from "@/components/classes/PenaltyRules";
 import {
     type ClassTemplate, type Room, type StaffMember, type DryRun,
     DAY_SHORT, daysText, endTime, ilDate, ilTime, staffName,
@@ -137,6 +138,7 @@ export function TemplateSheet({ tpl, preset, rooms, staff, services, policies, t
     const [check, setCheck] = useState<DryRun | null>(null);
     const [busy, setBusy] = useState(false);
     const [rulesOpen, setRulesOpen] = useState(() => Object.keys(tpl?.rules ?? {}).length > 0);
+    const [penaltyOpen, setPenaltyOpen] = useState(false);
     const set = (patch: Partial<Form>) => { setF(v => ({ ...v, ...patch })); setCheck(null); };
     const templateRules = useMemo(() => policies.filter(p => p.levels.includes("class_template")
         && (!modules || modules[p.module] !== false)), [policies, modules]);
@@ -314,6 +316,22 @@ export function TemplateSheet({ tpl, preset, rooms, staff, services, policies, t
                             <div className="border-t border-slate-100 divide-y divide-slate-100">
                                 {templateRules.map(p => <RuleRow key={p.key} p={p} value={f.rules[p.key] ?? null}
                                     onChange={v => set({ rules: { ...f.rules, [p.key]: v } })} />)}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {tpl && (
+                    <div className="rounded-xl border border-slate-200">
+                        <button type="button" onClick={() => setPenaltyOpen(o => !o)} aria-expanded={penaltyOpen}
+                            className="w-full flex items-center justify-between gap-2 px-3 min-h-11 text-sm font-semibold text-slate-700">
+                            <span className="flex items-center gap-2"><Settings2 className="w-4 h-4" aria-hidden />ביטול מאוחר ואי-הגעה לשיעור הזה</span>
+                            <ChevronDown className={`w-4 h-4 transition-transform ${penaltyOpen ? "rotate-180" : ""}`} aria-hidden />
+                        </button>
+                        {penaltyOpen && (
+                            <div className="border-t border-slate-100 p-3">
+                                <PenaltyRules scopeType="class_template" scopeId={tpl.id} canEdit
+                                    emptyNote="אין כללים לשיעור הזה — חלים הכללים של סוג המנוי או של העסק." />
                             </div>
                         )}
                     </div>
