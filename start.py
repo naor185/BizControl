@@ -2354,6 +2354,32 @@ def ensure_schema():
         cur.execute("ALTER TABLE payments ADD COLUMN IF NOT EXISTS class_booking_id UUID REFERENCES class_bookings(id)")
         cur.execute("CREATE INDEX IF NOT EXISTS ix_payments_membership_id ON payments (membership_id)")
         cur.execute("CREATE INDEX IF NOT EXISTS ix_payments_class_booking_id ON payments (class_booking_id)")
+
+        # ── Classes & memberships — stage 5: freeze, stop, cancel, the membership change log ──────────
+        for _col in ("freeze_allowed BOOLEAN NOT NULL DEFAULT true", "freeze_max_days INTEGER",
+                     "freeze_min_days INTEGER", "freeze_max_count INTEGER", "freeze_fee_cents INTEGER NOT NULL DEFAULT 0"):
+            cur.execute(f"ALTER TABLE membership_types ADD COLUMN IF NOT EXISTS {_col}")
+        cur.execute("ALTER TABLE memberships ADD COLUMN IF NOT EXISTS freeze_from DATE")
+        cur.execute("ALTER TABLE memberships ADD COLUMN IF NOT EXISTS freeze_until DATE")
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS membership_events (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                membership_id UUID NOT NULL REFERENCES memberships(id) ON DELETE CASCADE,
+                action VARCHAR(16) NOT NULL,
+                from_status VARCHAR(16),
+                to_status VARCHAR(16),
+                effective_on DATE,
+                days INTEGER,
+                fee_cents INTEGER NOT NULL DEFAULT 0,
+                reason VARCHAR(300),
+                by_user UUID REFERENCES users(id) ON DELETE SET NULL,
+                source VARCHAR(16) NOT NULL DEFAULT 'user',
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_membership_events_studio_id ON membership_events (studio_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_membership_events_membership_id ON membership_events (membership_id)")
         cur.execute("""
             DO $$ BEGIN
                 IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ck_payments_subject') THEN

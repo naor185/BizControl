@@ -55,6 +55,11 @@ class TypeIn(BaseModel):
     covers_all: bool = True
     covered_templates: list[uuid.UUID] = []
     is_active: bool = True
+    freeze_allowed: bool = True
+    freeze_max_days: Optional[int] = Field(None, ge=1, le=365)
+    freeze_min_days: Optional[int] = Field(None, ge=1, le=365)
+    freeze_max_count: Optional[int] = Field(None, ge=1, le=20)
+    freeze_fee_cents: int = Field(0, ge=0, le=1_000_000)
 
 
 def _check_type(db: Session, studio_id, v: dict) -> dict:
@@ -87,7 +92,8 @@ def _type_out(t: MembershipType) -> dict:
     return {"id": str(t.id), "name": t.name, "kind": t.kind, "kind_label": ms.KIND_LABELS[t.kind],
             "price_cents": t.price_cents, "duration_days": t.duration_days, "entries": t.entries,
             "covers_all": t.covers_all, "covered_templates": [str(x) for x in t.covered_templates or []],
-            "is_active": t.is_active}
+            "is_active": t.is_active, "freeze_allowed": t.freeze_allowed, "freeze_max_days": t.freeze_max_days,
+            "freeze_min_days": t.freeze_min_days, "freeze_max_count": t.freeze_max_count, "freeze_fee_cents": t.freeze_fee_cents}
 
 
 @router.get("/membership-types")
@@ -132,7 +138,9 @@ def _memberships_out(db: Session, rows: list[Membership]) -> list[dict]:
                     "kind_label": ms.KIND_LABELS.get(m.rules.get("kind"), ""), "weekly_limit": m.rules.get("entries") if m.rules.get("kind") == "weekly" else None,
                     "status": ms.status_now(m, bal, today), "starts_on": m.starts_on.isoformat(),
                     "ends_on": m.ends_on.isoformat() if m.ends_on else None, "price_cents": m.price_cents,
-                    "balance": bal, "notes": m.notes, "paid_cents": paid.get(m.id, 0)})
+                    "balance": bal, "notes": m.notes, "paid_cents": paid.get(m.id, 0),
+                    "freeze_from": m.freeze_from.isoformat() if m.freeze_from else None,
+                    "freeze_until": m.freeze_until.isoformat() if m.freeze_until else None})
     return out
 
 
@@ -193,12 +201,79 @@ def get_membership(membership_id: uuid.UUID, ctx: AuthContext = Depends(require_
                         .where(ClassBooking.membership_id == m.id).order_by(ClassSession.starts_at.desc()).limit(50)).all()
     out["bookings"] = [{"id": str(b.id), "class_name": name or "שיעור", "starts_at": s.starts_at.isoformat(),
                         "status": b.status, "entry_state": b.entry_state} for b, s, name in booked]
+    from app.models.memberships import MembershipEvent
+    from app.models.user import User
+    from app.services import membership_changes as changes
+    users = {u.id: (u.display_name or u.email) for u in db.scalars(select(User).where(User.studio_id == ctx.studio_id)).all()}
+    out["events"] = [{"at": e.created_at.isoformat(), "action": e.action, "from_status": e.from_status, "to_status": e.to_status,
+                      "effective_on": e.effective_on.isoformat() if e.effective_on else None, "days": e.days,
+                      "fee_cents": e.fee_cents, "reason": e.reason, "by": users.get(e.by_user) if e.by_user else None}
+                     for e in db.scalars(select(MembershipEvent).where(MembershipEvent.membership_id == m.id)
+                                         .order_by(MembershipEvent.created_at)).all()]
+    used, count = changes.freeze_usage(db, m)
+    out["freeze"] = {"allowed": m.rules.get("freeze_allowed", True), "max_days": m.rules.get("freeze_max_days"),
+                     "min_days": m.rules.get("freeze_min_days"), "max_count": m.rules.get("freeze_max_count"),
+                     "fee_cents": m.rules.get("freeze_fee_cents") or 0, "used_days": used, "count": count}
+    out["coming_bookings"] = sum(1 for b in out["bookings"] if b["status"] == "booked" and b["starts_at"] > svc.now_utc().isoformat())
     from app.models.payment import Payment
     out["payments"] = [{"id": str(p.id), "amount_cents": p.amount_cents, "method": p.method, "type": p.type,
                         "created_at": p.created_at.isoformat()}
                        for p in db.scalars(select(Payment).where(Payment.membership_id == m.id, Payment.status == "paid")
                                            .order_by(Payment.created_at)).all()]
     return out
+
+
+class FreezeIn(BaseModel):
+    from_on: date
+    until_on: date                     # the return date — required (no "until further notice")
+    reason: Optional[str] = Field(None, max_length=300)
+    fee_cents: Optional[int] = Field(None, ge=0, le=1_000_000)   # default: the type's freeze fee
+
+
+class ChangeIn(BaseModel):
+    reason: Optional[str] = Field(None, max_length=300)
+
+
+def _change(db: Session, ctx: AuthContext, membership_id, fn, **kw):
+    from app.services import membership_changes as changes
+    m = _get(db, Membership, ctx.studio_id, membership_id, "המנוי לא נמצא")
+    try:
+        getattr(changes, fn)(db, m, user_id=ctx.user_id, role=ctx.role, **kw)
+    except ValueError as e:
+        _fail(db, e)
+    db.commit()
+    return get_membership(membership_id, ctx, db)
+
+
+@router.post("/memberships/{membership_id}/freeze")
+def freeze_membership(membership_id: uuid.UUID, body: FreezeIn, ctx: AuthContext = Depends(require_action("memberships.change")),
+                      db: Session = Depends(get_db)):
+    return _change(db, ctx, membership_id, "freeze", from_on=body.from_on, until_on=body.until_on, reason=body.reason,
+                   fee_cents=body.fee_cents)
+
+
+@router.post("/memberships/{membership_id}/unfreeze")
+def unfreeze_membership(membership_id: uuid.UUID, ctx: AuthContext = Depends(require_action("memberships.change")),
+                        db: Session = Depends(get_db)):
+    return _change(db, ctx, membership_id, "unfreeze")
+
+
+@router.post("/memberships/{membership_id}/stop")
+def stop_membership(membership_id: uuid.UUID, body: ChangeIn, ctx: AuthContext = Depends(require_action("memberships.change")),
+                    db: Session = Depends(get_db)):
+    return _change(db, ctx, membership_id, "stop", reason=body.reason)
+
+
+@router.post("/memberships/{membership_id}/unstop")
+def unstop_membership(membership_id: uuid.UUID, ctx: AuthContext = Depends(require_action("memberships.change")),
+                      db: Session = Depends(get_db)):
+    return _change(db, ctx, membership_id, "unstop")
+
+
+@router.post("/memberships/{membership_id}/cancel")
+def cancel_membership(membership_id: uuid.UUID, body: ChangeIn, ctx: AuthContext = Depends(require_action("memberships.change")),
+                      db: Session = Depends(get_db)):
+    return _change(db, ctx, membership_id, "cancel", reason=body.reason)
 
 
 class PaymentIn(BaseModel):

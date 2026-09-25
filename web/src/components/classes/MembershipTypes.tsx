@@ -84,6 +84,9 @@ function TypeSheet({ t, templates, onClose, onSaved }: { t: MembershipType | nul
         name: t?.name ?? "", kind: t?.kind ?? ("punch" as MembershipKind), price: t ? t.price_cents / 100 : ("" as number | ""),
         duration_days: t?.duration_days ?? ("" as number | ""), entries: t?.entries ?? ("" as number | ""),
         covers_all: t?.covers_all ?? true, covered_templates: t?.covered_templates ?? [], is_active: t?.is_active ?? true,
+        freeze_allowed: t?.freeze_allowed ?? true, freeze_max_days: t?.freeze_max_days ?? ("" as number | ""),
+        freeze_min_days: t?.freeze_min_days ?? ("" as number | ""), freeze_max_count: t?.freeze_max_count ?? ("" as number | ""),
+        freeze_fee: t ? t.freeze_fee_cents / 100 : ("" as number | ""),
     });
     const [busy, setBusy] = useState(false);
     const [rulesOpen, setRulesOpen] = useState(false);
@@ -99,6 +102,10 @@ function TypeSheet({ t, templates, onClose, onSaved }: { t: MembershipType | nul
                     duration_days: f.duration_days === "" ? null : f.duration_days,
                     entries: f.kind === "unlimited" || f.entries === "" ? null : f.entries,
                     covers_all: f.covers_all, covered_templates: f.covers_all ? [] : f.covered_templates, is_active: f.is_active,
+                    freeze_allowed: f.freeze_allowed, freeze_max_days: f.freeze_max_days === "" ? null : f.freeze_max_days,
+                    freeze_min_days: f.freeze_min_days === "" ? null : f.freeze_min_days,
+                    freeze_max_count: f.freeze_max_count === "" ? null : f.freeze_max_count,
+                    freeze_fee_cents: f.freeze_fee === "" ? 0 : Math.round(f.freeze_fee * 100),
                 }),
             });
             toast.success(t ? "סוג המנוי עודכן — מנויים שכבר נמכרו לא משתנים" : "סוג המנוי נוסף");
@@ -172,6 +179,24 @@ function TypeSheet({ t, templates, onClose, onSaved }: { t: MembershipType | nul
                             {templates.length === 0 && <p className="text-xs text-slate-500">עוד אין שיעורים קבועים.</p>}
                         </div>
                     )}
+                </fieldset>
+                <fieldset className="rounded-xl border border-slate-200 p-3 space-y-2">
+                    <legend className="px-1 text-xs font-semibold text-slate-600">הקפאה</legend>
+                    <label className="flex items-center gap-2 text-sm text-slate-800">
+                        <input type="checkbox" checked={f.freeze_allowed} onChange={e => set({ freeze_allowed: e.target.checked })} /> מותר להקפיא
+                    </label>
+                    {f.freeze_allowed && (
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                            {([["freeze_max_days", "ימים בסך הכול"], ["freeze_min_days", "לפחות (ימים)"], ["freeze_max_count", "מספר הקפאות"], ["freeze_fee", "עמלה (₪)"]] as const).map(([k, text]) => (
+                                <label key={k} className="text-xs text-slate-600">{text}
+                                    <input type="number" min={k === "freeze_fee" ? 0 : 1} value={f[k]} placeholder={k === "freeze_fee" ? "0" : "ללא"} dir="ltr"
+                                        onChange={e => set({ [k]: e.target.value === "" ? "" : Number(e.target.value) } as Partial<typeof f>)}
+                                        className="block mt-1 w-full min-h-10 rounded-lg border border-slate-200 text-center tabular-nums" />
+                                </label>
+                            ))}
+                        </div>
+                    )}
+                    <p className="text-xs text-slate-500">תאריך חזרה חובה בכל הקפאה. העמלה נרשמת במנוי — לא נגבית.</p>
                 </fieldset>
                 <label className="flex items-center gap-2 text-sm text-slate-800">
                     <input type="checkbox" checked={f.is_active} onChange={e => set({ is_active: e.target.checked })} />

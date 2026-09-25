@@ -5,6 +5,7 @@ export type MyMembership = {
     name: string; kind: "unlimited" | "weekly" | "punch"; kind_label: string;
     status: "pending" | "active" | "frozen" | "ending"; starts_on: string; ends_on: string | null;
     entries_left: number | null; weekly_limit: number | null;
+    freeze_from: string | null; freeze_until: string | null;      // frozen from, back on
 };
 
 export type ScheduleItem = {

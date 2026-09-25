@@ -6,6 +6,7 @@ import BottomSheet from "@/components/ui/bottom-sheet";
 import ClientSearch, { type FoundClient } from "@/components/classes/ClientSearch";
 import MembershipTypes, { describeType } from "@/components/classes/MembershipTypes";
 import PayForm from "@/components/classes/PayForm";
+import MembershipChanges, { freezeLine } from "@/components/classes/MembershipChanges";
 import { apiFetch } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import type { Terms } from "@/lib/useTerms";
@@ -92,7 +93,7 @@ function MembershipList({ terms, canSell, canChange }: { terms: Terms; canSell: 
                             <button type="button" onClick={() => setOpenId(m.id)} className="w-full text-right px-4 py-3 flex items-center gap-3 hover:bg-slate-50">
                                 <div className="min-w-0 flex-1">
                                     <p className="text-sm font-semibold text-slate-900 truncate">{m.client_name}</p>
-                                    <p className="text-xs text-slate-500 truncate">{m.name} · {m.ends_on ? `עד ${fullDate(m.ends_on)}` : "ללא תאריך סיום"}</p>
+                                    <p className="text-xs text-slate-500 truncate">{freezeLine(m) ?? `${m.name} · ${m.ends_on ? `עד ${fullDate(m.ends_on)}` : "ללא תאריך סיום"}`}</p>
                                 </div>
                                 <Balance m={m} />
                                 <span className={`text-[11px] font-semibold rounded-full px-2 py-0.5 shrink-0 ${STATUS_CLS[m.status]}`}>{STATUS_LABEL[m.status]}</span>
@@ -232,9 +233,10 @@ function MembershipSheet({ id, canSell, canChange, onClose, onChanged }: {
                 <div className="px-5 py-4 space-y-4 overflow-y-auto min-h-0 text-sm">
                     <div className="flex items-start justify-between gap-3">
                         <div className="space-y-1">
-                            <p className="text-slate-700">{m.kind_label} · {fullDate(m.starts_on)} – {m.ends_on ? fullDate(m.ends_on) : "ללא תאריך סיום"}</p>
+                            <p className="text-slate-700">{m.kind_label} · <span dir="ltr">{fullDate(m.starts_on)} – {m.ends_on ? fullDate(m.ends_on) : "…"}</span>{m.ends_on ? "" : " (ללא תאריך סיום)"}</p>
                             {m.price_cents > 0 && <p className="text-slate-500 tabular-nums">מחיר: {shekels(m.price_cents)}</p>}
                             {m.notes && <p className="text-slate-500">{m.notes}</p>}
+                            {freezeLine(m) && <p className="text-cyan-800">{freezeLine(m)}</p>}
                         </div>
                         <span className={`text-[11px] font-semibold rounded-full px-2 py-0.5 ${STATUS_CLS[m.status]}`}>{STATUS_LABEL[m.status]}</span>
                     </div>
@@ -306,6 +308,7 @@ function MembershipSheet({ id, canSell, canChange, onClose, onChanged }: {
                             </div>
                         </div>
                     )}
+                    <MembershipChanges m={m} canChange={canChange} onDone={next => { setM(next); onChanged(); }} />
                     {m.kind === "punch" && m.entries.length > 0 && (
                         <div>
                             <p className="text-xs font-semibold text-slate-500 mb-1">יומן הכניסות</p>

@@ -233,7 +233,8 @@ function Memberships({ list, isClient, primary, studio }: { list: MyMembership[]
                     <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontWeight: 800 }}>המנוי שלי · {m.name}</div>
                         <div style={{ color: muted, fontSize: "0.8rem", marginTop: 2 }}>
-                            {m.status === "pending" ? `מתחיל ב-${fullDate(m.starts_on)}` : m.ends_on ? `בתוקף עד ${fullDate(m.ends_on)}` : "ללא תאריך סיום"}
+                            {m.status === "frozen" && m.freeze_until ? `מוקפא · חוזר לפעילות ב-${fullDate(m.freeze_until)}`
+                                : m.status === "pending" ? `מתחיל ב-${fullDate(m.starts_on)}` : m.ends_on ? `בתוקף עד ${fullDate(m.ends_on)}` : "ללא תאריך סיום"}
                             {m.status === "ending" ? " · לא יתחדש" : ""}
                         </div>
                     </div>

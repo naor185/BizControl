@@ -41,6 +41,13 @@ class MembershipType(Base):
     covers_all: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
     covered_templates: Mapped[list[uuid.UUID]] = mapped_column(ARRAY(UUID(as_uuid=True)), nullable=False, default=list, server_default="{}")
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")   # on sale
+    # freezing (stage 5): allowed at all; most days in the membership's period, shortest single freeze,
+    # most freezes (empty = no limit); a fee recorded on the membership, never collected
+    freeze_allowed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+    freeze_max_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    freeze_min_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    freeze_max_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    freeze_fee_cents: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     source: Mapped[str] = mapped_column(String(16), nullable=False, default="user", server_default="user")
     source_ref: Mapped[str | None] = mapped_column(String(120), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
@@ -60,12 +67,35 @@ class Membership(Base):
     rules: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)       # the type's rules when sold
     price_cents: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     renewal_expected_on: Mapped[date | None] = mapped_column(Date, nullable=True)  # for automatic renewal, later
+    # the current (or coming) freeze: frozen from freeze_from, back on freeze_until
+    freeze_from: Mapped[date | None] = mapped_column(Date, nullable=True)
+    freeze_until: Mapped[date | None] = mapped_column(Date, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     source: Mapped[str] = mapped_column(String(16), nullable=False, default="user", server_default="user")
     source_ref: Mapped[str | None] = mapped_column(String(120), nullable=True)
     created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+
+
+class MembershipEvent(Base):
+    """Every change to a membership: sold, frozen, back from a freeze, stopped, stop undone, cancelled,
+    started, ended — who, when, from which status to which, from which date, how many days, why."""
+    __tablename__ = "membership_events"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    studio_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("studios.id", ondelete="CASCADE"), nullable=False, index=True)
+    membership_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("memberships.id", ondelete="CASCADE"), nullable=False, index=True)
+    action: Mapped[str] = mapped_column(String(16), nullable=False)
+    from_status: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    to_status: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    effective_on: Mapped[date | None] = mapped_column(Date, nullable=True)
+    days: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    fee_cents: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    reason: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    by_user: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    source: Mapped[str] = mapped_column(String(16), nullable=False, default="user", server_default="user")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
 
 class MembershipEntry(Base):

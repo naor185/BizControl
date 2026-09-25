@@ -22,7 +22,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.classes import ClassBooking, ClassSession
-from app.models.memberships import Membership, MembershipEntry, MembershipType
+from app.models.memberships import Membership, MembershipEntry, MembershipEvent, MembershipType
 from app.services import classes as svc
 
 KIND_LABELS = {"unlimited": "ללא הגבלה", "weekly": "מגבלה שבועית", "punch": "כרטיסייה"}
@@ -50,11 +50,23 @@ def _module(db: Session, studio_id, module_id: str) -> bool:
 def snapshot(t: MembershipType) -> dict:
     return {"name": t.name, "kind": t.kind, "entries": t.entries, "duration_days": t.duration_days,
             "covers_all": t.covers_all, "covered_templates": [str(x) for x in (t.covered_templates or [])],
-            "price_cents": t.price_cents}
+            "price_cents": t.price_cents,
+            "freeze_allowed": t.freeze_allowed, "freeze_max_days": t.freeze_max_days, "freeze_min_days": t.freeze_min_days,
+            "freeze_max_count": t.freeze_max_count, "freeze_fee_cents": t.freeze_fee_cents}
+
+
+def log_event(db: Session, m: Membership, action: str, from_status: str | None, to_status: str | None, *,
+              effective_on: date | None = None, days: int | None = None, fee_cents: int = 0, reason: str | None = None,
+              user_id=None, source: str = "user") -> None:
+    """One line in the membership's change log (membership_events)."""
+    db.add(MembershipEvent(studio_id=m.studio_id, membership_id=m.id, action=action, from_status=from_status,
+                           to_status=to_status, effective_on=effective_on, days=days, fee_cents=fee_cents or 0,
+                           reason=(reason or None) and reason[:300], by_user=user_id, source=source))
 
 
 def sell(db: Session, client, mtype: MembershipType, *, starts_on: date | None = None, price_cents: int | None = None,
-         notes: str | None = None, user_id=None, origin: str = "user", opening_entries: int | None = None) -> Membership:
+         notes: str | None = None, user_id=None, origin: str = "user", opening_entries: int | None = None,
+         event_reason: str | None = None) -> Membership:
     """A membership for a client from a type — starting today or later (then pending)."""
     if mtype.studio_id != client.studio_id:
         raise MembershipError("סוג המנוי לא נמצא")
@@ -73,7 +85,8 @@ def sell(db: Session, client, mtype: MembershipType, *, starts_on: date | None =
         db.add(MembershipEntry(studio_id=m.studio_id, membership_id=m.id, stage="opening",
                                amount=mtype.entries if opening_entries is None else opening_entries,
                                reason="פתיחת הכרטיסייה", source=origin, created_by=user_id))
-        db.flush()
+    log_event(db, m, "sold", None, m.status, effective_on=start, reason=event_reason, user_id=user_id, source=origin)
+    db.flush()
     return m
 
 
@@ -85,7 +98,7 @@ def renew(db: Session, m: Membership, *, starts_on: date | None = None, user_id=
     from app.models.client import Client
     today = svc.today_il()
     start = starts_on or max(today, (m.ends_on + timedelta(days=1)) if m.ends_on else today)
-    return sell(db, db.get(Client, m.client_id), t, starts_on=start, user_id=user_id)
+    return sell(db, db.get(Client, m.client_id), t, starts_on=start, user_id=user_id, event_reason="חידוש")
 
 
 def adjust(db: Session, m: Membership, delta: int, reason: str, *, user_id=None) -> None:
@@ -130,9 +143,15 @@ def balance(db: Session, membership_ids) -> dict:
     return out
 
 
+def frozen_on(m: Membership, day: date) -> bool:
+    """Inside the membership's freeze on this day (frozen from freeze_from, back on freeze_until)."""
+    return bool(m.freeze_from and m.freeze_until and m.freeze_from <= day < m.freeze_until)
+
+
 def status_now(m: Membership, bal: dict | None, today: date) -> str:
-    """The status as of today — dates and entries decide, before the nightly job writes it down."""
-    if m.status in ("canceled", "frozen", "expired"):
+    """The status as of today — dates, the freeze and entries decide, before the nightly job writes it
+    down. canceled and expired are final."""
+    if m.status in ("canceled", "expired"):
         return m.status
     if m.ends_on and m.ends_on < today:
         return "expired"
@@ -140,18 +159,26 @@ def status_now(m: Membership, bal: dict | None, today: date) -> str:
         return "expired"
     if m.starts_on > today:
         return "pending"
-    return "active" if m.status == "pending" else m.status
+    if frozen_on(m, today):
+        return "frozen"
+    return "active" if m.status in ("pending", "frozen") else m.status
+
+
+AUTO_ACTION = {"active": "start", "expired": "expire", "frozen": "freeze_start"}
 
 
 def refresh_statuses(db: Session) -> int:
-    """The nightly job: write down pending → active and → expired. Returns how many changed."""
+    """The nightly job: write down pending → active, into and out of a freeze, → expired — each in the
+    change log. Returns how many changed."""
     today = svc.today_il()
-    rows = db.scalars(select(Membership).where(Membership.status.in_(VALID))).all()
+    rows = db.scalars(select(Membership).where(Membership.status.in_(VALID + ("frozen",)))).all()
     bals = balance(db, [m.id for m in rows if m.rules.get("kind") == "punch"])
     changed = 0
     for m in rows:
         new = status_now(m, bals.get(m.id), today)
         if new != m.status:
+            action = "unfreeze" if m.status == "frozen" and new == "active" else AUTO_ACTION.get(new, new)
+            log_event(db, m, action, m.status, new, effective_on=today, user_id=None, source="system")
             m.status = new
             changed += 1
     db.commit()
@@ -181,8 +208,9 @@ def find_eligible(db: Session, client_id, session: ClassSession) -> tuple[Member
     mine = db.scalars(select(Membership).where(Membership.client_id == client_id, Membership.studio_id == session.studio_id)).all()
     if not mine:
         return None, "אין מנוי"
-    frozen = [m for m in mine if m.status == "frozen" and m.starts_on <= day and (not m.ends_on or m.ends_on >= day)]
-    valid = [m for m in mine if m.status in VALID and m.starts_on <= day and (not m.ends_on or m.ends_on >= day)]
+    dated = [m for m in mine if m.status in VALID + ("frozen",) and m.starts_on <= day and (not m.ends_on or m.ends_on >= day)]
+    frozen = [m for m in dated if frozen_on(m, day)]
+    valid = [m for m in dated if not frozen_on(m, day)]
     if not valid:
         return None, "המנוי מוקפא ביום השיעור" if frozen else "אין מנוי בתוקף ביום השיעור"
     valid.sort(key=lambda m: (ORDER.get(m.rules.get("kind"), 9), m.ends_on or date.max))

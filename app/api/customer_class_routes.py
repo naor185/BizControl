@@ -51,6 +51,8 @@ def _memberships(db: Session, client) -> list[dict]:
         out.append({"name": m.rules.get("name"), "kind": m.rules.get("kind"), "kind_label": ms.KIND_LABELS.get(m.rules.get("kind"), ""),
                     "status": status, "starts_on": m.starts_on.isoformat(), "ends_on": m.ends_on.isoformat() if m.ends_on else None,
                     "entries_left": bals[m.id]["available"] if m.id in bals else None,
+                    "freeze_from": m.freeze_from.isoformat() if m.freeze_from else None,
+                    "freeze_until": m.freeze_until.isoformat() if m.freeze_until else None,
                     "weekly_limit": m.rules.get("entries") if m.rules.get("kind") == "weekly" else None})
     return out
 

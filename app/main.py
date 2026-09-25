@@ -293,6 +293,21 @@ def start_scheduler():
 
     scheduler.add_job(tick_class_checks, "interval", minutes=10, id="class_checks_tick", replace_existing=True,
                       max_instances=1, coalesce=True)
+
+    def tick_membership_notices():
+        """Memberships ending in 7 / 3 days, 2 entries left, back from a freeze tomorrow (membership_changes)."""
+        from app.services.membership_changes import sweep_notices
+        db = SessionLocal()
+        try:
+            sweep_notices(db)
+        except Exception:
+            db.rollback()
+            logging.getLogger("bizcontrol.classes").exception("membership notices tick failed")
+        finally:
+            db.close()
+
+    scheduler.add_job(tick_membership_notices, "cron", hour=10, minute=0, timezone="Asia/Jerusalem",
+                      misfire_grace_time=6 * 3600, id="membership_notices_tick", replace_existing=True)
     scheduler.add_job(tick_migrations, "interval", seconds=15, id="migrations_tick", replace_existing=True,
                       max_instances=1, coalesce=True)
     scheduler.add_job(tick_migration_purge, "cron", hour=3, minute=30, timezone="Asia/Jerusalem",

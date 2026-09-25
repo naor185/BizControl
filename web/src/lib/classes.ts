@@ -26,6 +26,8 @@ export type MembershipKind = "unlimited" | "weekly" | "punch";
 export type MembershipType = {
     id: string; name: string; kind: MembershipKind; kind_label: string; price_cents: number;
     duration_days: number | null; entries: number | null; covers_all: boolean; covered_templates: string[]; is_active: boolean;
+    freeze_allowed: boolean; freeze_max_days: number | null; freeze_min_days: number | null; freeze_max_count: number | null;
+    freeze_fee_cents: number;
 };
 export type Balance = { total: number; reserved: number; consumed: number; available: number };
 export type MembershipStatus = "pending" | "active" | "frozen" | "ending" | "expired" | "canceled";
@@ -34,11 +36,17 @@ export type MembershipRow = {
     name: string; kind: MembershipKind; kind_label: string; weekly_limit: number | null; status: MembershipStatus;
     starts_on: string; ends_on: string | null; price_cents: number; balance: Balance | null; notes: string | null;
     paid_cents: number;
+    freeze_from: string | null; freeze_until: string | null;      // frozen from, back on
 };
 export type MembershipDetail = MembershipRow & {
     entries: { at: string; stage: "opening" | "adjust" | "reserve" | "close"; outcome: "consume" | "return" | null; amount: number; reason: string | null; class_name: string | null; class_at: string | null }[];
     bookings: { id: string; class_name: string; starts_at: string; status: string; entry_state: string | null }[];
     payments: { id: string; amount_cents: number; method: string; type: string; created_at: string }[];
+    events: { at: string; action: string; from_status: string | null; to_status: string | null; effective_on: string | null;
+              days: number | null; fee_cents: number; reason: string | null; by: string | null }[];
+    freeze: { allowed: boolean; max_days: number | null; min_days: number | null; max_count: number | null;
+              fee_cents: number; used_days: number; count: number };
+    coming_bookings: number;
 };
 
 /** Payment methods — the same values and words as the appointment payment screen. */
