@@ -33,6 +33,8 @@ from app.models.customer_device_token import CustomerDeviceToken
 from app.models.staff_reminder_rule import StaffReminderRule
 from app.models.staff_reminder_log import StaffReminderSentLog
 from app.models.migration import Migration, MigrationRow, ExternalRecord, MigrationEvent
+from app.models.notification_template import NotificationTemplate
+from app.models.policy_setting import PolicySetting
 
 __all__ = [
     "Base", "Studio", "User", "StudioSettings", "RefreshToken",

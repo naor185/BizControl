@@ -12,7 +12,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, func, true
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -27,7 +27,8 @@ class Module(Base):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     category: Mapped[str] = mapped_column(String(32), nullable=False, default="core")
     # categories: core | communication | ai | marketplace | finance | advanced
-    is_available: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    # server default as in production (start.py) — the rows start.py seeds do not name this column
+    is_available: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default=true())
     sort_order: Mapped[int] = mapped_column(nullable=False, default=0)
     # NULL = standalone module. Set = a fine-grained "permission" nested under a
     # parent module (e.g. "mass broadcast" under "whatsapp") — resolved through

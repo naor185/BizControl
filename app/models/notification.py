@@ -18,3 +18,4 @@ class Notification(Base):
     is_read: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false", index=True)
     action_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), index=True)
+    dedup_key: Mapped[str | None] = mapped_column(String(160), nullable=True)   # as message_jobs.dedup_key

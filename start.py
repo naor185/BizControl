@@ -2089,6 +2089,65 @@ def ensure_schema():
         if _migration_module_is_new:
             cur.execute("INSERT INTO plan_modules (plan, module_id) SELECT id, 'migration' FROM plans ON CONFLICT DO NOTHING")
 
+        # ── Classes & memberships — stage 1: infrastructure ───────────────────
+        # Notification choices per business (app/services/notifications.py) and the owner's settings at
+        # every level (app/services/policies.py).
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS notification_templates (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                event VARCHAR(40) NOT NULL,
+                channel VARCHAR(16) NOT NULL,
+                enabled BOOLEAN,
+                body TEXT,
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                CONSTRAINT uq_notification_template UNIQUE (studio_id, event, channel)
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_notification_templates_studio ON notification_templates (studio_id)")
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS policy_settings (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                scope_type VARCHAR(20) NOT NULL,
+                scope_id UUID,
+                key VARCHAR(48) NOT NULL,
+                value JSONB NOT NULL,
+                updated_by UUID REFERENCES users(id) ON DELETE SET NULL,
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_policy_settings_studio ON policy_settings (studio_id)")
+        cur.execute("""CREATE UNIQUE INDEX IF NOT EXISTS uq_policy_setting ON policy_settings
+                       (studio_id, scope_type, COALESCE(scope_id, '00000000-0000-0000-0000-000000000000'::uuid), key)""")
+        # One message per event, recipient and channel — even for two identical events at the same moment.
+        cur.execute("ALTER TABLE message_jobs ADD COLUMN IF NOT EXISTS dedup_key VARCHAR(160)")
+        cur.execute("""CREATE UNIQUE INDEX IF NOT EXISTS uq_message_jobs_dedup ON message_jobs (studio_id, dedup_key)
+                       WHERE dedup_key IS NOT NULL""")
+        cur.execute("ALTER TABLE notifications ADD COLUMN IF NOT EXISTS dedup_key VARCHAR(160)")
+        cur.execute("""CREATE UNIQUE INDEX IF NOT EXISTS uq_notifications_dedup ON notifications (studio_id, dedup_key)
+                       WHERE dedup_key IS NOT NULL""")
+        # The modules. Not granted to any plan — a tattoo studio does not need them; the superadmin turns
+        # them on. The fields they fit (pilates/yoga, gym) get them in their default modules — once, when the
+        # modules are first created, so a later change by the superadmin is not undone.
+        cur.execute("SELECT 1 FROM modules WHERE id = 'classes'")
+        _classes_modules_are_new = cur.fetchone() is None
+        for _mid, _name, _parent, _order in (("classes", "שיעורים קבוצתיים", None, 40),
+                                             ("rooms", "חדרים", None, 41),
+                                             ("memberships", "מנויים וכרטיסיות", None, 42),
+                                             ("class_waitlist", "רשימת המתנה לשיעורים", "classes", 43)):
+            cur.execute("""
+                INSERT INTO modules (id, name, category, sort_order, parent_module_id)
+                VALUES (%s, %s, 'core', %s, %s)
+                ON CONFLICT (id) DO NOTHING
+            """, (_mid, _name, _order, _parent))
+        if _classes_modules_are_new:
+            cur.execute("""
+                UPDATE business_type_templates
+                SET default_modules = default_modules || '["classes", "rooms", "memberships", "class_waitlist"]'::jsonb
+                WHERE business_type IN ('pilates', 'gym') AND NOT default_modules ? 'classes'
+            """)
+
         conn.commit()
         cur.close()
         conn.close()

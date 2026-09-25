@@ -38,3 +38,6 @@ class MessageJob(Base):
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    # Set by app/services/notifications.notify: one message per event, recipient and channel — a unique
+    # index (studio_id, dedup_key) makes a repeated event a no-op, even two at the same moment.
+    dedup_key: Mapped[str | None] = mapped_column(String(160), nullable=True)

@@ -55,7 +55,10 @@ SERVICE_TYPES = frozenset({
     # to the studio's staff, not to clients
     "new_lead", "manual",
 })
-SERVICE_PREFIXES = ("plan_",)   # subscription notices to the studio owner
+SERVICE_PREFIXES = (
+    "plan_",     # subscription notices to the studio owner
+    "notify-",   # class and membership notifications (app/services/notifications.py)
+)
 
 
 def is_marketing(reminder_type: str | None) -> bool:

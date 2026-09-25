@@ -6,7 +6,7 @@ import {
     Briefcase, Lock, Unlock, KeyRound, Zap, BarChart3, ShieldCheck, ClipboardList, Timer,
     Wallet, Users, TrendingUp, Phone, Megaphone, Gift, Settings,
     CreditCard, Receipt, Banknote, UserCog, MessageSquare, Target, Mail,
-    Send, Clock, Package, ConciergeBell, Smartphone, LifeBuoy, Crown, FileUp,
+    Send, Clock, Package, ConciergeBell, Smartphone, LifeBuoy, Crown, FileUp, CalendarRange, SlidersHorizontal,
     type LucideIcon,
 } from "lucide-react";
 import AppShell from "@/components/AppShell";
@@ -70,6 +70,13 @@ const SECTION_GROUPS: { groupLabel: string; icon: LucideIcon; items: { href: str
             { href: "/message-templates", label: "תבניות הודעות", description: "תבניות לוואטסאפ ומייל",                 icon: Mail, gradient: "from-pink-600 to-rose-700" },
             { href: "/broadcasts",        label: "תפוצות",        description: "הודעות המוניות ומבצעים",                icon: Send, gradient: "from-amber-600 to-orange-700", module: "broadcasts" },
             { href: "/wait-list",         label: "רשימת המתנה",   description: "לקוחות הממתינים לתור פנוי",             icon: Clock, gradient: "from-rose-600 to-pink-700",    module: "wait_list" },
+        ],
+    },
+    {
+        groupLabel: "שיעורים ומנויים",
+        icon: CalendarRange,
+        items: [
+            { href: "/classes/settings", label: "הגדרות שיעורים ומנויים", description: "הרשמה, ביטולים, רשימת המתנה והודעות ל{client_plural}", icon: SlidersHorizontal, gradient: "from-indigo-500 to-indigo-700", module: "classes" },
         ],
     },
     {

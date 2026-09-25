@@ -74,7 +74,7 @@ When adding a new column or table, add it to `start.py` (preferred) or the start
 
 ### Authentication
 - JWT-based. `app/core/auth_deps.py` → `get_current_user()` → validates token, returns `User`.
-- Roles: `owner`, `admin`, `artist`, `receptionist`, `manager`, `superadmin`.
+- Roles (the `ck_users_role` constraint): `owner`, `admin` (manager), `artist` (the one giving the service — shown in the business's own word), `staff` (a worker without management), `superadmin`. There is no receptionist/manager/accountant role; class & membership permissions are in `CLASS_ACTIONS` (`app/core/permissions.py`).
 - `require_studio_ctx` wraps `get_current_user` and produces `AuthContext(studio_id, user_id, role)`.
 - `require_roles(*roles)` — FastAPI dependency for role-gating specific endpoints.
 
