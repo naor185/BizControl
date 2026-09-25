@@ -723,22 +723,8 @@ export default function AutomationSettingsPage() {
                     bank_name: data.bank_name ?? "",
                     bank_branch: data.bank_branch ?? "",
                     bank_account: data.bank_account ?? "",
-                    deposit_request_wa_template: data.deposit_request_wa_template ?? "היי {client_name}! 🎉 התור שלך ל-{appointment_title} נקבע ל-{appointment_date} בשעה {appointment_time}.\n\nלאישור התור נדרשת מקדמה של {deposit_amount}₪ עד 24 שעות.\nניתן לשלם דרך:\n💳 ביט: {bit_link}\n💳 פייבוקס: {paybox_link}\n🏦 העברה בנקאית: {bank_details}\n\nאחרי העברת המקדמה שלח/י אישור ונאשר את התור.\n\nלשאלות: {contact_phone}",
-                    deposit_approved_wa_template: data.deposit_approved_wa_template ?? "✅ {client_name}, המקדמה אושרה!\n\nהתור שלך מאושר ונעול:\n📅 תאריך: {appointment_date}\n🕐 שעה: {appointment_time}\n👥 {staff_title}: {artist_name}\n📍 כתובת: {studio_address}\n🗺️ ניווט: {map_link}\n🖼️ תיק עבודות: {portfolio_link}\n\n*מדיניות ביטולים:* ביטול עד {cancellation_free_days} ימים לפני — החזר מלא. פחות מ-{cancellation_free_days} ימים — ללא החזר מקדמה. שינוי תור אפשרי עד {deposit_lock_days} ימים לפני.\n\nמחכים לך! 🙏",
-                    points_redeem_wa_template: data.points_redeem_wa_template ?? "🎁 {client_name}, מימשת {points_used} נקודות בשווי {discount_amount}₪!\n\nנקודות שנותרו: {loyalty_points} נקודות.\nתודה שאתה/את חלק מהמועדון שלנו ❤️",
-                    non_member_wa_template: data.non_member_wa_template ?? "היי {client_name}! 👋\n\nשמחים שביקרת אצלנו!\nהצטרף/י למועדון הלקוחות שלנו וקבל/י {points_on_signup} נקודות מתנה לביקור הבא 🎉\n\nהרשמה: {join_link}",
-                    points_balance_wa_template: data.points_balance_wa_template ?? "היי {client_name}! 🌟\n\nיתרת הנקודות שלך במועדון: *{loyalty_points} נקודות*\n\nנשמח לראותך שוב בקרוב! 💫",
-                    // Template defaults — plain text, no placeholders needed
-                    confirm_wa_template: data.confirm_wa_template ?? "היי! התור שלך נקבע בהצלחה. מחכים לך 😊",
-                    confirm_email_template: data.confirm_email_template ?? "היי! התור שלך נקבע בהצלחה. מחכים לך 😊",
-                    reschedule_wa_template: data.reschedule_wa_template ?? "היי! מועד התור שלך עודכן. מחכים לך 🙌",
-                    reschedule_email_template: data.reschedule_email_template ?? "היי! מועד התור שלך עודכן. מחכים לך 🙌",
-                    post_payment_wa_template: data.post_payment_wa_template ?? "תודה על התשלום! שמחים שבחרת בנו ❤️",
-                    post_payment_email_template: data.post_payment_email_template ?? "תודה על התשלום! שמחים שבחרת בנו ❤️",
-                    welcome_wa_template: data.welcome_wa_template ?? "ברוך הבא למועדון! אנחנו שמחים שהצטרפת 🎉",
-                    welcome_email_template: data.welcome_email_template ?? "ברוך הבא למועדון! אנחנו שמחים שהצטרפת 🎉",
-                    reminder_wa_template: data.reminder_wa_template ?? "תזכורת! יש לך תור מחר. מחכים לך 🕐",
-                    reminder_email_template: data.reminder_email_template ?? "תזכורת! יש לך תור מחר. מחכים לך 🕐",
+                    // The message texts are not filled in here: an empty text means the system's own message (edited on
+                    // the message templates screen) — filling them in saved them as if the owner had written them.
                 });
             })
             .catch((e) => setErr(e?.message || "שגיאה בטעינת ההגדרות"))

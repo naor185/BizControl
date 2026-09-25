@@ -186,6 +186,7 @@ export default function BusinessPage() {
     const [reviewForm, setReviewForm] = useState({ client_name: "", rating: 5, comment: "" });
     const [submitting, setSubmitting] = useState(false);
     const [submitted, setSubmitted] = useState(false);
+    const [reviewError, setReviewError] = useState("");
     const [activeTab, setActiveTab] = useState<"about" | "services" | "gallery" | "reviews">("about");
     const [showRequestModal, setShowRequestModal] = useState(false);
 
@@ -201,13 +202,20 @@ export default function BusinessPage() {
     const submitReview = async () => {
         if (!reviewForm.client_name) return;
         setSubmitting(true);
+        setReviewError("");
         try {
-            await fetch(`${API}/api/marketplace/${slug}/reviews`, {
+            const res = await fetch(`${API}/api/marketplace/${slug}/reviews`, {
                 method: "POST", headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(reviewForm),
             });
+            if (!res.ok) {                   // say so — a failed review must not look sent
+                setReviewError(res.status === 429 ? "יותר מדי ניסיונות — נסו שוב בעוד כמה דקות." : "הביקורת לא נשלחה. נסו שוב.");
+                return;
+            }
             setSubmitted(true); setShowReview(false);
-        } catch { } finally { setSubmitting(false); }
+        } catch {
+            setReviewError("אין חיבור — הביקורת לא נשלחה. נסו שוב.");
+        } finally { setSubmitting(false); }
     };
 
     const navLightbox = (dir: 1 | -1) => {
@@ -610,6 +618,7 @@ export default function BusinessPage() {
                                         onBlur={e => e.target.style.borderColor = "rgba(255,255,255,.12)"}
                                     />
                                 </div>
+                                {reviewError && <div role="alert" style={{ color: "#fca5a5", fontSize: "0.85rem", marginBottom: "0.6rem" }}>{reviewError}</div>}
                                 <button type="button" onClick={submitReview} disabled={submitting || !reviewForm.client_name}
                                     style={{ background: `linear-gradient(135deg,${primary},#4c1d95)`, border: "none", borderRadius: 12, color: "#fff", padding: "0.65rem 1.4rem", fontWeight: 800, cursor: "pointer", opacity: submitting || !reviewForm.client_name ? 0.6 : 1, fontSize: "0.9rem" }}>
                                     {submitting ? "שולח..." : "📤 שלח ביקורת"}

@@ -54,12 +54,32 @@ GENERIC_MESSAGES = {
     ),
 }
 
-# Texts the old settings screen saved into every business's settings as if the owner had written them
-# (it pre-filled its defaults and saved them). start.py clears a saved text still equal to one of these,
-# so the field's default applies; a text the owner changed is left alone.
-LEGACY_SAVED_ONLY_IF_UNCHANGED = {
-    "aftercare_message": TATTOO_AFTERCARE,
-    "deposit_approved_wa_template": '✅ {client_name}, המקדמה אושרה!\n\nהתור שלך מאושר ונעול:\n📅 תאריך: {appointment_date}\n🕐 שעה: {appointment_time}\n✂️ אמן/ית: {artist_name}\n📍 כתובת: {studio_address}\n🗺️ ניווט: {map_link}\n🖼️ תיק עבודות: {portfolio_link}\n\n*מדיניות ביטולים:* ביטול עד {cancellation_free_days} ימים לפני — החזר מלא. פחות מ-{cancellation_free_days} ימים — ללא החזר מקדמה. שינוי תור אפשרי עד {deposit_lock_days} ימים לפני.\n\nמחכים לך! 🙏',
+# The deposit-approved text the old settings screen saved, before it named the staff in the business's word.
+_OLD_DEPOSIT_APPROVED = '✅ {client_name}, המקדמה אושרה!\n\nהתור שלך מאושר ונעול:\n📅 תאריך: {appointment_date}\n🕐 שעה: {appointment_time}\n✂️ אמן/ית: {artist_name}\n📍 כתובת: {studio_address}\n🗺️ ניווט: {map_link}\n🖼️ תיק עבודות: {portfolio_link}\n\n*מדיניות ביטולים:* ביטול עד {cancellation_free_days} ימים לפני — החזר מלא. פחות מ-{cancellation_free_days} ימים — ללא החזר מקדמה. שינוי תור אפשרי עד {deposit_lock_days} ימים לפני.\n\nמחכים לך! 🙏'
+
+# Texts the old settings screen saved into every business's settings as if the owner had written them: it
+# filled in its own texts for messages it did not even show, and any save there (an address, a color) wrote
+# them in. start.py and the settings save clear a text still exactly equal to one of these, so the system's
+# own message goes out — the field's own aftercare text, the full confirmation with the staff and the
+# cancellation policy, the reminder that says a deposit is still due, the welcome with the points. A text the
+# owner changed is left alone.
+LEGACY_SAVED_ONLY_IF_UNCHANGED: dict[str, tuple[str, ...]] = {
+    "aftercare_message": (TATTOO_AFTERCARE,),
+    "deposit_request_wa_template": ("היי {client_name}! 🎉 התור שלך ל-{appointment_title} נקבע ל-{appointment_date} בשעה {appointment_time}.\n\nלאישור התור נדרשת מקדמה של {deposit_amount}₪ עד 24 שעות.\nניתן לשלם דרך:\n💳 ביט: {bit_link}\n💳 פייבוקס: {paybox_link}\n🏦 העברה בנקאית: {bank_details}\n\nאחרי העברת המקדמה שלח/י אישור ונאשר את התור.\n\nלשאלות: {contact_phone}",),
+    "deposit_approved_wa_template": (_OLD_DEPOSIT_APPROVED, _OLD_DEPOSIT_APPROVED.replace("✂️ אמן/ית: {artist_name}", "👥 {staff_title}: {artist_name}")),
+    "points_redeem_wa_template": ("🎁 {client_name}, מימשת {points_used} נקודות בשווי {discount_amount}₪!\n\nנקודות שנותרו: {loyalty_points} נקודות.\nתודה שאתה/את חלק מהמועדון שלנו ❤️",),
+    "non_member_wa_template": ("היי {client_name}! 👋\n\nשמחים שביקרת אצלנו!\nהצטרף/י למועדון הלקוחות שלנו וקבל/י {points_on_signup} נקודות מתנה לביקור הבא 🎉\n\nהרשמה: {join_link}",),
+    "points_balance_wa_template": ("היי {client_name}! 🌟\n\nיתרת הנקודות שלך במועדון: *{loyalty_points} נקודות*\n\nנשמח לראותך שוב בקרוב! 💫",),
+    "confirm_wa_template": ("היי! התור שלך נקבע בהצלחה. מחכים לך 😊",),
+    "confirm_email_template": ("היי! התור שלך נקבע בהצלחה. מחכים לך 😊",),
+    "reschedule_wa_template": ("היי! מועד התור שלך עודכן. מחכים לך 🙌",),
+    "reschedule_email_template": ("היי! מועד התור שלך עודכן. מחכים לך 🙌",),
+    "post_payment_wa_template": ("תודה על התשלום! שמחים שבחרת בנו ❤️",),
+    "post_payment_email_template": ("תודה על התשלום! שמחים שבחרת בנו ❤️",),
+    "welcome_wa_template": ("ברוך הבא למועדון! אנחנו שמחים שהצטרפת 🎉",),
+    "welcome_email_template": ("ברוך הבא למועדון! אנחנו שמחים שהצטרפת 🎉",),
+    "reminder_wa_template": ("תזכורת! יש לך תור מחר. מחכים לך 🕐",),
+    "reminder_email_template": ("תזכורת! יש לך תור מחר. מחכים לך 🕐",),
 }
 
 BUSINESS_TYPES: list[dict] = [

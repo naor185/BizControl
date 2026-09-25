@@ -60,7 +60,7 @@ function ExploreContent() {
     }, [q, city, selectedType]);
 
     useEffect(() => {
-        fetch(`${API}/api/marketplace/categories`).then(r => r.json()).then(setCategories).catch(() => {});
+        fetch(`${API}/api/marketplace/categories`).then(r => r.json()).then(d => setCategories(Array.isArray(d) ? d : [])).catch(() => {});   // an error must not blank the page
     }, []);
 
     useEffect(() => {

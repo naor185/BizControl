@@ -13,23 +13,7 @@ export const metadata = {
     },
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
-    return (
-        <html lang="he" dir="rtl">
-            <head>
-                {/* Pinch-zoom disabled to match BizControl's fix — an app-like mobile
-                    UI (now also wrapped in a native Capacitor shell) shouldn't zoom its
-                    own chrome, and it removes a real crash trigger (a resize mid-pinch
-                    threw an unhandled client-side exception on BizControl's dashboard;
-                    same risk applies here). */}
-                <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-                {/* Same fixed 5-font set BizControl's ThemeProvider loads — one shared
-                    platform font system across both apps. */}
-                <link
-                    rel="stylesheet"
-                    href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;700;900&family=Assistant:wght@400;700&family=Rubik:wght@400;700&family=M+PLUS+Rounded+1c:wght@400;700&family=Varela+Round&display=swap"
-                />
-                <style>{`
+const GLOBAL_CSS = `
                     :root {
                         /* Brand accent tokens only — set by ThemeProvider.tsx at runtime.
                            Background/text stay hardcoded below; see that component's
@@ -50,7 +34,27 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                     .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; height: 60px; background: rgba(15,23,42,.97); backdrop-filter: blur(12px); border-top: 1px solid rgba(255,255,255,.08); display: flex; z-index: 100; }
                     .bottom-nav a { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; text-decoration: none; color: #64748b; font-size: 0.65rem; font-weight: 600; transition: color .2s; }
                     .bottom-nav a:hover { color: var(--primary); }
-                `}</style>
+`;
+
+export default function RootLayout({ children }: { children: ReactNode }) {
+    return (
+        <html lang="he" dir="rtl">
+            <head>
+                {/* Pinch-zoom disabled to match BizControl's fix — an app-like mobile
+                    UI (now also wrapped in a native Capacitor shell) shouldn't zoom its
+                    own chrome, and it removes a real crash trigger (a resize mid-pinch
+                    threw an unhandled client-side exception on BizControl's dashboard;
+                    same risk applies here). */}
+                <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+                {/* Same fixed 5-font set BizControl's ThemeProvider loads — one shared
+                    platform font system across both apps. */}
+                <link
+                    rel="stylesheet"
+                    href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;700;900&family=Assistant:wght@400;700&family=Rubik:wght@400;700&family=M+PLUS+Rounded+1c:wght@400;700&family=Varela+Round&display=swap"
+                />
+                {/* Raw CSS, not a text child: a text child's quotes ("Heebo", component's) are escaped on the
+                    server and not in the browser, so every page failed hydration and was rebuilt. */}
+                <style dangerouslySetInnerHTML={{ __html: GLOBAL_CSS }} />
             </head>
             <body>
                 <ThemeProvider />

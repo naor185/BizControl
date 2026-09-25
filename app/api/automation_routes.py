@@ -52,13 +52,22 @@ def patch_settings(payload: AutomationSettingsUpdate, ctx: AuthContext = Depends
     # longer configure their own Resend credentials, even via a direct API call.
     data.pop("resend_api_key", None)
     data.pop("resend_from_email", None)
-    # The screen shows the field's default aftercare text when the owner has none; saving it back unchanged
-    # must not turn it into the owner's own text (that is how a clinic ended up with tattoo instructions).
-    if "aftercare_message" in data:
-        from app.services.business_types import message_default
-        submitted = (data["aftercare_message"] or "").strip()
-        if not submitted or submitted == message_default(db, ctx.studio_id, "aftercare").strip():
-            data["aftercare_message"] = None
+    # The screen shows the field's default aftercare text when the owner has none, and an old screen (still
+    # open in a browser) sends texts it filled in by itself; saved back unchanged, none of them becomes the
+    # owner's own text — the field stays empty and the system's own message goes out (that is how a clinic
+    # ended up with tattoo instructions, and businesses with a confirmation without the staff or the
+    # cancellation policy).
+    from app.data.business_types import LEGACY_SAVED_ONLY_IF_UNCHANGED
+    for field, screen_texts in LEGACY_SAVED_ONLY_IF_UNCHANGED.items():
+        if field not in data:
+            continue
+        not_owners = {t.strip() for t in screen_texts}
+        if field == "aftercare_message":
+            from app.services.business_types import message_default
+            not_owners.add(message_default(db, ctx.studio_id, "aftercare").strip())
+        submitted = (data[field] or "").strip()
+        if not submitted or submitted in not_owners:
+            data[field] = None
     for k, v in data.items():
         setattr(settings, k, v)
 

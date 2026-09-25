@@ -2,7 +2,6 @@
 Public Marketplace API — Phase 4.
 All endpoints are public (no auth required).
 """
-from __future__ import annotations
 from typing import Optional
 import uuid
 

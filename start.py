@@ -1045,18 +1045,18 @@ def ensure_schema():
                 "previous_label": PREVIOUS_LABELS.get(_t["key"], _t["label"]),
             })
 
-        # Texts the old settings screen saved as if the owner wrote them: the tattoo aftercare instructions
-        # (saved even at a clinic) go, so the field's default applies; the deposit-approved template names
-        # the staff in the business's own word ({staff_title}) instead of "✂️ אמן/ית". Only texts still
-        # exactly equal to what the screen saved are touched — an owner's own text is left alone.
+        # Texts the old settings screen saved as if the owner wrote them (the tattoo aftercare instructions even
+        # at a clinic, a bare confirmation without the staff or the cancellation policy…) are cleared, so the
+        # system's own message goes out. Only texts still exactly equal to what the screen saved are touched —
+        # an owner's own text is left alone. (Columns this database does not have yet are skipped: this is
+        # one transaction, a failed UPDATE would undo the whole start.)
         from app.data.business_types import LEGACY_SAVED_ONLY_IF_UNCHANGED as _LEGACY
-        cur.execute("UPDATE studio_settings SET aftercare_message = NULL WHERE aftercare_message = %s",
-                    (_LEGACY["aftercare_message"],))
-        _old_dep = _LEGACY["deposit_approved_wa_template"]
-        _new_dep = "\n".join("👥 {staff_title}: {artist_name}" if "{artist_name}" in _line else _line
-                             for _line in _old_dep.split("\n"))
-        cur.execute("UPDATE studio_settings SET deposit_approved_wa_template = %s WHERE deposit_approved_wa_template = %s",
-                    (_new_dep, _old_dep))
+        cur.execute("""SELECT column_name FROM information_schema.columns
+                       WHERE table_schema = current_schema() AND table_name = 'studio_settings'""")
+        _settings_cols = {r[0] for r in cur.fetchall()}
+        for _field, _texts in _LEGACY.items():
+            if _field in _settings_cols:
+                cur.execute(f"UPDATE studio_settings SET {_field} = NULL WHERE {_field} = ANY(%s)", (list(_texts),))
 
         # Businesses whose type is not a known type (free text from an older signup form) get the type
         # their text names, or "other" — a studio then keeps the text it wrote in business_type_note.
