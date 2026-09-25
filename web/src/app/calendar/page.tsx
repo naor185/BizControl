@@ -12,6 +12,8 @@ import AppointmentCard from "@/components/AppointmentCard";
 import BottomSheet from "@/components/ui/bottom-sheet";
 import { HIDE_BOOKING_BANNER_KEY } from "@/lib/localPrefs";
 import StaffReminderRulesSettings from "@/components/StaffReminderRulesSettings";
+import { Users } from "lucide-react";
+import type { ClassSession, Room } from "@/lib/classes";
 
 // What the "הצגת חגים" panel lets you switch on/off, one group at a time.
 type HolidayCat = "chagim" | "modern" | "fasts" | "roshChodesh" | "parsha";
@@ -319,7 +321,12 @@ export default function CalendarPage() {
     const [filterArtistNames, setFilterArtistNames] = useState<string[]>([]);
     const [filterTreatments, setFilterTreatments] = useState<string[]>([]);
     const [filterStatuses, setFilterStatuses] = useState<string[]>([]);
-    const activeFilterCount = filterArtistNames.length + filterTreatments.length + filterStatuses.length;
+    // Group classes (the "classes" module) show here read-only — a click opens them in /classes.
+    const [classesOn, setClassesOn] = useState(false);
+    const [classSessions, setClassSessions] = useState<ClassSession[]>([]);
+    const [classRooms, setClassRooms] = useState<Room[]>([]);
+    const [filterRoomIds, setFilterRoomIds] = useState<string[]>([]);
+    const activeFilterCount = filterArtistNames.length + filterTreatments.length + filterStatuses.length + filterRoomIds.length;
     const toggleInArray = (arr: string[], val: string) => arr.includes(val) ? arr.filter(v => v !== val) : [...arr, val];
 
     // Past-date confirmation
@@ -422,6 +429,36 @@ export default function CalendarPage() {
         loadData();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [from, to]);
+
+    useEffect(() => {
+        apiFetch<Record<string, boolean>>("/api/modules/me").then(m => {
+            if (!m?.classes) return;
+            setClassesOn(true);
+            if (m.rooms) apiFetch<Room[]>("/api/classes/rooms").then(setClassRooms).catch(() => {});
+        }).catch(() => {});
+    }, []);
+
+    useEffect(() => {
+        if (!classesOn) return;
+        apiFetch<ClassSession[]>(`/api/classes/sessions?start=${encodeURIComponent(from)}&end=${encodeURIComponent(to)}`)
+            .then(setClassSessions)
+            .catch(() => setClassSessions([]));
+    }, [classesOn, from, to]);
+
+    const classEvents = useMemo(() => classSessions
+        .filter(s => filterRoomIds.length === 0 || (s.room_id !== null && filterRoomIds.includes(s.room_id)))
+        .map(s => ({
+            id: `class-${s.id}`,
+            title: s.name,
+            start: s.starts_at,
+            end: s.ends_at,
+            backgroundColor: s.color,
+            borderColor: s.color,
+            textColor: "#ffffff",
+            editable: false,
+            classNames: s.status === "scheduled" || s.status === "done" ? [] : ["opacity-50", "line-through"],
+            extendedProps: { isClass: true, sessionId: s.id, booked: s.booked, capacity: s.capacity, room_name: s.room_name, status: s.status },
+        })), [classSessions, filterRoomIds]);
 
     // Cross-device live sync: poll a cheap "version" signal every few
     // seconds so a change made on another device/tab (a payment recorded, a
@@ -659,6 +696,10 @@ export default function CalendarPage() {
         // Block spurious click that fires right after a touch drag completes
         if (isDraggingEvent.current) return;
         const app = clickInfo.event.extendedProps;
+        if (app.isClass) {
+            router.push(`/classes?session=${app.sessionId}`);
+            return;
+        }
         if (app.isHoliday) {
             setHolidayPopup({ emoji: app.holidayEmoji, name: app.holidayName, info: app.holidayInfo });
             return;
@@ -743,7 +784,7 @@ export default function CalendarPage() {
     // Resize (change duration) — show confirmation, capture times BEFORE revert
     const handleEventResize = async (resizeInfo: any) => {
         const app = resizeInfo.event.extendedProps;
-        if (app.isExternalGoogle || app.isTask) { resizeInfo.revert(); return; }
+        if (app.isExternalGoogle || app.isTask || app.isClass) { resizeInfo.revert(); return; }
 
         // Capture new times BEFORE revert — revert mutates event object back to original
         const newStartStr = resizeInfo.event.startStr;
@@ -782,6 +823,7 @@ export default function CalendarPage() {
 
     const handleEventDrop = async (dropInfo: any) => {
         const app = dropInfo.event.extendedProps;
+        if (app.isClass) { dropInfo.revert(); return; }
         if (app.isExternalGoogle) {
             showToast("לא ניתן להזיז אירועים מגוגל קלנדר חיצוני.", "error");
             dropInfo.revert();
@@ -1153,7 +1195,7 @@ export default function CalendarPage() {
                                     <div className="flex gap-2">
                                         <button
                                             type="button"
-                                            onClick={() => { setFilterArtistNames([]); setFilterTreatments([]); setFilterStatuses([]); }}
+                                            onClick={() => { setFilterArtistNames([]); setFilterTreatments([]); setFilterStatuses([]); setFilterRoomIds([]); }}
                                             className="flex-1 min-h-11 rounded-xl bg-slate-100 text-slate-600 text-sm font-bold"
                                         >
                                             נקה הכל
@@ -1183,6 +1225,27 @@ export default function CalendarPage() {
                                                         className={`min-h-11 px-3 rounded-xl text-sm font-semibold border transition-colors ${active ? "bg-sky-600 border-sky-600 text-white" : "bg-white border-slate-200 text-slate-700"}`}
                                                     >
                                                         {name}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {classRooms.length > 0 && (
+                                    <div className="mb-4">
+                                        <div className="text-xs font-bold text-slate-400 mb-2">חדר (שיעורים)</div>
+                                        <div className="flex flex-wrap gap-2">
+                                            {classRooms.filter(r => r.is_active).map(r => {
+                                                const active = filterRoomIds.includes(r.id);
+                                                return (
+                                                    <button
+                                                        key={r.id}
+                                                        type="button"
+                                                        onClick={() => setFilterRoomIds(prev => toggleInArray(prev, r.id))}
+                                                        className={`min-h-11 px-3 rounded-xl text-sm font-semibold border transition-colors ${active ? "bg-sky-600 border-sky-600 text-white" : "bg-white border-slate-200 text-slate-700"}`}
+                                                    >
+                                                        {r.name}
                                                     </button>
                                                 );
                                             })}
@@ -1234,6 +1297,17 @@ export default function CalendarPage() {
                         </>
                     ) : (
                         <div className="flex items-center gap-2 relative" ref={calSettingsRef}>
+                            {classRooms.length > 1 && (
+                                <select
+                                    value={filterRoomIds[0] ?? ""}
+                                    onChange={e => setFilterRoomIds(e.target.value ? [e.target.value] : [])}
+                                    aria-label="חדר"
+                                    className="px-2 py-1 rounded-lg text-xs font-semibold bg-white text-slate-700 border border-slate-200"
+                                >
+                                    <option value="">שיעורים: כל החדרים</option>
+                                    {classRooms.filter(r => r.is_active).map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                                </select>
+                            )}
                             <button
                                 type="button"
                                 onClick={() => router.push("/clients?create=1")}
@@ -1489,7 +1563,7 @@ export default function CalendarPage() {
                             slotDuration="00:30:00"
                             slotLabelInterval="01:00"
                             slotEventOverlap={false}
-                            events={[...events, ...holidayEvents, ...taskEvents]}
+                            events={[...events, ...classEvents, ...holidayEvents, ...taskEvents]}
                             select={handleDateSelect}
                             eventClick={handleEventClick}
                             eventDragStart={() => { isDraggingEvent.current = true; }}
@@ -1508,6 +1582,19 @@ export default function CalendarPage() {
                                 // text color here — inherit it, since holiday events set a dark
                                 // textColor (#0369a1) while tasks set white; AppointmentCard's
                                 // hardcoded text-white silently broke holiday's own color.
+                                if (p.isClass) {
+                                    return (
+                                        <div className="px-1.5 py-0.5 h-full w-full overflow-hidden text-[11px] leading-tight">
+                                            <div className="font-semibold truncate">{arg.timeText} {arg.event.title}</div>
+                                            <div className="flex items-center gap-1 opacity-90 truncate">
+                                                <Users className="w-3 h-3 shrink-0" aria-hidden />
+                                                <span className="tabular-nums">{p.booked}/{p.capacity}</span>
+                                                {p.room_name && <span className="truncate">· {p.room_name}</span>}
+                                                {p.status !== "scheduled" && p.status !== "done" && <span>· בוטל</span>}
+                                            </div>
+                                        </div>
+                                    );
+                                }
                                 if (p.isHoliday || p.isTask) {
                                     return (
                                         <div className="px-1.5 py-0.5 h-full w-full flex items-center overflow-hidden text-[11px] font-semibold truncate">

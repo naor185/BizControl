@@ -2148,6 +2148,92 @@ def ensure_schema():
                 WHERE business_type IN ('pilates', 'gym') AND NOT default_modules ? 'classes'
             """)
 
+        # ── Classes & memberships — stage 2: rooms, class templates, sessions (app/models/classes.py) ──
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS rooms (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                name VARCHAR(120) NOT NULL,
+                capacity INTEGER NOT NULL,
+                is_active BOOLEAN NOT NULL DEFAULT true,
+                source VARCHAR(16) NOT NULL DEFAULT 'user',
+                source_ref VARCHAR(120),
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_rooms_studio_id ON rooms (studio_id)")
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS class_templates (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                name VARCHAR(160) NOT NULL,
+                service_id UUID REFERENCES services(id) ON DELETE SET NULL,
+                color VARCHAR(16),
+                room_id UUID REFERENCES rooms(id) ON DELETE SET NULL,
+                instructor_id UUID REFERENCES users(id) ON DELETE SET NULL,
+                capacity INTEGER NOT NULL,
+                weekdays SMALLINT[] NOT NULL,
+                start_time TIME NOT NULL,
+                duration_minutes INTEGER NOT NULL,
+                starts_on DATE NOT NULL,
+                ends_on DATE,
+                sessions_count INTEGER,
+                is_active BOOLEAN NOT NULL DEFAULT true,
+                source VARCHAR(16) NOT NULL DEFAULT 'user',
+                source_ref VARCHAR(120),
+                created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_class_templates_studio_id ON class_templates (studio_id)")
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS class_sessions (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                template_id UUID REFERENCES class_templates(id) ON DELETE SET NULL,
+                occurs_on DATE NOT NULL,
+                starts_at TIMESTAMPTZ NOT NULL,
+                ends_at TIMESTAMPTZ NOT NULL,
+                room_id UUID REFERENCES rooms(id) ON DELETE SET NULL,
+                instructor_id UUID REFERENCES users(id) ON DELETE SET NULL,
+                capacity INTEGER NOT NULL,
+                status VARCHAR(16) NOT NULL DEFAULT 'scheduled',
+                detached BOOLEAN NOT NULL DEFAULT false,
+                cancel_reason TEXT,
+                canceled_at TIMESTAMPTZ,
+                canceled_by UUID REFERENCES users(id) ON DELETE SET NULL,
+                source VARCHAR(16) NOT NULL DEFAULT 'system',
+                source_ref VARCHAR(120),
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                CONSTRAINT uq_class_session_template_date UNIQUE (template_id, occurs_on)
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_class_sessions_studio_id ON class_sessions (studio_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_class_sessions_template_id ON class_sessions (template_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_class_sessions_starts_at ON class_sessions (starts_at)")
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS class_bookings (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                session_id UUID NOT NULL REFERENCES class_sessions(id) ON DELETE CASCADE,
+                client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+                status VARCHAR(16) NOT NULL DEFAULT 'booked',
+                source VARCHAR(16) NOT NULL DEFAULT 'user',
+                created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                canceled_at TIMESTAMPTZ,
+                cancel_reason VARCHAR(32)
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_class_bookings_studio_id ON class_bookings (studio_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_class_bookings_session_id ON class_bookings (session_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_class_bookings_client_id ON class_bookings (client_id)")
+        cur.execute("""CREATE UNIQUE INDEX IF NOT EXISTS uq_class_booking_active ON class_bookings (session_id, client_id)
+                       WHERE status <> 'canceled'""")
+
         conn.commit()
         cur.close()
         conn.close()

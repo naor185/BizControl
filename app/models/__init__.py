@@ -35,6 +35,7 @@ from app.models.staff_reminder_log import StaffReminderSentLog
 from app.models.migration import Migration, MigrationRow, ExternalRecord, MigrationEvent
 from app.models.notification_template import NotificationTemplate
 from app.models.policy_setting import PolicySetting
+from app.models.classes import Room, ClassTemplate, ClassSession, ClassBooking
 
 __all__ = [
     "Base", "Studio", "User", "StudioSettings", "RefreshToken",

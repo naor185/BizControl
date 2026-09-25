@@ -261,6 +261,20 @@ def start_scheduler():
         finally:
             db.close()
 
+    def tick_class_sessions():
+        """Keeps every class schedule filled weeks_ahead weeks ahead (app/services/classes.py)."""
+        from app.services.classes import generate_all
+        db = SessionLocal()
+        try:
+            generate_all(db)
+        except Exception:
+            db.rollback()
+            logging.getLogger("bizcontrol.classes").exception("class sessions tick failed")
+        finally:
+            db.close()
+
+    scheduler.add_job(tick_class_sessions, "cron", hour=2, minute=30, timezone="Asia/Jerusalem",
+                      misfire_grace_time=6 * 3600, id="class_sessions_tick", replace_existing=True)
     scheduler.add_job(tick_migrations, "interval", seconds=15, id="migrations_tick", replace_existing=True,
                       max_instances=1, coalesce=True)
     scheduler.add_job(tick_migration_purge, "cron", hour=3, minute=30, timezone="Asia/Jerusalem",

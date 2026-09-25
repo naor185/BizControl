@@ -31,7 +31,7 @@ def _settings_out(db: Session, studio_id) -> list[dict]:
     return [{
         "key": p.key, "label": p.label, "kind": p.kind, "unit": p.unit, "help": p.help,
         "min": p.minimum, "max": p.maximum, "choices": [{"value": c, "label": l} for c, l in p.choices],
-        "default": p.default, "module": p.module, **values[p.key],
+        "default": p.default, "module": p.module, "levels": list(p.scopes), **values[p.key],
     } for p in policies.POLICIES.values()]
 
 

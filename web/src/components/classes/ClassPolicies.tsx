@@ -15,7 +15,7 @@ import { toast } from "@/lib/toast";
 export type ClassPolicy = {
     key: string; label: string; kind: "int" | "bool" | "choice"; unit: string; help: string;
     min: number | null; max: number | null; choices: { value: string; label: string }[];
-    default: number | boolean | string; module: string;
+    default: number | boolean | string; module: string; levels: string[];
     value: number | boolean | string; is_default: boolean;
 };
 

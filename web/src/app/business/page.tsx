@@ -76,6 +76,7 @@ const SECTION_GROUPS: { groupLabel: string; icon: LucideIcon; items: { href: str
         groupLabel: "שיעורים ומנויים",
         icon: CalendarRange,
         items: [
+            { href: "/classes", label: "שיעורים", description: "לוח השיעורים, שיעורים קבועים, קורסים וחדרים", icon: CalendarRange, gradient: "from-indigo-500 to-violet-700", module: "classes" },
             { href: "/classes/settings", label: "הגדרות שיעורים ומנויים", description: "הרשמה, ביטולים, רשימת המתנה והודעות ל{client_plural}", icon: SlidersHorizontal, gradient: "from-indigo-500 to-indigo-700", module: "classes" },
         ],
     },
