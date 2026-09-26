@@ -48,6 +48,16 @@ class MembershipType(Base):
     freeze_min_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
     freeze_max_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     freeze_fee_cents: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    # a family / shared membership (app/services/membership_family.py) — every choice the owner's; the defaults
+    # keep a personal membership (one person) exactly as before
+    max_members: Mapped[int | None] = mapped_column(Integer, nullable=True, default=1, server_default="1")   # empty = no limit
+    entries_mode: Mapped[str] = mapped_column(String(16), nullable=False, default="shared", server_default="shared")   # shared | each | shared_capped
+    member_cap: Mapped[int | None] = mapped_column(Integer, nullable=True)            # shared_capped: each person at most
+    pricing: Mapped[str] = mapped_column(String(20), nullable=False, default="fixed", server_default="fixed")   # fixed | per_member | first_plus_extra | first_plus_discount
+    extra_member_cents: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")    # first_plus_extra
+    extra_member_percent: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")  # first_plus_discount
+    booking_by: Mapped[str] = mapped_column(String(10), nullable=False, default="each", server_default="each")   # each | holder
+    members_change: Mapped[str] = mapped_column(String(10), nullable=False, default="free", server_default="free")   # free | priced | locked
     source: Mapped[str] = mapped_column(String(16), nullable=False, default="user", server_default="user")
     source_ref: Mapped[str | None] = mapped_column(String(120), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
@@ -180,3 +190,19 @@ class MembershipRequest(Base):
     decided_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     decision_note: Mapped[str | None] = mapped_column(String(300), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class MembershipMember(Base):
+    """Another person on a family / shared membership — besides its holder (memberships.client_id), who is always
+    on it. Removed = removed_at (the history stays). One active row per person and membership."""
+    __tablename__ = "membership_members"
+    __table_args__ = (Index("uq_membership_member_active", "membership_id", "client_id", unique=True,
+                            postgresql_where=text("removed_at IS NULL")),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    studio_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("studios.id", ondelete="CASCADE"), nullable=False, index=True)
+    membership_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("memberships.id", ondelete="CASCADE"), nullable=False, index=True)
+    client_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("clients.id", ondelete="CASCADE"), nullable=False, index=True)
+    added_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    added_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    removed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

@@ -7,6 +7,7 @@ import PenaltyRules from "@/components/classes/PenaltyRules";
 import { apiFetch } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import { type ClassTemplate, type MembershipKind, type MembershipType, shekels } from "@/lib/classes";
+import { FamilyOptions, familyForm, familyLine, familyPayload } from "@/components/classes/FamilyMembers";
 
 // What the business sells: unlimited for a period, a weekly limit for a period, or a punch card. Editing
 // a type does not change memberships already sold (each keeps the rules it was sold with).
@@ -57,6 +58,7 @@ export default function MembershipTypes({ canConfigure }: { canConfigure: boolea
                                 <p className="text-base font-bold text-slate-900 truncate">{t.name}</p>
                                 <p className="text-xs text-indigo-800 mt-0.5">{t.kind_label}</p>
                                 <p className="text-sm text-slate-600 mt-1 tabular-nums">{describeType(t)}</p>
+                                {familyLine(t) && <p className="text-xs text-violet-800 mt-0.5">{familyLine(t)}</p>}
                                 {!t.covers_all && <p className="text-xs text-slate-500 mt-0.5">רק שיעורים נבחרים ({t.covered_templates.length})</p>}
                                 {!t.is_active && <p className="text-xs text-slate-500 mt-0.5">לא נמכר כרגע</p>}
                             </div>
@@ -88,6 +90,7 @@ function TypeSheet({ t, templates, onClose, onSaved }: { t: MembershipType | nul
         freeze_min_days: t?.freeze_min_days ?? ("" as number | ""), freeze_max_count: t?.freeze_max_count ?? ("" as number | ""),
         freeze_fee: t ? t.freeze_fee_cents / 100 : ("" as number | ""),
     });
+    const [fam, setFam] = useState(() => familyForm(t));
     const [busy, setBusy] = useState(false);
     const [rulesOpen, setRulesOpen] = useState(false);
     const set = (patch: Partial<typeof f>) => setF(v => ({ ...v, ...patch }));
@@ -106,6 +109,7 @@ function TypeSheet({ t, templates, onClose, onSaved }: { t: MembershipType | nul
                     freeze_min_days: f.freeze_min_days === "" ? null : f.freeze_min_days,
                     freeze_max_count: f.freeze_max_count === "" ? null : f.freeze_max_count,
                     freeze_fee_cents: f.freeze_fee === "" ? 0 : Math.round(f.freeze_fee * 100),
+                    ...familyPayload(fam),
                 }),
             });
             toast.success(t ? "סוג המנוי עודכן — מנויים שכבר נמכרו לא משתנים" : "סוג המנוי נוסף");
@@ -180,6 +184,7 @@ function TypeSheet({ t, templates, onClose, onSaved }: { t: MembershipType | nul
                         </div>
                     )}
                 </fieldset>
+                <FamilyOptions f={fam} kind={f.kind} set={p => setFam(v => ({ ...v, ...p }))} />
                 <fieldset className="rounded-xl border border-slate-200 p-3 space-y-2">
                     <legend className="px-1 text-xs font-semibold text-slate-600">הקפאה</legend>
                     <label className="flex items-center gap-2 text-sm text-slate-800">

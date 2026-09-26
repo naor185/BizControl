@@ -2430,6 +2430,29 @@ def ensure_schema():
                 END IF;
             END $$;
         """)
+        # Classes extras 6 — a family / shared membership (app/services/membership_family.py); the defaults keep a
+        # personal membership as it was
+        for _col in ("max_members INTEGER DEFAULT 1", "entries_mode VARCHAR(16) NOT NULL DEFAULT 'shared'", "member_cap INTEGER",
+                     "pricing VARCHAR(20) NOT NULL DEFAULT 'fixed'", "extra_member_cents INTEGER NOT NULL DEFAULT 0",
+                     "extra_member_percent INTEGER NOT NULL DEFAULT 0", "booking_by VARCHAR(10) NOT NULL DEFAULT 'each'",
+                     "members_change VARCHAR(10) NOT NULL DEFAULT 'free'"):
+            cur.execute(f"ALTER TABLE membership_types ADD COLUMN IF NOT EXISTS {_col}")
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS membership_members (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                membership_id UUID NOT NULL REFERENCES memberships(id) ON DELETE CASCADE,
+                client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+                added_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                added_by UUID REFERENCES users(id) ON DELETE SET NULL,
+                removed_at TIMESTAMPTZ
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_membership_members_studio_id ON membership_members (studio_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_membership_members_membership_id ON membership_members (membership_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_membership_members_client_id ON membership_members (client_id)")
+        cur.execute("""CREATE UNIQUE INDEX IF NOT EXISTS uq_membership_member_active ON membership_members (membership_id, client_id)
+                       WHERE removed_at IS NULL""")
         # Classes extras 5 — the check-in QR code's secret key (app/services/class_checkin.py)
         cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS class_checkin_token VARCHAR(64)")
         # Classes extras 4 — a course: one registration and one price for all its sessions (app/services/courses.py)

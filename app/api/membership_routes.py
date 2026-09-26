@@ -60,6 +60,15 @@ class TypeIn(BaseModel):
     freeze_min_days: Optional[int] = Field(None, ge=1, le=365)
     freeze_max_count: Optional[int] = Field(None, ge=1, le=20)
     freeze_fee_cents: int = Field(0, ge=0, le=1_000_000)
+    # a family / shared membership — the owner's choices (app/services/membership_family.py)
+    max_members: Optional[int] = Field(1, ge=1, le=100)          # 1 = personal; empty = no limit
+    entries_mode: str = "shared"
+    member_cap: Optional[int] = Field(None, ge=1, le=500)
+    pricing: str = "fixed"
+    extra_member_cents: int = Field(0, ge=0, le=10_000_000)
+    extra_member_percent: int = Field(0, ge=0, le=100)
+    booking_by: str = "each"
+    members_change: str = "free"
 
 
 def _check_type(db: Session, studio_id, v: dict) -> dict:
@@ -74,6 +83,20 @@ def _check_type(db: Session, studio_id, v: dict) -> dict:
         raise HTTPException(400, "כמה כניסות בכרטיסייה?")
     if kind == "unlimited":
         v["entries"] = None
+    from app.services import membership_family as family
+    for field, allowed in (("entries_mode", family.ENTRIES_MODES), ("pricing", family.PRICINGS),
+                           ("booking_by", family.BOOKING_BY), ("members_change", family.MEMBERS_CHANGE)):
+        if v.get(field) not in allowed:
+            raise HTTPException(400, "בחירה לא מוכרת במנוי המשפחתי")
+    if kind == "unlimited":
+        v["entries_mode"], v["member_cap"] = "shared", None            # no entries to share
+    if v["entries_mode"] == "shared_capped":
+        if not v.get("member_cap"):
+            raise HTTPException(400, "כמה כניסות לכל היותר לכל אחד?")
+        if v.get("entries") and v["member_cap"] > v["entries"]:
+            raise HTTPException(400, "המקסימום לאדם גדול מהיתרה המשותפת")
+    else:
+        v["member_cap"] = None
     if not v.get("covers_all"):
         ids = list(dict.fromkeys(v.get("covered_templates") or []))
         if not ids:
@@ -93,7 +116,18 @@ def _type_out(t: MembershipType) -> dict:
             "price_cents": t.price_cents, "duration_days": t.duration_days, "entries": t.entries,
             "covers_all": t.covers_all, "covered_templates": [str(x) for x in t.covered_templates or []],
             "is_active": t.is_active, "freeze_allowed": t.freeze_allowed, "freeze_max_days": t.freeze_max_days,
-            "freeze_min_days": t.freeze_min_days, "freeze_max_count": t.freeze_max_count, "freeze_fee_cents": t.freeze_fee_cents}
+            "freeze_min_days": t.freeze_min_days, "freeze_max_count": t.freeze_max_count, "freeze_fee_cents": t.freeze_fee_cents,
+            "max_members": t.max_members, "entries_mode": t.entries_mode, "member_cap": t.member_cap, "pricing": t.pricing,
+            "extra_member_cents": t.extra_member_cents, "extra_member_percent": t.extra_member_percent,
+            "booking_by": t.booking_by, "members_change": t.members_change,
+            # the price for 1, 2, 3… people — worked out once, here, by the owner's pricing (for the sale screen)
+            "family_prices": _family_prices(t)}
+
+
+def _family_prices(t: MembershipType) -> list[int]:
+    from app.services import membership_family as family
+    rules = {**family.rules_of(t), "price_cents": t.price_cents}
+    return [family.price_for(rules, n) for n in range(1, min(t.max_members or 8, 8) + 1)]
 
 
 @router.get("/membership-types")
@@ -125,7 +159,10 @@ def update_type(type_id: uuid.UUID, body: TypeIn, ctx: AuthContext = Depends(req
 # ── memberships ──────────────────────────────────────────────────────────────
 
 def _memberships_out(db: Session, rows: list[Membership]) -> list[dict]:
-    clients = {c.id: c for c in db.scalars(select(Client).where(Client.id.in_({m.client_id for m in rows}))).all()} if rows else {}
+    from app.services import membership_family as family
+    everyone = {m.id: family.people(db, m) for m in rows}
+    ids = {c for people in everyone.values() for c in people}
+    clients = {c.id: c for c in db.scalars(select(Client).where(Client.id.in_(ids))).all()} if rows else {}
     bals = ms.balance(db, [m.id for m in rows if m.rules.get("kind") == "punch"])
     paid = payments.paid_for_membership(db, [m.id for m in rows])
     today = svc.today_il()
@@ -140,7 +177,15 @@ def _memberships_out(db: Session, rows: list[Membership]) -> list[dict]:
                     "ends_on": m.ends_on.isoformat() if m.ends_on else None, "price_cents": m.price_cents,
                     "balance": bal, "notes": m.notes, "paid_cents": paid.get(m.id, 0),
                     "freeze_from": m.freeze_from.isoformat() if m.freeze_from else None,
-                    "freeze_until": m.freeze_until.isoformat() if m.freeze_until else None})
+                    "freeze_until": m.freeze_until.isoformat() if m.freeze_until else None,
+                    # a family / shared membership: who is on it, and each one's use when each has a limit
+                    "is_family": family.is_family(m.rules), "max_members": m.rules.get("max_members", 1),
+                    "entries_mode": m.rules.get("entries_mode") or "shared", "booking_by": m.rules.get("booking_by") or "each",
+                    "members_change": m.rules.get("members_change") or "free",
+                    "members": [{"client_id": str(cid), "full_name": clients[cid].full_name if cid in clients else "",
+                                 "phone": clients[cid].phone if cid in clients else None, "holder": cid == m.client_id,
+                                 "used": family.person_used(db, m, cid) if m.rules.get("kind") == "punch" and family.is_family(m.rules) else None}
+                                for cid in everyone[m.id]]})
     return out
 
 
@@ -150,10 +195,13 @@ ORDER = {"active": 0, "ending": 1, "pending": 2, "frozen": 3, "expired": 4, "can
 @router.get("/memberships")
 def list_memberships(client_id: Optional[uuid.UUID] = None, current_only: bool = True,
                      ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
-    q = select(Membership).where(Membership.studio_id == ctx.studio_id)
-    if client_id:
-        q = q.where(Membership.client_id == client_id)
-    out = _memberships_out(db, list(db.scalars(q.order_by(Membership.created_at.desc()).limit(500)).all()))
+    if client_id:                        # their own, and the family memberships they are on
+        from app.services import membership_family as family
+        rows = sorted(family.memberships_of(db, client_id, ctx.studio_id), key=lambda m: m.created_at, reverse=True)
+    else:
+        rows = list(db.scalars(select(Membership).where(Membership.studio_id == ctx.studio_id)
+                               .order_by(Membership.created_at.desc()).limit(500)).all())
+    out = _memberships_out(db, rows)
     if current_only and not client_id:
         out = [m for m in out if m["status"] in ("active", "ending", "pending", "frozen")]
     return sorted(out, key=lambda m: (ORDER.get(m["status"], 9), m["ends_on"] or "9999"))
@@ -165,6 +213,7 @@ class SellIn(BaseModel):
     starts_on: Optional[date] = None
     price_cents: Optional[int] = Field(None, ge=0, le=10_000_000)
     notes: Optional[str] = Field(None, max_length=500)
+    members: list[uuid.UUID] = []            # the other people on a family membership
 
 
 @router.post("/memberships")
@@ -175,8 +224,10 @@ def sell_membership(body: SellIn, ctx: AuthContext = Depends(require_action("mem
         raise HTTPException(400, "סוג המנוי הזה לא נמכר כרגע")
     if body.starts_on and body.starts_on < svc.today_il():
         raise HTTPException(400, "תאריך ההתחלה כבר עבר")
+    others = [_get(db, Client, ctx.studio_id, cid, "הלקוח לא נמצא") for cid in dict.fromkeys(body.members) if cid != client.id]
     try:
-        m = ms.sell(db, client, t, starts_on=body.starts_on, price_cents=body.price_cents, notes=body.notes, user_id=ctx.user_id)
+        m = ms.sell(db, client, t, starts_on=body.starts_on, price_cents=body.price_cents, notes=body.notes, user_id=ctx.user_id,
+                    members=others)
     except ValueError as e:
         _fail(db, e)
     db.commit()
@@ -285,6 +336,40 @@ def reject_freeze_request(request_id: uuid.UUID, body: ChangeIn, ctx: AuthContex
                           db: Session = Depends(get_db)):
     """Not approved — the client is told, with the reason when one is given."""
     return _request(db, ctx, request_id, "reject", reason=body.reason)
+
+
+# ── a family / shared membership's people ─────────────────────────────────────
+
+class MemberIn(BaseModel):
+    client_id: uuid.UUID
+
+
+@router.post("/memberships/{membership_id}/members")
+def add_member(membership_id: uuid.UUID, body: MemberIn, ctx: AuthContext = Depends(require_action("memberships.sell")),
+               db: Session = Depends(get_db)):
+    """Another person on the membership — the price by the owner's rule for adding people."""
+    from app.services import membership_family as family
+    m = _get(db, Membership, ctx.studio_id, membership_id, "המנוי לא נמצא")
+    try:
+        family.add(db, m, _get(db, Client, ctx.studio_id, body.client_id, "הלקוח לא נמצא"), user_id=ctx.user_id)
+    except ValueError as e:
+        _fail(db, e)
+    db.commit()
+    return get_membership(membership_id, ctx, db)
+
+
+@router.post("/memberships/{membership_id}/members/{client_id}/remove")
+def remove_member(membership_id: uuid.UUID, client_id: uuid.UUID, ctx: AuthContext = Depends(require_action("memberships.change")),
+                  db: Session = Depends(get_db)):
+    """A person off the membership — their coming classes on it are cancelled, the entries go back."""
+    from app.services import membership_family as family
+    m = _get(db, Membership, ctx.studio_id, membership_id, "המנוי לא נמצא")
+    try:
+        family.remove(db, m, client_id, user_id=ctx.user_id)
+    except ValueError as e:
+        _fail(db, e)
+    db.commit()
+    return get_membership(membership_id, ctx, db)
 
 
 @router.post("/memberships/{membership_id}/unfreeze")

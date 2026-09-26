@@ -24,6 +24,7 @@ from sqlalchemy.orm import Session
 from app.models.classes import ClassBooking, ClassSession
 from app.models.memberships import Membership, MembershipEntry, MembershipEvent, MembershipType
 from app.services import classes as svc
+from app.services import membership_family as family
 
 KIND_LABELS = {"unlimited": "ללא הגבלה", "weekly": "מגבלה שבועית", "punch": "כרטיסייה"}
 VALID = ("pending", "active", "ending")           # statuses that can cover a class (by dates)
@@ -52,7 +53,8 @@ def snapshot(t: MembershipType) -> dict:
             "covers_all": t.covers_all, "covered_templates": [str(x) for x in (t.covered_templates or [])],
             "price_cents": t.price_cents,
             "freeze_allowed": t.freeze_allowed, "freeze_max_days": t.freeze_max_days, "freeze_min_days": t.freeze_min_days,
-            "freeze_max_count": t.freeze_max_count, "freeze_fee_cents": t.freeze_fee_cents}
+            "freeze_max_count": t.freeze_max_count, "freeze_fee_cents": t.freeze_fee_cents,
+            **family.rules_of(t)}                   # a family / shared membership (app/services/membership_family.py)
 
 
 def log_event(db: Session, m: Membership, action: str, from_status: str | None, to_status: str | None, *,
@@ -66,8 +68,9 @@ def log_event(db: Session, m: Membership, action: str, from_status: str | None, 
 
 def sell(db: Session, client, mtype: MembershipType, *, starts_on: date | None = None, price_cents: int | None = None,
          notes: str | None = None, user_id=None, origin: str = "user", opening_entries: int | None = None,
-         event_reason: str | None = None) -> Membership:
-    """A membership for a client from a type — starting today or later (then pending)."""
+         event_reason: str | None = None, members=()) -> Membership:
+    """A membership for a client from a type — starting today or later (then pending). members: the other
+    people on a family membership; the price is the owner's pricing for everyone (unless another is given)."""
     if mtype.studio_id != client.studio_id:
         raise MembershipError("סוג המנוי לא נמצא")
     today = svc.today_il()
@@ -76,7 +79,7 @@ def sell(db: Session, client, mtype: MembershipType, *, starts_on: date | None =
     m = Membership(studio_id=client.studio_id, client_id=client.id, type_id=mtype.id,
                    status="pending" if start > today else "active", starts_on=start,
                    ends_on=start + timedelta(days=mtype.duration_days - 1) if mtype.duration_days else None,
-                   rules=rules, price_cents=mtype.price_cents if price_cents is None else price_cents,
+                   rules=rules, price_cents=family.price_for(rules, 1 + len(members)) if price_cents is None else price_cents,
                    notes=(notes or None), source=origin, created_by=user_id)
     m.renewal_expected_on = (m.ends_on + timedelta(days=1)) if m.ends_on else None
     db.add(m)
@@ -85,6 +88,8 @@ def sell(db: Session, client, mtype: MembershipType, *, starts_on: date | None =
         db.add(MembershipEntry(studio_id=m.studio_id, membership_id=m.id, stage="opening",
                                amount=mtype.entries if opening_entries is None else opening_entries,
                                reason="פתיחת הכרטיסייה", source=origin, created_by=user_id))
+    for other in members:
+        family.add(db, m, other, user_id=user_id, at_sale=True)
     log_event(db, m, "sold", None, m.status, effective_on=start, reason=event_reason, user_id=user_id, source=origin)
     db.flush()
     return m
@@ -192,10 +197,15 @@ def covers(m: Membership, template_id) -> bool:
     return bool(r.get("covers_all", True)) or (template_id is not None and str(template_id) in (r.get("covered_templates") or []))
 
 
-def week_used(db: Session, m: Membership, day: date) -> int:
-    """Bookings this membership holds in the Israeli week (Sun–Sat) of `day`."""
+def week_bounds(day: date):
+    """The Israeli week (Sun–Sat) of `day`, as two moments."""
     start = day - timedelta(days=svc.js_weekday(day))
-    lo, hi = svc.at_il(start, time(0, 0)), svc.at_il(start + timedelta(days=7), time(0, 0))
+    return svc.at_il(start, time(0, 0)), svc.at_il(start + timedelta(days=7), time(0, 0))
+
+
+def week_used(db: Session, m: Membership, day: date) -> int:
+    """Bookings this membership holds in the Israeli week (Sun–Sat) of `day` — everyone on it."""
+    lo, hi = week_bounds(day)
     return db.scalar(select(func.count()).select_from(ClassBooking).join(ClassSession, ClassSession.id == ClassBooking.session_id).where(
         ClassBooking.membership_id == m.id, ClassBooking.status != "canceled",
         func.coalesce(ClassBooking.entry_state, "reserved") != "returned",
@@ -203,9 +213,10 @@ def week_used(db: Session, m: Membership, day: date) -> int:
 
 
 def find_eligible(db: Session, client_id, session: ClassSession) -> tuple[Membership | None, str | None]:
-    """The membership that covers this class for this client, or (None, why not)."""
+    """The membership that covers this class for this client — their own, or a family membership they are on —
+    or (None, why not)."""
     day = session.starts_at.astimezone(svc.IL).date()
-    mine = db.scalars(select(Membership).where(Membership.client_id == client_id, Membership.studio_id == session.studio_id)).all()
+    mine = family.memberships_of(db, client_id, session.studio_id)
     if not mine:
         return None, "אין מנוי"
     dated = [m for m in mine if m.status in VALID + ("frozen",) and m.starts_on <= day and (not m.ends_on or m.ends_on >= day)]
@@ -221,12 +232,22 @@ def find_eligible(db: Session, client_id, session: ClassSession) -> tuple[Member
         if not covers(m, session.template_id):
             why = why or "המנוי לא כולל את השיעור הזה"
             continue
-        if kind == "punch" and bals[m.id]["available"] <= 0:
-            why = "נגמרו הכניסות בכרטיסייה"
-            continue
-        if kind == "weekly" and week_used(db, m, day) >= (m.rules.get("entries") or 0):
-            why = f"כבר נוצלו {m.rules.get('entries')} כניסות בשבוע של השיעור"
-            continue
+        own = family.per_person_limit(m.rules)          # a family membership: each person's own limit (the owner's choice)
+        if kind == "punch":
+            if bals[m.id]["available"] <= 0:
+                why = "נגמרו הכניסות בכרטיסייה"
+                continue
+            if own is not None and family.person_used(db, m, client_id) >= own:
+                why = f"נוצלו {own} הכניסות שלך במנוי המשפחתי"
+                continue
+        if kind == "weekly":
+            if (m.rules.get("entries_mode") or "shared") != "each" and week_used(db, m, day) >= (m.rules.get("entries") or 0):
+                why = f"כבר נוצלו {m.rules.get('entries')} כניסות בשבוע של השיעור"
+                continue
+            lo, hi = week_bounds(day)
+            if own is not None and family.person_used(db, m, client_id, lo=lo, hi=hi) >= own:
+                why = f"כבר נוצלו {own} הכניסות שלך בשבוע של השיעור"
+                continue
         return m, None
     return None, why
 

@@ -45,11 +45,18 @@ export type CourseView = {
 
 // ── memberships (stage 4) ──
 export type MembershipKind = "unlimited" | "weekly" | "punch";
+export type EntriesMode = "shared" | "each" | "shared_capped";
+export type FamilyPricing = "fixed" | "per_member" | "first_plus_extra" | "first_plus_discount";
 export type MembershipType = {
     id: string; name: string; kind: MembershipKind; kind_label: string; price_cents: number;
     duration_days: number | null; entries: number | null; covers_all: boolean; covered_templates: string[]; is_active: boolean;
     freeze_allowed: boolean; freeze_max_days: number | null; freeze_min_days: number | null; freeze_max_count: number | null;
     freeze_fee_cents: number;
+    // a family / shared membership — the owner's choices (app/services/membership_family.py)
+    max_members: number | null; entries_mode: EntriesMode; member_cap: number | null; pricing: FamilyPricing;
+    extra_member_cents: number; extra_member_percent: number; booking_by: "each" | "holder";
+    members_change: "free" | "priced" | "locked";
+    family_prices: number[];            // the price for 1, 2, 3… people, worked out by the server
 };
 export type Balance = { total: number; reserved: number; consumed: number; available: number };
 export type MembershipStatus = "pending" | "active" | "frozen" | "ending" | "expired" | "canceled";
@@ -59,6 +66,9 @@ export type MembershipRow = {
     starts_on: string; ends_on: string | null; price_cents: number; balance: Balance | null; notes: string | null;
     paid_cents: number;
     freeze_from: string | null; freeze_until: string | null;      // frozen from, back on
+    is_family: boolean; max_members: number | null; entries_mode: EntriesMode; booking_by: "each" | "holder";
+    members_change: "free" | "priced" | "locked";
+    members: { client_id: string; full_name: string; phone: string | null; holder: boolean; used: number | null }[];
 };
 export type MembershipDetail = MembershipRow & {
     entries: { at: string; stage: "opening" | "adjust" | "reserve" | "close"; outcome: "consume" | "return" | null; amount: number; reason: string | null; class_name: string | null; class_at: string | null }[];

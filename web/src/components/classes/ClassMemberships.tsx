@@ -7,6 +7,7 @@ import ClientSearch, { type FoundClient } from "@/components/classes/ClientSearc
 import MembershipTypes, { describeType } from "@/components/classes/MembershipTypes";
 import PayForm from "@/components/classes/PayForm";
 import MembershipChanges, { freezeLine } from "@/components/classes/MembershipChanges";
+import { MembershipMembers, SellMembers } from "@/components/classes/FamilyMembers";
 import FreezeRequests from "@/components/classes/FreezeRequests";
 import { apiFetch } from "@/lib/api";
 import { toast } from "@/lib/toast";
@@ -95,7 +96,9 @@ function MembershipList({ terms, canSell, canChange }: { terms: Terms; canSell: 
                         <li key={m.id}>
                             <button type="button" onClick={() => setOpenId(m.id)} className="w-full text-right px-4 py-3 flex items-center gap-3 hover:bg-slate-50">
                                 <div className="min-w-0 flex-1">
-                                    <p className="text-sm font-semibold text-slate-900 truncate">{m.client_name}</p>
+                                    <p className="text-sm font-semibold text-slate-900 truncate">
+                                        {m.client_name}{m.is_family && m.members.length > 1 ? ` + ${m.members.length - 1}` : ""}
+                                    </p>
                                     <p className="text-xs text-slate-500 truncate">{freezeLine(m) ?? `${m.name} · ${m.ends_on ? `עד ${fullDate(m.ends_on)}` : "ללא תאריך סיום"}`}</p>
                                 </div>
                                 <Balance m={m} />
@@ -106,7 +109,7 @@ function MembershipList({ terms, canSell, canChange }: { terms: Terms; canSell: 
                 </ul>
             )}
             {selling && <SellSheet terms={terms} onClose={() => setSelling(false)} onDone={() => { setSelling(false); load(); }} />}
-            {openId && <MembershipSheet id={openId} canSell={canSell} canChange={canChange} onClose={() => setOpenId(null)} onChanged={load} />}
+            {openId && <MembershipSheet id={openId} terms={terms} canSell={canSell} canChange={canChange} onClose={() => setOpenId(null)} onChanged={load} />}
         </div>
     );
 }
@@ -121,9 +124,15 @@ function SellSheet({ terms, onClose, onDone }: { terms: Terms; onClose: () => vo
     const [start, setStart] = useState(() => new Date().toISOString().slice(0, 10));
     const [price, setPrice] = useState<number | "">("");
     const [notes, setNotes] = useState("");
+    const [members, setMembers] = useState<FoundClient[]>([]);
     const [busy, setBusy] = useState(false);
     useEffect(() => { apiFetch<MembershipType[]>("/api/classes/membership-types").then(t => setTypes(t.filter(x => x.is_active))).catch(() => {}); }, []);
     const type = types.find(t => t.id === typeId);
+    const family = !!type && type.max_members !== 1;
+    // the price for everyone on it, by the owner's pricing (the server's table) — until the price is typed
+    useEffect(() => {
+        if (type) setPrice((type.family_prices[family ? members.length : 0] ?? type.price_cents) / 100);
+    }, [type, family, members.length]);
 
     const sell = async () => {
         if (!who || !type) return;
@@ -132,7 +141,8 @@ function SellSheet({ terms, onClose, onDone }: { terms: Terms; onClose: () => vo
             await apiFetch("/api/classes/memberships", {
                 method: "POST",
                 body: JSON.stringify({ client_id: who.id, type_id: type.id, starts_on: start,
-                    price_cents: price === "" ? null : Math.round(price * 100), notes: notes.trim() || null }),
+                    price_cents: price === "" ? null : Math.round(price * 100), notes: notes.trim() || null,
+                    members: family ? members.map(c => c.id) : [] }),
             });
             toast.success(`${type.name} נמכר ל${who.full_name}`);
             onDone();
@@ -167,7 +177,7 @@ function SellSheet({ terms, onClose, onDone }: { terms: Terms; onClose: () => vo
                         <div className="mt-1 grid gap-2">
                             {types.map(t => (
                                 <button key={t.id} type="button" role="radio" aria-checked={typeId === t.id}
-                                    onClick={() => { setTypeId(t.id); setPrice(t.price_cents / 100); }}
+                                    onClick={() => { setTypeId(t.id); setMembers([]); }}
                                     className={`text-right rounded-xl border px-3 py-2 ${typeId === t.id ? "border-indigo-500 bg-indigo-50" : "border-slate-200"}`}>
                                     <span className="block text-sm font-semibold text-slate-900">{t.name}</span>
                                     <span className="block text-xs text-slate-500 tabular-nums">{describeType(t)}</span>
@@ -176,6 +186,7 @@ function SellSheet({ terms, onClose, onDone }: { terms: Terms; onClose: () => vo
                         </div>
                     )}
                 </fieldset>
+                {family && type && <SellMembers type={type} holderId={who?.id ?? null} members={members} setMembers={setMembers} terms={terms} />}
                 <div className="grid grid-cols-2 gap-3">
                     <label className={label}>מתחיל ב-
                         <input type="date" value={start} min={new Date().toISOString().slice(0, 10)} onChange={e => setStart(e.target.value)} className={`${field} mt-1`} dir="ltr" />
@@ -201,8 +212,8 @@ const ENTRY_TEXT = (e: MembershipDetail["entries"][number]) => {
     return `תיקון ${e.amount > 0 ? "+" : ""}${e.amount}${cls}${e.reason ? ` · ${e.reason}` : ""}`;
 };
 
-function MembershipSheet({ id, canSell, canChange, onClose, onChanged }: {
-    id: string; canSell: boolean; canChange: boolean; onClose: () => void; onChanged: () => void;
+function MembershipSheet({ id, terms, canSell, canChange, onClose, onChanged }: {
+    id: string; terms: Terms; canSell: boolean; canChange: boolean; onClose: () => void; onChanged: () => void;
 }) {
     const [m, setM] = useState<MembershipDetail | null>(null);
     const [fixing, setFixing] = useState(false);
@@ -252,6 +263,11 @@ function MembershipSheet({ id, canSell, canChange, onClose, onChanged }: {
                                 </div>
                             ))}
                         </div>
+                    )}
+                    {m.is_family && (
+                        <MembershipMembers m={m} terms={terms} canAdd={canSell} canRemove={canChange} busy={busy}
+                            onAdd={clientId => act(`/api/classes/memberships/${m.id}/members`, { client_id: clientId }, "נוסף/ה למנוי")}
+                            onRemove={(clientId, name) => act(`/api/classes/memberships/${m.id}/members/${clientId}/remove`, {}, `${name} יצא/ה מהמנוי`)} />
                     )}
                     <div className="flex items-center justify-between gap-2 rounded-xl bg-slate-50 px-3 py-2">
                         <p className="text-slate-700 tabular-nums">
