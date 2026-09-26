@@ -33,6 +33,7 @@ class Policy:
     help: str = ""
     module: str = "classes"         # shown to the owner only when this module is on
     requires: tuple[str, ...] = ()  # …and these too
+    course_only: bool = False       # a course's rule — on a class template, shown only for a course
     presets: tuple[tuple[int, str], ...] = ()   # ready-made values offered next to a number (the owner may type another)
 
 
@@ -72,6 +73,26 @@ POLICIES: dict[str, Policy] = {p.key: p for p in (
                     ("off", "בלי — הקפאה רק דרך העסק")),
            help="הבקשה נבדקת מיד מול כללי ההקפאה של סוג המנוי (ימים, מספר הקפאות, דמי הקפאה). בדחייה אפשר לכתוב סיבה והלקוח/ה מקבל/ת הודעה.",
            module="memberships"),
+    # A course — one registration and one price for all its sessions (app/services/courses.py); the business's
+    # default, and each course may have its own.
+    Policy("course_covered_by_membership", "מנוי מכסה קורס", "bool", False, (STUDIO, TEMPLATE),
+           help="כבוי — הקורס משולם בנפרד במחיר הקורס. דלוק — נרשמים עם מנוי שמכסה את השיעור, וכל מפגש מנצל כניסה.",
+           module="memberships", course_only=True),
+    Policy("course_late_join", "הצטרפות לקורס שכבר התחיל", "choice", "prorated", (STUDIO, TEMPLATE),
+           choices=(("prorated", "כן — המחיר לפי המפגשים שנשארו"),
+                    ("full", "כן — במחיר מלא"),
+                    ("no", "לא — ההרשמה נסגרת במפגש הראשון")), course_only=True),
+    Policy("course_refund", "החזר כספי כשמבטלים הרשמה לקורס", "choice", "manual", (STUDIO, TEMPLATE),
+           choices=(("manual", "לפי החלטה שלך בכל מקרה"),
+                    ("full_until", "החזר מלא עד מספר ימים לפני הפתיחה — אחרי זה בלי החזר"),
+                    ("prorated", "החזר על המפגשים שנשארו")),
+           help="המערכת מחשבת כמה מגיע לפי הכלל ומציגה לך; ההחזר נרשם כשמאשרים אותו.", course_only=True),
+    Policy("course_refund_days", "החזר מלא עד", "int", 7, (STUDIO, TEMPLATE), 0, 60, unit="ימים לפני המפגש הראשון",
+           help="רק כשבחרת החזר מלא עד מספר ימים לפני הפתיחה.", presets=((3, "3"), (7, "7"), (14, "14")), course_only=True),
+    Policy("course_drop_in", "מפגש בודד מתוך קורס", "bool", False, (STUDIO, TEMPLATE),
+           help="דלוק — אפשר להירשם גם למפגש אחד בלי להירשם לכל הקורס.", course_only=True),
+    Policy("course_self_enroll", "לקוחות נרשמים לקורס בעצמם ב-BizFind", "bool", True, (STUDIO, TEMPLATE),
+           help="רק מי שכבר לקוח/ה של העסק. התשלום — בעסק.", module="memberships", course_only=True),
     # Club points on class payments — the owner's percentages (a point is worth ₪1, as on any payment); 0 = none.
     Policy("club_points_membership_percent", "נקודות מועדון על קניית מנוי", "int", 0, (STUDIO,), 0, 100, unit="% מהתשלום",
            help="חבר/ת מועדון שמשלם/ת על מנוי מקבל/ת נקודות לפי האחוז הזה. מחיקת התשלום מורידה אותן.",
@@ -79,9 +100,12 @@ POLICIES: dict[str, Policy] = {p.key: p for p in (
     Policy("club_points_entry_percent", "נקודות מועדון על כניסה בודדת", "int", 0, (STUDIO,), 0, 100, unit="% מהתשלום",
            help="על תשלום לשיעור בלי מנוי. חיוב על ביטול מאוחר או על אי-הגעה לא מזכה בנקודות.",
            module="customer_club", presets=_POINTS_PRESETS),
+    Policy("club_points_course_percent", "נקודות מועדון על תשלום לקורס", "int", 0, (STUDIO,), 0, 100, unit="% מהתשלום",
+           help="על תשלום להרשמה לקורס. החזר על הקורס לא מוריד נקודות — אפשר לתקן ידנית בכרטיס הלקוח.",
+           module="customer_club", presets=_POINTS_PRESETS),
 )}
 
-CLUB_POINTS = ("club_points_membership_percent", "club_points_entry_percent")
+CLUB_POINTS = ("club_points_membership_percent", "club_points_entry_percent", "club_points_course_percent")
 
 
 def validate(key: str, value) -> object:

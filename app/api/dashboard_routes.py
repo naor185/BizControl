@@ -63,8 +63,10 @@ def get_dashboard_stats(
         .where(Client.studio_id == ctx.studio_id, Client.is_club_member == True, Client.is_active == True)
     ) or 0
 
-    # 3. Revenue from paid payments + POS transactions (filtered by month/year if provided)
-    revenue_query = select(func.sum(Payment.amount_cents)).where(
+    # 3. Revenue from paid payments + POS transactions (filtered by month/year if provided). A refund is its own
+    # row with a positive amount (a credit note, money given back for a course) — it is taken off, not added
+    # (it used to be added, as the day's revenue below never did).
+    revenue_query = select(func.sum(case((Payment.type == "refund", -Payment.amount_cents), else_=Payment.amount_cents))).where(
         Payment.studio_id == ctx.studio_id,
         Payment.status == "paid",
         or_(Payment.notes == None, ~Payment.notes.ilike("[מערכת]%")),

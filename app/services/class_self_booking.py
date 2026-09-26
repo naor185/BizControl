@@ -63,6 +63,10 @@ def why_not(db: Session, s: ClassSession, client, *, spots_left: int, booked: bo
         return None
     if s.status != "scheduled" or s.starts_at <= now:
         return "השיעור כבר התחיל" if s.status == "scheduled" else "השיעור בוטל"
+    from app.services import courses
+    tpl = db.get(ClassTemplate, s.template_id) if s.template_id else None
+    if courses.is_course(tpl) and not courses.rule(db, tpl, "course_drop_in"):
+        return "ההרשמה היא לקורס כולו"
     opens, closes = booking_window(db, s)
     if now < opens:
         d, t = svc.il_date_time(opens)

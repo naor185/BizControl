@@ -57,6 +57,8 @@ class ClassTemplate(Base):
     # a course: an end date and/or a fixed number of sessions (both empty = repeats until stopped)
     ends_on: Mapped[date | None] = mapped_column(Date, nullable=True)
     sessions_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # a course's price for all its sessions — one registration, one price (app/services/courses.py)
+    course_price_cents: Mapped[int | None] = mapped_column(Integer, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
     source: Mapped[str] = mapped_column(String(16), nullable=False, default="user", server_default="user")
     source_ref: Mapped[str | None] = mapped_column(String(120), nullable=True)
@@ -127,6 +129,36 @@ class ClassBooking(Base):
     drop_in: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     justified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     policy_action: Mapped[str | None] = mapped_column(String(10), nullable=True)
-    swapped_from_booking_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)   # class swap, later
+    swapped_from_booking_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)   # the booking a class swap replaced
     # came from the waitlist (stage 6) — then it can be cancelled free of charge
     from_waitlist: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    # booked by a registration for the whole course (app/services/courses.py)
+    enrollment_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("course_enrollments.id", ondelete="SET NULL"),
+                                                            nullable=True, index=True)
+
+
+class CourseEnrollment(Base):
+    """A client registered for a whole course — one registration and one price, booked into every coming
+    session of it (app/services/courses.py). active → canceled. A waiter for a full course is an enrollment
+    that is waiting (in line, by position) or offered (a spot held until offer_expires_at). One per client
+    and course while it waits, is offered or is active."""
+    __tablename__ = "course_enrollments"
+    __table_args__ = (Index("uq_course_enrollment_client", "template_id", "client_id", unique=True,
+                            postgresql_where=text("status IN ('waiting', 'offered', 'active')")),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    studio_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("studios.id", ondelete="CASCADE"), nullable=False, index=True)
+    template_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("class_templates.id", ondelete="CASCADE"), nullable=False, index=True)
+    client_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("clients.id", ondelete="CASCADE"), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="active", server_default="active")
+    price_cents: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")   # what this client pays
+    sessions_total: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")   # the sessions it covers
+    position: Mapped[int | None] = mapped_column(Integer, nullable=True)                                  # in the course's waitlist
+    offer_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    source: Mapped[str] = mapped_column(String(16), nullable=False, default="user", server_default="user")
+    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    enrolled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    canceled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    canceled_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    cancel_reason: Mapped[str | None] = mapped_column(String(300), nullable=True)

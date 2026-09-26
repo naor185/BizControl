@@ -53,6 +53,8 @@ def _step_aside(db: Session, booking: ClassBooking, *, user_id=None) -> None:
 def _check_old(db: Session, booking: ClassBooking, *, for_client: bool) -> ClassSession:
     if booking.status != "booked":
         raise SwapError("ההרשמה כבר לא פעילה")
+    if booking.enrollment_id:
+        raise SwapError("מפגש בקורס לא מוחלף בשיעור אחר")
     old = db.get(ClassSession, booking.session_id)
     if old.status != "scheduled" or old.starts_at <= svc.now_utc():
         raise SwapError("השיעור כבר התחיל — אי אפשר להחליף")

@@ -28,6 +28,7 @@ from app.models.service import Service
 from app.models.user import User
 from app.services import class_bookings as bookings
 from app.services import classes as svc
+from app.services import courses
 from app.services import policies
 
 router = APIRouter(prefix="/classes", tags=["Classes"], dependencies=[Depends(require_module("classes"))])
@@ -36,7 +37,7 @@ STAFF_ROLES = ("owner", "admin", "artist", "staff")
 HEX = re.compile(r"^#[0-9a-fA-F]{6}$")
 SPEC_FIELDS = ("weekdays", "start_time", "duration_minutes", "starts_on", "ends_on", "sessions_count",
                "room_id", "instructor_id", "capacity")
-COLUMNS = ("name", "service_id", "color") + SPEC_FIELDS
+COLUMNS = ("name", "service_id", "color", "course_price_cents") + SPEC_FIELDS
 
 
 def _get(db: Session, model, studio_id, obj_id, missing: str):
@@ -131,6 +132,7 @@ class TemplateIn(BaseModel):
     starts_on: date
     ends_on: Optional[date] = None
     sessions_count: Optional[int] = Field(None, ge=1, le=200)
+    course_price_cents: Optional[int] = Field(None, ge=0, le=10_000_000)   # a course: the price for all its sessions
     rules: Optional[dict[str, object]] = None                      # this class's own rules; null = the business's
     dry_run: bool = False
     confirm_clashes: bool = False
@@ -149,6 +151,7 @@ class TemplatePatch(BaseModel):
     starts_on: Optional[date] = None
     ends_on: Optional[date] = None
     sessions_count: Optional[int] = Field(None, ge=1, le=200)
+    course_price_cents: Optional[int] = Field(None, ge=0, le=10_000_000)
     rules: Optional[dict[str, object]] = None
     dry_run: bool = False
     confirm_clashes: bool = False
@@ -225,11 +228,6 @@ def _template_rules(db: Session, studio_id, template_id) -> dict:
     return {r.key: r.value for r in rows}
 
 
-def _is_course(t: ClassTemplate) -> bool:
-    """A course: an end date or several sessions. One session is a one-time class, not a course."""
-    return bool(t.ends_on or (t.sessions_count and t.sessions_count > 1))
-
-
 def _templates_out(db: Session, studio_id, tpls: list[ClassTemplate]) -> list[dict]:
     rooms = {r.id: r for r in db.scalars(select(Room).where(Room.studio_id == studio_id)).all()}
     users = {u.id: u for u in db.scalars(select(User).where(User.studio_id == studio_id)).all()}
@@ -250,7 +248,7 @@ def _templates_out(db: Session, studio_id, tpls: list[ClassTemplate]) -> list[di
             "capacity": t.capacity, "weekdays": list(t.weekdays), "start_time": t.start_time.strftime("%H:%M"),
             "duration_minutes": t.duration_minutes, "starts_on": t.starts_on.isoformat(),
             "ends_on": t.ends_on.isoformat() if t.ends_on else None, "sessions_count": t.sessions_count,
-            "is_course": _is_course(t), "is_active": t.is_active,
+            "is_course": courses.is_course(t), "course_price_cents": t.course_price_cents, "is_active": t.is_active,
             "next_session": mine[0].starts_at.isoformat() if mine else None,
             "future_sessions": len(mine), "future_booked_sessions": sum(1 for s in mine if counts.get(s.id)),
             "rules": _template_rules(db, studio_id, t.id),
@@ -341,7 +339,7 @@ def _sessions_out(db: Session, studio_id, sessions: list[ClassSession], with_cli
         row = {
             "id": str(s.id), "template_id": str(s.template_id) if s.template_id else None,
             "name": t.name if t else "שיעור", "color": (t.color if t else None) or "#6366f1",
-            "is_course": bool(t and _is_course(t)),
+            "is_course": bool(t and courses.is_course(t)),
             "occurs_on": s.occurs_on.isoformat(), "starts_at": s.starts_at.isoformat(), "ends_at": s.ends_at.isoformat(),
             "room_id": str(s.room_id) if s.room_id else None, "room_name": room.name if room else None,
             "instructor_id": str(s.instructor_id) if s.instructor_id else None,

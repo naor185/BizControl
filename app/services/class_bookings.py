@@ -14,6 +14,10 @@ background checks before a class (the reminder, the minimum participants).
   cancellation or a no-show as justified. A client who cancelled late and books again: that late
   cancellation no longer counts.
 - Attendance (attended / no_show) can be marked from an hour before the class.
+- A course (app/services/courses.py) is booked as a whole — one enrollment books every coming session; a
+  single session of it only when the owner allows it (course_drop_in). A session booked by an enrollment
+  needs no membership unless the owner set memberships to cover the course, and cancelling or missing it
+  applies no late-cancel / no-show rule — the course is paid.
 - Before a class: the reminder reminder_hours ahead (0 = none), and the minimum-participants check
   min_check_hours ahead — below the minimum the class is cancelled (when the owner turned automatic
   cancelling on) or the staff are alerted. Each runs once per session.
@@ -26,7 +30,7 @@ from datetime import timedelta
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.models.classes import ClassBooking, ClassSession
+from app.models.classes import ClassBooking, ClassSession, ClassTemplate
 from app.services import classes as svc
 from app.services import memberships as ms
 from app.services import notifications, penalties, policies
@@ -63,7 +67,7 @@ def eligibility(db: Session, session: ClassSession, client) -> dict:
 
 
 def book(db: Session, session: ClassSession, client, *, user_id=None, origin: str = "user",
-         over_capacity_ok: bool = False, drop_in: bool = False, notify_booked: bool = True) -> ClassBooking:
+         over_capacity_ok: bool = False, drop_in: bool = False, notify_booked: bool = True, enrollment=None) -> ClassBooking:
     """Books a client into a session and sends the confirmation (class_booked). When the business uses
     memberships, a membership must cover the class — or the staff record a paid single entry (drop_in)."""
     s = db.execute(select(ClassSession).where(ClassSession.id == session.id).with_for_update()).scalar_one()
@@ -73,6 +77,11 @@ def book(db: Session, session: ClassSession, client, *, user_id=None, origin: st
         raise BookingError("השיעור כבר הסתיים")
     if client.studio_id != s.studio_id:
         raise BookingError("הלקוח לא נמצא")
+    from app.services import courses
+    tpl = db.get(ClassTemplate, s.template_id) if s.template_id else None
+    course = courses.is_course(tpl)
+    if course and enrollment is None and not courses.rule(db, tpl, "course_drop_in"):
+        raise BookingError("ההרשמה היא לקורס כולו")
     existing = db.scalar(select(ClassBooking).where(ClassBooking.session_id == s.id, ClassBooking.client_id == client.id,
                                                     ClassBooking.status != "canceled"))
     if existing and existing.status != "late_canceled":
@@ -83,7 +92,8 @@ def book(db: Session, session: ClassSession, client, *, user_id=None, origin: st
     if over and not over_capacity_ok:
         raise FullError("השיעור מלא")
     membership = None
-    if ms.uses_memberships(db, s.studio_id) and not drop_in:
+    paid_course = enrollment is not None and not courses.covered_by_membership(db, tpl)
+    if ms.uses_memberships(db, s.studio_id) and not drop_in and not paid_course:
         membership, why = ms.find_eligible(db, client.id, s)
         if membership is None:
             raise NotEligible(f"{why} — אפשר לרשום ככניסה בודדת")
@@ -95,7 +105,8 @@ def book(db: Session, session: ClassSession, client, *, user_id=None, origin: st
         existing.status, existing.cancel_reason = "canceled", "rebooked"
         db.flush()
     b = ClassBooking(studio_id=s.studio_id, session_id=s.id, client_id=client.id, status="booked",
-                     source=origin, created_by=user_id, over_capacity=over, drop_in=drop_in)
+                     source=origin, created_by=user_id, over_capacity=over, drop_in=drop_in,
+                     enrollment_id=enrollment.id if enrollment is not None else None)
     db.add(b)
     db.flush()
     if membership is not None:
@@ -121,7 +132,8 @@ def cancel(db: Session, booking: ClassBooking, *, user_id=None, origin: str = "u
     from app.models.client import Client
     s = db.get(ClassSession, booking.session_id)
     now = svc.now_utc()
-    late = (not waive_late and not booking.from_waitlist and s.status == "scheduled"     # from the waitlist: free
+    late = (not waive_late and not booking.from_waitlist and not booking.enrollment_id     # from the waitlist, a paid course: free
+            and s.status == "scheduled"
             and policies.is_late_cancel(db, s.studio_id, s.starts_at, now, template_id=s.template_id))
     booking.status = "late_canceled" if late else "canceled"
     booking.canceled_at, booking.canceled_by = now, user_id
@@ -168,7 +180,8 @@ def mark(db: Session, booking: ClassBooking, status: str, *, user_id=None) -> No
         ms.settle(db, booking, "consume", reason="הגיע/ה לשיעור", user_id=user_id)
     elif status == "no_show":
         client.no_show_count = (client.no_show_count or 0) + 1
-        penalties.apply(db, booking, "no_show", user_id=user_id)
+        if not booking.enrollment_id:                   # a session of a course the client registered for: no fee
+            penalties.apply(db, booking, "no_show", user_id=user_id)
     db.flush()
 
 

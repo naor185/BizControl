@@ -137,6 +137,9 @@ def issue_credit_note(
         from app.models.client import Client
         from app.crud.payment import _auto_create_invoice
         appt = db.get(Appointment, payment.appointment_id) if payment.appointment_id else None
+        if appt is None:                    # a membership / course / class payment — its own invoice line
+            from app.services.class_payments import invoice_subject
+            appt = invoice_subject(db, payment)
         client = db.get(Client, payment.client_id) if payment.client_id else None
         if not client:
             raise HTTPException(status_code=400, detail="לא נמצא לקוח מקושר לתשלום")
@@ -234,6 +237,9 @@ def issue_credit_note(
     refund_payment = Payment(
         studio_id=ctx.studio_id,
         appointment_id=payment.appointment_id,
+        membership_id=payment.membership_id,            # tied to what was paid for, like the payment itself
+        class_booking_id=payment.class_booking_id,
+        course_enrollment_id=payment.course_enrollment_id,
         client_id=payment.client_id,
         amount_cents=abs(orig.get("total_cents") or 0),
         currency=payment.currency,

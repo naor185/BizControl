@@ -59,6 +59,12 @@ EVENTS: dict[str, Event] = {e.key: e for e in (
     Event("class_swapped", "הרשמה הועברה לשיעור אחר", "client", "הלקוח/ה", True, texts={
         "whatsapp": "היי {client_name}, ההרשמה שלך הועברה ל{class_name} ב-{class_date} בשעה {class_time} ✅\n{swap_note}\n{studio_name}",
         "email": "היי {client_name},\nההרשמה שלך הועברה ל{class_name} ב-{class_date} בשעה {class_time}.\n{swap_note}\n{studio_name}"}),
+    Event("course_enrolled", "הרשמה לקורס", "client", "הלקוח/ה", True, texts={
+        "whatsapp": "היי {client_name}, נרשמת לקורס {class_name} ✅\n{course_note}\n{studio_name}",
+        "email": "היי {client_name},\nנרשמת לקורס {class_name}.\n{course_note}\n{studio_name}"}),
+    Event("course_left", "ביטול הרשמה לקורס", "client", "הלקוח/ה", True, texts={
+        "whatsapp": "היי {client_name}, ההרשמה שלך לקורס {class_name} בוטלה. {course_note}\n{studio_name}",
+        "email": "היי {client_name},\nההרשמה שלך לקורס {class_name} בוטלה. {course_note}\n{studio_name}"}),
     Event("booking_cancelled", "ביטול הרשמה (והכניסה חזרה או נצרכה)", "client", "הלקוח/ה", True, texts={
         "whatsapp": "היי {client_name}, ההרשמה שלך ל{class_name} ב-{class_date} בוטלה. {entry_note}\n{studio_name}",
         "email": "היי {client_name},\nההרשמה שלך ל{class_name} ב-{class_date} בוטלה. {entry_note}\n{studio_name}"}),
@@ -106,6 +112,7 @@ PLACEHOLDERS: dict[str, tuple[str, str]] = {
     "staff_title": ("{staff}", ""),
     "change_note": ("מה השתנה", "השעה עודכנה ל-19:00"),
     "entry_note": ("מה קרה לכניסה", "הכניסה שלך הוחזרה לכרטיסייה."),
+    "course_note": ("פרטי הקורס", "8 מפגשים, הראשון ב-4/10 בשעה 18:00. המחיר: ₪640 — התשלום בעסק."),
     "swap_note": ("מאיזה שיעור הועבר/ה", "במקום פילאטיס מכשירים ב-4/10 בשעה 18:00."),
     "fee_note": ("פירוט המדיניות", "ביטול בפחות מ-6 שעות לפני השיעור נחשב כניצול כניסה."),
     "promotion_note": ("פרטי ההרשמה מההמתנה", "נרשמת אוטומטית — נתראה!"),

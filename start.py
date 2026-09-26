@@ -2430,11 +2430,48 @@ def ensure_schema():
                 END IF;
             END $$;
         """)
+        # Classes extras 4 — a course: one registration and one price for all its sessions (app/services/courses.py)
+        cur.execute("ALTER TABLE class_templates ADD COLUMN IF NOT EXISTS course_price_cents INTEGER")
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS course_enrollments (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                template_id UUID NOT NULL REFERENCES class_templates(id) ON DELETE CASCADE,
+                client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+                status VARCHAR(16) NOT NULL DEFAULT 'active',
+                price_cents INTEGER NOT NULL DEFAULT 0,
+                sessions_total INTEGER NOT NULL DEFAULT 0,
+                position INTEGER,
+                offer_expires_at TIMESTAMPTZ,
+                source VARCHAR(16) NOT NULL DEFAULT 'user',
+                created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                enrolled_at TIMESTAMPTZ,
+                canceled_at TIMESTAMPTZ,
+                canceled_by UUID REFERENCES users(id) ON DELETE SET NULL,
+                cancel_reason VARCHAR(300)
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_course_enrollments_studio_id ON course_enrollments (studio_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_course_enrollments_template_id ON course_enrollments (template_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_course_enrollments_client_id ON course_enrollments (client_id)")
+        cur.execute("""CREATE UNIQUE INDEX IF NOT EXISTS uq_course_enrollment_client ON course_enrollments (template_id, client_id)
+                       WHERE status IN ('waiting', 'offered', 'active')""")
+        cur.execute("ALTER TABLE class_bookings ADD COLUMN IF NOT EXISTS enrollment_id UUID REFERENCES course_enrollments(id) ON DELETE SET NULL")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_class_bookings_enrollment_id ON class_bookings (enrollment_id)")
+        cur.execute("ALTER TABLE payments ADD COLUMN IF NOT EXISTS course_enrollment_id UUID REFERENCES course_enrollments(id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_payments_course_enrollment_id ON payments (course_enrollment_id)")
+        # a payment is always for something — now also a course registration (the constraint is replaced once)
         cur.execute("""
             DO $$ BEGIN
+                IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ck_payments_subject'
+                           AND pg_get_constraintdef(oid) NOT LIKE '%course_enrollment_id%') THEN
+                    ALTER TABLE payments DROP CONSTRAINT ck_payments_subject;
+                END IF;
                 IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ck_payments_subject') THEN
                     ALTER TABLE payments ADD CONSTRAINT ck_payments_subject
-                        CHECK (appointment_id IS NOT NULL OR membership_id IS NOT NULL OR class_booking_id IS NOT NULL);
+                        CHECK (appointment_id IS NOT NULL OR membership_id IS NOT NULL OR class_booking_id IS NOT NULL
+                               OR course_enrollment_id IS NOT NULL);
                 END IF;
             END $$;
         """)

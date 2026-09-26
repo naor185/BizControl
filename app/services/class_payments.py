@@ -32,7 +32,12 @@ class PaymentError(ValueError):
 
 
 def invoice_subject(db: Session, payment: Payment) -> SimpleNamespace:
-    """What the invoice line says: the membership, the class, or the fee."""
+    """What the invoice line says: the membership, the course, the class, or the fee."""
+    if payment.course_enrollment_id:
+        from app.models.classes import CourseEnrollment
+        e = db.get(CourseEnrollment, payment.course_enrollment_id)
+        t = db.get(ClassTemplate, e.template_id) if e else None
+        return SimpleNamespace(title=f"קורס: {t.name if t else ''}".strip(), id=None)
     if payment.membership_id:
         m = db.get(Membership, payment.membership_id)
         return SimpleNamespace(title=f"מנוי: {m.rules.get('name') if m else ''}".strip(), id=None)
@@ -47,12 +52,12 @@ def invoice_subject(db: Session, payment: Payment) -> SimpleNamespace:
 
 
 def record(db: Session, studio_id, client, *, amount_cents: int, method: str, membership: Membership | None = None,
-           booking: ClassBooking | None = None, for_fee: bool = False, notes: str | None = None,
+           booking: ClassBooking | None = None, enrollment=None, for_fee: bool = False, notes: str | None = None,
            external_ref: str | None = None, send_receipt: bool = True) -> Payment:
-    """Records a paid payment for a membership or a class booking and issues its invoice/receipt.
-    for_fee: this pays the booking's open fee (it becomes paid)."""
-    if (membership is None) == (booking is None):
-        raise PaymentError("תשלום על מנוי או על הרשמה לשיעור")
+    """Records a paid payment for a membership, a course registration or a class booking and issues its
+    invoice/receipt. for_fee: this pays the booking's open fee (it becomes paid)."""
+    if sum(x is not None for x in (membership, booking, enrollment)) != 1:
+        raise PaymentError("תשלום על מנוי, על קורס או על הרשמה לשיעור")
     if amount_cents <= 0:
         raise PaymentError("סכום התשלום חסר")
     if method not in METHODS:
@@ -64,6 +69,7 @@ def record(db: Session, studio_id, client, *, amount_cents: int, method: str, me
             raise PaymentError("אין חיוב פתוח להרשמה הזו")
     p = Payment(studio_id=studio_id, appointment_id=None, client_id=client.id,
                 membership_id=membership.id if membership else None, class_booking_id=booking.id if booking else None,
+                course_enrollment_id=enrollment.id if enrollment is not None else None,
                 amount_cents=amount_cents, currency="ILS", type="payment", status="paid", method=method,
                 external_ref=(external_ref or None), notes=(notes or None))
     db.add(p)
@@ -71,7 +77,7 @@ def record(db: Session, studio_id, client, *, amount_cents: int, method: str, me
         fee.status, fee.paid_at = "paid", svc.now_utc()
     db.flush()
     if not fee:
-        club_points(db, studio_id, client, p, for_membership=membership is not None)
+        club_points(db, studio_id, client, p, kind="membership" if membership else "course" if enrollment is not None else "entry")
     db.commit()
     try:
         from app.crud.payment import _auto_create_invoice
@@ -81,15 +87,15 @@ def record(db: Session, studio_id, client, *, amount_cents: int, method: str, me
     return p
 
 
-def club_points(db: Session, studio_id, client, p: Payment, *, for_membership: bool) -> int:
-    """The owner's club points for a membership or single-entry payment — to a club member, when the business's
-    plan has the club. Given like the points on any payment, so deleting the payment takes them back."""
+def club_points(db: Session, studio_id, client, p: Payment, *, kind: str) -> int:
+    """The owner's club points for a membership, course or single-entry payment — to a club member, when the
+    business's plan has the club. Given like the points on any payment, so deleting the payment takes them back."""
     from app.crud.payment import award_points
     from app.services import policies
     from app.services.memberships import _module
     if not client.is_club_member or not _module(db, studio_id, "customer_club"):
         return 0
-    percent = policies.get_policy(db, studio_id, "club_points_membership_percent" if for_membership else "club_points_entry_percent")
+    percent = policies.get_policy(db, studio_id, f"club_points_{kind}_percent")
     return award_points(db, studio_id, client, p, percent)
 
 
