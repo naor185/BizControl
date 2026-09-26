@@ -18,7 +18,7 @@ import {
 // a membership that covers the class; the server decides everything and says why when it says no.
 
 type Tab = "schedule" | "mine";
-type Confirm = { kind: "book"; item: ScheduleItem } | { kind: "course"; item: ScheduleItem }
+type Confirm = { kind: "book"; item: ScheduleItem; forId?: string | null } | { kind: "course"; item: ScheduleItem }
     | { kind: "cancel"; id: string; name: string; startsAt: string; late: boolean };
 
 const card = { background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.08)", borderRadius: 16 } as const;
@@ -59,7 +59,8 @@ export default function ClassesPage() {
         setBusy(true);
         try {
             if (confirm.kind === "book") {
-                const r = await apiFetch<{ message: string }>(`/api/marketplace/classes/${slug}/sessions/${confirm.item.id}/book`, { method: "POST" });
+                const r = await apiFetch<{ message: string }>(`/api/marketplace/classes/${slug}/sessions/${confirm.item.id}/book`,
+                    { method: "POST", body: JSON.stringify({ for_client_id: confirm.forId ?? null }) });
                 setNotice({ text: r.message, ok: true });
             } else if (confirm.kind === "course") {
                 const r = await apiFetch<{ message: string }>(`/api/marketplace/classes/${slug}/courses/${confirm.item.course!.template_id}/enroll`, { method: "POST" });
@@ -214,7 +215,7 @@ export default function ClassesPage() {
                                         onWait={() => waitAction(`sessions/${s.id}/waitlist`, "נכנסת לרשימת ההמתנה")}
                                         onLeave={id => waitAction(`waitlist/${id}/leave`, "יצאת מרשימת ההמתנה")}
                                         onTake={id => waitAction(`waitlist/${id}/confirm`, "נרשמת!")}
-                                        onBook={() => setConfirm({ kind: "book", item: s })}
+                                        onBook={() => setConfirm({ kind: "book", item: s, forId: s.can_book ? null : s.book_for.find(p => p.can_book)?.client_id ?? null })}
                                         onCancel={() => s.my_booking && setConfirm({ kind: "cancel", id: s.my_booking.id, name: s.name, startsAt: s.starts_at, late: s.late_if_cancel_now })} />
                                 ))}
                             </div>
@@ -287,6 +288,22 @@ export default function ClassesPage() {
                             <>
                                 <p style={{ fontWeight: 800, fontSize: "1.05rem", margin: "0 0 0.3rem" }}>הרשמה ל{confirm.item.name}</p>
                                 <p style={{ color: "#cbd5e1", margin: "0 0 0.8rem" }}>{whenText(confirm.item.starts_at)}</p>
+                                {confirm.item.book_for.some(p => p.can_book) && (
+                                    <div role="radiogroup" aria-label="למי ההרשמה" style={{ display: "flex", flexWrap: "wrap", gap: "0.45rem", margin: "0 0 0.9rem" }}>
+                                        {[...(confirm.item.can_book ? [{ client_id: null as string | null, name: "לי" }] : []),
+                                          ...confirm.item.book_for.filter(p => p.can_book)].map(p => {
+                                            const on = (confirm.forId ?? null) === p.client_id;
+                                            return (
+                                                <button key={p.client_id ?? "me"} type="button" role="radio" aria-checked={on}
+                                                    onClick={() => setConfirm({ ...confirm, forId: p.client_id })}
+                                                    style={{ minHeight: 40, padding: "0 0.9rem", borderRadius: 999, fontWeight: 700, fontSize: "0.85rem", cursor: "pointer",
+                                                        border: `1px solid ${on ? primary : "rgba(255,255,255,.15)"}`, background: on ? `${primary}33` : "transparent", color: "#f1f5f9" }}>
+                                                    {p.name}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                )}
                                 <p style={{ color: muted, fontSize: "0.85rem", margin: "0 0 1.1rem", lineHeight: 1.6 }}>
                                     ביטול בחינם עד {whenText(confirm.item.free_cancel_until)}. אחרי זה — לפי מדיניות הביטולים של {data.studio.name}.
                                 </p>
@@ -343,7 +360,13 @@ function Memberships({ list, isClient, primary, studio, busy, openCourse, onAsk,
                 <div style={{ display: "flex", alignItems: "center", gap: "0.8rem" }}>
                     <Ticket size={22} color={primary} style={{ flexShrink: 0 }} />
                     <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: 800 }}>המנוי שלי · {m.name}</div>
+                        <div style={{ fontWeight: 800 }}>{m.family && !m.family.holder ? "המנוי המשפחתי" : "המנוי שלי"} · {m.name}</div>
+                        {m.family && (
+                            <div style={{ color: "#c4b5fd", fontSize: "0.78rem", marginTop: 2 }}>
+                                {m.family.holder ? `משפחתי · עם ${m.family.others.join(", ")}` : `במנוי של ${m.family.holder_name}`}
+                                {!m.family.holder && m.family.booking_by === "holder" ? ` · ההרשמות דרך ${m.family.holder_name}` : ""}
+                            </div>
+                        )}
                         <div style={{ color: muted, fontSize: "0.8rem", marginTop: 2 }}>
                             {m.status === "frozen" && m.freeze_until ? `מוקפא · חוזר לפעילות ב-${fullDate(m.freeze_until)}`
                                 : m.status === "pending" ? `מתחיל ב-${fullDate(m.starts_on)}` : m.ends_on ? `בתוקף עד ${fullDate(m.ends_on)}` : "ללא תאריך סיום"}
@@ -407,6 +430,9 @@ function SessionCard({ s, primary, busy, onBook, onCancel, onWait, onLeave, onTa
                     </span>
                 </div>
                 {!s.can_book && !s.my_booking && !wait && !s.waitlist?.can_join && s.why_not && !(s.course && !s.course.single_ok) && <div style={{ color: "#94a3b8", fontSize: "0.76rem", marginTop: 4 }}>{s.why_not}</div>}
+                {s.book_for.some(p => p.booked) && (
+                    <div style={{ color: "#86efac", fontSize: "0.76rem", marginTop: 4 }}>רשומים מהמשפחה: {s.book_for.filter(p => p.booked).map(p => p.name).join(", ")}</div>
+                )}
                 {wait?.status === "waiting" && (
                     <div style={{ color: "#fcd34d", fontSize: "0.78rem", marginTop: 4, display: "inline-flex", gap: 4, alignItems: "center" }}>
                         <Hourglass size={13} />ברשימת ההמתנה · מקום {wait.position}
@@ -443,7 +469,7 @@ function SessionCard({ s, primary, busy, onBook, onCancel, onWait, onLeave, onTa
                     style={{ minHeight: 44, padding: "0 0.9rem", borderRadius: 12, border: `1px solid ${primary}`, background: "transparent", color: "#e2e8f0", fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>
                     רשימת המתנה
                 </button>
-            ) : s.can_book ? (
+            ) : s.can_book || s.book_for.some(p => p.can_book) ? (
                 <button type="button" onClick={onBook}
                     style={{ minHeight: 44, padding: "0 1.1rem", borderRadius: 12, border: "none", background: primary, color: "#fff", fontWeight: 800, cursor: "pointer", flexShrink: 0 }}>
                     הרשמה
@@ -571,7 +597,7 @@ function MyClasses({ mine, primary, busy, onCancel, onMove, onLeave, onTake, onC
                         <div key={b.id} style={{ ...card, padding: "0.85rem 1rem", display: "flex", alignItems: "center", gap: "0.8rem" }}>
                             <div style={{ flex: 1, minWidth: 0 }}>
                                 <div style={{ fontWeight: 700 }}>{b.name}</div>
-                                <div style={{ color: muted, fontSize: "0.8rem", marginTop: 2 }}>{whenText(b.starts_at)}{b.room_name ? ` · ${b.room_name}` : ""}{b.enrollment_id ? " · קורס" : ""}</div>
+                                <div style={{ color: muted, fontSize: "0.8rem", marginTop: 2 }}>{whenText(b.starts_at)}{b.room_name ? ` · ${b.room_name}` : ""}{b.enrollment_id ? " · קורס" : ""}{b.for_name ? ` · ${b.for_name}` : ""}</div>
                             </div>
                             {b.can_swap && (
                                 <button type="button" onClick={() => onMove(b)} aria-label={`העברת ${b.name} לשיעור אחר`}

@@ -3,6 +3,8 @@
 
 export type MyMembership = {
     id: string; name: string; kind: "unlimited" | "weekly" | "punch"; kind_label: string;
+    // a family / shared membership: am I its holder, who else is on it, and who books (the owner's choice)
+    family: { holder: boolean; holder_name: string; others: string[]; booking_by: "each" | "holder" } | null;
     status: "pending" | "active" | "frozen" | "ending"; starts_on: string; ends_on: string | null;
     entries_left: number | null; weekly_limit: number | null;
     freeze_from: string | null; freeze_until: string | null;      // frozen from, back on
@@ -20,6 +22,7 @@ export type ScheduleItem = {
     can_book: boolean; why_not: string | null; free_cancel_until: string; late_if_cancel_now: boolean;
     waitlist: { can_join: boolean; count: number; mine: MyWait | null };
     course: CourseState | null;          // a session of a course — registered for as a whole
+    book_for: { client_id: string; name: string; booked: boolean; can_book: boolean }[];   // the holder's family
 };
 
 /** A course, for this client (the schedule): its sessions and price now, and what they may do. */
@@ -44,7 +47,8 @@ export type Schedule = {
 };
 
 export type MineItem = {
-    id: string; session_id: string; enrollment_id?: string | null; name: string; starts_at: string; ends_at: string; room_name: string | null;
+    id: string; session_id: string; enrollment_id?: string | null; for_name?: string | null;   // booked for a family member
+    name: string; starts_at: string; ends_at: string; room_name: string | null;
     status: "booked" | "attended" | "no_show" | "late_canceled"; free_cancel_until?: string; late_if_cancel_now?: boolean;
     can_swap?: boolean;                                   // the owner's rule lets the client move it now
 };

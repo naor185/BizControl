@@ -48,8 +48,10 @@ def _open(db: Session, slug: str, customer_id: str):
 def _memberships(db: Session, client) -> list[dict]:
     if client is None:
         return []
+    from app.models.client import Client
+    from app.services import membership_family as family
     today = svc.today_il()
-    rows = db.scalars(select(Membership).where(Membership.client_id == client.id)).all()
+    rows = family.memberships_of(db, client.id, client.studio_id)          # their own, and the family ones they are on
     bals = ms.balance(db, [m.id for m in rows if m.rules.get("kind") == "punch"])
     out = []
     for m in rows:
@@ -60,7 +62,12 @@ def _memberships(db: Session, client) -> list[dict]:
         why_not_freeze = requests.why_not_ask(db, m)
         used, _ = changes.freeze_usage(db, m)
         r = m.rules
-        out.append({"id": str(m.id), "name": m.rules.get("name"), "kind": m.rules.get("kind"), "kind_label": ms.KIND_LABELS.get(m.rules.get("kind"), ""),
+        on_it = family.people(db, m) if family.is_family(m.rules) else [m.client_id]
+        names = {c.id: c.full_name for c in db.scalars(select(Client).where(Client.id.in_(on_it))).all()}
+        out.append({"family": {"holder": m.client_id == client.id, "holder_name": names.get(m.client_id, ""),
+                               "others": [names.get(c, "") for c in on_it if c != client.id],
+                               "booking_by": m.rules.get("booking_by") or "each"} if family.is_family(m.rules) else None,
+                    "id": str(m.id), "name": m.rules.get("name"), "kind": m.rules.get("kind"), "kind_label": ms.KIND_LABELS.get(m.rules.get("kind"), ""),
                     "status": status, "starts_on": m.starts_on.isoformat(), "ends_on": m.ends_on.isoformat() if m.ends_on else None,
                     "entries_left": bals[m.id]["available"] if m.id in bals else None,
                     "freeze_from": m.freeze_from.isoformat() if m.freeze_from else None,
@@ -98,6 +105,8 @@ def schedule(slug: str, week: Optional[date] = None, customer_id: str = Depends(
                                                      ClassSession.starts_at >= lo, ClassSession.starts_at < hi)
                           .order_by(ClassSession.starts_at)).all()
     mine = selfb.my_bookings(db, client, [s.id for s in sessions])
+    household = selfb.family_of(db, client)[1:]                            # the others the client may book for
+    theirs = {p.id: selfb.my_bookings(db, p, [s.id for s in sessions]) for p in household}
     tpls, rooms, staff = _names(db, studio.id, sessions)
     waiting_on = wl.enabled(db, studio.id)
     now = svc.now_utc()
@@ -116,7 +125,11 @@ def schedule(slug: str, week: Optional[date] = None, customer_id: str = Depends(
         until = selfb.free_cancel_until(db, s)
         if courses.is_course(t) and t.id not in course_info:
             course_info[t.id] = _course_state(db, t, client)
-        out.append({"course": course_info.get(s.template_id),
+        book_for = [{"client_id": str(p.id), "name": p.full_name,
+                     "booked": s.id in theirs[p.id],
+                     "can_book": s.id not in theirs[p.id] and selfb.why_not(db, s, p, spots_left=spots, booked=False, actor_id=client.id) is None}
+                    for p in household]
+        out.append({"course": course_info.get(s.template_id), "book_for": book_for,
                     "id": str(s.id), "name": t.name if t else "שיעור", "color": (t.color if t else None) or "#6366f1",
                     "starts_at": s.starts_at.isoformat(), "ends_at": s.ends_at.isoformat(),
                     "room_name": rooms.get(s.room_id), "instructor_name": staff.get(s.instructor_id),
@@ -137,8 +150,9 @@ def mine(slug: str, customer_id: str = Depends(_get_customer_id), db: Session = 
     studio, client = _open(db, slug, customer_id)
     if client is None:
         return {"is_client": False, "memberships": [], "upcoming": [], "history": []}
+    people = {p.id: p.full_name for p in selfb.family_of(db, client)}       # the client, and those they book for
     rows = db.execute(select(ClassBooking, ClassSession).join(ClassSession, ClassSession.id == ClassBooking.session_id)
-                      .where(ClassBooking.client_id == client.id, ClassBooking.status != "canceled")
+                      .where(ClassBooking.client_id.in_(list(people)), ClassBooking.status != "canceled")
                       .order_by(ClassSession.starts_at.desc()).limit(60)).all()
     tpls, rooms, _ = _names(db, studio.id, [s for _, s in rows])
     now = svc.now_utc()
@@ -146,6 +160,7 @@ def mine(slug: str, customer_id: str = Depends(_get_customer_id), db: Session = 
     for b, s in rows:
         t = tpls.get(s.template_id)
         item = {"id": str(b.id), "session_id": str(s.id), "enrollment_id": str(b.enrollment_id) if b.enrollment_id else None,
+                "for_name": None if b.client_id == client.id else people.get(b.client_id),
                 "name": t.name if t else "שיעור", "starts_at": s.starts_at.isoformat(),
                 "ends_at": s.ends_at.isoformat(), "room_name": rooms.get(s.room_id), "status": b.status}
         if b.status == "booked" and s.starts_at > now and s.status == "scheduled":
@@ -182,18 +197,28 @@ def mine(slug: str, customer_id: str = Depends(_get_customer_id), db: Session = 
             "waitlist": waits, "courses": mine_courses}
 
 
+class BookIn(BaseModel):
+    for_client_id: Optional[uuid.UUID] = None       # the holder of a family membership booking for someone on it
+
+
 @router.post("/{slug}/sessions/{session_id}/book")
-def book(slug: str, session_id: uuid.UUID, customer_id: str = Depends(_get_customer_id), db: Session = Depends(get_db)):
-    studio, client = _open(db, slug, customer_id)
-    if client is None:
+def book(slug: str, session_id: uuid.UUID, body: Optional[BookIn] = None, customer_id: str = Depends(_get_customer_id),
+         db: Session = Depends(get_db)):
+    studio, actor = _open(db, slug, customer_id)
+    if actor is None:
         raise HTTPException(403, NOT_A_CLIENT)
+    client = actor
+    if body and body.for_client_id and body.for_client_id != actor.id:
+        client = next((p for p in selfb.family_of(db, actor) if p.id == body.for_client_id), None)
+        if client is None:
+            raise HTTPException(403, "אפשר לרשום רק את מי שבמנוי המשפחתי שלך")
     s = db.get(ClassSession, session_id)
     if not s or s.studio_id != studio.id:
         raise HTTPException(404, "השיעור לא נמצא")
     if selfb.my_bookings(db, client, [s.id]):
         raise HTTPException(400, "כבר נרשמת לשיעור הזה")
     spots = max(0, s.capacity - svc.booked_counts(db, [s.id]).get(s.id, 0))
-    why = selfb.why_not(db, s, client, spots_left=spots, booked=False)
+    why = selfb.why_not(db, s, client, spots_left=spots, booked=False, actor_id=actor.id)
     if why:
         raise HTTPException(400, why)
     try:
@@ -202,7 +227,7 @@ def book(slug: str, session_id: uuid.UUID, customer_id: str = Depends(_get_custo
         db.rollback()
         raise HTTPException(400, str(e).split(" — ")[0])
     db.commit()
-    return {"ok": True, "message": "נרשמת! אישור נשלח אליך."}
+    return {"ok": True, "message": "נרשמת! אישור נשלח אליך." if client is actor else f"{client.full_name} נרשם/ה! אישור נשלח."}
 
 
 @router.post("/{slug}/sessions/{session_id}/waitlist")
@@ -382,8 +407,9 @@ def checkin_walk_in(slug: str, session_id: uuid.UUID, body: CheckinIn, customer_
 
 
 def _my_booking(db: Session, studio, client, booking_id) -> ClassBooking:
+    """The client's booking — or, for the holder of a family membership, one of the family's."""
     b = db.get(ClassBooking, booking_id)
-    if client is None or not b or b.studio_id != studio.id or b.client_id != client.id:
+    if client is None or not b or b.studio_id != studio.id or all(p.id != b.client_id for p in selfb.family_of(db, client)):
         raise HTTPException(404, "ההרשמה לא נמצאה")
     return b
 

@@ -20,6 +20,7 @@ from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from app.models.classes import ClassBooking, ClassSession, ClassTemplate
+from app.models.memberships import Membership
 from app.services import classes as svc
 from app.services import memberships as ms
 from app.services import policies
@@ -54,8 +55,9 @@ def free_cancel_until(db: Session, s: ClassSession) -> datetime:
     return s.starts_at - timedelta(hours=policies.get_policy(db, s.studio_id, "free_cancel_hours", template_id=s.template_id))
 
 
-def why_not(db: Session, s: ClassSession, client, *, spots_left: int, booked: bool) -> str | None:
-    """None when this client may book this class now; otherwise the reason, in the client's words."""
+def why_not(db: Session, s: ClassSession, client, *, spots_left: int, booked: bool, actor_id=None) -> str | None:
+    """None when this client may book this class now; otherwise the reason, in the client's words. actor_id: who
+    books — the holder of a family membership booking for someone on it (default: the client themselves)."""
     now = svc.now_utc()
     if client is None:
         return "ההרשמה לשיעורים פתוחה ללקוחות העסק עם מנוי"
@@ -76,7 +78,30 @@ def why_not(db: Session, s: ClassSession, client, *, spots_left: int, booked: bo
     if spots_left <= 0:
         return "השיעור מלא"
     m, why = ms.find_eligible(db, client.id, s)
-    return None if m else why
+    if m is None:
+        return why
+    from app.services import membership_family as family
+    if family.is_family(m.rules) and m.rules.get("booking_by") == "holder" and (actor_id or client.id) != m.client_id:
+        return "ההרשמה דרך בעל/ת המנוי המשפחתי"      # the owner's choice: the holder books for everyone
+    return None
+
+
+def family_of(db: Session, client) -> list:
+    """The people this client may book for on BizFind: themselves first, then everyone on the family memberships
+    they hold (still valid)."""
+    from app.services import membership_family as family
+    if client is None:
+        return []
+    today = svc.today_il()
+    out = [client]
+    from app.models.client import Client
+    for m in db.scalars(select(Membership).where(Membership.client_id == client.id, Membership.studio_id == client.studio_id)).all():
+        if not family.is_family(m.rules) or ms.status_now(m, None, today) in ("expired", "canceled"):
+            continue
+        for cid in family.people(db, m)[1:]:
+            if all(x.id != cid for x in out):
+                out.append(db.get(Client, cid))
+    return out
 
 
 def my_bookings(db: Session, client, session_ids) -> dict:
