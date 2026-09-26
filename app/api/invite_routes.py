@@ -20,6 +20,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.sites import logo_address
 
 log = logging.getLogger(__name__)
 
@@ -92,7 +93,7 @@ def optout_page_info(token: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="לא נמצא")
 
     studio_name = row[0] or "העסק"
-    logo_url = row[1] or (f"/uploads/{row[2]}" if row[2] else None)
+    logo_url = logo_address(row[1], row[2])
     template = row[3] or _DEFAULT_OPTOUT_MESSAGE
     message = template.replace("{studio_name}", studio_name)
 

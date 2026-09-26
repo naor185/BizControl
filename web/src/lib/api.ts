@@ -3,6 +3,13 @@ import { clearNavHistory } from "@/lib/navHistory";
 
 export const API_BASE = (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_BASE || "").replace(/^http:\/\//, "https://");
 
+// A picture the server keeps itself comes as /uploads/… and is completed with the server's address; a cloud picture
+// is already a full address. (BizFind has the same helper, customers/src/lib/api.ts.)
+export function imgUrl(url?: string | null): string {
+    if (!url) return "";
+    return url.startsWith("http") ? url : `${API_BASE.replace(/\/$/, "")}${url}`;
+}
+
 const TOKEN_KEY = "bizcontrol_token";
 const REFRESH_TOKEN_KEY = "bizcontrol_refresh_token";
 

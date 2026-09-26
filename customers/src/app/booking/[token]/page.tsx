@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { API } from "@/lib/api";
+import { API, imgUrl } from "@/lib/api";
 
 interface BookingStatus {
     status: "pending" | "approved" | "rejected";
@@ -62,7 +62,7 @@ export default function BookingStatusPage() {
                 {/* Header */}
                 <div className="bg-indigo-600 px-6 py-5 text-white text-center">
                     {data.studio_logo && (
-                        <img src={data.studio_logo} alt={data.studio_name || ""} className="w-14 h-14 rounded-full object-cover mx-auto mb-3 border-2 border-white/40" />
+                        <img src={imgUrl(data.studio_logo)} alt={data.studio_name || ""} className="w-14 h-14 rounded-full object-cover mx-auto mb-3 border-2 border-white/40" />
                     )}
                     <h1 className="text-lg font-bold">{data.studio_name || "העסק"}</h1>
                     <p className="text-indigo-200 text-sm mt-0.5">פרטי הזמנה</p>

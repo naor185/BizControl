@@ -28,6 +28,7 @@ from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.sites import logo_address
 from app.core.security import JWT_SECRET, validate_password_strength
 from app.core.limiter import limiter
 
@@ -509,7 +510,7 @@ def my_businesses(
     clients = db.execute(
         text("""
             SELECT c.id AS client_id, c.studio_id, s.name, s.slug, s.logo_url,
-                   ss.marketplace_cover_url, c.loyalty_points, c.is_club_member
+                   ss.marketplace_cover_url, c.loyalty_points, c.is_club_member, ss.logo_filename
             FROM clients c
             JOIN studios s ON s.id = c.studio_id
             LEFT JOIN studio_settings ss ON ss.studio_id = s.id
@@ -583,8 +584,8 @@ def my_businesses(
             "studio_id": str(studio_id),
             "studio_name": r[2],
             "studio_slug": r[3],
-            "logo_url": r[4],
-            "cover_url": r[5] or r[4],
+            "logo_url": logo_address(r[4], r[8]),
+            "cover_url": r[5] or logo_address(r[4], r[8]),
             "loyalty_points": int(r[6] or 0),
             "is_club_member": is_member,
             "visit_count": visit_count,

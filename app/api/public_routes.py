@@ -11,6 +11,7 @@ from datetime import datetime, date, timedelta, timezone
 from typing import Optional
 
 from app.core.database import get_db
+from app.core.sites import logo_address
 from app.core.studio_access import raise_if_archived
 from app.models.studio import Studio
 from app.models.user import User
@@ -785,7 +786,7 @@ def get_public_booking(token: str, db: Session = Depends(get_db)):
         "artist_name": (artist.display_name or artist.email) if artist else None,
         "studio_name": studio.name if studio else None,
         "studio_address": settings.studio_address if settings else None,
-        "studio_logo": studio.logo_url if studio else None,
+        "studio_logo": logo_address(studio.logo_url, settings.logo_filename if settings else None) if studio else None,
         "rejection_reason": req.rejection_reason,
         "appointment_id": str(req.appointment_id) if req.appointment_id else None,
         "appointment_status": appt.status if appt else None,

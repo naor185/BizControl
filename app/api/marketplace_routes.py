@@ -21,6 +21,8 @@ from app.services.business_types import describe, resolve_with_note, type_lookup
 
 log = get_logger(__name__)
 
+from app.core.sites import logo_address
+
 router = APIRouter(prefix="/marketplace", tags=["Marketplace"])
 
 # ── Plan definitions ──────────────────────────────────────────────────────────
@@ -533,7 +535,7 @@ def get_my_studio_profile(ctx: AuthContext = Depends(require_studio_ctx), db: Se
         "slug": studio.slug,
         "name": studio.name,
         "business_type": studio.business_type or "other",
-        "logo_url": studio.logo_url,
+        "logo_url": logo_address(studio.logo_url, settings.logo_filename),
         "primary_color": studio.primary_color or "#7c3aed",
         "subscription_plan": getattr(studio, "subscription_plan", "free"),
         "cover_url": settings.marketplace_cover_url,
@@ -636,7 +638,7 @@ def search_marketplace(
             "slug": studio.slug,
             "name": studio.name,
             **_type_fields(types, studio.business_type),
-            "logo_url": studio.logo_url,
+            "logo_url": logo_address(studio.logo_url, settings.logo_filename),
             "cover_url": settings.marketplace_cover_url,
             "city": settings.marketplace_city,
             "description": settings.marketplace_description,
@@ -829,7 +831,7 @@ def get_studio_profile(slug: str, db: Session = Depends(get_db)):
         "slug": studio.slug,
         "name": studio.name,
         **_type_fields(type_lookup(db), studio.business_type),
-        "logo_url": studio.logo_url,
+        "logo_url": logo_address(studio.logo_url, settings.logo_filename),
         "cover_url": settings.marketplace_cover_url,
         "primary_color": studio.primary_color or "#7c3aed",
         "description": settings.marketplace_description,

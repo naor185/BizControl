@@ -23,17 +23,26 @@ const GLOBAL_CSS = `
                         --accent: #f59e0b;
                         --font-heading: "Heebo", sans-serif;
                         --font-body: "Assistant", sans-serif;
+                        /* The black-and-white look (BizControl's login: white text, see-through glass
+                           cards on a picture). Pages moved to it read these — one place to tune it. */
+                        --bf-bg: #000000;
+                        --bf-glass: rgba(255,255,255,.06);
+                        --bf-glass-strong: rgba(255,255,255,.11);
+                        --bf-line: rgba(255,255,255,.14);
+                        --bf-text: #ffffff;
+                        --bf-muted: rgba(255,255,255,.68);
+                        --bf-faint: rgba(255,255,255,.42);
                     }
                     * { box-sizing: border-box; margin: 0; padding: 0; }
-                    body { font-family: var(--font-body), system-ui, -apple-system, sans-serif; background: #0f172a; color: #f1f5f9; padding-bottom: 64px; }
+                    body { font-family: var(--font-body), system-ui, -apple-system, sans-serif; background: var(--bf-bg); color: var(--bf-text); padding-bottom: 64px; }
                     h1, h2, h3, h4, h5, h6 { font-family: var(--font-heading), inherit; }
                     a { color: inherit; }
                     input, textarea, select, button { font-family: inherit; }
                     @keyframes spin { to { transform: rotate(360deg); } }
                     @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-                    .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; height: 60px; background: rgba(15,23,42,.97); backdrop-filter: blur(12px); border-top: 1px solid rgba(255,255,255,.08); display: flex; z-index: 100; }
-                    .bottom-nav a { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; text-decoration: none; color: #64748b; font-size: 0.65rem; font-weight: 600; transition: color .2s; }
-                    .bottom-nav a:hover { color: var(--primary); }
+                    .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; height: 60px; background: rgba(0,0,0,.92); backdrop-filter: blur(14px); border-top: 1px solid var(--bf-line); display: flex; z-index: 100; }
+                    .bottom-nav a { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; text-decoration: none; color: var(--bf-faint); font-size: 0.65rem; font-weight: 600; transition: color .2s; }
+                    .bottom-nav a:hover { color: var(--bf-text); }
 `;
 
 export default function RootLayout({ children }: { children: ReactNode }) {

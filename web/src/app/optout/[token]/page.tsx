@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import { imgUrl } from "@/lib/api";
 
 const API = (process.env.NEXT_PUBLIC_API_BASE || "").replace(/\/$/, "");
 
@@ -33,7 +34,7 @@ export default function OptoutPage() {
             <div className="w-full max-w-sm bg-white rounded-2xl shadow-sm border border-slate-200 p-8 text-center">
                 {info?.logo_url && (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={info.logo_url} alt={info.studio_name} className="h-14 mx-auto mb-4 object-contain" />
+                    <img src={imgUrl(info.logo_url)} alt={info.studio_name} className="h-14 mx-auto mb-4 object-contain" />
                 )}
                 {info?.studio_name && (
                     <div className="text-xs font-semibold text-slate-400 mb-4">{info.studio_name}</div>

@@ -1,11 +1,11 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { imgUrl } from "@/lib/api";
 import { usePlatformTheme } from "@/lib/usePlatformTheme";
 import BusinessTypeIcon from "@/components/BusinessTypeIcon";
 
 const API = (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_BASE || "").replace(/\/$/, "");
-function imgUrl(url?: string) { if (!url) return ""; return url.startsWith("http") ? url : `${API}${url}`; }
 
 interface StudioCard {
     id: string; slug: string; name: string;

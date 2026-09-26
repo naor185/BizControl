@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
+import { imgUrl } from "@/lib/api";
 import { usePlatformTheme } from "@/lib/usePlatformTheme";
 
 const API = (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_BASE || "").replace(/^http:\/\//, "https://");
@@ -119,7 +120,7 @@ export default function BookingPage() {
         <div dir="rtl" style={{ minHeight: "100vh", background: "linear-gradient(135deg,#0f0c29,#1e1b4b)", color: "#fff", fontFamily: "sans-serif" }}>
             {/* Header */}
             <div style={{ background: `${primary}22`, borderBottom: `1px solid ${primary}44`, padding: "1rem 1.5rem", display: "flex", alignItems: "center", gap: "1rem" }}>
-                {info?.logo_url && <img src={info.logo_url} alt="" style={{ width: 40, height: 40, borderRadius: 10, objectFit: "cover" }} />}
+                {info?.logo_url && <img src={imgUrl(info.logo_url)} alt="" style={{ width: 40, height: 40, borderRadius: 10, objectFit: "cover" }} />}
                 <div>
                     <div style={{ fontWeight: 800, fontSize: "1.1rem" }}>{info?.studio_name}</div>
                     <div style={{ color: "#94a3b8", fontSize: "0.8rem" }}>קביעת תור אונליין</div>

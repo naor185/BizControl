@@ -161,7 +161,7 @@ export default function MePage() {
                             {favorites.map(s => (
                                 <div key={s.slug} style={{ background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.08)", borderRadius: 16, padding: "0.9rem 1rem", display: "flex", alignItems: "center", gap: "0.8rem" }}>
                                     <div style={{ width: 44, height: 44, borderRadius: 12, background: theme.primary, overflow: "hidden", flexShrink: 0 }}>
-                                        {s.logo_url && <img src={s.logo_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />}
+                                        {s.logo_url && <img src={imgUrl(s.logo_url)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />}
                                     </div>
                                     <div style={{ flex: 1, minWidth: 0 }}>
                                         <div style={{ fontWeight: 700, fontSize: "0.9rem" }}>{s.name}</div>

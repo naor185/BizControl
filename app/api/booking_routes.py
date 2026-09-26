@@ -13,6 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.sites import logo_address
 from app.core.studio_access import raise_if_archived
 from fastapi import Depends
 
@@ -57,7 +58,7 @@ def get_booking_info(slug: str, db: Session = Depends(get_db)):
     return {
         "studio_id": str(studio.id),
         "studio_name": studio.name,
-        "logo_url": studio.logo_url,
+        "logo_url": logo_address(studio.logo_url, getattr(settings, "logo_filename", None)),
         "primary_color": studio.primary_color or "#7c3aed",
         "timezone": getattr(settings, "timezone", "Asia/Jerusalem") or "Asia/Jerusalem",
         "calendar_start_hour": getattr(settings, "calendar_start_hour", "09") or "09",

@@ -6,7 +6,9 @@ import { API, imgUrl } from "@/lib/api";
 import { setStudioToken, goToBizControl } from "@/lib/handoff";
 import { usePlatformTheme } from "@/lib/usePlatformTheme";
 import BusinessTypeIcon from "@/components/BusinessTypeIcon";
-import { CalendarDays } from "lucide-react";
+import { GLASS_BTN, GLASS_CARD, OPTION_STYLE, PRIMARY_BTN } from "@/lib/look";
+import { ArrowRight, BookOpen, CalendarDays, Camera, Check, ClipboardList, Clock, Images, MapPin, MessageCircle,
+         Navigation, PenLine, Phone, Send, Share2, Star, Users, type LucideIcon } from "lucide-react";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -226,15 +228,14 @@ export default function BusinessPage() {
     };
 
     if (!p && !err) return (
-        <div style={{ height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#0f172a" }}>
-            <div style={{ width: 48, height: 48, border: "4px solid rgba(167,139,250,.25)", borderTopColor: "#a78bfa", borderRadius: "50%", animation: "spin .8s linear infinite" }} />
+        <div style={{ height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bf-bg)" }}>
+            <div style={{ width: 44, height: 44, border: "3px solid rgba(255,255,255,.18)", borderTopColor: "#fff", borderRadius: "50%", animation: "spin .8s linear infinite" }} />
         </div>
     );
     if (err) return (
-        <div style={{ height: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "1rem", background: "#0f172a", color: "#f1f5f9" }}>
-            <div style={{ fontSize: "3.5rem" }}>😔</div>
-            <div style={{ color: "#f87171", fontWeight: 700 }}>{err}</div>
-            <Link href="/" style={{ color: "#a78bfa", textDecoration: "none", fontSize: "0.9rem" }}>← חזרה לחיפוש</Link>
+        <div style={{ height: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "1rem", padding: "0 1.5rem", textAlign: "center", background: "var(--bf-bg)", color: "var(--bf-text)" }}>
+            <div style={{ fontWeight: 700, maxWidth: 420, lineHeight: 1.6 }}>{err}</div>
+            <Link href="/" style={{ ...GLASS_BTN, fontSize: "0.88rem" }}><ArrowRight size={15} aria-hidden /> חזרה לחיפוש</Link>
         </div>
     );
 
@@ -247,7 +248,7 @@ export default function BusinessPage() {
 
     return (
         <>
-        <div dir="rtl" style={{ minHeight: "100vh", background: "#0f172a", color: "#f1f5f9" }}>
+        <div dir="rtl" style={{ minHeight: "100vh", background: "var(--bf-bg)", color: "var(--bf-text)" }}>
 
             {/* ── Lightbox ── */}
             {lightbox && (
@@ -266,38 +267,38 @@ export default function BusinessPage() {
             )}
 
             {/* ── Hero ── */}
-            <div style={{ position: "relative", height: 300, overflow: "hidden" }}>
+            <div style={{ position: "relative", height: 320, overflow: "hidden" }}>
                 {p!.cover_url ? (
                     <img src={imgUrl(p!.cover_url)} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
                 ) : (
-                    <div style={{ position: "absolute", inset: 0, background: `linear-gradient(135deg,${primary}cc 0%,#1e1b4b 100%)` }} />
+                    <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 70% 15%, #2b2b2b 0%, #0b0b0b 55%, #000 100%)" }} />
                 )}
-                {/* Gradient overlay */}
-                <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom,rgba(15,23,42,.15) 0%,rgba(15,23,42,.85) 70%,#0f172a 100%)" }} />
+                {/* The cover fades into the black page — the logo and name sit on its lower edge */}
+                <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom,rgba(0,0,0,.05) 0%,rgba(0,0,0,.4) 50%,rgba(0,0,0,.88) 85%,#000 100%)" }} />
 
                 {/* Back */}
-                <Link href="/" style={{ position: "absolute", top: 14, right: 14, background: "rgba(0,0,0,.45)", backdropFilter: "blur(8px)", color: "#fff", textDecoration: "none", padding: "0.4rem 0.85rem", borderRadius: 10, fontSize: "0.82rem", border: "1px solid rgba(255,255,255,.15)", fontWeight: 600 }}>
-                    ← חזרה
+                <Link href="/" style={{ ...HERO_BTN, right: 14 }}>
+                    <ArrowRight size={15} aria-hidden /> חזרה
                 </Link>
 
                 {/* Share */}
                 <button type="button" onClick={() => navigator.share?.({ title: p!.name, url: window.location.href })}
-                    style={{ position: "absolute", top: 14, left: 14, background: "rgba(0,0,0,.45)", backdropFilter: "blur(8px)", color: "#fff", border: "1px solid rgba(255,255,255,.15)", padding: "0.4rem 0.85rem", borderRadius: 10, cursor: "pointer", fontSize: "0.82rem", fontWeight: 600 }}>
-                    ⬆️ שתף
+                    style={{ ...HERO_BTN, left: 14, cursor: "pointer" }}>
+                    <Share2 size={15} aria-hidden /> שתף
                 </button>
 
                 {/* Gallery preview strip (bottom of hero) */}
                 {hasGallery && (
-                    <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "0 1rem 0.5rem", display: "flex", gap: "0.4rem", overflowX: "hidden" }}>
+                    <div style={{ position: "absolute", bottom: 60, left: 0, right: 0, padding: "0 1rem", display: "flex", justifyContent: "flex-end", gap: "0.4rem", overflowX: "hidden" }}>
                         {p!.gallery.slice(0, 5).map((url, i) => (
                             <div key={i} onClick={() => setLightbox({ url: imgUrl(url), index: i })}
-                                style={{ width: 52, height: 52, flexShrink: 0, borderRadius: 10, overflow: "hidden", border: "2px solid rgba(255,255,255,.3)", cursor: "zoom-in", opacity: 0.85 }}>
+                                style={{ width: 52, height: 52, flexShrink: 0, borderRadius: 12, overflow: "hidden", border: "1px solid rgba(255,255,255,.35)", cursor: "zoom-in" }}>
                                 <img src={imgUrl(url)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                             </div>
                         ))}
                         {p!.gallery.length > 5 && (
                             <button type="button" onClick={() => setActiveTab("gallery")}
-                                style={{ width: 52, height: 52, flexShrink: 0, borderRadius: 10, border: "2px solid rgba(255,255,255,.3)", background: "rgba(0,0,0,.5)", color: "#fff", fontSize: "0.7rem", fontWeight: 700, cursor: "pointer", backdropFilter: "blur(4px)" }}>
+                                style={{ width: 52, height: 52, flexShrink: 0, borderRadius: 12, border: "1px solid rgba(255,255,255,.35)", background: "rgba(0,0,0,.55)", color: "#fff", fontSize: "0.72rem", fontWeight: 700, cursor: "pointer", backdropFilter: "blur(6px)" }}>
                                 +{p!.gallery.length - 5}
                             </button>
                         )}
@@ -308,31 +309,35 @@ export default function BusinessPage() {
             {/* ── Main content ── */}
             <div style={{ maxWidth: 840, margin: "0 auto", padding: "0 1.25rem 6rem" }}>
 
-                {/* ── Identity card ── */}
-                <div style={{ display: "flex", gap: "1rem", alignItems: "flex-start", marginTop: "1.25rem", marginBottom: "1.25rem" }}>
-                    {/* Logo */}
+                {/* ── Identity: the business's logo on the cover's lower edge ── */}
+                <div style={{ display: "flex", gap: "1rem", alignItems: "flex-end", marginTop: -48, marginBottom: "1.4rem", position: "relative", zIndex: 2 }}>
                     {p!.logo_url ? (
-                        <img src={imgUrl(p!.logo_url)} alt="" style={{ width: 80, height: 80, borderRadius: 20, objectFit: "cover", border: `3px solid ${primary}66`, flexShrink: 0, boxShadow: `0 4px 24px ${primary}44` }} />
+                        <div style={{ width: 96, height: 96, flexShrink: 0, borderRadius: 24, background: "#fff", padding: 7, border: "1px solid var(--bf-line)", boxShadow: "0 14px 36px rgba(0,0,0,.7)" }}>
+                            <img src={imgUrl(p!.logo_url)} alt={`הלוגו של ${p!.name}`} style={{ width: "100%", height: "100%", objectFit: "contain", borderRadius: 17, display: "block" }} />
+                        </div>
                     ) : (
-                        <div style={{ width: 80, height: 80, borderRadius: 20, background: `${primary}22`, display: "flex", alignItems: "center", justifyContent: "center", border: `2px solid ${primary}44`, flexShrink: 0 }}><BusinessTypeIcon name={p!.business_type_icon} size={40} color={primary} strokeWidth={1.5} /></div>
+                        <div style={{ width: 96, height: 96, flexShrink: 0, borderRadius: 24, background: "rgba(0,0,0,.55)", backdropFilter: "blur(10px)", border: "1px solid var(--bf-line)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                            <BusinessTypeIcon name={p!.business_type_icon} size={42} color="#fff" strokeWidth={1.4} />
+                        </div>
                     )}
 
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                        <h1 style={{ fontSize: "1.55rem", fontWeight: 900, color: "#f1f5f9", margin: "0 0 0.25rem", lineHeight: 1.2 }}>{p!.name}</h1>
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem", alignItems: "center" }}>
-                            <span style={{ fontSize: "0.8rem", color: "#94a3b8", display: "inline-flex", alignItems: "center", gap: "0.3rem" }}><BusinessTypeIcon name={p!.business_type_icon} size={13} /> {p!.business_type_label}</span>
-                            {p!.city && <><span style={{ color: "#475569" }}>·</span><span style={{ fontSize: "0.8rem", color: "#94a3b8" }}>📍 {p!.city}</span></>}
+                    <div style={{ flex: 1, minWidth: 0, paddingBottom: 2 }}>
+                        <h1 style={{ fontSize: "1.75rem", fontWeight: 800, color: "var(--bf-text)", margin: "0 0 0.35rem", lineHeight: 1.15, overflowWrap: "anywhere" }}>{p!.name}</h1>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.45rem", alignItems: "center", fontSize: "0.82rem", color: "var(--bf-muted)" }}>
+                            <span style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem" }}><BusinessTypeIcon name={p!.business_type_icon} size={14} /> {p!.business_type_label}</span>
+                            {p!.city && <span style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem" }}><MapPin size={14} aria-hidden /> {p!.city}</span>}
                             {openStatus && (
-                                <span style={{ fontSize: "0.72rem", fontWeight: 700, padding: "0.18rem 0.55rem", borderRadius: 20, background: openStatus.open ? "rgba(74,222,128,.12)" : "rgba(239,68,68,.1)", color: openStatus.open ? "#4ade80" : "#f87171", border: `1px solid ${openStatus.open ? "rgba(74,222,128,.3)" : "rgba(239,68,68,.25)"}` }}>
-                                    {openStatus.open ? "🟢" : "🔴"} {openStatus.label}
+                                <span style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem", fontSize: "0.74rem", fontWeight: 700, padding: "0.2rem 0.6rem", borderRadius: 20, background: "var(--bf-glass)", border: "1px solid var(--bf-line)", color: "var(--bf-text)" }}>
+                                    <span aria-hidden style={{ width: 7, height: 7, borderRadius: "50%", background: openStatus.open ? "#4ade80" : "#f87171" }} />
+                                    {openStatus.label}
                                 </span>
                             )}
                         </div>
                         {p!.avg_rating != null && p!.review_count > 0 && (
-                            <div style={{ display: "flex", alignItems: "center", gap: "0.3rem", marginTop: "0.35rem" }}>
-                                <span style={{ color: "#fbbf24" }}>{"★".repeat(Math.round(p!.avg_rating))}</span>
-                                <span style={{ color: "#fbbf24", fontWeight: 700, fontSize: "0.85rem" }}>{p!.avg_rating.toFixed(1)}</span>
-                                <span style={{ color: "#475569", fontSize: "0.78rem" }}>({p!.review_count} ביקורות)</span>
+                            <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", marginTop: "0.4rem" }}>
+                                <span style={{ color: "#fbbf24", letterSpacing: 1 }}>{"★".repeat(Math.round(p!.avg_rating))}</span>
+                                <span style={{ color: "var(--bf-text)", fontWeight: 700, fontSize: "0.85rem" }}>{p!.avg_rating.toFixed(1)}</span>
+                                <span style={{ color: "var(--bf-faint)", fontSize: "0.78rem" }}>({p!.review_count} ביקורות)</span>
                             </div>
                         )}
                     </div>
@@ -343,64 +348,56 @@ export default function BusinessPage() {
                 {/* ── CTA buttons ── */}
                 <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "1.5rem" }}>
                     {p!.is_claimed !== false && (p!.self_booking_enabled ? (
-                        <Link href={`/b/${slug}/book`}
-                            style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: `linear-gradient(135deg,${primary},#4c1d95)`, color: "#fff", textDecoration: "none", padding: "0.7rem 1.3rem", borderRadius: 14, fontWeight: 800, fontSize: "0.9rem", boxShadow: `0 4px 16px ${primary}44` }}>
-                            📅 קביעת תור
+                        <Link href={`/b/${slug}/book`} style={PRIMARY_BTN}>
+                            <CalendarDays size={17} aria-hidden /> קביעת תור
                         </Link>
                     ) : (
-                        <button type="button" onClick={() => setShowRequestModal(true)}
-                            style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: `linear-gradient(135deg,${primary},#4c1d95)`, color: "#fff", border: "none", padding: "0.7rem 1.3rem", borderRadius: 14, fontWeight: 800, fontSize: "0.9rem", cursor: "pointer", boxShadow: `0 4px 16px ${primary}44` }}>
-                            📋 בקש תור
+                        <button type="button" onClick={() => setShowRequestModal(true)} style={PRIMARY_BTN}>
+                            <ClipboardList size={17} aria-hidden /> בקש תור
                         </button>
                     ))}
                     {p!.has_classes && (
-                        <Link href={`/b/${slug}/classes`}
-                            style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "rgba(255,255,255,.06)", border: `1px solid ${primary}66`, color: "#f1f5f9", textDecoration: "none", padding: "0.7rem 1.2rem", borderRadius: 14, fontWeight: 800, fontSize: "0.9rem" }}>
-                            <CalendarDays size={17} aria-hidden /> שיעורים
+                        <Link href={`/b/${slug}/classes`} style={GLASS_BTN}>
+                            <Users size={17} aria-hidden /> שיעורים
                         </Link>
                     )}
                     {p!.whatsapp && (
-                        <a href={`https://wa.me/${p!.whatsapp.replace(/\D/g, "")}`} target="_blank" rel="noopener"
-                            style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "rgba(37,211,102,.12)", border: "1px solid rgba(37,211,102,.3)", color: "#25d366", textDecoration: "none", padding: "0.7rem 1.1rem", borderRadius: 14, fontWeight: 700, fontSize: "0.86rem" }}>
-                            💬 WhatsApp
+                        <a href={`https://wa.me/${p!.whatsapp.replace(/\D/g, "")}`} target="_blank" rel="noopener" style={GLASS_BTN}>
+                            <MessageCircle size={17} color="#25d366" aria-hidden /> WhatsApp
                         </a>
                     )}
                     {p!.phone && (
-                        <a href={`tel:${p!.phone}`}
-                            style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.1)", color: "#e2e8f0", textDecoration: "none", padding: "0.7rem 1.1rem", borderRadius: 14, fontWeight: 600, fontSize: "0.86rem" }}>
-                            📞 התקשר
+                        <a href={`tel:${p!.phone}`} style={GLASS_BTN}>
+                            <Phone size={16} aria-hidden /> התקשר
                         </a>
                     )}
                     {p!.map_link && (
-                        <a href={p!.map_link} target="_blank" rel="noopener"
-                            style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.1)", color: "#e2e8f0", textDecoration: "none", padding: "0.7rem 1.1rem", borderRadius: 14, fontWeight: 600, fontSize: "0.86rem" }}>
-                            🗺️ ניווט
+                        <a href={p!.map_link} target="_blank" rel="noopener" style={GLASS_BTN}>
+                            <Navigation size={16} aria-hidden /> ניווט
                         </a>
                     )}
                     {p!.instagram && (
-                        <a href={p!.instagram} target="_blank" rel="noopener"
-                            style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "rgba(236,72,153,.1)", border: "1px solid rgba(236,72,153,.25)", color: "#f472b6", textDecoration: "none", padding: "0.7rem 1.1rem", borderRadius: 14, fontWeight: 600, fontSize: "0.86rem" }}>
-                            📸 Instagram
+                        <a href={p!.instagram} target="_blank" rel="noopener" style={GLASS_BTN}>
+                            <Camera size={16} aria-hidden /> Instagram
                         </a>
                     )}
                     {p!.portfolio_link && (
-                        <a href={p!.portfolio_link} target="_blank" rel="noopener"
-                            style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.1)", color: "#e2e8f0", textDecoration: "none", padding: "0.7rem 1.1rem", borderRadius: 14, fontWeight: 600, fontSize: "0.86rem" }}>
-                            🖼️ תיק עבודות
+                        <a href={p!.portfolio_link} target="_blank" rel="noopener" style={GLASS_BTN}>
+                            <Images size={16} aria-hidden /> תיק עבודות
                         </a>
                     )}
                 </div>
 
                 {/* ── Tabs ── */}
-                <div style={{ display: "flex", gap: "0.25rem", background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.08)", borderRadius: 14, padding: "0.3rem", marginBottom: "1.5rem", overflowX: "auto" }}>
+                <div style={{ display: "flex", gap: "0.25rem", background: "var(--bf-glass)", border: "1px solid var(--bf-line)", borderRadius: 16, padding: "0.3rem", marginBottom: "1.5rem", overflowX: "auto" }}>
                     {([
-                        ["about",    "ℹ️ אודות"],
-                        ...(p!.is_claimed !== false ? [["services", `🛎️ שירותים${p!.services.length > 0 ? ` (${p!.services.length})` : ""}`]] as const : []),
-                        ...(hasGallery ? [["gallery", `🖼️ גלריה (${p!.gallery.length})`]] as const : []),
-                        ...(p!.is_claimed !== false ? [["reviews", `⭐ ביקורות${p!.review_count > 0 ? ` (${p!.review_count})` : ""}`]] as const : []),
+                        ["about",    "אודות"],
+                        ...(p!.is_claimed !== false ? [["services", `שירותים${p!.services.length > 0 ? ` (${p!.services.length})` : ""}`]] as const : []),
+                        ...(hasGallery ? [["gallery", `גלריה (${p!.gallery.length})`]] as const : []),
+                        ...(p!.is_claimed !== false ? [["reviews", `ביקורות${p!.review_count > 0 ? ` (${p!.review_count})` : ""}`]] as const : []),
                     ] as [string, string][]).map(([id, label]) => (
                         <button key={id} type="button" onClick={() => setActiveTab(id as any)}
-                            style={{ padding: "0.5rem 1rem", borderRadius: 10, border: "none", cursor: "pointer", fontWeight: 700, fontSize: "0.82rem", whiteSpace: "nowrap", transition: "all .15s", background: activeTab === id ? `linear-gradient(135deg,${primary},#4c1d95)` : "transparent", color: activeTab === id ? "#fff" : "#64748b" }}>
+                            style={{ flex: "1 0 auto", padding: "0.55rem 1rem", borderRadius: 12, border: "none", cursor: "pointer", fontWeight: 700, fontSize: "0.84rem", whiteSpace: "nowrap", transition: "background .15s, color .15s", background: activeTab === id ? "#fff" : "transparent", color: activeTab === id ? "#000" : "var(--bf-muted)" }}>
                             {label}
                         </button>
                     ))}
@@ -412,19 +409,19 @@ export default function BusinessPage() {
                         {/* Description */}
                         {p!.description && (
                             <Card>
-                                <SectionTitle>📖 אודות</SectionTitle>
-                                <p style={{ color: "#94a3b8", lineHeight: 1.8, fontSize: "0.9rem", margin: 0 }}>{p!.description}</p>
+                                <SectionTitle icon={BookOpen}>אודות</SectionTitle>
+                                <p style={{ color: "var(--bf-muted)", lineHeight: 1.8, fontSize: "0.92rem", margin: 0 }}>{p!.description}</p>
                             </Card>
                         )}
 
                         {/* Address */}
                         {p!.address && (
                             <Card>
-                                <SectionTitle>📍 כתובת</SectionTitle>
-                                <div style={{ color: "#94a3b8", fontSize: "0.88rem", marginBottom: "0.6rem" }}>{p!.address}</div>
+                                <SectionTitle icon={MapPin}>כתובת</SectionTitle>
+                                <div style={{ color: "var(--bf-muted)", fontSize: "0.9rem", marginBottom: "0.6rem" }}>{p!.address}</div>
                                 {p!.map_link && (
                                     <a href={p!.map_link} target="_blank" rel="noopener"
-                                        style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem", color: "#a78bfa", fontSize: "0.82rem", fontWeight: 600, textDecoration: "none" }}>
+                                        style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem", color: "var(--bf-text)", fontSize: "0.84rem", fontWeight: 700, textDecoration: "underline", textUnderlineOffset: 3 }}>
                                         פתח ב-Google Maps ↗
                                     </a>
                                 )}
@@ -434,16 +431,16 @@ export default function BusinessPage() {
                         {/* Google reviews (unclaimed businesses only — pulled live, not stored) */}
                         {p!.google_reviews && p!.google_reviews.length > 0 && (
                             <Card>
-                                <SectionTitle>⭐ ביקורות מגוגל</SectionTitle>
+                                <SectionTitle icon={Star}>ביקורות מגוגל</SectionTitle>
                                 <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
                                     {p!.google_reviews.map((r, i) => (
-                                        <div key={i} style={{ paddingBottom: i < p!.google_reviews!.length - 1 ? "0.75rem" : 0, borderBottom: i < p!.google_reviews!.length - 1 ? "1px solid rgba(255,255,255,.08)" : "none" }}>
+                                        <div key={i} style={{ paddingBottom: i < p!.google_reviews!.length - 1 ? "0.75rem" : 0, borderBottom: i < p!.google_reviews!.length - 1 ? "1px solid var(--bf-line)" : "none" }}>
                                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.25rem" }}>
-                                                <span style={{ fontWeight: 700, fontSize: "0.85rem", color: "#e2e8f0" }}>{r.author || "משתמש גוגל"}</span>
-                                                <span style={{ fontSize: "0.72rem", color: "#64748b" }}>{r.relative_time}</span>
+                                                <span style={{ fontWeight: 700, fontSize: "0.85rem", color: "var(--bf-text)" }}>{r.author || "משתמש גוגל"}</span>
+                                                <span style={{ fontSize: "0.72rem", color: "var(--bf-faint)" }}>{r.relative_time}</span>
                                             </div>
                                             {r.rating != null && <div style={{ color: "#fbbf24", fontSize: "0.8rem", marginBottom: "0.25rem" }}>{"★".repeat(Math.round(r.rating))}</div>}
-                                            {r.text && <p style={{ color: "#94a3b8", fontSize: "0.85rem", lineHeight: 1.6, margin: 0 }}>{r.text}</p>}
+                                            {r.text && <p style={{ color: "var(--bf-muted)", fontSize: "0.85rem", lineHeight: 1.6, margin: 0 }}>{r.text}</p>}
                                         </div>
                                     ))}
                                 </div>
@@ -453,16 +450,16 @@ export default function BusinessPage() {
                         {/* Hours */}
                         {hours && (
                             <Card>
-                                <SectionTitle>🕐 שעות פתיחה</SectionTitle>
+                                <SectionTitle icon={Clock}>שעות פתיחה</SectionTitle>
                                 <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
                                     {DAYS.map(day => {
                                         const d = hours![day];
                                         const todayIdx = new Date().getDay();
                                         const isToday = DAYS[todayIdx] === day;
                                         return (
-                                            <div key={day} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.45rem 0.75rem", borderRadius: 10, background: isToday ? `${primary}18` : "rgba(255,255,255,.03)", border: isToday ? `1px solid ${primary}44` : "1px solid transparent" }}>
-                                                <span style={{ fontSize: "0.84rem", fontWeight: isToday ? 800 : 500, color: isToday ? "#c4b5fd" : "#94a3b8" }}>{DAY_LABELS[day]}{isToday ? " ← היום" : ""}</span>
-                                                <span style={{ fontSize: "0.82rem", fontWeight: 600, color: d.closed ? "#f87171" : "#4ade80" }}>
+                                            <div key={day} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.45rem 0.75rem", borderRadius: 10, background: isToday ? "var(--bf-glass-strong)" : "rgba(255,255,255,.025)", border: isToday ? "1px solid rgba(255,255,255,.3)" : "1px solid transparent" }}>
+                                                <span style={{ fontSize: "0.86rem", fontWeight: isToday ? 800 : 500, color: isToday ? "var(--bf-text)" : "var(--bf-muted)" }}>{DAY_LABELS[day]}{isToday ? " · היום" : ""}</span>
+                                                <span dir="ltr" style={{ fontSize: "0.84rem", fontWeight: 600, fontVariantNumeric: "tabular-nums", color: d.closed ? "#f87171" : "var(--bf-text)" }}>
                                                     {d.closed ? "סגור" : `${d.open} – ${d.close}`}
                                                 </span>
                                             </div>
@@ -475,14 +472,14 @@ export default function BusinessPage() {
                         {/* Team */}
                         {p!.artists.length > 0 && (
                             <Card>
-                                <SectionTitle>👥 הצוות</SectionTitle>
+                                <SectionTitle icon={Users}>הצוות</SectionTitle>
                                 <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
                                     {p!.artists.map(a => (
-                                        <div key={a.id} style={{ display: "flex", alignItems: "center", gap: "0.5rem", background: `${primary}18`, border: `1px solid ${primary}33`, borderRadius: 12, padding: "0.45rem 0.85rem" }}>
-                                            <div style={{ width: 28, height: 28, borderRadius: "50%", background: `${primary}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.75rem", fontWeight: 800, color: "#c4b5fd" }}>
+                                        <div key={a.id} style={{ display: "flex", alignItems: "center", gap: "0.5rem", background: "var(--bf-glass)", border: "1px solid var(--bf-line)", borderRadius: 12, padding: "0.4rem 0.8rem 0.4rem 0.4rem" }}>
+                                            <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.78rem", fontWeight: 800, color: "#000" }}>
                                                 {a.name.charAt(0)}
                                             </div>
-                                            <span style={{ fontWeight: 600, fontSize: "0.86rem", color: "#c4b5fd" }}>{a.name}</span>
+                                            <span style={{ fontWeight: 600, fontSize: "0.88rem", color: "var(--bf-text)" }}>{a.name}</span>
                                         </div>
                                     ))}
                                 </div>
@@ -495,27 +492,26 @@ export default function BusinessPage() {
                 {activeTab === "services" && (
                     <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
                         {p!.services.length === 0 ? (
-                            <div style={{ textAlign: "center", padding: "3rem", color: "#64748b" }}>אין שירותים להצגה</div>
+                            <div style={{ textAlign: "center", padding: "3rem", color: "var(--bf-faint)" }}>אין שירותים להצגה</div>
                         ) : p!.services.map(s => (
-                            <div key={s.id} style={{ background: "rgba(255,255,255,.04)", border: `1px solid rgba(255,255,255,.07)`, borderRadius: 18, padding: "1rem 1.1rem", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem", position: "relative", overflow: "hidden" }}>
+                            <div key={s.id} style={{ background: "var(--bf-glass)", border: "1px solid var(--bf-line)", borderRadius: 18, padding: "1rem 1.1rem", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem", position: "relative", overflow: "hidden" }}>
                                 {/* Color stripe */}
-                                <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 4, background: s.color || primary, borderRadius: "0 18px 18px 0" }} />
+                                <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 4, background: s.color || "#fff", borderRadius: "0 18px 18px 0" }} />
                                 <div style={{ flex: 1, paddingRight: "0.5rem" }}>
-                                    <div style={{ fontWeight: 700, fontSize: "0.95rem", color: "#f1f5f9", marginBottom: "0.2rem" }}>{s.name}</div>
-                                    {s.description && <div style={{ color: "#64748b", fontSize: "0.78rem", lineHeight: 1.5 }}>{s.description}</div>}
-                                    {s.is_bookable_online && <span style={{ display: "inline-block", marginTop: "0.35rem", fontSize: "0.68rem", fontWeight: 700, color: "#4ade80", background: "rgba(74,222,128,.1)", border: "1px solid rgba(74,222,128,.25)", borderRadius: 6, padding: "0.15rem 0.5rem" }}>📅 ניתן להזמנה</span>}
+                                    <div style={{ fontWeight: 700, fontSize: "0.96rem", color: "var(--bf-text)", marginBottom: "0.2rem" }}>{s.name}</div>
+                                    {s.description && <div style={{ color: "var(--bf-muted)", fontSize: "0.8rem", lineHeight: 1.5 }}>{s.description}</div>}
+                                    {s.is_bookable_online && <span style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem", marginTop: "0.4rem", fontSize: "0.7rem", fontWeight: 700, color: "var(--bf-text)", background: "var(--bf-glass-strong)", border: "1px solid var(--bf-line)", borderRadius: 8, padding: "0.15rem 0.5rem" }}><Check size={12} aria-hidden /> ניתן להזמנה</span>}
                                 </div>
                                 <div style={{ textAlign: "left", flexShrink: 0 }}>
-                                    {s.duration_minutes > 0 && <div style={{ color: "#64748b", fontSize: "0.78rem", marginBottom: "0.2rem" }}>⏱ {dur(s.duration_minutes)}</div>}
-                                    {s.price_ils > 0 && <div style={{ color: "#4ade80", fontWeight: 900, fontSize: "1.05rem" }}>₪{s.price_ils}</div>}
+                                    {s.duration_minutes > 0 && <div style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem", color: "var(--bf-faint)", fontSize: "0.78rem", marginBottom: "0.2rem" }}><Clock size={12} aria-hidden /> {dur(s.duration_minutes)}</div>}
+                                    {s.price_ils > 0 && <div style={{ color: "var(--bf-text)", fontWeight: 800, fontSize: "1.08rem", fontVariantNumeric: "tabular-nums" }}>₪{s.price_ils}</div>}
                                 </div>
                             </div>
                         ))}
 
                         {p!.self_booking_enabled && bookableServices.length > 0 && (
-                            <Link href={`/b/${slug}/book`}
-                                style={{ display: "block", marginTop: "0.5rem", textAlign: "center", background: `linear-gradient(135deg,${primary},#4c1d95)`, color: "#fff", textDecoration: "none", padding: "0.9rem", borderRadius: 16, fontWeight: 800, fontSize: "0.95rem", boxShadow: `0 4px 20px ${primary}44` }}>
-                                📅 קביעת תור עכשיו
+                            <Link href={`/b/${slug}/book`} style={{ ...PRIMARY_BTN, justifyContent: "center", marginTop: "0.5rem", padding: "0.9rem", borderRadius: 16 }}>
+                                <CalendarDays size={17} aria-hidden /> קביעת תור עכשיו
                             </Link>
                         )}
                     </div>
@@ -534,7 +530,7 @@ export default function BusinessPage() {
                                         gridRow: i === 0 ? "1 / 3" : undefined,
                                         borderRadius: 14, overflow: "hidden",
                                         aspectRatio: i === 0 ? "1.2" : "1",
-                                        cursor: "zoom-in", background: "#1e293b",
+                                        cursor: "zoom-in", background: "#111",
                                     }}>
                                     <img src={imgUrl(url)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", transition: "transform .25s" }}
                                         onMouseEnter={e => (e.currentTarget.style.transform = "scale(1.04)")}
@@ -556,7 +552,7 @@ export default function BusinessPage() {
                                     <div style={{ textAlign: "center" }}>
                                         <div style={{ fontSize: "2.8rem", fontWeight: 900, color: "#fbbf24", lineHeight: 1 }}>{p!.avg_rating.toFixed(1)}</div>
                                         <div style={{ color: "#fbbf24", fontSize: "1rem" }}>{"★".repeat(Math.round(p!.avg_rating))}</div>
-                                        <div style={{ color: "#64748b", fontSize: "0.72rem", marginTop: "0.2rem" }}>{p!.review_count} ביקורות</div>
+                                        <div style={{ color: "var(--bf-faint)", fontSize: "0.72rem", marginTop: "0.2rem" }}>{p!.review_count} ביקורות</div>
                                     </div>
                                     <div style={{ flex: 1 }}>
                                         {[5,4,3,2,1].map(n => {
@@ -564,11 +560,11 @@ export default function BusinessPage() {
                                             const pct = p!.review_count > 0 ? (cnt / p!.review_count) * 100 : 0;
                                             return (
                                                 <div key={n} style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.2rem" }}>
-                                                    <span style={{ fontSize: "0.72rem", color: "#64748b", width: 8, flexShrink: 0 }}>{n}</span>
+                                                    <span style={{ fontSize: "0.72rem", color: "var(--bf-faint)", width: 8, flexShrink: 0 }}>{n}</span>
                                                     <div style={{ flex: 1, height: 6, background: "rgba(255,255,255,.08)", borderRadius: 3, overflow: "hidden" }}>
                                                         <div style={{ height: "100%", width: `${pct}%`, background: "#fbbf24", borderRadius: 3, transition: "width .4s" }} />
                                                     </div>
-                                                    <span style={{ fontSize: "0.68rem", color: "#64748b", width: 20, textAlign: "left" }}>{cnt}</span>
+                                                    <span style={{ fontSize: "0.68rem", color: "var(--bf-faint)", width: 20, textAlign: "left" }}>{cnt}</span>
                                                 </div>
                                             );
                                         })}
@@ -580,13 +576,13 @@ export default function BusinessPage() {
                         {/* Add review */}
                         {!submitted && (
                             <button type="button" onClick={() => setShowReview(v => !v)}
-                                style={{ background: `${primary}18`, border: `1px solid ${primary}44`, borderRadius: 14, color: "#c4b5fd", padding: "0.7rem", fontWeight: 700, fontSize: "0.88rem", cursor: "pointer", width: "100%", textAlign: "center" }}>
-                                {showReview ? "ביטול" : "✏️ כתוב ביקורת"}
+                                style={{ ...GLASS_BTN, justifyContent: "center", width: "100%", cursor: "pointer" }}>
+                                {showReview ? "ביטול" : <><PenLine size={16} aria-hidden /> כתוב ביקורת</>}
                             </button>
                         )}
                         {submitted && (
-                            <div style={{ background: "rgba(74,222,128,.08)", border: "1px solid rgba(74,222,128,.25)", borderRadius: 14, padding: "0.9rem 1rem", color: "#4ade80", fontSize: "0.88rem", textAlign: "center" }}>
-                                ✅ תודה! הביקורת נשלחה לאישור.
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "0.4rem", background: "rgba(74,222,128,.08)", border: "1px solid rgba(74,222,128,.25)", borderRadius: 14, padding: "0.9rem 1rem", color: "#4ade80", fontSize: "0.88rem" }}>
+                                <Check size={16} aria-hidden /> תודה! הביקורת נשלחה לאישור.
                             </div>
                         )}
                         {showReview && (
@@ -596,7 +592,7 @@ export default function BusinessPage() {
                                     <label style={labelStyle}>שם מלא *</label>
                                     <input value={reviewForm.client_name} onChange={e => setReviewForm(f => ({ ...f, client_name: e.target.value }))}
                                         style={reviewInputStyle}
-                                        onFocus={e => e.target.style.borderColor = primary}
+                                        onFocus={e => e.target.style.borderColor = "#fff"}
                                         onBlur={e => e.target.style.borderColor = "rgba(255,255,255,.12)"}
                                         placeholder="השם שיופיע בביקורת" />
                                 </div>
@@ -605,7 +601,7 @@ export default function BusinessPage() {
                                     <div style={{ display: "flex", gap: "0.1rem" }}>
                                         {[1,2,3,4,5].map(n => (
                                             <button key={n} type="button" onClick={() => setReviewForm(f => ({ ...f, rating: n }))}
-                                                style={{ background: "none", border: "none", fontSize: "1.9rem", cursor: "pointer", color: n <= reviewForm.rating ? "#fbbf24" : "#334155", padding: "0 0.1rem", transition: "color .1s" }}>★</button>
+                                                style={{ background: "none", border: "none", fontSize: "1.9rem", cursor: "pointer", color: n <= reviewForm.rating ? "#fbbf24" : "rgba(255,255,255,.2)", padding: "0 0.1rem", transition: "color .1s" }}>★</button>
                                         ))}
                                     </div>
                                 </div>
@@ -614,37 +610,37 @@ export default function BusinessPage() {
                                     <textarea value={reviewForm.comment} onChange={e => setReviewForm(f => ({ ...f, comment: e.target.value }))}
                                         rows={3} placeholder="שתפו את החוויה שלכם..."
                                         style={{ ...reviewInputStyle, resize: "vertical", lineHeight: 1.6 }}
-                                        onFocus={e => e.target.style.borderColor = primary}
+                                        onFocus={e => e.target.style.borderColor = "#fff"}
                                         onBlur={e => e.target.style.borderColor = "rgba(255,255,255,.12)"}
                                     />
                                 </div>
                                 {reviewError && <div role="alert" style={{ color: "#fca5a5", fontSize: "0.85rem", marginBottom: "0.6rem" }}>{reviewError}</div>}
                                 <button type="button" onClick={submitReview} disabled={submitting || !reviewForm.client_name}
-                                    style={{ background: `linear-gradient(135deg,${primary},#4c1d95)`, border: "none", borderRadius: 12, color: "#fff", padding: "0.65rem 1.4rem", fontWeight: 800, cursor: "pointer", opacity: submitting || !reviewForm.client_name ? 0.6 : 1, fontSize: "0.9rem" }}>
-                                    {submitting ? "שולח..." : "📤 שלח ביקורת"}
+                                    style={{ ...PRIMARY_BTN, opacity: submitting || !reviewForm.client_name ? 0.6 : 1 }}>
+                                    {submitting ? "שולח..." : <><Send size={15} aria-hidden /> שלח ביקורת</>}
                                 </button>
                             </Card>
                         )}
 
                         {/* Reviews list */}
                         {p!.reviews.length === 0 ? (
-                            <div style={{ textAlign: "center", padding: "2.5rem", color: "#475569", border: "1px dashed rgba(255,255,255,.07)", borderRadius: 16 }}>
-                                <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>💬</div>
+                            <div style={{ textAlign: "center", padding: "2.5rem", color: "var(--bf-faint)", border: "1px dashed var(--bf-line)", borderRadius: 16 }}>
+                                <MessageCircle size={30} strokeWidth={1.5} aria-hidden style={{ marginBottom: "0.5rem" }} />
                                 <div>אין ביקורות עדיין — היה ראשון!</div>
                             </div>
                         ) : p!.reviews.map(r => (
-                            <div key={r.id} style={{ background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.07)", borderRadius: 16, padding: "1rem 1.1rem" }}>
+                            <div key={r.id} style={{ background: "var(--bf-glass)", border: "1px solid var(--bf-line)", borderRadius: 16, padding: "1rem 1.1rem" }}>
                                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.4rem" }}>
                                     <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                                        <div style={{ width: 32, height: 32, borderRadius: "50%", background: `${primary}33`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.78rem", fontWeight: 800, color: "#c4b5fd" }}>
+                                        <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.8rem", fontWeight: 800, color: "#000" }}>
                                             {r.client_name.charAt(0)}
                                         </div>
                                         <span style={{ fontWeight: 700, fontSize: "0.9rem" }}>{r.client_name}</span>
                                     </div>
                                     <div style={{ color: "#fbbf24", fontSize: "0.82rem" }}>{"★".repeat(r.rating)}{"☆".repeat(5 - r.rating)}</div>
                                 </div>
-                                {r.comment && <p style={{ color: "#94a3b8", fontSize: "0.84rem", lineHeight: 1.65, margin: 0 }}>{r.comment}</p>}
-                                <div style={{ color: "#334155", fontSize: "0.7rem", marginTop: "0.4rem" }}>
+                                {r.comment && <p style={{ color: "var(--bf-muted)", fontSize: "0.86rem", lineHeight: 1.65, margin: 0 }}>{r.comment}</p>}
+                                <div style={{ color: "var(--bf-faint)", fontSize: "0.7rem", marginTop: "0.4rem" }}>
                                     {new Date(r.created_at).toLocaleDateString("he-IL")}
                                 </div>
                             </div>
@@ -652,8 +648,8 @@ export default function BusinessPage() {
 
                         {p!.review_link_google && (
                             <a href={p!.review_link_google} target="_blank" rel="noopener"
-                                style={{ display: "block", textAlign: "center", color: "#94a3b8", fontSize: "0.82rem", textDecoration: "none", padding: "0.5rem" }}>
-                                ⭐ כתוב ביקורת ב-Google ↗
+                                style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "0.35rem", color: "var(--bf-muted)", fontSize: "0.84rem", textDecoration: "none", padding: "0.5rem" }}>
+                                <Star size={14} aria-hidden /> כתוב ביקורת ב-Google ↗
                             </a>
                         )}
                     </div>
@@ -662,21 +658,20 @@ export default function BusinessPage() {
 
             {/* ── Floating bottom bar (mobile) ── */}
             {p!.self_booking_enabled && (
-                <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, padding: "0.75rem 1.25rem", background: "rgba(15,23,42,.96)", backdropFilter: "blur(16px)", borderTop: "1px solid rgba(255,255,255,.08)", display: "flex", gap: "0.6rem", zIndex: 50 }}>
-                    <Link href={`/b/${slug}/book`}
-                        style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "0.4rem", background: `linear-gradient(135deg,${primary},#4c1d95)`, color: "#fff", textDecoration: "none", padding: "0.8rem", borderRadius: 14, fontWeight: 800, fontSize: "0.92rem", boxShadow: `0 4px 16px ${primary}44` }}>
-                        📅 קביעת תור
+                <div style={{ position: "fixed", bottom: 60, left: 0, right: 0, padding: "0.65rem 1.25rem", background: "rgba(0,0,0,.88)", backdropFilter: "blur(16px)", borderTop: "1px solid var(--bf-line)", display: "flex", gap: "0.6rem", zIndex: 50 }}>
+                    <Link href={`/b/${slug}/book`} style={{ ...PRIMARY_BTN, flex: 1, justifyContent: "center", padding: "0.8rem" }}>
+                        <CalendarDays size={17} aria-hidden /> קביעת תור
                     </Link>
                     {p!.whatsapp && (
                         <a href={`https://wa.me/${p!.whatsapp.replace(/\D/g, "")}`} target="_blank" rel="noopener"
-                            style={{ display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(37,211,102,.15)", border: "1px solid rgba(37,211,102,.35)", color: "#25d366", textDecoration: "none", padding: "0.8rem 1rem", borderRadius: 14, fontWeight: 700, fontSize: "0.86rem" }}>
-                            💬
+                            aria-label="WhatsApp" style={{ ...GLASS_BTN, justifyContent: "center", padding: "0.8rem 1rem" }}>
+                            <MessageCircle size={18} color="#25d366" aria-hidden />
                         </a>
                     )}
                     {p!.phone && (
                         <a href={`tel:${p!.phone}`}
-                            style={{ display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.1)", color: "#e2e8f0", textDecoration: "none", padding: "0.8rem 1rem", borderRadius: 14, fontWeight: 600, fontSize: "0.86rem" }}>
-                            📞
+                            aria-label="התקשר" style={{ ...GLASS_BTN, justifyContent: "center", padding: "0.8rem 1rem" }}>
+                            <Phone size={18} aria-hidden />
                         </a>
                     )}
                 </div>
@@ -688,7 +683,6 @@ export default function BusinessPage() {
                 slug={slug}
                 studioName={p!.name}
                 services={p!.services.map(s => s.name)}
-                primary={primary}
                 onClose={() => setShowRequestModal(false)}
             />
         )}
@@ -698,8 +692,8 @@ export default function BusinessPage() {
 
 // ── Request Modal ─────────────────────────────────────────────────────────────
 
-function RequestModal({ slug, studioName, services, primary, onClose }: {
-    slug: string; studioName: string; services: string[]; primary: string; onClose: () => void;
+function RequestModal({ slug, studioName, services, onClose }: {
+    slug: string; studioName: string; services: string[]; onClose: () => void;
 }) {
     const [name, setName] = useState("");
     const [phone, setPhone] = useState("");
@@ -729,22 +723,22 @@ function RequestModal({ slug, studioName, services, primary, onClose }: {
     return (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.75)", zIndex: 9999, display: "flex", alignItems: "flex-end", justifyContent: "center" }}
             onClick={e => e.target === e.currentTarget && onClose()}>
-            <div style={{ background: "#1e293b", borderRadius: "20px 20px 0 0", width: "100%", maxWidth: 480, padding: "1.5rem" }}>
+            <div style={{ background: "#0c0c0c", border: "1px solid var(--bf-line)", borderBottom: "none", borderRadius: "22px 22px 0 0", width: "100%", maxWidth: 480, padding: "1.5rem", color: "var(--bf-text)" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem" }}>
                     <div>
-                        <div style={{ fontWeight: 900, fontSize: "1.1rem" }}>📋 בקשת תור</div>
-                        <div style={{ color: "#64748b", fontSize: "0.8rem", marginTop: "0.2rem" }}>{studioName} יחזור אליך בהקדם</div>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontWeight: 800, fontSize: "1.1rem" }}><ClipboardList size={19} aria-hidden /> בקשת תור</div>
+                        <div style={{ color: "var(--bf-faint)", fontSize: "0.8rem", marginTop: "0.2rem" }}>{studioName} יחזור אליך בהקדם</div>
                     </div>
-                    <button type="button" onClick={onClose} style={{ background: "none", border: "none", color: "#64748b", fontSize: "1.5rem", cursor: "pointer" }}>×</button>
+                    <button type="button" onClick={onClose} aria-label="סגור" style={{ background: "none", border: "none", color: "var(--bf-faint)", fontSize: "1.5rem", cursor: "pointer" }}>×</button>
                 </div>
 
                 {done ? (
                     <div style={{ textAlign: "center", padding: "2rem 0" }}>
-                        <div style={{ fontSize: "3rem", marginBottom: "0.75rem" }}>✅</div>
+                        <div style={{ width: 56, height: 56, margin: "0 auto 0.75rem", borderRadius: "50%", background: "#fff", color: "#000", display: "flex", alignItems: "center", justifyContent: "center" }}><Check size={28} aria-hidden /></div>
                         <div style={{ fontWeight: 800, fontSize: "1.1rem", marginBottom: "0.5rem" }}>הבקשה נשלחה!</div>
-                        <div style={{ color: "#64748b", fontSize: "0.88rem", marginBottom: "1.5rem" }}>העסק יצור איתך קשר בקרוב 📞</div>
+                        <div style={{ color: "var(--bf-muted)", fontSize: "0.88rem", marginBottom: "1.5rem" }}>העסק יצור איתך קשר בקרוב</div>
                         <button type="button" onClick={onClose}
-                            style={{ background: primary, color: "#fff", border: "none", borderRadius: 12, padding: "0.75rem 2rem", fontWeight: 800, cursor: "pointer" }}>
+                            style={{ ...PRIMARY_BTN, margin: "0 auto", padding: "0.75rem 2rem" }}>
                             סגור
                         </button>
                     </div>
@@ -777,8 +771,8 @@ function RequestModal({ slug, studioName, services, primary, onClose }: {
                         </div>
                         {err && <p style={{ color: "#f87171", fontSize: "0.8rem", margin: 0 }}>{err}</p>}
                         <button type="button" onClick={submit} disabled={loading}
-                            style={{ background: `linear-gradient(135deg,${primary},#4c1d95)`, color: "#fff", border: "none", borderRadius: 14, padding: "0.9rem", fontWeight: 800, fontSize: "0.95rem", cursor: "pointer", opacity: loading ? 0.7 : 1 }}>
-                            {loading ? "שולח..." : "שלח בקשה 📋"}
+                            style={{ ...PRIMARY_BTN, justifyContent: "center", padding: "0.9rem", fontSize: "0.95rem", opacity: loading ? 0.7 : 1 }}>
+                            {loading ? "שולח..." : <><Send size={16} aria-hidden /> שלח בקשה</>}
                         </button>
                     </div>
                 )}
@@ -787,36 +781,41 @@ function RequestModal({ slug, studioName, services, primary, onClose }: {
     );
 }
 
-const reqLabel: React.CSSProperties = { display: "block", color: "#94a3b8", fontSize: "0.75rem", fontWeight: 600, marginBottom: "0.3rem" };
+const reqLabel: React.CSSProperties = { display: "block", color: "var(--bf-muted)", fontSize: "0.75rem", fontWeight: 600, marginBottom: "0.3rem" };
 // colorScheme: "dark" matters specifically for the <select> that reuses this
 // style — a <select>'s open dropdown/options list is rendered by the browser's
 // native form-control chrome, which ignores this object's own background/color
 // and defaults to a light popup (barely-visible text) unless told the
 // surrounding UI is dark.
-const reqInput: React.CSSProperties = { width: "100%", background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.12)", borderRadius: 10, padding: "0.65rem 0.85rem", color: "#f1f5f9", fontSize: "0.9rem", outline: "none", boxSizing: "border-box", colorScheme: "dark" };
-// The colorScheme above is not enough on its own to darken the native <select>
-// popup listbox — browsers largely ignore color-scheme for that chrome. The
-// per-<option> background/color below is what's actually reliably honored.
-const OPTION_STYLE: React.CSSProperties = { background: "#1e1b4b", color: "#f1f5f9" };
-
+const reqInput: React.CSSProperties = { width: "100%", background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.12)", borderRadius: 10, padding: "0.65rem 0.85rem", color: "#fff", fontSize: "0.9rem", outline: "none", boxSizing: "border-box", colorScheme: "dark" };
 // ── UI helpers ────────────────────────────────────────────────────────────────
 
 const reviewInputStyle: React.CSSProperties = {
     width: "100%", background: "rgba(255,255,255,.06)", border: "1.5px solid rgba(255,255,255,.12)",
-    borderRadius: 12, padding: "0.65rem 0.85rem", color: "#f1f5f9", fontSize: "0.9rem",
+    borderRadius: 12, padding: "0.65rem 0.85rem", color: "#fff", fontSize: "0.9rem",
     outline: "none", boxSizing: "border-box", transition: "border-color .2s",
 };
 const labelStyle: React.CSSProperties = {
-    display: "block", color: "#64748b", fontSize: "0.78rem", marginBottom: "0.3rem", fontWeight: 600,
+    display: "block", color: "var(--bf-muted)", fontSize: "0.78rem", marginBottom: "0.3rem", fontWeight: 600,
+};
+
+// The back / share buttons on the cover.
+const HERO_BTN: React.CSSProperties = {
+    position: "absolute", top: 14, display: "inline-flex", alignItems: "center", gap: "0.3rem", background: "rgba(0,0,0,.45)", backdropFilter: "blur(10px)",
+    color: "#fff", textDecoration: "none", padding: "0.42rem 0.85rem", borderRadius: 12, fontSize: "0.82rem", border: "1px solid rgba(255,255,255,.2)", fontWeight: 600,
 };
 
 function Card({ children }: { children: React.ReactNode }) {
     return (
-        <div style={{ background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.07)", borderRadius: 20, padding: "1.25rem" }}>
+        <div style={{ ...GLASS_CARD, padding: "1.25rem" }}>
             {children}
         </div>
     );
 }
-function SectionTitle({ children }: { children: React.ReactNode }) {
-    return <div style={{ fontWeight: 800, fontSize: "0.95rem", color: "#e2e8f0", marginBottom: "0.85rem" }}>{children}</div>;
+function SectionTitle({ children, icon: Icon }: { children: React.ReactNode; icon?: LucideIcon }) {
+    return (
+        <div style={{ display: "flex", alignItems: "center", gap: "0.45rem", fontWeight: 800, fontSize: "0.98rem", color: "var(--bf-text)", marginBottom: "0.85rem" }}>
+            {Icon && <Icon size={17} color="rgba(255,255,255,.6)" aria-hidden />}{children}
+        </div>
+    );
 }

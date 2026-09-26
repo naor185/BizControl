@@ -1,17 +1,13 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
+import { imgUrl } from "@/lib/api";
 import Link from "next/link";
 import { usePlatformTheme } from "@/lib/usePlatformTheme";
 import BusinessTypeIcon from "@/components/BusinessTypeIcon";
 
 const API = (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_BASE || "").replace(/\/$/, "");
 
-function imgUrl(url: string) {
-    if (!url) return "";
-    if (url.startsWith("http")) return url;
-    return `${API}${url}`;
-}
 
 interface Profile {
     slug: string; name: string; business_type_label: string; business_type_icon: string;
