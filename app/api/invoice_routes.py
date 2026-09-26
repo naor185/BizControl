@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.deps import require_studio_ctx, AuthContext
+from app.core.permissions import require_management
 from app.core.security import decode_token
 from app.models.user import User
 
@@ -994,7 +995,7 @@ class CreditNoteRequest(BaseModel):
 def create_credit_note(
     invoice_id: str,
     body: CreditNoteRequest = CreditNoteRequest(),
-    ctx: AuthContext = Depends(require_studio_ctx),
+    ctx: AuthContext = Depends(require_management("זיכוי")),     # the owner's decision (2026-09-26): management only
     db: Session = Depends(get_db),
 ):
     orig = db.execute(

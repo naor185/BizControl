@@ -9,6 +9,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.core.deps import require_studio_ctx, AuthContext
+from app.core.permissions import MANAGEMENT as PAY_VIEWERS   # everyone's pay: the owner and the managers only
 from app.db.deps import get_db
 from app.models.studio import Studio
 from app.models.studio_settings import StudioSettings
@@ -18,9 +19,6 @@ from app.schemas.work_session import ClockStatusResponse, WorkSessionResponse, S
 from app.services.pdf_service import generate_payroll_pdf
 
 router = APIRouter(prefix="/staff", tags=["Staff & Payroll"])
-
-# Everyone's pay is for the owner and the managers only — the report and its PDF alike.
-PAY_VIEWERS = ("owner", "admin", "superadmin")
 
 
 def _localize_payroll_range(db: Session, studio_id, start_date: datetime, end_date: datetime) -> tuple[datetime, datetime]:

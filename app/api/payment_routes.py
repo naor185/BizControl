@@ -9,6 +9,7 @@ import os
 
 from app.db.deps import get_db
 from app.core.deps import require_studio_ctx, AuthContext
+from app.core.permissions import require_management
 from app.models.payment import Payment
 from app.models.appointment import Appointment
 from app.models.client import Client
@@ -113,7 +114,7 @@ def delete(
 @router.post("/{payment_id}/credit")
 def issue_credit_note(
     payment_id: UUID,
-    ctx: AuthContext = Depends(require_studio_ctx),
+    ctx: AuthContext = Depends(require_management("זיכוי")),     # the owner's decision (2026-09-26): management only
     db: Session = Depends(get_db),
 ):
     """Issue a credit note (זיכוי) for a payment. Creates the linked invoice first if it doesn't exist."""

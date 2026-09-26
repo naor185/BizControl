@@ -18,6 +18,23 @@ class Perms:
     ACCOUNTANT = "accountant"
 
 
+# The business's management — the owner and the managers (admin), and the platform's superadmin: everyone's pay
+# (the payroll, the team's rates) and giving money back (a credit note) are theirs only.
+MANAGEMENT = ("owner", "admin", "superadmin")
+
+
+def require_management(what: str):
+    """FastAPI dependency: only the business's management — `what` says, in the refusal, what is theirs."""
+    from app.core.deps import AuthContext, require_studio_ctx
+
+    def dep(ctx: AuthContext = Depends(require_studio_ctx)) -> AuthContext:
+        if ctx.role not in MANAGEMENT:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=f"{what} — רק לבעלים או למנהל")
+        return ctx
+
+    return dep
+
+
 def require_roles(*allowed_roles: str):
     allowed = set(allowed_roles)
 

@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import AppShell from "@/components/AppShell";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, getCurrentUserRole } from "@/lib/api";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -555,7 +555,8 @@ function InvoiceDetailModal({ invoice, onClose, onDownload, getPdfUrl, onCredit 
     const [creditNotes, setCreditNotes] = useState("");
     const [creditLoading, setCreditLoading] = useState(false);
     const isCredit = invoice.doc_type === "credit";
-    const canCredit = invoice.status === "issued" && !isCredit;
+    // a credit note gives money back — the owner's decision (2026-09-26): management only (the server checks too)
+    const canCredit = invoice.status === "issued" && !isCredit && ["owner", "admin", "superadmin"].includes(getCurrentUserRole() ?? "");
     const accentColor = isCredit ? "#dc2626" : "#1a1a2e";
 
     const submitCredit = async () => {
