@@ -2,7 +2,9 @@
 import { useState, useEffect, useCallback, useRef, Suspense } from "react";
 import Link from "next/link";
 import { API, imgUrl } from "@/lib/api";
-import BusinessTypeIcon, { typeGradient } from "@/components/BusinessTypeIcon";
+import { ArrowRight, CalendarDays, ChevronLeft, LayoutGrid, List, LoaderCircle, LocateFixed, MapPin, Search, SlidersHorizontal, Star, X } from "lucide-react";
+import BusinessTypeIcon from "@/components/BusinessTypeIcon";
+import { GLASS_BTN, GLASS_CARD, OPTION_STYLE } from "@/lib/look";
 
 interface StudioCard {
     id: string; slug: string; name: string;
@@ -24,10 +26,6 @@ const SORT_OPTIONS: { key: SortKey; label: string }[] = [
     { key: "reviews",  label: "הכי מדורגים" },
     { key: "name",     label: "לפי שם א-ת" },
 ];
-
-// colorScheme alone doesn't reliably darken the native <select> popup listbox —
-// explicit background/color on each <option> is what browsers actually honor.
-const OPTION_STYLE = { background: "#1e1b4b", color: "#f1f5f9" };
 
 function ExploreContent() {
     const [studios, setStudios] = useState<StudioCard[]>([]);
@@ -106,37 +104,37 @@ function ExploreContent() {
     const hasFilters = !!(q || city || selectedType || bookingOnly);
 
     return (
-        <div style={{ minHeight: "100vh", background: "#0f172a", color: "#f1f5f9" }}>
+        <div style={{ minHeight: "100vh", background: "var(--bf-bg)", color: "var(--bf-text)" }}>
 
             {/* Sticky search header */}
-            <div style={{ position: "sticky", top: 0, zIndex: 40, background: "rgba(15,23,42,.97)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(255,255,255,.07)", padding: "0.85rem 1.25rem" }}>
+            <div style={{ position: "sticky", top: 0, zIndex: 40, background: "rgba(0,0,0,.9)", backdropFilter: "blur(14px)", borderBottom: "1px solid var(--bf-line)", padding: "0.85rem 1.25rem" }}>
                 <div style={{ maxWidth: 1100, margin: "0 auto" }}>
                     <div style={{ display: "flex", gap: "0.6rem", alignItems: "center", flexWrap: "wrap" }}>
                         {/* Back */}
-                        <Link href="/" style={{ color: "#94a3b8", textDecoration: "none", fontSize: "1.1rem", flexShrink: 0 }}>←</Link>
+                        <Link href="/" aria-label="חזרה" style={{ color: "var(--bf-muted)", textDecoration: "none", flexShrink: 0, display: "flex" }}><ArrowRight size={20} /></Link>
 
                         {/* Search */}
                         <div style={{ flex: "3 1 200px", position: "relative" }}>
-                            <span style={{ position: "absolute", right: "0.75rem", top: "50%", transform: "translateY(-50%)", fontSize: "0.9rem" }}>🔍</span>
+                            <Search size={16} color="rgba(255,255,255,.55)" aria-hidden style={{ position: "absolute", right: "0.75rem", top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
                             <input ref={inputRef} value={q} onChange={e => setQ(e.target.value)}
                                 placeholder="חפש שירות או עסק..."
-                                style={{ width: "100%", background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.1)", borderRadius: 12, padding: "0.6rem 2.2rem 0.6rem 0.75rem", color: "#f1f5f9", fontSize: "0.9rem", outline: "none", boxSizing: "border-box" }} />
+                                style={{ ...FIELD, padding: "0.6rem 2.2rem 0.6rem 0.75rem" }} />
                         </div>
 
                         {/* City */}
                         <div style={{ flex: "1 1 110px", position: "relative" }}>
-                            <span style={{ position: "absolute", right: "0.75rem", top: "50%", transform: "translateY(-50%)", fontSize: "0.8rem" }}>📍</span>
+                            <MapPin size={15} color="rgba(255,255,255,.55)" aria-hidden style={{ position: "absolute", right: "0.75rem", top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
                             <input value={city}
                                 onChange={e => { setCity(e.target.value); setShowCitySuggestions(true); }}
                                 onFocus={() => setShowCitySuggestions(true)}
                                 onBlur={() => setTimeout(() => setShowCitySuggestions(false), 150)}
                                 placeholder="עיר"
-                                style={{ width: "100%", background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.1)", borderRadius: 12, padding: "0.6rem 2rem 0.6rem 0.75rem", color: "#f1f5f9", fontSize: "0.9rem", outline: "none", boxSizing: "border-box" }} />
+                                style={{ ...FIELD, padding: "0.6rem 2rem 0.6rem 0.75rem" }} />
                             {showCitySuggestions && citySuggestions.length > 0 && (
-                                <div style={{ position: "absolute", top: "calc(100% + 0.3rem)", right: 0, left: 0, background: "#1e293b", border: "1px solid rgba(255,255,255,.12)", borderRadius: 12, overflow: "hidden", zIndex: 20, boxShadow: "0 8px 24px rgba(0,0,0,.4)" }}>
+                                <div style={{ position: "absolute", top: "calc(100% + 0.3rem)", right: 0, left: 0, background: "#111", border: "1px solid var(--bf-line)", borderRadius: 12, overflow: "hidden", zIndex: 20, boxShadow: "0 8px 24px rgba(0,0,0,.6)" }}>
                                     {citySuggestions.map(c => (
                                         <div key={c} onClick={() => { setCity(c); setShowCitySuggestions(false); }}
-                                            style={{ padding: "0.55rem 0.85rem", fontSize: "0.85rem", color: "#e2e8f0", cursor: "pointer" }}
+                                            style={{ padding: "0.55rem 0.85rem", fontSize: "0.85rem", color: "var(--bf-text)", cursor: "pointer" }}
                                             onMouseDown={e => e.preventDefault()}>
                                             {c}
                                         </div>
@@ -146,48 +144,48 @@ function ExploreContent() {
                         </div>
 
                         {/* Near me */}
-                        <button type="button" onClick={locateMe} title="קרוב אליי"
-                            style={{ padding: "0.6rem 0.75rem", background: "rgba(124,58,237,.2)", border: "1px solid rgba(124,58,237,.35)", borderRadius: 12, cursor: "pointer", color: "#a78bfa", fontSize: "1rem", flexShrink: 0 }}>
-                            {locating ? "⏳" : "🎯"}
+                        <button type="button" onClick={locateMe} title="קרוב אליי" aria-label="קרוב אליי"
+                            style={{ padding: "0.6rem 0.75rem", background: "#fff", border: "none", borderRadius: 12, cursor: "pointer", color: "#000", flexShrink: 0, display: "flex" }}>
+                            {locating ? <LoaderCircle size={18} style={{ animation: "spin .8s linear infinite" }} aria-hidden /> : <LocateFixed size={18} aria-hidden />}
                         </button>
 
                         {/* Filters toggle (mobile) */}
                         <button type="button" onClick={() => setFiltersOpen(v => !v)}
-                            style={{ padding: "0.6rem 0.85rem", background: filtersOpen ? "#7c3aed" : "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.1)", borderRadius: 12, cursor: "pointer", color: filtersOpen ? "#fff" : "#94a3b8", fontSize: "0.82rem", fontWeight: 700, flexShrink: 0, display: "flex", alignItems: "center", gap: "0.3rem" }}>
-                            ⚙️ פילטרים {hasFilters && <span style={{ background: "#ef4444", color: "#fff", borderRadius: "50%", width: 16, height: 16, fontSize: "0.65rem", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900 }}>!</span>}
+                            style={{ padding: "0.6rem 0.85rem", background: filtersOpen ? "#fff" : "var(--bf-glass)", border: `1px solid ${filtersOpen ? "#fff" : "var(--bf-line)"}`, borderRadius: 12, cursor: "pointer", color: filtersOpen ? "#000" : "var(--bf-muted)", fontSize: "0.82rem", fontWeight: 700, flexShrink: 0, display: "flex", alignItems: "center", gap: "0.35rem" }}>
+                            <SlidersHorizontal size={15} aria-hidden /> פילטרים {hasFilters && <span aria-label="יש סינון" style={{ background: "#ef4444", borderRadius: "50%", width: 8, height: 8 }} />}
                         </button>
                     </div>
 
                     {/* Expanded filters */}
                     {filtersOpen && (
-                        <div style={{ marginTop: "0.85rem", paddingTop: "0.85rem", borderTop: "1px solid rgba(255,255,255,.06)", display: "flex", gap: "0.75rem", flexWrap: "wrap", alignItems: "center" }}>
+                        <div style={{ marginTop: "0.85rem", paddingTop: "0.85rem", borderTop: "1px solid var(--bf-line)", display: "flex", gap: "0.75rem", flexWrap: "wrap", alignItems: "center" }}>
                             {/* Category chips */}
                             <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", flex: 1 }}>
                                 <button type="button" onClick={() => setSelectedType("")}
-                                    style={{ padding: "0.35rem 0.8rem", borderRadius: 16, border: "none", cursor: "pointer", fontWeight: 700, fontSize: "0.78rem", background: !selectedType ? "#7c3aed" : "rgba(255,255,255,.08)", color: !selectedType ? "#fff" : "#94a3b8" }}>
-                                    🌐 הכל
+                                    style={chip(!selectedType)}>
+                                    הכל
                                 </button>
                                 {categories.map(c => (
                                     <button key={c.id} type="button" onClick={() => setSelectedType(prev => prev === c.id ? "" : c.id)}
-                                        style={{ padding: "0.35rem 0.8rem", borderRadius: 16, border: "none", cursor: "pointer", fontWeight: 700, fontSize: "0.78rem", background: selectedType === c.id ? "#7c3aed" : "rgba(255,255,255,.08)", color: selectedType === c.id ? "#fff" : "#94a3b8", whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: "0.3rem" }}>
+                                        style={chip(selectedType === c.id)}>
                                         <BusinessTypeIcon name={c.icon} size={13} /> {c.label}
                                     </button>
                                 ))}
                             </div>
 
                             {/* Booking only toggle */}
-                            <label style={{ display: "flex", alignItems: "center", gap: "0.4rem", cursor: "pointer", whiteSpace: "nowrap", fontSize: "0.82rem", color: "#94a3b8", userSelect: "none" }}>
+                            <label style={{ display: "flex", alignItems: "center", gap: "0.4rem", cursor: "pointer", whiteSpace: "nowrap", fontSize: "0.82rem", color: "var(--bf-muted)", userSelect: "none" }}>
                                 <div onClick={() => setBookingOnly(v => !v)}
-                                    style={{ width: 36, height: 20, borderRadius: 10, background: bookingOnly ? "#7c3aed" : "rgba(255,255,255,.12)", position: "relative", cursor: "pointer", transition: "background .2s" }}>
-                                    <span style={{ position: "absolute", top: 2, right: bookingOnly ? 2 : "calc(100% - 18px)", width: 16, height: 16, borderRadius: "50%", background: "#fff", transition: "right .2s" }} />
+                                    style={{ width: 36, height: 20, borderRadius: 10, background: bookingOnly ? "#fff" : "rgba(255,255,255,.14)", position: "relative", cursor: "pointer", transition: "background .2s" }}>
+                                    <span style={{ position: "absolute", top: 2, right: bookingOnly ? 2 : "calc(100% - 18px)", width: 16, height: 16, borderRadius: "50%", background: bookingOnly ? "#000" : "#fff", transition: "right .2s" }} />
                                 </div>
-                                📅 הזמנה אונליין בלבד
+                                הזמנה אונליין בלבד
                             </label>
 
                             {hasFilters && (
                                 <button type="button" onClick={clearAll}
-                                    style={{ background: "rgba(239,68,68,.15)", border: "1px solid rgba(239,68,68,.3)", color: "#f87171", borderRadius: 10, padding: "0.35rem 0.75rem", cursor: "pointer", fontSize: "0.78rem", fontWeight: 700, whiteSpace: "nowrap" }}>
-                                    ✕ נקה הכל
+                                    style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem", background: "var(--bf-glass)", border: "1px solid var(--bf-line)", color: "var(--bf-text)", borderRadius: 10, padding: "0.35rem 0.75rem", cursor: "pointer", fontSize: "0.78rem", fontWeight: 700, whiteSpace: "nowrap" }}>
+                                    <X size={13} aria-hidden /> נקה הכל
                                 </button>
                             )}
                         </div>
@@ -196,11 +194,11 @@ function ExploreContent() {
             </div>
 
             {/* Category scroll (quick access) */}
-            <div style={{ padding: "0.75rem 1.25rem", overflowX: "auto", borderBottom: "1px solid rgba(255,255,255,.05)" }}>
+            <div style={{ padding: "0.75rem 1.25rem", overflowX: "auto", borderBottom: "1px solid var(--bf-line)" }}>
                 <div style={{ display: "flex", gap: "0.5rem", minWidth: "max-content" }}>
                     {categories.map(c => (
                         <button key={c.id} type="button" onClick={() => setSelectedType(prev => prev === c.id ? "" : c.id)}
-                            style={{ display: "flex", alignItems: "center", gap: "0.35rem", padding: "0.4rem 0.9rem", borderRadius: 20, border: `1px solid ${selectedType === c.id ? "rgba(167,139,250,.5)" : "rgba(255,255,255,.08)"}`, background: selectedType === c.id ? "rgba(124,58,237,.25)" : "transparent", cursor: "pointer", color: selectedType === c.id ? "#c4b5fd" : "#94a3b8", fontSize: "0.8rem", fontWeight: 600, whiteSpace: "nowrap", transition: "all .2s" }}>
+                            style={{ ...chip(selectedType === c.id), padding: "0.4rem 0.9rem", borderRadius: 20, fontSize: "0.8rem" }}>
                             <BusinessTypeIcon name={c.icon} size={14} /><span>{c.label}</span>
                         </button>
                     ))}
@@ -209,22 +207,22 @@ function ExploreContent() {
 
             {/* Results toolbar */}
             <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0.85rem 1.25rem", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem" }}>
-                <div style={{ fontSize: "0.85rem", color: "#64748b" }}>
+                <div style={{ fontSize: "0.85rem", color: "var(--bf-muted)" }}>
                     {loading ? "מחפש..." : `${sorted.length} עסקים`}
-                    {hasFilters && <span style={{ color: "#a78bfa", marginRight: "0.4rem" }}> · מסוננים</span>}
+                    {hasFilters && <span style={{ color: "var(--bf-text)", marginRight: "0.4rem" }}> · מסוננים</span>}
                 </div>
                 <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
                     {/* Sort */}
                     <select value={sort} onChange={e => setSort(e.target.value as SortKey)}
-                        style={{ background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.1)", borderRadius: 10, padding: "0.4rem 0.7rem", color: "#94a3b8", fontSize: "0.8rem", cursor: "pointer", outline: "none", colorScheme: "dark" }}>
+                        style={{ background: "var(--bf-glass)", border: "1px solid var(--bf-line)", borderRadius: 10, padding: "0.4rem 0.7rem", color: "var(--bf-text)", fontSize: "0.8rem", cursor: "pointer", outline: "none", colorScheme: "dark" }}>
                         {SORT_OPTIONS.map(o => <option key={o.key} value={o.key} style={OPTION_STYLE}>{o.label}</option>)}
                     </select>
                     {/* View toggle */}
-                    <div style={{ display: "flex", background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.1)", borderRadius: 10, overflow: "hidden" }}>
-                        {([["grid", "⊞"], ["list", "☰"]] as [ViewMode, string][]).map(([v, icon]) => (
-                            <button key={v} type="button" onClick={() => setView(v)}
-                                style={{ padding: "0.4rem 0.65rem", border: "none", cursor: "pointer", background: view === v ? "#7c3aed" : "transparent", color: view === v ? "#fff" : "#64748b", fontSize: "0.9rem", transition: "all .2s" }}>
-                                {icon}
+                    <div style={{ display: "flex", background: "var(--bf-glass)", border: "1px solid var(--bf-line)", borderRadius: 10, overflow: "hidden" }}>
+                        {([["grid", LayoutGrid, "רשת"], ["list", List, "רשימה"]] as const).map(([v, Icon, label]) => (
+                            <button key={v} type="button" onClick={() => setView(v)} aria-label={label}
+                                style={{ padding: "0.4rem 0.6rem", border: "none", cursor: "pointer", background: view === v ? "#fff" : "transparent", color: view === v ? "#000" : "var(--bf-muted)", display: "flex", transition: "background .2s" }}>
+                                <Icon size={16} />
                             </button>
                         ))}
                     </div>
@@ -235,15 +233,15 @@ function ExploreContent() {
             <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 1.25rem 5rem" }}>
                 {loading ? (
                     <div style={{ textAlign: "center", padding: "4rem" }}>
-                        <div style={{ width: 40, height: 40, border: "3px solid rgba(167,139,250,.2)", borderTopColor: "#a78bfa", borderRadius: "50%", animation: "spin .8s linear infinite", margin: "0 auto 1rem" }} />
-                        <div style={{ color: "#64748b" }}>מחפש...</div>
+                        <div style={{ width: 40, height: 40, border: "3px solid rgba(255,255,255,.18)", borderTopColor: "#fff", borderRadius: "50%", animation: "spin .8s linear infinite", margin: "0 auto 1rem" }} />
+                        <div style={{ color: "var(--bf-muted)" }}>מחפש...</div>
                     </div>
                 ) : sorted.length === 0 ? (
-                    <div style={{ textAlign: "center", padding: "4rem", color: "#64748b" }}>
-                        <div style={{ fontSize: "3rem", marginBottom: "0.75rem" }}>🔍</div>
+                    <div style={{ textAlign: "center", padding: "4rem", color: "var(--bf-muted)" }}>
+                        <Search size={38} strokeWidth={1.5} aria-hidden style={{ marginBottom: "0.75rem" }} />
                         <div style={{ marginBottom: "1rem" }}>לא נמצאו עסקים תואמים</div>
                         <button type="button" onClick={clearAll}
-                            style={{ background: "rgba(124,58,237,.2)", border: "1px solid rgba(124,58,237,.3)", color: "#a78bfa", padding: "0.55rem 1.2rem", borderRadius: 10, cursor: "pointer", fontWeight: 600 }}>
+                            style={{ ...GLASS_BTN, display: "inline-flex", cursor: "pointer" }}>
                             נקה פילטרים
                         </button>
                     </div>
@@ -268,22 +266,22 @@ function GridCard({ s }: { s: StudioCard }) {
     return (
         <Link href={`/b/${s.slug}`} style={{ textDecoration: "none", display: "block" }}>
             <div onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
-                style={{ background: "rgba(255,255,255,.04)", border: `1px solid ${hovered ? "rgba(167,139,250,.4)" : "rgba(255,255,255,.08)"}`, borderRadius: 20, overflow: "hidden", transform: hovered ? "translateY(-3px)" : "none", transition: "all .25s", boxShadow: hovered ? "0 8px 24px rgba(0,0,0,.3)" : "none" }}>
-                <div style={{ height: 140, position: "relative", background: showCover ? undefined : typeGradient(s.business_type_color) }}>
+                style={{ ...GLASS_CARD, borderColor: hovered ? "rgba(255,255,255,.35)" : "var(--bf-line)", overflow: "hidden", transform: hovered ? "translateY(-3px)" : "none", transition: "transform .25s, border-color .25s" }}>
+                <div style={{ height: 140, position: "relative", background: showCover ? undefined : NO_COVER }}>
                     {showCover && <img src={imgUrl(s.cover_url)} alt="" onError={() => setImgFailed(true)} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", transform: hovered ? "scale(1.04)" : "scale(1)", transition: "transform .3s" }} />}
-                    {!showCover && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "3rem" }}>{s.logo_url ? <img src={imgUrl(s.logo_url)} alt="" style={{ width: 68, height: 68, borderRadius: 14, objectFit: "cover" }} /> : <BusinessTypeIcon name={s.business_type_icon} size={44} color="#ffffff" strokeWidth={1.5} />}</div>}
+                    {!showCover && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "3rem" }}>{s.logo_url ? <img src={imgUrl(s.logo_url)} alt="" style={{ width: 68, height: 68, borderRadius: 14, objectFit: "contain", background: "#fff", padding: 5 }} /> : <BusinessTypeIcon name={s.business_type_icon} size={44} color="#ffffff" strokeWidth={1.5} />}</div>}
                     {showCover && <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom,transparent 50%,rgba(0,0,0,.55))" }} />}
-                    {s.self_booking_enabled && <div style={{ position: "absolute", top: 8, left: 8, background: "rgba(74,222,128,.9)", color: "#052e16", fontSize: "0.66rem", fontWeight: 800, padding: "0.2rem 0.55rem", borderRadius: 7 }}>📅 אונליין</div>}
-                    {s.is_claimed === false && <div style={{ position: "absolute", top: 8, right: 8, background: "rgba(15,23,42,.85)", color: "#fbbf24", fontSize: "0.62rem", fontWeight: 700, padding: "0.2rem 0.5rem", borderRadius: 7 }}>⚪ לא מאומת</div>}
+                    {s.self_booking_enabled && <div style={{ position: "absolute", top: 8, left: 8, display: "inline-flex", alignItems: "center", gap: "0.25rem", background: "#fff", color: "#000", fontSize: "0.66rem", fontWeight: 800, padding: "0.2rem 0.55rem", borderRadius: 7 }}><CalendarDays size={11} aria-hidden /> אונליין</div>}
+                    {s.is_claimed === false && <div style={{ position: "absolute", top: 8, right: 8, background: "rgba(0,0,0,.75)", border: "1px solid var(--bf-line)", color: "var(--bf-muted)", fontSize: "0.62rem", fontWeight: 700, padding: "0.2rem 0.5rem", borderRadius: 7 }}>לא מאומת</div>}
                 </div>
                 <div style={{ padding: "0.9rem" }}>
                     <div style={{ fontWeight: 800, fontSize: "0.92rem", marginBottom: "0.2rem" }}>{s.name}</div>
-                    <div style={{ fontSize: "0.75rem", color: "#64748b", marginBottom: "0.35rem", display: "flex", alignItems: "center", gap: "0.25rem" }}><BusinessTypeIcon name={s.business_type_icon} size={12} /> {s.business_type_label}{s.city ? ` · 📍 ${s.city}` : ""}</div>
+                    <div style={{ fontSize: "0.76rem", color: "var(--bf-muted)", marginBottom: "0.35rem", display: "flex", alignItems: "center", gap: "0.25rem", flexWrap: "wrap" }}><BusinessTypeIcon name={s.business_type_icon} size={12} /> {s.business_type_label}{s.city && <><span aria-hidden>·</span><MapPin size={12} aria-hidden />{s.city}</>}</div>
                     {s.avg_rating != null && s.review_count > 0 && (
                         <div style={{ display: "flex", alignItems: "center", gap: "0.25rem", fontSize: "0.75rem" }}>
-                            <span style={{ color: "#fbbf24" }}>★</span>
-                            <span style={{ color: "#fbbf24", fontWeight: 700 }}>{s.avg_rating.toFixed(1)}</span>
-                            <span style={{ color: "#475569" }}>({s.review_count})</span>
+                            <Star size={13} fill="#fbbf24" color="#fbbf24" aria-hidden />
+                            <span style={{ color: "var(--bf-text)", fontWeight: 700 }}>{s.avg_rating.toFixed(1)}</span>
+                            <span style={{ color: "var(--bf-faint)" }}>({s.review_count})</span>
                         </div>
                     )}
                 </div>
@@ -295,30 +293,31 @@ function GridCard({ s }: { s: StudioCard }) {
 function ListCard({ s }: { s: StudioCard }) {
     return (
         <Link href={`/b/${s.slug}`} style={{ textDecoration: "none" }}>
-            <div style={{ background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.08)", borderRadius: 16, padding: "0.9rem 1rem", display: "flex", gap: "1rem", alignItems: "center", transition: "all .2s" }}
-                onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(167,139,250,.4)"; (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,.06)"; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(255,255,255,.08)"; (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,.04)"; }}>
+            <div style={{ ...GLASS_CARD, borderRadius: 16, padding: "0.9rem 1rem", display: "flex", gap: "1rem", alignItems: "center", transition: "border-color .2s, background .2s" }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,.35)"; e.currentTarget.style.background = "var(--bf-glass-strong)"; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--bf-line)"; e.currentTarget.style.background = "var(--bf-glass)"; }}>
                 {/* Thumbnail */}
-                <div style={{ width: 60, height: 60, borderRadius: 14, flexShrink: 0, overflow: "hidden", background: typeGradient(s.business_type_color), display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    {s.logo_url ? <img src={imgUrl(s.logo_url)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <BusinessTypeIcon name={s.business_type_icon} size={28} color="#ffffff" strokeWidth={1.5} />}
+                <div style={{ width: 60, height: 60, borderRadius: 14, flexShrink: 0, overflow: "hidden", background: s.logo_url ? "#fff" : NO_COVER, border: "1px solid var(--bf-line)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    {s.logo_url ? <img src={imgUrl(s.logo_url)} alt="" style={{ width: "100%", height: "100%", objectFit: "contain", padding: 4 }} /> : <BusinessTypeIcon name={s.business_type_icon} size={28} color="#ffffff" strokeWidth={1.5} />}
                 </div>
                 {/* Info */}
                 <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 800, fontSize: "0.92rem", marginBottom: "0.15rem" }}>{s.name}</div>
-                    <div style={{ fontSize: "0.75rem", color: "#64748b", display: "flex", alignItems: "center", gap: "0.25rem" }}><BusinessTypeIcon name={s.business_type_icon} size={12} /> {s.business_type_label}{s.city ? ` · 📍 ${s.city}` : ""}</div>
-                    {s.is_claimed === false && <span style={{ display: "inline-block", marginTop: "0.2rem", background: "rgba(251,191,36,.12)", color: "#fbbf24", fontSize: "0.68rem", fontWeight: 700, padding: "0.12rem 0.45rem", borderRadius: 6 }}>⚪ לא מאומת</span>}
-                    {s.description && <div style={{ fontSize: "0.76rem", color: "#94a3b8", marginTop: "0.15rem", overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{s.description}</div>}
+                    <div style={{ fontSize: "0.76rem", color: "var(--bf-muted)", display: "flex", alignItems: "center", gap: "0.25rem", flexWrap: "wrap" }}><BusinessTypeIcon name={s.business_type_icon} size={12} /> {s.business_type_label}{s.city && <><span aria-hidden>·</span><MapPin size={12} aria-hidden />{s.city}</>}</div>
+                    {s.is_claimed === false && <span style={{ display: "inline-block", marginTop: "0.2rem", background: "var(--bf-glass-strong)", color: "var(--bf-muted)", fontSize: "0.68rem", fontWeight: 700, padding: "0.12rem 0.45rem", borderRadius: 6 }}>לא מאומת</span>}
+                    {s.description && <div style={{ fontSize: "0.78rem", color: "var(--bf-muted)", marginTop: "0.15rem", overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{s.description}</div>}
                 </div>
                 {/* Right side */}
                 <div style={{ flexShrink: 0, textAlign: "left", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "0.3rem" }}>
                     {s.avg_rating != null && s.review_count > 0 && (
                         <div style={{ display: "flex", alignItems: "center", gap: "0.2rem", fontSize: "0.78rem" }}>
-                            <span style={{ color: "#fbbf24" }}>★ {s.avg_rating.toFixed(1)}</span>
-                            <span style={{ color: "#475569" }}>({s.review_count})</span>
+                            <Star size={13} fill="#fbbf24" color="#fbbf24" aria-hidden />
+                            <span style={{ color: "var(--bf-text)", fontWeight: 700 }}>{s.avg_rating.toFixed(1)}</span>
+                            <span style={{ color: "var(--bf-faint)" }}>({s.review_count})</span>
                         </div>
                     )}
-                    {s.self_booking_enabled && <span style={{ background: "rgba(74,222,128,.12)", color: "#4ade80", fontSize: "0.68rem", fontWeight: 700, padding: "0.18rem 0.5rem", borderRadius: 7 }}>📅 אונליין</span>}
-                    <span style={{ color: "#a78bfa", fontSize: "0.75rem", fontWeight: 600 }}>צפה ←</span>
+                    {s.self_booking_enabled && <span style={{ display: "inline-flex", alignItems: "center", gap: "0.2rem", background: "#fff", color: "#000", fontSize: "0.68rem", fontWeight: 700, padding: "0.18rem 0.5rem", borderRadius: 7 }}><CalendarDays size={11} aria-hidden /> אונליין</span>}
+                    <span style={{ color: "var(--bf-text)", fontSize: "0.76rem", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: "0.1rem" }}>צפה <ChevronLeft size={14} aria-hidden /></span>
                 </div>
             </div>
         </Link>
@@ -327,8 +326,23 @@ function ListCard({ s }: { s: StudioCard }) {
 
 export default function ExplorePage() {
     return (
-        <Suspense fallback={<div style={{ height: "100vh", background: "#0f172a", display: "flex", alignItems: "center", justifyContent: "center", color: "#64748b" }}>⏳ טוען...</div>}>
+        <Suspense fallback={<div style={{ height: "100vh", background: "var(--bf-bg)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--bf-muted)" }}>טוען...</div>}>
             <ExploreContent />
         </Suspense>
     );
+}
+
+const FIELD: React.CSSProperties = {
+    width: "100%", background: "rgba(255,255,255,.07)", border: "1px solid var(--bf-line)", borderRadius: 12, color: "#fff",
+    fontSize: "0.9rem", outline: "none", boxSizing: "border-box", colorScheme: "dark",
+};
+const NO_COVER = "radial-gradient(ellipse at 70% 20%, #2a2a2a 0%, #0b0b0b 70%)";
+
+// A category chip — white when chosen, glass otherwise.
+function chip(active: boolean): React.CSSProperties {
+    return {
+        padding: "0.35rem 0.8rem", borderRadius: 16, cursor: "pointer", fontWeight: 700, fontSize: "0.78rem", whiteSpace: "nowrap",
+        display: "inline-flex", alignItems: "center", gap: "0.3rem", transition: "background .2s, color .2s",
+        border: `1px solid ${active ? "#fff" : "var(--bf-line)"}`, background: active ? "#fff" : "var(--bf-glass)", color: active ? "#000" : "var(--bf-muted)",
+    };
 }

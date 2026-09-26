@@ -1,16 +1,16 @@
 export const metadata = { title: "תנאי שימוש — BizFind & BizControl" };
 
 const sectionStyle: React.CSSProperties = { marginBottom: "1.75rem" };
-const h2Style: React.CSSProperties = { fontSize: "1.15rem", fontWeight: 800, color: "#1e1b4b", marginBottom: "0.6rem" };
-const pStyle: React.CSSProperties = { color: "#475569", fontSize: "0.95rem", lineHeight: 1.75, marginBottom: "0.5rem" };
-const ulStyle: React.CSSProperties = { color: "#475569", fontSize: "0.95rem", lineHeight: 1.75, paddingRight: "1.25rem", marginBottom: "0.5rem" };
+const h2Style: React.CSSProperties = { fontSize: "1.15rem", fontWeight: 800, color: "var(--bf-text)", marginBottom: "0.6rem" };
+const pStyle: React.CSSProperties = { color: "var(--bf-muted)", fontSize: "0.95rem", lineHeight: 1.75, marginBottom: "0.5rem" };
+const ulStyle: React.CSSProperties = { color: "var(--bf-muted)", fontSize: "0.95rem", lineHeight: 1.75, paddingRight: "1.25rem", marginBottom: "0.5rem" };
 
 export default function TermsPage() {
     return (
-        <div style={{ minHeight: "100vh", background: "#faf5ff", direction: "rtl" }}>
+        <div style={{ minHeight: "100vh", background: "var(--bf-bg)", color: "var(--bf-text)", direction: "rtl" }}>
             <div style={{ maxWidth: 720, margin: "0 auto", padding: "3rem 1.5rem" }}>
-                <h1 style={{ fontSize: "1.8rem", fontWeight: 900, color: "#1e1b4b", marginBottom: "0.3rem" }}>תנאי שימוש</h1>
-                <p style={{ color: "#94a3b8", fontSize: "0.85rem", marginBottom: "2.5rem" }}>עודכן לאחרונה: אוגוסט 2026</p>
+                <h1 style={{ fontSize: "1.8rem", fontWeight: 900, color: "var(--bf-text)", marginBottom: "0.3rem" }}>תנאי שימוש</h1>
+                <p style={{ color: "var(--bf-faint)", fontSize: "0.85rem", marginBottom: "2.5rem" }}>עודכן לאחרונה: אוגוסט 2026</p>
 
                 <div style={sectionStyle}>
                     <p style={pStyle}>
@@ -94,12 +94,12 @@ export default function TermsPage() {
                     <h2 style={h2Style}>9. יצירת קשר</h2>
                     <p style={pStyle}>
                         שאלות בנוגע לתנאים אלה ניתן להפנות אלינו בכתובת:{" "}
-                        <a href="mailto:support@biz-control.com" style={{ color: "#7c3aed" }}>support@biz-control.com</a>
+                        <a href="mailto:support@biz-control.com" style={{ color: "var(--bf-text)", textUnderlineOffset: 3 }}>support@biz-control.com</a>
                     </p>
                 </div>
 
                 <p style={{ ...pStyle, marginTop: "2rem" }}>
-                    ראו גם את <a href="/privacy" style={{ color: "#7c3aed" }}>מדיניות הפרטיות</a> שלנו.
+                    ראו גם את <a href="/privacy" style={{ color: "var(--bf-text)", textUnderlineOffset: 3 }}>מדיניות הפרטיות</a> שלנו.
                 </p>
             </div>
         </div>

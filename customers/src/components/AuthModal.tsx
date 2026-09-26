@@ -1,5 +1,6 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
+import { Mail, MessageCircle } from "lucide-react";
 import { API, setToken } from "@/lib/api";
 import { saveCustomer, type Customer } from "@/lib/auth";
 import PasswordInput from "@/components/PasswordInput";
@@ -238,30 +239,30 @@ export default function AuthModal({ onClose, onSuccess }: Props) {
                 {/* Header */}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1.25rem" }}>
                     <div>
-                        <div style={{ fontSize: "1.4rem", fontWeight: 900 }}>{getTitle()}</div>
-                        <div style={{ color: "#64748b", fontSize: "0.82rem", marginTop: "0.2rem" }}>{getSubtitle()}</div>
+                        <div style={{ fontSize: "1.4rem", fontWeight: 800 }}>{getTitle()}</div>
+                        <div style={{ color: "var(--bf-muted)", fontSize: "0.82rem", marginTop: "0.2rem" }}>{getSubtitle()}</div>
                     </div>
-                    <button onClick={onClose} style={{ background: "none", border: "none", color: "#64748b", fontSize: "1.4rem", cursor: "pointer", padding: "0.2rem", lineHeight: 1 }}>×</button>
+                    <button onClick={onClose} aria-label="סגור" style={{ background: "none", border: "none", color: "var(--bf-faint)", fontSize: "1.4rem", cursor: "pointer", padding: "0.2rem", lineHeight: 1 }}>×</button>
                 </div>
 
                 {/* Mode tabs — only on first step */}
                 {(otpStep === "phone" || (mode === "email" && emailStep !== "register")) && otpStep !== "otp" && otpStep !== "name" && (
-                    <div style={{ display: "flex", gap: "0.4rem", marginBottom: "1.25rem", background: "rgba(255,255,255,.05)", borderRadius: 12, padding: "0.25rem" }}>
+                    <div style={{ display: "flex", gap: "0.4rem", marginBottom: "1.25rem", background: "var(--bf-glass)", border: "1px solid var(--bf-line)", borderRadius: 12, padding: "0.25rem" }}>
                         <button
                             onClick={() => { setMode("otp"); setErr(null); }}
                             style={{ flex: 1, padding: "0.55rem", borderRadius: 10, border: "none", fontWeight: 700, fontSize: "0.82rem", cursor: "pointer", transition: "all .2s",
-                                background: mode === "otp" ? "rgba(124,58,237,.8)" : "transparent",
-                                color: mode === "otp" ? "#fff" : "#64748b" }}
+                                background: mode === "otp" ? "#fff" : "transparent",
+                                color: mode === "otp" ? "#000" : "var(--bf-muted)", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.35rem" }}
                         >
-                            📱 קוד בוואטסאפ
+                            <MessageCircle size={15} aria-hidden /> קוד בוואטסאפ
                         </button>
                         <button
                             onClick={() => { setMode("email"); setEmailStep("login"); setErr(null); }}
                             style={{ flex: 1, padding: "0.55rem", borderRadius: 10, border: "none", fontWeight: 700, fontSize: "0.82rem", cursor: "pointer", transition: "all .2s",
-                                background: mode === "email" ? "rgba(124,58,237,.8)" : "transparent",
-                                color: mode === "email" ? "#fff" : "#64748b" }}
+                                background: mode === "email" ? "#fff" : "transparent",
+                                color: mode === "email" ? "#000" : "var(--bf-muted)", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.35rem" }}
                         >
-                            ✉️ אימייל וסיסמה
+                            <Mail size={15} aria-hidden /> אימייל וסיסמה
                         </button>
                     </div>
                 )}
@@ -292,7 +293,7 @@ export default function AuthModal({ onClose, onSuccess }: Props) {
                                     onChange={e => handleOtpInput(i, e.target.value)}
                                     onKeyDown={e => handleOtpKey(i, e)}
                                     maxLength={1}
-                                    style={{ width: 48, height: 56, textAlign: "center", fontSize: "1.5rem", fontWeight: 900, background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.2)", borderRadius: 12, color: "#fff", outline: "none" }}
+                                    style={{ width: 48, height: 56, textAlign: "center", fontSize: "1.5rem", fontWeight: 900, background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.25)", borderRadius: 12, color: "#fff", outline: "none", colorScheme: "dark" }}
                                 />
                             ))}
                         </div>
@@ -382,21 +383,21 @@ const overlay: React.CSSProperties = {
     alignItems: "center", justifyContent: "center", zIndex: 9999, padding: "1rem",
 };
 const box: React.CSSProperties = {
-    background: "#1e293b", border: "1px solid rgba(255,255,255,.12)", borderRadius: 24,
+    background: "#0c0c0c", border: "1px solid var(--bf-line)", borderRadius: 24, color: "var(--bf-text)",
     padding: "2rem 1.5rem", width: "100%", maxWidth: 380, maxHeight: "90vh", overflowY: "auto",
 };
 const inputStyle: React.CSSProperties = {
-    width: "100%", background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.15)",
+    width: "100%", background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.16)",
     borderRadius: 12, padding: "0.75rem 1rem", color: "#fff", fontSize: "1rem", outline: "none",
-    marginBottom: "0.75rem", boxSizing: "border-box",
+    marginBottom: "0.75rem", boxSizing: "border-box", colorScheme: "dark",
 };
 const btnStyle: React.CSSProperties = {
-    width: "100%", background: "linear-gradient(135deg,#7c3aed,#4c1d95)", border: "none",
-    borderRadius: 12, color: "#fff", padding: "0.85rem", fontWeight: 800, fontSize: "0.95rem",
+    width: "100%", background: "#fff", border: "none",
+    borderRadius: 12, color: "#000", padding: "0.85rem", fontWeight: 800, fontSize: "0.95rem",
     cursor: "pointer",
 };
 const linkBtnStyle: React.CSSProperties = {
-    width: "100%", background: "none", border: "none", color: "#7c3aed", fontSize: "0.82rem",
+    width: "100%", background: "none", border: "none", color: "var(--bf-muted)", fontSize: "0.84rem", textDecoration: "underline", textUnderlineOffset: 3,
     cursor: "pointer", marginTop: "0.75rem", padding: "0.4rem",
 };
 const errStyle: React.CSSProperties = {

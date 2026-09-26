@@ -1,7 +1,11 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import { CalendarCheck, CheckCircle2, Hourglass, Search, XCircle, type LucideIcon } from "lucide-react";
 import { API, imgUrl } from "@/lib/api";
+import { GLASS_CARD, PRIMARY_BTN } from "@/lib/look";
+
+// The page a client reaches from the WhatsApp that a booking request was approved ("צפה בפרטי התור שלך").
 
 interface BookingStatus {
     status: "pending" | "approved" | "rejected";
@@ -17,10 +21,10 @@ interface BookingStatus {
     appointment_status: string | null;
 }
 
-const STATUS_DISPLAY = {
-    pending:  { emoji: "⏳", label: "ממתין לאישור", color: "text-yellow-600 bg-yellow-50 border-yellow-200" },
-    approved: { emoji: "✅", label: "אושר!",         color: "text-green-700 bg-green-50 border-green-200"  },
-    rejected: { emoji: "❌", label: "לא אושר",       color: "text-red-600 bg-red-50 border-red-200"        },
+const STATUS_DISPLAY: Record<BookingStatus["status"], { icon: LucideIcon; label: string; color: string }> = {
+    pending:  { icon: Hourglass,    label: "ממתין לאישור", color: "#fcd34d" },
+    approved: { icon: CheckCircle2, label: "אושר!",        color: "#4ade80" },
+    rejected: { icon: XCircle,      label: "לא אושר",      color: "#f87171" },
 };
 
 export default function BookingStatusPage() {
@@ -41,72 +45,70 @@ export default function BookingStatusPage() {
     }, [token]);
 
     if (loading) return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50">
-            <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+        <div style={PAGE}>
+            <div style={{ width: 36, height: 36, border: "3px solid rgba(255,255,255,.18)", borderTopColor: "#fff", borderRadius: "50%", animation: "spin .8s linear infinite" }} />
         </div>
     );
 
     if (error || !data) return (
-        <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-6 text-center" dir="rtl">
-            <div className="text-5xl mb-4">🔍</div>
-            <h1 className="text-xl font-bold text-gray-800 mb-2">הזמנה לא נמצאה</h1>
-            <p className="text-gray-500">הלינק לא תקין או שההזמנה כבר אינה קיימת.</p>
+        <div dir="rtl" style={{ ...PAGE, flexDirection: "column", textAlign: "center" }}>
+            <Search size={40} strokeWidth={1.5} aria-hidden style={{ marginBottom: "1rem" }} />
+            <h1 style={{ fontSize: "1.25rem", fontWeight: 800, marginBottom: "0.5rem" }}>הזמנה לא נמצאה</h1>
+            <p style={{ color: "var(--bf-muted)" }}>הלינק לא תקין או שההזמנה כבר אינה קיימת.</p>
         </div>
     );
 
     const st = STATUS_DISPLAY[data.status] || STATUS_DISPLAY.pending;
+    const Icon = st.icon;
 
     return (
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4" dir="rtl">
-            <div className="bg-white rounded-2xl shadow-lg max-w-md w-full overflow-hidden">
+        <div dir="rtl" style={PAGE}>
+            <div style={{ ...GLASS_CARD, borderRadius: 24, maxWidth: 440, width: "100%", overflow: "hidden" }}>
                 {/* Header */}
-                <div className="bg-indigo-600 px-6 py-5 text-white text-center">
+                <div style={{ padding: "1.5rem", textAlign: "center", borderBottom: "1px solid var(--bf-line)", background: "linear-gradient(180deg,rgba(255,255,255,.07),transparent)" }}>
                     {data.studio_logo && (
-                        <img src={imgUrl(data.studio_logo)} alt={data.studio_name || ""} className="w-14 h-14 rounded-full object-cover mx-auto mb-3 border-2 border-white/40" />
+                        <img src={imgUrl(data.studio_logo)} alt={data.studio_name || ""}
+                            style={{ width: 64, height: 64, borderRadius: 16, objectFit: "contain", background: "#fff", padding: 4, margin: "0 auto 0.75rem", display: "block" }} />
                     )}
-                    <h1 className="text-lg font-bold">{data.studio_name || "העסק"}</h1>
-                    <p className="text-indigo-200 text-sm mt-0.5">פרטי הזמנה</p>
+                    <h1 style={{ fontSize: "1.15rem", fontWeight: 800 }}>{data.studio_name || "העסק"}</h1>
+                    <p style={{ color: "var(--bf-muted)", fontSize: "0.85rem", marginTop: "0.2rem" }}>פרטי הזמנה</p>
                 </div>
 
-                {/* Status badge */}
-                <div className="px-6 pt-5">
-                    <div className={`flex items-center gap-2 rounded-xl border px-4 py-3 text-base font-semibold ${st.color}`}>
-                        <span className="text-xl">{st.emoji}</span>
+                {/* Status */}
+                <div style={{ padding: "1.25rem 1.5rem 0" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", borderRadius: 14, border: `1px solid ${st.color}55`, background: `${st.color}14`, padding: "0.75rem 1rem", fontWeight: 700, color: st.color }}>
+                        <Icon size={20} aria-hidden />
                         <span>{st.label}</span>
                     </div>
                 </div>
 
                 {/* Details */}
-                <div className="px-6 py-4 space-y-3 text-sm text-gray-700">
+                <div style={{ padding: "1rem 1.5rem", display: "flex", flexDirection: "column", gap: "0.7rem", fontSize: "0.9rem" }}>
                     <Row label="לקוח" value={data.client_name} />
                     <Row label="תאריך ושעה" value={data.requested_at} />
                     {data.artist_name && <Row label="עם" value={data.artist_name} />}
                     {data.service_note && <Row label="שירות" value={data.service_note} />}
                     {data.studio_address && <Row label="כתובת" value={data.studio_address} />}
                     {data.rejection_reason && (
-                        <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-red-700 text-xs">
-                            <span className="font-semibold">סיבה: </span>{data.rejection_reason}
+                        <div style={{ borderRadius: 10, border: "1px solid rgba(248,113,113,.35)", background: "rgba(248,113,113,.08)", padding: "0.6rem 0.8rem", color: "#fca5a5", fontSize: "0.82rem" }}>
+                            <span style={{ fontWeight: 700 }}>סיבה: </span>{data.rejection_reason}
                         </div>
                     )}
                 </div>
 
                 {data.status === "pending" && (
-                    <div className="px-6 pb-5">
-                        <p className="text-center text-xs text-gray-400">העסק יאשר את הבקשה בהקדם. תקבל הודעה בוואטסאפ.</p>
-                    </div>
+                    <p style={{ padding: "0 1.5rem 1.4rem", textAlign: "center", fontSize: "0.8rem", color: "var(--bf-faint)" }}>העסק יאשר את הבקשה בהקדם. תקבל הודעה בוואטסאפ.</p>
                 )}
 
                 {data.status === "approved" && (
-                    <div className="px-6 pb-5">
-                        <div className="text-center text-xs text-green-600 font-medium">🎉 התור שלך מאושר ונעול ביומן!</div>
-                    </div>
+                    <p style={{ padding: "0 1.5rem 1.4rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.35rem", fontSize: "0.85rem", fontWeight: 600, color: "var(--bf-text)" }}>
+                        <CalendarCheck size={16} aria-hidden /> התור שלך מאושר ונעול ביומן!
+                    </p>
                 )}
 
                 {data.status === "rejected" && (
-                    <div className="px-6 pb-6">
-                        <a href="/" className="block text-center bg-indigo-600 text-white rounded-xl py-3 font-semibold text-sm hover:bg-indigo-700 transition">
-                            חפש זמן חלופי
-                        </a>
+                    <div style={{ padding: "0 1.5rem 1.5rem" }}>
+                        <a href="/" style={{ ...PRIMARY_BTN, justifyContent: "center" }}>חפש זמן חלופי</a>
                     </div>
                 )}
             </div>
@@ -116,9 +118,14 @@ export default function BookingStatusPage() {
 
 function Row({ label, value }: { label: string; value: string }) {
     return (
-        <div className="flex justify-between gap-2">
-            <span className="text-gray-400 shrink-0">{label}</span>
-            <span className="font-medium text-right">{value}</span>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: "0.5rem" }}>
+            <span style={{ color: "var(--bf-faint)", flexShrink: 0 }}>{label}</span>
+            <span style={{ fontWeight: 600, textAlign: "left" }}>{value}</span>
         </div>
     );
 }
+
+const PAGE: React.CSSProperties = {
+    minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "1.5rem 1rem 5rem",
+    background: "var(--bf-bg)", color: "var(--bf-text)",
+};

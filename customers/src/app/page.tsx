@@ -2,8 +2,9 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { API, imgUrl } from "@/lib/api";
-import { usePlatformTheme } from "@/lib/usePlatformTheme";
-import BusinessTypeIcon, { typeGradient, typeTint } from "@/components/BusinessTypeIcon";
+import { CalendarDays, LoaderCircle, LocateFixed, MapPin, Search, Star, X } from "lucide-react";
+import BusinessTypeIcon from "@/components/BusinessTypeIcon";
+import { GLASS_BTN, GLASS_CARD, PRIMARY_BTN } from "@/lib/look";
 
 const DEFAULT_SLIDES = [
     { url: "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=1400&q=85", label: "מסעדות ואוכל" },
@@ -24,7 +25,6 @@ interface HeroProps {
 }
 
 function HeroSection({ q, city, setQ, setCity, locating, onLocate, searchRef }: HeroProps) {
-    const { primary } = usePlatformTheme();
     const [slides, setSlides] = useState(DEFAULT_SLIDES);
     const [current, setCurrent] = useState(0);
     const [paused, setPaused] = useState(false);
@@ -68,47 +68,47 @@ function HeroSection({ q, city, setQ, setCity, locating, onLocate, searchRef }: 
             ))}
 
             {/* ── Gradient overlay ── */}
-            <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(0,0,0,.45) 0%, rgba(0,0,0,.55) 55%, rgba(0,0,0,.75) 100%)", zIndex: 1 }} />
+            <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(0,0,0,.45) 0%, rgba(0,0,0,.55) 55%, #000 100%)", zIndex: 1 }} />
 
             {/* ── Text + Search overlay ── */}
             <div style={{ position: "absolute", inset: 0, zIndex: 2, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "2rem 1.25rem", textAlign: "center" }}>
-                <div style={{ display: "inline-block", background: "rgba(255,255,255,.15)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,.3)", color: "#fff", fontSize: "0.78rem", fontWeight: 700, padding: "0.3rem 0.85rem", borderRadius: 20, marginBottom: "1.1rem" }}>
-                    🗺️ גלה עסקים סביבך
+                <div style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem", background: "rgba(255,255,255,.12)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,.28)", color: "#fff", fontSize: "0.78rem", fontWeight: 700, padding: "0.3rem 0.85rem", borderRadius: 20, marginBottom: "1.1rem" }}>
+                    <MapPin size={14} aria-hidden /> גלה עסקים סביבך
                 </div>
                 <h1 style={{ fontSize: "clamp(2rem,5.5vw,3.4rem)", fontWeight: 900, color: "#fff", lineHeight: 1.15, marginBottom: "0.6rem", textShadow: "0 2px 20px rgba(0,0,0,.4)" }}>
-                    כל מה שאתה מחפש,<br />
-                    <span style={{ color: primary }}>קרוב אליך.</span>
+                    <span style={{ color: "rgba(255,255,255,.72)" }}>כל מה שאתה מחפש,</span><br />
+                    קרוב אליך.
                 </h1>
                 <p style={{ color: "rgba(255,255,255,.85)", fontSize: "clamp(0.88rem,2vw,1.05rem)", lineHeight: 1.6, marginBottom: "2rem", maxWidth: 520, textShadow: "0 1px 8px rgba(0,0,0,.4)" }}>
                     ספרים, סטודיואים, ציפורניים, ספא ועוד — מצא וקבע תור בשניות
                 </p>
 
                 {/* Search box */}
-                <div style={{ width: "100%", maxWidth: 680, background: "rgba(255,255,255,.97)", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,.6)", borderRadius: 20, padding: "0.6rem", boxShadow: "0 8px 40px rgba(0,0,0,.3)", display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                <div style={{ width: "100%", maxWidth: 680, background: "rgba(0,0,0,.5)", backdropFilter: "blur(14px)", border: "1px solid rgba(255,255,255,.22)", borderRadius: 20, padding: "0.6rem", boxShadow: "0 8px 40px rgba(0,0,0,.45)", display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
                     <div style={{ flex: "2 1 200px", position: "relative" }}>
-                        <span style={{ position: "absolute", right: "0.9rem", top: "50%", transform: "translateY(-50%)", fontSize: "1rem", pointerEvents: "none" }}>🔍</span>
+                        <Search size={17} color="rgba(255,255,255,.6)" aria-hidden style={{ position: "absolute", right: "0.9rem", top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
                         <input
                             ref={searchRef}
                             value={q} onChange={e => setQ(e.target.value)}
                             placeholder="חפש שירות או עסק..."
-                            style={{ width: "100%", background: "#f8faff", border: "1.5px solid #e2e8f0", borderRadius: 12, padding: "0.75rem 2.5rem 0.75rem 0.9rem", color: "#1e293b", fontSize: "0.95rem", outline: "none", boxSizing: "border-box" }}
-                            onFocus={e => (e.target.style.borderColor = primary)}
-                            onBlur={e => (e.target.style.borderColor = "#e2e8f0")}
+                            style={SEARCH_INPUT}
+                            onFocus={e => (e.target.style.borderColor = "#fff")}
+                            onBlur={e => (e.target.style.borderColor = "rgba(255,255,255,.16)")}
                         />
                     </div>
                     <div style={{ flex: "1 1 120px", position: "relative" }}>
-                        <span style={{ position: "absolute", right: "0.9rem", top: "50%", transform: "translateY(-50%)", fontSize: "0.9rem", pointerEvents: "none" }}>📍</span>
+                        <MapPin size={16} color="rgba(255,255,255,.6)" aria-hidden style={{ position: "absolute", right: "0.9rem", top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
                         <input
                             value={city} onChange={e => setCity(e.target.value)}
                             placeholder="עיר"
-                            style={{ width: "100%", background: "#f8faff", border: "1.5px solid #e2e8f0", borderRadius: 12, padding: "0.75rem 2.5rem 0.75rem 0.9rem", color: "#1e293b", fontSize: "0.95rem", outline: "none", boxSizing: "border-box" }}
-                            onFocus={e => (e.target.style.borderColor = primary)}
-                            onBlur={e => (e.target.style.borderColor = "#e2e8f0")}
+                            style={SEARCH_INPUT}
+                            onFocus={e => (e.target.style.borderColor = "#fff")}
+                            onBlur={e => (e.target.style.borderColor = "rgba(255,255,255,.16)")}
                         />
                     </div>
                     <button type="button" onClick={onLocate} disabled={locating} title="קרוב אליי"
-                        style={{ padding: "0.75rem 1rem", background: `${primary}18`, border: `1.5px solid ${primary}44`, borderRadius: 12, cursor: "pointer", fontSize: "1.1rem", flexShrink: 0, color: primary }}>
-                        {locating ? "⏳" : "🎯"}
+                        aria-label="קרוב אליי" style={{ padding: "0.75rem 1rem", background: "#fff", border: "none", borderRadius: 12, cursor: "pointer", flexShrink: 0, color: "#000", display: "flex", alignItems: "center" }}>
+                        {locating ? <LoaderCircle size={18} style={{ animation: "spin .8s linear infinite" }} aria-hidden /> : <LocateFixed size={18} aria-hidden />}
                     </button>
                 </div>
 
@@ -153,7 +153,6 @@ interface Category { id: string; label: string; icon: string; color: string; cou
 
 
 export default function HomePage() {
-    const { primary } = usePlatformTheme();
     const [studios, setStudios] = useState<StudioCard[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
     const [q, setQ] = useState("");
@@ -236,26 +235,26 @@ export default function HomePage() {
     const showResults = isSearching || initialLoaded;
 
     return (
-        <div dir="rtl" style={{ minHeight: "100vh", background: "#ffffff", color: "#1e293b" }}>
+        <div dir="rtl" style={{ minHeight: "100vh", background: "var(--bf-bg)", color: "var(--bf-text)" }}>
 
             {/* ── Location Permission Modal ── */}
             {showLocationModal && (
                 <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", alignItems: "flex-end", justifyContent: "center", background: "rgba(0,0,0,.55)", backdropFilter: "blur(4px)", animation: "fadeIn .25s ease" }}
                     onClick={e => { if (e.target === e.currentTarget) dismissLocationModal(); }}>
-                    <div style={{ background: "#fff", borderRadius: "28px 28px 0 0", padding: "2.25rem 2rem 2.5rem", width: "100%", maxWidth: 520, textAlign: "center", animation: "slideUp .3s ease" }}>
+                    <div style={{ background: "#0c0c0c", border: "1px solid var(--bf-line)", borderBottom: "none", borderRadius: "28px 28px 0 0", padding: "2.25rem 2rem 2.5rem", width: "100%", maxWidth: 520, textAlign: "center", animation: "slideUp .3s ease" }}>
                         <style>{`@keyframes slideUp { from { transform: translateY(100%); opacity: 0; } to { transform: none; opacity: 1; } }`}</style>
-                        <div style={{ width: 72, height: 72, borderRadius: "50%", background: `linear-gradient(135deg,${primary},#1d4ed8)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "2rem", margin: "0 auto 1.25rem" }}>📍</div>
-                        <div style={{ fontWeight: 900, fontSize: "1.25rem", color: "#0f172a", marginBottom: "0.6rem" }}>BizFind רוצה לגשת למיקום שלך</div>
-                        <div style={{ color: "#64748b", fontSize: "0.92rem", lineHeight: 1.65, marginBottom: "2rem" }}>
+                        <div style={{ width: 72, height: 72, borderRadius: "50%", background: "#fff", color: "#000", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 1.25rem" }}><MapPin size={32} aria-hidden /></div>
+                        <div style={{ fontWeight: 800, fontSize: "1.25rem", color: "var(--bf-text)", marginBottom: "0.6rem" }}>BizFind רוצה לגשת למיקום שלך</div>
+                        <div style={{ color: "var(--bf-muted)", fontSize: "0.92rem", lineHeight: 1.65, marginBottom: "2rem" }}>
                             כדי להציג עסקים, ספרים, סטודיואים וספא<br />
                             <strong>קרובים אליך</strong> — בדיוק כמו Wolt.
                         </div>
                         <button type="button" onClick={requestLocationFromModal}
-                            style={{ width: "100%", background: `linear-gradient(135deg,${primary},#1d4ed8)`, color: "#fff", border: "none", borderRadius: 16, padding: "1rem", fontSize: "1rem", fontWeight: 800, cursor: "pointer", marginBottom: "0.85rem", boxShadow: `0 4px 16px ${primary}59` }}>
-                            📍 אפשר גישה למיקום
+                            style={{ ...PRIMARY_BTN, width: "100%", justifyContent: "center", borderRadius: 16, padding: "1rem", fontSize: "1rem", marginBottom: "0.85rem" }}>
+                            <MapPin size={18} aria-hidden /> אפשר גישה למיקום
                         </button>
                         <button type="button" onClick={dismissLocationModal}
-                            style={{ background: "none", border: "none", color: "#94a3b8", fontSize: "0.88rem", cursor: "pointer", fontWeight: 600 }}>
+                            style={{ background: "none", border: "none", color: "var(--bf-faint)", fontSize: "0.88rem", cursor: "pointer", fontWeight: 600 }}>
                             אחר כך
                         </button>
                     </div>
@@ -263,14 +262,14 @@ export default function HomePage() {
             )}
 
             {/* ── Header ── */}
-            <header style={{ background: "#fff", borderBottom: "1px solid #f1f5f9", padding: "0 1.25rem", height: 56, display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 40, boxShadow: "0 1px 8px rgba(0,0,0,.06)" }}>
+            <header style={{ background: "rgba(0,0,0,.85)", backdropFilter: "blur(14px)", borderBottom: "1px solid var(--bf-line)", padding: "0 1.25rem", height: 56, display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 40 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
                     <img src="/logo.png" alt="BizControl" style={{ width: 32, height: 32, objectFit: "contain" }} />
-                    <span style={{ fontWeight: 900, fontSize: "1.05rem", color: "#1e293b" }}>BizFind</span>
+                    <span style={{ fontWeight: 800, fontSize: "1.05rem", color: "var(--bf-text)" }}>BizFind</span>
                 </div>
                 <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-                    <Link href="/explore" style={{ fontSize: "0.82rem", color: primary, textDecoration: "none", fontWeight: 600 }}>חיפוש מתקדם</Link>
-                    <Link href="/studio/login" style={{ fontSize: "0.82rem", background: primary, color: "#fff", textDecoration: "none", fontWeight: 700, padding: "0.35rem 0.85rem", borderRadius: 8 }}>כניסה לעסקים</Link>
+                    <Link href="/explore" style={{ fontSize: "0.82rem", color: "var(--bf-muted)", textDecoration: "none", fontWeight: 600 }}>חיפוש מתקדם</Link>
+                    <Link href="/studio/login" style={{ fontSize: "0.82rem", background: "#fff", color: "#000", textDecoration: "none", fontWeight: 700, padding: "0.38rem 0.9rem", borderRadius: 10 }}>כניסה לעסקים</Link>
                 </div>
             </header>
 
@@ -284,25 +283,23 @@ export default function HomePage() {
 
             {/* Active filters */}
             {(q || city) && (
-                <div style={{ padding: "0.6rem 1.25rem", display: "flex", gap: "0.4rem", flexWrap: "wrap", background: "#f8faff", borderBottom: "1px solid #e2e8f0" }}>
+                <div style={{ padding: "0.6rem 1.25rem", display: "flex", gap: "0.4rem", flexWrap: "wrap", background: "var(--bf-bg)", borderBottom: "1px solid var(--bf-line)" }}>
                     {q && <Chip label={`"${q}"`} onRemove={() => setQ("")} />}
-                    {city && <Chip label={`📍 ${city}`} onRemove={() => setCity("")} />}
+                    {city && <Chip label={city} onRemove={() => setCity("")} />}
                 </div>
             )}
 
             {/* ── Category pills ── */}
-            <div style={{ background: "#fff", borderBottom: "1px solid #f1f5f9", padding: "0.85rem 1.25rem", overflowX: "auto" }}>
+            <div style={{ background: "var(--bf-bg)", borderBottom: "1px solid var(--bf-line)", padding: "0.85rem 1.25rem", overflowX: "auto" }}>
                 <div style={{ display: "flex", gap: "0.5rem", minWidth: "max-content" }}>
                     <button type="button" onClick={() => setSelectedType("")}
-                        style={{ padding: "0.45rem 1rem", borderRadius: 20, border: `1.5px solid ${!selectedType ? primary : "#e2e8f0"}`, cursor: "pointer", fontWeight: 700, fontSize: "0.82rem", background: !selectedType ? primary : "#fff", color: !selectedType ? "#fff" : "#64748b", transition: "all .2s" }}>
-                        🌐 הכל
+                        style={pill(!selectedType)}>
+                        הכל
                     </button>
                     {categories.map(cat => {
-                        const light = typeTint(cat.color);
                         const active = selectedType === cat.id;
                         return (
-                            <button key={cat.id} type="button" onClick={() => selectType(cat.id)}
-                                style={{ padding: "0.45rem 1rem", borderRadius: 20, border: `1.5px solid ${active ? light.color : "#e2e8f0"}`, cursor: "pointer", fontWeight: 700, fontSize: "0.82rem", background: active ? light.bg : "#fff", color: active ? light.color : "#64748b", transition: "all .2s", whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: "0.3rem" }}>
+                            <button key={cat.id} type="button" onClick={() => selectType(cat.id)} style={pill(active)}>
                                 <BusinessTypeIcon name={cat.icon} size={14} /> {cat.label}
                                 <span style={{ opacity: 0.6, marginRight: "0.3rem", fontSize: "0.72rem" }}>({cat.count})</span>
                             </button>
@@ -316,21 +313,18 @@ export default function HomePage() {
                 {/* ── Category grid (no search) ── */}
                 {!isSearching && categories.length > 0 && (
                     <section style={{ padding: "1.75rem 0 0.5rem" }}>
-                        <h2 style={{ fontWeight: 800, fontSize: "1rem", color: "#1e293b", marginBottom: "1rem" }}>גלה לפי קטגוריה</h2>
+                        <h2 style={{ fontWeight: 800, fontSize: "1.05rem", color: "var(--bf-text)", marginBottom: "1rem" }}>גלה לפי קטגוריה</h2>
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(120px,1fr))", gap: "0.65rem" }}>
-                            {categories.slice(0, 8).map(cat => {
-                                const light = typeTint(cat.color);
-                                return (
-                                    <button key={cat.id} type="button" onClick={() => selectType(cat.id)}
-                                        style={{ background: light.bg, border: `1.5px solid ${light.color}22`, borderRadius: 18, padding: "1.1rem 0.75rem", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: "0.4rem", transition: "transform .2s, box-shadow .2s", boxShadow: "0 1px 4px rgba(0,0,0,.06)" }}
-                                        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-3px)"; (e.currentTarget as HTMLButtonElement).style.boxShadow = `0 8px 20px ${light.color}33`; }}
-                                        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform = ""; (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 1px 4px rgba(0,0,0,.06)"; }}>
-                                        <BusinessTypeIcon name={cat.icon} size={28} color={light.color} />
-                                        <span style={{ color: light.color, fontWeight: 700, fontSize: "0.8rem" }}>{cat.label}</span>
-                                        <span style={{ color: `${light.color}99`, fontSize: "0.68rem" }}>{cat.count} עסקים</span>
-                                    </button>
-                                );
-                            })}
+                            {categories.slice(0, 8).map(cat => (
+                                <button key={cat.id} type="button" onClick={() => selectType(cat.id)}
+                                    style={{ ...GLASS_CARD, borderRadius: 18, padding: "1.1rem 0.75rem", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: "0.4rem", transition: "transform .2s, border-color .2s" }}
+                                    onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-3px)"; e.currentTarget.style.borderColor = "rgba(255,255,255,.4)"; }}
+                                    onMouseLeave={e => { e.currentTarget.style.transform = ""; e.currentTarget.style.borderColor = "var(--bf-line)"; }}>
+                                    <BusinessTypeIcon name={cat.icon} size={28} color="#fff" strokeWidth={1.5} />
+                                    <span style={{ color: "var(--bf-text)", fontWeight: 700, fontSize: "0.82rem" }}>{cat.label}</span>
+                                    <span style={{ color: "var(--bf-faint)", fontSize: "0.7rem" }}>{cat.count} עסקים</span>
+                                </button>
+                            ))}
                         </div>
                     </section>
                 )}
@@ -340,20 +334,20 @@ export default function HomePage() {
                 <section style={{ padding: "1.5rem 0 3rem" }}>
                     {showResults && (
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-                            <h2 style={{ fontWeight: 800, fontSize: "1rem", color: "#1e293b" }}>
-                                {isSearching ? `${studios.length} תוצאות` : "🌟 עסקים מובילים"}
+                            <h2 style={{ fontWeight: 800, fontSize: "1.05rem", color: "var(--bf-text)" }}>
+                                {isSearching ? `${studios.length} תוצאות` : "עסקים מובילים"}
                             </h2>
-                            {loading && <div style={{ width: 18, height: 18, border: `2.5px solid ${primary}44`, borderTopColor: primary, borderRadius: "50%", animation: "spin .7s linear infinite" }} />}
+                            {loading && <div style={{ width: 18, height: 18, border: "2.5px solid rgba(255,255,255,.2)", borderTopColor: "#fff", borderRadius: "50%", animation: "spin .7s linear infinite" }} />}
                         </div>
                     )}
 
                     {!loading && studios.length === 0 && initialLoaded && (
-                        <div style={{ textAlign: "center", padding: "3rem", color: "#94a3b8" }}>
-                            <div style={{ fontSize: "2.5rem", marginBottom: "0.75rem" }}>🔍</div>
+                        <div style={{ textAlign: "center", padding: "3rem", color: "var(--bf-muted)" }}>
+                            <Search size={34} strokeWidth={1.5} aria-hidden style={{ marginBottom: "0.75rem" }} />
                             <div>לא נמצאו עסקים. נסה חיפוש אחר.</div>
                             {isSearching && (
                                 <button type="button" onClick={() => { setQ(""); setCity(""); setSelectedType(""); }}
-                                    style={{ marginTop: "1rem", background: `${primary}18`, border: `1px solid ${primary}44`, color: primary, padding: "0.5rem 1.1rem", borderRadius: 10, cursor: "pointer", fontWeight: 600 }}>
+                                    style={{ ...GLASS_BTN, display: "inline-flex", marginTop: "1rem", cursor: "pointer" }}>
                                     נקה חיפוש
                                 </button>
                             )}
@@ -370,20 +364,16 @@ export default function HomePage() {
 }
 
 function Chip({ label, onRemove }: { label: string; onRemove: () => void }) {
-    const { primary } = usePlatformTheme();
     return (
-        <span style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem", background: `${primary}18`, border: `1px solid ${primary}44`, color: primary, padding: "0.25rem 0.6rem", borderRadius: 20, fontSize: "0.78rem", fontWeight: 600 }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem", background: "var(--bf-glass-strong)", border: "1px solid var(--bf-line)", color: "var(--bf-text)", padding: "0.25rem 0.6rem", borderRadius: 20, fontSize: "0.78rem", fontWeight: 600 }}>
             {label}
-            <button type="button" onClick={onRemove} style={{ background: "none", border: "none", color: primary, cursor: "pointer", padding: 0, lineHeight: 1, fontSize: "0.85rem" }}>×</button>
+            <button type="button" onClick={onRemove} aria-label="הסר" style={{ background: "none", border: "none", color: "var(--bf-muted)", cursor: "pointer", padding: 0, lineHeight: 1, display: "flex" }}><X size={14} /></button>
         </span>
     );
 }
 
 function StudioCard({ s }: { s: StudioCard }) {
-    const { primary } = usePlatformTheme();
     const [hovered, setHovered] = useState(false);
-    const gradient = typeGradient(s.business_type_color);
-    const light = typeTint(s.business_type_color);
 
     return (
         <Link href={`/b/${s.slug}`} style={{ textDecoration: "none", display: "block" }}>
@@ -391,59 +381,72 @@ function StudioCard({ s }: { s: StudioCard }) {
                 onMouseEnter={() => setHovered(true)}
                 onMouseLeave={() => setHovered(false)}
                 style={{
-                    background: "#fff",
-                    border: `1.5px solid ${hovered ? `${primary}44` : "#e2e8f0"}`,
-                    borderRadius: 20, overflow: "hidden",
+                    ...GLASS_CARD, overflow: "hidden",
+                    borderColor: hovered ? "rgba(255,255,255,.35)" : "var(--bf-line)",
                     transform: hovered ? "translateY(-4px)" : "none",
-                    transition: "all .25s",
-                    boxShadow: hovered ? `0 12px 32px ${primary}1f` : "0 2px 8px rgba(0,0,0,.04)",
+                    transition: "transform .25s, border-color .25s",
                 }}
             >
                 {/* Cover */}
-                <div style={{ height: 140, position: "relative", overflow: "hidden", background: s.cover_url ? undefined : gradient }}>
+                <div style={{ height: 140, position: "relative", overflow: "hidden", background: s.cover_url ? undefined : NO_COVER }}>
                     {s.cover_url && (
                         <img src={imgUrl(s.cover_url)} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", transition: "transform .3s", transform: hovered ? "scale(1.05)" : "scale(1)" }} />
                     )}
                     {!s.cover_url && (
                         <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
                             {s.logo_url
-                                ? <img src={imgUrl(s.logo_url)} alt="" style={{ width: 72, height: 72, borderRadius: 16, objectFit: "cover", boxShadow: "0 4px 16px rgba(0,0,0,.2)" }} />
+                                ? <img src={imgUrl(s.logo_url)} alt="" style={{ width: 72, height: 72, borderRadius: 16, objectFit: "contain", background: "#fff", padding: 5, boxShadow: "0 4px 16px rgba(0,0,0,.4)" }} />
                                 : <BusinessTypeIcon name={s.business_type_icon} size={52} color="#ffffff" strokeWidth={1.5} />
                             }
                         </div>
                     )}
                     {s.cover_url && <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom,transparent 40%,rgba(0,0,0,.5))" }} />}
                     {s.self_booking_enabled && (
-                        <div style={{ position: "absolute", top: 10, left: 10, background: "rgba(34,197,94,.95)", color: "#fff", fontSize: "0.68rem", fontWeight: 800, padding: "0.22rem 0.6rem", borderRadius: 8 }}>
-                            📅 הזמנה אונליין
+                        <div style={{ position: "absolute", top: 10, left: 10, display: "inline-flex", alignItems: "center", gap: "0.25rem", background: "#fff", color: "#000", fontSize: "0.68rem", fontWeight: 800, padding: "0.22rem 0.6rem", borderRadius: 8 }}>
+                            <CalendarDays size={12} aria-hidden /> הזמנה אונליין
                         </div>
                     )}
                     {s.cover_url && s.logo_url && (
-                        <img src={imgUrl(s.logo_url)} alt="" style={{ position: "absolute", bottom: 10, right: 10, width: 36, height: 36, borderRadius: 10, objectFit: "cover", border: "2px solid rgba(255,255,255,.6)" }} />
+                        <img src={imgUrl(s.logo_url)} alt="" style={{ position: "absolute", bottom: 10, right: 10, width: 38, height: 38, borderRadius: 10, objectFit: "contain", background: "#fff", padding: 3, border: "1px solid rgba(255,255,255,.6)" }} />
                     )}
                 </div>
 
                 {/* Info */}
                 <div style={{ padding: "1rem" }}>
-                    <div style={{ fontWeight: 800, fontSize: "0.95rem", color: "#0f172a", marginBottom: "0.2rem" }}>{s.name}</div>
+                    <div style={{ fontWeight: 800, fontSize: "0.98rem", color: "var(--bf-text)", marginBottom: "0.25rem" }}>{s.name}</div>
                     <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: "0.78rem", marginBottom: "0.4rem" }}>
-                        <span style={{ background: light.bg, color: light.color, padding: "0.15rem 0.5rem", borderRadius: 6, fontWeight: 600, fontSize: "0.72rem", display: "inline-flex", alignItems: "center", gap: "0.25rem" }}><BusinessTypeIcon name={s.business_type_icon} size={12} /> {s.business_type_label}</span>
-                        {s.city && <span style={{ color: "#94a3b8" }}>📍 {s.city}</span>}
+                        <span style={{ background: "var(--bf-glass-strong)", color: "var(--bf-text)", padding: "0.15rem 0.5rem", borderRadius: 6, fontWeight: 600, fontSize: "0.72rem", display: "inline-flex", alignItems: "center", gap: "0.25rem" }}><BusinessTypeIcon name={s.business_type_icon} size={12} /> {s.business_type_label}</span>
+                        {s.city && <span style={{ color: "var(--bf-muted)", display: "inline-flex", alignItems: "center", gap: "0.2rem" }}><MapPin size={12} aria-hidden /> {s.city}</span>}
                     </div>
                     {s.description && (
-                        <div style={{ color: "#64748b", fontSize: "0.78rem", lineHeight: 1.55, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", marginBottom: "0.5rem" }}>
+                        <div style={{ color: "var(--bf-muted)", fontSize: "0.8rem", lineHeight: 1.55, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", marginBottom: "0.5rem" }}>
                             {s.description}
                         </div>
                     )}
                     {s.avg_rating != null && s.review_count > 0 && (
                         <div style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
-                            <span style={{ color: "#f59e0b", fontSize: "0.78rem" }}>{"★".repeat(Math.round(s.avg_rating))}</span>
-                            <span style={{ color: "#f59e0b", fontWeight: 700, fontSize: "0.78rem" }}>{s.avg_rating.toFixed(1)}</span>
-                            <span style={{ color: "#94a3b8", fontSize: "0.72rem" }}>({s.review_count})</span>
+                            <Star size={13} fill="#fbbf24" color="#fbbf24" aria-hidden />
+                            <span style={{ color: "var(--bf-text)", fontWeight: 700, fontSize: "0.8rem" }}>{s.avg_rating.toFixed(1)}</span>
+                            <span style={{ color: "var(--bf-faint)", fontSize: "0.72rem" }}>({s.review_count})</span>
                         </div>
                     )}
                 </div>
             </div>
         </Link>
     );
+}
+
+const SEARCH_INPUT: React.CSSProperties = {
+    width: "100%", background: "rgba(255,255,255,.08)", border: "1px solid rgba(255,255,255,.16)", borderRadius: 12,
+    padding: "0.75rem 2.5rem 0.75rem 0.9rem", color: "#fff", fontSize: "0.95rem", outline: "none", boxSizing: "border-box", colorScheme: "dark",
+};
+const NO_COVER = "radial-gradient(ellipse at 70% 20%, #2a2a2a 0%, #0b0b0b 70%)";
+
+// A category pill — white when chosen, glass otherwise.
+function pill(active: boolean): React.CSSProperties {
+    return {
+        padding: "0.45rem 1rem", borderRadius: 20, cursor: "pointer", fontWeight: 700, fontSize: "0.82rem", whiteSpace: "nowrap",
+        display: "inline-flex", alignItems: "center", gap: "0.3rem", transition: "background .2s, color .2s",
+        border: `1px solid ${active ? "#fff" : "var(--bf-line)"}`, background: active ? "#fff" : "var(--bf-glass)", color: active ? "#000" : "var(--bf-muted)",
+    };
 }

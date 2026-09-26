@@ -4,11 +4,10 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { API, imgUrl } from "@/lib/api";
 import { setStudioToken, goToBizControl } from "@/lib/handoff";
-import { usePlatformTheme } from "@/lib/usePlatformTheme";
 import BusinessTypeIcon from "@/components/BusinessTypeIcon";
 import { GLASS_BTN, GLASS_CARD, OPTION_STYLE, PRIMARY_BTN } from "@/lib/look";
 import { ArrowRight, BookOpen, CalendarDays, Camera, Check, ClipboardList, Clock, Images, MapPin, MessageCircle,
-         Navigation, PenLine, Phone, Send, Share2, Star, Users, type LucideIcon } from "lucide-react";
+         Navigation, PartyPopper, PenLine, Phone, Send, Share2, Star, Users, type LucideIcon } from "lucide-react";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -63,12 +62,12 @@ function isOpenNow(hours: Hours): { open: boolean; label: string } {
 type ClaimStep = "closed" | "otp_sent" | "otp_verified" | "done";
 
 const claimInputStyle: React.CSSProperties = {
-    width: "100%", border: "1.5px solid #e2e8f0", borderRadius: 10,
+    width: "100%", border: "1px solid rgba(255,255,255,.16)", borderRadius: 10,
     padding: "0.6rem 0.85rem", fontSize: "0.9rem", outline: "none",
-    color: "#1e293b", background: "#fff", boxSizing: "border-box",
+    color: "#fff", background: "rgba(255,255,255,.07)", boxSizing: "border-box", colorScheme: "dark",
 };
 
-function ClaimBanner({ businessId, phone, primary }: { businessId: string; phone?: string; primary: string }) {
+function ClaimBanner({ businessId, phone }: { businessId: string; phone?: string }) {
     const [step, setStep] = useState<ClaimStep>("closed");
     const [loading, setLoading] = useState(false);
     const [err, setErr] = useState<string | null>(null);
@@ -121,10 +120,10 @@ function ClaimBanner({ businessId, phone, primary }: { businessId: string; phone
 
     if (step === "closed") {
         return (
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.75rem", flexWrap: "wrap", background: "rgba(251,191,36,.08)", border: "1px solid rgba(251,191,36,.25)", borderRadius: 12, padding: "0.65rem 1rem", marginBottom: "1.25rem" }}>
-                <span style={{ fontSize: "0.82rem", color: "#fbbf24", fontWeight: 600 }}>⚪ זה העסק שלך? צור קשר לקבל גישה לניהול ושיווק העסק שלך</span>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.75rem", flexWrap: "wrap", background: "var(--bf-glass)", border: "1px solid var(--bf-line)", borderRadius: 12, padding: "0.65rem 1rem", marginBottom: "1.25rem" }}>
+                <span style={{ fontSize: "0.82rem", color: "var(--bf-text)", fontWeight: 600 }}>זה העסק שלך? צור קשר לקבל גישה לניהול ושיווק העסק שלך</span>
                 <button type="button" onClick={startClaim} disabled={loading || !phone}
-                    style={{ background: primary, color: "#fff", border: "none", borderRadius: 9, padding: "0.4rem 0.9rem", fontWeight: 700, fontSize: "0.78rem", cursor: phone ? "pointer" : "not-allowed", opacity: loading ? 0.7 : 1, whiteSpace: "nowrap" }}>
+                    style={{ background: "#fff", color: "#000", border: "none", borderRadius: 9, padding: "0.4rem 0.9rem", fontWeight: 700, fontSize: "0.78rem", cursor: phone ? "pointer" : "not-allowed", opacity: loading ? 0.7 : 1, whiteSpace: "nowrap" }}>
                     {loading ? "..." : "צור קשר →"}
                 </button>
             </div>
@@ -132,15 +131,15 @@ function ClaimBanner({ businessId, phone, primary }: { businessId: string; phone
     }
 
     return (
-        <div style={{ background: "#fff", color: "#1e293b", borderRadius: 14, padding: "1.1rem", marginBottom: "1.25rem" }}>
+        <div style={{ background: "#0c0c0c", border: "1px solid var(--bf-line)", color: "var(--bf-text)", borderRadius: 14, padding: "1.1rem", marginBottom: "1.25rem" }}>
             {step === "otp_sent" && (
                 <>
                     <div style={{ fontWeight: 800, fontSize: "0.95rem", marginBottom: "0.3rem" }}>הזן את הקוד שקיבלת</div>
-                    <p style={{ color: "#64748b", fontSize: "0.8rem", marginBottom: "0.75rem" }}>שלחנו קוד אימות ל-{phone}.</p>
+                    <p style={{ color: "var(--bf-muted)", fontSize: "0.8rem", marginBottom: "0.75rem" }}>שלחנו קוד אימות ל-{phone}.</p>
                     <div style={{ display: "flex", gap: "0.5rem" }}>
                         <input value={otpCode} onChange={e => setOtpCode(e.target.value)} maxLength={6} dir="ltr" style={{ ...claimInputStyle, textAlign: "center", letterSpacing: "0.25em" }} />
                         <button type="button" onClick={verifyOtp} disabled={loading || otpCode.trim().length < 4}
-                            style={{ background: primary, color: "#fff", border: "none", borderRadius: 10, padding: "0 1.1rem", fontWeight: 700, fontSize: "0.85rem", cursor: "pointer", opacity: loading ? 0.7 : 1, whiteSpace: "nowrap" }}>
+                            style={{ background: "#fff", color: "#000", border: "none", borderRadius: 10, padding: "0 1.1rem", fontWeight: 700, fontSize: "0.85rem", cursor: "pointer", opacity: loading ? 0.7 : 1, whiteSpace: "nowrap" }}>
                             {loading ? "מאמת..." : "אמת"}
                         </button>
                     </div>
@@ -148,7 +147,7 @@ function ClaimBanner({ businessId, phone, primary }: { businessId: string; phone
             )}
             {step === "otp_verified" && (
                 <>
-                    <div style={{ fontWeight: 800, fontSize: "0.95rem", marginBottom: "0.75rem" }}>כמעט סיימנו 🎉 — פרטי הכניסה שלך</div>
+                    <div style={{ fontWeight: 800, fontSize: "0.95rem", marginBottom: "0.75rem" }}>כמעט סיימנו — פרטי הכניסה שלך</div>
                     <div style={{ display: "grid", gap: "0.5rem", marginBottom: "0.75rem" }}>
                         <input placeholder="שם מלא" value={ownerName} onChange={e => setOwnerName(e.target.value)} style={claimInputStyle} />
                         <input type="email" placeholder="אימייל" value={email} onChange={e => setEmail(e.target.value)} dir="ltr" style={claimInputStyle} />
@@ -156,22 +155,22 @@ function ClaimBanner({ businessId, phone, primary }: { businessId: string; phone
                     </div>
                     <button type="button" onClick={completeClaim}
                         disabled={loading || ownerName.trim().length < 2 || !email.trim() || password.length < 6}
-                        style={{ width: "100%", background: primary, color: "#fff", border: "none", borderRadius: 10, padding: "0.65rem", fontWeight: 700, fontSize: "0.88rem", cursor: "pointer", opacity: loading ? 0.7 : 1 }}>
+                        style={{ width: "100%", background: "#fff", color: "#000", border: "none", borderRadius: 10, padding: "0.65rem", fontWeight: 700, fontSize: "0.88rem", cursor: "pointer", opacity: loading ? 0.7 : 1 }}>
                         {loading ? "יוצר חשבון..." : "סיים והתחל לנהל"}
                     </button>
                 </>
             )}
             {step === "done" && (
                 <div style={{ textAlign: "center" }}>
-                    <div style={{ fontSize: "2.2rem", marginBottom: "0.3rem" }}>🎉</div>
+                    <PartyPopper size={34} strokeWidth={1.5} aria-hidden style={{ marginBottom: "0.3rem" }} />
                     <div style={{ fontWeight: 800, marginBottom: "0.75rem" }}>העסק שלך אומת!</div>
                     <button type="button" onClick={() => goToBizControl("/onboarding")}
-                        style={{ width: "100%", background: "#16a34a", color: "#fff", border: "none", borderRadius: 10, padding: "0.65rem", fontWeight: 700, fontSize: "0.88rem", cursor: "pointer" }}>
+                        style={{ width: "100%", background: "#fff", color: "#000", border: "none", borderRadius: 10, padding: "0.65rem", fontWeight: 700, fontSize: "0.88rem", cursor: "pointer" }}>
                         נהל את העסק שלך עכשיו →
                     </button>
                 </div>
             )}
-            {err && <div style={{ color: "#dc2626", fontSize: "0.78rem", marginTop: "0.6rem", fontWeight: 600 }}>{err}</div>}
+            {err && <div style={{ color: "#f87171", fontSize: "0.78rem", marginTop: "0.6rem", fontWeight: 600 }}>{err}</div>}
         </div>
     );
 }
@@ -180,7 +179,6 @@ function ClaimBanner({ businessId, phone, primary }: { businessId: string; phone
 
 export default function BusinessPage() {
     const { slug } = useParams() as { slug: string };
-    const theme = usePlatformTheme();
     const [p, setP] = useState<Profile | null>(null);
     const [err, setErr] = useState<string | null>(null);
     const [lightbox, setLightbox] = useState<{ url: string; index: number } | null>(null);
@@ -239,7 +237,6 @@ export default function BusinessPage() {
         </div>
     );
 
-    const primary = theme.primary;
     let hours: Hours | null = null;
     if (p!.hours) { try { hours = JSON.parse(p!.hours); } catch {} }
     const openStatus = hours ? isOpenNow(hours) : null;
@@ -343,7 +340,7 @@ export default function BusinessPage() {
                     </div>
                 </div>
 
-                {p!.is_claimed === false && p!.business_id && <ClaimBanner businessId={p!.business_id} phone={p!.phone} primary={primary} />}
+                {p!.is_claimed === false && p!.business_id && <ClaimBanner businessId={p!.business_id} phone={p!.phone} />}
 
                 {/* ── CTA buttons ── */}
                 <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "1.5rem" }}>

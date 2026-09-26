@@ -5,7 +5,6 @@ import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { CheckCircle2, DoorOpen, Loader2, AlertCircle } from "lucide-react";
 import { apiFetch, getToken } from "@/lib/api";
-import { usePlatformTheme } from "@/lib/usePlatformTheme";
 import LoginButton from "@/components/LoginButton";
 import { ilTime } from "@/lib/classes";
 
@@ -16,13 +15,12 @@ import { ilTime } from "@/lib/classes";
 type Line = { session_id: string; name: string; starts_at: string; spots_left?: number };
 type Result = { studio: string; checked_in: Line[]; already?: Line[]; options?: Line[] };
 
-const card = { background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.08)", borderRadius: 18 } as const;
-const muted = "#94a3b8";
+const card = { background: "var(--bf-glass)", border: "1px solid var(--bf-line)", borderRadius: 18 } as const;
+const muted = "rgba(255,255,255,.68)";
 
 function Checkin() {
     const { slug } = useParams() as { slug: string };
     const key = useSearchParams().get("k") || "";
-    const primary = usePlatformTheme().primary;
     const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
     const [result, setResult] = useState<Result | null>(null);
     const [error, setError] = useState("");
@@ -54,15 +52,15 @@ function Checkin() {
         <Message icon={<AlertCircle size={40} color="#fca5a5" />} title="הקוד לא שלם" text="סרקו שוב את הקוד שבכניסה." />
     ) : loggedIn === null ? null : !loggedIn ? (
         <div style={{ ...card, padding: "1.5rem", textAlign: "center" }}>
-            <DoorOpen size={40} color={primary} style={{ margin: "0 auto 0.75rem" }} />
+            <DoorOpen size={40} color="#fff" style={{ margin: "0 auto 0.75rem" }} />
             <p style={{ fontWeight: 800, fontSize: "1.1rem", margin: "0 0 0.4rem" }}>צ׳ק-אין לשיעור</p>
             <p style={{ color: muted, fontSize: "0.9rem", margin: "0 0 1.1rem" }}>התחברו עם מספר הטלפון שלכם — אותו מספר שרשום בעסק.</p>
-            <LoginButton primary={primary} onDone={() => setLoggedIn(true)} />
+            <LoginButton onDone={() => setLoggedIn(true)} />
         </div>
     ) : error ? (
         <Message icon={<AlertCircle size={40} color="#fca5a5" />} title="לא הצלחנו לסמן הגעה" text={error} />
     ) : !result ? (
-        <div style={{ display: "flex", justifyContent: "center", padding: "3rem" }}><Loader2 className="spin" size={30} color={primary} aria-label="בודקים" /></div>
+        <div style={{ display: "flex", justifyContent: "center", padding: "3rem" }}><Loader2 className="spin" size={30} color="#fff" aria-label="בודקים" /></div>
     ) : result.checked_in.length > 0 ? (
         <Message icon={<CheckCircle2 size={56} color="#4ade80" />} title="נרשמה הגעה!"
             text={result.checked_in.map(x => `${x.name} · ${ilTime(x.starts_at)}`).join("\n")} />
@@ -76,12 +74,12 @@ function Checkin() {
             <div style={{ display: "flex", flexDirection: "column", gap: "0.55rem" }}>
                 {result.options.map(o => (
                     <button key={o.session_id} type="button" disabled={busy} onClick={() => walkIn(o.session_id)}
-                        style={{ ...card, borderRadius: 14, display: "flex", alignItems: "center", gap: "0.8rem", padding: "0.85rem 1rem", color: "#f1f5f9", cursor: "pointer", textAlign: "right", minHeight: 56 }}>
+                        style={{ ...card, borderRadius: 14, display: "flex", alignItems: "center", gap: "0.8rem", padding: "0.85rem 1rem", color: "var(--bf-text)", cursor: "pointer", textAlign: "right", minHeight: 56 }}>
                         <span style={{ flex: 1, minWidth: 0 }}>
                             <span style={{ display: "block", fontWeight: 700 }}>{o.name}</span>
                             <span dir="ltr" style={{ display: "block", fontSize: "0.82rem", color: muted, textAlign: "right" }}>{ilTime(o.starts_at)}</span>
                         </span>
-                        <span style={{ background: primary, color: "#fff", borderRadius: 10, padding: "0.45rem 0.8rem", fontWeight: 800, fontSize: "0.85rem", flexShrink: 0 }}>
+                        <span style={{ background: "#fff", color: "#000", borderRadius: 10, padding: "0.45rem 0.8rem", fontWeight: 800, fontSize: "0.85rem", flexShrink: 0 }}>
                             {busy ? "רגע…" : "להירשם ולסמן הגעה"}
                         </span>
                     </button>
@@ -93,7 +91,7 @@ function Checkin() {
     );
 
     return (
-        <div dir="rtl" style={{ minHeight: "100vh", background: "#0f172a", color: "#f1f5f9", padding: "1.5rem 1rem 6rem" }}>
+        <div dir="rtl" style={{ minHeight: "100vh", background: "var(--bf-bg)", color: "var(--bf-text)", padding: "1.5rem 1rem 6rem" }}>
             <div style={{ maxWidth: 480, margin: "0 auto", display: "flex", flexDirection: "column", gap: "1rem" }}>
                 <h1 style={{ fontSize: "1.2rem", fontWeight: 800, margin: 0, textAlign: "center" }}>{result?.studio ?? "צ׳ק-אין"}</h1>
                 {body}
@@ -111,7 +109,7 @@ function Message({ icon, title, text }: { icon: React.ReactNode; title: string; 
         <div role="status" style={{ ...card, padding: "2rem 1.25rem", textAlign: "center" }}>
             <div style={{ display: "flex", justifyContent: "center", marginBottom: "0.9rem" }}>{icon}</div>
             <p style={{ fontWeight: 800, fontSize: "1.25rem", margin: "0 0 0.5rem" }}>{title}</p>
-            <p style={{ color: "#cbd5e1", margin: 0, whiteSpace: "pre-line", lineHeight: 1.7 }}>{text}</p>
+            <p style={{ color: "var(--bf-muted)", margin: 0, whiteSpace: "pre-line", lineHeight: 1.7 }}>{text}</p>
         </div>
     );
 }

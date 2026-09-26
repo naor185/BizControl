@@ -3,7 +3,8 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { API, apiFetch, imgUrl, getToken } from "@/lib/api";
-import { CalendarDays, ChevronLeft } from "lucide-react";
+import { ArrowRight, Building2, CalendarDays, Camera, ChevronLeft, ExternalLink, Receipt as ReceiptIcon } from "lucide-react";
+import { GLASS_CARD } from "@/lib/look";
 import { type Mine, whenText } from "@/lib/classes";
 
 interface Business {
@@ -96,16 +97,16 @@ export default function BusinessDetailPage() {
     }, [slug]);
 
     return (
-        <div dir="rtl" style={{ minHeight: "100vh", background: "#0f172a", color: "#f1f5f9", padding: "1.5rem 1rem 5rem" }}>
+        <div dir="rtl" style={{ minHeight: "100vh", background: "var(--bf-bg)", color: "var(--bf-text)", padding: "1.5rem 1rem 5rem" }}>
             {/* Header */}
             <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "1.5rem" }}>
-                <Link href="/me" style={{ color: "#94a3b8", textDecoration: "none", fontSize: "1.2rem" }}>←</Link>
-                <h1 style={{ fontSize: "1.25rem", fontWeight: 800, margin: 0 }}>🏢 העסק שלי</h1>
+                <Link href="/me" aria-label="חזרה" style={{ color: "var(--bf-muted)", textDecoration: "none", display: "flex" }}><ArrowRight size={20} /></Link>
+                <h1 style={{ fontSize: "1.25rem", fontWeight: 800, margin: 0, display: "flex", alignItems: "center", gap: "0.45rem" }}><Building2 size={20} aria-hidden /> העסק שלי</h1>
             </div>
 
             {loading && (
-                <div style={{ textAlign: "center", padding: "3rem", color: "#64748b" }}>
-                    <div style={{ width: 36, height: 36, border: "3px solid rgba(167,139,250,.2)", borderTopColor: "#a78bfa", borderRadius: "50%", animation: "spin .8s linear infinite", margin: "0 auto 1rem" }} />
+                <div style={{ textAlign: "center", padding: "3rem", color: "var(--bf-muted)" }}>
+                    <div style={{ width: 36, height: 36, border: "3px solid rgba(255,255,255,.18)", borderTopColor: "#fff", borderRadius: "50%", animation: "spin .8s linear infinite", margin: "0 auto 1rem" }} />
                     טוען...
                 </div>
             )}
@@ -117,23 +118,23 @@ export default function BusinessDetailPage() {
             {!loading && !error && business && (
                 <>
                     {/* Business identity */}
-                    <div style={{ background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.08)", borderRadius: 16, padding: "1.1rem", display: "flex", alignItems: "center", gap: "0.9rem", marginBottom: "2rem" }}>
-                        <div style={{ width: 56, height: 56, borderRadius: 14, background: "#7c3aed", overflow: "hidden", flexShrink: 0 }}>
+                    <div style={{ ...GLASS_CARD, borderRadius: 16, padding: "1.1rem", display: "flex", alignItems: "center", gap: "0.9rem", marginBottom: "2rem" }}>
+                        <div style={{ width: 56, height: 56, borderRadius: 14, background: "var(--bf-glass-strong)", overflow: "hidden", flexShrink: 0 }}>
                             {(business.cover_url || business.logo_url) && (
                                 <img src={imgUrl(business.cover_url || business.logo_url)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                             )}
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontWeight: 800, fontSize: "1.05rem" }}>{business.studio_name}</div>
-                            <div style={{ color: "#94a3b8", fontSize: "0.8rem", marginTop: "0.2rem" }}>{business.visit_count} ביקורים</div>
+                            <div style={{ color: "var(--bf-muted)", fontSize: "0.8rem", marginTop: "0.2rem" }}>{business.visit_count} ביקורים</div>
                         </div>
                         {business.is_club_member && (
-                            <div style={{ textAlign: "center", background: "rgba(167,139,250,.12)", border: "1px solid rgba(167,139,250,.25)", borderRadius: 12, padding: "0.4rem 0.7rem" }}>
-                                <div style={{ fontWeight: 800, fontSize: "1rem", color: "#a78bfa" }}>{business.loyalty_points}</div>
-                                <div style={{ fontSize: "0.65rem", color: "#94a3b8" }}>נקודות</div>
+                            <div style={{ textAlign: "center", background: "#fff", borderRadius: 12, padding: "0.4rem 0.7rem" }}>
+                                <div style={{ fontWeight: 800, fontSize: "1rem", color: "#000" }}>{business.loyalty_points}</div>
+                                <div style={{ fontSize: "0.65rem", color: "#444" }}>נקודות</div>
                             </div>
                         )}
-                        <Link href={`/b/${business.studio_slug}`} style={{ color: "#64748b", fontSize: "1.1rem", textDecoration: "none" }}>↗</Link>
+                        <Link href={`/b/${business.studio_slug}`} aria-label="לדף העסק" style={{ color: "var(--bf-muted)", textDecoration: "none", display: "flex" }}><ExternalLink size={18} /></Link>
                     </div>
 
                     {/* Add to Wallet — only for active club members, only when the
@@ -145,7 +146,7 @@ export default function BusinessDetailPage() {
                                     type="button"
                                     onClick={() => downloadAppleWallet(business.apple_wallet_url!)}
                                     disabled={downloadingPass}
-                                    style={{ flex: 1, background: "#000", color: "#fff", border: "none", borderRadius: 12, padding: "0.75rem", fontWeight: 700, fontSize: "0.85rem", cursor: downloadingPass ? "not-allowed" : "pointer", opacity: downloadingPass ? 0.6 : 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "0.4rem" }}
+                                    style={{ flex: 1, background: "#000", color: "#fff", border: "1px solid var(--bf-line)", borderRadius: 12, padding: "0.75rem", fontWeight: 700, fontSize: "0.85rem", cursor: downloadingPass ? "not-allowed" : "pointer", opacity: downloadingPass ? 0.6 : 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "0.4rem" }}
                                 >
                                     <span></span> {downloadingPass ? "טוען..." : "הוסף ל-Apple Wallet"}
                                 </button>
@@ -166,28 +167,28 @@ export default function BusinessDetailPage() {
                     {/* Group classes: my membership and my next class */}
                     {classes && classes.is_client && (
                         <Link href={`/b/${business.studio_slug}/classes`}
-                            style={{ background: "rgba(255,255,255,.04)", border: "1px solid rgba(167,139,250,.3)", borderRadius: 16, padding: "1rem", display: "flex", alignItems: "center", gap: "0.8rem", marginBottom: "2rem", color: "inherit", textDecoration: "none" }}>
-                            <CalendarDays size={24} color="#a78bfa" style={{ flexShrink: 0 }} aria-hidden />
+                            style={{ ...GLASS_CARD, borderRadius: 16, padding: "1rem", display: "flex", alignItems: "center", gap: "0.8rem", marginBottom: "2rem", color: "inherit", textDecoration: "none" }}>
+                            <CalendarDays size={24} color="#fff" style={{ flexShrink: 0 }} aria-hidden />
                             <div style={{ flex: 1, minWidth: 0 }}>
                                 <div style={{ fontWeight: 800 }}>
                                     שיעורים{classes.memberships[0] ? ` · ${classes.memberships[0].name}` : ""}
                                     {classes.memberships[0]?.entries_left != null ? ` · נותרו ${classes.memberships[0].entries_left}` : ""}
                                 </div>
-                                <div style={{ color: "#94a3b8", fontSize: "0.8rem", marginTop: 2 }}>
+                                <div style={{ color: "var(--bf-muted)", fontSize: "0.8rem", marginTop: 2 }}>
                                     {classes.upcoming[0] ? `הבא: ${classes.upcoming[0].name}, ${whenText(classes.upcoming[0].starts_at)}` : "לוח השיעורים והרשמה"}
                                 </div>
                             </div>
-                            <ChevronLeft size={20} color="#64748b" aria-hidden />
+                            <ChevronLeft size={20} color="var(--bf-faint)" aria-hidden />
                         </Link>
                     )}
 
                     {/* Receipts */}
                     <section style={{ marginBottom: "2rem" }}>
-                        <h2 style={{ fontSize: "0.8rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.75rem" }}>
-                            🧾 קבלות {receipts.length > 0 && `(${receipts.length})`}
+                        <h2 style={SECTION}>
+                            <ReceiptIcon size={14} aria-hidden /> קבלות {receipts.length > 0 && `(${receipts.length})`}
                         </h2>
                         {receipts.length === 0 ? (
-                            <div style={{ color: "#64748b", fontSize: "0.85rem", padding: "0.5rem 0" }}>אין קבלות עדיין</div>
+                            <div style={{ color: "var(--bf-muted)", fontSize: "0.85rem", padding: "0.5rem 0" }}>אין קבלות עדיין</div>
                         ) : (
                             <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
                                 {receipts.map(inv => (
@@ -195,13 +196,13 @@ export default function BusinessDetailPage() {
                                         key={inv.id}
                                         type="button"
                                         onClick={() => window.open(`${API}/receipt/${inv.id}`, "_blank")}
-                                        style={{ background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.08)", borderRadius: 14, padding: "0.85rem 1rem", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", textAlign: "right", width: "100%" }}
+                                        style={{ ...GLASS_CARD, borderRadius: 14, padding: "0.85rem 1rem", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", textAlign: "right", width: "100%" }}
                                     >
                                         <div>
-                                            <div style={{ fontSize: "0.82rem", fontWeight: 700, color: "#f1f5f9" }}>{inv.doc_type_label} #{inv.doc_number}</div>
-                                            <div style={{ color: "#64748b", fontSize: "0.75rem" }}>{inv.issued_at ? new Date(inv.issued_at).toLocaleDateString("he-IL") : ""}</div>
+                                            <div style={{ fontSize: "0.82rem", fontWeight: 700, color: "var(--bf-text)" }}>{inv.doc_type_label} #{inv.doc_number}</div>
+                                            <div style={{ color: "var(--bf-faint)", fontSize: "0.75rem" }}>{inv.issued_at ? new Date(inv.issued_at).toLocaleDateString("he-IL") : ""}</div>
                                         </div>
-                                        <span style={{ fontWeight: 800, color: "#4ade80", fontSize: "0.9rem" }}>₪{inv.total_ils.toFixed(2)}</span>
+                                        <span style={{ fontWeight: 800, color: "var(--bf-text)", fontSize: "0.92rem", fontVariantNumeric: "tabular-nums" }}>₪{inv.total_ils.toFixed(2)}</span>
                                     </button>
                                 ))}
                             </div>
@@ -210,15 +211,15 @@ export default function BusinessDetailPage() {
 
                     {/* Treatment photos */}
                     <section>
-                        <h2 style={{ fontSize: "0.8rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.75rem" }}>
-                            📸 תמונות טיפול {photos.length > 0 && `(${photos.length})`}
+                        <h2 style={SECTION}>
+                            <Camera size={14} aria-hidden /> תמונות טיפול {photos.length > 0 && `(${photos.length})`}
                         </h2>
                         {photos.length === 0 ? (
-                            <div style={{ color: "#64748b", fontSize: "0.85rem", padding: "0.5rem 0" }}>אין תמונות עדיין</div>
+                            <div style={{ color: "var(--bf-muted)", fontSize: "0.85rem", padding: "0.5rem 0" }}>אין תמונות עדיין</div>
                         ) : (
                             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0.6rem" }}>
                                 {photos.map(p => (
-                                    <a key={p.id} href={imgUrl(p.photo_url)} target="_blank" rel="noopener noreferrer" style={{ aspectRatio: "1", borderRadius: 12, overflow: "hidden", background: "rgba(255,255,255,.04)", display: "block" }}>
+                                    <a key={p.id} href={imgUrl(p.photo_url)} target="_blank" rel="noopener noreferrer" style={{ aspectRatio: "1", borderRadius: 12, overflow: "hidden", background: "#111", display: "block" }}>
                                         <img src={imgUrl(p.photo_url)} alt={p.caption || ""} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                                     </a>
                                 ))}
@@ -232,3 +233,7 @@ export default function BusinessDetailPage() {
         </div>
     );
 }
+
+const SECTION: React.CSSProperties = {
+    display: "flex", alignItems: "center", gap: "0.35rem", fontSize: "0.8rem", fontWeight: 700, color: "var(--bf-faint)", letterSpacing: "0.06em", marginBottom: "0.75rem",
+};

@@ -1,6 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { Check, ChevronLeft, Rocket, Zap } from "lucide-react";
+import { GLASS_CARD, PRIMARY_BTN } from "@/lib/look";
 
 const API = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
 
@@ -30,40 +32,41 @@ function PlanCard({
 }) {
     return (
         <div style={{
-            border: featured ? "2.5px solid #7c3aed" : "1.5px solid #e2e8f0",
-            borderRadius: 20,
+            ...GLASS_CARD,
+            border: featured ? "1.5px solid #fff" : "1px solid var(--bf-line)",
             padding: "2rem 1.5rem",
-            background: "#fff",
             position: "relative",
-            boxShadow: featured ? "0 8px 40px rgba(124,58,237,.18)" : "0 2px 12px rgba(0,0,0,.05)",
+            boxShadow: featured ? "0 10px 40px rgba(255,255,255,.08)" : "none",
             display: "flex",
             flexDirection: "column" as const,
         }}>
             {tier.badge && (
-                <div style={{ position: "absolute", top: -13, left: "50%", transform: "translateX(-50%)", background: "#7c3aed", color: "#fff", fontWeight: 800, fontSize: "0.75rem", padding: "0.25rem 0.8rem", borderRadius: 20 }}>
+                <div style={{ position: "absolute", top: -13, left: "50%", transform: "translateX(-50%)", background: "#fff", color: "#000", fontWeight: 800, fontSize: "0.75rem", padding: "0.25rem 0.8rem", borderRadius: 20 }}>
                     {tier.badge}
                 </div>
             )}
-            <div style={{ fontWeight: 900, fontSize: "1.2rem", color: "#1e1b4b", marginBottom: "0.35rem" }}>{tier.label}</div>
+            <div style={{ fontWeight: 800, fontSize: "1.2rem", color: "var(--bf-text)", marginBottom: "0.35rem" }}>{tier.label}</div>
             <div style={{ marginBottom: "1.25rem" }}>
-                <span style={{ fontSize: "2.2rem", fontWeight: 900, color: "#1e1b4b" }}>₪{tier.price}</span>
-                <span style={{ fontSize: "0.85rem", color: "#94a3b8", marginRight: "0.3rem" }}>/ חודש</span>
+                <span style={{ fontSize: "2.2rem", fontWeight: 900, color: "var(--bf-text)", fontVariantNumeric: "tabular-nums" }}>₪{tier.price}</span>
+                <span style={{ fontSize: "0.85rem", color: "var(--bf-faint)", marginRight: "0.3rem" }}>/ חודש</span>
             </div>
             <ul style={{ listStyle: "none", padding: 0, margin: "0 0 1.5rem", flex: 1 }}>
                 {tier.features.map(f => (
-                    <li key={f} style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem", fontSize: "0.88rem", color: "#374151", marginBottom: "0.55rem" }}>
-                        <span style={{ color: "#7c3aed", fontWeight: 700, marginTop: "0.05rem" }}>✓</span> {f}
+                    <li key={f} style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem", fontSize: "0.88rem", color: "var(--bf-muted)", marginBottom: "0.55rem" }}>
+                        <Check size={15} color="#fff" style={{ flexShrink: 0, marginTop: 2 }} aria-hidden /> {f}
                     </li>
                 ))}
             </ul>
             <Link
                 href={`/for-business/register?plan=${tier.key}`}
                 style={{
-                    display: "block",
-                    textAlign: "center",
-                    background: featured ? "linear-gradient(135deg,#7c3aed,#4f46e5)" : "#f8fafc",
-                    color: featured ? "#fff" : "#7c3aed",
-                    border: featured ? "none" : "1.5px solid #ede9fe",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "0.2rem",
+                    background: featured ? "#fff" : "var(--bf-glass)",
+                    color: featured ? "#000" : "var(--bf-text)",
+                    border: featured ? "none" : "1px solid var(--bf-line)",
                     padding: "0.75rem",
                     borderRadius: 12,
                     fontWeight: 800,
@@ -72,7 +75,7 @@ function PlanCard({
                     transition: "opacity .15s",
                 }}
             >
-                התחילו עכשיו ←
+                התחילו עכשיו <ChevronLeft size={16} aria-hidden />
             </Link>
         </div>
     );
@@ -104,46 +107,45 @@ export default function PricingPage() {
     }, []);
 
     return (
-        <div dir="rtl" style={{ color: "#1e293b", background: "#fafafa", minHeight: "100vh" }}>
+        <div dir="rtl" style={{ color: "var(--bf-text)", background: "var(--bf-bg)", minHeight: "100vh" }}>
 
             {/* Header */}
-            <header style={{ background: "#fff", borderBottom: "1px solid #e2e8f0", padding: "0 1.5rem", height: 64, display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 50 }}>
+            <header style={{ background: "rgba(0,0,0,.85)", backdropFilter: "blur(14px)", borderBottom: "1px solid var(--bf-line)", padding: "0 1.5rem", height: 64, display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 50 }}>
                 <Link href="/" style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                    <div style={{ width: 32, height: 32, borderRadius: 8, background: "linear-gradient(135deg,#7c3aed,#4f46e5)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 900, fontSize: "0.85rem" }}>B</div>
-                    <span style={{ fontWeight: 800, fontSize: "1.1rem", color: "#1e1b4b" }}>BizFind</span>
+                    <img src="/logo.png" alt="" style={{ width: 32, height: 32, objectFit: "contain" }} />
+                    <span style={{ fontWeight: 800, fontSize: "1.1rem", color: "var(--bf-text)" }}>BizFind</span>
                 </Link>
-                <Link href="/studio/login" style={{ color: "#7c3aed", fontWeight: 600, fontSize: "0.9rem", textDecoration: "none" }}>כניסה לעסקים</Link>
+                <Link href="/studio/login" style={{ color: "var(--bf-muted)", fontWeight: 600, fontSize: "0.9rem", textDecoration: "none" }}>כניסה לעסקים</Link>
             </header>
 
             <div style={{ maxWidth: 1100, margin: "0 auto", padding: "4rem 1.5rem" }}>
 
                 {/* Hero */}
                 <div style={{ textAlign: "center", marginBottom: "3.5rem" }}>
-                    <h1 style={{ fontSize: "clamp(2rem,4vw,2.8rem)", fontWeight: 900, color: "#1e1b4b", marginBottom: "0.75rem" }}>
+                    <h1 style={{ fontSize: "clamp(2rem,4vw,2.8rem)", fontWeight: 900, color: "var(--bf-text)", marginBottom: "0.75rem" }}>
                         בחרו את התוכנית המתאימה לכם
                     </h1>
-                    <p style={{ fontSize: "1.05rem", color: "#64748b", maxWidth: 560, margin: "0 auto 1.5rem" }}>
+                    <p style={{ fontSize: "1.05rem", color: "var(--bf-muted)", maxWidth: 560, margin: "0 auto 1.5rem" }}>
                         כל התוכניות כוללות {trialDays} יום ניסיון חינמי. ללא כרטיס אשראי.
                     </p>
 
                     {/* Trial banner */}
                     <Link href="/for-business/register?plan=trial" style={{
-                        display: "inline-flex", alignItems: "center", gap: "0.6rem",
-                        background: "linear-gradient(135deg,#7c3aed,#4f46e5)",
-                        color: "#fff", padding: "0.9rem 2rem", borderRadius: 14,
-                        fontWeight: 800, fontSize: "1rem", textDecoration: "none",
-                        boxShadow: "0 4px 20px rgba(124,58,237,.35)",
+                        ...PRIMARY_BTN, display: "inline-flex", padding: "0.9rem 2rem", fontSize: "1rem",
                     }}>
-                        🚀 התחילו ניסיון חינמי {trialDays} יום ←
+                        <Rocket size={18} aria-hidden /> התחילו ניסיון חינמי {trialDays} יום <ChevronLeft size={18} aria-hidden />
                     </Link>
-                    <p style={{ color: "#94a3b8", fontSize: "0.8rem", marginTop: "0.6rem" }}>✅ ללא כרטיס אשראי &nbsp;·&nbsp; ✅ מבטלים מתי שרוצים</p>
+                    <p style={{ color: "var(--bf-faint)", fontSize: "0.8rem", marginTop: "0.6rem", display: "flex", gap: "0.9rem", justifyContent: "center", flexWrap: "wrap" }}>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem" }}><Check size={13} aria-hidden /> ללא כרטיס אשראי</span>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem" }}><Check size={13} aria-hidden /> מבטלים מתי שרוצים</span>
+                    </p>
                 </div>
 
                 {/* ── Plans ── */}
                 <div style={{ marginBottom: "4rem" }}>
-                    <div style={{ background: "#f0fdf4", border: "1.5px solid #bbf7d0", borderRadius: 16, padding: "1.25rem 1.5rem", marginBottom: "1.25rem", maxWidth: 640, marginInline: "auto" }}>
-                        <div style={{ fontWeight: 900, fontSize: "1.1rem", color: "#16a34a", marginBottom: "0.3rem" }}>⚡ BizFind + BizControl</div>
-                        <div style={{ fontSize: "0.88rem", color: "#64748b" }}>
+                    <div style={{ ...GLASS_CARD, borderRadius: 16, padding: "1.25rem 1.5rem", marginBottom: "1.75rem", maxWidth: 640, marginInline: "auto" }}>
+                        <div style={{ fontWeight: 800, fontSize: "1.1rem", color: "var(--bf-text)", marginBottom: "0.3rem", display: "flex", alignItems: "center", gap: "0.35rem" }}><Zap size={18} aria-hidden /> BizFind + BizControl</div>
+                        <div style={{ fontSize: "0.88rem", color: "var(--bf-muted)" }}>
                             כל תוכנית כוללת הופעה בחיפוש BizFind + מערכת ניהול מלאה: יומן, CRM, קופה, חשבוניות ואוטומציות.
                         </div>
                     </div>
@@ -155,17 +157,17 @@ export default function PricingPage() {
                 </div>
 
                 {/* FAQ */}
-                <div style={{ maxWidth: 640, margin: "0 auto", background: "#fff", borderRadius: 20, border: "1px solid #e2e8f0", padding: "2rem" }}>
-                    <h2 style={{ fontWeight: 900, fontSize: "1.2rem", marginBottom: "1.5rem", color: "#1e1b4b" }}>שאלות נפוצות</h2>
+                <div style={{ ...GLASS_CARD, maxWidth: 640, margin: "0 auto", padding: "2rem" }}>
+                    <h2 style={{ fontWeight: 800, fontSize: "1.2rem", marginBottom: "1.5rem", color: "var(--bf-text)" }}>שאלות נפוצות</h2>
                     {[
                         ["האם ניסיון חינמי כולל גם BizControl?", `כן! הניסיון של ${trialDays} יום כולל גישה מלאה לכל הפיצ׳רים, כולל מערכת הניהול של BizControl.`],
                         ["מה קורה בסוף הניסיון?", "תקבלו התראה 7 ו-3 ימים לפני הסיום. יש לבחור תוכנית ולשדרג לפני שהניסיון מסתיים — אחרת הגישה למערכת נחסמת עד לשדרוג."],
                         ["האם הנתונים משותפים בין BizFind ל-BizControl?", "כן. שתי הפלטפורמות עובדות על אותה מערכת — נרשמים פעם אחת, הנתונים זמינים בכל מקום."],
                         ["אפשר לשדרג בכל שלב?", "בהחלט. שדרוג פועל באופן מיידי ואתם משלמים רק על ההפרש."],
                     ].map(([q, a]) => (
-                        <div key={q} style={{ borderBottom: "1px solid #f1f5f9", paddingBottom: "1rem", marginBottom: "1rem" }}>
-                            <div style={{ fontWeight: 700, color: "#1e1b4b", marginBottom: "0.3rem", fontSize: "0.92rem" }}>{q}</div>
-                            <div style={{ color: "#64748b", fontSize: "0.88rem", lineHeight: 1.6 }}>{a}</div>
+                        <div key={q} style={{ borderBottom: "1px solid var(--bf-line)", paddingBottom: "1rem", marginBottom: "1rem" }}>
+                            <div style={{ fontWeight: 700, color: "var(--bf-text)", marginBottom: "0.3rem", fontSize: "0.92rem" }}>{q}</div>
+                            <div style={{ color: "var(--bf-muted)", fontSize: "0.88rem", lineHeight: 1.6 }}>{a}</div>
                         </div>
                     ))}
                 </div>

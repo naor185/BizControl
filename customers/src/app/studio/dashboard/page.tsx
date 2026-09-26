@@ -16,15 +16,15 @@ export default function StudioDashboardRedirect() {
     return (
         <div style={{
             minHeight: "100vh", display: "flex", alignItems: "center",
-            justifyContent: "center", background: "#f8fafc",
+            justifyContent: "center", background: "#000",
             flexDirection: "column", gap: "1rem",
         }}>
             <div style={{
                 width: 44, height: 44, borderRadius: "50%",
-                border: "4px solid #ede9fe", borderTopColor: "#7c3aed",
+                border: "4px solid rgba(255,255,255,.18)", borderTopColor: "#fff",
                 animation: "spin .8s linear infinite",
             }} />
-            <p style={{ color: "#64748b", fontSize: "0.9rem" }}>מעביר אותך ל-BizControl...</p>
+            <p style={{ color: "rgba(255,255,255,.68)", fontSize: "0.9rem" }}>מעביר אותך ל-BizControl...</p>
             <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
         </div>
     );

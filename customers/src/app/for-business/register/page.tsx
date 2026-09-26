@@ -4,15 +4,17 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { API } from "@/lib/api";
 import { setStudioToken, goToBizControl } from "@/lib/handoff";
+import { Check, PartyPopper, Rocket, Zap, type LucideIcon } from "lucide-react";
 import PasswordInput from "@/components/PasswordInput";
+import { GLASS_CARD, OPTION_STYLE } from "@/lib/look";
 
 // ── Plan display config ───────────────────────────────────────────────────────
 
-const PLAN_META: Record<string, { label: string; price: string; scope: string; color: string; icon: string }> = {
-    trial:          { label: "ניסיון חינמי 14 יום", price: "חינם",    scope: "BizFind + BizControl",  color: "#7c3aed", icon: "🚀" },
-    starter:        { label: "BizControl Starter",   price: "₪199/חודש",scope: "BizFind + BizControl", color: "#16a34a", icon: "⚡" },
-    pro:            { label: "BizControl Pro",        price: "₪349/חודש",scope: "BizFind + BizControl", color: "#16a34a", icon: "⚡" },
-    studio:         { label: "BizControl Studio",     price: "₪499/חודש",scope: "BizFind + BizControl", color: "#16a34a", icon: "⚡" },
+const PLAN_META: Record<string, { label: string; price: string; scope: string; icon: LucideIcon }> = {
+    trial:          { label: "ניסיון חינמי 14 יום", price: "חינם",    scope: "BizFind + BizControl",  icon: Rocket },
+    starter:        { label: "BizControl Starter",   price: "₪199/חודש",scope: "BizFind + BizControl", icon: Zap },
+    pro:            { label: "BizControl Pro",        price: "₪349/חודש",scope: "BizFind + BizControl", icon: Zap },
+    studio:         { label: "BizControl Studio",     price: "₪499/חודש",scope: "BizFind + BizControl", icon: Zap },
 };
 
 // The business types come from the one list (GET /api/public/business-types) — BizFind lists every
@@ -29,7 +31,7 @@ function Steps({ current, total }: { current: number; total: number }) {
                     width: i < current ? 28 : 10,
                     height: 6,
                     borderRadius: 6,
-                    background: i < current ? "#7c3aed" : i === current - 1 ? "#7c3aed" : "#e2e8f0",
+                    background: i < current ? "#fff" : "rgba(255,255,255,.15)",
                     transition: "all .3s",
                 }} />
             ))}
@@ -65,6 +67,7 @@ function RegisterInner() {
     }, []);
 
     const plan = PLAN_META[planKey] || PLAN_META["trial"];
+    const PlanIcon = plan.icon;
     const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
 
     const next = () => { setErr(null); setStep(s => s + 1); };
@@ -111,33 +114,32 @@ function RegisterInner() {
     };
 
     const inputStyle = {
-        width: "100%", border: "1.5px solid #e2e8f0", borderRadius: 12,
+        width: "100%", border: "1px solid rgba(255,255,255,.16)", borderRadius: 12,
         padding: "0.75rem 1rem", fontSize: "1rem", outline: "none",
-        color: "#1e293b", background: "#fff",
-        boxSizing: "border-box" as const,
+        color: "#fff", background: "rgba(255,255,255,.07)",
+        boxSizing: "border-box" as const, colorScheme: "dark" as const,
     };
-    const labelStyle = { display: "block", fontSize: "0.85rem", fontWeight: 700, color: "#374151", marginBottom: "0.45rem" };
+    const labelStyle = { display: "block", fontSize: "0.85rem", fontWeight: 700, color: "var(--bf-muted)", marginBottom: "0.45rem" };
 
     if (success) {
         return (
             <div style={{ textAlign: "center", padding: "2rem 0.5rem" }}>
-                <div style={{ fontSize: "3.5rem", marginBottom: "0.75rem" }}>🎉</div>
-                <h2 style={{ fontWeight: 900, color: "#1e1b4b", marginBottom: "0.4rem", fontSize: "1.4rem" }}>ברוכים הבאים!</h2>
-                <p style={{ color: "#64748b", fontSize: "0.9rem", marginBottom: "1.75rem" }}>
+                <PartyPopper size={48} strokeWidth={1.5} aria-hidden style={{ marginBottom: "0.75rem" }} />
+                <h2 style={{ fontWeight: 900, color: "var(--bf-text)", marginBottom: "0.4rem", fontSize: "1.4rem" }}>ברוכים הבאים!</h2>
+                <p style={{ color: "var(--bf-muted)", fontSize: "0.9rem", marginBottom: "1.75rem" }}>
                     העסק שלכם נרשם בהצלחה.
                 </p>
 
-                <div style={{ background: "#f5f3ff", border: "1.5px solid #ede9fe", borderRadius: 16, padding: "1.25rem", marginBottom: "1.25rem", textAlign: "right" }}>
-                    <div style={{ fontWeight: 800, color: "#7c3aed", marginBottom: "0.35rem" }}>⚡ הצעד הבא — הגדרת BizControl</div>
-                    <div style={{ fontSize: "0.85rem", color: "#64748b", lineHeight: 1.6 }}>
+                <div style={{ ...GLASS_CARD, borderRadius: 16, padding: "1.25rem", marginBottom: "1.25rem", textAlign: "right" }}>
+                    <div style={{ fontWeight: 800, color: "var(--bf-text)", marginBottom: "0.35rem", display: "flex", alignItems: "center", gap: "0.35rem" }}><Zap size={16} aria-hidden /> הצעד הבא — הגדרת BizControl</div>
+                    <div style={{ fontSize: "0.85rem", color: "var(--bf-muted)", lineHeight: 1.6 }}>
                         כדי לפתוח את היומן, CRM, תשלומים ואוטומציות — כנסו ל-BizControl והשלימו את הגדרות העסק.
                     </div>
                 </div>
                 <button type="button" onClick={() => goToBizControl("/onboarding")} style={{
-                    display: "block", width: "100%", background: "linear-gradient(135deg,#7c3aed,#4f46e5)",
-                    color: "#fff", border: "none", textDecoration: "none", padding: "0.9rem",
+                    display: "block", width: "100%", background: "#fff",
+                    color: "#000", border: "none", textDecoration: "none", padding: "0.9rem",
                     borderRadius: 14, fontWeight: 800, fontSize: "1rem", cursor: "pointer",
-                    boxShadow: "0 4px 16px rgba(124,58,237,.35)",
                 }}>
                     פתח BizControl ← הגדר את העסק שלי
                 </button>
@@ -152,10 +154,10 @@ function RegisterInner() {
             {/* Step 1 — Plan selection */}
             {step === 1 && (
                 <div>
-                    <h2 style={{ fontWeight: 900, fontSize: "1.4rem", color: "#1e1b4b", textAlign: "center", marginBottom: "0.5rem" }}>
+                    <h2 style={{ fontWeight: 900, fontSize: "1.4rem", color: "var(--bf-text)", textAlign: "center", marginBottom: "0.5rem" }}>
                         בחרו תוכנית
                     </h2>
-                    <p style={{ color: "#64748b", textAlign: "center", fontSize: "0.88rem", marginBottom: "1.75rem" }}>
+                    <p style={{ color: "var(--bf-muted)", textAlign: "center", fontSize: "0.88rem", marginBottom: "1.75rem" }}>
                         כל התוכניות כוללות 14 יום ניסיון חינמי
                     </p>
 
@@ -167,53 +169,52 @@ function RegisterInner() {
                             const sel = planKey === key;
                             return (
                                 <button key={key} onClick={() => setPlanKey(key)} style={{
-                                    border: sel ? "2.5px solid #7c3aed" : "1.5px solid #e2e8f0",
-                                    borderRadius: 14, padding: "1rem 1.25rem",
-                                    background: sel ? "#f5f3ff" : "#fff",
+                                    border: sel ? "1.5px solid #fff" : "1px solid var(--bf-line)",
+                                    borderRadius: 14, padding: "1rem 1.25rem", color: "var(--bf-text)",
+                                    background: sel ? "var(--bf-glass-strong)" : "var(--bf-glass)",
                                     cursor: "pointer", textAlign: "right", display: "flex",
                                     alignItems: "center", gap: "0.75rem", transition: "all .15s",
                                 }}>
-                                    <span style={{ fontSize: "1.4rem" }}>{p.icon}</span>
+                                    <p.icon size={22} aria-hidden />
                                     <div style={{ flex: 1 }}>
-                                        <div style={{ fontWeight: 800, color: "#1e1b4b" }}>{p.label}</div>
-                                        <div style={{ fontSize: "0.8rem", color: "#64748b" }}>{p.scope} — ללא כרטיס אשראי</div>
+                                        <div style={{ fontWeight: 800, color: "var(--bf-text)" }}>{p.label}</div>
+                                        <div style={{ fontSize: "0.8rem", color: "var(--bf-muted)" }}>{p.scope} — ללא כרטיס אשראי</div>
                                     </div>
-                                    <div style={{ fontWeight: 900, color: "#7c3aed", fontSize: "1.1rem" }}>{p.price}</div>
-                                    {sel && <span style={{ color: "#7c3aed" }}>✓</span>}
+                                    <div style={{ fontWeight: 900, color: "var(--bf-text)", fontSize: "1.1rem" }}>{p.price}</div>
+                                    {sel && <Check size={18} aria-hidden />}
                                 </button>
                             );
                         })}
 
-                        <div style={{ textAlign: "center", fontSize: "0.8rem", color: "#94a3b8", margin: "0.25rem 0" }}>— או בחרו תוכנית בתשלום —</div>
+                        <div style={{ textAlign: "center", fontSize: "0.8rem", color: "var(--bf-faint)", margin: "0.25rem 0" }}>— או בחרו תוכנית בתשלום —</div>
 
                         {/* Paid plans */}
                         {(["starter", "pro", "studio"] as const).map(key => {
                             const p = PLAN_META[key];
                             const sel = planKey === key;
-                            const isBizControl = p.scope.includes("BizControl");
                             return (
                                 <button key={key} onClick={() => setPlanKey(key)} style={{
-                                    border: sel ? `2.5px solid ${p.color}` : "1.5px solid #e2e8f0",
-                                    borderRadius: 14, padding: "0.9rem 1.25rem",
-                                    background: sel ? (isBizControl ? "#f0fdf4" : "#f0f9ff") : "#fff",
+                                    border: sel ? "1.5px solid #fff" : "1px solid var(--bf-line)",
+                                    borderRadius: 14, padding: "0.9rem 1.25rem", color: "var(--bf-text)",
+                                    background: sel ? "var(--bf-glass-strong)" : "var(--bf-glass)",
                                     cursor: "pointer", textAlign: "right", display: "flex",
                                     alignItems: "center", gap: "0.75rem", transition: "all .15s",
                                 }}>
-                                    <span style={{ fontSize: "1.2rem" }}>{p.icon}</span>
+                                    <p.icon size={20} aria-hidden />
                                     <div style={{ flex: 1 }}>
-                                        <div style={{ fontWeight: 800, color: "#1e1b4b", fontSize: "0.95rem" }}>{p.label}</div>
-                                        <div style={{ fontSize: "0.78rem", color: "#64748b" }}>{p.scope}</div>
+                                        <div style={{ fontWeight: 800, color: "var(--bf-text)", fontSize: "0.95rem" }}>{p.label}</div>
+                                        <div style={{ fontSize: "0.78rem", color: "var(--bf-muted)" }}>{p.scope}</div>
                                     </div>
-                                    <div style={{ fontWeight: 900, color: p.color, fontSize: "0.95rem" }}>{p.price}</div>
-                                    {sel && <span style={{ color: p.color }}>✓</span>}
+                                    <div style={{ fontWeight: 900, color: "var(--bf-text)", fontSize: "0.95rem" }}>{p.price}</div>
+                                    {sel && <Check size={18} aria-hidden />}
                                 </button>
                             );
                         })}
                     </div>
 
                     <button onClick={next} disabled={!canStep1} style={{
-                        width: "100%", background: "linear-gradient(135deg,#7c3aed,#4f46e5)",
-                        color: "#fff", border: "none", borderRadius: 14, padding: "0.9rem",
+                        width: "100%", background: "#fff",
+                        color: "#000", border: "none", borderRadius: 14, padding: "0.9rem",
                         fontWeight: 800, fontSize: "1rem", cursor: "pointer", opacity: canStep1 ? 1 : 0.45,
                     }}>
                         המשיכו ←
@@ -221,8 +222,8 @@ function RegisterInner() {
 
                     {/* Selected plan badge */}
                     {planKey && (
-                        <p style={{ textAlign: "center", fontSize: "0.8rem", color: "#7c3aed", marginTop: "0.75rem", fontWeight: 600 }}>
-                            {plan.icon} {plan.label} · {plan.price}
+                        <p style={{ textAlign: "center", fontSize: "0.8rem", color: "var(--bf-text)", marginTop: "0.75rem", fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: "0.3rem" }}>
+                            <PlanIcon size={14} aria-hidden /> {plan.label} · {plan.price}
                         </p>
                     )}
                 </div>
@@ -231,8 +232,8 @@ function RegisterInner() {
             {/* Step 2 — Business details */}
             {step === 2 && (
                 <div>
-                    <h2 style={{ fontWeight: 900, fontSize: "1.4rem", color: "#1e1b4b", marginBottom: "0.4rem" }}>פרטי העסק</h2>
-                    <p style={{ color: "#64748b", fontSize: "0.88rem", marginBottom: "1.75rem" }}>
+                    <h2 style={{ fontWeight: 900, fontSize: "1.4rem", color: "var(--bf-text)", marginBottom: "0.4rem" }}>פרטי העסק</h2>
+                    <p style={{ color: "var(--bf-muted)", fontSize: "0.88rem", marginBottom: "1.75rem" }}>
                         פרטים אלה יופיעו בפרופיל הציבורי שלכם ב-BizFind
                     </p>
 
@@ -244,8 +245,8 @@ function RegisterInner() {
                         <div>
                             <label style={labelStyle}>קטגוריה *</label>
                             <select style={inputStyle} value={form.category} onChange={e => set("category", e.target.value)}>
-                                <option value="">בחרו קטגוריה</option>
-                                {types.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}
+                                <option value="" style={OPTION_STYLE}>בחרו קטגוריה</option>
+                                {types.map(t => <option key={t.key} value={t.key} style={OPTION_STYLE}>{t.label}</option>)}
                             </select>
                             {form.category === "other" && (
                                 <input
@@ -265,12 +266,12 @@ function RegisterInner() {
                     </div>
 
                     <div style={{ display: "flex", gap: "0.75rem", marginTop: "1.75rem" }}>
-                        <button onClick={back} style={{ flex: 1, background: "#f8fafc", color: "#64748b", border: "1.5px solid #e2e8f0", borderRadius: 14, padding: "0.85rem", fontWeight: 700, cursor: "pointer" }}>
+                        <button onClick={back} style={{ flex: 1, background: "var(--bf-glass)", color: "var(--bf-text)", border: "1px solid var(--bf-line)", borderRadius: 14, padding: "0.85rem", fontWeight: 700, cursor: "pointer" }}>
                             חזרה
                         </button>
                         <button onClick={next} disabled={!canStep2} style={{
-                            flex: 2, background: "linear-gradient(135deg,#7c3aed,#4f46e5)",
-                            color: "#fff", border: "none", borderRadius: 14, padding: "0.85rem",
+                            flex: 2, background: "#fff",
+                            color: "#000", border: "none", borderRadius: 14, padding: "0.85rem",
                             fontWeight: 800, fontSize: "1rem", cursor: "pointer", opacity: canStep2 ? 1 : 0.45,
                         }}>
                             המשיכו ←
@@ -282,15 +283,15 @@ function RegisterInner() {
             {/* Step 3 — Account */}
             {step === 3 && (
                 <div>
-                    <h2 style={{ fontWeight: 900, fontSize: "1.4rem", color: "#1e1b4b", marginBottom: "0.4rem" }}>יצירת חשבון</h2>
-                    <p style={{ color: "#64748b", fontSize: "0.88rem", marginBottom: "1.75rem" }}>
+                    <h2 style={{ fontWeight: 900, fontSize: "1.4rem", color: "var(--bf-text)", marginBottom: "0.4rem" }}>יצירת חשבון</h2>
+                    <p style={{ color: "var(--bf-muted)", fontSize: "0.88rem", marginBottom: "1.75rem" }}>
                         פרטים אלה ישמשו להתחברות ל-BizFind ול-BizControl
                     </p>
 
                     {/* Plan summary */}
-                    <div style={{ background: "#f5f3ff", border: "1px solid #ede9fe", borderRadius: 12, padding: "0.75rem 1rem", marginBottom: "1.25rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <span style={{ fontSize: "0.85rem", color: "#7c3aed", fontWeight: 700 }}>{plan.icon} {plan.label}</span>
-                        <span style={{ fontSize: "0.85rem", color: "#7c3aed", fontWeight: 800 }}>{plan.price}</span>
+                    <div style={{ background: "var(--bf-glass-strong)", border: "1px solid var(--bf-line)", borderRadius: 12, padding: "0.75rem 1rem", marginBottom: "1.25rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span style={{ fontSize: "0.85rem", color: "var(--bf-text)", fontWeight: 700, display: "flex", alignItems: "center", gap: "0.3rem" }}><PlanIcon size={15} aria-hidden /> {plan.label}</span>
+                        <span style={{ fontSize: "0.85rem", color: "var(--bf-text)", fontWeight: 800 }}>{plan.price}</span>
                     </div>
 
                     <div style={{ display: "grid", gap: "1rem" }}>
@@ -310,37 +311,37 @@ function RegisterInner() {
                             <label style={labelStyle}>אימות סיסמה *</label>
                             <PasswordInput style={inputStyle} placeholder="הקלידו שוב את הסיסמה" dir="ltr" autoComplete="new-password" value={form.password_confirm} onChange={e => set("password_confirm", e.target.value)} />
                             {form.password_confirm.length > 0 && !passwordsMatch && (
-                                <p style={{ color: "#dc2626", fontSize: "0.78rem", marginTop: "0.35rem" }}>הסיסמאות אינן תואמות</p>
+                                <p style={{ color: "#f87171", fontSize: "0.78rem", marginTop: "0.35rem" }}>הסיסמאות אינן תואמות</p>
                             )}
                         </div>
                         <div>
                             <label style={labelStyle}>טלפון *</label>
                             <input style={inputStyle} type="tel" placeholder="050-0000000" dir="ltr" value={form.phone} onChange={e => set("phone", e.target.value)} />
-                            <p style={{ color: "#94a3b8", fontSize: "0.78rem", marginTop: "0.35rem" }}>נשלח אליכם וואטסאפ לאימות ולתזכורות</p>
+                            <p style={{ color: "var(--bf-faint)", fontSize: "0.78rem", marginTop: "0.35rem" }}>נשלח אליכם וואטסאפ לאימות ולתזכורות</p>
                         </div>
                     </div>
 
                     {err && (
-                        <div style={{ background: "#fef2f2", border: "1px solid #fecaca", color: "#dc2626", borderRadius: 12, padding: "0.75rem 1rem", marginTop: "1rem", fontSize: "0.88rem" }}>
+                        <div style={{ background: "rgba(248,113,113,.08)", border: "1px solid rgba(248,113,113,.35)", color: "#fca5a5", borderRadius: 12, padding: "0.75rem 1rem", marginTop: "1rem", fontSize: "0.88rem" }}>
                             {err}
                         </div>
                     )}
 
                     <div style={{ display: "flex", gap: "0.75rem", marginTop: "1.75rem" }}>
-                        <button onClick={back} style={{ flex: 1, background: "#f8fafc", color: "#64748b", border: "1.5px solid #e2e8f0", borderRadius: 14, padding: "0.85rem", fontWeight: 700, cursor: "pointer" }}>
+                        <button onClick={back} style={{ flex: 1, background: "var(--bf-glass)", color: "var(--bf-text)", border: "1px solid var(--bf-line)", borderRadius: 14, padding: "0.85rem", fontWeight: 700, cursor: "pointer" }}>
                             חזרה
                         </button>
                         <button onClick={submit} disabled={!canStep3 || loading} style={{
-                            flex: 2, background: "linear-gradient(135deg,#7c3aed,#4f46e5)",
-                            color: "#fff", border: "none", borderRadius: 14, padding: "0.85rem",
+                            flex: 2, background: "#fff",
+                            color: "#000", border: "none", borderRadius: 14, padding: "0.85rem",
                             fontWeight: 800, fontSize: "1rem", cursor: "pointer", opacity: (canStep3 && !loading) ? 1 : 0.45,
                         }}>
                             {loading ? "יוצר חשבון..." : "הצטרפו עכשיו ←"}
                         </button>
                     </div>
 
-                    <p style={{ textAlign: "center", fontSize: "0.78rem", color: "#94a3b8", marginTop: "1rem" }}>
-                        בלחיצה על הצטרפו אתם מסכימים ל<a href="/terms" style={{ color: "#7c3aed" }}>תנאי השימוש</a> שלנו
+                    <p style={{ textAlign: "center", fontSize: "0.78rem", color: "var(--bf-faint)", marginTop: "1rem" }}>
+                        בלחיצה על הצטרפו אתם מסכימים ל<a href="/terms" style={{ color: "var(--bf-text)" }}>תנאי השימוש</a> שלנו
                     </p>
                 </div>
             )}
@@ -350,27 +351,27 @@ function RegisterInner() {
 
 export default function RegisterPage() {
     return (
-        <div dir="rtl" style={{ minHeight: "100vh", background: "linear-gradient(135deg,#f5f3ff,#ede9fe,#e0e7ff)", display: "flex", alignItems: "center", justifyContent: "center", padding: "2rem 1rem" }}>
+        <div dir="rtl" style={{ minHeight: "100vh", background: "radial-gradient(ellipse at 50% 0%, #262626 0%, #000 65%)", color: "var(--bf-text)", display: "flex", alignItems: "center", justifyContent: "center", padding: "2rem 1rem" }}>
             <div style={{ width: "100%", maxWidth: 480 }}>
 
                 {/* Logo */}
                 <div style={{ textAlign: "center", marginBottom: "2rem" }}>
                     <Link href="/" style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "0.6rem" }}>
-                        <div style={{ width: 40, height: 40, borderRadius: 10, background: "linear-gradient(135deg,#7c3aed,#4f46e5)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 900 }}>B</div>
-                        <span style={{ fontWeight: 900, fontSize: "1.2rem", color: "#1e1b4b" }}>BizFind</span>
+                        <img src="/logo.png" alt="" style={{ width: 40, height: 40, objectFit: "contain" }} />
+                        <span style={{ fontWeight: 900, fontSize: "1.2rem", color: "var(--bf-text)" }}>BizFind</span>
                     </Link>
-                    <p style={{ color: "#64748b", fontSize: "0.85rem", marginTop: "0.4rem" }}>הצטרפו לפלטפורמה</p>
+                    <p style={{ color: "var(--bf-muted)", fontSize: "0.85rem", marginTop: "0.4rem" }}>הצטרפו לפלטפורמה</p>
                 </div>
 
-                <div style={{ background: "#fff", borderRadius: 24, padding: "2rem", boxShadow: "0 8px 40px rgba(124,58,237,.12)", border: "1px solid #ede9fe" }}>
+                <div style={{ background: "rgba(12,12,12,.9)", backdropFilter: "blur(14px)", borderRadius: 24, padding: "2rem", border: "1px solid var(--bf-line)" }}>
                     <Suspense fallback={<div>טוען...</div>}>
                         <RegisterInner />
                     </Suspense>
                 </div>
 
-                <p style={{ textAlign: "center", fontSize: "0.85rem", color: "#64748b", marginTop: "1.25rem" }}>
+                <p style={{ textAlign: "center", fontSize: "0.85rem", color: "var(--bf-muted)", marginTop: "1.25rem" }}>
                     יש לכם כבר חשבון?{" "}
-                    <Link href="/studio/login" style={{ color: "#7c3aed", fontWeight: 700, textDecoration: "none" }}>כניסה</Link>
+                    <Link href="/studio/login" style={{ color: "var(--bf-text)", fontWeight: 700, textDecoration: "underline", textUnderlineOffset: 3 }}>כניסה</Link>
                 </p>
             </div>
         </div>

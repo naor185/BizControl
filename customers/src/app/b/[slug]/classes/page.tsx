@@ -5,7 +5,6 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { ChevronRight, ChevronLeft, Users, MapPin, UserRound, CalendarCheck, Ticket, Loader2, Hourglass, ArrowLeftRight, PauseCircle, GraduationCap } from "lucide-react";
 import { apiFetch, getToken } from "@/lib/api";
-import { usePlatformTheme } from "@/lib/usePlatformTheme";
 import LoginButton from "@/components/LoginButton";
 import {
     type Mine, type MineItem, type MyCourse, type MyMembership, type MyWaitItem, type Schedule, type ScheduleItem, type SwapOptions,
@@ -21,16 +20,15 @@ type Tab = "schedule" | "mine";
 type Confirm = { kind: "book"; item: ScheduleItem; forId?: string | null } | { kind: "course"; item: ScheduleItem }
     | { kind: "cancel"; id: string; name: string; startsAt: string; late: boolean };
 
-const card = { background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.08)", borderRadius: 16 } as const;
-const muted = "#94a3b8";
+const card = { background: "var(--bf-glass)", border: "1px solid var(--bf-line)", borderRadius: 16 } as const;
+const muted = "rgba(255,255,255,.68)";
 const STATUS_TEXT: Record<string, string> = {
     booked: "רשום/ה", attended: "הגעת", no_show: "לא הגעת", late_canceled: "ביטול מאוחר",
 };
 
 export default function ClassesPage() {
     const { slug } = useParams() as { slug: string };
-    const theme = usePlatformTheme();
-    const primary = theme.primary;
+    const primary = "#ffffff";          // the main action — BizFind is black and white (app/layout.tsx --bf-*)
     const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
     const [tab, setTab] = useState<Tab>("schedule");
     const [week, setWeek] = useState<string | null>(null);
@@ -132,7 +130,7 @@ export default function ClassesPage() {
     };
 
     const shell = (children: React.ReactNode) => (
-        <div dir="rtl" style={{ minHeight: "100vh", background: "#0f172a", color: "#f1f5f9", padding: "1.25rem 1rem 6rem" }}>
+        <div dir="rtl" style={{ minHeight: "100vh", background: "var(--bf-bg)", color: "var(--bf-text)", padding: "1.25rem 1rem 6rem" }}>
             <div style={{ maxWidth: 720, margin: "0 auto" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "1.25rem" }}>
                     <Link href={`/b/${slug}`} aria-label="חזרה לעמוד העסק" style={{ color: muted, display: "flex", padding: 8, margin: -8 }}>
@@ -152,7 +150,7 @@ export default function ClassesPage() {
                 <CalendarCheck size={32} color={primary} style={{ margin: "0 auto 0.75rem" }} />
                 <p style={{ fontWeight: 700, margin: "0 0 0.4rem" }}>הרשמה לשיעורים</p>
                 <p style={{ color: muted, fontSize: "0.88rem", margin: "0 0 1rem" }}>התחברו עם מספר הטלפון שלכם כדי לראות את הלוח ולהירשם.</p>
-                <LoginButton primary={primary} onDone={() => setLoggedIn(true)} />
+                <LoginButton onDone={() => setLoggedIn(true)} />
             </div>
         );
     }
@@ -182,7 +180,7 @@ export default function ClassesPage() {
                     <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => setTab(id)}
                         style={{ flex: 1, minHeight: 44, borderRadius: 12, border: "1px solid", fontWeight: 700, fontSize: "0.9rem", cursor: "pointer",
                             background: tab === id ? primary : "transparent", borderColor: tab === id ? primary : "rgba(255,255,255,.12)",
-                            color: tab === id ? "#fff" : "#cbd5e1" }}>
+                            color: tab === id ? "#000" : "var(--bf-muted)" }}>
                         {label}{id === "mine" && mine && mine.upcoming.length > 0 ? ` (${mine.upcoming.length})` : ""}
                     </button>
                 ))}
@@ -192,12 +190,12 @@ export default function ClassesPage() {
                 <>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.9rem" }}>
                         <button type="button" onClick={() => setWeek(shiftDay(data.week, -7))} aria-label="השבוע הקודם"
-                            style={{ width: 44, height: 44, borderRadius: 12, border: "1px solid rgba(255,255,255,.12)", background: "transparent", color: "#e2e8f0", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                            style={{ width: 44, height: 44, borderRadius: 12, border: "1px solid rgba(255,255,255,.12)", background: "transparent", color: "var(--bf-text)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
                             <ChevronRight size={20} />
                         </button>
                         <span dir="ltr" style={{ fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{dayLabel(data.week)} – {dayLabel(shiftDay(data.week, 6))}</span>
                         <button type="button" onClick={() => setWeek(shiftDay(data.week, 7))} aria-label="השבוע הבא"
-                            style={{ width: 44, height: 44, borderRadius: 12, border: "1px solid rgba(255,255,255,.12)", background: "transparent", color: "#e2e8f0", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                            style={{ width: 44, height: 44, borderRadius: 12, border: "1px solid rgba(255,255,255,.12)", background: "transparent", color: "var(--bf-text)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
                             <ChevronLeft size={20} />
                         </button>
                     </div>
@@ -234,7 +232,7 @@ export default function ClassesPage() {
             {moving && (
                 <div role="dialog" aria-modal="true" aria-label="העברה לשיעור אחר" onClick={e => e.target === e.currentTarget && !busy && setMoving(null)}
                     style={{ position: "fixed", inset: 0, zIndex: 200 /* above the app's bottom nav (100) */, background: "rgba(0,0,0,.6)", display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
-                    <div style={{ background: "#1e293b", width: "100%", maxWidth: 520, maxHeight: "85vh", display: "flex", flexDirection: "column", borderRadius: "20px 20px 0 0", padding: "1.25rem 1.25rem calc(1.25rem + env(safe-area-inset-bottom))" }}>
+                    <div style={{ background: "#0c0c0c", border: "1px solid var(--bf-line)", borderBottom: "none", width: "100%", maxWidth: 520, maxHeight: "85vh", display: "flex", flexDirection: "column", borderRadius: "20px 20px 0 0", padding: "1.25rem 1.25rem calc(1.25rem + env(safe-area-inset-bottom))" }}>
                         <p style={{ fontWeight: 800, fontSize: "1.05rem", margin: "0 0 0.3rem" }}>העברה לשיעור אחר</p>
                         <p style={{ color: muted, fontSize: "0.85rem", margin: "0 0 0.9rem", lineHeight: 1.6 }}>
                             במקום {moving.b.name} · {whenText(moving.b.starts_at)}. בלי חיוב — הכניסה עוברת לשיעור החדש.
@@ -249,19 +247,19 @@ export default function ClassesPage() {
                             ) : moving.options.sessions.map(o => (
                                 <button key={o.id} type="button" disabled={busy || !o.can_swap} onClick={() => moveTo(o.id)}
                                     style={{ ...card, display: "flex", alignItems: "center", gap: "0.7rem", padding: "0.75rem 0.9rem", textAlign: "right",
-                                        color: o.can_swap ? "#f1f5f9" : "#64748b", cursor: o.can_swap ? "pointer" : "not-allowed", minHeight: 52 }}>
+                                        color: o.can_swap ? "var(--bf-text)" : "var(--bf-faint)", cursor: o.can_swap ? "pointer" : "not-allowed", minHeight: 52 }}>
                                     <span style={{ flex: 1, minWidth: 0 }}>
                                         <span style={{ display: "block", fontWeight: 700 }}>{o.name}</span>
                                         <span style={{ display: "block", fontSize: "0.8rem", color: muted, marginTop: 2 }}>{whenText(o.starts_at)}</span>
                                     </span>
-                                    <span style={{ fontSize: "0.75rem", fontWeight: 700, color: o.can_swap ? "#86efac" : "#64748b", flexShrink: 0 }}>
+                                    <span style={{ fontSize: "0.75rem", fontWeight: 700, color: o.can_swap ? "#86efac" : "var(--bf-faint)", flexShrink: 0 }}>
                                         {o.can_swap ? `${o.spots_left} מקומות` : o.why_not}
                                     </span>
                                 </button>
                             ))}
                         </div>
                         <button type="button" disabled={busy} onClick={() => setMoving(null)}
-                            style={{ minHeight: 48, borderRadius: 14, border: "1px solid rgba(255,255,255,.15)", background: "transparent", color: "#e2e8f0", cursor: "pointer" }}>
+                            style={{ minHeight: 48, borderRadius: 14, border: "1px solid rgba(255,255,255,.15)", background: "transparent", color: "var(--bf-text)", cursor: "pointer" }}>
                             {busy ? "רגע…" : "חזרה"}
                         </button>
                     </div>
@@ -271,11 +269,11 @@ export default function ClassesPage() {
             {confirm && (
                 <div role="dialog" aria-modal="true" onClick={e => e.target === e.currentTarget && !busy && setConfirm(null)}
                     style={{ position: "fixed", inset: 0, zIndex: 200 /* above the app's bottom nav (100) */, background: "rgba(0,0,0,.6)", display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
-                    <div style={{ background: "#1e293b", width: "100%", maxWidth: 520, borderRadius: "20px 20px 0 0", padding: "1.25rem 1.25rem calc(1.25rem + env(safe-area-inset-bottom))" }}>
+                    <div style={{ background: "#0c0c0c", border: "1px solid var(--bf-line)", borderBottom: "none", width: "100%", maxWidth: 520, borderRadius: "20px 20px 0 0", padding: "1.25rem 1.25rem calc(1.25rem + env(safe-area-inset-bottom))" }}>
                         {confirm.kind === "course" ? (confirm.item.course && (
                             <>
                                 <p style={{ fontWeight: 800, fontSize: "1.05rem", margin: "0 0 0.3rem" }}>הרשמה ל{confirm.item.course.name}</p>
-                                <p style={{ color: "#cbd5e1", margin: "0 0 0.8rem" }}>
+                                <p style={{ color: "var(--bf-muted)", margin: "0 0 0.8rem" }}>
                                     קורס · {confirm.item.course.sessions_left} מפגשים — כל המפגשים שנשארו בו
                                 </p>
                                 <p style={{ color: muted, fontSize: "0.85rem", margin: "0 0 1.1rem", lineHeight: 1.6 }}>
@@ -287,7 +285,7 @@ export default function ClassesPage() {
                         )) : confirm.kind === "book" ? (
                             <>
                                 <p style={{ fontWeight: 800, fontSize: "1.05rem", margin: "0 0 0.3rem" }}>הרשמה ל{confirm.item.name}</p>
-                                <p style={{ color: "#cbd5e1", margin: "0 0 0.8rem" }}>{whenText(confirm.item.starts_at)}</p>
+                                <p style={{ color: "var(--bf-muted)", margin: "0 0 0.8rem" }}>{whenText(confirm.item.starts_at)}</p>
                                 {confirm.item.book_for.some(p => p.can_book) && (
                                     <div role="radiogroup" aria-label="למי ההרשמה" style={{ display: "flex", flexWrap: "wrap", gap: "0.45rem", margin: "0 0 0.9rem" }}>
                                         {[...(confirm.item.can_book ? [{ client_id: null as string | null, name: "לי" }] : []),
@@ -297,7 +295,7 @@ export default function ClassesPage() {
                                                 <button key={p.client_id ?? "me"} type="button" role="radio" aria-checked={on}
                                                     onClick={() => setConfirm({ ...confirm, forId: p.client_id })}
                                                     style={{ minHeight: 40, padding: "0 0.9rem", borderRadius: 999, fontWeight: 700, fontSize: "0.85rem", cursor: "pointer",
-                                                        border: `1px solid ${on ? primary : "rgba(255,255,255,.15)"}`, background: on ? `${primary}33` : "transparent", color: "#f1f5f9" }}>
+                                                        border: `1px solid ${on ? primary : "rgba(255,255,255,.15)"}`, background: on ? `${primary}33` : "transparent", color: "var(--bf-text)" }}>
                                                     {p.name}
                                                 </button>
                                             );
@@ -311,7 +309,7 @@ export default function ClassesPage() {
                         ) : (
                             <>
                                 <p style={{ fontWeight: 800, fontSize: "1.05rem", margin: "0 0 0.3rem" }}>ביטול ההרשמה ל{confirm.name}</p>
-                                <p style={{ color: "#cbd5e1", margin: "0 0 0.8rem" }}>{whenText(confirm.startsAt)}</p>
+                                <p style={{ color: "var(--bf-muted)", margin: "0 0 0.8rem" }}>{whenText(confirm.startsAt)}</p>
                                 {confirm.late && (
                                     <p style={{ color: "#fcd34d", fontSize: "0.85rem", margin: "0 0 1.1rem", lineHeight: 1.6 }}>
                                         זה כבר ביטול מאוחר — לפי מדיניות העסק ייתכן שהכניסה תנוצל או שיירשם חיוב.
@@ -321,12 +319,12 @@ export default function ClassesPage() {
                         )}
                         <div style={{ display: "flex", gap: "0.6rem" }}>
                             <button type="button" disabled={busy} onClick={act}
-                                style={{ flex: 1, minHeight: 48, borderRadius: 14, border: "none", fontWeight: 800, fontSize: "0.95rem", cursor: "pointer", color: "#fff",
+                                style={{ flex: 1, minHeight: 48, borderRadius: 14, border: "none", fontWeight: 800, fontSize: "0.95rem", cursor: "pointer", color: confirm.kind === "cancel" ? "#fff" : "#000",
                                     background: confirm.kind === "cancel" ? "#dc2626" : primary, opacity: busy ? 0.6 : 1 }}>
                                 {busy ? "רגע…" : confirm.kind === "cancel" ? "לבטל את ההרשמה" : confirm.kind === "course" ? "הרשמה לכל הקורס" : "אישור ההרשמה"}
                             </button>
                             <button type="button" disabled={busy} onClick={() => setConfirm(null)}
-                                style={{ minHeight: 48, padding: "0 1.1rem", borderRadius: 14, border: "1px solid rgba(255,255,255,.15)", background: "transparent", color: "#e2e8f0", cursor: "pointer" }}>
+                                style={{ minHeight: 48, padding: "0 1.1rem", borderRadius: 14, border: "1px solid rgba(255,255,255,.15)", background: "transparent", color: "var(--bf-text)", cursor: "pointer" }}>
                                 חזרה
                             </button>
                         </div>
@@ -346,7 +344,7 @@ function Memberships({ list, isClient, primary, studio, busy, openCourse, onAsk,
         return (
             <div style={{ ...card, padding: "1rem", marginBottom: "1rem", display: "flex", gap: "0.75rem", alignItems: "flex-start" }}>
                 <Ticket size={22} color={muted} style={{ flexShrink: 0, marginTop: 2 }} />
-                <p style={{ margin: 0, color: "#cbd5e1", fontSize: "0.88rem", lineHeight: 1.6 }}>
+                <p style={{ margin: 0, color: "var(--bf-muted)", fontSize: "0.88rem", lineHeight: 1.6 }}>
                     {isClient ? `אין לך מנוי פעיל ב${studio}.${openCourse ? " לקורס אפשר להירשם כאן בלי מנוי; לשיעורים הקבועים" : " כדי להירשם לשיעורים"} — פנו לעסק לרכישת מנוי.`
                         : `ההרשמה לשיעורים פתוחה ללקוחות ${studio} עם מנוי. כבר לקוח/ה? ודאו שמספר הטלפון שלכם בעסק זהה לזה שהתחברתם איתו.`}
                 </p>
@@ -362,7 +360,7 @@ function Memberships({ list, isClient, primary, studio, busy, openCourse, onAsk,
                     <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontWeight: 800 }}>{m.family && !m.family.holder ? "המנוי המשפחתי" : "המנוי שלי"} · {m.name}</div>
                         {m.family && (
-                            <div style={{ color: "#c4b5fd", fontSize: "0.78rem", marginTop: 2 }}>
+                            <div style={{ color: "var(--bf-muted)", fontSize: "0.78rem", marginTop: 2 }}>
                                 {m.family.holder ? `משפחתי · עם ${m.family.others.join(", ")}` : `במנוי של ${m.family.holder_name}`}
                                 {!m.family.holder && m.family.booking_by === "holder" ? ` · ההרשמות דרך ${m.family.holder_name}` : ""}
                             </div>
@@ -379,21 +377,21 @@ function Memberships({ list, isClient, primary, studio, busy, openCourse, onAsk,
                             <div style={{ fontSize: "0.7rem", color: muted }}>כניסות</div>
                         </div>
                     )}
-                    {m.kind === "weekly" && <div style={{ fontSize: "0.8rem", color: "#cbd5e1" }}>{m.weekly_limit} בשבוע</div>}
+                    {m.kind === "weekly" && <div style={{ fontSize: "0.8rem", color: "var(--bf-muted)" }}>{m.weekly_limit} בשבוע</div>}
                 </div>
                 {m.freeze && (m.freeze.request ? (
                     <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginTop: "0.7rem", paddingTop: "0.7rem", borderTop: "1px solid rgba(255,255,255,.06)" }}>
-                        <span style={{ flex: 1, fontSize: "0.82rem", color: "#a5f3fc" }}>
+                        <span style={{ flex: 1, fontSize: "0.82rem", color: "var(--bf-muted)" }}>
                             בקשת הקפאה נשלחה: מ-{fullDate(m.freeze.request.from_on)} עד {fullDate(m.freeze.request.until_on)} · מחכה לתשובה
                         </span>
                         <button type="button" disabled={busy} onClick={() => onWithdraw(m.freeze!.request!.id)}
-                            style={{ minHeight: 36, padding: "0 0.7rem", borderRadius: 10, border: "1px solid rgba(255,255,255,.15)", background: "transparent", color: "#cbd5e1", cursor: "pointer", fontSize: "0.8rem" }}>
+                            style={{ minHeight: 36, padding: "0 0.7rem", borderRadius: 10, border: "1px solid rgba(255,255,255,.15)", background: "transparent", color: "var(--bf-muted)", cursor: "pointer", fontSize: "0.8rem" }}>
                             ביטול הבקשה
                         </button>
                     </div>
                 ) : m.freeze.can_ask ? (
                     <button type="button" onClick={() => onAsk(m)}
-                        style={{ marginTop: "0.7rem", minHeight: 38, padding: "0 0.8rem", borderRadius: 10, border: "1px solid rgba(255,255,255,.15)", background: "transparent", color: "#e2e8f0", cursor: "pointer", fontSize: "0.85rem", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 6 }}>
+                        style={{ marginTop: "0.7rem", minHeight: 38, padding: "0 0.8rem", borderRadius: 10, border: "1px solid rgba(255,255,255,.15)", background: "transparent", color: "var(--bf-text)", cursor: "pointer", fontSize: "0.85rem", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 6 }}>
                         <PauseCircle size={16} aria-hidden /> בקשת הקפאה
                     </button>
                 ) : m.freeze.why_not ? (
@@ -429,7 +427,7 @@ function SessionCard({ s, primary, busy, onBook, onCancel, onWait, onLeave, onTa
                         <Users size={13} />{s.spots_left === 0 ? "מלא" : s.spots_left === 1 ? "נשאר מקום אחד" : s.spots_left <= 3 ? `נשארו ${s.spots_left} מקומות` : `${s.spots_left} מקומות פנויים`}
                     </span>
                 </div>
-                {!s.can_book && !s.my_booking && !wait && !s.waitlist?.can_join && s.why_not && !(s.course && !s.course.single_ok) && <div style={{ color: "#94a3b8", fontSize: "0.76rem", marginTop: 4 }}>{s.why_not}</div>}
+                {!s.can_book && !s.my_booking && !wait && !s.waitlist?.can_join && s.why_not && !(s.course && !s.course.single_ok) && <div style={{ color: "var(--bf-muted)", fontSize: "0.76rem", marginTop: 4 }}>{s.why_not}</div>}
                 {s.book_for.some(p => p.booked) && (
                     <div style={{ color: "#86efac", fontSize: "0.76rem", marginTop: 4 }}>רשומים מהמשפחה: {s.book_for.filter(p => p.booked).map(p => p.name).join(", ")}</div>
                 )}
@@ -456,22 +454,22 @@ function SessionCard({ s, primary, busy, onBook, onCancel, onWait, onLeave, onTa
                 <span style={{ fontSize: "0.75rem", color: muted }}>{STATUS_TEXT[s.my_booking.status]}</span>
             ) : wait?.status === "notified" ? (
                 <button type="button" disabled={busy} onClick={() => onTake(wait.id)}
-                    style={{ minHeight: 44, padding: "0 1.1rem", borderRadius: 12, border: "none", background: "#16a34a", color: "#fff", fontWeight: 800, cursor: "pointer", flexShrink: 0 }}>
+                    style={{ minHeight: 44, padding: "0 1.1rem", borderRadius: 12, border: "none", background: "#fff", color: "#000", fontWeight: 800, cursor: "pointer", flexShrink: 0 }}>
                     אישור
                 </button>
             ) : wait ? (
                 <button type="button" disabled={busy} onClick={() => onLeave(wait.id)}
-                    style={{ minHeight: 36, padding: "0 0.8rem", borderRadius: 10, border: "1px solid rgba(255,255,255,.15)", background: "transparent", color: "#cbd5e1", fontSize: "0.8rem", cursor: "pointer" }}>
+                    style={{ minHeight: 36, padding: "0 0.8rem", borderRadius: 10, border: "1px solid rgba(255,255,255,.15)", background: "transparent", color: "var(--bf-muted)", fontSize: "0.8rem", cursor: "pointer" }}>
                     יציאה
                 </button>
             ) : s.waitlist?.can_join ? (
                 <button type="button" disabled={busy} onClick={onWait}
-                    style={{ minHeight: 44, padding: "0 0.9rem", borderRadius: 12, border: `1px solid ${primary}`, background: "transparent", color: "#e2e8f0", fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>
+                    style={{ minHeight: 44, padding: "0 0.9rem", borderRadius: 12, border: `1px solid ${primary}`, background: "transparent", color: "var(--bf-text)", fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>
                     רשימת המתנה
                 </button>
             ) : s.can_book || s.book_for.some(p => p.can_book) ? (
                 <button type="button" onClick={onBook}
-                    style={{ minHeight: 44, padding: "0 1.1rem", borderRadius: 12, border: "none", background: primary, color: "#fff", fontWeight: 800, cursor: "pointer", flexShrink: 0 }}>
+                    style={{ minHeight: 44, padding: "0 1.1rem", borderRadius: 12, border: "none", background: primary, color: "#000", fontWeight: 800, cursor: "pointer", flexShrink: 0 }}>
                     הרשמה
                 </button>
             ) : null}
@@ -490,28 +488,28 @@ function CourseStrip({ c, booked, primary, busy, onEnroll, onAction }: {
     const small = { minHeight: 38, padding: "0 0.8rem", borderRadius: 10, fontSize: "0.82rem", fontWeight: 700, cursor: "pointer" } as const;
     return (
         <div style={{ marginTop: "0.65rem", paddingTop: "0.65rem", borderTop: "1px solid rgba(255,255,255,.06)", display: "flex", alignItems: "center", gap: "0.6rem", flexWrap: "wrap" }}>
-            <span style={{ flex: 1, minWidth: 0, fontSize: "0.8rem", color: "#c4b5fd", display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <span style={{ flex: 1, minWidth: 0, fontSize: "0.8rem", color: "var(--bf-muted)", display: "inline-flex", alignItems: "center", gap: 6 }}>
                 <GraduationCap size={15} aria-hidden />
                 {e?.status === "active" ? "רשום/ה לקורס" : e?.status === "waiting" ? `ברשימת ההמתנה לקורס · מקום ${e.position}`
                     : e?.status === "offered" && e.offer_expires_at ? `התפנה מקום בקורס! שמור לך עד ${ilTime(e.offer_expires_at)}`
                     : `חלק מקורס · ${c.sessions_left} מפגשים${c.covered_by_membership ? " · במנוי" : c.price_cents ? ` · ₪${(c.price_cents / 100).toLocaleString("he-IL")}` : ""}`}
             </span>
             {e?.status === "offered" && (
-                <button type="button" disabled={busy} onClick={() => onAction(`course-waits/${e.id}/take`)} style={{ ...small, border: "none", background: "#16a34a", color: "#fff" }}>אישור</button>
+                <button type="button" disabled={busy} onClick={() => onAction(`course-waits/${e.id}/take`)} style={{ ...small, border: "none", background: "#fff", color: "#000" }}>אישור</button>
             )}
             {e && e.status !== "active" && (
                 <button type="button" disabled={busy} onClick={() => onAction(`course-waits/${e.id}/leave`)}
-                    style={{ ...small, border: "1px solid rgba(255,255,255,.15)", background: "transparent", color: "#cbd5e1" }}>יציאה</button>
+                    style={{ ...small, border: "1px solid rgba(255,255,255,.15)", background: "transparent", color: "var(--bf-muted)" }}>יציאה</button>
             )}
             {!e && !booked && c.can_enroll && (
-                <button type="button" onClick={onEnroll} style={{ ...small, border: "none", background: primary, color: "#fff" }}>הרשמה לקורס</button>
+                <button type="button" onClick={onEnroll} style={{ ...small, border: "none", background: primary, color: "#000" }}>הרשמה לקורס</button>
             )}
             {!e && !booked && !c.can_enroll && c.can_wait && (
                 <button type="button" disabled={busy} onClick={() => onAction(`courses/${c.template_id}/waitlist`)}
-                    style={{ ...small, border: `1px solid ${primary}`, background: "transparent", color: "#e2e8f0" }}>רשימת המתנה לקורס</button>
+                    style={{ ...small, border: `1px solid ${primary}`, background: "transparent", color: "var(--bf-text)" }}>רשימת המתנה לקורס</button>
             )}
             {!e && !booked && !c.can_enroll && !c.can_wait && c.why_not && (
-                <span style={{ width: "100%", fontSize: "0.76rem", color: "#94a3b8" }}>{c.why_not}</span>
+                <span style={{ width: "100%", fontSize: "0.76rem", color: "var(--bf-muted)" }}>{c.why_not}</span>
             )}
         </div>
     );
@@ -531,7 +529,7 @@ function MyClasses({ mine, primary, busy, onCancel, onMove, onLeave, onTake, onC
                     <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", marginBottom: "1.4rem" }}>
                         {mine.courses.map((c: MyCourse) => (
                             <div key={c.id} style={{ ...card, padding: "0.85rem 1rem", display: "flex", alignItems: "center", gap: "0.8rem" }}>
-                                <GraduationCap size={20} color="#c4b5fd" style={{ flexShrink: 0 }} aria-hidden />
+                                <GraduationCap size={20} color="var(--bf-muted)" style={{ flexShrink: 0 }} aria-hidden />
                                 <div style={{ flex: 1, minWidth: 0 }}>
                                     <div style={{ fontWeight: 700 }}>{c.name}</div>
                                     <div style={{ color: muted, fontSize: "0.8rem", marginTop: 2, lineHeight: 1.5 }}>
@@ -543,17 +541,17 @@ function MyClasses({ mine, primary, busy, onCancel, onMove, onLeave, onTake, onC
                                             <span> · ₪{(c.price_cents / 100).toLocaleString("he-IL")}{c.paid_cents > 0 ? ` (שולם ₪${(c.paid_cents / 100).toLocaleString("he-IL")})` : ""}</span>
                                         )}
                                     </div>
-                                    {c.status === "active" && <div style={{ color: "#64748b", fontSize: "0.74rem", marginTop: 2 }}>לביטול ההרשמה לכל הקורס — דרך העסק.</div>}
+                                    {c.status === "active" && <div style={{ color: "var(--bf-faint)", fontSize: "0.74rem", marginTop: 2 }}>לביטול ההרשמה לכל הקורס — דרך העסק.</div>}
                                 </div>
                                 {c.status === "offered" && (
                                     <button type="button" disabled={busy} onClick={() => onCourseAction(`course-waits/${c.id}/take`)}
-                                        style={{ minHeight: 40, padding: "0 0.9rem", borderRadius: 10, border: "none", background: "#16a34a", color: "#fff", fontWeight: 800, cursor: "pointer" }}>
+                                        style={{ minHeight: 40, padding: "0 0.9rem", borderRadius: 10, border: "none", background: "#fff", color: "#000", fontWeight: 800, cursor: "pointer" }}>
                                         אישור
                                     </button>
                                 )}
                                 {c.status !== "active" && (
                                     <button type="button" disabled={busy} onClick={() => onCourseAction(`course-waits/${c.id}/leave`)}
-                                        style={{ minHeight: 40, padding: "0 0.9rem", borderRadius: 10, border: "1px solid rgba(255,255,255,.15)", background: "transparent", color: "#cbd5e1", cursor: "pointer" }}>
+                                        style={{ minHeight: 40, padding: "0 0.9rem", borderRadius: 10, border: "1px solid rgba(255,255,255,.15)", background: "transparent", color: "var(--bf-muted)", cursor: "pointer" }}>
                                         יציאה
                                     </button>
                                 )}
@@ -576,12 +574,12 @@ function MyClasses({ mine, primary, busy, onCancel, onMove, onLeave, onTake, onC
                                 </div>
                                 {w.status === "notified" ? (
                                     <button type="button" disabled={busy} onClick={() => onTake(w.id)}
-                                        style={{ minHeight: 40, padding: "0 0.9rem", borderRadius: 10, border: "none", background: "#16a34a", color: "#fff", fontWeight: 800, cursor: "pointer" }}>
+                                        style={{ minHeight: 40, padding: "0 0.9rem", borderRadius: 10, border: "none", background: "#fff", color: "#000", fontWeight: 800, cursor: "pointer" }}>
                                         אישור
                                     </button>
                                 ) : (
                                     <button type="button" disabled={busy} onClick={() => onLeave(w.id)}
-                                        style={{ minHeight: 40, padding: "0 0.9rem", borderRadius: 10, border: "1px solid rgba(255,255,255,.15)", background: "transparent", color: "#cbd5e1", cursor: "pointer" }}>
+                                        style={{ minHeight: 40, padding: "0 0.9rem", borderRadius: 10, border: "1px solid rgba(255,255,255,.15)", background: "transparent", color: "var(--bf-muted)", cursor: "pointer" }}>
                                         יציאה
                                     </button>
                                 )}
@@ -601,7 +599,7 @@ function MyClasses({ mine, primary, busy, onCancel, onMove, onLeave, onTake, onC
                             </div>
                             {b.can_swap && (
                                 <button type="button" onClick={() => onMove(b)} aria-label={`העברת ${b.name} לשיעור אחר`}
-                                    style={{ minHeight: 40, padding: "0 0.75rem", borderRadius: 10, border: "1px solid rgba(255,255,255,.15)", background: "transparent", color: "#e2e8f0", fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+                                    style={{ minHeight: 40, padding: "0 0.75rem", borderRadius: 10, border: "1px solid rgba(255,255,255,.15)", background: "transparent", color: "var(--bf-text)", fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
                                     <ArrowLeftRight size={15} aria-hidden /> החלפה
                                 </button>
                             )}
@@ -646,34 +644,34 @@ function FreezeSheet({ m, primary, busy, onClose, onSend }: {
         f.fee_cents > 0 ? `דמי הקפאה ₪${(f.fee_cents / 100).toLocaleString("he-IL")}` : null,
     ].filter(Boolean).join(" · ");
     const field = { width: "100%", minHeight: 46, borderRadius: 12, border: "1px solid rgba(255,255,255,.15)", background: "rgba(0,0,0,.25)",
-        color: "#f1f5f9", padding: "0 0.8rem", fontSize: "0.95rem", colorScheme: "dark" as const, boxSizing: "border-box" as const };
+        color: "var(--bf-text)", padding: "0 0.8rem", fontSize: "0.95rem", colorScheme: "dark" as const, boxSizing: "border-box" as const };
     return (
         <div role="dialog" aria-modal="true" aria-label="בקשת הקפאה" onClick={e => e.target === e.currentTarget && !busy && onClose()}
             style={{ position: "fixed", inset: 0, zIndex: 200 /* above the app's bottom nav (100) */, background: "rgba(0,0,0,.6)", display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
-            <div style={{ background: "#1e293b", width: "100%", maxWidth: 520, borderRadius: "20px 20px 0 0", padding: "1.25rem 1.25rem calc(1.25rem + env(safe-area-inset-bottom))" }}>
+            <div style={{ background: "#0c0c0c", border: "1px solid var(--bf-line)", borderBottom: "none", width: "100%", maxWidth: 520, borderRadius: "20px 20px 0 0", padding: "1.25rem 1.25rem calc(1.25rem + env(safe-area-inset-bottom))" }}>
                 <p style={{ fontWeight: 800, fontSize: "1.05rem", margin: "0 0 0.3rem" }}>בקשת הקפאה · {m.name}</p>
                 <p style={{ color: muted, fontSize: "0.85rem", margin: "0 0 1rem", lineHeight: 1.6 }}>
                     תוקף המנוי יוארך בימי ההקפאה. הרשמות לשיעורים בתקופה הזו יבוטלו והכניסות יחזרו.{rules ? ` ${rules}.` : ""}
                 </p>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.6rem", marginBottom: "0.7rem" }}>
-                    <label style={{ fontSize: "0.8rem", color: "#cbd5e1" }}>מתאריך
+                    <label style={{ fontSize: "0.8rem", color: "var(--bf-muted)" }}>מתאריך
                         <input type="date" value={fromOn} onChange={e => setFromOn(e.target.value)} style={{ ...field, marginTop: 4 }} />
                     </label>
-                    <label style={{ fontSize: "0.8rem", color: "#cbd5e1" }}>חוזר/ת בתאריך
+                    <label style={{ fontSize: "0.8rem", color: "var(--bf-muted)" }}>חוזר/ת בתאריך
                         <input type="date" value={untilOn} min={fromOn || undefined} onChange={e => setUntilOn(e.target.value)} style={{ ...field, marginTop: 4 }} />
                     </label>
                 </div>
-                <label style={{ display: "block", fontSize: "0.8rem", color: "#cbd5e1", marginBottom: "1rem" }}>סיבה (לא חובה)
+                <label style={{ display: "block", fontSize: "0.8rem", color: "var(--bf-muted)", marginBottom: "1rem" }}>סיבה (לא חובה)
                     <input value={note} onChange={e => setNote(e.target.value)} maxLength={300} placeholder="למשל: נסיעה לחו״ל" style={{ ...field, marginTop: 4 }} />
                 </label>
                 <div style={{ display: "flex", gap: "0.6rem" }}>
                     <button type="button" disabled={busy || !fromOn || !untilOn} onClick={() => onSend({ from_on: fromOn, until_on: untilOn, note })}
-                        style={{ flex: 1, minHeight: 48, borderRadius: 14, border: "none", fontWeight: 800, fontSize: "0.95rem", cursor: "pointer", color: "#fff",
+                        style={{ flex: 1, minHeight: 48, borderRadius: 14, border: "none", fontWeight: 800, fontSize: "0.95rem", cursor: "pointer", color: "#000",
                             background: primary, opacity: busy || !fromOn || !untilOn ? 0.5 : 1 }}>
                         {busy ? "רגע…" : "שליחת הבקשה"}
                     </button>
                     <button type="button" disabled={busy} onClick={onClose}
-                        style={{ minHeight: 48, padding: "0 1.1rem", borderRadius: 14, border: "1px solid rgba(255,255,255,.15)", background: "transparent", color: "#e2e8f0", cursor: "pointer" }}>
+                        style={{ minHeight: 48, padding: "0 1.1rem", borderRadius: 14, border: "1px solid rgba(255,255,255,.15)", background: "transparent", color: "var(--bf-text)", cursor: "pointer" }}>
                         חזרה
                     </button>
                 </div>

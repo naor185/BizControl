@@ -21,7 +21,7 @@ const EYE_OFF = (
     </svg>
 );
 
-export default function PasswordInput({ style, iconColor = "#334155", ...props }: Props) {
+export default function PasswordInput({ style, iconColor = "rgba(255,255,255,.6)", ...props }: Props) {
     const [show, setShow] = useState(false);
     const s = (style || {}) as CSSProperties;
     // Move outer margins to the wrapper so the eye stays vertically centered on the input.

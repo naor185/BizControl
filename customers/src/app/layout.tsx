@@ -15,12 +15,7 @@ export const metadata = {
 
 const GLOBAL_CSS = `
                     :root {
-                        /* Brand accent tokens only — set by ThemeProvider.tsx at runtime.
-                           Background/text stay hardcoded below; see that component's
-                           comment for why. */
-                        --primary: #7c3aed;
-                        --secondary: #4c1d95;
-                        --accent: #f59e0b;
+                        /* The platform fonts — set by ThemeProvider.tsx at runtime. */
                         --font-heading: "Heebo", sans-serif;
                         --font-body: "Assistant", sans-serif;
                         /* The black-and-white look (BizControl's login: white text, see-through glass
