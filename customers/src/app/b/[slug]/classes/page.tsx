@@ -3,22 +3,23 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { ChevronRight, ChevronLeft, Users, MapPin, UserRound, CalendarCheck, Ticket, Loader2, Hourglass, ArrowLeftRight, PauseCircle } from "lucide-react";
+import { ChevronRight, ChevronLeft, Users, MapPin, UserRound, CalendarCheck, Ticket, Loader2, Hourglass, ArrowLeftRight, PauseCircle, GraduationCap } from "lucide-react";
 import { apiFetch, getToken } from "@/lib/api";
 import { usePlatformTheme } from "@/lib/usePlatformTheme";
 import AuthModal from "@/components/AuthModal";
 import {
-    type Mine, type MineItem, type MyMembership, type MyWaitItem, type Schedule, type ScheduleItem, type SwapOptions,
+    type Mine, type MineItem, type MyCourse, type MyMembership, type MyWaitItem, type Schedule, type ScheduleItem, type SwapOptions,
     DAY_LONG, dayLabel, fullDate, ilDay, ilTime, shiftDay, weekdayOf, whenText,
 } from "@/lib/classes";
 
 // A client's group classes at one business: the week's schedule (how many spots are left — never who is
-// booked), booking, "my classes" with cancel and a move to another class, and "my membership" with a freeze
-// request. Open to a client of the business with
+// booked), booking, "my classes" with cancel and a move to another class, "my membership" with a freeze
+// request, and a course — registered for as a whole (its own waitlist too); the payment is at the business. Open to a client of the business with
 // a membership that covers the class; the server decides everything and says why when it says no.
 
 type Tab = "schedule" | "mine";
-type Confirm = { kind: "book"; item: ScheduleItem } | { kind: "cancel"; id: string; name: string; startsAt: string; late: boolean };
+type Confirm = { kind: "book"; item: ScheduleItem } | { kind: "course"; item: ScheduleItem }
+    | { kind: "cancel"; id: string; name: string; startsAt: string; late: boolean };
 
 const card = { background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.08)", borderRadius: 16 } as const;
 const muted = "#94a3b8";
@@ -59,6 +60,9 @@ export default function ClassesPage() {
         try {
             if (confirm.kind === "book") {
                 const r = await apiFetch<{ message: string }>(`/api/marketplace/classes/${slug}/sessions/${confirm.item.id}/book`, { method: "POST" });
+                setNotice({ text: r.message, ok: true });
+            } else if (confirm.kind === "course") {
+                const r = await apiFetch<{ message: string }>(`/api/marketplace/classes/${slug}/courses/${confirm.item.course!.template_id}/enroll`, { method: "POST" });
                 setNotice({ text: r.message, ok: true });
             } else {
                 const r = await apiFetch<{ late: boolean }>(`/api/marketplace/classes/${slug}/bookings/${confirm.id}/cancel`, { method: "POST" });
@@ -159,6 +163,7 @@ export default function ClassesPage() {
     return shell(
         <>
             <Memberships list={data.memberships} isClient={data.is_client} primary={primary} studio={data.studio.name} busy={busy}
+                openCourse={data.sessions.some(x => x.course?.can_enroll && !x.course.covered_by_membership)}
                 onAsk={m => setFreezing(m)}
                 onWithdraw={id => waitAction(`freeze-requests/${id}/withdraw`, "הבקשה בוטלה")} />
             {freezing && <FreezeSheet m={freezing} primary={primary} busy={busy} onClose={() => setFreezing(null)} onSend={b => askFreeze(freezing, b)} />}
@@ -204,6 +209,8 @@ export default function ClassesPage() {
                             <div style={{ display: "flex", flexDirection: "column", gap: "0.55rem" }}>
                                 {data.sessions.filter(s => ilDay(s.starts_at) === day).map(s => (
                                     <SessionCard key={s.id} s={s} primary={primary} busy={busy}
+                                        onEnrollCourse={() => setConfirm({ kind: "course", item: s })}
+                                        onCourseAction={path => waitAction(path, "בוצע")}
                                         onWait={() => waitAction(`sessions/${s.id}/waitlist`, "נכנסת לרשימת ההמתנה")}
                                         onLeave={id => waitAction(`waitlist/${id}/leave`, "יצאת מרשימת ההמתנה")}
                                         onTake={id => waitAction(`waitlist/${id}/confirm`, "נרשמת!")}
@@ -216,6 +223,7 @@ export default function ClassesPage() {
                 </>
             ) : (
                 <MyClasses mine={mine} primary={primary} busy={busy}
+                    onCourseAction={path => waitAction(path, "בוצע")}
                     onLeave={id => waitAction(`waitlist/${id}/leave`, "יצאת מרשימת ההמתנה")}
                     onTake={id => waitAction(`waitlist/${id}/confirm`, "נרשמת!")}
                     onMove={openMove}
@@ -263,7 +271,19 @@ export default function ClassesPage() {
                 <div role="dialog" aria-modal="true" onClick={e => e.target === e.currentTarget && !busy && setConfirm(null)}
                     style={{ position: "fixed", inset: 0, zIndex: 200 /* above the app's bottom nav (100) */, background: "rgba(0,0,0,.6)", display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
                     <div style={{ background: "#1e293b", width: "100%", maxWidth: 520, borderRadius: "20px 20px 0 0", padding: "1.25rem 1.25rem calc(1.25rem + env(safe-area-inset-bottom))" }}>
-                        {confirm.kind === "book" ? (
+                        {confirm.kind === "course" ? (confirm.item.course && (
+                            <>
+                                <p style={{ fontWeight: 800, fontSize: "1.05rem", margin: "0 0 0.3rem" }}>הרשמה ל{confirm.item.course.name}</p>
+                                <p style={{ color: "#cbd5e1", margin: "0 0 0.8rem" }}>
+                                    קורס · {confirm.item.course.sessions_left} מפגשים — כל המפגשים שנשארו בו
+                                </p>
+                                <p style={{ color: muted, fontSize: "0.85rem", margin: "0 0 1.1rem", lineHeight: 1.6 }}>
+                                    {confirm.item.course.covered_by_membership ? "במסגרת המנוי — כל מפגש מנצל כניסה." : confirm.item.course.price_cents
+                                        ? `המחיר: ₪${(confirm.item.course.price_cents / 100).toLocaleString("he-IL")} לכל הקורס — התשלום בעסק.` : "התשלום בעסק."}
+                                    {" "}אפשר לבטל מפגש בודד בלי חיוב; ביטול ההרשמה לכל הקורס — דרך העסק.
+                                </p>
+                            </>
+                        )) : confirm.kind === "book" ? (
                             <>
                                 <p style={{ fontWeight: 800, fontSize: "1.05rem", margin: "0 0 0.3rem" }}>הרשמה ל{confirm.item.name}</p>
                                 <p style={{ color: "#cbd5e1", margin: "0 0 0.8rem" }}>{whenText(confirm.item.starts_at)}</p>
@@ -285,8 +305,8 @@ export default function ClassesPage() {
                         <div style={{ display: "flex", gap: "0.6rem" }}>
                             <button type="button" disabled={busy} onClick={act}
                                 style={{ flex: 1, minHeight: 48, borderRadius: 14, border: "none", fontWeight: 800, fontSize: "0.95rem", cursor: "pointer", color: "#fff",
-                                    background: confirm.kind === "book" ? primary : "#dc2626", opacity: busy ? 0.6 : 1 }}>
-                                {busy ? "רגע…" : confirm.kind === "book" ? "אישור ההרשמה" : "לבטל את ההרשמה"}
+                                    background: confirm.kind === "cancel" ? "#dc2626" : primary, opacity: busy ? 0.6 : 1 }}>
+                                {busy ? "רגע…" : confirm.kind === "cancel" ? "לבטל את ההרשמה" : confirm.kind === "course" ? "הרשמה לכל הקורס" : "אישור ההרשמה"}
                             </button>
                             <button type="button" disabled={busy} onClick={() => setConfirm(null)}
                                 style={{ minHeight: 48, padding: "0 1.1rem", borderRadius: 14, border: "1px solid rgba(255,255,255,.15)", background: "transparent", color: "#e2e8f0", cursor: "pointer" }}>
@@ -314,8 +334,8 @@ function AuthGate({ primary, onDone }: { primary: string; onDone: () => void }) 
     );
 }
 
-function Memberships({ list, isClient, primary, studio, busy, onAsk, onWithdraw }: {
-    list: MyMembership[]; isClient: boolean; primary: string; studio: string; busy: boolean;
+function Memberships({ list, isClient, primary, studio, busy, openCourse, onAsk, onWithdraw }: {
+    list: MyMembership[]; isClient: boolean; primary: string; studio: string; busy: boolean; openCourse: boolean;
     onAsk: (m: MyMembership) => void; onWithdraw: (requestId: string) => void;
 }) {
     if (!isClient || list.length === 0) {
@@ -323,7 +343,7 @@ function Memberships({ list, isClient, primary, studio, busy, onAsk, onWithdraw 
             <div style={{ ...card, padding: "1rem", marginBottom: "1rem", display: "flex", gap: "0.75rem", alignItems: "flex-start" }}>
                 <Ticket size={22} color={muted} style={{ flexShrink: 0, marginTop: 2 }} />
                 <p style={{ margin: 0, color: "#cbd5e1", fontSize: "0.88rem", lineHeight: 1.6 }}>
-                    {isClient ? `אין לך מנוי פעיל ב${studio}. כדי להירשם לשיעורים — פנו לעסק לרכישת מנוי.`
+                    {isClient ? `אין לך מנוי פעיל ב${studio}.${openCourse ? " לקורס אפשר להירשם כאן בלי מנוי; לשיעורים הקבועים" : " כדי להירשם לשיעורים"} — פנו לעסק לרכישת מנוי.`
                         : `ההרשמה לשיעורים פתוחה ללקוחות ${studio} עם מנוי. כבר לקוח/ה? ודאו שמספר הטלפון שלכם בעסק זהה לזה שהתחברתם איתו.`}
                 </p>
             </div>
@@ -375,14 +395,16 @@ function Memberships({ list, isClient, primary, studio, busy, onAsk, onWithdraw 
     );
 }
 
-function SessionCard({ s, primary, busy, onBook, onCancel, onWait, onLeave, onTake }: {
+function SessionCard({ s, primary, busy, onBook, onCancel, onWait, onLeave, onTake, onEnrollCourse, onCourseAction }: {
     s: ScheduleItem; primary: string; busy: boolean; onBook: () => void; onCancel: () => void;
     onWait: () => void; onLeave: (id: string) => void; onTake: (id: string) => void;
+    onEnrollCourse: () => void; onCourseAction: (path: string) => void;
 }) {
     const booked = s.my_booking?.status === "booked";
     const wait = s.waitlist?.mine;
     return (
-        <div style={{ ...card, padding: "0.85rem 1rem", display: "flex", alignItems: "center", gap: "0.8rem", ...(booked ? { borderColor: `${primary}88` } : {}) }}>
+        <div style={{ ...card, padding: "0.85rem 1rem", ...(booked ? { borderColor: `${primary}88` } : {}) }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.8rem" }}>
             <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", alignItems: "baseline", gap: "0.5rem", flexWrap: "wrap" }}>
                     <span dir="ltr" style={{ fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>{ilTime(s.starts_at)}–{ilTime(s.ends_at)}</span>
@@ -397,7 +419,7 @@ function SessionCard({ s, primary, busy, onBook, onCancel, onWait, onLeave, onTa
                         <Users size={13} />{s.spots_left === 0 ? "מלא" : s.spots_left === 1 ? "נשאר מקום אחד" : s.spots_left <= 3 ? `נשארו ${s.spots_left} מקומות` : `${s.spots_left} מקומות פנויים`}
                     </span>
                 </div>
-                {!s.can_book && !s.my_booking && !wait && !s.waitlist?.can_join && s.why_not && <div style={{ color: "#94a3b8", fontSize: "0.76rem", marginTop: 4 }}>{s.why_not}</div>}
+                {!s.can_book && !s.my_booking && !wait && !s.waitlist?.can_join && s.why_not && !(s.course && !s.course.single_ok) && <div style={{ color: "#94a3b8", fontSize: "0.76rem", marginTop: 4 }}>{s.why_not}</div>}
                 {wait?.status === "waiting" && (
                     <div style={{ color: "#fcd34d", fontSize: "0.78rem", marginTop: 4, display: "inline-flex", gap: 4, alignItems: "center" }}>
                         <Hourglass size={13} />ברשימת ההמתנה · מקום {wait.position}
@@ -441,16 +463,92 @@ function SessionCard({ s, primary, busy, onBook, onCancel, onWait, onLeave, onTa
                 </button>
             ) : null}
         </div>
+        {s.course && <CourseStrip c={s.course} booked={!!s.my_booking} primary={primary} busy={busy} onEnroll={onEnrollCourse} onAction={onCourseAction} />}
+        </div>
     );
 }
 
-function MyClasses({ mine, primary, busy, onCancel, onMove, onLeave, onTake }: {
+/** Under a course session: part of a course — register for all of it, wait for it, or take a held spot. */
+function CourseStrip({ c, booked, primary, busy, onEnroll, onAction }: {
+    c: NonNullable<ScheduleItem["course"]>; booked: boolean; primary: string; busy: boolean;
+    onEnroll: () => void; onAction: (path: string) => void;
+}) {
+    const e = c.enrollment;
+    const small = { minHeight: 38, padding: "0 0.8rem", borderRadius: 10, fontSize: "0.82rem", fontWeight: 700, cursor: "pointer" } as const;
+    return (
+        <div style={{ marginTop: "0.65rem", paddingTop: "0.65rem", borderTop: "1px solid rgba(255,255,255,.06)", display: "flex", alignItems: "center", gap: "0.6rem", flexWrap: "wrap" }}>
+            <span style={{ flex: 1, minWidth: 0, fontSize: "0.8rem", color: "#c4b5fd", display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <GraduationCap size={15} aria-hidden />
+                {e?.status === "active" ? "רשום/ה לקורס" : e?.status === "waiting" ? `ברשימת ההמתנה לקורס · מקום ${e.position}`
+                    : e?.status === "offered" && e.offer_expires_at ? `התפנה מקום בקורס! שמור לך עד ${ilTime(e.offer_expires_at)}`
+                    : `חלק מקורס · ${c.sessions_left} מפגשים${c.covered_by_membership ? " · במנוי" : c.price_cents ? ` · ₪${(c.price_cents / 100).toLocaleString("he-IL")}` : ""}`}
+            </span>
+            {e?.status === "offered" && (
+                <button type="button" disabled={busy} onClick={() => onAction(`course-waits/${e.id}/take`)} style={{ ...small, border: "none", background: "#16a34a", color: "#fff" }}>אישור</button>
+            )}
+            {e && e.status !== "active" && (
+                <button type="button" disabled={busy} onClick={() => onAction(`course-waits/${e.id}/leave`)}
+                    style={{ ...small, border: "1px solid rgba(255,255,255,.15)", background: "transparent", color: "#cbd5e1" }}>יציאה</button>
+            )}
+            {!e && !booked && c.can_enroll && (
+                <button type="button" onClick={onEnroll} style={{ ...small, border: "none", background: primary, color: "#fff" }}>הרשמה לקורס</button>
+            )}
+            {!e && !booked && !c.can_enroll && c.can_wait && (
+                <button type="button" disabled={busy} onClick={() => onAction(`courses/${c.template_id}/waitlist`)}
+                    style={{ ...small, border: `1px solid ${primary}`, background: "transparent", color: "#e2e8f0" }}>רשימת המתנה לקורס</button>
+            )}
+            {!e && !booked && !c.can_enroll && !c.can_wait && c.why_not && (
+                <span style={{ width: "100%", fontSize: "0.76rem", color: "#94a3b8" }}>{c.why_not}</span>
+            )}
+        </div>
+    );
+}
+
+function MyClasses({ mine, primary, busy, onCancel, onMove, onLeave, onTake, onCourseAction }: {
     mine: Mine | null; primary: string; busy: boolean; onCancel: (b: MineItem) => void; onMove: (b: MineItem) => void;
+    onCourseAction: (path: string) => void;
     onLeave: (id: string) => void; onTake: (id: string) => void;
 }) {
     if (!mine) return <div style={{ display: "flex", justifyContent: "center", padding: "2rem" }}><Loader2 className="spin" size={24} color={primary} /></div>;
     return (
         <>
+            {mine.courses && mine.courses.length > 0 && (
+                <>
+                    <h2 style={{ fontSize: "0.85rem", color: muted, fontWeight: 700, margin: "0 0 0.5rem" }}>הקורסים שלי</h2>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", marginBottom: "1.4rem" }}>
+                        {mine.courses.map((c: MyCourse) => (
+                            <div key={c.id} style={{ ...card, padding: "0.85rem 1rem", display: "flex", alignItems: "center", gap: "0.8rem" }}>
+                                <GraduationCap size={20} color="#c4b5fd" style={{ flexShrink: 0 }} aria-hidden />
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ fontWeight: 700 }}>{c.name}</div>
+                                    <div style={{ color: muted, fontSize: "0.8rem", marginTop: 2, lineHeight: 1.5 }}>
+                                        {c.status === "active"
+                                            ? `נשארו ${c.sessions_left} מתוך ${c.sessions_total} מפגשים${c.next_starts_at ? ` · הבא: ${whenText(c.next_starts_at)}` : ""}`
+                                            : c.status === "waiting" ? `ברשימת ההמתנה · מקום ${c.position}`
+                                            : c.offer_expires_at ? `התפנה מקום! שמור לך עד ${ilTime(c.offer_expires_at)}` : ""}
+                                        {c.status === "active" && c.price_cents > 0 && (
+                                            <span> · ₪{(c.price_cents / 100).toLocaleString("he-IL")}{c.paid_cents > 0 ? ` (שולם ₪${(c.paid_cents / 100).toLocaleString("he-IL")})` : ""}</span>
+                                        )}
+                                    </div>
+                                    {c.status === "active" && <div style={{ color: "#64748b", fontSize: "0.74rem", marginTop: 2 }}>לביטול ההרשמה לכל הקורס — דרך העסק.</div>}
+                                </div>
+                                {c.status === "offered" && (
+                                    <button type="button" disabled={busy} onClick={() => onCourseAction(`course-waits/${c.id}/take`)}
+                                        style={{ minHeight: 40, padding: "0 0.9rem", borderRadius: 10, border: "none", background: "#16a34a", color: "#fff", fontWeight: 800, cursor: "pointer" }}>
+                                        אישור
+                                    </button>
+                                )}
+                                {c.status !== "active" && (
+                                    <button type="button" disabled={busy} onClick={() => onCourseAction(`course-waits/${c.id}/leave`)}
+                                        style={{ minHeight: 40, padding: "0 0.9rem", borderRadius: 10, border: "1px solid rgba(255,255,255,.15)", background: "transparent", color: "#cbd5e1", cursor: "pointer" }}>
+                                        יציאה
+                                    </button>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </>
+            )}
             {mine.waitlist && mine.waitlist.length > 0 && (
                 <>
                     <h2 style={{ fontSize: "0.85rem", color: muted, fontWeight: 700, margin: "0 0 0.5rem" }}>ברשימת ההמתנה</h2>
@@ -486,7 +584,7 @@ function MyClasses({ mine, primary, busy, onCancel, onMove, onLeave, onTake }: {
                         <div key={b.id} style={{ ...card, padding: "0.85rem 1rem", display: "flex", alignItems: "center", gap: "0.8rem" }}>
                             <div style={{ flex: 1, minWidth: 0 }}>
                                 <div style={{ fontWeight: 700 }}>{b.name}</div>
-                                <div style={{ color: muted, fontSize: "0.8rem", marginTop: 2 }}>{whenText(b.starts_at)}{b.room_name ? ` · ${b.room_name}` : ""}</div>
+                                <div style={{ color: muted, fontSize: "0.8rem", marginTop: 2 }}>{whenText(b.starts_at)}{b.room_name ? ` · ${b.room_name}` : ""}{b.enrollment_id ? " · קורס" : ""}</div>
                             </div>
                             {b.can_swap && (
                                 <button type="button" onClick={() => onMove(b)} aria-label={`העברת ${b.name} לשיעור אחר`}

@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import BottomSheet from "@/components/ui/bottom-sheet";
 import SessionBookings from "@/components/classes/SessionBookings";
+import CourseEnrollments from "@/components/classes/CourseEnrollments";
 import SessionWaitlist from "@/components/classes/SessionWaitlist";
 import { apiFetch } from "@/lib/api";
 import { toast } from "@/lib/toast";
@@ -193,6 +194,11 @@ export function SessionSheet({ id, rooms, staff, terms, role, userId, onClose, o
 
                     {mode === "view" && (
                         <>
+                            {s.is_course && s.template_id && (
+                                <CourseEnrollments templateId={s.template_id} terms={terms}
+                                    perms={{ book: perms.book, override: perms.override, refund: perms.change }}
+                                    onChanged={() => { reload(); onChanged(); }} />
+                            )}
                             <SessionBookings s={s} terms={terms} perms={perms} onChanged={next => { setS(next); onChanged(); }} />
                             <SessionWaitlist s={s} canManage={perms.book} onChanged={next => { setS(next); onChanged(); }} />
                             {perms.change && open && (

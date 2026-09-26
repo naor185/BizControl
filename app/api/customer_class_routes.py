@@ -1,7 +1,7 @@
 """
 BizFind: a logged-in customer's group classes at one business — the week's schedule (spots left, not
-who is booked), "my classes", "my membership", booking, cancelling, moving to another class and asking to
-freeze the membership. Only for a client of the
+who is booked), "my classes", "my membership", booking, cancelling, moving to another class, asking to
+freeze the membership, and registering for a whole course (its waitlist too). Only for a client of the
 business with a covering membership (app/services/class_self_booking.py has the rules); booking and
 cancelling go through the same functions the staff use (app/services/class_bookings.py), so the
 confirmation, the late-cancel rules and the messages are the same.
@@ -26,6 +26,7 @@ from app.models.user import User
 from app.services import class_bookings as bookings
 from app.services import class_self_booking as selfb
 from app.services import class_swap
+from app.services import courses
 from app.services import membership_requests as requests
 from app.services import class_waitlist as wl
 from app.services import classes as svc
@@ -100,6 +101,7 @@ def schedule(slug: str, week: Optional[date] = None, customer_id: str = Depends(
     tpls, rooms, staff = _names(db, studio.id, sessions)
     waiting_on = wl.enabled(db, studio.id)
     now = svc.now_utc()
+    course_info: dict = {}                   # a course's registration state — once per course in the week
     out = []
     for s in sessions:
         t, b = tpls.get(s.template_id), mine.get(s.id)
@@ -112,7 +114,10 @@ def schedule(slug: str, week: Optional[date] = None, customer_id: str = Depends(
                     and len(line) < (policies.get_policy(db, studio.id, "waitlist_max", template_id=s.template_id) or 0)
                     and selfb.why_not(db, s, client, spots_left=1, booked=False) is None)
         until = selfb.free_cancel_until(db, s)
-        out.append({"id": str(s.id), "name": t.name if t else "שיעור", "color": (t.color if t else None) or "#6366f1",
+        if courses.is_course(t) and t.id not in course_info:
+            course_info[t.id] = _course_state(db, t, client)
+        out.append({"course": course_info.get(s.template_id),
+                    "id": str(s.id), "name": t.name if t else "שיעור", "color": (t.color if t else None) or "#6366f1",
                     "starts_at": s.starts_at.isoformat(), "ends_at": s.ends_at.isoformat(),
                     "room_name": rooms.get(s.room_id), "instructor_name": staff.get(s.instructor_id),
                     "spots_left": spots, "my_booking": {"id": str(b.id), "status": b.status} if b else None,
@@ -140,12 +145,13 @@ def mine(slug: str, customer_id: str = Depends(_get_customer_id), db: Session = 
     upcoming, history = [], []
     for b, s in rows:
         t = tpls.get(s.template_id)
-        item = {"id": str(b.id), "session_id": str(s.id), "name": t.name if t else "שיעור", "starts_at": s.starts_at.isoformat(),
+        item = {"id": str(b.id), "session_id": str(s.id), "enrollment_id": str(b.enrollment_id) if b.enrollment_id else None,
+                "name": t.name if t else "שיעור", "starts_at": s.starts_at.isoformat(),
                 "ends_at": s.ends_at.isoformat(), "room_name": rooms.get(s.room_id), "status": b.status}
         if b.status == "booked" and s.starts_at > now and s.status == "scheduled":
             until = selfb.free_cancel_until(db, s)
-            upcoming.append({**item, "free_cancel_until": until.isoformat(), "late_if_cancel_now": now > until,
-                             "can_swap": class_swap.client_may_swap(db, s) is None})
+            upcoming.append({**item, "free_cancel_until": until.isoformat(), "late_if_cancel_now": now > until and not b.enrollment_id,
+                             "can_swap": not b.enrollment_id and class_swap.client_may_swap(db, s) is None})
         else:
             history.append(item)
     upcoming.sort(key=lambda x: x["starts_at"])
@@ -159,8 +165,21 @@ def mine(slug: str, customer_id: str = Depends(_get_customer_id), db: Session = 
         waits.append({"id": str(e.id), "session_id": str(s.id), "name": t.name if t else "שיעור", "starts_at": s.starts_at.isoformat(),
                       "status": e.status, "position": position,
                       "offer_expires_at": e.offer_expires_at.isoformat() if e.offer_expires_at else None})
+    from app.models.classes import CourseEnrollment
+    mine_courses = []
+    for e, t in db.execute(select(CourseEnrollment, ClassTemplate).join(ClassTemplate, ClassTemplate.id == CourseEnrollment.template_id)
+                           .where(CourseEnrollment.client_id == client.id, CourseEnrollment.status.in_(("active", "waiting", "offered")))
+                           .order_by(CourseEnrollment.created_at)).all():
+        left = [x for x in upcoming if x["enrollment_id"] == str(e.id)]
+        money = courses.paid(db, [e.id])[e.id]
+        mine_courses.append({"id": str(e.id), "template_id": str(t.id), "name": t.name, "status": e.status,
+                             "sessions_total": e.sessions_total, "sessions_left": len(left),
+                             "next_starts_at": left[0]["starts_at"] if left else None,
+                             "price_cents": e.price_cents, "paid_cents": money["paid"] - money["refunded"],
+                             "position": e.position if e.status == "waiting" else None,
+                             "offer_expires_at": e.offer_expires_at.isoformat() if e.status == "offered" and e.offer_expires_at else None})
     return {"is_client": True, "memberships": _memberships(db, client), "upcoming": upcoming, "history": history[:30],
-            "waitlist": waits}
+            "waitlist": waits, "courses": mine_courses}
 
 
 @router.post("/{slug}/sessions/{session_id}/book")
@@ -237,6 +256,82 @@ def confirm_waitlist(slug: str, entry_id: uuid.UUID, customer_id: str = Depends(
         raise HTTPException(400, str(e).split(" — ")[0])
     db.commit()
     return {"ok": True, "message": "נרשמת! אישור נשלח אליך."}
+
+
+def _course_state(db: Session, t: ClassTemplate, client) -> dict:
+    """A course, for this client: its sessions and price now, and whether they may register or wait (or why not)."""
+    e = courses.enrollment_of(db, t, client.id) if client else None
+    why = NOT_A_CLIENT if client is None else (None if e else courses.why_not_enroll(db, t, client, for_client=True))
+    most = policies.get_policy(db, t.studio_id, "waitlist_max", template_id=t.id) or 0
+    can_wait = (client is not None and e is None and why == "הקורס מלא" and wl.enabled(db, t.studio_id)
+                and bool(policies.get_policy(db, t.studio_id, "course_self_enroll", template_id=t.id))
+                and len(courses.line(db, t)) < most)
+    return {"template_id": str(t.id), "name": t.name, "sessions_total": len(courses.sessions(db, t)),
+            "sessions_left": len(courses.sessions(db, t, coming_only=True)), "price_cents": courses.price_now(db, t),
+            "covered_by_membership": courses.covered_by_membership(db, t),
+            "single_ok": bool(courses.rule(db, t, "course_drop_in")),
+            "enrollment": {"id": str(e.id), "status": e.status, "position": e.position,
+                           "offer_expires_at": e.offer_expires_at.isoformat() if e.offer_expires_at else None} if e else None,
+            "can_enroll": e is None and why is None, "why_not": why, "can_wait": can_wait}
+
+
+def _studio_course(db: Session, studio, template_id) -> ClassTemplate:
+    t = db.get(ClassTemplate, template_id)
+    if not t or t.studio_id != studio.id or not courses.is_course(t):
+        raise HTTPException(404, "הקורס לא נמצא")
+    return t
+
+
+def _course_call(db: Session, fn, *args, **kw):
+    try:
+        result = fn(db, *args, **kw)
+    except ValueError as e:
+        db.rollback()
+        raise HTTPException(400, str(e).split(" — ")[0])
+    db.commit()
+    return result
+
+
+@router.post("/{slug}/courses/{template_id}/enroll")
+def enroll_course(slug: str, template_id: uuid.UUID, customer_id: str = Depends(_get_customer_id), db: Session = Depends(get_db)):
+    """The client registers for the whole course — every coming session; the payment is at the business."""
+    studio, client = _open(db, slug, customer_id)
+    if client is None:
+        raise HTTPException(403, NOT_A_CLIENT)
+    e = _course_call(db, courses.enroll, _studio_course(db, studio, template_id), client, origin="user", for_client=True)
+    price = f" המחיר: ₪{e.price_cents / 100:,.0f} — התשלום בעסק." if e.price_cents else ""
+    return {"ok": True, "message": f"נרשמת לקורס! {e.sessions_total} מפגשים.{price}"}
+
+
+@router.post("/{slug}/courses/{template_id}/waitlist")
+def wait_for_course(slug: str, template_id: uuid.UUID, customer_id: str = Depends(_get_customer_id), db: Session = Depends(get_db)):
+    studio, client = _open(db, slug, customer_id)
+    if client is None:
+        raise HTTPException(403, NOT_A_CLIENT)
+    _course_call(db, courses.join_waitlist, _studio_course(db, studio, template_id), client, for_client=True)
+    return {"ok": True, "message": "נכנסת לרשימת ההמתנה לקורס. נודיע לך אם יתפנה מקום."}
+
+
+def _my_course_wait(db: Session, studio, client, enrollment_id):
+    from app.models.classes import CourseEnrollment
+    e = db.get(CourseEnrollment, enrollment_id)
+    if client is None or not e or e.studio_id != studio.id or e.client_id != client.id:
+        raise HTTPException(404, "לא נמצא ברשימת ההמתנה")
+    return e
+
+
+@router.post("/{slug}/course-waits/{enrollment_id}/take")
+def take_course_offer(slug: str, enrollment_id: uuid.UUID, customer_id: str = Depends(_get_customer_id), db: Session = Depends(get_db)):
+    studio, client = _open(db, slug, customer_id)
+    _course_call(db, courses.take_offer, _my_course_wait(db, studio, client, enrollment_id), for_client=True)
+    return {"ok": True, "message": "נרשמת לקורס! אישור נשלח אליך."}
+
+
+@router.post("/{slug}/course-waits/{enrollment_id}/leave")
+def leave_course_wait(slug: str, enrollment_id: uuid.UUID, customer_id: str = Depends(_get_customer_id), db: Session = Depends(get_db)):
+    studio, client = _open(db, slug, customer_id)
+    _course_call(db, courses.leave_waitlist, _my_course_wait(db, studio, client, enrollment_id))
+    return {"ok": True}
 
 
 def _my_booking(db: Session, studio, client, booking_id) -> ClassBooking:

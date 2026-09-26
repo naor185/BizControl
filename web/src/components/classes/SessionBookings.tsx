@@ -38,7 +38,7 @@ export default function SessionBookings({ s, terms, perms, onChanged }: {
     const list = s.bookings ?? [];
     const open = s.status === "scheduled";
     const attendance = perms.mark && (open || s.status === "done") && now >= new Date(s.starts_at).getTime() - 60 * 60 * 1000;
-    const canAdd = perms.book && open && now < new Date(s.ends_at).getTime();
+    const canAdd = perms.book && open && now < new Date(s.ends_at).getTime() && s.course_single_ok !== false;   // a course: through its registration
     const canMove = perms.book && open && now < new Date(s.starts_at).getTime();   // a swap — until the class starts
 
     const run = async (key: string, path: string, body?: object) => {
@@ -101,6 +101,7 @@ export default function SessionBookings({ s, terms, perms, onChanged }: {
                                         {st && <span className={`${chip} ${st.cls}`}>{st.label}</span>}
                                         {b.justified && <span className={`${chip} text-slate-700 bg-slate-100`}>מוצדק</span>}
                                         {b.membership && <span className={`${chip} text-indigo-800 bg-indigo-50`}>{b.membership}</span>}
+                                        {b.in_course && <span className={`${chip} text-violet-800 bg-violet-50`}>קורס</span>}
                                         {b.drop_in && (
                                             <span className={`${chip} ${b.paid_cents > 0 ? "text-emerald-800 bg-emerald-50" : "text-slate-700 bg-slate-100"}`}>
                                                 כניסה בודדת{b.paid_cents > 0 ? ` · שולם ${shekels(b.paid_cents)}` : ""}

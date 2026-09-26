@@ -14,6 +14,7 @@ export type ClassSession = {
     waitlist_enabled?: boolean;
     waitlist?: { id: string; client_id: string; full_name: string; position: number; status: "waiting" | "notified"; offer_expires_at: string | null }[];
     spots_left?: number;         // spots minus those held for someone offered from the waitlist
+    course_single_ok?: boolean;  // a course: a single session may be booked alone (the owner's rule)
 };
 
 export type BookingStatus = "booked" | "attended" | "no_show" | "late_canceled";
@@ -22,6 +23,23 @@ export type Booking = {
     drop_in: boolean; justified: boolean; membership: string | null;
     fee: { id: string; amount_cents: number; status: "pending" | "paid" | "waived" } | null;
     paid_cents: number;          // paid for a single entry (not counting a fee)
+    in_course?: boolean;         // booked by a registration for the whole course
+};
+
+// ── a course (GET /api/classes/courses/{template_id}) ──
+export type CourseEnrollment = {
+    id: string; client_id: string; full_name: string; phone: string | null;
+    status: "active" | "waiting" | "offered" | "canceled" | "expired";
+    price_cents: number; sessions_total: number; paid_cents: number; refunded_cents: number;
+    refund_due_cents: number | null;        // what the owner's rule would give back now (null: the owner decides)
+    position: number | null; offer_expires_at: string | null; enrolled_at: string | null; canceled_at: string | null;
+    cancel_reason: string | null;
+};
+export type CourseView = {
+    template_id: string; name: string; capacity: number; spots: number; waitlist_enabled: boolean;
+    price_cents: number | null; price_now_cents: number | null; covered_by_membership: boolean;
+    sessions_total: number; sessions_left: number; first_starts_at: string | null; enrolled: number;
+    enrollments: CourseEnrollment[];
 };
 
 // ── memberships (stage 4) ──
@@ -102,6 +120,7 @@ export type ClassTemplate = {
     room_id: string | null; room_name: string | null; instructor_id: string | null; instructor_name: string | null;
     capacity: number; weekdays: number[]; start_time: string; duration_minutes: number;
     starts_on: string; ends_on: string | null; sessions_count: number | null; is_course: boolean; is_active: boolean;
+    course_price_cents: number | null;       // a course: the price for all its sessions
     next_session: string | null; future_sessions: number; future_booked_sessions: number;
     rules: Record<string, number | boolean | string>;
 };

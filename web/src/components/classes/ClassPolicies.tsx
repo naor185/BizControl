@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import {
-    CalendarClock, CalendarX2, ListOrdered, UsersRound, BellRing, Gift, PauseCircle, SlidersHorizontal, RotateCcw, Loader2,
+    CalendarClock, CalendarX2, ListOrdered, UsersRound, BellRing, Gift, PauseCircle, GraduationCap, SlidersHorizontal, RotateCcw, Loader2,
     type LucideIcon,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
@@ -16,6 +16,7 @@ export type ClassPolicy = {
     key: string; label: string; kind: "int" | "bool" | "choice"; unit: string; help: string;
     min: number | null; max: number | null; choices: { value: string; label: string }[];
     presets?: { value: number; label: string }[];      // ready-made values for a number; the owner may type another
+    course_only?: boolean;                               // a course's rule (shown on a class template only for a course)
     default: number | boolean | string; module: string; levels: string[];
     value: number | boolean | string; is_default: boolean;
 };
@@ -27,7 +28,9 @@ const GROUPS: { title: string; icon: LucideIcon; keys: string[] }[] = [
     { title: "מינימום משתתפים", icon: UsersRound, keys: ["min_participants", "min_check_hours", "auto_cancel_below_min"] },
     { title: "תזכורות", icon: BellRing, keys: ["reminder_hours"] },
     { title: "הקפאות", icon: PauseCircle, keys: ["freeze_requests"] },
-    { title: "מועדון לקוחות", icon: Gift, keys: ["club_points_membership_percent", "club_points_entry_percent"] },
+    { title: "קורסים", icon: GraduationCap, keys: ["course_self_enroll", "course_late_join", "course_refund", "course_refund_days",
+        "course_drop_in", "course_covered_by_membership"] },
+    { title: "מועדון לקוחות", icon: Gift, keys: ["club_points_membership_percent", "club_points_entry_percent", "club_points_course_percent"] },
 ];
 
 type Draft = Record<string, number | boolean | string>;

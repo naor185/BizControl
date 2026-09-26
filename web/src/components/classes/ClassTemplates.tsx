@@ -107,6 +107,7 @@ type Form = {
     name: string; service_id: string; color: string; room_id: string; instructor_id: string;
     capacity: number | ""; weekdays: number[]; start_time: string; duration_minutes: number | "";
     starts_on: string; course: "" | "once" | "count" | "date"; sessions_count: number | ""; ends_on: string;
+    course_price: number | "";              // ₪ for the whole course
     rules: Record<string, number | boolean | string | null>;
 };
 
@@ -125,7 +126,8 @@ function initial(t: ClassTemplate | null, preset?: TemplatePreset): Form {
         duration_minutes: t?.duration_minutes ?? preset?.duration_minutes ?? 60,
         starts_on: t?.starts_on ?? preset?.day ?? today,
         course: t?.sessions_count === 1 ? "once" : t?.sessions_count ? "count" : t?.ends_on ? "date" : "",
-        sessions_count: t?.sessions_count ?? "", ends_on: t?.ends_on ?? "", rules: { ...(t?.rules ?? {}) },
+        sessions_count: t?.sessions_count ?? "", ends_on: t?.ends_on ?? "",
+        course_price: t?.course_price_cents != null ? t.course_price_cents / 100 : "", rules: { ...(t?.rules ?? {}) },
     };
 }
 
@@ -140,8 +142,9 @@ export function TemplateSheet({ tpl, preset, rooms, staff, services, policies, t
     const [rulesOpen, setRulesOpen] = useState(() => Object.keys(tpl?.rules ?? {}).length > 0);
     const [penaltyOpen, setPenaltyOpen] = useState(false);
     const set = (patch: Partial<Form>) => { setF(v => ({ ...v, ...patch })); setCheck(null); };
+    const isCourse = (f.course === "count" && f.sessions_count !== "" && f.sessions_count > 1) || f.course === "date";
     const templateRules = useMemo(() => policies.filter(p => p.levels.includes("class_template")
-        && (!modules || modules[p.module] !== false)), [policies, modules]);
+        && (!modules || modules[p.module] !== false) && (!p.course_only || isCourse)), [policies, modules, isCourse]);
     const room = rooms.find(r => r.id === f.room_id);
 
     const pickService = (id: string) => {
@@ -164,6 +167,7 @@ export function TemplateSheet({ tpl, preset, rooms, staff, services, policies, t
         capacity: f.capacity === "" ? null : f.capacity, weekdays: once ? [weekdayOf(f.starts_on)] : f.weekdays,
         start_time: f.start_time, duration_minutes: f.duration_minutes === "" ? null : f.duration_minutes, starts_on: f.starts_on,
         sessions_count: once ? 1 : f.course === "count" ? f.sessions_count : null, ends_on: f.course === "date" ? f.ends_on : null,
+        course_price_cents: isCourse && f.course_price !== "" ? Math.round(f.course_price * 100) : null,
         rules: f.rules, ...extra,
     });
 
@@ -292,6 +296,14 @@ export function TemplateSheet({ tpl, preset, rooms, staff, services, policies, t
                     {f.course === "date" && (
                         <input type="date" value={f.ends_on} min={f.starts_on} aria-label="תאריך סיום" dir="ltr"
                             onChange={e => set({ ends_on: e.target.value })} className={`${field} mt-2 w-44`} />
+                    )}
+                    {isCourse && (
+                        <label className={`${label} block mt-3`}>מחיר לקורס כולו (₪)
+                            <input type="number" min={0} value={f.course_price} dir="ltr" placeholder="למשל 640"
+                                onChange={e => set({ course_price: e.target.value === "" ? "" : Number(e.target.value) })}
+                                className={`${field} mt-1 w-36 tabular-nums`} />
+                            <span className="block text-xs font-normal text-slate-500 mt-1">הרשמה אחת לכל המפגשים. ריק — בלי מחיר קורס (למשל כשהמנוי מכסה אותו).</span>
+                        </label>
                     )}
                 </fieldset>
 

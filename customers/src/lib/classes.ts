@@ -19,6 +19,20 @@ export type ScheduleItem = {
     my_booking: { id: string; status: "booked" | "attended" | "no_show" | "late_canceled" } | null;
     can_book: boolean; why_not: string | null; free_cancel_until: string; late_if_cancel_now: boolean;
     waitlist: { can_join: boolean; count: number; mine: MyWait | null };
+    course: CourseState | null;          // a session of a course — registered for as a whole
+};
+
+/** A course, for this client (the schedule): its sessions and price now, and what they may do. */
+export type CourseState = {
+    template_id: string; name: string; sessions_total: number; sessions_left: number; price_cents: number | null;
+    covered_by_membership: boolean; single_ok: boolean;
+    enrollment: { id: string; status: "active" | "waiting" | "offered"; position: number | null; offer_expires_at: string | null } | null;
+    can_enroll: boolean; why_not: string | null; can_wait: boolean;
+};
+export type MyCourse = {
+    id: string; template_id: string; name: string; status: "active" | "waiting" | "offered";
+    sessions_total: number; sessions_left: number; next_starts_at: string | null; price_cents: number; paid_cents: number;
+    position: number | null; offer_expires_at: string | null;
 };
 
 export type MyWait = { id: string; position: number; status: "waiting" | "notified"; offer_expires_at: string | null };
@@ -30,7 +44,7 @@ export type Schedule = {
 };
 
 export type MineItem = {
-    id: string; session_id: string; name: string; starts_at: string; ends_at: string; room_name: string | null;
+    id: string; session_id: string; enrollment_id?: string | null; name: string; starts_at: string; ends_at: string; room_name: string | null;
     status: "booked" | "attended" | "no_show" | "late_canceled"; free_cancel_until?: string; late_if_cancel_now?: boolean;
     can_swap?: boolean;                                   // the owner's rule lets the client move it now
 };
@@ -40,7 +54,8 @@ export type SwapOptions = {
     allowed: boolean; reason: string | null;
     sessions: { id: string; name: string; starts_at: string; spots_left: number; can_swap: boolean; why_not: string | null }[];
 };
-export type Mine = { is_client: boolean; memberships: MyMembership[]; upcoming: MineItem[]; history: MineItem[]; waitlist: MyWaitItem[] };
+export type Mine = { is_client: boolean; memberships: MyMembership[]; upcoming: MineItem[]; history: MineItem[]; waitlist: MyWaitItem[];
+    courses?: MyCourse[] };
 
 export const DAY_LONG = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
 const TZ = "Asia/Jerusalem";

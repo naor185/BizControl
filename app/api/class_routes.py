@@ -348,6 +348,8 @@ def _sessions_out(db: Session, studio_id, sessions: list[ClassSession], with_cli
             "cancel_reason": s.cancel_reason,
         }
         if with_clients:
+            # a course is registered for as a whole — a single session only when the owner allows it
+            row["course_single_ok"] = not row["is_course"] or bool(courses.rule(db, t, "course_drop_in"))
             from app.services import class_waitlist as wl
             from app.services.penalties import class_price
             row["bookings"] = _bookings_out(db, s.id)
@@ -383,6 +385,7 @@ def _bookings_out(db: Session, session_id) -> list[dict]:
         fee = fees.get(b.id)
         out.append({"id": str(b.id), "client_id": str(c.id), "full_name": c.full_name, "phone": c.phone,
                     "status": b.status, "over_capacity": b.over_capacity, "drop_in": b.drop_in, "justified": b.justified,
+                    "in_course": b.enrollment_id is not None,                 # booked by a registration for the whole course
                     "membership": ms.label(members.get(b.membership_id), bals.get(b.membership_id)),
                     "fee": {"id": str(fee.id), "amount_cents": fee.amount_cents, "status": fee.status} if fee else None,
                     "paid_cents": paid.get(b.id, 0)})
