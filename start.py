@@ -2430,6 +2430,8 @@ def ensure_schema():
                 END IF;
             END $$;
         """)
+        # Classes extras 5 — the check-in QR code's secret key (app/services/class_checkin.py)
+        cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS class_checkin_token VARCHAR(64)")
         # Classes extras 4 — a course: one registration and one price for all its sessions (app/services/courses.py)
         cur.execute("ALTER TABLE class_templates ADD COLUMN IF NOT EXISTS course_price_cents INTEGER")
         cur.execute("""

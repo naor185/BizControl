@@ -24,6 +24,7 @@ export type Booking = {
     fee: { id: string; amount_cents: number; status: "pending" | "paid" | "waived" } | null;
     paid_cents: number;          // paid for a single entry (not counting a fee)
     in_course?: boolean;         // booked by a registration for the whole course
+    self_checkin?: boolean;      // marked as attended by scanning the code at the door
 };
 
 // ── a course (GET /api/classes/courses/{template_id}) ──

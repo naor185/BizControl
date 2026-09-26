@@ -6,7 +6,7 @@ import Link from "next/link";
 import { ChevronRight, ChevronLeft, Users, MapPin, UserRound, CalendarCheck, Ticket, Loader2, Hourglass, ArrowLeftRight, PauseCircle, GraduationCap } from "lucide-react";
 import { apiFetch, getToken } from "@/lib/api";
 import { usePlatformTheme } from "@/lib/usePlatformTheme";
-import AuthModal from "@/components/AuthModal";
+import LoginButton from "@/components/LoginButton";
 import {
     type Mine, type MineItem, type MyCourse, type MyMembership, type MyWaitItem, type Schedule, type ScheduleItem, type SwapOptions,
     DAY_LONG, dayLabel, fullDate, ilDay, ilTime, shiftDay, weekdayOf, whenText,
@@ -151,7 +151,7 @@ export default function ClassesPage() {
                 <CalendarCheck size={32} color={primary} style={{ margin: "0 auto 0.75rem" }} />
                 <p style={{ fontWeight: 700, margin: "0 0 0.4rem" }}>הרשמה לשיעורים</p>
                 <p style={{ color: muted, fontSize: "0.88rem", margin: "0 0 1rem" }}>התחברו עם מספר הטלפון שלכם כדי לראות את הלוח ולהירשם.</p>
-                <AuthGate primary={primary} onDone={() => setLoggedIn(true)} />
+                <LoginButton primary={primary} onDone={() => setLoggedIn(true)} />
             </div>
         );
     }
@@ -317,19 +317,6 @@ export default function ClassesPage() {
                 </div>
             )}
             <style>{`.spin{animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}`}</style>
-        </>
-    );
-}
-
-function AuthGate({ primary, onDone }: { primary: string; onDone: () => void }) {
-    const [open, setOpen] = useState(false);
-    return (
-        <>
-            <button type="button" onClick={() => setOpen(true)}
-                style={{ minHeight: 46, padding: "0 1.4rem", borderRadius: 14, border: "none", background: primary, color: "#fff", fontWeight: 800, cursor: "pointer" }}>
-                התחברות
-            </button>
-            {open && <AuthModal onClose={() => setOpen(false)} onSuccess={() => { setOpen(false); onDone(); }} />}
         </>
     );
 }

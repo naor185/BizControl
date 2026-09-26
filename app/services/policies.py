@@ -73,6 +73,13 @@ POLICIES: dict[str, Policy] = {p.key: p for p in (
                     ("off", "בלי — הקפאה רק דרך העסק")),
            help="הבקשה נבדקת מיד מול כללי ההקפאה של סוג המנוי (ימים, מספר הקפאות, דמי הקפאה). בדחייה אפשר לכתוב סיבה והלקוח/ה מקבל/ת הודעה.",
            module="memberships"),
+    # Check-in at the door with the business's QR code (app/services/class_checkin.py)
+    Policy("checkin_opens_minutes", "סריקה בכניסה — מתי אפשר", "int", 30, (STUDIO,), 0, 60, unit="דקות לפני השיעור",
+           presets=((15, "15"), (30, "30"), (60, "60"))),
+    Policy("checkin_closes_minutes", "ועד", "int", 15, (STUDIO,), 0, 120, unit="דקות אחרי תחילת השיעור",
+           presets=((5, "5"), (15, "15"), (30, "30"))),
+    Policy("checkin_walk_in", "מי שלא נרשם/ה יכול/ה להירשם בסריקה", "bool", True, (STUDIO,),
+           help="רואים את השיעורים שמתחילים עכשיו שיש בהם מקום והמנוי מכסה, ובוחרים בלחיצה — נרשמים ומסומנים כהגיעו. כבוי — הודעה לפנות לדלפק."),
     # A course — one registration and one price for all its sessions (app/services/courses.py); the business's
     # default, and each course may have its own.
     Policy("course_covered_by_membership", "מנוי מכסה קורס", "bool", False, (STUDIO, TEMPLATE),

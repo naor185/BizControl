@@ -334,6 +334,53 @@ def leave_course_wait(slug: str, enrollment_id: uuid.UUID, customer_id: str = De
     return {"ok": True}
 
 
+# ── check-in at the door (the business's QR code) ─────────────────────────────
+
+class CheckinIn(BaseModel):
+    key: str
+
+
+def _checkin_studio(db: Session, slug: str, key: str):
+    """The business the code belongs to — with classes, whatever the owner chose about booking on BizFind."""
+    from app.services import class_checkin
+    studio = db.scalar(select(Studio).where(Studio.slug == slug, Studio.is_active.is_(True)))
+    if not studio or not ms._module(db, studio.id, "classes") or not class_checkin.valid(db, studio.id, key):
+        raise HTTPException(404, "הקוד לא תקף — סרקו שוב את הקוד שבכניסה")
+    return studio
+
+
+@router.post("/{slug}/checkin")
+def checkin(slug: str, body: CheckinIn, customer_id: str = Depends(_get_customer_id), db: Session = Depends(get_db)):
+    """The scan: the client's classes starting now are marked as attended — or the ones they may walk into."""
+    from app.services import class_checkin
+    studio = _checkin_studio(db, slug, body.key)
+    client = selfb.client_of(db, customer_id, studio.id)
+    if client is None:
+        raise HTTPException(403, "לא נמצאת כלקוח/ה של העסק — פנו לדלפק")
+    result = class_checkin.check_in(db, studio.id, client)
+    db.commit()
+    return {"studio": studio.name, **result}
+
+
+@router.post("/{slug}/checkin/{session_id}")
+def checkin_walk_in(slug: str, session_id: uuid.UUID, body: CheckinIn, customer_id: str = Depends(_get_customer_id),
+                    db: Session = Depends(get_db)):
+    """One tap at the door: booked into a class starting now and marked as attended."""
+    from app.services import class_checkin
+    studio = _checkin_studio(db, slug, body.key)
+    client = selfb.client_of(db, customer_id, studio.id)
+    s = db.get(ClassSession, session_id)
+    if client is None or not s or s.studio_id != studio.id:
+        raise HTTPException(404, "השיעור לא נמצא")
+    try:
+        done = class_checkin.walk_in(db, studio.id, client, s)
+    except ValueError as e:
+        db.rollback()
+        raise HTTPException(400, str(e).split(" — ")[0])
+    db.commit()
+    return {"studio": studio.name, "checked_in": [done]}
+
+
 def _my_booking(db: Session, studio, client, booking_id) -> ClassBooking:
     b = db.get(ClassBooking, booking_id)
     if client is None or not b or b.studio_id != studio.id or b.client_id != client.id:

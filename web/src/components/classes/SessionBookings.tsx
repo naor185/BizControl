@@ -102,6 +102,7 @@ export default function SessionBookings({ s, terms, perms, onChanged }: {
                                         {b.justified && <span className={`${chip} text-slate-700 bg-slate-100`}>מוצדק</span>}
                                         {b.membership && <span className={`${chip} text-indigo-800 bg-indigo-50`}>{b.membership}</span>}
                                         {b.in_course && <span className={`${chip} text-violet-800 bg-violet-50`}>קורס</span>}
+                                        {b.self_checkin && <span className={`${chip} text-emerald-800 bg-emerald-50`}>סרק/ה בכניסה</span>}
                                         {b.drop_in && (
                                             <span className={`${chip} ${b.paid_cents > 0 ? "text-emerald-800 bg-emerald-50" : "text-slate-700 bg-slate-100"}`}>
                                                 כניסה בודדת{b.paid_cents > 0 ? ` · שולם ${shekels(b.paid_cents)}` : ""}

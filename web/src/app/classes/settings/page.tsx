@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { SlidersHorizontal, MessageSquare, Loader2, Info } from "lucide-react";
+import { SlidersHorizontal, MessageSquare, Loader2, Info, QrCode } from "lucide-react";
 import AppShell from "@/components/AppShell";
 import RequireAuth from "@/components/RequireAuth";
 import ClassPolicies, { type ClassPolicy } from "@/components/classes/ClassPolicies";
 import ClassNotifications, { type NotifEvent } from "@/components/classes/ClassNotifications";
 import PenaltyRules from "@/components/classes/PenaltyRules";
+import CheckinCode from "@/components/classes/CheckinCode";
 import { apiFetch, getCurrentUserRole } from "@/lib/api";
 import { useTerms } from "@/lib/useTerms";
 
@@ -14,7 +15,7 @@ import { useTerms } from "@/lib/useTerms";
 // "classes" module; a rule or message whose module is off (e.g. the waitlist) is not shown.
 const EDITORS = new Set(["owner", "admin", "superadmin"]);
 
-type Tab = "rules" | "messages";
+type Tab = "rules" | "messages" | "checkin";
 
 function ClassSettings() {
     const terms = useTerms();
@@ -61,6 +62,7 @@ function ClassSettings() {
     const tabs: { id: Tab; label: string; icon: typeof SlidersHorizontal }[] = [
         { id: "rules", label: "כללים", icon: SlidersHorizontal },
         { id: "messages", label: "הודעות", icon: MessageSquare },
+        ...(canEdit ? [{ id: "checkin" as Tab, label: "צ׳ק-אין", icon: QrCode }] : []),
     ];
 
     return (
@@ -92,6 +94,8 @@ function ClassSettings() {
                             emptyNote="אין כללים — ביטול מאוחר ואי-הגעה מנצלים את הכניסה (בכרטיסייה), בלי חיוב." />
                     </section>
                 </div>
+            ) : tab === "checkin" ? (
+                <CheckinCode />
             ) : (
                 <ClassNotifications events={events.filter(e => moduleOn(e.module))} canEdit={canEdit} terms={terms} onChange={setEvents} />
             )}

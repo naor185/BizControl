@@ -85,6 +85,8 @@ class StudioSettings(Base):
     aftercare_delay_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=30, server_default="30")
     points_per_done_appointment: Mapped[int] = mapped_column(Integer, nullable=False, default=10, server_default="10")
     points_on_signup: Mapped[int] = mapped_column(Integer, nullable=False, default=50, server_default="50")
+    # the secret key in the business's check-in QR code (app/services/class_checkin.py) — replaced to cancel old prints
+    class_checkin_token: Mapped[str | None] = mapped_column(String(64), nullable=True)
     points_percent_per_payment: Mapped[int] = mapped_column(Integer, nullable=False, default=5, server_default="5")
 
     # Treatment type templates (JSON array stored as text, e.g. ["קעקוע","פירסינג","ייעוץ"])

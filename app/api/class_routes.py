@@ -386,6 +386,7 @@ def _bookings_out(db: Session, session_id) -> list[dict]:
         out.append({"id": str(b.id), "client_id": str(c.id), "full_name": c.full_name, "phone": c.phone,
                     "status": b.status, "over_capacity": b.over_capacity, "drop_in": b.drop_in, "justified": b.justified,
                     "in_course": b.enrollment_id is not None,                 # booked by a registration for the whole course
+                    "self_checkin": b.status == "attended" and b.marked_at is not None and b.marked_by is None,   # scanned at the door
                     "membership": ms.label(members.get(b.membership_id), bals.get(b.membership_id)),
                     "fee": {"id": str(fee.id), "amount_cents": fee.amount_cents, "status": fee.status} if fee else None,
                     "paid_cents": paid.get(b.id, 0)})

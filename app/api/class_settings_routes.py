@@ -138,3 +138,27 @@ def test_notification(event: str, body: TestIn, ctx: AuthContext = Depends(requi
         raise HTTPException(400, str(e))
     db.commit()
     return {"sent_to": to}
+
+
+# ── check-in at the door: the business's QR code (app/services/class_checkin.py) ─────────────
+
+@router.get("/checkin-code")
+def checkin_code(ctx: AuthContext = Depends(require_action("classes.configure")), db: Session = Depends(get_db)):
+    """The key in the business's check-in code — the screen draws the QR code of its BizFind link."""
+    from app.models.studio import Studio
+    from app.services import class_checkin
+    key = class_checkin.code(db, ctx.studio_id)
+    db.commit()
+    studio = db.get(Studio, ctx.studio_id)
+    return {"slug": studio.slug, "name": studio.name, "key": key}
+
+
+@router.post("/checkin-code/renew")
+def renew_checkin_code(ctx: AuthContext = Depends(require_action("classes.configure")), db: Session = Depends(get_db)):
+    """A new code — the printed old one stops working."""
+    from app.models.studio import Studio
+    from app.services import class_checkin
+    key = class_checkin.code(db, ctx.studio_id, renew=True)
+    db.commit()
+    studio = db.get(Studio, ctx.studio_id)
+    return {"slug": studio.slug, "name": studio.name, "key": key}

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import {
-    CalendarClock, CalendarX2, ListOrdered, UsersRound, BellRing, Gift, PauseCircle, GraduationCap, SlidersHorizontal, RotateCcw, Loader2,
+    CalendarClock, CalendarX2, ListOrdered, UsersRound, BellRing, Gift, PauseCircle, GraduationCap, QrCode, SlidersHorizontal, RotateCcw, Loader2,
     type LucideIcon,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
@@ -28,6 +28,7 @@ const GROUPS: { title: string; icon: LucideIcon; keys: string[] }[] = [
     { title: "מינימום משתתפים", icon: UsersRound, keys: ["min_participants", "min_check_hours", "auto_cancel_below_min"] },
     { title: "תזכורות", icon: BellRing, keys: ["reminder_hours"] },
     { title: "הקפאות", icon: PauseCircle, keys: ["freeze_requests"] },
+    { title: "צ׳ק-אין בכניסה", icon: QrCode, keys: ["checkin_opens_minutes", "checkin_closes_minutes", "checkin_walk_in"] },
     { title: "קורסים", icon: GraduationCap, keys: ["course_self_enroll", "course_late_join", "course_refund", "course_refund_days",
         "course_drop_in", "course_covered_by_membership"] },
     { title: "מועדון לקוחות", icon: Gift, keys: ["club_points_membership_percent", "club_points_entry_percent", "club_points_course_percent"] },
