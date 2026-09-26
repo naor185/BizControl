@@ -858,7 +858,6 @@ def join_waitlist(
 
     # Confirm to client via WhatsApp
     settings = db.get(StudioSettings, studio.id)
-    bizfind_url = os.getenv("BIZFIND_URL", "https://find-biz.com")
     confirm_msg = (
         f"שלום {name}! 📋\n\n"
         f"נרשמת לרשימת המתנה של {studio.name}.\n"

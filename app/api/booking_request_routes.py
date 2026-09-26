@@ -4,7 +4,6 @@ Accessible to authenticated studio staff (owner, admin, artist).
 """
 from __future__ import annotations
 
-import os
 import uuid
 from datetime import datetime, timedelta, timezone
 from app.utils.logger import get_logger
@@ -200,8 +199,8 @@ def approve_request(
     # Send confirmation to client with public link to view their booking
     local_time = _fmt_local(req.requested_at, settings.timezone or "Asia/Jerusalem")
     artist_name = req.artist.display_name if req.artist else "הצוות"
-    bizfind_url = os.getenv("BIZFIND_URL", "https://find-biz.com")
-    booking_link = f"{bizfind_url}/booking/{req.public_token}" if req.public_token else ""
+    from app.core.sites import BIZFIND_URL
+    booking_link = f"{BIZFIND_URL}/booking/{req.public_token}" if req.public_token else ""
     link_line = f"\n🔗 צפה בפרטי התור שלך:\n{booking_link}" if booking_link else ""
     custom_tpl = getattr(settings, "booking_request_approved_wa_template", None)
     if custom_tpl:

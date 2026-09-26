@@ -244,12 +244,11 @@ def bizfind_register(payload: BizFindRegisterIn, db: Session = Depends(get_db)):
 
     # Post-registration emails (best-effort — never fail the registration if email
     # sending has a hiccup; the studio + owner are already committed above).
-    import os
+    from app.core.sites import BIZFIND_URL
     from app.services.email_center import send_email
     from app.utils.email_templates import verify_email_html, new_business_admin_email_html
 
-    bizfind_url = os.getenv("BIZFIND_URL", "https://find.biz-control.com").rstrip("/")
-    verify_link = f"{bizfind_url}/verify-email?token={verify_token}"
+    verify_link = f"{BIZFIND_URL}/verify-email?token={verify_token}"
     try:
         # send_email() never raises on a normal send failure (missing API key,
         # provider rejection, etc.) — it swallows that internally and returns

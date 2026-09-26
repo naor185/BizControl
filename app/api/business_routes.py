@@ -389,12 +389,11 @@ def complete_claim(business_id: str, payload: CompleteClaimIn, db: Session = Dep
     db.commit()
 
     try:
-        import os
+        from app.core.sites import BIZFIND_URL
         from app.services.email_center import send_email
         from app.utils.email_templates import verify_email_html, new_business_admin_email_html
 
-        bizfind_url = os.getenv("BIZFIND_URL", "https://find.biz-control.com").rstrip("/")
-        verify_link = f"{bizfind_url}/verify-email?token={verify_token}"
+        verify_link = f"{BIZFIND_URL}/verify-email?token={verify_token}"
         send_email(
             db, to_email=email, subject="אימות כתובת המייל — BizControl",
             html_content=verify_email_html(payload.owner_name.strip(), verify_link),

@@ -690,8 +690,8 @@ def resend_verification(request: Request, current_user: User = Depends(get_curre
     current_user.email_verify_sent_at = datetime.now(timezone.utc)
     db.commit()
 
-    bizfind_url = os.getenv("BIZFIND_URL", "https://find.biz-control.com").rstrip("/")
-    verify_link = f"{bizfind_url}/verify-email?token={token}"
+    from app.core.sites import BIZFIND_URL
+    verify_link = f"{BIZFIND_URL}/verify-email?token={token}"
     try:
         # A different subject than the original signup email — Gmail (and
         # most mail clients) group messages into one conversation primarily

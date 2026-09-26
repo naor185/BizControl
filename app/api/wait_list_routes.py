@@ -186,12 +186,11 @@ def _send_wait_list_notification(db: Session, entry: WaitListEntry, studio_id) -
     if not phone:
         return
 
-    import os as _os
+    from app.core.sites import BIZFIND_URL
     studio_name = studio.name if studio else "העסק"
     name = entry.client_name or "שלום"
     slug = studio.slug if studio else ""
-    bizfind_url = _os.environ.get("BIZFIND_URL", "https://find-biz.com")
-    booking_url = f"{bizfind_url}/b/{slug}/book" if slug else ""
+    booking_url = f"{BIZFIND_URL}/b/{slug}/book" if slug else ""
     booking_line = f"\n\nלקביעת תור מהיר:\n{booking_url}" if booking_url else ""
 
     from app.models.studio_settings import StudioSettings as _WLSettings
