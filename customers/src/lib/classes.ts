@@ -27,6 +27,13 @@ export type Schedule = {
 export type MineItem = {
     id: string; session_id: string; name: string; starts_at: string; ends_at: string; room_name: string | null;
     status: "booked" | "attended" | "no_show" | "late_canceled"; free_cancel_until?: string; late_if_cancel_now?: boolean;
+    can_swap?: boolean;                                   // the owner's rule lets the client move it now
+};
+
+/** The classes a booking could move to (…/bookings/{id}/swap-options). */
+export type SwapOptions = {
+    allowed: boolean; reason: string | null;
+    sessions: { id: string; name: string; starts_at: string; spots_left: number; can_swap: boolean; why_not: string | null }[];
 };
 export type Mine = { is_client: boolean; memberships: MyMembership[]; upcoming: MineItem[]; history: MineItem[]; waitlist: MyWaitItem[] };
 

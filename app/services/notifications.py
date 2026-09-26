@@ -55,6 +55,9 @@ EVENTS: dict[str, Event] = {e.key: e for e in (
     Event("class_auto_cancel", "שיעור בוטל אוטומטית בגלל מעט נרשמים", "client", "כל הנרשמים", True, always_on=True, texts={
         "whatsapp": "היי {client_name}, ביטלנו את {class_name} ב-{class_date} בשעה {class_time} כי לא היו מספיק נרשמים. {entry_note}\nמצטערים! {studio_name}",
         "email": "היי {client_name},\nביטלנו את {class_name} ב-{class_date} בשעה {class_time} כי לא היו מספיק נרשמים. {entry_note}\n{studio_name}"}),
+    Event("class_swapped", "הרשמה הועברה לשיעור אחר", "client", "הלקוח/ה", True, texts={
+        "whatsapp": "היי {client_name}, ההרשמה שלך הועברה ל{class_name} ב-{class_date} בשעה {class_time} ✅\n{swap_note}\n{studio_name}",
+        "email": "היי {client_name},\nההרשמה שלך הועברה ל{class_name} ב-{class_date} בשעה {class_time}.\n{swap_note}\n{studio_name}"}),
     Event("booking_cancelled", "ביטול הרשמה (והכניסה חזרה או נצרכה)", "client", "הלקוח/ה", True, texts={
         "whatsapp": "היי {client_name}, ההרשמה שלך ל{class_name} ב-{class_date} בוטלה. {entry_note}\n{studio_name}",
         "email": "היי {client_name},\nההרשמה שלך ל{class_name} ב-{class_date} בוטלה. {entry_note}\n{studio_name}"}),
@@ -97,6 +100,7 @@ PLACEHOLDERS: dict[str, tuple[str, str]] = {
     "staff_title": ("{staff}", ""),
     "change_note": ("מה השתנה", "השעה עודכנה ל-19:00"),
     "entry_note": ("מה קרה לכניסה", "הכניסה שלך הוחזרה לכרטיסייה."),
+    "swap_note": ("מאיזה שיעור הועבר/ה", "במקום פילאטיס מכשירים ב-4/10 בשעה 18:00."),
     "fee_note": ("פירוט המדיניות", "ביטול בפחות מ-6 שעות לפני השיעור נחשב כניצול כניסה."),
     "promotion_note": ("פרטי ההרשמה מההמתנה", "נרשמת אוטומטית — נתראה!"),
     "expiry_note": ("פרטי התוקף", "המקום ששמרנו לך מחכה לאישור עד 18:30."),

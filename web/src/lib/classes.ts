@@ -158,6 +158,18 @@ export function shiftDay(day: string, n: number): string {
     return t.toISOString().slice(0, 10);
 }
 
+/** "יום ראשון 4/10 · 18:00" */
+export function whenShort(iso: string): string {
+    const { d, m, weekday } = ilParts(iso);
+    return `יום ${DAY_LONG[weekday]} ${d}/${m} · ${ilTime(iso)}`;
+}
+
+/** The classes a booking could move to (GET /api/classes/bookings/{id}/swap-options). */
+export type SwapOptions = {
+    allowed: boolean; reason: string | null;
+    sessions: { id: string; name: string; starts_at: string; spots_left: number; can_swap: boolean; why_not: string | null }[];
+};
+
 /** "6/10" for a "YYYY-MM-DD" day */
 export function dayLabel(day: string): string {
     const [, m, d] = day.split("-").map(Number);

@@ -221,7 +221,7 @@ def test_every_client_notification_has_a_text_per_channel_and_no_field_words():
         for ch in notifications.event_channels(ev):
             assert ev.texts.get(ch), (ev.key, ch)
             assert not any(w in ev.texts[ch] for w in ("קעקוע", "אמן", "סטודיו")), (ev.key, ch)
-    assert len(notifications.EVENTS) == 15
+    assert len(notifications.EVENTS) == 16          # + class_swapped (classes extras 2)
 
 
 def test_every_placeholder_has_a_label_and_labels_speak_the_fields_words(client, db_session):

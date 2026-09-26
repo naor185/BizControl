@@ -1,6 +1,6 @@
 """
 BizFind: a logged-in customer's group classes at one business — the week's schedule (spots left, not
-who is booked), "my classes", "my membership", booking and cancelling. Only for a client of the
+who is booked), "my classes", "my membership", booking, cancelling and moving to another class. Only for a client of the
 business with a covering membership (app/services/class_self_booking.py has the rules); booking and
 cancelling go through the same functions the staff use (app/services/class_bookings.py), so the
 confirmation, the late-cancel rules and the messages are the same.
@@ -12,6 +12,7 @@ from datetime import date, time, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -23,6 +24,7 @@ from app.models.studio import Studio
 from app.models.user import User
 from app.services import class_bookings as bookings
 from app.services import class_self_booking as selfb
+from app.services import class_swap
 from app.services import class_waitlist as wl
 from app.services import classes as svc
 from app.services import memberships as ms
@@ -127,7 +129,8 @@ def mine(slug: str, customer_id: str = Depends(_get_customer_id), db: Session = 
                 "ends_at": s.ends_at.isoformat(), "room_name": rooms.get(s.room_id), "status": b.status}
         if b.status == "booked" and s.starts_at > now and s.status == "scheduled":
             until = selfb.free_cancel_until(db, s)
-            upcoming.append({**item, "free_cancel_until": until.isoformat(), "late_if_cancel_now": now > until})
+            upcoming.append({**item, "free_cancel_until": until.isoformat(), "late_if_cancel_now": now > until,
+                             "can_swap": class_swap.client_may_swap(db, s) is None})
         else:
             history.append(item)
     upcoming.sort(key=lambda x: x["starts_at"])
@@ -221,12 +224,45 @@ def confirm_waitlist(slug: str, entry_id: uuid.UUID, customer_id: str = Depends(
     return {"ok": True, "message": "נרשמת! אישור נשלח אליך."}
 
 
-@router.post("/{slug}/bookings/{booking_id}/cancel")
-def cancel(slug: str, booking_id: uuid.UUID, customer_id: str = Depends(_get_customer_id), db: Session = Depends(get_db)):
-    studio, client = _open(db, slug, customer_id)
+def _my_booking(db: Session, studio, client, booking_id) -> ClassBooking:
     b = db.get(ClassBooking, booking_id)
     if client is None or not b or b.studio_id != studio.id or b.client_id != client.id:
         raise HTTPException(404, "ההרשמה לא נמצאה")
+    return b
+
+
+@router.get("/{slug}/bookings/{booking_id}/swap-options")
+def swap_options(slug: str, booking_id: uuid.UUID, customer_id: str = Depends(_get_customer_id), db: Session = Depends(get_db)):
+    """The classes of the next two weeks the client may move this booking to — each with why not."""
+    studio, client = _open(db, slug, customer_id)
+    return class_swap.options(db, _my_booking(db, studio, client, booking_id), for_client=True)
+
+
+class SwapIn(BaseModel):
+    session_id: uuid.UUID
+
+
+@router.post("/{slug}/bookings/{booking_id}/swap")
+def swap(slug: str, booking_id: uuid.UUID, body: SwapIn, customer_id: str = Depends(_get_customer_id),
+         db: Session = Depends(get_db)):
+    studio, client = _open(db, slug, customer_id)
+    b = _my_booking(db, studio, client, booking_id)
+    target = db.get(ClassSession, body.session_id)
+    if not target or target.studio_id != studio.id:
+        raise HTTPException(404, "השיעור לא נמצא")
+    try:
+        class_swap.swap(db, b, target, origin="user", for_client=True)
+    except ValueError as e:
+        db.rollback()
+        raise HTTPException(400, str(e).split(" — ")[0])
+    db.commit()
+    return {"ok": True, "message": "ההרשמה הועברה! אישור נשלח אליך."}
+
+
+@router.post("/{slug}/bookings/{booking_id}/cancel")
+def cancel(slug: str, booking_id: uuid.UUID, customer_id: str = Depends(_get_customer_id), db: Session = Depends(get_db)):
+    studio, client = _open(db, slug, customer_id)
+    b = _my_booking(db, studio, client, booking_id)
     s = db.get(ClassSession, b.session_id)
     if s.starts_at <= svc.now_utc():
         raise HTTPException(400, "השיעור כבר התחיל — לביטול פנו לעסק")

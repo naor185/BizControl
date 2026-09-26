@@ -3,17 +3,17 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { ChevronRight, ChevronLeft, Users, MapPin, UserRound, CalendarCheck, Ticket, Loader2, Hourglass } from "lucide-react";
+import { ChevronRight, ChevronLeft, Users, MapPin, UserRound, CalendarCheck, Ticket, Loader2, Hourglass, ArrowLeftRight } from "lucide-react";
 import { apiFetch, getToken } from "@/lib/api";
 import { usePlatformTheme } from "@/lib/usePlatformTheme";
 import AuthModal from "@/components/AuthModal";
 import {
-    type Mine, type MineItem, type MyMembership, type MyWaitItem, type Schedule, type ScheduleItem,
+    type Mine, type MineItem, type MyMembership, type MyWaitItem, type Schedule, type ScheduleItem, type SwapOptions,
     DAY_LONG, dayLabel, fullDate, ilDay, ilTime, shiftDay, weekdayOf, whenText,
 } from "@/lib/classes";
 
 // A client's group classes at one business: the week's schedule (how many spots are left — never who is
-// booked), booking, "my classes" with cancel, and "my membership". Open to a client of the business with
+// booked), booking, "my classes" with cancel and a move to another class, and "my membership". Open to a client of the business with
 // a membership that covers the class; the server decides everything and says why when it says no.
 
 type Tab = "schedule" | "mine";
@@ -38,6 +38,7 @@ export default function ClassesPage() {
     const [notice, setNotice] = useState<{ text: string; ok: boolean } | null>(null);
     const [confirm, setConfirm] = useState<Confirm | null>(null);
     const [busy, setBusy] = useState(false);
+    const [moving, setMoving] = useState<{ b: MineItem; options: SwapOptions | null } | null>(null);
 
     useEffect(() => { setLoggedIn(!!getToken()); }, []);
 
@@ -79,6 +80,30 @@ export default function ClassesPage() {
             load();
         } catch (e) {
             setNotice({ text: e instanceof Error ? e.message : "הפעולה נכשלה", ok: false });
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const openMove = (b: MineItem) => {
+        setMoving({ b, options: null });
+        apiFetch<SwapOptions>(`/api/marketplace/classes/${slug}/bookings/${b.id}/swap-options`)
+            .then(options => setMoving(m => (m && m.b.id === b.id ? { b, options } : m)))
+            .catch(e => { setMoving(null); setNotice({ text: e instanceof Error ? e.message : "הטעינה נכשלה", ok: false }); });
+    };
+
+    const moveTo = async (sessionId: string) => {
+        if (!moving) return;
+        setBusy(true);
+        try {
+            const r = await apiFetch<{ message: string }>(`/api/marketplace/classes/${slug}/bookings/${moving.b.id}/swap`,
+                { method: "POST", body: JSON.stringify({ session_id: sessionId }) });
+            setNotice({ text: r.message, ok: true });
+            setMoving(null);
+            load();
+        } catch (e) {
+            setNotice({ text: e instanceof Error ? e.message : "ההעברה נכשלה", ok: false });
+            setMoving(null);
         } finally {
             setBusy(false);
         }
@@ -173,7 +198,45 @@ export default function ClassesPage() {
                 <MyClasses mine={mine} primary={primary} busy={busy}
                     onLeave={id => waitAction(`waitlist/${id}/leave`, "יצאת מרשימת ההמתנה")}
                     onTake={id => waitAction(`waitlist/${id}/confirm`, "נרשמת!")}
+                    onMove={openMove}
                     onCancel={(b: MineItem) => setConfirm({ kind: "cancel", id: b.id, name: b.name, startsAt: b.starts_at, late: !!b.late_if_cancel_now })} />
+            )}
+
+            {moving && (
+                <div role="dialog" aria-modal="true" aria-label="העברה לשיעור אחר" onClick={e => e.target === e.currentTarget && !busy && setMoving(null)}
+                    style={{ position: "fixed", inset: 0, zIndex: 200 /* above the app's bottom nav (100) */, background: "rgba(0,0,0,.6)", display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+                    <div style={{ background: "#1e293b", width: "100%", maxWidth: 520, maxHeight: "85vh", display: "flex", flexDirection: "column", borderRadius: "20px 20px 0 0", padding: "1.25rem 1.25rem calc(1.25rem + env(safe-area-inset-bottom))" }}>
+                        <p style={{ fontWeight: 800, fontSize: "1.05rem", margin: "0 0 0.3rem" }}>העברה לשיעור אחר</p>
+                        <p style={{ color: muted, fontSize: "0.85rem", margin: "0 0 0.9rem", lineHeight: 1.6 }}>
+                            במקום {moving.b.name} · {whenText(moving.b.starts_at)}. בלי חיוב — הכניסה עוברת לשיעור החדש.
+                        </p>
+                        <div style={{ overflowY: "auto", display: "flex", flexDirection: "column", gap: "0.45rem", marginBottom: "0.9rem" }}>
+                            {!moving.options ? (
+                                <div style={{ display: "flex", justifyContent: "center", padding: "1.5rem" }}><Loader2 className="spin" size={24} color={primary} /></div>
+                            ) : !moving.options.allowed ? (
+                                <p style={{ color: "#fcd34d", margin: 0 }}>{moving.options.reason}</p>
+                            ) : moving.options.sessions.length === 0 ? (
+                                <p style={{ color: muted, margin: 0 }}>אין שיעורים בשבועיים הקרובים.</p>
+                            ) : moving.options.sessions.map(o => (
+                                <button key={o.id} type="button" disabled={busy || !o.can_swap} onClick={() => moveTo(o.id)}
+                                    style={{ ...card, display: "flex", alignItems: "center", gap: "0.7rem", padding: "0.75rem 0.9rem", textAlign: "right",
+                                        color: o.can_swap ? "#f1f5f9" : "#64748b", cursor: o.can_swap ? "pointer" : "not-allowed", minHeight: 52 }}>
+                                    <span style={{ flex: 1, minWidth: 0 }}>
+                                        <span style={{ display: "block", fontWeight: 700 }}>{o.name}</span>
+                                        <span style={{ display: "block", fontSize: "0.8rem", color: muted, marginTop: 2 }}>{whenText(o.starts_at)}</span>
+                                    </span>
+                                    <span style={{ fontSize: "0.75rem", fontWeight: 700, color: o.can_swap ? "#86efac" : "#64748b", flexShrink: 0 }}>
+                                        {o.can_swap ? `${o.spots_left} מקומות` : o.why_not}
+                                    </span>
+                                </button>
+                            ))}
+                        </div>
+                        <button type="button" disabled={busy} onClick={() => setMoving(null)}
+                            style={{ minHeight: 48, borderRadius: 14, border: "1px solid rgba(255,255,255,.15)", background: "transparent", color: "#e2e8f0", cursor: "pointer" }}>
+                            {busy ? "רגע…" : "חזרה"}
+                        </button>
+                    </div>
+                </div>
             )}
 
             {confirm && (
@@ -338,8 +401,8 @@ function SessionCard({ s, primary, busy, onBook, onCancel, onWait, onLeave, onTa
     );
 }
 
-function MyClasses({ mine, primary, busy, onCancel, onLeave, onTake }: {
-    mine: Mine | null; primary: string; busy: boolean; onCancel: (b: MineItem) => void;
+function MyClasses({ mine, primary, busy, onCancel, onMove, onLeave, onTake }: {
+    mine: Mine | null; primary: string; busy: boolean; onCancel: (b: MineItem) => void; onMove: (b: MineItem) => void;
     onLeave: (id: string) => void; onTake: (id: string) => void;
 }) {
     if (!mine) return <div style={{ display: "flex", justifyContent: "center", padding: "2rem" }}><Loader2 className="spin" size={24} color={primary} /></div>;
@@ -382,6 +445,12 @@ function MyClasses({ mine, primary, busy, onCancel, onLeave, onTake }: {
                                 <div style={{ fontWeight: 700 }}>{b.name}</div>
                                 <div style={{ color: muted, fontSize: "0.8rem", marginTop: 2 }}>{whenText(b.starts_at)}{b.room_name ? ` · ${b.room_name}` : ""}</div>
                             </div>
+                            {b.can_swap && (
+                                <button type="button" onClick={() => onMove(b)} aria-label={`העברת ${b.name} לשיעור אחר`}
+                                    style={{ minHeight: 40, padding: "0 0.75rem", borderRadius: 10, border: "1px solid rgba(255,255,255,.15)", background: "transparent", color: "#e2e8f0", fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+                                    <ArrowLeftRight size={15} aria-hidden /> החלפה
+                                </button>
+                            )}
                             <button type="button" onClick={() => onCancel(b)}
                                 style={{ minHeight: 40, padding: "0 0.9rem", borderRadius: 10, border: "1px solid rgba(248,113,113,.4)", background: "transparent", color: "#fca5a5", fontWeight: 700, cursor: "pointer" }}>
                                 ביטול

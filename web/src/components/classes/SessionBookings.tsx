@@ -1,16 +1,17 @@
 "use client";
 
-import { useState } from "react";
-import { UserPlus, CheckCheck, X, Loader2, ShieldCheck } from "lucide-react";
+import { useEffect, useState } from "react";
+import { UserPlus, CheckCheck, X, Loader2, ShieldCheck, ArrowLeftRight } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import type { Terms } from "@/lib/useTerms";
-import { type Booking, type BookingStatus, type ClassSession, shekels } from "@/lib/classes";
+import { type Booking, type BookingStatus, type ClassSession, type SwapOptions, shekels, whenShort } from "@/lib/classes";
 import ClientSearch, { type FoundClient } from "@/components/classes/ClientSearch";
 import PayForm from "@/components/classes/PayForm";
 
 // The class list inside a class: who is booked (and what covers each: a membership, a single entry),
-// adding a client, attendance, cancelling a booking, and marking a late cancel or a no-show as justified.
+// adding a client, attendance, cancelling a booking, moving it to another class (the entry and a single
+// entry's payment move with it), and marking a late cancel or a no-show as justified.
 // The server decides everything (spots, membership, the free-cancel window, the owner's rules, who may)
 // — this asks and shows the answer. Attendance opens an hour before the class, as on the server.
 
@@ -31,12 +32,14 @@ export default function SessionBookings({ s, terms, perms, onChanged }: {
     const [busy, setBusy] = useState<string | null>(null);
     const [adding, setAdding] = useState(false);
     const [cancelling, setCancelling] = useState<Booking | null>(null);
+    const [moving, setMoving] = useState<Booking | null>(null);
     const [paying, setPaying] = useState<Booking | null>(null);
     const [now] = useState(() => Date.now());   // when the class was opened — decides which buttons show
     const list = s.bookings ?? [];
     const open = s.status === "scheduled";
     const attendance = perms.mark && (open || s.status === "done") && now >= new Date(s.starts_at).getTime() - 60 * 60 * 1000;
     const canAdd = perms.book && open && now < new Date(s.ends_at).getTime();
+    const canMove = perms.book && open && now < new Date(s.starts_at).getTime();   // a swap — until the class starts
 
     const run = async (key: string, path: string, body?: object) => {
         setBusy(key);
@@ -137,8 +140,15 @@ export default function SessionBookings({ s, terms, perms, onChanged }: {
                                         ))}
                                     </div>
                                 )}
+                                {canMove && b.status === "booked" && (
+                                    <button type="button" onClick={() => { setCancelling(null); setMoving(b); }} aria-label={`העברת ${b.full_name} לשיעור אחר`}
+                                        title="העברה לשיעור אחר"
+                                        className="w-9 h-9 flex items-center justify-center rounded-lg text-slate-400 hover:text-indigo-700 shrink-0">
+                                        <ArrowLeftRight className="w-4 h-4" aria-hidden />
+                                    </button>
+                                )}
                                 {perms.book && open && b.status === "booked" && !attendance && (
-                                    <button type="button" onClick={() => setCancelling(b)} aria-label={`ביטול ההרשמה של ${b.full_name}`}
+                                    <button type="button" onClick={() => { setMoving(null); setCancelling(b); }} aria-label={`ביטול ההרשמה של ${b.full_name}`}
                                         className="w-9 h-9 flex items-center justify-center rounded-lg text-slate-400 hover:text-rose-700 shrink-0">
                                         <X className="w-4 h-4" aria-hidden />
                                     </button>
@@ -164,7 +174,17 @@ export default function SessionBookings({ s, terms, perms, onChanged }: {
                     }} />
             )}
 
-            {canAdd && !cancelling && (adding ? (
+            {moving && (
+                <MoveBooking b={moving} busy={busy !== null} onBack={() => setMoving(null)}
+                    onMove={async (target, label) => {
+                        if (await run(moving.id, `/api/classes/bookings/${moving.id}/swap`, { session_id: target })) {
+                            toast.success(`${moving.full_name} הועבר/ה ל${label}`);
+                            setMoving(null);
+                        }
+                    }} />
+            )}
+
+            {canAdd && !cancelling && !moving && (adding ? (
                 <AddClient s={s} terms={terms} canOverride={perms.override} busy={busy !== null} onClose={() => setAdding(false)}
                     onBook={(clientId, extra) => run(`add-${clientId}`, `/api/classes/sessions/${s.id}/bookings`, { client_id: clientId, ...extra })}
                     onWait={clientId => run(`wait-${clientId}`, `/api/classes/sessions/${s.id}/waitlist`, { client_id: clientId })} />
@@ -278,6 +298,53 @@ function AddClient({ s, terms, canOverride, busy, onClose, onBook, onWait }: {
                     </div>
                 </div>
             )}
+        </div>
+    );
+}
+
+/** Move a booking to another class of the next two weeks — the server lists them and says why one is not
+ *  possible (full, not covered by the membership…). */
+function MoveBooking({ b, busy, onBack, onMove }: {
+    b: Booking; busy: boolean; onBack: () => void; onMove: (sessionId: string, label: string) => void;
+}) {
+    const [opts, setOpts] = useState<SwapOptions | null>(null);
+    const [failed, setFailed] = useState<string | null>(null);
+    useEffect(() => {
+        apiFetch<SwapOptions>(`/api/classes/bookings/${b.id}/swap-options`).then(setOpts)
+            .catch(e => setFailed(e instanceof Error ? e.message : "הטעינה נכשלה"));
+    }, [b.id]);
+    return (
+        <div className="rounded-xl border border-indigo-200 bg-indigo-50/40 p-3 space-y-2">
+            <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-semibold text-slate-800">להעביר את {b.full_name} לשיעור:</p>
+                <button type="button" onClick={onBack} aria-label="סגירה" className="w-9 h-9 flex items-center justify-center text-slate-500">
+                    <X className="w-4 h-4" aria-hidden />
+                </button>
+            </div>
+            <p className="text-xs text-slate-500">לא נחשב ביטול מאוחר ואין חיוב. הכניסה עוברת לשיעור החדש, ותישלח הודעה.</p>
+            {failed && <p className="text-sm text-rose-700">{failed}</p>}
+            {!opts && !failed && <Loader2 className="w-4 h-4 text-indigo-500 animate-spin" aria-label="טוען" />}
+            {opts && !opts.allowed && <p className="text-sm text-amber-900">{opts.reason}</p>}
+            {opts?.allowed && (opts.sessions.length === 0 ? (
+                <p className="text-sm text-slate-500">אין שיעורים בשבועיים הקרובים.</p>
+            ) : (
+                <ul className="max-h-72 overflow-y-auto divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
+                    {opts.sessions.map(o => (
+                        <li key={o.id}>
+                            <button type="button" disabled={busy || !o.can_swap} onClick={() => onMove(o.id, `${o.name} · ${whenShort(o.starts_at)}`)}
+                                className="w-full text-right px-3 py-2 min-h-12 flex items-center gap-2 hover:bg-indigo-50 disabled:hover:bg-transparent disabled:cursor-not-allowed">
+                                <span className="flex-1 min-w-0">
+                                    <span className={`block text-sm font-semibold ${o.can_swap ? "text-slate-900" : "text-slate-400"}`}>{o.name}</span>
+                                    <span className="block text-xs text-slate-500">{whenShort(o.starts_at)}</span>
+                                </span>
+                                <span className={`text-[11px] font-semibold shrink-0 ${o.can_swap ? "text-emerald-700" : "text-slate-400"}`}>
+                                    {o.can_swap ? `${o.spots_left} מקומות` : o.why_not}
+                                </span>
+                            </button>
+                        </li>
+                    ))}
+                </ul>
+            ))}
         </div>
     );
 }

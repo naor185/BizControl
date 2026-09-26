@@ -506,10 +506,11 @@ def booking_eligibility(session_id: uuid.UUID, client_id: uuid.UUID, ctx: AuthCo
 
 
 def _booking_error(db: Session, e: Exception):
+    from app.services.class_swap import SwapError
     from app.services.class_waitlist import WaitlistError
     from app.services.memberships import MembershipError
     db.rollback()
-    if not isinstance(e, (bookings.BookingError, MembershipError, WaitlistError)):
+    if not isinstance(e, (bookings.BookingError, MembershipError, WaitlistError, SwapError)):
         raise e
     raise HTTPException(409 if isinstance(e, bookings.FullError) else 400, str(e))
 
@@ -542,6 +543,35 @@ def cancel_booking(booking_id: uuid.UUID, body: BookingCancelIn, ctx: AuthContex
     try:
         bookings.cancel(db, b, user_id=ctx.user_id, waive_late=body.waive_late)
     except ValueError as e:              # BookingError / MembershipError — a message for the staff
+        _booking_error(db, e)
+    db.commit()
+    return _sessions_out(db, ctx.studio_id, [db.get(ClassSession, b.session_id)], with_clients=True)[0]
+
+
+class SwapIn(BaseModel):
+    session_id: uuid.UUID              # the class to move into
+
+
+@router.get("/bookings/{booking_id}/swap-options")
+def swap_options(booking_id: uuid.UUID, ctx: AuthContext = Depends(require_action("bookings.manage")),
+                 db: Session = Depends(get_db)):
+    """The classes of the next two weeks this booking could move to (app/services/class_swap.py)."""
+    from app.models.classes import ClassBooking
+    from app.services import class_swap
+    return class_swap.options(db, _get(db, ClassBooking, ctx.studio_id, booking_id, "ההרשמה לא נמצאה"), for_client=False)
+
+
+@router.post("/bookings/{booking_id}/swap")
+def swap_booking(booking_id: uuid.UUID, body: SwapIn, ctx: AuthContext = Depends(require_action("bookings.manage")),
+                 db: Session = Depends(get_db)):
+    """Moves the booking to another class in one step — the entry and a single entry's payment move with it."""
+    from app.models.classes import ClassBooking
+    from app.services import class_swap
+    b = _get(db, ClassBooking, ctx.studio_id, booking_id, "ההרשמה לא נמצאה")
+    target = _get(db, ClassSession, ctx.studio_id, body.session_id, "השיעור לא נמצא")
+    try:
+        class_swap.swap(db, b, target, user_id=ctx.user_id)
+    except ValueError as e:              # SwapError / BookingError / MembershipError — a message for the staff
         _booking_error(db, e)
     db.commit()
     return _sessions_out(db, ctx.studio_id, [db.get(ClassSession, b.session_id)], with_clients=True)[0]
