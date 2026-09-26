@@ -32,6 +32,9 @@ class PaymentCreate(BaseModel):
     external_ref: str | None = None
     notes: str | None = None
     coupon_code: str | None = None
+    # the full price the coupon's percent is taken from, when the screen already took it off (a split payment's
+    # first part) — then amount_cents is already net and is not reduced again
+    coupon_base_cents: int | None = None
 
     # Optional list of products sold
     product_items: Optional[list[ProductItemCreate]] = None

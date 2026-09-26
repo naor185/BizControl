@@ -93,14 +93,14 @@ export default function PaymentModal({ isOpen, onClose, onSuccess, appointment }
         setCouponLoading(true);
         setCouponError("");
         try {
-            const res = await apiFetch(`/api/coupons/validate?code=${encodeURIComponent(couponCode.trim())}`);
+            const res = await apiFetch<{ discount_percent: number }>(`/api/coupons/validate?code=${encodeURIComponent(couponCode.trim())}&client_id=${appointment.client_id}`);
             setCouponDiscount(res.discount_percent);
             setCouponValid(true);
             setCouponError("");
-        } catch {
+        } catch (e: unknown) {
             setCouponDiscount(0);
             setCouponValid(false);
-            setCouponError("קוד קופון לא תקין, כבר נוצל, או פג תוקפו");
+            setCouponError((e as { message?: string })?.message || "הקופון לא תקין");
         } finally {
             setCouponLoading(false);
         }
@@ -138,6 +138,7 @@ export default function PaymentModal({ isOpen, onClose, onSuccess, appointment }
                         method,
                         notes: notes ? `${notes} [חלק 1 מפיצול]` : "[חלק 1 מפיצול]",
                         coupon_code: couponValid && couponCode.trim() ? couponCode.trim().toUpperCase() : null,
+                        coupon_base_cents: couponValid && couponCode.trim() ? Math.round(parseFloat(amount || "0") * 100) : null,
                         send_receipt: sendReceipt,
                     }),
                 });

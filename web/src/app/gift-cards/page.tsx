@@ -3,6 +3,9 @@ import { useState, useEffect, useCallback } from "react";
 import AppShell from "@/components/AppShell";
 import RequireAuth from "@/components/RequireAuth";
 import { apiFetch } from "@/lib/api";
+import { Gift, Link2, Ticket } from "lucide-react";
+import ShareLink from "@/components/ShareLink";
+import CouponsPanel from "@/components/coupons/CouponsPanel";
 
 interface GiftCard {
     id: string;
@@ -34,7 +37,11 @@ const STATUS: Record<string, { label: string; cls: string }> = {
     pending_payment: { label: "ממתין לתשלום",  cls: "bg-amber-100 text-amber-700" },
 };
 
+type Tab = "gift" | "coupons";
+
 export default function GiftCardsPage() {
+    const [tab, setTab] = useState<Tab>("gift");
+    const [studioId, setStudioId] = useState("");
     const [cards, setCards] = useState<GiftCard[]>([]);
     const [loading, setLoading] = useState(true);
     const [showCreate, setShowCreate] = useState(false);
@@ -58,7 +65,17 @@ export default function GiftCardsPage() {
         apiFetch<{ last_7_days: number; last_30_days: number; total: number }>("/api/gift-cards/page-views")
             .then(setPageViews)
             .catch(() => {});
+        apiFetch<{ studio_id: string }>("/api/auth/me").then(me => setStudioId(me.studio_id)).catch(() => {});
+        if (new URLSearchParams(window.location.search).get("tab") === "coupons") setTab("coupons");
     }, []);
+
+    const openTab = (t: Tab) => {
+        setTab(t);
+        const u = new URL(window.location.href);
+        if (t === "coupons") u.searchParams.set("tab", "coupons"); else u.searchParams.delete("tab");
+        window.history.replaceState(null, "", u.toString());
+    };
+    const shopLink = studioId ? `${window.location.origin}/gift/${studioId}` : "";
 
     const cancel = async (id: string) => {
         if (!confirm("לבטל כרטיס זה?")) return;
@@ -112,8 +129,30 @@ export default function GiftCardsPage() {
 
     return (
         <RequireAuth>
-            <AppShell title="🎁 כרטיסי מתנה">
+            <AppShell title="גיפט קארד וקופונים">
                 <div className="space-y-5 pb-12">
+
+                    <div role="tablist" className="flex gap-2">
+                        {([["gift", "גיפט קארד", Gift], ["coupons", "קופונים", Ticket]] as const).map(([id, label, Icon]) => (
+                            <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => openTab(id)}
+                                className={`inline-flex items-center gap-2 min-h-11 px-5 rounded-xl text-sm font-bold border transition-colors ${tab === id ? "bg-slate-900 border-slate-900 text-white" : "bg-white border-slate-200 text-slate-600 hover:border-slate-400"}`}>
+                                <Icon className="w-4 h-4" aria-hidden /> {label}
+                            </button>
+                        ))}
+                    </div>
+
+                    {tab === "coupons" ? <CouponsPanel /> : (<>
+
+                    {/* The link customers buy a gift card at */}
+                    <section className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 space-y-3">
+                        <div>
+                            <h3 className="flex items-center gap-2 text-base font-bold text-slate-800"><Link2 className="w-4.5 h-4.5 text-violet-600" aria-hidden />הקישור שלך למכירת גיפט קארד</h3>
+                            <p className="text-sm text-slate-500 mt-1">שולחים ללקוחות, שמים באינסטגרם או מדפיסים כקוד QR — הלקוח בוחר סכום וקונה. כל רכישה מופיעה כאן למטה לאישור התשלום.</p>
+                        </div>
+                        {shopLink ? (
+                            <ShareLink url={shopLink} whatsappText="גיפט קארד — מתנה מושלמת, קונים כאן:" printTitle="גיפט קארד" printLine="סורקים וקונים מתנה" />
+                        ) : <div className="h-10 rounded-xl bg-slate-100 animate-pulse" />}
+                    </section>
 
                     {/* Summary strip */}
                     <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
@@ -145,7 +184,7 @@ export default function GiftCardsPage() {
                     <div className="flex gap-2 flex-wrap items-center">
                         <button type="button" onClick={() => setShowCreate(true)}
                             className="bg-violet-600 hover:bg-violet-700 text-white font-bold text-sm px-4 py-2 rounded-xl transition-colors">
-                            + כרטיס מתנה חדש
+                            + גיפט קארד חדש
                         </button>
                         <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
                             className="text-sm border border-slate-200 rounded-xl px-3 py-2 outline-none">
@@ -171,7 +210,7 @@ export default function GiftCardsPage() {
                     ) : cards.length === 0 ? (
                         <div className="text-center py-16 text-slate-400">
                             <div className="text-4xl mb-3">🎁</div>
-                            <div>אין כרטיסי מתנה עדיין</div>
+                            <div>אין גיפט קארד עדיין — שלחו את הקישור שלמעלה ללקוחות</div>
                         </div>
                     ) : (
                         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
@@ -225,6 +264,7 @@ export default function GiftCardsPage() {
                             </div>
                         </div>
                     )}
+                    </>)}
                 </div>
 
                 {showCreate && (
@@ -284,7 +324,7 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
             <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-auto max-h-[95dvh]">
                 <div className="p-6">
                     <div className="flex justify-between items-center mb-5">
-                        <h2 className="text-lg font-black">🎁 כרטיס מתנה חדש</h2>
+                        <h2 className="text-lg font-black">🎁 גיפט קארד חדש</h2>
                         <button type="button" onClick={created ? onCreated : onClose}
                             className="text-slate-400 hover:text-slate-600 text-xl font-bold">×</button>
                     </div>
@@ -343,7 +383,7 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
                             {err && <p className="text-rose-600 text-sm">{err}</p>}
                             <button type="button" onClick={submit} disabled={saving}
                                 className="w-full bg-violet-600 hover:bg-violet-700 disabled:opacity-60 text-white font-bold py-3 rounded-2xl transition-colors mt-2">
-                                {saving ? "יוצר..." : "✨ צור כרטיס מתנה"}
+                                {saving ? "יוצר..." : "✨ צור גיפט קארד"}
                             </button>
                         </div>
                     )}

@@ -1667,7 +1667,7 @@ export default function AutomationSettingsPage() {
                                         </div>
 
                                         <div className="bg-violet-50 p-6 rounded-2xl border border-violet-200 md:col-span-2">
-                                            <label className="block text-base font-bold text-slate-800 mb-2">💳 טווח סכומים לרכישת כרטיס מתנה</label>
+                                            <label className="block text-base font-bold text-slate-800 mb-2">💳 טווח סכומים לרכישת גיפט קארד</label>
                                             <p className="text-sm text-slate-500 mb-4">
                                                 הסכום המינימלי והמקסימלי שלקוח יכול לבחור בדף הרכישה הציבורי. השאר את המקסימום ריק לאין הגבלה.
                                             </p>
@@ -1720,14 +1720,14 @@ export default function AutomationSettingsPage() {
                                         <div className="bg-violet-50 p-6 rounded-2xl border border-violet-200 md:col-span-2">
                                             <div className="flex items-center justify-between gap-4 mb-3">
                                                 <div>
-                                                    <label className="block text-base font-bold text-slate-800">🎁 בונוס לרכישת כרטיס מתנה</label>
+                                                    <label className="block text-base font-bold text-slate-800">🎁 בונוס לרכישת גיפט קארד</label>
                                                     <p className="text-sm text-slate-500 mt-0.5">
                                                         מעל סכום מסוים, הכרטיס שיוצא ללקוח יהיה שווה יותר ממה ששילם — למשל &quot;מעל ₪500, מקבלים 10% בונוס&quot;.
                                                     </p>
                                                 </div>
                                                 <button
                                                     type="button"
-                                                    title="הפעל בונוס לכרטיסי מתנה"
+                                                    title="הפעל בונוס לגיפט קארד"
                                                     onClick={() => handleChange("gift_card_bonus_enabled", !settings.gift_card_bonus_enabled)}
                                                     className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${settings.gift_card_bonus_enabled ? "bg-violet-600" : "bg-slate-200"}`}
                                                 >
@@ -1800,7 +1800,7 @@ export default function AutomationSettingsPage() {
                                             )}
                                             {voucherPreviewImage && (
                                                 <div className="mt-4">
-                                                    <img src={voucherPreviewImage} alt="תצוגה מקדימה של שובר כרטיס מתנה" className="w-full max-w-md rounded-2xl border border-violet-200 shadow-sm" />
+                                                    <img src={voucherPreviewImage} alt="תצוגה מקדימה של שובר גיפט קארד" className="w-full max-w-md rounded-2xl border border-violet-200 shadow-sm" />
                                                 </div>
                                             )}
                                         </div>

@@ -46,7 +46,9 @@ def _generate_code(db: Session, client_name: str, discount: int, month: int = 0)
     base = f"{month_part}{discount}{name_part}"
     code = base
     i = 0
-    while db.scalar(select(BirthdayCoupon).where(BirthdayCoupon.code == code)) is not None:
+    from app.models.coupon import Coupon
+    while (db.scalar(select(BirthdayCoupon).where(BirthdayCoupon.code == code)) is not None
+           or db.scalar(select(Coupon.id).where(Coupon.code == code).limit(1)) is not None):
         code = f"{base}{secrets.token_hex(1).upper()}"
         i += 1
         if i > 20:
@@ -91,25 +93,6 @@ def get_or_create_birthday_coupon(
     db.add(coupon)
     db.flush()
     return coupon
-
-
-def validate_coupon(
-    db: Session,
-    studio_id: UUID,
-    client_id: UUID,
-    code: str,
-) -> BirthdayCoupon | None:
-    """Returns the coupon if it is active and not expired, else None."""
-    now = datetime.now(timezone.utc)
-    return db.scalar(
-        select(BirthdayCoupon).where(
-            BirthdayCoupon.studio_id == studio_id,
-            BirthdayCoupon.client_id == client_id,
-            BirthdayCoupon.code == code,
-            BirthdayCoupon.status == "active",
-            BirthdayCoupon.expires_at >= now,
-        )
-    )
 
 
 def apply_coupon(

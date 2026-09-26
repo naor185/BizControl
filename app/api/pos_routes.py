@@ -140,6 +140,15 @@ def pos_checkout(
         if not client or client.studio_id != ctx.studio_id:
             raise HTTPException(status_code=404, detail="לקוח לא נמצא")
 
+    # A coupon — checked before anything changes (the business's own or a birthday one)
+    hit = None
+    if body.coupon_code:
+        from app.services import coupons
+        try:
+            hit = coupons.find(db, ctx.studio_id, body.coupon_code, client.id if client else None)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
     # Build items + validate products + reduce stock
     db_items: list[PosTransactionItem] = []
     subtotal = 0
@@ -222,20 +231,14 @@ def pos_checkout(
                     reason=f"רכישה בקופה — {total / 100:.2f}₪",
                 ))
 
-    # Mark coupon as redeemed
-    if body.coupon_code:
-        from app.models.birthday_coupon import BirthdayCoupon
-        now_utc = datetime.now(timezone.utc)
-        coupon = db.scalar(
-            select(BirthdayCoupon).where(
-                BirthdayCoupon.studio_id == ctx.studio_id,
-                BirthdayCoupon.code == body.coupon_code.upper().strip(),
-                BirthdayCoupon.status == "active",
-            )
-        )
-        if coupon:
-            coupon.status = "redeemed"
-            coupon.redeemed_at = now_utc
+    # The coupon's use — its percent of the cart (the screen took the same off in discount_cents)
+    if hit is not None:
+        try:
+            coupons.redeem(db, ctx.studio_id, hit, before_cents=subtotal, client_id=client.id if client else None,
+                           user_id=ctx.user_id, pos_transaction_id=txn.id)
+        except ValueError as e:
+            db.rollback()
+            raise HTTPException(status_code=400, detail=str(e))
 
     try:
         db.commit()
@@ -510,6 +513,8 @@ def void_transaction(
                 product.stock_quantity += item.quantity
 
     txn.status = "void"
+    from app.services import coupons
+    coupons.release(db, pos_transaction_id=txn.id)            # the coupon can be used again
     db.commit()
     return {"ok": True}
 

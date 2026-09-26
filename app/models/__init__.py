@@ -25,6 +25,8 @@ from app.models.ai_audit_log import AIAuditLog
 from app.models.employee_nfc_tag import EmployeeNfcTag
 from app.models.attendance_log import AttendanceLog
 from app.models.pos_transaction import PosTransaction, PosTransactionItem
+from app.models.birthday_coupon import BirthdayCoupon
+from app.models.coupon import Coupon, CouponUse
 from app.models.user_pin_settings import UserPinSettings
 from app.models.pin_attempt_log import PinAttemptLog
 from app.models.financial_obligation import FinancialObligation

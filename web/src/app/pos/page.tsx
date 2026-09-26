@@ -293,10 +293,11 @@ export default function PosPage() {
         if (!couponCode.trim()) return;
         setCouponLoading(true); setCouponError("");
         try {
-            const r = await apiFetch<{ discount_percent: number }>(`/api/coupons/validate?code=${encodeURIComponent(couponCode.trim().toUpperCase())}`);
+            const who = client?.id ? `&client_id=${client.id}` : "";
+            const r = await apiFetch<{ discount_percent: number }>(`/api/coupons/validate?code=${encodeURIComponent(couponCode.trim().toUpperCase())}${who}`);
             setCouponDiscount(r.discount_percent);
             toast.success(`קופון תקין — ${r.discount_percent}% הנחה`);
-        } catch { setCouponError("קוד לא תקין"); setCouponDiscount(0); }
+        } catch (e: unknown) { setCouponError((e as { message?: string })?.message || "קוד לא תקין"); setCouponDiscount(0); }
         finally { setCouponLoading(false); }
     };
 
@@ -548,7 +549,7 @@ export default function PosPage() {
                 <div className="flex-1 flex gap-1 items-center">
                     <input value={giftCardCode}
                         onChange={e => { setGiftCardCode(e.target.value.toUpperCase()); setGiftCardInfo(null); setGiftCardDiscount(0); setGiftCardError(""); }}
-                        placeholder="קוד כרטיס מתנה... 🎁"
+                        placeholder="קוד גיפט קארד... 🎁"
                         className={`flex-1 border rounded-lg px-2 py-1.5 text-xs font-mono focus:outline-none focus:ring-1 ${giftCardInfo ? "border-violet-400 bg-violet-50" : giftCardError ? "border-rose-400" : "border-slate-200"}`}
                         onKeyDown={e => e.key === "Enter" && validateGiftCard()} />
                     <button type="button" onClick={validateGiftCard} disabled={!giftCardCode.trim() || giftCardLoading}
@@ -612,7 +613,7 @@ export default function PosPage() {
                     {giftCardDiscountCents > 0 && (
                         <div className="flex justify-between text-xs text-violet-600 font-bold">
                             <span>-₪{(giftCardDiscountCents / 100).toFixed(2)}</span>
-                            <span>כרטיס מתנה 🎁</span>
+                            <span>גיפט קארד 🎁</span>
                         </div>
                     )}
                     <div className="flex justify-between font-bold text-sm text-slate-900 border-t border-slate-200 pt-1.5 mt-1">

@@ -349,7 +349,7 @@ export default function Page() {
                             >
                                 <span className="text-3xl">🎁</span>
                                 <div className="flex-1">
-                                    <div className="font-bold text-amber-900">{pendingGiftCards.length} כרטיסי מתנה ממתינים לאישור תשלום</div>
+                                    <div className="font-bold text-amber-900">{pendingGiftCards.length} גיפט קארד ממתינים לאישור תשלום</div>
                                     <div className="text-sm text-amber-700">הזמנות מהחנות הציבורית — לחץ לפירוט</div>
                                 </div>
                                 <span className="text-amber-600 text-sm font-semibold">{pendingGiftCardsExpanded ? "▲ סגור" : "▼ פרוס"}</span>

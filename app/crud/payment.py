@@ -71,20 +71,18 @@ def create_payment(db: Session, studio_id: UUID, data) -> Payment:
         if not client.is_club_member:
             client.is_club_member = True
 
-    # Validate and apply birthday coupon discount
-    applied_coupon = None
+    # A coupon (the business's own or a birthday one — app/services/coupons.py): the percent comes off the price,
+    # or — a split payment's first part — the screen already took it off the full price (coupon_base_cents)
+    hit = None
+    amount_cents = int(data.amount_cents)
     coupon_code = getattr(data, "coupon_code", None)
+    coupon_base = getattr(data, "coupon_base_cents", None)
     if coupon_code:
-        from app.crud.birthday_coupon import validate_coupon
-        applied_coupon = validate_coupon(db, studio_id, data.client_id, coupon_code)
-        if applied_coupon is None:
-            raise ValueError("קוד קופון לא תקין, כבר נוצל, או פג תוקפו")
-        # Apply discount to amount_cents
-        discount_factor = 1.0 - (applied_coupon.discount_percent / 100.0)
-        discounted_cents = int(data.amount_cents * discount_factor)
-        amount_cents = discounted_cents
-    else:
-        amount_cents = int(data.amount_cents)
+        from app.services import coupons
+        hit = coupons.find(db, studio_id, coupon_code, data.client_id)          # ValueError (Hebrew) when it does not work
+        coupon_base = int(coupon_base) if coupon_base is not None else amount_cents
+        if getattr(data, "coupon_base_cents", None) is None:
+            amount_cents = max(0, amount_cents - coupons.discount_of(hit, coupon_base))
 
     # Reduce cash amount by points redeemed (staff enters total price; points cover part of it)
     if data.points_redeemed > 0:
@@ -103,14 +101,12 @@ def create_payment(db: Session, studio_id: UUID, data) -> Payment:
         notes=data.notes,
     )
     db.add(obj)
+    if hit is not None:
+        db.flush()
+        coupons.redeem(db, studio_id, hit, before_cents=coupon_base, client_id=data.client_id, payment_id=obj.id,
+                       appointment_id=data.appointment_id)
     db.commit()
     db.refresh(obj)
-
-    # Mark coupon as redeemed after payment is committed
-    if applied_coupon is not None:
-        from app.crud.birthday_coupon import apply_coupon
-        apply_coupon(db, applied_coupon, payment_id=obj.id, appointment_id=data.appointment_id)
-        db.commit()
 
     # Secondary record representing the payment via points (for balancing the appointment bill, not hitting cash reports)
     if data.points_redeemed > 0:

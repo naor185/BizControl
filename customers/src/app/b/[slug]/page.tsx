@@ -6,8 +6,9 @@ import { API, imgUrl } from "@/lib/api";
 import { setStudioToken, goToBizControl } from "@/lib/handoff";
 import BusinessTypeIcon from "@/components/BusinessTypeIcon";
 import { GLASS_BTN, GLASS_CARD, OPTION_STYLE, PRIMARY_BTN } from "@/lib/look";
+import { type VisitCoupon, couponNote, openCouponLink } from "@/lib/coupon";
 import { ArrowRight, BookOpen, CalendarDays, Camera, Check, ClipboardList, Clock, Images, MapPin, MessageCircle,
-         Navigation, PartyPopper, PenLine, Phone, Send, Share2, Star, Users, type LucideIcon } from "lucide-react";
+         Navigation, PartyPopper, PenLine, Phone, Send, Share2, Star, Ticket, Users, type LucideIcon } from "lucide-react";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -189,6 +190,7 @@ export default function BusinessPage() {
     const [reviewError, setReviewError] = useState("");
     const [activeTab, setActiveTab] = useState<"about" | "services" | "gallery" | "reviews">("about");
     const [showRequestModal, setShowRequestModal] = useState(false);
+    const [coupon, setCoupon] = useState<VisitCoupon | null>(null);      // came with the business's coupon link (?c=)
 
     useEffect(() => {
         fetch(`${API}/api/marketplace/${slug}`)
@@ -197,6 +199,8 @@ export default function BusinessPage() {
             .catch(status => setErr(status === 410 ? "העסק אינו זמין להזמנות כרגע — האתר שלו בארכיון. הוא יחזור לפעול ברגע שהעסק יחדש את המנוי." : "העסק לא נמצא"));
         // Track page view (fire-and-forget)
         fetch(`${API}/api/marketplace/${slug}/view`, { method: "POST" }).catch(() => {});
+        const code = new URLSearchParams(window.location.search).get("c");
+        if (code) openCouponLink(slug, code).then(setCoupon);
     }, [slug]);
 
     const submitReview = async () => {
@@ -341,6 +345,21 @@ export default function BusinessPage() {
                 </div>
 
                 {p!.is_claimed === false && p!.business_id && <ClaimBanner businessId={p!.business_id} phone={p!.phone} />}
+
+                {/* ── The coupon the visitor came with ── */}
+                {coupon && (
+                    <div role="status" style={{ display: "flex", alignItems: "center", gap: "0.9rem", marginBottom: "1.25rem", padding: "1rem 1.1rem", borderRadius: 18, background: "var(--bf-glass-strong)", border: "1.5px dashed rgba(255,255,255,.55)" }}>
+                        <div style={{ width: 48, height: 48, borderRadius: 14, background: "#fff", color: "#000", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Ticket size={24} aria-hidden /></div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontWeight: 800, fontSize: "1.05rem" }}>יש לך קופון: {coupon.discount_percent}% הנחה</div>
+                            <div style={{ color: "var(--bf-muted)", fontSize: "0.84rem", marginTop: 2, lineHeight: 1.5 }}>
+                                הקוד <span dir="ltr" style={{ fontWeight: 800, color: "#fff", letterSpacing: "0.06em" }}>{coupon.code}</span> — מציגים בקופה או כותבים בבקשת התור
+                                {coupon.expires_on ? ` · בתוקף עד ${new Date(coupon.expires_on).toLocaleDateString("he-IL")}` : ""}
+                                {coupon.once_per_client ? " · פעם אחת ללקוח" : ""}
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* ── CTA buttons ── */}
                 <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "1.5rem" }}>
@@ -680,6 +699,7 @@ export default function BusinessPage() {
                 slug={slug}
                 studioName={p!.name}
                 services={p!.services.map(s => s.name)}
+                startNotes={couponNote(slug)}
                 onClose={() => setShowRequestModal(false)}
             />
         )}
@@ -689,13 +709,13 @@ export default function BusinessPage() {
 
 // ── Request Modal ─────────────────────────────────────────────────────────────
 
-function RequestModal({ slug, studioName, services, onClose }: {
-    slug: string; studioName: string; services: string[]; onClose: () => void;
+function RequestModal({ slug, studioName, services, startNotes, onClose }: {
+    slug: string; studioName: string; services: string[]; startNotes: string; onClose: () => void;
 }) {
     const [name, setName] = useState("");
     const [phone, setPhone] = useState("");
     const [service, setService] = useState("");
-    const [notes, setNotes] = useState("");
+    const [notes, setNotes] = useState(startNotes);
     const [loading, setLoading] = useState(false);
     const [done, setDone] = useState(false);
     const [err, setErr] = useState<string | null>(null);

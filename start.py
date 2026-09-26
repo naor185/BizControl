@@ -2558,6 +2558,52 @@ def ensure_schema():
             END $$;
         """)
 
+        # the owner's own coupons and every use of a coupon (birthday coupons too) — app/services/coupons.py
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS coupons (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                code VARCHAR(32) NOT NULL,
+                discount_percent INTEGER NOT NULL CONSTRAINT ck_coupons_percent CHECK (discount_percent BETWEEN 1 AND 100),
+                category VARCHAR(60), source VARCHAR(60),
+                max_uses INTEGER CONSTRAINT ck_coupons_max_uses CHECK (max_uses IS NULL OR max_uses > 0),
+                once_per_client BOOLEAN NOT NULL DEFAULT false,
+                expires_on DATE,
+                is_active BOOLEAN NOT NULL DEFAULT true,
+                note VARCHAR(300),
+                link_clicks INTEGER NOT NULL DEFAULT 0,
+                created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                CONSTRAINT uq_coupons_studio_code UNIQUE (studio_id, code)
+            )
+        """)
+        # coupon_uses points at birthday_coupons, which app/main.py makes on its first start — on a brand-new
+        # database it is made on the next start (a failing statement here would undo this whole transaction)
+        cur.execute("SELECT to_regclass('birthday_coupons') IS NOT NULL")
+        _birthday_table = cur.fetchone()[0]
+        if _birthday_table:
+            cur.execute("""
+            CREATE TABLE IF NOT EXISTS coupon_uses (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                coupon_id UUID REFERENCES coupons(id) ON DELETE CASCADE,
+                birthday_coupon_id UUID REFERENCES birthday_coupons(id) ON DELETE CASCADE,
+                code VARCHAR(32) NOT NULL,
+                client_id UUID REFERENCES clients(id) ON DELETE SET NULL,
+                payment_id UUID REFERENCES payments(id) ON DELETE CASCADE,
+                pos_transaction_id UUID REFERENCES pos_transactions(id) ON DELETE CASCADE,
+                before_cents INTEGER NOT NULL, discount_cents INTEGER NOT NULL,
+                used_by UUID REFERENCES users(id) ON DELETE SET NULL,
+                used_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                CONSTRAINT ck_coupon_uses_coupon CHECK (coupon_id IS NOT NULL OR birthday_coupon_id IS NOT NULL)
+            )
+        """)
+        for _t, _c in (("coupons", "studio_id"), ("coupon_uses", "studio_id"), ("coupon_uses", "coupon_id"),
+                       ("coupon_uses", "birthday_coupon_id"), ("coupon_uses", "client_id"), ("coupon_uses", "payment_id"),
+                       ("coupon_uses", "pos_transaction_id")):
+            if _t == "coupons" or _birthday_table:
+                cur.execute(f"CREATE INDEX IF NOT EXISTS ix_{_t}_{_c} ON {_t} ({_c})")
+
         conn.commit()
         cur.close()
         conn.close()

@@ -86,7 +86,7 @@ const SECTION_GROUPS: { groupLabel: string; icon: LucideIcon; items: { href: str
         items: [
             { href: "/products",   label: "מוצרים ומלאי",     description: "קטלוג מוצרים, מחירים ומלאי",             icon: Package, gradient: "from-sky-500 to-sky-700", module: "products" },
             { href: "/services",   label: "שירותים",          description: "סוגי טיפול, מחירים ומשך זמן",            icon: ConciergeBell, gradient: "from-sky-600 to-cyan-700", module: "services" },
-            { href: "/gift-cards", label: "כרטיסי מתנה",      description: "מכירה ומעקב כרטיסי מתנה",                icon: Gift, gradient: "from-purple-600 to-fuchsia-700", module: "pos" },
+            { href: "/gift-cards", label: "גיפט קארד וקופונים", description: "קישור למכירת גיפט קארד, קופונים ומעקב",                icon: Gift, gradient: "from-purple-600 to-fuchsia-700", module: "pos" },
         ],
     },
     {

@@ -402,9 +402,9 @@ export default function BroadcastsPage() {
                                     )}
                                     {giftCardShopLink && (
                                         <button type="button"
-                                            onClick={() => insertAtCursor(`🎁 כרטיס מתנה לך או למישהו שאתה אוהב:\n${giftCardShopLink}`)}
+                                            onClick={() => insertAtCursor(`🎁 גיפט קארד לך או למישהו שאתה אוהב:\n${giftCardShopLink}`)}
                                             className="text-xs px-2.5 py-1 rounded-lg bg-violet-50 text-violet-700 border border-violet-200 hover:bg-violet-100 font-medium">
-                                            🎁 לינק כרטיס מתנה
+                                            🎁 לינק גיפט קארד
                                         </button>
                                     )}
                                     {autoSettings.bit_link && (

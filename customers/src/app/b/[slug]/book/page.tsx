@@ -6,6 +6,7 @@ import { API, apiFetch } from "@/lib/api";
 import { getCustomer, type Customer } from "@/lib/auth";
 import { ArrowRight, CalendarDays, Check, ChevronLeft, ClipboardList, Frown, Lock, LogIn, Send, User } from "lucide-react";
 import AuthModal from "@/components/AuthModal";
+import { couponNote } from "@/lib/coupon";
 import { GLASS_BTN, GLASS_CARD, PRIMARY_BTN } from "@/lib/look";
 
 interface Service { id: string; name: string; duration_minutes: number; price_ils: number; color: string; is_bookable_online: boolean; }
@@ -43,7 +44,9 @@ export default function BookPage() {
 
     useEffect(() => {
         setCustomer(getCustomer());
-    }, []);
+        const note = couponNote(slug);            // came with the business's coupon link
+        if (note) setNotes(n => n || note);
+    }, [slug]);
 
     const requireAuth = (action: () => void) => {
         if (customer) { action(); return; }
