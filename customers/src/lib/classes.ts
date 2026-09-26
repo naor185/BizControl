@@ -2,10 +2,15 @@
 // helpers (every time is shown on the clock in Israel, whatever the phone's own zone).
 
 export type MyMembership = {
-    name: string; kind: "unlimited" | "weekly" | "punch"; kind_label: string;
+    id: string; name: string; kind: "unlimited" | "weekly" | "punch"; kind_label: string;
     status: "pending" | "active" | "frozen" | "ending"; starts_on: string; ends_on: string | null;
     entries_left: number | null; weekly_limit: number | null;
     freeze_from: string | null; freeze_until: string | null;      // frozen from, back on
+    // asking to freeze — null when the owner allows no requests or the type allows no freeze
+    freeze: {
+        can_ask: boolean; why_not: string | null; min_days: number | null; days_left: number | null; fee_cents: number;
+        request: { id: string; from_on: string; until_on: string } | null;     // waiting for the business
+    } | null;
 };
 
 export type ScheduleItem = {

@@ -156,3 +156,27 @@ class ClassFee(Base):
     waive_reason: Mapped[str | None] = mapped_column(String(200), nullable=True)
     paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class MembershipRequest(Base):
+    """A client's request from BizFind about their membership — a freeze, from a date to a return date, and why
+    (app/services/membership_requests.py). pending → approved (the freeze is made, by the owner or — the
+    owner's choice — by itself when it is inside the membership's rules) / rejected (with the business's
+    reason) / withdrawn by the client. One pending request per membership."""
+    __tablename__ = "membership_requests"
+    __table_args__ = (Index("uq_membership_request_pending", "membership_id", unique=True,
+                            postgresql_where=text("status = 'pending'")),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    studio_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("studios.id", ondelete="CASCADE"), nullable=False, index=True)
+    membership_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("memberships.id", ondelete="CASCADE"), nullable=False, index=True)
+    client_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("clients.id", ondelete="CASCADE"), nullable=False)
+    kind: Mapped[str] = mapped_column(String(16), nullable=False, default="freeze", server_default="freeze")
+    from_on: Mapped[date] = mapped_column(Date, nullable=False)
+    until_on: Mapped[date] = mapped_column(Date, nullable=False)
+    note: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="pending", server_default="pending")
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    decided_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    decision_note: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())

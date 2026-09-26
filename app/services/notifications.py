@@ -38,6 +38,7 @@ class Event:
     always_on: bool = False    # cannot be switched off (the client must know)
     texts: dict = field(default_factory=dict)   # channel → default text; {placeholders} filled at send time
     module: str = "classes"    # shown to the owner only when this module is on (e.g. waitlist events)
+    link: str | None = None    # a staff bell opens this screen
 
 
 # Wording rules: the class name can be masculine or feminine (שיעור / סדנה), so no sentence makes a verb
@@ -79,13 +80,18 @@ EVENTS: dict[str, Event] = {e.key: e for e in (
     Event("membership_expiring", "מנוי עומד לפוג (7 ו-3 ימים לפני) או נותרו 2 כניסות", "client", "הלקוח/ה", True, module="memberships", texts={
         "whatsapp": "היי {client_name}, {expiry_note} לחידוש — דברו איתנו 🙏\n{studio_name}",
         "email": "היי {client_name},\n{expiry_note} לחידוש — דברו איתנו.\n{studio_name}"}),
+    Event("freeze_request_declined", "בקשת הקפאה לא אושרה", "client", "הלקוח/ה", True, module="memberships", texts={
+        "whatsapp": "היי {client_name}, {request_note}\n{studio_name}",
+        "email": "היי {client_name},\n{request_note}\n{studio_name}"}),
     Event("class_full", "שיעור התמלא", "staff", "{staff} (פעמון)", False, texts={
         "bell": "אין יותר מקומות ב{class_name} ב-{class_date} בשעה {class_time}"}),
     Event("class_at_risk", "שיעור בסיכון: הנרשמים מתחת למינימום לפני שעת הבדיקה", "staff", "המנהל/ת (פעמון)", False, texts={
         "bell": "ב{class_name} ב-{class_date} בשעה {class_time} רשומים {booked} מתוך מינימום {minimum}"}),
-    Event("membership_changed_by_staff", "מנוי הוקפא, נעצר או בוטל על ידי עובד", "staff", "הבעלים (פעמון)", True, module="memberships", texts={
+    Event("membership_changed_by_staff", "מנוי הוקפא, נעצר או בוטל על ידי עובד", "staff", "הבעלים (פעמון)", True, module="memberships",
+          link="/classes?tab=memberships", texts={
         "bell": "המנוי של {client_name} {status_word} על ידי {staff_name}"}),
-    Event("freeze_requested", "לקוח ביקש הקפאה או עצירה", "staff", "הבעלים (פעמון)", True, module="memberships", texts={
+    Event("freeze_requested", "לקוח ביקש הקפאה או עצירה", "staff", "הבעלים (פעמון)", True, module="memberships",
+          link="/classes?tab=memberships", texts={
         "bell": "{client_name} ביקש/ה {request_word} של המנוי"}),
 )}
 
@@ -111,6 +117,7 @@ PLACEHOLDERS: dict[str, tuple[str, str]] = {
     "minimum": ("המינימום", "4"),
     "staff_name": ("שם העובד/ת", "נועה"),
     "request_word": ("הקפאה / עצירה", "הקפאה"),
+    "request_note": ("פרטי הבקשה והתשובה", "בקשת ההקפאה שלך (4/10–18/10) לא אושרה: בחודש הראשון אין הקפאות."),
 }
 
 
@@ -220,7 +227,7 @@ def notify(db: Session, studio_id, event: str, *, origin: str, about: str, conte
             key = _dedup(event, about, "staff", "bell")
             if _claim(db, "notifications", studio_id, key):
                 db.add(Notification(studio_id=studio_id, type=f"notify-{event}"[:32], title=label,
-                                    body=_fill(body, base), dedup_key=key))
+                                    body=_fill(body, base), dedup_key=key, action_url=ev.link))
                 queued += 1
     db.flush()
     return queued

@@ -7,6 +7,7 @@ import ClientSearch, { type FoundClient } from "@/components/classes/ClientSearc
 import MembershipTypes, { describeType } from "@/components/classes/MembershipTypes";
 import PayForm from "@/components/classes/PayForm";
 import MembershipChanges, { freezeLine } from "@/components/classes/MembershipChanges";
+import FreezeRequests from "@/components/classes/FreezeRequests";
 import { apiFetch } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import type { Terms } from "@/lib/useTerms";
@@ -16,7 +17,8 @@ import {
 } from "@/lib/classes";
 
 // Memberships: who has what (balance, dates, status), selling one, a membership's entry log, a manual
-// correction, renewal — and the membership types, and the open fees the owner's rules recorded.
+// correction, renewal, the freeze requests clients sent from BizFind — and the membership types, and the
+// open fees the owner's rules recorded.
 
 type Section = "memberships" | "types" | "fees";
 const STATUS_CLS: Record<string, string> = {
@@ -73,6 +75,7 @@ function MembershipList({ terms, canSell, canChange }: { terms: Terms; canSell: 
 
     return (
         <div className="space-y-3">
+            {canChange && <FreezeRequests onChanged={load} />}
             <div className="flex flex-wrap items-center gap-3">
                 {canSell && (
                     <button type="button" onClick={() => setSelling(true)}

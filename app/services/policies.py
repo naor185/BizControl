@@ -66,6 +66,12 @@ POLICIES: dict[str, Policy] = {p.key: p for p in (
                     ("off", "בלי — החלפה רק דרך העסק")),
            help="החלפה היא לא ביטול מאוחר ולא נרשם עליה חיוב — הכניסה עוברת לשיעור החדש. הצוות יכול להחליף עד תחילת השיעור.",
            module="memberships"),
+    Policy("freeze_requests", "לקוחות מבקשים הקפאה ב-BizFind", "choice", "manual", (STUDIO,),
+           choices=(("manual", "באישור שלך — מקבלים התראה ומאשרים או דוחים"),
+                    ("auto", "אוטומטי — כשהבקשה בתוך כללי ההקפאה של המנוי"),
+                    ("off", "בלי — הקפאה רק דרך העסק")),
+           help="הבקשה נבדקת מיד מול כללי ההקפאה של סוג המנוי (ימים, מספר הקפאות, דמי הקפאה). בדחייה אפשר לכתוב סיבה והלקוח/ה מקבל/ת הודעה.",
+           module="memberships"),
     # Club points on class payments — the owner's percentages (a point is worth ₪1, as on any payment); 0 = none.
     Policy("club_points_membership_percent", "נקודות מועדון על קניית מנוי", "int", 0, (STUDIO,), 0, 100, unit="% מהתשלום",
            help="חבר/ת מועדון שמשלם/ת על מנוי מקבל/ת נקודות לפי האחוז הזה. מחיקת התשלום מורידה אותן.",

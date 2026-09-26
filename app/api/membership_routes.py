@@ -252,6 +252,41 @@ def freeze_membership(membership_id: uuid.UUID, body: FreezeIn, ctx: AuthContext
                    fee_cents=body.fee_cents)
 
 
+# ── a client's freeze requests from BizFind (app/services/membership_requests.py) ─────────────────
+
+@router.get("/freeze-requests")
+def freeze_requests(ctx: AuthContext = Depends(require_action("memberships.change")), db: Session = Depends(get_db)):
+    """The requests that wait for an answer — each checked against the membership's rules as of now."""
+    from app.services import membership_requests as requests
+    return requests.waiting(db, ctx.studio_id)
+
+
+def _request(db: Session, ctx: AuthContext, request_id, fn, **kw):
+    from app.models.memberships import MembershipRequest
+    from app.services import membership_requests as requests
+    req = _get(db, MembershipRequest, ctx.studio_id, request_id, "הבקשה לא נמצאה")
+    try:
+        getattr(requests, fn)(db, req, user_id=ctx.user_id, **kw)
+    except ValueError as e:
+        _fail(db, e)
+    db.commit()
+    return requests.waiting(db, ctx.studio_id)
+
+
+@router.post("/freeze-requests/{request_id}/approve")
+def approve_freeze_request(request_id: uuid.UUID, ctx: AuthContext = Depends(require_action("memberships.change")),
+                           db: Session = Depends(get_db)):
+    """The freeze is made as if the staff made it; the client gets the usual message."""
+    return _request(db, ctx, request_id, "approve", role=ctx.role)
+
+
+@router.post("/freeze-requests/{request_id}/reject")
+def reject_freeze_request(request_id: uuid.UUID, body: ChangeIn, ctx: AuthContext = Depends(require_action("memberships.change")),
+                          db: Session = Depends(get_db)):
+    """Not approved — the client is told, with the reason when one is given."""
+    return _request(db, ctx, request_id, "reject", reason=body.reason)
+
+
 @router.post("/memberships/{membership_id}/unfreeze")
 def unfreeze_membership(membership_id: uuid.UUID, ctx: AuthContext = Depends(require_action("memberships.change")),
                         db: Session = Depends(get_db)):

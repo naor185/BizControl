@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { ChevronRight, ChevronLeft, Users, MapPin, UserRound, CalendarCheck, Ticket, Loader2, Hourglass, ArrowLeftRight } from "lucide-react";
+import { ChevronRight, ChevronLeft, Users, MapPin, UserRound, CalendarCheck, Ticket, Loader2, Hourglass, ArrowLeftRight, PauseCircle } from "lucide-react";
 import { apiFetch, getToken } from "@/lib/api";
 import { usePlatformTheme } from "@/lib/usePlatformTheme";
 import AuthModal from "@/components/AuthModal";
@@ -13,7 +13,8 @@ import {
 } from "@/lib/classes";
 
 // A client's group classes at one business: the week's schedule (how many spots are left — never who is
-// booked), booking, "my classes" with cancel and a move to another class, and "my membership". Open to a client of the business with
+// booked), booking, "my classes" with cancel and a move to another class, and "my membership" with a freeze
+// request. Open to a client of the business with
 // a membership that covers the class; the server decides everything and says why when it says no.
 
 type Tab = "schedule" | "mine";
@@ -39,6 +40,7 @@ export default function ClassesPage() {
     const [confirm, setConfirm] = useState<Confirm | null>(null);
     const [busy, setBusy] = useState(false);
     const [moving, setMoving] = useState<{ b: MineItem; options: SwapOptions | null } | null>(null);
+    const [freezing, setFreezing] = useState<MyMembership | null>(null);
 
     useEffect(() => { setLoggedIn(!!getToken()); }, []);
 
@@ -109,6 +111,21 @@ export default function ClassesPage() {
         }
     };
 
+    const askFreeze = async (m: MyMembership, body: { from_on: string; until_on: string; note: string }) => {
+        setBusy(true);
+        try {
+            const r = await apiFetch<{ message: string }>(`/api/marketplace/classes/${slug}/memberships/${m.id}/freeze-request`,
+                { method: "POST", body: JSON.stringify({ ...body, note: body.note.trim() || null }) });
+            setNotice({ text: r.message, ok: true });
+            setFreezing(null);
+            load();
+        } catch (e) {
+            setNotice({ text: e instanceof Error ? e.message : "הבקשה לא נשלחה", ok: false });   // the sheet stays — fix and send again
+        } finally {
+            setBusy(false);
+        }
+    };
+
     const shell = (children: React.ReactNode) => (
         <div dir="rtl" style={{ minHeight: "100vh", background: "#0f172a", color: "#f1f5f9", padding: "1.25rem 1rem 6rem" }}>
             <div style={{ maxWidth: 720, margin: "0 auto" }}>
@@ -141,7 +158,10 @@ export default function ClassesPage() {
 
     return shell(
         <>
-            <Memberships list={data.memberships} isClient={data.is_client} primary={primary} studio={data.studio.name} />
+            <Memberships list={data.memberships} isClient={data.is_client} primary={primary} studio={data.studio.name} busy={busy}
+                onAsk={m => setFreezing(m)}
+                onWithdraw={id => waitAction(`freeze-requests/${id}/withdraw`, "הבקשה בוטלה")} />
+            {freezing && <FreezeSheet m={freezing} primary={primary} busy={busy} onClose={() => setFreezing(null)} onSend={b => askFreeze(freezing, b)} />}
 
             {notice && (
                 <div role="status" style={{ ...card, padding: "0.75rem 1rem", marginBottom: "1rem", borderColor: notice.ok ? "rgba(74,222,128,.35)" : "rgba(248,113,113,.35)",
@@ -294,7 +314,10 @@ function AuthGate({ primary, onDone }: { primary: string; onDone: () => void }) 
     );
 }
 
-function Memberships({ list, isClient, primary, studio }: { list: MyMembership[]; isClient: boolean; primary: string; studio: string }) {
+function Memberships({ list, isClient, primary, studio, busy, onAsk, onWithdraw }: {
+    list: MyMembership[]; isClient: boolean; primary: string; studio: string; busy: boolean;
+    onAsk: (m: MyMembership) => void; onWithdraw: (requestId: string) => void;
+}) {
     if (!isClient || list.length === 0) {
         return (
             <div style={{ ...card, padding: "1rem", marginBottom: "1rem", display: "flex", gap: "0.75rem", alignItems: "flex-start" }}>
@@ -308,8 +331,9 @@ function Memberships({ list, isClient, primary, studio }: { list: MyMembership[]
     }
     return (
         <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", marginBottom: "1rem" }}>
-            {list.map((m, i) => (
-                <div key={i} style={{ ...card, padding: "0.9rem 1rem", display: "flex", alignItems: "center", gap: "0.8rem", borderColor: `${primary}55` }}>
+            {list.map(m => (
+                <div key={m.id} style={{ ...card, padding: "0.9rem 1rem", borderColor: `${primary}55` }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.8rem" }}>
                     <Ticket size={22} color={primary} style={{ flexShrink: 0 }} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontWeight: 800 }}>המנוי שלי · {m.name}</div>
@@ -326,6 +350,25 @@ function Memberships({ list, isClient, primary, studio }: { list: MyMembership[]
                         </div>
                     )}
                     {m.kind === "weekly" && <div style={{ fontSize: "0.8rem", color: "#cbd5e1" }}>{m.weekly_limit} בשבוע</div>}
+                </div>
+                {m.freeze && (m.freeze.request ? (
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginTop: "0.7rem", paddingTop: "0.7rem", borderTop: "1px solid rgba(255,255,255,.06)" }}>
+                        <span style={{ flex: 1, fontSize: "0.82rem", color: "#a5f3fc" }}>
+                            בקשת הקפאה נשלחה: מ-{fullDate(m.freeze.request.from_on)} עד {fullDate(m.freeze.request.until_on)} · מחכה לתשובה
+                        </span>
+                        <button type="button" disabled={busy} onClick={() => onWithdraw(m.freeze!.request!.id)}
+                            style={{ minHeight: 36, padding: "0 0.7rem", borderRadius: 10, border: "1px solid rgba(255,255,255,.15)", background: "transparent", color: "#cbd5e1", cursor: "pointer", fontSize: "0.8rem" }}>
+                            ביטול הבקשה
+                        </button>
+                    </div>
+                ) : m.freeze.can_ask ? (
+                    <button type="button" onClick={() => onAsk(m)}
+                        style={{ marginTop: "0.7rem", minHeight: 38, padding: "0 0.8rem", borderRadius: 10, border: "1px solid rgba(255,255,255,.15)", background: "transparent", color: "#e2e8f0", cursor: "pointer", fontSize: "0.85rem", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 6 }}>
+                        <PauseCircle size={16} aria-hidden /> בקשת הקפאה
+                    </button>
+                ) : m.freeze.why_not ? (
+                    <p style={{ margin: "0.6rem 0 0", fontSize: "0.78rem", color: muted }}>{m.freeze.why_not}</p>
+                ) : null)}
                 </div>
             ))}
         </div>
@@ -473,5 +516,57 @@ function MyClasses({ mine, primary, busy, onCancel, onMove, onLeave, onTake }: {
                 </>
             )}
         </>
+    );
+}
+
+/** Ask to freeze a membership: from a date to a return date, and why. The server checks the membership's
+ *  rules and answers at once when it cannot be — the sheet stays open to fix the dates. */
+function FreezeSheet({ m, primary, busy, onClose, onSend }: {
+    m: MyMembership; primary: string; busy: boolean; onClose: () => void;
+    onSend: (b: { from_on: string; until_on: string; note: string }) => void;
+}) {
+    const [fromOn, setFromOn] = useState("");
+    const [untilOn, setUntilOn] = useState("");
+    const [note, setNote] = useState("");
+    const f = m.freeze!;
+    const rules = [
+        f.min_days ? `לפחות ${f.min_days} ימים` : null,
+        f.days_left !== null ? `נשארו ${f.days_left} ימי הקפאה` : null,
+        f.fee_cents > 0 ? `דמי הקפאה ₪${(f.fee_cents / 100).toLocaleString("he-IL")}` : null,
+    ].filter(Boolean).join(" · ");
+    const field = { width: "100%", minHeight: 46, borderRadius: 12, border: "1px solid rgba(255,255,255,.15)", background: "rgba(0,0,0,.25)",
+        color: "#f1f5f9", padding: "0 0.8rem", fontSize: "0.95rem", colorScheme: "dark" as const, boxSizing: "border-box" as const };
+    return (
+        <div role="dialog" aria-modal="true" aria-label="בקשת הקפאה" onClick={e => e.target === e.currentTarget && !busy && onClose()}
+            style={{ position: "fixed", inset: 0, zIndex: 200 /* above the app's bottom nav (100) */, background: "rgba(0,0,0,.6)", display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+            <div style={{ background: "#1e293b", width: "100%", maxWidth: 520, borderRadius: "20px 20px 0 0", padding: "1.25rem 1.25rem calc(1.25rem + env(safe-area-inset-bottom))" }}>
+                <p style={{ fontWeight: 800, fontSize: "1.05rem", margin: "0 0 0.3rem" }}>בקשת הקפאה · {m.name}</p>
+                <p style={{ color: muted, fontSize: "0.85rem", margin: "0 0 1rem", lineHeight: 1.6 }}>
+                    תוקף המנוי יוארך בימי ההקפאה. הרשמות לשיעורים בתקופה הזו יבוטלו והכניסות יחזרו.{rules ? ` ${rules}.` : ""}
+                </p>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.6rem", marginBottom: "0.7rem" }}>
+                    <label style={{ fontSize: "0.8rem", color: "#cbd5e1" }}>מתאריך
+                        <input type="date" value={fromOn} onChange={e => setFromOn(e.target.value)} style={{ ...field, marginTop: 4 }} />
+                    </label>
+                    <label style={{ fontSize: "0.8rem", color: "#cbd5e1" }}>חוזר/ת בתאריך
+                        <input type="date" value={untilOn} min={fromOn || undefined} onChange={e => setUntilOn(e.target.value)} style={{ ...field, marginTop: 4 }} />
+                    </label>
+                </div>
+                <label style={{ display: "block", fontSize: "0.8rem", color: "#cbd5e1", marginBottom: "1rem" }}>סיבה (לא חובה)
+                    <input value={note} onChange={e => setNote(e.target.value)} maxLength={300} placeholder="למשל: נסיעה לחו״ל" style={{ ...field, marginTop: 4 }} />
+                </label>
+                <div style={{ display: "flex", gap: "0.6rem" }}>
+                    <button type="button" disabled={busy || !fromOn || !untilOn} onClick={() => onSend({ from_on: fromOn, until_on: untilOn, note })}
+                        style={{ flex: 1, minHeight: 48, borderRadius: 14, border: "none", fontWeight: 800, fontSize: "0.95rem", cursor: "pointer", color: "#fff",
+                            background: primary, opacity: busy || !fromOn || !untilOn ? 0.5 : 1 }}>
+                        {busy ? "רגע…" : "שליחת הבקשה"}
+                    </button>
+                    <button type="button" disabled={busy} onClick={onClose}
+                        style={{ minHeight: 48, padding: "0 1.1rem", borderRadius: 14, border: "1px solid rgba(255,255,255,.15)", background: "transparent", color: "#e2e8f0", cursor: "pointer" }}>
+                        חזרה
+                    </button>
+                </div>
+            </div>
+        </div>
     );
 }

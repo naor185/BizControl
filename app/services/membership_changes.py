@@ -105,29 +105,43 @@ def freeze_usage(db: Session, m: Membership) -> tuple[int, int]:
     return int(days), int(count)
 
 
-def freeze(db: Session, m: Membership, from_on, until_on, *, reason: str | None = None, fee_cents: int | None = None,
-           user_id=None, role: str | None = None) -> dict:
-    status = _check(db, m, "freeze")
+def freeze_problem(db: Session, m: Membership, from_on, until_on) -> str | None:
+    """Why this freeze cannot be made — the membership's status and its type's freeze rules; None when it
+    can. The one check, for the staff's freeze and a client's request alike."""
+    if _status(db, m) not in ALLOWED["freeze"]:
+        return REFUSED["freeze"]
     today = svc.today_il()
     if m.freeze_until and m.freeze_until > today:
-        raise ms.MembershipError("למנוי כבר יש הקפאה — קודם מחזירים אותו ממנה")
+        return "למנוי כבר יש הקפאה — קודם מחזירים אותו ממנה"
     r = m.rules
     if r.get("freeze_allowed") is False:
-        raise ms.MembershipError("סוג המנוי הזה לא מאפשר הקפאה")
+        return "סוג המנוי הזה לא מאפשר הקפאה"
     if from_on < today:
-        raise ms.MembershipError("תחילת ההקפאה כבר עברה")
+        return "תחילת ההקפאה כבר עברה"
     if until_on <= from_on:
-        raise ms.MembershipError("תאריך החזרה חייב להיות אחרי תחילת ההקפאה")
+        return "תאריך החזרה חייב להיות אחרי תחילת ההקפאה"
     if m.ends_on and from_on > m.ends_on:
-        raise ms.MembershipError("ההקפאה מתחילה אחרי סוף המנוי")
+        return "ההקפאה מתחילה אחרי סוף המנוי"
     days = (until_on - from_on).days
     used, count = freeze_usage(db, m)
     if r.get("freeze_min_days") and days < r["freeze_min_days"]:
-        raise ms.MembershipError(f"הקפאה קצרה מדי — לפחות {r['freeze_min_days']} ימים")
+        return f"הקפאה קצרה מדי — לפחות {r['freeze_min_days']} ימים"
     if r.get("freeze_max_count") and count >= r["freeze_max_count"]:
-        raise ms.MembershipError(f"כבר נוצלו {count} הקפאות — המקסימום בסוג המנוי הזה")
+        return f"כבר נוצלו {count} הקפאות — המקסימום בסוג המנוי הזה"
     if r.get("freeze_max_days") and used + days > r["freeze_max_days"]:
-        raise ms.MembershipError(f"נשארו {max(0, r['freeze_max_days'] - used)} ימי הקפאה במנוי הזה")
+        return f"נשארו {max(0, r['freeze_max_days'] - used)} ימי הקפאה במנוי הזה"
+    return None
+
+
+def freeze(db: Session, m: Membership, from_on, until_on, *, reason: str | None = None, fee_cents: int | None = None,
+           user_id=None, role: str | None = None) -> dict:
+    status = _check(db, m, "freeze")
+    problem = freeze_problem(db, m, from_on, until_on)
+    if problem:
+        raise ms.MembershipError(problem)
+    today = svc.today_il()
+    r = m.rules
+    days = (until_on - from_on).days
     m.freeze_from, m.freeze_until = from_on, until_on
     if m.ends_on:
         m.ends_on = m.ends_on + timedelta(days=days)

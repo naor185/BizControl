@@ -2380,6 +2380,28 @@ def ensure_schema():
         """)
         cur.execute("CREATE INDEX IF NOT EXISTS ix_membership_events_studio_id ON membership_events (studio_id)")
         cur.execute("CREATE INDEX IF NOT EXISTS ix_membership_events_membership_id ON membership_events (membership_id)")
+        # Classes extras 3 — a client's freeze request from BizFind (app/services/membership_requests.py)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS membership_requests (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                membership_id UUID NOT NULL REFERENCES memberships(id) ON DELETE CASCADE,
+                client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+                kind VARCHAR(16) NOT NULL DEFAULT 'freeze',
+                from_on DATE NOT NULL,
+                until_on DATE NOT NULL,
+                note VARCHAR(300),
+                status VARCHAR(16) NOT NULL DEFAULT 'pending',
+                decided_at TIMESTAMPTZ,
+                decided_by UUID REFERENCES users(id) ON DELETE SET NULL,
+                decision_note VARCHAR(300),
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_membership_requests_studio_id ON membership_requests (studio_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_membership_requests_membership_id ON membership_requests (membership_id)")
+        cur.execute("""CREATE UNIQUE INDEX IF NOT EXISTS uq_membership_request_pending ON membership_requests (membership_id)
+                       WHERE status = 'pending'""")
 
         # ── Classes & memberships — stage 6: the class waitlist (the existing wait_list, extended) ────
         cur.execute("ALTER TABLE wait_list ADD COLUMN IF NOT EXISTS session_id UUID REFERENCES class_sessions(id) ON DELETE CASCADE")

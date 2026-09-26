@@ -1,6 +1,7 @@
 """
 BizFind: a logged-in customer's group classes at one business — the week's schedule (spots left, not
-who is booked), "my classes", "my membership", booking, cancelling and moving to another class. Only for a client of the
+who is booked), "my classes", "my membership", booking, cancelling, moving to another class and asking to
+freeze the membership. Only for a client of the
 business with a covering membership (app/services/class_self_booking.py has the rules); booking and
 cancelling go through the same functions the staff use (app/services/class_bookings.py), so the
 confirmation, the late-cancel rules and the messages are the same.
@@ -25,8 +26,10 @@ from app.models.user import User
 from app.services import class_bookings as bookings
 from app.services import class_self_booking as selfb
 from app.services import class_swap
+from app.services import membership_requests as requests
 from app.services import class_waitlist as wl
 from app.services import classes as svc
+from app.services import membership_changes as changes
 from app.services import memberships as ms
 from app.services import policies
 
@@ -52,12 +55,24 @@ def _memberships(db: Session, client) -> list[dict]:
         status = ms.status_now(m, bals.get(m.id), today)
         if status not in ("active", "ending", "pending", "frozen"):
             continue
-        out.append({"name": m.rules.get("name"), "kind": m.rules.get("kind"), "kind_label": ms.KIND_LABELS.get(m.rules.get("kind"), ""),
+        waiting = requests.pending(db, m.id)
+        why_not_freeze = requests.why_not_ask(db, m)
+        used, _ = changes.freeze_usage(db, m)
+        r = m.rules
+        out.append({"id": str(m.id), "name": m.rules.get("name"), "kind": m.rules.get("kind"), "kind_label": ms.KIND_LABELS.get(m.rules.get("kind"), ""),
                     "status": status, "starts_on": m.starts_on.isoformat(), "ends_on": m.ends_on.isoformat() if m.ends_on else None,
                     "entries_left": bals[m.id]["available"] if m.id in bals else None,
                     "freeze_from": m.freeze_from.isoformat() if m.freeze_from else None,
                     "freeze_until": m.freeze_until.isoformat() if m.freeze_until else None,
-                    "weekly_limit": m.rules.get("entries") if m.rules.get("kind") == "weekly" else None})
+                    "weekly_limit": m.rules.get("entries") if m.rules.get("kind") == "weekly" else None,
+                    # asking to freeze: hidden when the owner allows no requests or the type allows no freeze
+                    "freeze": None if requests.hidden(db, m) else {
+                        "can_ask": why_not_freeze is None and waiting is None, "why_not": why_not_freeze,
+                        "min_days": r.get("freeze_min_days"),
+                        "days_left": max(0, r["freeze_max_days"] - used) if r.get("freeze_max_days") else None,
+                        "fee_cents": r.get("freeze_fee_cents") or 0,
+                        "request": {"id": str(waiting.id), "from_on": waiting.from_on.isoformat(),
+                                    "until_on": waiting.until_on.isoformat()} if waiting else None}})
     return out
 
 
@@ -257,6 +272,48 @@ def swap(slug: str, booking_id: uuid.UUID, body: SwapIn, customer_id: str = Depe
         raise HTTPException(400, str(e).split(" — ")[0])
     db.commit()
     return {"ok": True, "message": "ההרשמה הועברה! אישור נשלח אליך."}
+
+
+class FreezeAskIn(BaseModel):
+    from_on: date
+    until_on: date                     # the return date
+    note: Optional[str] = None
+
+
+@router.post("/{slug}/memberships/{membership_id}/freeze-request")
+def ask_freeze(slug: str, membership_id: uuid.UUID, body: FreezeAskIn, customer_id: str = Depends(_get_customer_id),
+               db: Session = Depends(get_db)):
+    """The client asks to freeze their membership — checked at once against its rules; approved by the owner
+    (or by itself, the owner's choice)."""
+    studio, client = _open(db, slug, customer_id)
+    m = db.get(Membership, membership_id)
+    if client is None or not m or m.studio_id != studio.id or m.client_id != client.id:
+        raise HTTPException(404, "המנוי לא נמצא")
+    try:
+        req = requests.ask_freeze(db, m, body.from_on, body.until_on, body.note)
+    except ValueError as e:
+        db.rollback()
+        raise HTTPException(400, str(e))
+    db.commit()
+    if req.status == "approved":
+        return {"ok": True, "approved": True, "message": "המנוי הוקפא. אישור נשלח אליך."}
+    return {"ok": True, "approved": False, "message": "הבקשה נשלחה לעסק. נעדכן אותך כשתהיה תשובה."}
+
+
+@router.post("/{slug}/freeze-requests/{request_id}/withdraw")
+def withdraw_freeze(slug: str, request_id: uuid.UUID, customer_id: str = Depends(_get_customer_id), db: Session = Depends(get_db)):
+    from app.models.memberships import MembershipRequest
+    studio, client = _open(db, slug, customer_id)
+    req = db.get(MembershipRequest, request_id)
+    if client is None or not req or req.studio_id != studio.id or req.client_id != client.id:
+        raise HTTPException(404, "הבקשה לא נמצאה")
+    try:
+        requests.withdraw(db, req)
+    except ValueError as e:
+        db.rollback()
+        raise HTTPException(400, str(e))
+    db.commit()
+    return {"ok": True}
 
 
 @router.post("/{slug}/bookings/{booking_id}/cancel")

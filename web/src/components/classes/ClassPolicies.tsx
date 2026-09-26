@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import {
-    CalendarClock, CalendarX2, ListOrdered, UsersRound, BellRing, Gift, SlidersHorizontal, RotateCcw, Loader2,
+    CalendarClock, CalendarX2, ListOrdered, UsersRound, BellRing, Gift, PauseCircle, SlidersHorizontal, RotateCcw, Loader2,
     type LucideIcon,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
@@ -26,6 +26,7 @@ const GROUPS: { title: string; icon: LucideIcon; keys: string[] }[] = [
     { title: "רשימת המתנה", icon: ListOrdered, keys: ["waitlist_max", "waitlist_mode", "waitlist_confirm_minutes"] },
     { title: "מינימום משתתפים", icon: UsersRound, keys: ["min_participants", "min_check_hours", "auto_cancel_below_min"] },
     { title: "תזכורות", icon: BellRing, keys: ["reminder_hours"] },
+    { title: "הקפאות", icon: PauseCircle, keys: ["freeze_requests"] },
     { title: "מועדון לקוחות", icon: Gift, keys: ["club_points_membership_percent", "club_points_entry_percent"] },
 ];
 
