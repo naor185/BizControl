@@ -15,6 +15,7 @@ from app.models.payment import Payment
 from app.models.studio import Studio
 from app.models.user import User
 from tests.conftest import register_and_login
+from tests.test_classes_stage4 import clock  # noqa: F401  (a fixed "now" for the class tests)
 
 
 def _business(client, db, slug="coupons"):
@@ -167,3 +168,37 @@ def test_the_coupon_link_counts_visits_and_only_management_manages(client, db_se
     r = client.post("/api/coupons", headers=h, json={"code": "STAFF50", "discount_percent": 50})
     assert r.status_code == 403 and r.json()["detail"] == "קופונים — רק לבעלים או למנהל"
     assert client.get("/api/coupons/validate?code=SUMMER10", headers=h).status_code == 404            # staff still checks codes (this one is stopped)
+
+
+def test_the_discount_closes_the_bill_and_is_not_money(client, db_session):
+    """Paying with a coupon leaves nothing owed — the discount has its own "[מערכת] קופון" row (like paying with club
+    points) that closes the appointment's balance, and the money on the client card is only what was paid."""
+    h, s = _business(client, db_session)
+    _coupon(client, h)
+    c = _client(db_session, s)
+    a = _appointment(db_session, s, c)
+    a.total_price_cents = 100000
+    db_session.commit()
+    _pay(client, h, a, c, coupon_code="SUMMER10")
+    assert client.get(f"/api/payments/appointments/{a.id}/balance", headers=h).json()["net_paid_cents"] == 100000
+    card = client.get(f"/api/clients/{c.id}/profile", headers=h).json()
+    assert (card["net_paid_cents"], card["remaining_balance_cents"]) == (90000, 0)
+
+
+def test_a_membership_class_course_or_rental_payment_takes_a_coupon(client, db_session, clock):
+    from tests.test_classes_stage4 import _business as _classes_business, _client as _classes_client, _sell, _type
+    h, s, _ = _classes_business(client, db_session)
+    _coupon(client, h, code="YOGA20", discount_percent=20, category="סטודיו", source="פייסבוק")
+    c = _classes_client(db_session, s, 1)
+    card = _sell(client, h, c, _type(client, h))                                   # ₪600
+    r = client.post(f"/api/classes/memberships/{card['id']}/payments", headers=h,
+                    json={"amount_cents": 60000, "method": "cash", "coupon_code": "yoga20", "send_receipt": False})
+    assert r.status_code == 200, r.text
+    m = r.json()
+    assert m["paid_cents"] == 60000                                                # ₪480 paid + ₪120 coupon = settled
+    assert sorted((p["amount_cents"], p["is_coupon"]) for p in m["payments"]) == [(12000, True), (48000, False)]
+    row = client.get("/api/coupons", headers=h).json()["coupons"][0]
+    assert (row["uses"], row["paid_cents"], row["discount_cents"]) == (1, 48000, 12000)
+    bad = client.post(f"/api/classes/memberships/{card['id']}/payments", headers=h,
+                      json={"amount_cents": 1000, "method": "cash", "coupon_code": "NOPE", "send_receipt": False})
+    assert bad.status_code == 400 and "אין קופון" in bad.json()["detail"]

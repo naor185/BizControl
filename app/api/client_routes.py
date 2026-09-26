@@ -355,7 +355,7 @@ def profile(
 
     # What the client really paid — payments + till sales, less refunds, club points left out
     from app.crud.payment import clients_paid
-    totals = clients_paid(db, ctx.studio_id, [client_id]).get(client_id, {"paid": 0, "refund": 0, "net": 0})
+    totals = clients_paid(db, ctx.studio_id, [client_id]).get(client_id, {"paid": 0, "refund": 0, "net": 0, "not_money": 0})
     total_paid, total_refund, net_paid = totals["paid"], totals["refund"], totals["net"]
 
     total_appts_cents = db.scalar(
@@ -363,7 +363,7 @@ def profile(
         .where(Appointment.client_id == client_id, Appointment.studio_id == ctx.studio_id, Appointment.status != "canceled")
     ) or 0
     
-    remaining = max(0, total_appts_cents - net_paid)
+    remaining = max(0, total_appts_cents - net_paid - totals["not_money"])     # points and coupons close the bill too
 
     return {
         "client": obj,

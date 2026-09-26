@@ -117,11 +117,12 @@ def cancel(enrollment_id: uuid.UUID, body: CancelIn, ctx: AuthContext = Depends(
 
 
 class PayIn(BaseModel):
-    amount_cents: int = Field(gt=0, le=10_000_000)
+    amount_cents: int = Field(gt=0, le=10_000_000)      # with a coupon: the price before it
     method: str
     send_receipt: bool = True
     external_ref: Optional[str] = Field(None, max_length=120)
     notes: Optional[str] = Field(None, max_length=500)
+    coupon_code: Optional[str] = Field(None, max_length=32)
 
 
 @router.post("/enrollments/{enrollment_id}/payments")
@@ -131,7 +132,7 @@ def pay(enrollment_id: uuid.UUID, body: PayIn, ctx: AuthContext = Depends(requir
     e = _get(db, CourseEnrollment, ctx.studio_id, enrollment_id, "ההרשמה לא נמצאה")
     try:
         payments.record(db, ctx.studio_id, db.get(Client, e.client_id), amount_cents=body.amount_cents, method=body.method,
-                        enrollment=e, notes=body.notes, external_ref=body.external_ref, send_receipt=body.send_receipt)
+                        enrollment=e, notes=body.notes, external_ref=body.external_ref, send_receipt=body.send_receipt, coupon_code=body.coupon_code, user_id=ctx.user_id)
     except ValueError as err:
         _fail(db, err)
     db.commit()

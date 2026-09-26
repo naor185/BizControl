@@ -98,7 +98,7 @@ export default function CourseEnrollments({ templateId, terms, perms, onChanged 
             {panel?.kind === "pay" && (
                 <div className="space-y-1">
                     <p className="text-xs font-semibold text-slate-600">תשלום על הקורס: {panel.e.full_name}</p>
-                    <PayForm defaultAmountCents={Math.max(0, panel.e.price_cents - panel.e.paid_cents + panel.e.refunded_cents)} busy={busy}
+                    <PayForm defaultAmountCents={Math.max(0, panel.e.price_cents - panel.e.paid_cents + panel.e.refunded_cents)} busy={busy} clientId={panel.e.client_id}
                         onCancel={() => setPanel(null)}
                         onPay={async p => { if (await run(`/api/classes/enrollments/${panel.e.id}/payments`, p, "התשלום נרשם")) setPanel(null); }} />
                 </div>

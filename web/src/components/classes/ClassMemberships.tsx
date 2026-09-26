@@ -280,14 +280,14 @@ function MembershipSheet({ id, terms, canSell, canChange, onClose, onChanged }: 
                         )}
                     </div>
                     {paying && (
-                        <PayForm defaultAmountCents={Math.max(0, m.price_cents - m.paid_cents)} busy={busy} onCancel={() => setPaying(false)}
+                        <PayForm defaultAmountCents={Math.max(0, m.price_cents - m.paid_cents)} busy={busy} onCancel={() => setPaying(false)} clientId={m.client_id}
                             onPay={p => act(`/api/classes/memberships/${m.id}/payments`, p, "התשלום נרשם")} />
                     )}
                     {m.payments.length > 0 && (
                         <ul className="text-xs text-slate-600 space-y-0.5">
                             {m.payments.map(p => (
                                 <li key={p.id} className="flex justify-between tabular-nums">
-                                    <span>{shekels(p.amount_cents)} · {methodLabel(p.method)}</span>
+                                    <span>{shekels(p.amount_cents)} · {p.is_coupon ? "הנחת קופון" : methodLabel(p.method)}</span>
                                     <span dir="ltr">{ilDate(p.created_at)}</span>
                                 </li>
                             ))}

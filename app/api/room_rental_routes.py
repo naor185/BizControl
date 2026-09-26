@@ -113,9 +113,10 @@ def cancel(rental_id: uuid.UUID, body: CancelIn, ctx: AuthContext = MANAGE, db: 
 
 
 class PayIn(BaseModel):
-    amount_cents: int = Field(gt=0, le=10_000_000)
+    amount_cents: int = Field(gt=0, le=10_000_000)      # with a coupon: the price before it
     method: str
     send_receipt: bool = True
+    coupon_code: Optional[str] = Field(None, max_length=32)
 
 
 @router.post("/rentals/{rental_id}/payments")
@@ -123,7 +124,7 @@ def pay_rental(rental_id: uuid.UUID, body: PayIn, ctx: AuthContext = MANAGE, db:
     r = _get(db, RoomRental, ctx.studio_id, rental_id, "ההשכרה לא נמצאה")
     try:
         payments.record(db, ctx.studio_id, db.get(Client, r.client_id), amount_cents=body.amount_cents, method=body.method,
-                        rental=r, send_receipt=body.send_receipt)
+                        rental=r, send_receipt=body.send_receipt, coupon_code=body.coupon_code, user_id=ctx.user_id)
     except ValueError as e:
         _fail(db, e)
     db.commit()
@@ -222,7 +223,7 @@ def pay_package(package_id: uuid.UUID, body: PayIn, ctx: AuthContext = MANAGE, d
     p = _get(db, RoomRentalPackage, ctx.studio_id, package_id, "החבילה לא נמצאה")
     try:
         payments.record(db, ctx.studio_id, db.get(Client, p.client_id), amount_cents=body.amount_cents, method=body.method,
-                        rental_package=p, send_receipt=body.send_receipt)
+                        rental_package=p, send_receipt=body.send_receipt, coupon_code=body.coupon_code, user_id=ctx.user_id)
     except ValueError as e:
         _fail(db, e)
     db.commit()

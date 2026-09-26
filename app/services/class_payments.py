@@ -63,15 +63,24 @@ def invoice_subject(db: Session, payment: Payment) -> SimpleNamespace:
 
 def record(db: Session, studio_id, client, *, amount_cents: int, method: str, membership: Membership | None = None,
            booking: ClassBooking | None = None, enrollment=None, rental=None, rental_package=None, for_fee: bool = False,
-           notes: str | None = None, external_ref: str | None = None, send_receipt: bool = True) -> Payment:
+           notes: str | None = None, external_ref: str | None = None, send_receipt: bool = True,
+           coupon_code: str | None = None, user_id=None) -> Payment:
     """Records a paid payment for a membership, a course registration, a class booking, a room rental or a package
-    of rental hours and issues its invoice/receipt. for_fee: this pays the booking's open fee (it becomes paid)."""
+    of rental hours and issues its invoice/receipt. for_fee: this pays the booking's open fee (it becomes paid).
+    coupon_code: amount_cents is the price before it; the payment is the price less the coupon, and the discount
+    closes the rest of the bill (app/services/coupons.redeem)."""
     if sum(x is not None for x in (membership, booking, enrollment, rental, rental_package)) != 1:
         raise PaymentError("תשלום על מנוי, על קורס, על הרשמה לשיעור או על השכרת חדר")
     if amount_cents <= 0:
         raise PaymentError("סכום התשלום חסר")
     if method not in METHODS:
         raise PaymentError("אמצעי תשלום לא מוכר")
+    hit = None
+    if coupon_code:
+        if for_fee:
+            raise PaymentError("קופון לא חל על חיוב")
+        from app.services import coupons
+        hit = coupons.find(db, studio_id, coupon_code, client.id)       # ValueError (Hebrew) when it does not work now
     fee = None
     if for_fee:
         fee = db.scalar(select(ClassFee).where(ClassFee.booking_id == booking.id, ClassFee.status == "pending"))
@@ -82,12 +91,14 @@ def record(db: Session, studio_id, client, *, amount_cents: int, method: str, me
                 course_enrollment_id=enrollment.id if enrollment is not None else None,
                 room_rental_id=rental.id if rental is not None else None,
                 rental_package_id=rental_package.id if rental_package is not None else None,
-                amount_cents=amount_cents, currency="ILS", type="payment", status="paid", method=method,
-                external_ref=(external_ref or None), notes=(notes or None))
+                amount_cents=amount_cents - (coupons.discount_of(hit, amount_cents) if hit else 0), currency="ILS",
+                type="payment", status="paid", method=method, external_ref=(external_ref or None), notes=(notes or None))
     db.add(p)
     if fee:
         fee.status, fee.paid_at = "paid", svc.now_utc()
     db.flush()
+    if hit is not None:
+        coupons.redeem(db, studio_id, hit, before_cents=amount_cents, client_id=client.id, user_id=user_id, payment=p)
     if not fee and rental is None and rental_package is None:       # renting a room earns no club points
         club_points(db, studio_id, client, p, kind="membership" if membership else "course" if enrollment is not None else "entry")
     db.commit()

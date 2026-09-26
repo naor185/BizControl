@@ -2592,12 +2592,15 @@ def ensure_schema():
                 client_id UUID REFERENCES clients(id) ON DELETE SET NULL,
                 payment_id UUID REFERENCES payments(id) ON DELETE CASCADE,
                 pos_transaction_id UUID REFERENCES pos_transactions(id) ON DELETE CASCADE,
+                discount_payment_id UUID REFERENCES payments(id) ON DELETE SET NULL,
                 before_cents INTEGER NOT NULL, discount_cents INTEGER NOT NULL,
                 used_by UUID REFERENCES users(id) ON DELETE SET NULL,
                 used_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                 CONSTRAINT ck_coupon_uses_coupon CHECK (coupon_id IS NOT NULL OR birthday_coupon_id IS NOT NULL)
             )
         """)
+        if _birthday_table:
+            cur.execute("ALTER TABLE coupon_uses ADD COLUMN IF NOT EXISTS discount_payment_id UUID REFERENCES payments(id) ON DELETE SET NULL")
         for _t, _c in (("coupons", "studio_id"), ("coupon_uses", "studio_id"), ("coupon_uses", "coupon_id"),
                        ("coupon_uses", "birthday_coupon_id"), ("coupon_uses", "client_id"), ("coupon_uses", "payment_id"),
                        ("coupon_uses", "pos_transaction_id")):

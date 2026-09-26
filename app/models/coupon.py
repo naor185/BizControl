@@ -57,6 +57,9 @@ class CouponUse(Base):
     # what it was used on — a payment (an appointment) or a till sale; deleting that removes the use
     payment_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("payments.id", ondelete="CASCADE"), nullable=True, index=True)
     pos_transaction_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("pos_transactions.id", ondelete="CASCADE"), nullable=True, index=True)
+    # the discount's own row in payments ("[מערכת] קופון …", not money — like paying with club points): it closes the
+    # appointment's / membership's balance while every money report leaves it out (crud.payment.money_received)
+    discount_payment_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("payments.id", ondelete="SET NULL"), nullable=True)
     before_cents: Mapped[int] = mapped_column(Integer, nullable=False)                  # the price the percent was taken from
     discount_cents: Mapped[int] = mapped_column(Integer, nullable=False)
     used_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)

@@ -117,7 +117,7 @@ export default function RoomRentals({ rooms, terms, canOverride }: { rooms: Room
                 {paying && (
                     <div className="space-y-1 max-w-md">
                         <p className="text-xs font-semibold text-slate-600">תשלום על ההשכרה: {paying.renter}</p>
-                        <PayForm defaultAmountCents={paying.charge_cents - paying.paid_cents} busy={busy} onCancel={() => setPaying(null)}
+                        <PayForm defaultAmountCents={paying.charge_cents - paying.paid_cents} busy={busy} onCancel={() => setPaying(null)} clientId={paying.client_id}
                             onPay={async p => { if (await post(`/api/classes/rentals/${paying.id}/payments`, p, "התשלום נרשם")) setPaying(null); }} />
                     </div>
                 )}
@@ -401,7 +401,7 @@ function PackageSheet({ rooms, terms, onClose, onDone }: { rooms: Room[]; terms:
                 {sold ? (
                     <>
                         <p className="text-sm text-slate-700">החבילה של {who?.full_name} נמכרה. ההשכרות שלו/ה בחדר הזה יורדות ממנה לפני כל מחיר.</p>
-                        <PayForm defaultAmountCents={sold.price_cents} busy={busy} onCancel={onDone} onPay={pay} />
+                        <PayForm defaultAmountCents={sold.price_cents} busy={busy} onCancel={onDone} onPay={pay} clientId={who?.id} />
                     </>
                 ) : (
                     <>

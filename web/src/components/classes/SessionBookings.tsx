@@ -164,7 +164,7 @@ export default function SessionBookings({ s, terms, perms, onChanged }: {
             {paying && (
                 <div className="space-y-1">
                     <p className="text-xs font-semibold text-slate-600">תשלום על כניסה בודדת: {paying.full_name}</p>
-                    <PayForm defaultAmountCents={s.price_cents ?? 0} busy={busy !== null} onCancel={() => setPaying(null)}
+                    <PayForm defaultAmountCents={s.price_cents ?? 0} busy={busy !== null} onCancel={() => setPaying(null)} clientId={paying.client_id}
                         onPay={p => paySingle(paying, p)} />
                 </div>
             )}

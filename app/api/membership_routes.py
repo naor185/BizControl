@@ -23,6 +23,7 @@ from app.models.classes import ClassBooking, ClassSession, ClassTemplate
 from app.models.client import Client
 from app.models.memberships import KINDS, ClassFee, Membership, MembershipEntry, MembershipType, PenaltyRule
 from app.services import class_payments as payments
+from app.services import coupons as coupon_svc
 from app.services import classes as svc
 from app.services import memberships as ms
 from app.services import penalties, policies
@@ -268,7 +269,7 @@ def get_membership(membership_id: uuid.UUID, ctx: AuthContext = Depends(require_
     out["coming_bookings"] = sum(1 for b in out["bookings"] if b["status"] == "booked" and b["starts_at"] > svc.now_utc().isoformat())
     from app.models.payment import Payment
     out["payments"] = [{"id": str(p.id), "amount_cents": p.amount_cents, "method": p.method, "type": p.type,
-                        "created_at": p.created_at.isoformat()}
+                        "is_coupon": (p.notes or "").startswith(coupon_svc.DISCOUNT_NOTE), "created_at": p.created_at.isoformat()}
                        for p in db.scalars(select(Payment).where(Payment.membership_id == m.id, Payment.status == "paid")
                                            .order_by(Payment.created_at)).all()]
     return out
@@ -397,11 +398,12 @@ def cancel_membership(membership_id: uuid.UUID, body: ChangeIn, ctx: AuthContext
 
 
 class PaymentIn(BaseModel):
-    amount_cents: int = Field(gt=0, le=10_000_000)
+    amount_cents: int = Field(gt=0, le=10_000_000)      # with a coupon: the price before it
     method: str = "cash"
     external_ref: Optional[str] = Field(None, max_length=120)
     notes: Optional[str] = Field(None, max_length=300)
     send_receipt: bool = True
+    coupon_code: Optional[str] = Field(None, max_length=32)
 
 
 @router.post("/memberships/{membership_id}/payments")
@@ -411,7 +413,8 @@ def pay_membership(membership_id: uuid.UUID, body: PaymentIn, ctx: AuthContext =
     m = _get(db, Membership, ctx.studio_id, membership_id, "המנוי לא נמצא")
     try:
         payments.record(db, ctx.studio_id, db.get(Client, m.client_id), amount_cents=body.amount_cents, method=body.method,
-                        membership=m, notes=body.notes, external_ref=body.external_ref, send_receipt=body.send_receipt)
+                        membership=m, notes=body.notes, external_ref=body.external_ref, send_receipt=body.send_receipt,
+                        coupon_code=body.coupon_code, user_id=ctx.user_id)
     except ValueError as e:
         _fail(db, e)
     return get_membership(membership_id, ctx, db)
@@ -550,7 +553,8 @@ def pay_booking(booking_id: uuid.UUID, body: PaymentIn, ctx: AuthContext = Depen
     b = _get(db, ClassBooking, ctx.studio_id, booking_id, "ההרשמה לא נמצאה")
     try:
         payments.record(db, ctx.studio_id, db.get(Client, b.client_id), amount_cents=body.amount_cents, method=body.method,
-                        booking=b, notes=body.notes, external_ref=body.external_ref, send_receipt=body.send_receipt)
+                        booking=b, notes=body.notes, external_ref=body.external_ref, send_receipt=body.send_receipt,
+                        coupon_code=body.coupon_code, user_id=ctx.user_id)
     except ValueError as e:
         _fail(db, e)
     return {"booking_id": str(b.id), "paid_cents": payments.paid_for_bookings(db, [b.id]).get(b.id, 0)}

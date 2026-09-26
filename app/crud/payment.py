@@ -29,7 +29,8 @@ def money_received():
 
 def clients_paid(db: Session, studio_id, client_ids=None) -> dict:
     """What each client really paid: payments and till sales, less refunds, club points left out — the one sum the client
-    card, the club leaderboard and the average per client all show. {client_id: {"paid", "refund", "net"}} in agorot."""
+    card, the club leaderboard and the average per client all show. {client_id: {"paid", "refund", "net", "not_money"}} in
+    agorot — not_money: what club points and coupons covered (it closes a bill, it is not money)."""
     from sqlalchemy import case
     from app.models.pos_transaction import PosTransaction
     pay = (select(Payment.client_id,
@@ -43,11 +44,20 @@ def clients_paid(db: Session, studio_id, client_ids=None) -> dict:
     if client_ids is not None:
         pay = pay.where(Payment.client_id.in_(client_ids))
         pos = pos.where(PosTransaction.client_id.in_(client_ids))
+    settled = (select(Payment.client_id, func.coalesce(func.sum(Payment.amount_cents), 0))
+               .where(Payment.studio_id == studio_id, Payment.client_id.is_not(None), Payment.status == "paid",
+                      Payment.type != "refund", ~money_received())
+               .group_by(Payment.client_id))
+    if client_ids is not None:
+        settled = settled.where(Payment.client_id.in_(client_ids))
     out: dict = {}
+    blank = lambda: {"paid": 0, "refund": 0, "not_money": 0}
     for cid, paid, refund in db.execute(pay).all():
-        out[cid] = {"paid": int(paid), "refund": int(refund)}
+        out[cid] = {**blank(), "paid": int(paid), "refund": int(refund)}
     for cid, total in db.execute(pos).all():
-        out.setdefault(cid, {"paid": 0, "refund": 0})["paid"] += int(total)
+        out.setdefault(cid, blank())["paid"] += int(total)
+    for cid, total in db.execute(settled).all():          # club points and coupons: close a bill, not money
+        out.setdefault(cid, blank())["not_money"] += int(total)
     for v in out.values():
         v["net"] = v["paid"] - v["refund"]
     return out
@@ -103,8 +113,7 @@ def create_payment(db: Session, studio_id: UUID, data) -> Payment:
     db.add(obj)
     if hit is not None:
         db.flush()
-        coupons.redeem(db, studio_id, hit, before_cents=coupon_base, client_id=data.client_id, payment_id=obj.id,
-                       appointment_id=data.appointment_id)
+        coupons.redeem(db, studio_id, hit, before_cents=coupon_base, client_id=data.client_id, payment=obj)
     db.commit()
     db.refresh(obj)
 
@@ -625,6 +634,8 @@ def delete_payment(db: Session, studio_id: UUID, payment_id: UUID, with_appointm
     # 3. Restore birthday coupon if this payment had one applied
     from app.crud.birthday_coupon import restore_coupon
     restore_coupon(db, payment_id)
+    from app.services.coupons import forget_payment
+    forget_payment(db, payment_id)
 
     # 4. Cascade-delete linked invoices/credit-notes (invoice_items cascade via FK)
     _cascade_delete_linked_invoices(db, payment_id)

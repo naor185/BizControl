@@ -94,7 +94,7 @@ export type MembershipRow = {
 export type MembershipDetail = MembershipRow & {
     entries: { at: string; stage: "opening" | "adjust" | "reserve" | "close"; outcome: "consume" | "return" | null; amount: number; reason: string | null; class_name: string | null; class_at: string | null }[];
     bookings: { id: string; class_name: string; starts_at: string; status: string; entry_state: string | null }[];
-    payments: { id: string; amount_cents: number; method: string; type: string; created_at: string }[];
+    payments: { id: string; amount_cents: number; method: string; type: string; is_coupon?: boolean; created_at: string }[];   // is_coupon: a coupon's discount (closes the bill, not money)
     events: { at: string; action: string; from_status: string | null; to_status: string | null; effective_on: string | null;
               days: number | null; fee_cents: number; reason: string | null; by: string | null }[];
     freeze: { allowed: boolean; max_days: number | null; min_days: number | null; max_count: number | null;
