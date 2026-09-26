@@ -129,8 +129,6 @@ def club_leaderboard(
     """Top clients by visit count and by total payments (including POS)."""
     from sqlalchemy import func
     from app.models.appointment import Appointment
-    from app.models.payment import Payment
-    from app.models.pos_transaction import PosTransaction
 
     # Top visitors
     visit_rows = db.execute(
@@ -145,44 +143,17 @@ def club_leaderboard(
         .limit(limit)
     ).all()
 
-    # Top payers — regular payments per client
-    pay_map: dict = {}
-    for r in db.execute(
-        select(Client.id, Client.full_name, Client.phone, Client.is_club_member, Client.loyalty_points,
-               func.coalesce(func.sum(Payment.amount_cents), 0).label("total_paid_cents"))
-        .join(Payment, (Payment.client_id == Client.id) & (Payment.studio_id == ctx.studio_id))
-        .where(Client.studio_id == ctx.studio_id, Client.is_active.is_(True),
-               Client.is_walk_in.is_(False),
-               Payment.status == "paid", Payment.type != "refund")
-        .group_by(Client.id, Client.full_name, Client.phone, Client.is_club_member, Client.loyalty_points)
-    ).all():
-        pay_map[str(r.id)] = {
-            "id": str(r.id), "full_name": r.full_name, "phone": r.phone,
-            "is_club_member": r.is_club_member, "loyalty_points": int(r.loyalty_points or 0),
-            "total_paid_cents": int(r.total_paid_cents),
-        }
-
-    # Add POS transactions per client
-    for r in db.execute(
-        select(Client.id, Client.full_name, Client.phone, Client.is_club_member, Client.loyalty_points,
-               func.coalesce(func.sum(PosTransaction.total_cents), 0).label("pos_cents"))
-        .join(PosTransaction, (PosTransaction.client_id == Client.id) & (PosTransaction.studio_id == ctx.studio_id))
-        .where(Client.studio_id == ctx.studio_id, Client.is_active.is_(True),
-               Client.is_walk_in.is_(False),
-               PosTransaction.status == "paid")
-        .group_by(Client.id, Client.full_name, Client.phone, Client.is_club_member, Client.loyalty_points)
-    ).all():
-        cid = str(r.id)
-        if cid in pay_map:
-            pay_map[cid]["total_paid_cents"] += int(r.pos_cents)
-        else:
-            pay_map[cid] = {
-                "id": cid, "full_name": r.full_name, "phone": r.phone,
-                "is_club_member": r.is_club_member, "loyalty_points": int(r.loyalty_points or 0),
-                "total_paid_cents": int(r.pos_cents),
-            }
-
-    top_payers = sorted(pay_map.values(), key=lambda x: x["total_paid_cents"], reverse=True)[:limit]
+    # Top payers — what each really paid (crud.payment.clients_paid, the client card's sum)
+    from app.crud.payment import clients_paid
+    paid = {cid: v["net"] for cid, v in clients_paid(db, ctx.studio_id).items() if v["net"] > 0}
+    payer_rows = db.execute(
+        select(Client.id, Client.full_name, Client.phone, Client.is_club_member, Client.loyalty_points)
+        .where(Client.studio_id == ctx.studio_id, Client.is_active.is_(True), Client.is_walk_in.is_(False),
+               Client.id.in_(list(paid)))
+    ).all() if paid else []
+    top_payers = sorted(({"id": str(r.id), "full_name": r.full_name, "phone": r.phone, "is_club_member": r.is_club_member,
+                          "loyalty_points": int(r.loyalty_points or 0), "total_paid_cents": paid[r.id]} for r in payer_rows),
+                        key=lambda x: x["total_paid_cents"], reverse=True)[:limit]
 
     def _visit_row(r):
         return {"id": str(r.id), "full_name": r.full_name, "phone": r.phone,
@@ -211,15 +182,10 @@ def client_analytics(
     tz = pytz.timezone(settings.timezone if settings and settings.timezone else "Asia/Jerusalem")
     now = datetime.now(tz)
 
-    # LTV: average total paid per client (all time, refunds excluded)
-    ltv_cents = db.execute(_t("""
-        SELECT AVG(client_total) FROM (
-            SELECT client_id, SUM(amount_cents) AS client_total
-            FROM payments
-            WHERE studio_id = :sid AND status = 'paid' AND type != 'refund'
-            GROUP BY client_id
-        ) sub
-    """), {"sid": sid}).scalar() or 0
+    # LTV: average of what each paying client really paid (all time — crud.payment.clients_paid)
+    from app.crud.payment import clients_paid
+    nets = [v["net"] for v in clients_paid(db, ctx.studio_id).values()]
+    ltv_cents = sum(nets) / len(nets) if nets else 0
 
     # Retention: % of clients with 2+ appointments in the last 90 days
     retention_row = db.execute(_t("""
@@ -384,34 +350,13 @@ def profile(
     )
     messages = list(db.scalars(msg_stmt).all())
 
-    from app.models.payment import Payment
     from app.models.appointment import Appointment
-    from app.models.pos_transaction import PosTransaction
-    from sqlalchemy import func, case, or_
+    from sqlalchemy import func
 
-    # Financial totals from regular payments
-    totals = db.execute(
-        select(
-            func.sum(case((Payment.type != 'refund', Payment.amount_cents), else_=0)).label("paid"),
-            func.sum(case((Payment.type == 'refund', Payment.amount_cents), else_=0)).label("refund")
-        )
-        .where(
-            Payment.client_id == client_id,
-            Payment.studio_id == ctx.studio_id,
-            Payment.status == "paid",
-            or_(Payment.notes == None, ~Payment.notes.ilike("[מערכת]%")),
-        )
-    ).first()
-
-    # Add POS transactions
-    pos_total = db.scalar(
-        select(func.coalesce(func.sum(PosTransaction.total_cents), 0))
-        .where(PosTransaction.client_id == client_id, PosTransaction.studio_id == ctx.studio_id, PosTransaction.status == "paid")
-    ) or 0
-
-    total_paid = int(totals.paid or 0) + int(pos_total)
-    total_refund = int(totals.refund or 0)
-    net_paid = total_paid - total_refund
+    # What the client really paid — payments + till sales, less refunds, club points left out
+    from app.crud.payment import clients_paid
+    totals = clients_paid(db, ctx.studio_id, [client_id]).get(client_id, {"paid": 0, "refund": 0, "net": 0})
+    total_paid, total_refund, net_paid = totals["paid"], totals["refund"], totals["net"]
 
     total_appts_cents = db.scalar(
         select(func.sum(Appointment.total_price_cents))

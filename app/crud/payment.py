@@ -20,6 +20,39 @@ def award_points(db: Session, studio_id, client: Client, payment: Payment, perce
     return points
 
 
+def money_received():
+    """Paying with club points is recorded as a payment too (notes "[מערכת] …", create_payment) — the business got no
+    money for it, so every sum of what was paid leaves it out."""
+    from sqlalchemy import or_
+    return or_(Payment.notes.is_(None), ~Payment.notes.ilike("[מערכת]%"))
+
+
+def clients_paid(db: Session, studio_id, client_ids=None) -> dict:
+    """What each client really paid: payments and till sales, less refunds, club points left out — the one sum the client
+    card, the club leaderboard and the average per client all show. {client_id: {"paid", "refund", "net"}} in agorot."""
+    from sqlalchemy import case
+    from app.models.pos_transaction import PosTransaction
+    pay = (select(Payment.client_id,
+                  func.coalesce(func.sum(case((Payment.type != "refund", Payment.amount_cents), else_=0)), 0),
+                  func.coalesce(func.sum(case((Payment.type == "refund", Payment.amount_cents), else_=0)), 0))
+           .where(Payment.studio_id == studio_id, Payment.client_id.is_not(None), Payment.status == "paid", money_received())
+           .group_by(Payment.client_id))
+    pos = (select(PosTransaction.client_id, func.coalesce(func.sum(PosTransaction.total_cents), 0))
+           .where(PosTransaction.studio_id == studio_id, PosTransaction.client_id.is_not(None), PosTransaction.status == "paid")
+           .group_by(PosTransaction.client_id))
+    if client_ids is not None:
+        pay = pay.where(Payment.client_id.in_(client_ids))
+        pos = pos.where(PosTransaction.client_id.in_(client_ids))
+    out: dict = {}
+    for cid, paid, refund in db.execute(pay).all():
+        out[cid] = {"paid": int(paid), "refund": int(refund)}
+    for cid, total in db.execute(pos).all():
+        out.setdefault(cid, {"paid": 0, "refund": 0})["paid"] += int(total)
+    for v in out.values():
+        v["net"] = v["paid"] - v["refund"]
+    return out
+
+
 def create_payment(db: Session, studio_id: UUID, data) -> Payment:
     # ensure appointment belongs to studio
     appt = db.scalar(select(Appointment).where(Appointment.id == data.appointment_id, Appointment.studio_id == studio_id))

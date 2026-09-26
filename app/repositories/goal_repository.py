@@ -4,11 +4,12 @@ from datetime import datetime, date
 from decimal import Decimal
 from typing import Optional, Tuple
 
-from sqlalchemy import select, and_, func, or_
+from sqlalchemy import select, and_, func
 from sqlalchemy.orm import Session
 
 from app.models.monthly_goal import MonthlyGoal
 from app.models.payment import Payment
+from app.crud.payment import money_received
 from app.models.pos_transaction import PosTransaction
 
 class GoalRepository:
@@ -60,7 +61,7 @@ class GoalRepository:
                 Payment.status == "paid",
                 Payment.created_at >= start_date,
                 Payment.created_at <= end_date,
-                or_(Payment.notes == None, ~Payment.notes.ilike("[מערכת]%")),
+                money_received(),
             )
         )
         payment_cents = self.session.execute(stmt).scalar() or 0

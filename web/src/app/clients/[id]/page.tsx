@@ -5,6 +5,7 @@ import { useEffect, useState, useCallback } from "react";
 import RequireAuth from "@/components/RequireAuth";
 import AppShell from "@/components/AppShell";
 import { apiFetch } from "@/lib/api";
+import { formatCurrency } from "@/lib/format";
 
 type Invoice = {
     id: string;
@@ -472,16 +473,16 @@ export default function ClientProfilePage() {
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
-                                <div className="rounded-xl border bg-gradient-to-br from-green-50 to-emerald-50 p-4 shadow-sm border-green-100">
+                                <div className="min-w-0 rounded-xl border bg-gradient-to-br from-green-50 to-emerald-50 p-4 shadow-sm border-green-100">
                                     <div className="text-xs text-green-700 font-medium">יתרה לתשלום</div>
-                                    <div className="text-2xl font-black mt-1 text-rose-600" dir="ltr">
-                                        {((profile.remaining_balance_cents || 0) / 100).toLocaleString("he-IL", { style: "currency", currency: "ILS" })}
+                                    <div className="text-xl sm:text-2xl font-black mt-1 text-rose-600 tabular-nums break-words" dir="ltr">
+                                        {formatCurrency((profile.remaining_balance_cents || 0) / 100)}
                                     </div>
                                 </div>
-                                <div className="rounded-xl border bg-gradient-to-br from-blue-50 to-indigo-50 p-4 shadow-sm border-blue-100">
+                                <div className="min-w-0 rounded-xl border bg-gradient-to-br from-blue-50 to-indigo-50 p-4 shadow-sm border-blue-100">
                                     <div className="text-xs text-blue-700 font-medium">סה"כ שולם נטו</div>
-                                    <div className="text-2xl font-black mt-1 text-emerald-700" dir="ltr">
-                                        {((profile.net_paid_cents || 0) / 100).toLocaleString("he-IL", { style: "currency", currency: "ILS" })}
+                                    <div className="text-xl sm:text-2xl font-black mt-1 text-emerald-700 tabular-nums break-words" dir="ltr">
+                                        {formatCurrency((profile.net_paid_cents || 0) / 100)}
                                     </div>
                                 </div>
                                 {profile.client.is_club_member && (

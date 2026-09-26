@@ -12,6 +12,7 @@ from app.models.appointment import Appointment
 from app.models.client import Client
 from app.models.client_points_ledger import ClientPointsLedger
 from app.models.payment import Payment
+from app.crud.payment import money_received
 from app.models.pos_transaction import PosTransaction
 from app.models.message_job import MessageJob
 from app.models.studio_settings import StudioSettings
@@ -69,7 +70,7 @@ def get_dashboard_stats(
     revenue_query = select(func.sum(case((Payment.type == "refund", -Payment.amount_cents), else_=Payment.amount_cents))).where(
         Payment.studio_id == ctx.studio_id,
         Payment.status == "paid",
-        or_(Payment.notes == None, ~Payment.notes.ilike("[מערכת]%")),
+        money_received(),
     )
     pos_revenue_query = select(func.sum(PosTransaction.total_cents)).where(
         PosTransaction.studio_id == ctx.studio_id,
@@ -161,7 +162,7 @@ def get_today_revenue(ctx: AuthContext = Depends(require_studio_ctx), db: Sessio
             Payment.studio_id == ctx.studio_id,
             Payment.status == "paid",
             Payment.type != "refund",
-            or_(Payment.notes == None, ~Payment.notes.ilike("[מערכת]%")),
+            money_received(),
             Payment.created_at >= today_start,
             Payment.created_at <= today_end,
         )
@@ -428,7 +429,7 @@ def get_analytics(ctx: AuthContext = Depends(require_studio_ctx), db: Session = 
                 Payment.type != "refund",
                 Payment.created_at >= month_start,
                 Payment.created_at < month_end,
-                or_(Payment.notes == None, ~Payment.notes.ilike("[מערכת]%")),
+                money_received(),
             )
         ) or 0
         pos_rev = db.scalar(
@@ -474,7 +475,7 @@ def get_analytics(ctx: AuthContext = Depends(require_studio_ctx), db: Session = 
                 Payment.studio_id == ctx.studio_id,
                 Payment.status == "paid",
                 Payment.type != "refund",
-                or_(Payment.notes == None, ~Payment.notes.ilike("[מערכת]%")),
+                money_received(),
                 Payment.appointment_id.in_(
                     select(Appointment.id).where(
                         Appointment.artist_id == artist.id,
@@ -676,7 +677,7 @@ def advanced_analytics(ctx: AuthContext = Depends(require_studio_ctx), db: Sessi
             select(func.sum(Payment.amount_cents)).where(
                 Payment.studio_id == ctx.studio_id, Payment.status == "paid",
                 Payment.type != "refund", Payment.created_at >= start, Payment.created_at < end,
-                or_(Payment.notes == None, ~Payment.notes.ilike("[מערכת]%")),
+                money_received(),
             )
         ) or 0
         pos = db.scalar(
