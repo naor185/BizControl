@@ -1,7 +1,28 @@
 // Group classes — the shapes the server returns (app/api/class_routes.py) and Israel-time helpers.
 // Every time is shown on the clock in Israel, whatever the device's own zone.
 
-export type Room = { id: string; name: string; capacity: number; is_active: boolean };
+export type Room = {
+    id: string; name: string; capacity: number; is_active: boolean;
+    // renting it out — the owner's rules (app/services/room_rentals.py)
+    rental_enabled: boolean; rental_pricing: "hourly" | "per_booking"; rental_hour_cents: number; rental_booking_cents: number;
+    rental_min_minutes: number; rental_series_discount_percent: number; rental_package_hours: number | null;
+    rental_package_cents: number; rental_free_cancel_hours: number; rental_late_fee: "full" | "half" | "none";
+};
+
+// ── renting a room out ──
+export type Rental = {
+    id: string; room_id: string; room_name: string; client_id: string; renter: string; starts_at: string; ends_at: string;
+    status: "booked" | "canceled" | "late_canceled"; price_cents: number; fee_cents: number; charge_cents: number;
+    paid_cents: number; from_package: boolean; package_minutes: number; series_id: string | null; note: string | null;
+};
+export type RentalSeries = {
+    id: string; room_id: string; client_id: string; renter: string; weekday: number; start_time: string;
+    duration_minutes: number; starts_on: string; ends_on: string | null; is_active: boolean;
+};
+export type RentalMonth = {
+    client_id: string; full_name: string; rentals: number; minutes: number; charged: number; paid: number; due: number;
+    package_minutes_left: number;
+};
 
 export type ClassSession = {
     id: string; template_id: string | null; name: string; color: string; is_course: boolean;
@@ -136,7 +157,7 @@ export type ClassTemplate = {
     rules: Record<string, number | boolean | string>;
 };
 
-export type Clash = { kind: "class" | "appointment"; name: string; starts_at: string };
+export type Clash = { kind: "class" | "appointment" | "rental"; name: string; starts_at: string };
 export type DryRun = {
     clashes: { room: Clash[]; instructor: Clash[] };
     booked: { sessions: number; clients: number };

@@ -32,7 +32,17 @@ class PaymentError(ValueError):
 
 
 def invoice_subject(db: Session, payment: Payment) -> SimpleNamespace:
-    """What the invoice line says: the membership, the course, the class, or the fee."""
+    """What the invoice line says: the membership, the course, the room rental, the class, or the fee."""
+    if payment.room_rental_id or payment.rental_package_id:
+        from app.models.classes import Room, RoomRental, RoomRentalPackage
+        if payment.room_rental_id:
+            r = db.get(RoomRental, payment.room_rental_id)
+            room = db.get(Room, r.room_id) if r else None
+            when = " ".join(svc.il_date_time(r.starts_at)) if r else ""
+            return SimpleNamespace(title=f"השכרת חדר: {room.name if room else ''} {when}".strip(), id=None)
+        pkg = db.get(RoomRentalPackage, payment.rental_package_id)
+        room = db.get(Room, pkg.room_id) if pkg else None
+        return SimpleNamespace(title=f"חבילת {pkg.minutes_total // 60 if pkg else ''} שעות: {room.name if room else ''}".strip(), id=None)
     if payment.course_enrollment_id:
         from app.models.classes import CourseEnrollment
         e = db.get(CourseEnrollment, payment.course_enrollment_id)
@@ -52,12 +62,12 @@ def invoice_subject(db: Session, payment: Payment) -> SimpleNamespace:
 
 
 def record(db: Session, studio_id, client, *, amount_cents: int, method: str, membership: Membership | None = None,
-           booking: ClassBooking | None = None, enrollment=None, for_fee: bool = False, notes: str | None = None,
-           external_ref: str | None = None, send_receipt: bool = True) -> Payment:
-    """Records a paid payment for a membership, a course registration or a class booking and issues its
-    invoice/receipt. for_fee: this pays the booking's open fee (it becomes paid)."""
-    if sum(x is not None for x in (membership, booking, enrollment)) != 1:
-        raise PaymentError("תשלום על מנוי, על קורס או על הרשמה לשיעור")
+           booking: ClassBooking | None = None, enrollment=None, rental=None, rental_package=None, for_fee: bool = False,
+           notes: str | None = None, external_ref: str | None = None, send_receipt: bool = True) -> Payment:
+    """Records a paid payment for a membership, a course registration, a class booking, a room rental or a package
+    of rental hours and issues its invoice/receipt. for_fee: this pays the booking's open fee (it becomes paid)."""
+    if sum(x is not None for x in (membership, booking, enrollment, rental, rental_package)) != 1:
+        raise PaymentError("תשלום על מנוי, על קורס, על הרשמה לשיעור או על השכרת חדר")
     if amount_cents <= 0:
         raise PaymentError("סכום התשלום חסר")
     if method not in METHODS:
@@ -70,13 +80,15 @@ def record(db: Session, studio_id, client, *, amount_cents: int, method: str, me
     p = Payment(studio_id=studio_id, appointment_id=None, client_id=client.id,
                 membership_id=membership.id if membership else None, class_booking_id=booking.id if booking else None,
                 course_enrollment_id=enrollment.id if enrollment is not None else None,
+                room_rental_id=rental.id if rental is not None else None,
+                rental_package_id=rental_package.id if rental_package is not None else None,
                 amount_cents=amount_cents, currency="ILS", type="payment", status="paid", method=method,
                 external_ref=(external_ref or None), notes=(notes or None))
     db.add(p)
     if fee:
         fee.status, fee.paid_at = "paid", svc.now_utc()
     db.flush()
-    if not fee:
+    if not fee and rental is None and rental_package is None:       # renting a room earns no club points
         club_points(db, studio_id, client, p, kind="membership" if membership else "course" if enrollment is not None else "entry")
     db.commit()
     try:

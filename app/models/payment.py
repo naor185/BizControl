@@ -22,7 +22,8 @@ class Payment(Base):
         CheckConstraint("amount_cents >= 0", name="ck_payments_amount_nonneg"),
         # what the payment is for: an appointment, a membership, or a class booking (a single entry, a fee)
         CheckConstraint("appointment_id IS NOT NULL OR membership_id IS NOT NULL OR class_booking_id IS NOT NULL "
-                        "OR course_enrollment_id IS NOT NULL", name="ck_payments_subject"),
+                        "OR course_enrollment_id IS NOT NULL OR room_rental_id IS NOT NULL OR rental_package_id IS NOT NULL",
+                        name="ck_payments_subject"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -32,6 +33,8 @@ class Payment(Base):
     membership_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("memberships.id"), nullable=True, index=True)
     class_booking_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("class_bookings.id"), nullable=True, index=True)
     course_enrollment_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("course_enrollments.id"), nullable=True, index=True)
+    room_rental_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("room_rentals.id"), nullable=True, index=True)
+    rental_package_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("room_rental_packages.id"), nullable=True, index=True)
     client_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("clients.id", ondelete="RESTRICT"), nullable=False, index=True)
 
     amount_cents: Mapped[int] = mapped_column(Integer, nullable=False)

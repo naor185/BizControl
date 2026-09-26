@@ -2486,17 +2486,74 @@ def ensure_schema():
         cur.execute("CREATE INDEX IF NOT EXISTS ix_class_bookings_enrollment_id ON class_bookings (enrollment_id)")
         cur.execute("ALTER TABLE payments ADD COLUMN IF NOT EXISTS course_enrollment_id UUID REFERENCES course_enrollments(id)")
         cur.execute("CREATE INDEX IF NOT EXISTS ix_payments_course_enrollment_id ON payments (course_enrollment_id)")
-        # a payment is always for something — now also a course registration (the constraint is replaced once)
+        # Classes extras 7 — renting a room out (app/services/room_rentals.py)
+        for _col in ("rental_enabled BOOLEAN NOT NULL DEFAULT false", "rental_pricing VARCHAR(16) NOT NULL DEFAULT 'hourly'",
+                     "rental_hour_cents INTEGER NOT NULL DEFAULT 0", "rental_booking_cents INTEGER NOT NULL DEFAULT 0",
+                     "rental_min_minutes INTEGER NOT NULL DEFAULT 60", "rental_series_discount_percent INTEGER NOT NULL DEFAULT 0",
+                     "rental_package_hours INTEGER", "rental_package_cents INTEGER NOT NULL DEFAULT 0",
+                     "rental_free_cancel_hours INTEGER NOT NULL DEFAULT 24", "rental_late_fee VARCHAR(8) NOT NULL DEFAULT 'full'"):
+            cur.execute(f"ALTER TABLE rooms ADD COLUMN IF NOT EXISTS {_col}")
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS room_rental_series (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                room_id UUID NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
+                client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+                weekday SMALLINT NOT NULL, start_time TIME NOT NULL, duration_minutes INTEGER NOT NULL,
+                starts_on DATE NOT NULL, ends_on DATE, is_active BOOLEAN NOT NULL DEFAULT true, note VARCHAR(300),
+                created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), stopped_at TIMESTAMPTZ
+            )
+        """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS room_rental_packages (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                room_id UUID NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
+                client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+                minutes_total INTEGER NOT NULL, price_cents INTEGER NOT NULL DEFAULT 0,
+                created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS room_rentals (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                room_id UUID NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
+                client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+                series_id UUID REFERENCES room_rental_series(id) ON DELETE SET NULL,
+                package_id UUID REFERENCES room_rental_packages(id) ON DELETE SET NULL,
+                starts_at TIMESTAMPTZ NOT NULL, ends_at TIMESTAMPTZ NOT NULL,
+                status VARCHAR(16) NOT NULL DEFAULT 'booked',
+                price_cents INTEGER NOT NULL DEFAULT 0, package_minutes INTEGER NOT NULL DEFAULT 0, fee_cents INTEGER NOT NULL DEFAULT 0,
+                note VARCHAR(300), source VARCHAR(16) NOT NULL DEFAULT 'user',
+                created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                canceled_at TIMESTAMPTZ, canceled_by UUID REFERENCES users(id) ON DELETE SET NULL
+            )
+        """)
+        for _t, _c in (("room_rental_series", "studio_id"), ("room_rental_series", "room_id"), ("room_rental_series", "client_id"),
+                       ("room_rental_packages", "studio_id"), ("room_rental_packages", "room_id"), ("room_rental_packages", "client_id"),
+                       ("room_rentals", "studio_id"), ("room_rentals", "room_id"), ("room_rentals", "client_id"),
+                       ("room_rentals", "series_id"), ("room_rentals", "package_id"), ("room_rentals", "starts_at")):
+            cur.execute(f"CREATE INDEX IF NOT EXISTS ix_{_t}_{_c} ON {_t} ({_c})")
+        cur.execute("ALTER TABLE payments ADD COLUMN IF NOT EXISTS room_rental_id UUID REFERENCES room_rentals(id)")
+        cur.execute("ALTER TABLE payments ADD COLUMN IF NOT EXISTS rental_package_id UUID REFERENCES room_rental_packages(id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_payments_room_rental_id ON payments (room_rental_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_payments_rental_package_id ON payments (rental_package_id)")
+        # a payment is always for something — an appointment, a membership, a class, a course, a room rental or a
+        # package of rental hours (the constraint is replaced when it does not have the latest subjects yet)
         cur.execute("""
             DO $$ BEGIN
                 IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ck_payments_subject'
-                           AND pg_get_constraintdef(oid) NOT LIKE '%course_enrollment_id%') THEN
+                           AND pg_get_constraintdef(oid) NOT LIKE '%rental_package_id%') THEN
                     ALTER TABLE payments DROP CONSTRAINT ck_payments_subject;
                 END IF;
                 IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ck_payments_subject') THEN
                     ALTER TABLE payments ADD CONSTRAINT ck_payments_subject
                         CHECK (appointment_id IS NOT NULL OR membership_id IS NOT NULL OR class_booking_id IS NOT NULL
-                               OR course_enrollment_id IS NOT NULL);
+                               OR course_enrollment_id IS NOT NULL OR room_rental_id IS NOT NULL OR rental_package_id IS NOT NULL);
                 END IF;
             END $$;
         """)

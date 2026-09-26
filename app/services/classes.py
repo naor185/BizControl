@@ -152,9 +152,9 @@ def generate_all(db: Session) -> int:
 # ── clashes ──────────────────────────────────────────────────────────────────
 
 def clashes(db: Session, studio_id, slots: list[tuple[datetime, datetime]], *, room_id=None, instructor_id=None,
-            skip_template=None, skip_session=None) -> dict[str, list[dict]]:
+            skip_template=None, skip_session=None, skip_rental=None) -> dict[str, list[dict]]:
     """What the proposed times collide with: {"room": [...], "instructor": [...]} — each item is the other
-    class or appointment ({kind, name, starts_at})."""
+    class, appointment or room rental ({kind, name, starts_at})."""
     out: dict[str, list[dict]] = {"room": [], "instructor": []}
     if not slots or (room_id is None and instructor_id is None):
         return out
@@ -191,6 +191,18 @@ def clashes(db: Session, studio_id, slots: list[tuple[datetime, datetime]], *, r
             if a_start < end and a_end > start and ("appt", a_start) not in seen:
                 seen.add(("appt", a_start))
                 out["instructor"].append({"kind": "appointment", "name": title or "תור", "starts_at": a_start.isoformat()})
+    if room_id:                                  # the room rented out (app/services/room_rentals.py)
+        from app.models.classes import RoomRental
+        from app.models.client import Client
+        q = (select(RoomRental.starts_at, RoomRental.ends_at, Client.full_name).join(Client, Client.id == RoomRental.client_id)
+             .where(RoomRental.studio_id == studio_id, RoomRental.room_id == room_id, RoomRental.status == "booked",
+                    RoomRental.starts_at < hi, RoomRental.ends_at > lo))
+        if skip_rental is not None:
+            q = q.where(RoomRental.id != skip_rental)
+        for r_start, r_end, renter in db.execute(q).all():
+            if any(r_start < end and r_end > start for start, end in slots) and ("rental", r_start) not in seen:
+                seen.add(("rental", r_start))
+                out["room"].append({"kind": "rental", "name": f"השכרה — {renter}", "starts_at": r_start.isoformat()})
     for items in out.values():
         items.sort(key=lambda i: i["starts_at"])
     return out

@@ -89,6 +89,12 @@ EVENTS: dict[str, Event] = {e.key: e for e in (
     Event("freeze_request_declined", "בקשת הקפאה לא אושרה", "client", "הלקוח/ה", True, module="memberships", texts={
         "whatsapp": "היי {client_name}, {request_note}\n{studio_name}",
         "email": "היי {client_name},\n{request_note}\n{studio_name}"}),
+    Event("room_rental_booked", "אישור השכרת חדר", "client", "השוכר/ת", True, module="rooms", texts={
+        "whatsapp": "היי {client_name}, {room_name} שמור לך ב-{rental_date} בשעות {rental_time} ✅\n{rental_note}\n{studio_name}",
+        "email": "היי {client_name},\n{room_name} שמור לך ב-{rental_date} בשעות {rental_time}.\n{rental_note}\n{studio_name}"}),
+    Event("room_rental_canceled", "ביטול השכרת חדר", "client", "השוכר/ת", True, module="rooms", texts={
+        "whatsapp": "היי {client_name}, ההשכרה של {room_name} ב-{rental_date} בשעות {rental_time} בוטלה. {rental_note}\n{studio_name}",
+        "email": "היי {client_name},\nההשכרה של {room_name} ב-{rental_date} בשעות {rental_time} בוטלה. {rental_note}\n{studio_name}"}),
     Event("class_full", "שיעור התמלא", "staff", "{staff} (פעמון)", False, texts={
         "bell": "אין יותר מקומות ב{class_name} ב-{class_date} בשעה {class_time}"}),
     Event("class_at_risk", "שיעור בסיכון: הנרשמים מתחת למינימום לפני שעת הבדיקה", "staff", "המנהל/ת (פעמון)", False, texts={
@@ -112,6 +118,10 @@ PLACEHOLDERS: dict[str, tuple[str, str]] = {
     "staff_title": ("{staff}", ""),
     "change_note": ("מה השתנה", "השעה עודכנה ל-19:00"),
     "entry_note": ("מה קרה לכניסה", "הכניסה שלך הוחזרה לכרטיסייה."),
+    "room_name": ("שם החדר", "הסטודיו הגדול"),
+    "rental_date": ("תאריך ההשכרה", "12/10"),
+    "rental_time": ("שעות ההשכרה", "10:00–12:00"),
+    "rental_note": ("פרטים (מחיר, חבילה, מדיניות)", "המחיר: ₪160."),
     "course_note": ("פרטי הקורס", "8 מפגשים, הראשון ב-4/10 בשעה 18:00. המחיר: ₪640 — התשלום בעסק."),
     "swap_note": ("מאיזה שיעור הועבר/ה", "במקום פילאטיס מכשירים ב-4/10 בשעה 18:00."),
     "fee_note": ("פירוט המדיניות", "ביטול בפחות מ-6 שעות לפני השיעור נחשב כניצול כניסה."),

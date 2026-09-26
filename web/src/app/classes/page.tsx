@@ -3,12 +3,13 @@
 import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { CalendarDays, Repeat, DoorOpen, SlidersHorizontal, Loader2, Info, IdCard, type LucideIcon } from "lucide-react";
+import { CalendarDays, Repeat, DoorOpen, SlidersHorizontal, Loader2, Info, IdCard, KeyRound, type LucideIcon } from "lucide-react";
 import AppShell from "@/components/AppShell";
 import RequireAuth from "@/components/RequireAuth";
 import ClassSchedule from "@/components/classes/ClassSchedule";
 import ClassTemplates from "@/components/classes/ClassTemplates";
 import ClassRooms from "@/components/classes/ClassRooms";
+import RoomRentals from "@/components/classes/RoomRentals";
 import ClassMemberships from "@/components/classes/ClassMemberships";
 import type { ClassPolicy } from "@/components/classes/ClassPolicies";
 import { apiFetch, getCurrentUserId, getCurrentUserRole } from "@/lib/api";
@@ -20,7 +21,7 @@ import type { Room, StaffMember } from "@/lib/classes";
 // (the calendar links here).
 const MANAGERS = new Set(["owner", "admin", "superadmin"]);
 
-type Tab = "schedule" | "templates" | "rooms" | "memberships";
+type Tab = "schedule" | "templates" | "rooms" | "memberships" | "rentals";
 type Service = { id: string; name: string; duration_minutes: number; color: string };
 
 function Classes() {
@@ -78,15 +79,17 @@ function Classes() {
         { id: "templates", label: "שיעורים קבועים", icon: Repeat },
         ...(membershipsOn ? [{ id: "memberships" as Tab, label: "מנויים", icon: IdCard }] : []),
         ...(roomsOn ? [{ id: "rooms" as Tab, label: "חדרים", icon: DoorOpen }] : []),
+        ...(roomsOn && (canManage || role === "staff") ? [{ id: "rentals" as Tab, label: "השכרות", icon: KeyRound }] : []),
     ];
 
     return (
         <div className="max-w-6xl mx-auto px-4 py-6 space-y-5">
             <div className="flex items-end justify-between gap-3 border-b border-slate-200">
-                <div role="tablist" className="flex gap-1 overflow-x-auto">
+                <div role="tablist" className="flex gap-1 overflow-x-auto min-w-0">{/* the tabs keep their width; the row scrolls on a phone */}
                     {tabs.map(t => (
                         <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)}
-                            className={`inline-flex items-center gap-2 px-3 sm:px-4 min-h-11 text-sm font-semibold border-b-2 -mb-px whitespace-nowrap transition-colors ${tab === t.id ? "border-indigo-600 text-indigo-700" : "border-transparent text-slate-500 hover:text-slate-800"}`}>
+                            ref={el => { if (el && tab === t.id) el.scrollIntoView({ block: "nearest", inline: "nearest" }); }}
+                            className={`shrink-0 inline-flex items-center gap-2 px-3 sm:px-4 min-h-11 text-sm font-semibold border-b-2 -mb-px whitespace-nowrap transition-colors ${tab === t.id ? "border-indigo-600 text-indigo-700" : "border-transparent text-slate-500 hover:text-slate-800"}`}>
                             <t.icon className="w-4 h-4" aria-hidden /> {t.label}
                         </button>
                     ))}
@@ -106,6 +109,7 @@ function Classes() {
             {tab === "memberships" && membershipsOn && (
                 <ClassMemberships terms={terms} canSell={canManage || role === "staff"} canChange={canManage} canConfigure={canManage} />
             )}
+            {tab === "rentals" && roomsOn && <RoomRentals rooms={rooms} terms={terms} canOverride={canManage} />}
             {tab === "rooms" && roomsOn && (
                 <ClassRooms rooms={rooms} canConfigure={canManage} onChange={() => loadRooms(true)} />
             )}

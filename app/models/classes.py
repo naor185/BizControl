@@ -33,6 +33,17 @@ class Room(Base):
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     capacity: Mapped[int] = mapped_column(Integer, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+    # renting the room out (app/services/room_rentals.py) — every rule the owner's
+    rental_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    rental_pricing: Mapped[str] = mapped_column(String(16), nullable=False, default="hourly", server_default="hourly")   # hourly | per_booking
+    rental_hour_cents: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    rental_booking_cents: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    rental_min_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=60, server_default="60")
+    rental_series_discount_percent: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")   # a regular renter
+    rental_package_hours: Mapped[int | None] = mapped_column(Integer, nullable=True)                  # a package of hours (empty = none)
+    rental_package_cents: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    rental_free_cancel_hours: Mapped[int] = mapped_column(Integer, nullable=False, default=24, server_default="24")
+    rental_late_fee: Mapped[str] = mapped_column(String(8), nullable=False, default="full", server_default="full")   # full | half | none
     source: Mapped[str] = mapped_column(String(16), nullable=False, default="user", server_default="user")
     source_ref: Mapped[str | None] = mapped_column(String(120), nullable=True)      # the record's id in the old system
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
@@ -162,3 +173,65 @@ class CourseEnrollment(Base):
     canceled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     canceled_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     cancel_reason: Mapped[str | None] = mapped_column(String(300), nullable=True)
+
+
+class RoomRentalSeries(Base):
+    """A regular renter: the same room, the same weekday and time, every week from a date (to a date, or until
+    stopped) — its rentals are made ahead like a class's sessions, at the owner's discount for a regular renter."""
+    __tablename__ = "room_rental_series"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    studio_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("studios.id", ondelete="CASCADE"), nullable=False, index=True)
+    room_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("rooms.id", ondelete="CASCADE"), nullable=False, index=True)
+    client_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("clients.id", ondelete="CASCADE"), nullable=False, index=True)
+    weekday: Mapped[int] = mapped_column(SmallInteger, nullable=False)          # 0 = Sunday … 6 = Saturday
+    start_time: Mapped[time] = mapped_column(Time, nullable=False)              # Israel time
+    duration_minutes: Mapped[int] = mapped_column(Integer, nullable=False)
+    starts_on: Mapped[date] = mapped_column(Date, nullable=False)
+    ends_on: Mapped[date | None] = mapped_column(Date, nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+    note: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    stopped_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class RoomRentalPackage(Base):
+    """A package of hours a renter bought (the room's package: hours for a price) — rentals of that room take
+    their minutes from it before any price."""
+    __tablename__ = "room_rental_packages"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    studio_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("studios.id", ondelete="CASCADE"), nullable=False, index=True)
+    room_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("rooms.id", ondelete="CASCADE"), nullable=False, index=True)
+    client_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("clients.id", ondelete="CASCADE"), nullable=False, index=True)
+    minutes_total: Mapped[int] = mapped_column(Integer, nullable=False)
+    price_cents: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class RoomRental(Base):
+    """A room rented to someone (a client of the business — an outside instructor, a therapist) for a time:
+    booked → canceled / late_canceled (the owner's late-cancel charge). Its price is fixed when booked; minutes
+    taken from a package cost nothing more."""
+    __tablename__ = "room_rentals"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    studio_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("studios.id", ondelete="CASCADE"), nullable=False, index=True)
+    room_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("rooms.id", ondelete="CASCADE"), nullable=False, index=True)
+    client_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("clients.id", ondelete="CASCADE"), nullable=False, index=True)
+    series_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("room_rental_series.id", ondelete="SET NULL"), nullable=True, index=True)
+    package_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("room_rental_packages.id", ondelete="SET NULL"), nullable=True, index=True)
+    starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    ends_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="booked", server_default="booked")
+    price_cents: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    package_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")   # taken from the package
+    fee_cents: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")          # a late cancellation's charge
+    note: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    source: Mapped[str] = mapped_column(String(16), nullable=False, default="user", server_default="user")
+    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    canceled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    canceled_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)

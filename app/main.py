@@ -269,6 +269,8 @@ def start_scheduler():
         try:
             generate_all(db)
             refresh_statuses(db)            # memberships: pending → active on their day, → expired at the end
+            from app.services.room_rentals import extend_all
+            extend_all(db)                  # a regular renter's weekly rentals, made ahead like the classes
         except Exception:
             db.rollback()
             logging.getLogger("bizcontrol.classes").exception("class sessions tick failed")

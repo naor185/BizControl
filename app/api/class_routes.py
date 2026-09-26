@@ -74,10 +74,27 @@ class RoomPatch(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=120)
     capacity: Optional[int] = Field(None, ge=1, le=500)
     is_active: Optional[bool] = None
+    # renting the room out — the owner's rules (app/services/room_rentals.py)
+    rental_enabled: Optional[bool] = None
+    rental_pricing: Optional[str] = None
+    rental_hour_cents: Optional[int] = Field(None, ge=0, le=10_000_000)
+    rental_booking_cents: Optional[int] = Field(None, ge=0, le=10_000_000)
+    rental_min_minutes: Optional[int] = Field(None, ge=15, le=720)
+    rental_series_discount_percent: Optional[int] = Field(None, ge=0, le=100)
+    rental_package_hours: Optional[int] = Field(None, ge=0, le=500)       # 0 = no package
+    rental_package_cents: Optional[int] = Field(None, ge=0, le=100_000_000)
+    rental_free_cancel_hours: Optional[int] = Field(None, ge=0, le=720)
+    rental_late_fee: Optional[str] = None
+
+
+RENTAL_FIELDS = ("rental_enabled", "rental_pricing", "rental_hour_cents", "rental_booking_cents", "rental_min_minutes",
+                 "rental_series_discount_percent", "rental_package_hours", "rental_package_cents", "rental_free_cancel_hours",
+                 "rental_late_fee")
 
 
 def _room_out(r: Room) -> dict:
-    return {"id": str(r.id), "name": r.name, "capacity": r.capacity, "is_active": r.is_active}
+    return {"id": str(r.id), "name": r.name, "capacity": r.capacity, "is_active": r.is_active,
+            **{f: getattr(r, f) for f in RENTAL_FIELDS}}
 
 
 @router.get("/rooms", dependencies=ROOMS)
@@ -113,6 +130,17 @@ def update_room(room_id: uuid.UUID, body: RoomPatch, ctx: AuthContext = Depends(
         room.capacity = body.capacity
     if body.is_active is not None:
         room.is_active = body.is_active
+    from app.services import room_rentals
+    sent = body.model_dump(exclude_unset=True, include=set(RENTAL_FIELDS))
+    if "rental_pricing" in sent and sent["rental_pricing"] not in room_rentals.PRICINGS:
+        raise HTTPException(400, "אופן תמחור לא מוכר")
+    if "rental_late_fee" in sent and sent["rental_late_fee"] not in room_rentals.LATE_FEES:
+        raise HTTPException(400, "חיוב על ביטול מאוחר לא מוכר")
+    if "rental_package_hours" in sent:
+        sent["rental_package_hours"] = sent["rental_package_hours"] or None     # 0 = no package
+    for k, v in sent.items():
+        if v is not None or k == "rental_package_hours":
+            setattr(room, k, v)
     db.commit()
     return _room_out(room)
 

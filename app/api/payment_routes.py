@@ -240,6 +240,8 @@ def issue_credit_note(
         membership_id=payment.membership_id,            # tied to what was paid for, like the payment itself
         class_booking_id=payment.class_booking_id,
         course_enrollment_id=payment.course_enrollment_id,
+        room_rental_id=payment.room_rental_id,
+        rental_package_id=payment.rental_package_id,
         client_id=payment.client_id,
         amount_cents=abs(orig.get("total_cents") or 0),
         currency=payment.currency,
