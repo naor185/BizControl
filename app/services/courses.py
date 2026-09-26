@@ -204,9 +204,10 @@ def cancel(db: Session, e: CourseEnrollment, *, user_id=None, origin: str = "use
     note = f"לפי מדיניות העסק מגיע לך החזר של ₪{due / 100:,.0f}." if due else ""
     notifications.notify(db, t.studio_id, "course_left", origin=origin, about=f"enrollment:{e.id}:cancel",
                          context={"class_name": t.name, "course_note": note}, clients=[db.get(Client, e.client_id)])
-    from app.services.class_waitlist import promote
-    for s in {b.session_id for b in rows}:                   # a session's own waitlist (a single session, when allowed)
-        promote(db, db.get(ClassSession, s))
+    promote(db, t)                                           # the course's own line first
+    from app.services import class_waitlist
+    for s in {b.session_id for b in rows}:                   # then a session's own waitlist (a single session, when allowed)
+        class_waitlist.promote(db, db.get(ClassSession, s))
     return {"canceled_sessions": len(rows), "refund_due_cents": due}
 
 
@@ -227,3 +228,129 @@ def record_refund(db: Session, e: CourseEnrollment, amount_cents: int, method: s
     db.add(p)
     db.flush()
     return p
+
+
+# ── the course's waitlist (part 2) ───────────────────────────────────────────
+# A full course has a line of its own: a waiter is an enrollment that is waiting (by position) or offered
+# (a spot held until offer_expires_at). The owner's waitlist rules apply (waitlist_max, waitlist_mode,
+# waitlist_confirm_minutes — the business's, or the course's own): when a registration is cancelled the first
+# in line is enrolled at once ("auto") or offered the spot for the confirm window ("approval", or when
+# enrolling at once is not possible); an offer not taken in time passes to the next.
+
+def line(db: Session, t: ClassTemplate) -> list[CourseEnrollment]:
+    return list(db.scalars(select(CourseEnrollment).where(CourseEnrollment.template_id == t.id,
+                                                           CourseEnrollment.status.in_(("waiting", "offered")))
+                           .order_by(CourseEnrollment.position, CourseEnrollment.created_at)).all())
+
+
+def spots(db: Session, t: ClassTemplate) -> int:
+    """How many more can enroll now: the fewest spots left in a coming session, less the offers still held."""
+    from app.services.class_waitlist import spots_left
+    coming = sessions(db, t, coming_only=True)
+    if not coming:
+        return 0
+    return max(0, min(spots_left(db, s) for s in coming) - held_for_others(db, t))
+
+
+def join_waitlist(db: Session, t: ClassTemplate, client, *, origin: str = "user", for_client: bool = False) -> CourseEnrollment:
+    from app.services import class_waitlist as wl
+    if not wl.enabled(db, t.studio_id):
+        raise CourseError("אין רשימת המתנה לקורסים בעסק")
+    if enrollment_of(db, t, client.id, ("waiting", "offered")):
+        raise CourseError("כבר ברשימת ההמתנה לקורס")
+    why = why_not_enroll(db, t, client, for_client=for_client)
+    if why != "הקורס מלא":
+        raise CourseError(why or "יש מקום בקורס, אפשר להירשם")
+    most = rule(db, t, "waitlist_max")
+    if not most:
+        raise CourseError("אין רשימת המתנה לקורס הזה")
+    now_line = line(db, t)
+    if len(now_line) >= most:
+        raise CourseError("רשימת ההמתנה לקורס מלאה")
+    e = CourseEnrollment(studio_id=t.studio_id, template_id=t.id, client_id=client.id, status="waiting",
+                         position=max((x.position or 0) for x in now_line) + 1 if now_line else 1, source=origin)
+    db.add(e)
+    db.flush()
+    return e
+
+
+def leave_waitlist(db: Session, e: CourseEnrollment) -> None:
+    if e.status not in ("waiting", "offered"):
+        raise CourseError("כבר לא ברשימת ההמתנה")
+    was_offered = e.status == "offered"
+    e.status, e.canceled_at, e.cancel_reason = "canceled", svc.now_utc(), "left_waitlist"
+    db.flush()
+    if was_offered:                          # the held spot is free again
+        promote(db, db.get(ClassTemplate, e.template_id))
+
+
+def promote(db: Session, t: ClassTemplate, *, origin: str = "system") -> int:
+    """Moves the course's line up into free spots. Returns how many moved up (enrolled or offered)."""
+    from app.models.client import Client
+    from app.services import class_waitlist as wl
+    coming = sessions(db, t, coming_only=True)
+    now = svc.now_utc()
+    if not t.is_active or not coming or not wl.enabled(db, t.studio_id) or coming[0].starts_at - now < wl.CUTOFF:
+        return 0
+    mode = rule(db, t, "waitlist_mode")
+    window = timedelta(minutes=rule(db, t, "waitlist_confirm_minutes"))
+    moved, tried = 0, set()
+    while spots(db, t) > 0:
+        e = next((x for x in line(db, t) if x.status == "waiting" and x.id not in tried), None)
+        if e is None:
+            break
+        tried.add(e.id)
+        client = db.get(Client, e.client_id)
+        if mode == "auto":
+            savepoint = db.begin_nested()
+            try:
+                enroll(db, t, client, origin=origin, enrollment=e)
+                savepoint.commit()
+                moved += 1
+                continue
+            except ValueError:                # e.g. no membership that covers it — offered instead
+                savepoint.rollback()
+        e.status, e.offer_expires_at = "offered", min(now + window, coming[0].starts_at - wl.CUTOFF)
+        db.flush()
+        _, until = svc.il_date_time(e.offer_expires_at)
+        notifications.notify(db, t.studio_id, "waitlist_promoted", origin=origin, about=f"course_wait:{e.id}:offered",
+                             context={**svc._context(db, coming[0]), "class_name": t.name,
+                                      "promotion_note": f"המקום בקורס שמור לך עד {until} — לאישור: ב-BizFind או בהודעה לעסק."},
+                             clients=[client])
+        moved += 1
+    return moved
+
+
+def take_offer(db: Session, e: CourseEnrollment, *, user_id=None, origin: str = "user", for_client: bool = False) -> CourseEnrollment:
+    """An offered spot taken — by the client on BizFind or by the staff for them."""
+    from app.models.client import Client
+    if e.status != "offered" or not e.offer_expires_at or e.offer_expires_at <= svc.now_utc():
+        raise CourseError("ההצעה כבר לא בתוקף")
+    t = db.get(ClassTemplate, e.template_id)
+    return enroll(db, t, db.get(Client, e.client_id), user_id=user_id, origin=origin, for_client=for_client, enrollment=e)
+
+
+def sweep_waitlist(db: Session) -> int:
+    """Every few minutes: offers not taken in time pass to the next; a course that can no longer be joined
+    (ended, or started and closed to late joiners) clears its line. Returns how many offers expired."""
+    from app.models.client import Client
+    now = svc.now_utc()
+    expired = 0
+    for e in db.scalars(select(CourseEnrollment).where(CourseEnrollment.status == "offered",
+                                                       CourseEnrollment.offer_expires_at <= now)).all():
+        t = db.get(ClassTemplate, e.template_id)
+        e.status = "expired"
+        expired += 1
+        notifications.notify(db, e.studio_id, "waitlist_expiring", origin="system", about=f"course_wait:{e.id}:expired",
+                             context={"expiry_note": f"הזמן לאישור המקום בקורס {t.name} עבר, והמקום עבר לבא בתור."},
+                             clients=[db.get(Client, e.client_id)])
+        promote(db, t)
+        db.commit()
+    for t in db.scalars(select(ClassTemplate).join(CourseEnrollment, CourseEnrollment.template_id == ClassTemplate.id)
+                        .where(CourseEnrollment.status.in_(("waiting", "offered"))).distinct()).all():
+        coming = sessions(db, t, coming_only=True)
+        if not coming or (len(coming) < len(sessions(db, t)) and rule(db, t, "course_late_join") == "no"):
+            for e in line(db, t):
+                e.status = "expired"
+    db.commit()
+    return expired

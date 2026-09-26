@@ -54,8 +54,10 @@ def course_out(db: Session, t: ClassTemplate) -> dict:
                       .order_by(CourseEnrollment.position.nulls_first(), CourseEnrollment.created_at)).all()
     money = courses.paid(db, [e.id for e, _ in rows])
     every, coming = courses.sessions(db, t), courses.sessions(db, t, coming_only=True)
+    from app.services import class_waitlist as wl
     return {
-        "template_id": str(t.id), "name": t.name, "capacity": t.capacity,
+        "template_id": str(t.id), "name": t.name, "capacity": t.capacity, "spots": courses.spots(db, t),
+        "waitlist_enabled": wl.enabled(db, t.studio_id) and bool(courses.rule(db, t, "waitlist_max")),
         "price_cents": t.course_price_cents, "price_now_cents": courses.price_now(db, t),
         "covered_by_membership": courses.covered_by_membership(db, t),
         "sessions_total": len(every), "sessions_left": len(coming),
@@ -149,6 +151,49 @@ def refund(enrollment_id: uuid.UUID, body: RefundIn, ctx: AuthContext = Depends(
     e = _get(db, CourseEnrollment, ctx.studio_id, enrollment_id, "ההרשמה לא נמצאה")
     try:
         courses.record_refund(db, e, body.amount_cents, body.method, user_id=ctx.user_id, notes=body.notes)
+    except ValueError as err:
+        _fail(db, err)
+    db.commit()
+    return course_out(db, db.get(ClassTemplate, e.template_id))
+
+
+# ── the course's waitlist ────────────────────────────────────────────────────
+
+class WaitIn(BaseModel):
+    client_id: uuid.UUID
+
+
+@router.post("/courses/{template_id}/waitlist")
+def join_waitlist(template_id: uuid.UUID, body: WaitIn, ctx: AuthContext = Depends(require_action("bookings.manage")),
+                  db: Session = Depends(get_db)):
+    t = _course(db, ctx.studio_id, template_id)
+    try:
+        courses.join_waitlist(db, t, _get(db, Client, ctx.studio_id, body.client_id, "הלקוח לא נמצא"))
+    except ValueError as err:
+        _fail(db, err)
+    db.commit()
+    return course_out(db, t)
+
+
+@router.post("/enrollments/{enrollment_id}/leave")
+def leave_waitlist(enrollment_id: uuid.UUID, ctx: AuthContext = Depends(require_action("bookings.manage")),
+                   db: Session = Depends(get_db)):
+    e = _get(db, CourseEnrollment, ctx.studio_id, enrollment_id, "לא נמצא ברשימת ההמתנה")
+    try:
+        courses.leave_waitlist(db, e)
+    except ValueError as err:
+        _fail(db, err)
+    db.commit()
+    return course_out(db, db.get(ClassTemplate, e.template_id))
+
+
+@router.post("/enrollments/{enrollment_id}/take")
+def take_offer(enrollment_id: uuid.UUID, ctx: AuthContext = Depends(require_action("bookings.manage")),
+               db: Session = Depends(get_db)):
+    """The staff take an offered spot for the client — the enrollment is made."""
+    e = _get(db, CourseEnrollment, ctx.studio_id, enrollment_id, "לא נמצא ברשימת ההמתנה")
+    try:
+        courses.take_offer(db, e, user_id=ctx.user_id)
     except ValueError as err:
         _fail(db, err)
     db.commit()

@@ -287,6 +287,8 @@ def start_scheduler():
             sweep_min_participants(db)      # first: a class cancelled here gets no reminder
             sweep_reminders(db)
             sweep_waitlist(db)              # offers not confirmed in time pass on; started classes clear their line
+            from app.services.courses import sweep_waitlist as sweep_course_waitlist
+            sweep_course_waitlist(db)       # the same for a course's own line
         except Exception:
             db.rollback()
             logging.getLogger("bizcontrol.classes").exception("class checks tick failed")
