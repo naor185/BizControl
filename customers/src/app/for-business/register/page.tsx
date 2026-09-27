@@ -6,6 +6,7 @@ import { API } from "@/lib/api";
 import { setStudioToken, goToBizControl } from "@/lib/handoff";
 import { Check, PartyPopper, Rocket, Zap, type LucideIcon } from "lucide-react";
 import PasswordInput from "@/components/PasswordInput";
+import { isNativeApp } from "@/lib/platform";
 import { GLASS_CARD, OPTION_STYLE } from "@/lib/look";
 
 // ── Plan display config ───────────────────────────────────────────────────────
@@ -43,7 +44,9 @@ function Steps({ current, total }: { current: number; total: number }) {
 
 function RegisterInner() {
     const params = useSearchParams();
-    const planFromUrl = params.get("plan") || "trial";
+    // inside the app: the free trial only — no paid plan with a price (Apple: no buying outside the app from it)
+    const [inApp] = useState(() => isNativeApp());
+    const planFromUrl = inApp ? "trial" : (params.get("plan") || "trial");
 
     const [step, setStep] = useState(1);
     const [planKey, setPlanKey] = useState(planFromUrl);
@@ -186,10 +189,10 @@ function RegisterInner() {
                             );
                         })}
 
-                        <div style={{ textAlign: "center", fontSize: "0.8rem", color: "var(--bf-faint)", margin: "0.25rem 0" }}>— או בחרו תוכנית בתשלום —</div>
+                        {!inApp && <div style={{ textAlign: "center", fontSize: "0.8rem", color: "var(--bf-faint)", margin: "0.25rem 0" }}>— או בחרו תוכנית בתשלום —</div>}
 
-                        {/* Paid plans */}
-                        {(["starter", "pro", "studio"] as const).map(key => {
+                        {/* Paid plans — on the website only */}
+                        {(inApp ? [] : ["starter", "pro", "studio"] as const).map(key => {
                             const p = PLAN_META[key];
                             const sel = planKey === key;
                             return (

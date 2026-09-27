@@ -528,10 +528,13 @@ function LoginContent() {
                                 <a href="/forgot-password" className="text-xs text-blue-200/50 hover:text-blue-200/80 transition-colors">
                                     {locale.startsWith("en") ? "Forgot password?" : "שכחתי סיסמה"}
                                 </a>
-                                <span className="text-blue-200/30 text-xs">•</span>
-                                <a href={`${BIZFIND_URL}/for-business/register`} className="text-xs text-blue-200/50 hover:text-blue-200/80 transition-colors">
-                                    {locale.startsWith("en") ? "No account? Sign up" : "אין לך חשבון? הירשם"}
-                                </a>
+                                {/* the sign-up shows the paid plans — not inside the app (Apple: no buying outside the app from it) */}
+                                {!isNativeApp() && (<>
+                                    <span className="text-blue-200/30 text-xs">•</span>
+                                    <a href={`${BIZFIND_URL}/for-business/register`} className="text-xs text-blue-200/50 hover:text-blue-200/80 transition-colors">
+                                        {locale.startsWith("en") ? "No account? Sign up" : "אין לך חשבון? הירשם"}
+                                    </a>
+                                </>)}
                             </div>
                         </form>
                     </div>
