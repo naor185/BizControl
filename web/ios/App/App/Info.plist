@@ -72,5 +72,11 @@
 	</array>
 	<key>NSFaceIDUsageDescription</key>
 	<string>כניסה מהירה ובטוחה לחשבון שלך ב-BizControl</string>
+	<key>NSCameraUsageDescription</key>
+	<string>צילום תמונות ללקוחות, לעבודות ולסריקת חשבוניות</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>בחירת תמונות מהגלריה ללקוחות, לעבודות ולחשבוניות</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 </dict>
 </plist>

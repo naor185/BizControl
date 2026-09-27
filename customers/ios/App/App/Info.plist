@@ -66,5 +66,13 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>BizFind משתמשת במיקום שלך כדי להציג עסקים קרובים אליך</string>
+	<key>NSCameraUsageDescription</key>
+	<string>צילום תמונה להעלאה, למשל לביקורת</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>בחירת תמונה מהגלריה להעלאה</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 </dict>
 </plist>
