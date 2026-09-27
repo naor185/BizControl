@@ -43,10 +43,10 @@ export default function DeleteAccountSettings() {
 
     return (
         <div className="bg-white rounded-2xl border border-rose-100 shadow-sm p-6 mt-6">
-            <div className="flex items-center gap-3">
-                <Trash2 className="w-6 h-6 text-rose-500 shrink-0" aria-hidden />
-                <div className="flex-1">
-                    <h3 className="font-bold text-slate-800">{owner ? "מחיקת העסק והחשבון" : "מחיקת המשתמש שלי"}</h3>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                <Trash2 className="w-6 h-6 text-rose-500 shrink-0 hidden sm:block" aria-hidden />
+                <div className="flex-1 min-w-0">
+                    <h3 className="font-bold text-slate-800 flex items-center gap-2"><Trash2 className="w-5 h-5 text-rose-500 sm:hidden" aria-hidden />{owner ? "מחיקת העסק והחשבון" : "מחיקת המשתמש שלי"}</h3>
                     <p className="text-sm text-slate-500">
                         {owner
                             ? "סוגר את העסק מיד — אף אחד בצוות לא יוכל להתחבר, והעסק יורד מ-BizFind. אחרי 30 יום כל הנתונים נמחקים לצמיתות: לקוחות, תורים, תשלומים וקבלות. עד אז אפשר לבטל דרך התמיכה."
@@ -55,7 +55,7 @@ export default function DeleteAccountSettings() {
                 </div>
                 {!open && !done && (
                     <button type="button" onClick={() => setOpen(true)}
-                        className="border border-rose-200 text-rose-600 text-sm font-semibold px-4 py-2.5 rounded-xl hover:bg-rose-50 whitespace-nowrap">
+                        className="self-start sm:self-auto border border-rose-200 text-rose-600 text-sm font-semibold px-4 py-2.5 rounded-xl hover:bg-rose-50 whitespace-nowrap">
                         {owner ? "מחיקת העסק" : "מחיקת המשתמש"}
                     </button>
                 )}
