@@ -14,6 +14,7 @@ import LandingPageTemplate from "@/components/LandingPageTemplate";
 import { HIDE_BOOKING_BANNER_KEY } from "@/lib/localPrefs";
 import StaffReminderRulesSettings from "@/components/StaffReminderRulesSettings";
 import MySessionsSettings from "@/components/MySessionsSettings";
+import DeleteAccountSettings from "@/components/DeleteAccountSettings";
 
 // logo_filename may be a bare local filename or a full Cloudinary URL —
 // only prefix with /uploads/ for the former.
@@ -2274,6 +2275,8 @@ export default function AutomationSettingsPage() {
                 </div>
 
                 <MySessionsSettings />
+
+                <DeleteAccountSettings />
 
                 {/* Floating Save Button */}
                 <div className="fixed bottom-10 left-1/2 transform -translate-x-1/2 z-40">

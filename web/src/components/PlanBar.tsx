@@ -49,9 +49,7 @@ export default function PlanBar({ info }: { info: PlanInfo }) {
             <span aria-hidden className="hidden md:block" />
             <span className="flex-1 md:flex-none min-w-0 text-center font-semibold truncate">{text}</span>
             <span className="flex items-center gap-3 shrink-0 md:justify-self-end">
-                {isTrial && (isNative ? (
-                    <span className="text-white/90">לרכישה: biz-control.com</span>
-                ) : (
+                {isTrial && (isNative ? null : (
                     <>
                         <Link
                             href="/overview?billing=plans"

@@ -40,6 +40,8 @@ def get_current_user(
     if user.role != "superadmin":
         studio = db.get(Studio, user.studio_id)
         if studio and not studio.is_platform:
+            if studio.deletion_requested_at is not None:
+                raise HTTPException(status_code=402, detail="STUDIO_DELETED")
             if not studio.is_active:
                 raise HTTPException(status_code=402, detail="STUDIO_SUSPENDED")
             if studio.plan_expires_at and studio.plan_expires_at < datetime.now(timezone.utc):

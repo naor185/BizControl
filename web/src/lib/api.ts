@@ -187,8 +187,8 @@ export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promi
 
         if (res.status === 402 && typeof window !== "undefined") {
             const detail = data?.detail || "";
-            window.location.href = detail === "STUDIO_SUSPENDED"
-                ? "/suspended?reason=suspended"
+            window.location.href = detail === "STUDIO_SUSPENDED" ? "/suspended?reason=suspended"
+                : detail === "STUDIO_DELETED" ? "/suspended?reason=deleted"
                 : "/suspended?reason=expired";
             throw new Error("Plan expired");
         }

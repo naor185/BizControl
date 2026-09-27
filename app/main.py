@@ -131,7 +131,18 @@ def start_scheduler():
         finally:
             db.close()
 
+    def tick_purge_deleted_businesses():
+        from app.services.account_deletion import purge_due
+        db = SessionLocal()
+        try:
+            n = purge_due(db)
+            if n:
+                logging.getLogger("bizcontrol.account_deletion").info("Erased %d businesses deleted by their owners", n)
+        finally:
+            db.close()
+
     scheduler.add_job(tick_jobs, "interval", seconds=20, id="message_jobs_tick", replace_existing=True)
+    scheduler.add_job(tick_purge_deleted_businesses, "cron", hour=3, minute=30, timezone="Asia/Jerusalem", id="purge_deleted_businesses_tick", replace_existing=True)
     scheduler.add_job(tick_reminders, "interval", minutes=60, id="reminders_sweep_tick", replace_existing=True)
     scheduler.add_job(tick_same_day_reminders, "cron", hour=8, minute=0, timezone="Asia/Jerusalem", id="same_day_reminders_tick", replace_existing=True)
     scheduler.add_job(tick_plan_alerts, "cron", hour=9, minute=0, id="plan_alerts_tick", replace_existing=True)

@@ -1887,6 +1887,9 @@ def ensure_schema():
             ADD COLUMN IF NOT EXISTS email VARCHAR(255) UNIQUE,
             ADD COLUMN IF NOT EXISTS password_hash TEXT
         """)
+        # signing up with e-mail leaves the phone empty (the form says it is optional) — a required phone made every
+        # such sign-up fail (500); several customers without a phone are fine under the unique index (NULLs differ)
+        cur.execute("ALTER TABLE marketplace_customers ALTER COLUMN phone DROP NOT NULL")
 
         # ── Booking request public token (for customer-facing status link) ────
         cur.execute("""
@@ -2558,6 +2561,8 @@ def ensure_schema():
             END $$;
         """)
 
+        # the owner deleted the business from the app — erased 30 days later (app/services/account_deletion.py)
+        cur.execute("ALTER TABLE studios ADD COLUMN IF NOT EXISTS deletion_requested_at TIMESTAMPTZ")
         # the owner's own coupons and every use of a coupon (birthday coupons too) — app/services/coupons.py
         cur.execute("""
             CREATE TABLE IF NOT EXISTS coupons (

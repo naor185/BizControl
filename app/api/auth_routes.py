@@ -637,7 +637,8 @@ def change_password(payload: ChangePasswordRequest, current_user: User = Depends
 # ── Me ────────────────────────────────────────────────────────────────────────
 
 @router.get("/me")
-def me(current_user: User = Depends(get_current_user)):
+def me(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    studio = db.get(Studio, current_user.studio_id)
     return {
         "id": str(current_user.id),
         "email": current_user.email,
@@ -645,6 +646,7 @@ def me(current_user: User = Depends(get_current_user)):
         "phone": current_user.phone,
         "role": current_user.role,
         "studio_id": str(current_user.studio_id),
+        "studio_name": studio.name if studio else None,
         "totp_enabled": bool(current_user.totp_secret),
         "email_verified": bool(current_user.email_verified),
     }

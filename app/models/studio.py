@@ -26,6 +26,8 @@ class Studio(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     plan_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     is_platform: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # the owner deleted the business from the app — closed since, erased GRACE_DAYS later (services/account_deletion)
+    deletion_requested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     business_type: Mapped[str] = mapped_column(String(64), nullable=False, default="other")
     # What the owner wrote when no type fitted ("אחר") — kept so new types can be added from real demand.

@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { API, apiFetch, imgUrl } from "@/lib/api";
 import { getCustomer, saveCustomer, clearCustomer, type Customer } from "@/lib/auth";
-import { Bell, Building2, Camera, ChevronLeft, ClipboardList, Clock, Heart, Lock, MapPin, Star, User, X } from "lucide-react";
+import { Bell, Building2, Camera, ChevronLeft, ClipboardList, Clock, Heart, Lock, MapPin, Star, Trash2, User, X } from "lucide-react";
 import AuthModal from "@/components/AuthModal";
 import { GLASS_BTN, GLASS_CARD, PRIMARY_BTN } from "@/lib/look";
 
@@ -30,6 +30,7 @@ export default function MePage() {
     const [businesses, setBusinesses] = useState<Business[]>([]);
     const [loadingBusinesses, setLoadingBusinesses] = useState(false);
     const [waitlist, setWaitlist] = useState<WaitlistEntry[]>([]);
+    const [deleting, setDeleting] = useState<"ask" | "busy" | null>(null);   // deleting the BizFind account
 
     useEffect(() => {
         setMounted(true);
@@ -74,6 +75,20 @@ export default function MePage() {
         clearCustomer();
         setCustomer(null);
         setFavorites([]);
+    };
+
+    // Apple: an account opened in the app can be deleted in it — the login, favorites and notifications go; what a
+    // business keeps of its own visits is the business's record.
+    const deleteAccount = async () => {
+        setDeleting("busy");
+        try {
+            await apiFetch("/api/marketplace/auth/me", { method: "DELETE" });
+            logout();
+            setDeleting(null);
+        } catch {
+            setDeleting("ask");
+            alert("המחיקה נכשלה — נסו שוב");
+        }
     };
 
     const removeFav = async (slug: string) => {
@@ -274,6 +289,27 @@ export default function MePage() {
                 >
                     התנתק
                 </button>
+
+                {deleting === null ? (
+                    <button type="button" onClick={() => setDeleting("ask")}
+                        style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "0.35rem", width: "100%", marginTop: "1.25rem", background: "none", border: "none", color: "var(--bf-faint)", fontSize: "0.82rem", cursor: "pointer" }}>
+                        <Trash2 size={14} aria-hidden /> מחיקת החשבון
+                    </button>
+                ) : (
+                    <div role="alertdialog" style={{ ...GLASS_CARD, borderColor: "rgba(248,113,113,.4)", marginTop: "1.25rem", padding: "1.1rem" }}>
+                        <div style={{ fontWeight: 800, marginBottom: "0.4rem" }}>למחוק את החשבון ב-BizFind?</div>
+                        <p style={{ color: "var(--bf-muted)", fontSize: "0.85rem", lineHeight: 1.6, marginBottom: "0.9rem" }}>
+                            נמחקים לצמיתות: פרטי הכניסה, המועדפים וההתראות. התורים והקבלות שעסקים שמרו על הביקורים שלך נשארים אצלם — אפשר לפנות לעסק עצמו.
+                        </p>
+                        <div style={{ display: "flex", gap: "0.5rem" }}>
+                            <button type="button" onClick={deleteAccount} disabled={deleting === "busy"}
+                                style={{ flex: 1, background: "#dc2626", color: "#fff", border: "none", borderRadius: 12, padding: "0.7rem", fontWeight: 800, cursor: "pointer", opacity: deleting === "busy" ? 0.6 : 1 }}>
+                                {deleting === "busy" ? "מוחק..." : "מחיקה לצמיתות"}
+                            </button>
+                            <button type="button" onClick={() => setDeleting(null)} style={{ ...GLASS_BTN, justifyContent: "center", cursor: "pointer" }}>ביטול</button>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

@@ -110,9 +110,7 @@ export default function BillingContent() {
                         </div>
                     </div>
                     {status.has_active_subscription && (
-                        isNative ? (
-                            <span className="text-sm text-slate-500">לניהול המנוי או ביטולו, בקרו ב-biz-control.com בדפדפן</span>
-                        ) : (
+                        isNative ? null : (
                             <button
                                 onClick={() => go("/api/billing/portal", "portal")}
                                 disabled={redirecting === "portal"}
@@ -125,7 +123,7 @@ export default function BillingContent() {
                 </div>
             )}
 
-            {isTrial && (
+            {isTrial && !isNative && (
                 <p className="text-sm text-slate-600">
                     אתה בתקופת ניסיון. כדי להמשיך להשתמש במערכת אחריה, בחר מנוי מהרשימה למטה.
                 </p>
@@ -141,14 +139,14 @@ export default function BillingContent() {
                     <ul className="list-disc list-inside space-y-1.5 text-sm text-amber-900/90 leading-relaxed marker:text-amber-400">
                         {IF_NOT_RENEWED.map(line => <li key={line}>{line}</li>)}
                     </ul>
-                    <p className="text-sm text-amber-900 mt-3">
-                        {isNative ? "לחידוש המנוי בקרו ב-biz-control.com בדפדפן" : "לחידוש: WhatsApp 052-8518805 או ncbilutattoo@gmail.com"}
-                    </p>
+                    {!isNative && (
+                        <p className="text-sm text-amber-900 mt-3">לחידוש: WhatsApp 052-8518805 או ncbilutattoo@gmail.com</p>
+                    )}
                 </div>
             )}
 
-            {/* What every plan includes */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            {/* What every plan includes — not in the app (Apple: no buying outside the app from inside it) */}
+            {!isNative && <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                 {plans.map(plan => {
                     const isCurrent = status?.plan === plan.key;
                     const open = !!expanded[plan.key];
@@ -179,11 +177,7 @@ export default function BillingContent() {
                                     {open ? "הצג פחות" : `הצג הכול (${plan.modules.length})`}
                                 </button>
                             )}
-                            {isNative && !isCurrent ? (
-                                <div className="w-full py-2.5 rounded-xl text-sm text-center text-slate-500 bg-slate-50">
-                                    להרשמה או שינוי מנוי, בקרו ב-biz-control.com בדפדפן
-                                </div>
-                            ) : isCurrent ? (
+                            {isCurrent ? (
                                 <div className="w-full py-2.5 rounded-xl text-sm text-center text-slate-400 bg-slate-100">המנוי הנוכחי</div>
                             ) : !plan.purchasable_now ? (
                                 <div className="w-full py-2.5 rounded-xl text-sm text-center text-slate-400 bg-slate-100">הרכישה טרם הופעלה</div>
@@ -200,7 +194,7 @@ export default function BillingContent() {
                         </div>
                     );
                 })}
-            </div>
+            </div>}
 
             <p className="text-center text-xs text-slate-400">תשלומים מאובטחים דרך Stripe · ניתן לבטל בכל עת</p>
         </div>
