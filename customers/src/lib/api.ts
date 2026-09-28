@@ -34,7 +34,9 @@ export async function apiFetch<T>(path: string, opts?: RequestInit): Promise<T> 
         const err = await res.json().catch(() => ({}));
         throw new Error(err.detail || `HTTP ${res.status}`);
     }
-    return res.json();
+    // an empty answer (204 — e.g. deleting the account) is a success, not a failed JSON read
+    const body = await res.text();
+    return (body ? JSON.parse(body) : undefined) as T;
 }
 
 export async function publicFetch<T>(path: string): Promise<T> {

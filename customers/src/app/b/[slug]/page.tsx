@@ -2,13 +2,15 @@
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { API, imgUrl } from "@/lib/api";
+import { API, apiFetch, getToken, imgUrl } from "@/lib/api";
+import { getCustomer } from "@/lib/auth";
+import AuthModal from "@/components/AuthModal";
 import { setStudioToken, goToBizControl } from "@/lib/handoff";
 import BusinessTypeIcon from "@/components/BusinessTypeIcon";
 import { GLASS_BTN, GLASS_CARD, OPTION_STYLE, PRIMARY_BTN } from "@/lib/look";
 import { type VisitCoupon, couponNote, openCouponLink } from "@/lib/coupon";
-import { ArrowRight, BookOpen, CalendarDays, Camera, Check, ClipboardList, Clock, Images, MapPin, MessageCircle,
-         Navigation, PartyPopper, PenLine, Phone, Send, Share2, Star, Ticket, Users, type LucideIcon } from "lucide-react";
+import { ArrowRight, Ban, BookOpen, CalendarDays, Camera, Check, ClipboardList, Clock, Images, MapPin, MessageCircle,
+         Flag, Navigation, PartyPopper, PenLine, Phone, Send, Share2, Star, Ticket, Users, type LucideIcon } from "lucide-react";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -22,7 +24,8 @@ interface Profile {
     has_classes?: boolean;          // clients book the business's group classes here (with their membership)
     services: { id: string; name: string; duration_minutes: number; price_ils: number; color: string; description?: string; is_bookable_online: boolean }[];
     artists: { id: string; name: string }[];
-    reviews: { id: string; client_name: string; rating: number; comment?: string; created_at: string }[];
+    reviews: { id: string; client_name: string; rating: number; comment?: string; created_at: string; mine?: boolean }[];
+    viewer?: { terms_accepted: boolean; barred: boolean } | null;     // the signed-in customer, for the review form
     avg_rating?: number; review_count: number;
     gallery: string[];
     is_claimed?: boolean;
@@ -188,38 +191,81 @@ export default function BusinessPage() {
     const [submitting, setSubmitting] = useState(false);
     const [submitted, setSubmitted] = useState(false);
     const [reviewError, setReviewError] = useState("");
+    const [acceptRules, setAcceptRules] = useState(false);            // the review rules — asked the first time
+    // sign in first — to write a review, or to report / block one (then it goes on by itself)
+    const [authFor, setAuthFor] = useState<"review" | { id: string; kind: "report" | "block" } | null>(null);
+    const [acting, setActing] = useState<{ id: string; kind: "report" | "block" } | null>(null);
+    const [actingBusy, setActingBusy] = useState(false);
+    const [reviewNote, setReviewNote] = useState("");                 // after a report or a block
     const [activeTab, setActiveTab] = useState<"about" | "services" | "gallery" | "reviews">("about");
     const [showRequestModal, setShowRequestModal] = useState(false);
     const [coupon, setCoupon] = useState<VisitCoupon | null>(null);      // came with the business's coupon link (?c=)
 
-    useEffect(() => {
-        fetch(`${API}/api/marketplace/${slug}`)
+    // signed in, the reviews this customer reported or whose writer they blocked stay out (the server leaves them out)
+    const loadProfile = () => {
+        const token = getToken();
+        return fetch(`${API}/api/marketplace/${slug}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
             .then(r => r.ok ? r.json() : Promise.reject(r.status))
-            .then(setP)
+            .then(setP);
+    };
+
+    useEffect(() => {
+        loadProfile()
             .catch(status => setErr(status === 410 ? "העסק אינו זמין להזמנות כרגע — האתר שלו בארכיון. הוא יחזור לפעול ברגע שהעסק יחדש את המנוי." : "העסק לא נמצא"));
         // Track page view (fire-and-forget)
         fetch(`${API}/api/marketplace/${slug}/view`, { method: "POST" }).catch(() => {});
         const code = new URLSearchParams(window.location.search).get("c");
         if (code) openCouponLink(slug, code).then(setCoupon);
-    }, [slug]);
+    }, [slug]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // what went wrong, in words — a failed review, report or block must not look done
+    const failText = (e: unknown, fallback: string) =>
+        !(e instanceof Error) || e instanceof TypeError ? "אין חיבור — נסו שוב."
+            : e.message === "HTTP 429" ? "יותר מדי ניסיונות — נסו שוב בעוד כמה דקות."
+            : e.message.startsWith("HTTP ") ? fallback : e.message;
+
+    const needsRules = !p?.viewer?.terms_accepted;
+
+    const openReviewForm = () => {
+        if (!getToken()) { setAuthFor("review"); return; }                // reviews are written signed in
+        setReviewForm(f => f.client_name ? f : { ...f, client_name: getCustomer()?.full_name || "" });
+        setShowReview(v => !v);
+    };
 
     const submitReview = async () => {
-        if (!reviewForm.client_name) return;
         setSubmitting(true);
         setReviewError("");
         try {
-            const res = await fetch(`${API}/api/marketplace/${slug}/reviews`, {
-                method: "POST", headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(reviewForm),
+            await apiFetch(`/api/marketplace/${slug}/reviews`, {
+                method: "POST", body: JSON.stringify({ ...reviewForm, accept_rules: acceptRules }),
             });
-            if (!res.ok) {                   // say so — a failed review must not look sent
-                setReviewError(res.status === 429 ? "יותר מדי ניסיונות — נסו שוב בעוד כמה דקות." : "הביקורת לא נשלחה. נסו שוב.");
-                return;
-            }
             setSubmitted(true); setShowReview(false);
-        } catch {
-            setReviewError("אין חיבור — הביקורת לא נשלחה. נסו שוב.");
+            loadProfile().catch(() => {});                                  // the rules are agreed to now
+        } catch (e) {
+            setReviewError(failText(e, "הביקורת לא נשלחה. נסו שוב."));
         } finally { setSubmitting(false); }
+    };
+
+    const startActing = (id: string, kind: "report" | "block") => {
+        if (!getToken()) { setAuthFor({ id, kind }); return; }            // reporting and blocking need a sign-in
+        setActing({ id, kind });
+    };
+
+    // report a review, or block its writer — it disappears for this customer at once (Apple: content people write)
+    const actOnReview = async (id: string, kind: "report" | "block", reason?: string) => {
+        setActingBusy(true);
+        try {
+            await apiFetch(`/api/marketplace/reviews/${id}/${kind}`, {
+                method: "POST", ...(kind === "report" ? { body: JSON.stringify({ reason }) } : {}),
+            });
+            setActing(null);
+            setReviewNote(kind === "report"
+                ? "תודה, הדיווח התקבל. הביקורת הוסתרה אצלך, ונבדוק אותה תוך 24 שעות."
+                : "החסימה בוצעה — לא תראו יותר ביקורות של הכותב/ת.");
+            await loadProfile();
+        } catch (e) {
+            alert(failText(e, kind === "report" ? "הדיווח לא נשלח. נסו שוב." : "החסימה לא בוצעה. נסו שוב."));
+        } finally { setActingBusy(false); }
     };
 
     const navLightbox = (dir: 1 | -1) => {
@@ -589,9 +635,11 @@ export default function BusinessPage() {
                             </Card>
                         )}
 
-                        {/* Add review */}
-                        {!submitted && (
-                            <button type="button" onClick={() => setShowReview(v => !v)}
+                        {/* Add review — signed in; a writer the platform barred can't */}
+                        {p!.viewer?.barred ? (
+                            <div style={{ textAlign: "center", color: "var(--bf-faint)", fontSize: "0.84rem", padding: "0.5rem" }}>החשבון שלך חסום מכתיבת ביקורות.</div>
+                        ) : !submitted && (
+                            <button type="button" onClick={openReviewForm}
                                 style={{ ...GLASS_BTN, justifyContent: "center", width: "100%", cursor: "pointer" }}>
                                 {showReview ? "ביטול" : <><PenLine size={16} aria-hidden /> כתוב ביקורת</>}
                             </button>
@@ -601,16 +649,21 @@ export default function BusinessPage() {
                                 <Check size={16} aria-hidden /> תודה! הביקורת נשלחה לאישור.
                             </div>
                         )}
+                        {reviewNote && (
+                            <div role="status" style={{ ...GLASS_CARD, borderRadius: 14, padding: "0.9rem 1rem", color: "var(--bf-muted)", fontSize: "0.86rem", textAlign: "center" }}>
+                                {reviewNote}
+                            </div>
+                        )}
                         {showReview && (
                             <Card>
                                 <SectionTitle>כתוב ביקורת</SectionTitle>
                                 <div style={{ marginBottom: "0.75rem" }}>
-                                    <label style={labelStyle}>שם מלא *</label>
+                                    <label style={labelStyle}>השם שיופיע בביקורת</label>
                                     <input value={reviewForm.client_name} onChange={e => setReviewForm(f => ({ ...f, client_name: e.target.value }))}
                                         style={reviewInputStyle}
                                         onFocus={e => e.target.style.borderColor = "#fff"}
                                         onBlur={e => e.target.style.borderColor = "rgba(255,255,255,.12)"}
-                                        placeholder="השם שיופיע בביקורת" />
+                                        placeholder="למשל: יעל כ." />
                                 </div>
                                 <div style={{ marginBottom: "0.75rem" }}>
                                     <label style={labelStyle}>דירוג</label>
@@ -630,9 +683,19 @@ export default function BusinessPage() {
                                         onBlur={e => e.target.style.borderColor = "rgba(255,255,255,.12)"}
                                     />
                                 </div>
+                                {needsRules && (
+                                    <label style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem", color: "var(--bf-muted)", fontSize: "0.8rem", lineHeight: 1.6, marginBottom: "0.9rem", cursor: "pointer" }}>
+                                        <input type="checkbox" checked={acceptRules} onChange={e => setAcceptRules(e.target.checked)}
+                                            style={{ marginTop: "0.3rem", accentColor: "#fff", flexShrink: 0 }} />
+                                        <span>
+                                            אני מסכים/ה ל<a href="/terms#reviews" target="_blank" rel="noopener" style={{ color: "var(--bf-text)", textUnderlineOffset: 3 }}>כללי הביקורות</a>:
+                                            {" "}בלי תוכן פוגעני, מעליב או שקרי. ביקורת כזו תימחק, ומי שכתב/ה אותה ייחסם/תיחסם.
+                                        </span>
+                                    </label>
+                                )}
                                 {reviewError && <div role="alert" style={{ color: "#fca5a5", fontSize: "0.85rem", marginBottom: "0.6rem" }}>{reviewError}</div>}
-                                <button type="button" onClick={submitReview} disabled={submitting || !reviewForm.client_name}
-                                    style={{ ...PRIMARY_BTN, opacity: submitting || !reviewForm.client_name ? 0.6 : 1 }}>
+                                <button type="button" onClick={submitReview} disabled={submitting || (needsRules && !acceptRules)}
+                                    style={{ ...PRIMARY_BTN, opacity: submitting || (needsRules && !acceptRules) ? 0.6 : 1 }}>
                                     {submitting ? "שולח..." : <><Send size={15} aria-hidden /> שלח ביקורת</>}
                                 </button>
                             </Card>
@@ -656,9 +719,35 @@ export default function BusinessPage() {
                                     <div style={{ color: "#fbbf24", fontSize: "0.82rem" }}>{"★".repeat(r.rating)}{"☆".repeat(5 - r.rating)}</div>
                                 </div>
                                 {r.comment && <p style={{ color: "var(--bf-muted)", fontSize: "0.86rem", lineHeight: 1.65, margin: 0 }}>{r.comment}</p>}
-                                <div style={{ color: "var(--bf-faint)", fontSize: "0.7rem", marginTop: "0.4rem" }}>
-                                    {new Date(r.created_at).toLocaleDateString("he-IL")}
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.5rem", color: "var(--bf-faint)", fontSize: "0.7rem", marginTop: "0.4rem" }}>
+                                    <span>{new Date(r.created_at).toLocaleDateString("he-IL")}</span>
+                                    {r.mine ? <span>הביקורת שלך</span> : (
+                                        <span style={{ display: "flex", gap: "0.85rem" }}>
+                                            <button type="button" onClick={() => startActing(r.id, "report")} style={REVIEW_ACTION}><Flag size={12} aria-hidden /> דיווח</button>
+                                            <button type="button" onClick={() => startActing(r.id, "block")} style={REVIEW_ACTION}><Ban size={12} aria-hidden /> חסימה</button>
+                                        </span>
+                                    )}
                                 </div>
+                                {acting?.id === r.id && (
+                                    <div role="alertdialog" style={{ borderTop: "1px solid var(--bf-line)", marginTop: "0.7rem", paddingTop: "0.7rem" }}>
+                                        {acting.kind === "report" ? (<>
+                                            <div style={{ fontWeight: 700, fontSize: "0.84rem", marginBottom: "0.5rem" }}>למה לדווח על הביקורת?</div>
+                                            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem" }}>
+                                                {REPORT_REASONS.map(([key, label]) => (
+                                                    <button key={key} type="button" disabled={actingBusy} onClick={() => actOnReview(r.id, "report", key)}
+                                                        style={{ ...GLASS_BTN, fontSize: "0.8rem", padding: "0.45rem 0.8rem", cursor: "pointer" }}>{label}</button>
+                                                ))}
+                                            </div>
+                                        </>) : (<>
+                                            <div style={{ fontSize: "0.84rem", color: "var(--bf-muted)", marginBottom: "0.5rem" }}>לא תראו יותר ביקורות של {r.client_name}.</div>
+                                            <button type="button" disabled={actingBusy} onClick={() => actOnReview(r.id, "block")}
+                                                style={{ ...GLASS_BTN, fontSize: "0.8rem", padding: "0.45rem 0.8rem", cursor: "pointer" }}>
+                                                <Ban size={13} aria-hidden /> חסימת הכותב/ת
+                                            </button>
+                                        </>)}
+                                        <button type="button" onClick={() => setActing(null)} style={{ ...REVIEW_ACTION, marginTop: "0.65rem" }}>ביטול</button>
+                                    </div>
+                                )}
                             </div>
                         ))}
 
@@ -701,6 +790,21 @@ export default function BusinessPage() {
                 services={p!.services.map(s => s.name)}
                 startNotes={couponNote(slug)}
                 onClose={() => setShowRequestModal(false)}
+            />
+        )}
+
+        {authFor && (
+            <AuthModal
+                onClose={() => setAuthFor(null)}
+                onSuccess={c => {
+                    const next = authFor;
+                    setAuthFor(null);
+                    loadProfile().catch(() => {});
+                    if (next === "review") {
+                        setReviewForm(f => ({ ...f, client_name: f.client_name || c.full_name || "" }));
+                        setShowReview(true);
+                    } else setActing(next);
+                }}
             />
         )}
         </>
@@ -815,6 +919,13 @@ const reviewInputStyle: React.CSSProperties = {
 const labelStyle: React.CSSProperties = {
     display: "block", color: "var(--bf-muted)", fontSize: "0.78rem", marginBottom: "0.3rem", fontWeight: 600,
 };
+// the small "report" / "block" under each review
+const REVIEW_ACTION: React.CSSProperties = {
+    display: "inline-flex", alignItems: "center", gap: "0.25rem", background: "none", border: "none", padding: 0,
+    color: "var(--bf-faint)", fontSize: "0.72rem", cursor: "pointer",
+};
+// why a review is reported — the same keys as the server (app/services/review_moderation.REASONS)
+const REPORT_REASONS = [["offensive", "פוגעני או מעליב"], ["spam", "ספאם או פרסומת"], ["false", "לא אמיתי"], ["other", "אחר"]] as const;
 
 // The back / share buttons on the cover.
 const HERO_BTN: React.CSSProperties = {

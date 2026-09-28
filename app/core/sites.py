@@ -3,11 +3,13 @@ Addresses the server hands out, each from one place:
 - BIZFIND_URL — every link a message or an e-mail sends to BizFind (a booking, the waitlist, verifying an e-mail).
   Set BIZFIND_URL on the server when BizFind moves to a new domain; until then it is find.biz-control.com (the web
   app reads the same address from NEXT_PUBLIC_BIZFIND_URL, web/src/lib/config.ts).
+- BIZCONTROL_URL — links to BizControl's own screens in e-mails to the business or the platform (FRONTEND_URL).
 - logo_address() — the business's logo on every page.
 """
 import os
 
 BIZFIND_URL = (os.getenv("BIZFIND_URL") or "https://find.biz-control.com").rstrip("/")
+BIZCONTROL_URL = (os.getenv("FRONTEND_URL") or "https://www.biz-control.com").rstrip("/")
 
 
 def logo_address(logo_url: str | None, logo_filename: str | None) -> str | None:

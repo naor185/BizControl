@@ -15,6 +15,7 @@ import { HIDE_BOOKING_BANNER_KEY } from "@/lib/localPrefs";
 import StaffReminderRulesSettings from "@/components/StaffReminderRulesSettings";
 import MySessionsSettings from "@/components/MySessionsSettings";
 import DeleteAccountSettings from "@/components/DeleteAccountSettings";
+import { Flag } from "lucide-react";
 
 // logo_filename may be a bare local filename or a full Cloudinary URL —
 // only prefix with /uploads/ for the former.
@@ -224,7 +225,9 @@ function WebhookUrlBox({ provider, instanceId }: { provider: "green_api" | "meta
 // ── Business Type Icons map ───────────────────────────────────────────────────
 // ── Marketplace Tab Component ─────────────────────────────────────────────────
 function MarketplaceTab({ settings, handleChange, apiFetch }: { settings: any; handleChange: (k: any, v: any) => void; apiFetch: typeof import("@/lib/api").apiFetch }) {
-    const [pendingReviews, setPendingReviews] = useState<{ id: string; client_name: string; rating: number; comment: string | null; created_at: string }[]>([]);
+    // reviews to handle: reported by a BizFind customer (shown — keep or delete), then waiting for approval
+    const [pendingReviews, setPendingReviews] = useState<{ id: string; client_name: string; rating: number; comment: string | null; created_at: string;
+                                                           is_approved: boolean; reports: number; reasons: string[] }[]>([]);
     const [reviewsLoading, setReviewsLoading] = useState(false);
     const [reviewsLoaded, setReviewsLoaded] = useState(false);
 
@@ -278,6 +281,12 @@ function MarketplaceTab({ settings, handleChange, apiFetch }: { settings: any; h
 
     const deleteReview = async (id: string) => {
         await apiFetch(`/api/marketplace/my/reviews/${id}`, { method: "DELETE" });
+        setPendingReviews(r => r.filter(x => x.id !== id));
+    };
+
+    // a reported review the business looked at and keeps — its reports are closed
+    const keepReview = async (id: string) => {
+        await apiFetch(`/api/marketplace/my/reviews/${id}/keep`, { method: "POST" });
         setPendingReviews(r => r.filter(x => x.id !== id));
     };
 
@@ -537,7 +546,7 @@ function MarketplaceTab({ settings, handleChange, apiFetch }: { settings: any; h
             {/* Pending reviews */}
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
                 <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-bold text-slate-800">⭐ ביקורות ממתינות לאישור</h3>
+                    <h3 className="text-lg font-bold text-slate-800">⭐ ביקורות לטיפול</h3>
                     <button type="button" onClick={() => { setReviewsLoaded(false); loadReviews(); }} className="text-xs text-slate-400 hover:text-slate-700 transition-colors">↻ רענן</button>
                 </div>
                 {reviewsLoading ? (
@@ -545,13 +554,19 @@ function MarketplaceTab({ settings, handleChange, apiFetch }: { settings: any; h
                 ) : pendingReviews.length === 0 ? (
                     <div className="text-center py-8 text-slate-400">
                         <div className="text-3xl mb-2">✅</div>
-                        <div className="text-sm">אין ביקורות ממתינות</div>
+                        <div className="text-sm">אין ביקורות לטיפול</div>
                     </div>
                 ) : (
                     <div className="space-y-3">
                         {pendingReviews.map(r => (
-                            <div key={r.id} className="flex items-start gap-4 p-4 bg-amber-50 border border-amber-200 rounded-xl">
-                                <div className="flex-1">
+                            <div key={r.id} className={`flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-4 p-4 border rounded-xl ${r.is_approved ? "bg-rose-50 border-rose-200" : "bg-amber-50 border-amber-200"}`}>
+                                <div className="flex-1 min-w-0">
+                                    {r.is_approved && (
+                                        <div className="flex items-center gap-1.5 text-xs font-semibold text-rose-700 mb-1.5">
+                                            <Flag className="w-3.5 h-3.5" aria-hidden />
+                                            {r.reports === 1 ? "לקוח דיווח על הביקורת" : `${r.reports} לקוחות דיווחו על הביקורת`}{r.reasons.length > 0 && ` · ${r.reasons.join(", ")}`}
+                                        </div>
+                                    )}
                                     <div className="flex items-center gap-2 mb-1">
                                         <span className="font-semibold text-slate-800 text-sm">{r.client_name}</span>
                                         <span className="text-amber-500">{"★".repeat(r.rating)}{"☆".repeat(5 - r.rating)}</span>
@@ -560,7 +575,9 @@ function MarketplaceTab({ settings, handleChange, apiFetch }: { settings: any; h
                                     {r.comment && <p className="text-sm text-slate-600">{r.comment}</p>}
                                 </div>
                                 <div className="flex gap-2 shrink-0">
-                                    <button type="button" onClick={() => approveReview(r.id)} className="text-xs px-3 py-1.5 bg-emerald-500 text-white rounded-lg font-semibold hover:bg-emerald-600 transition-colors">✅ אשר</button>
+                                    {r.is_approved
+                                        ? <button type="button" onClick={() => keepReview(r.id)} className="text-xs px-3 py-1.5 bg-white border border-slate-200 text-slate-700 rounded-lg font-semibold hover:bg-slate-50 transition-colors">השארה</button>
+                                        : <button type="button" onClick={() => approveReview(r.id)} className="text-xs px-3 py-1.5 bg-emerald-500 text-white rounded-lg font-semibold hover:bg-emerald-600 transition-colors">✅ אשר</button>}
                                     <button type="button" onClick={() => deleteReview(r.id)} className="text-xs px-3 py-1.5 bg-red-100 text-red-600 rounded-lg font-semibold hover:bg-red-200 transition-colors">🗑️ מחק</button>
                                 </div>
                             </div>

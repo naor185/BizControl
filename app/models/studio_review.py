@@ -21,4 +21,7 @@ class StudioReview(Base):
     rating: Mapped[int] = mapped_column(Integer, nullable=False)   # 1–5
     comment: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_approved: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # the BizFind customer who wrote it (older reviews have none). The link to marketplace_customers (a raw-SQL
+    # table, no ORM model) is made in start.py — deleting the customer deletes their reviews.
+    customer_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

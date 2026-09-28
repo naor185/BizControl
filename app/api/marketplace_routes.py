@@ -5,7 +5,7 @@ All endpoints are public (no auth required).
 from typing import Optional
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import select, func
 from sqlalchemy.orm import Session
@@ -22,6 +22,8 @@ from app.services.business_types import describe, resolve_with_note, type_lookup
 log = get_logger(__name__)
 
 from app.core.sites import logo_address
+from app.api.marketplace_customer_routes import _get_customer_id, _verify_token
+from app.services import review_moderation
 
 router = APIRouter(prefix="/marketplace", tags=["Marketplace"])
 
@@ -776,9 +778,20 @@ def _classes_open(db: Session, studio) -> bool:
         return False
 
 
+def _viewer_id(authorization: Optional[str]) -> Optional[str]:
+    """The signed-in BizFind customer looking at a public page, if any — a public page never fails on the token."""
+    if not authorization or not authorization.startswith("Bearer "):
+        return None
+    try:
+        return _verify_token(authorization[7:])
+    except HTTPException:
+        return None
+
+
 @router.get("/{slug}")
-def get_studio_profile(slug: str, db: Session = Depends(get_db)):
-    """Full public profile: info, services, reviews."""
+def get_studio_profile(slug: str, db: Session = Depends(get_db), authorization: Optional[str] = Header(None)):
+    """Full public profile: info, services, reviews. For a signed-in customer, without the reviews they reported or
+    whose writer they blocked, and with what the review form needs to know about them (`viewer`)."""
     from app.models.studio import Studio
     from app.models.studio_settings import StudioSettings
     from app.models.service import Service
@@ -825,6 +838,8 @@ def get_studio_profile(slug: str, db: Session = Depends(get_db)):
             StudioReview.studio_id == studio.id, StudioReview.is_approved == True  # noqa
         )
     )
+    me = _viewer_id(authorization)
+    hidden = review_moderation.hidden_for(db, me)
 
     return {
         "id": str(studio.id),
@@ -864,13 +879,15 @@ def get_studio_profile(slug: str, db: Session = Depends(get_db)):
                 "id": str(r.id), "client_name": r.client_name,
                 "rating": r.rating, "comment": r.comment,
                 "created_at": r.created_at.isoformat(),
+                "mine": me is not None and str(r.customer_id) == me,
             }
-            for r in reviews
+            for r in reviews if str(r.id) not in hidden
         ],
         "avg_rating": round(float(avg_rating), 1) if avg_rating else None,
         "review_count": len(reviews),
         "gallery": _get_gallery(db, studio.id),
         "is_claimed": True,
+        "viewer": review_moderation.viewer(db, me),
     }
 
 
@@ -973,40 +990,56 @@ def _get_unclaimed_business_profile(db: Session, slug: str) -> Optional[dict]:
 # ── Reviews ────────────────────────────────────────────────────────────────────
 
 class ReviewCreate(BaseModel):
-    client_name: str = Field(..., max_length=120)
+    client_name: Optional[str] = Field(None, max_length=120)      # the name shown; empty → the customer's own name
     rating: int = Field(..., ge=1, le=5)
     comment: Optional[str] = Field(None, max_length=1000)
+    accept_rules: bool = False                                     # the review rules — needed the first time
 
 
 @router.post("/{slug}/reviews", status_code=201)
 @limiter.limit("3/hour")
-def submit_review(request: Request, slug: str, payload: ReviewCreate, db: Session = Depends(get_db)):
-    from html import escape as _esc
+def submit_review(request: Request, slug: str, payload: ReviewCreate, db: Session = Depends(get_db),
+                  customer_id: str = Depends(_get_customer_id)):
+    """A signed-in customer writes a review; it shows after the business approves it (review_moderation)."""
     from app.models.studio import Studio
-    from app.models.studio_review import StudioReview
 
     studio = db.scalar(select(Studio).where(Studio.slug == slug, Studio.is_active == True))  # noqa
     if not studio:
         raise HTTPException(404, "Studio not found")
     raise_if_archived(db, studio)
-
-    review = StudioReview(
-        studio_id=studio.id,
-        client_name=_esc(payload.client_name),
-        rating=payload.rating,
-        comment=_esc(payload.comment) if payload.comment else payload.comment,
-        is_approved=False,  # requires approval
-    )
-    db.add(review)
-    db.commit()
+    review_moderation.write(db, studio.id, customer_id, payload.rating, payload.comment, payload.client_name,
+                            payload.accept_rules)
     return {"message": "תודה! הביקורת תפורסם לאחר אישור."}
+
+
+class ReviewReportIn(BaseModel):
+    reason: Optional[str] = None           # offensive | spam | false | other (review_moderation.REASONS)
+
+
+@router.post("/reviews/{review_id}/report")
+@limiter.limit("20/hour")
+def report_review(request: Request, review_id: uuid.UUID, payload: Optional[ReviewReportIn] = None,
+                  db: Session = Depends(get_db), customer_id: str = Depends(_get_customer_id)):
+    """Report a review: it disappears for this customer now; the business and the platform handle it."""
+    review_moderation.report(db, review_id, customer_id, payload.reason if payload else None)
+    return {"hidden": True}
+
+
+@router.post("/reviews/{review_id}/block")
+@limiter.limit("20/hour")
+def block_review_writer(request: Request, review_id: uuid.UUID, db: Session = Depends(get_db),
+                        customer_id: str = Depends(_get_customer_id)):
+    """Block a review's writer: none of their reviews show for this customer any more."""
+    review_moderation.block(db, review_id, customer_id)
+    return {"hidden": True}
 
 
 # ── Studio manages reviews (authenticated) ────────────────────────────────────
 
 @router.get("/my/reviews/pending")
 def list_pending_reviews(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
-    """Return pending (unapproved) reviews for the authenticated studio."""
+    """The studio's reviews to handle: reported ones first (shown, but a customer reported them), then the ones
+    waiting for approval."""
     from app.models.studio_review import StudioReview
     reviews = db.scalars(
         select(StudioReview).where(
@@ -1014,16 +1047,32 @@ def list_pending_reviews(ctx: AuthContext = Depends(require_studio_ctx), db: Ses
             StudioReview.is_approved == False,  # noqa
         ).order_by(StudioReview.created_at.desc())
     ).all()
-    return [
+    reported = [
+        {k: r[k] for k in ("id", "client_name", "rating", "comment", "created_at", "reports", "reasons")} | {"is_approved": True}
+        for r in review_moderation.open_reports(db, ctx.studio_id)
+    ]
+    return reported + [
         {
             "id": str(r.id),
             "client_name": r.client_name,
             "rating": r.rating,
             "comment": r.comment,
             "created_at": r.created_at.isoformat(),
+            "is_approved": False, "reports": 0, "reasons": [],
         }
         for r in reviews
     ]
+
+
+@router.post("/my/reviews/{review_id}/keep")
+def keep_reported_review(review_id: uuid.UUID, ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+    """The studio looked at a reported review and keeps it — the reports are closed."""
+    from app.models.studio_review import StudioReview
+    review = db.get(StudioReview, review_id)
+    if not review or review.studio_id != ctx.studio_id:
+        raise HTTPException(404, "Review not found")
+    review_moderation.keep(db, review)
+    return {"kept": True}
 
 
 @router.post("/my/reviews/{review_id}/approve")

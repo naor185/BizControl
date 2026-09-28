@@ -299,7 +299,7 @@ export default function MePage() {
                     <div role="alertdialog" style={{ ...GLASS_CARD, borderColor: "rgba(248,113,113,.4)", marginTop: "1.25rem", padding: "1.1rem" }}>
                         <div style={{ fontWeight: 800, marginBottom: "0.4rem" }}>למחוק את החשבון ב-BizFind?</div>
                         <p style={{ color: "var(--bf-muted)", fontSize: "0.85rem", lineHeight: 1.6, marginBottom: "0.9rem" }}>
-                            נמחקים לצמיתות: פרטי הכניסה, המועדפים וההתראות. התורים והקבלות שעסקים שמרו על הביקורים שלך נשארים אצלם — אפשר לפנות לעסק עצמו.
+                            נמחקים לצמיתות: פרטי הכניסה, המועדפים, ההתראות והביקורות שכתבת. התורים והקבלות שעסקים שמרו על הביקורים שלך נשארים אצלם — אפשר לפנות לעסק עצמו.
                         </p>
                         <div style={{ display: "flex", gap: "0.5rem" }}>
                             <button type="button" onClick={deleteAccount} disabled={deleting === "busy"}

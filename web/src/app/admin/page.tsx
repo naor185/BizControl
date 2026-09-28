@@ -10,7 +10,7 @@ import {
 } from "recharts";
 import PasswordInput from "@/components/PasswordInput";
 import LandingPageTemplate from "@/components/LandingPageTemplate";
-import { Tags } from "lucide-react";
+import { Flag, Tags } from "lucide-react";
 
 type Stats = {
     total_studios: number;
@@ -815,6 +815,12 @@ export default function AdminPage() {
                         className="px-4 py-2 rounded-xl text-sm font-semibold transition-colors text-slate-400 hover:text-white"
                     >
                         🤖 AI Dashboard
+                    </a>
+                    <a
+                        href="/admin/review-reports"
+                        className="px-4 py-2 rounded-xl text-sm font-semibold transition-colors text-slate-400 hover:text-white inline-flex items-center gap-1.5"
+                    >
+                        <Flag className="h-4 w-4" /> ביקורות שדווחו
                     </a>
                     <a
                         href="/admin/invoice-scans"

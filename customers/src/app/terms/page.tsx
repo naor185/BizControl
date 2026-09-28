@@ -10,7 +10,7 @@ export default function TermsPage() {
         <div style={{ minHeight: "100vh", background: "var(--bf-bg)", color: "var(--bf-text)", direction: "rtl" }}>
             <div style={{ maxWidth: 720, margin: "0 auto", padding: "3rem 1.5rem" }}>
                 <h1 style={{ fontSize: "1.8rem", fontWeight: 900, color: "var(--bf-text)", marginBottom: "0.3rem" }}>תנאי שימוש</h1>
-                <p style={{ color: "var(--bf-faint)", fontSize: "0.85rem", marginBottom: "2.5rem" }}>עודכן לאחרונה: אוגוסט 2026</p>
+                <p style={{ color: "var(--bf-faint)", fontSize: "0.85rem", marginBottom: "2.5rem" }}>עודכן לאחרונה: ספטמבר 2026</p>
 
                 <div style={sectionStyle}>
                     <p style={pStyle}>
@@ -56,8 +56,23 @@ export default function TermsPage() {
                     </ul>
                 </div>
 
+                {/* the review form links here (#reviews) — the rules a customer agrees to before writing */}
+                <div style={sectionStyle} id="reviews">
+                    <h2 style={h2Style}>5. ביקורות — כללים, דיווח וחסימה</h2>
+                    <p style={pStyle}>
+                        ב-BizFind אפשר לכתוב ביקורת על עסק אחרי התחברות ואישור הכללים האלה. אין שום סובלנות לתוכן פוגעני:
+                    </p>
+                    <ul style={ulStyle}>
+                        <li>אסור לכתוב תוכן מעליב, מאיים, גזעני, מיני, אלים, שקרי או פרסומי, או לחשוף פרטים אישיים של אחרים.</li>
+                        <li>ביקורת מתפרסמת רק אחרי שבעל/ת העסק מאשר/ת אותה.</li>
+                        <li>ליד כל ביקורת יש כפתור "דיווח": הביקורת נעלמת מיד אצל מי שדיווח/ה, ואנחנו בודקים כל דיווח תוך 24 שעות. ביקורת שמפרה את הכללים נמחקת, ומי שכתב/ה אותה נחסמ/ת מכתיבת ביקורות.</li>
+                        <li>ליד כל ביקורת יש גם כפתור "חסימה": לא תראו יותר ביקורות של אותו/ה כותב/ת.</li>
+                        <li>מחיקת החשבון מוחקת גם את הביקורות שכתבתם.</li>
+                    </ul>
+                </div>
+
                 <div style={sectionStyle}>
-                    <h2 style={h2Style}>5. תוכן ובינה מלאכותית</h2>
+                    <h2 style={h2Style}>6. תוכן ובינה מלאכותית</h2>
                     <p style={pStyle}>
                         חלק מהיכולות במערכת (כגון סריקת חשבוניות אוטומטית ועוזר ה-AI "ויקי") משתמשות בשירותי בינה מלאכותית
                         של צדדים שלישיים. תוצאות אוטומטיות עלולות להכיל טעויות — האחריות לבדוק ולאשר נתונים כספיים או
@@ -66,7 +81,7 @@ export default function TermsPage() {
                 </div>
 
                 <div style={sectionStyle}>
-                    <h2 style={h2Style}>6. הגבלת אחריות</h2>
+                    <h2 style={h2Style}>7. הגבלת אחריות</h2>
                     <p style={pStyle}>
                         השירות ניתן "כפי שהוא" (AS IS). איננו מתחייבים לזמינות רציפה ללא הפרעות, ואיננו אחראים לנזק עקיף
                         שייגרם כתוצאה משימוש בשירות, כולל אך לא רק אובדן הכנסה, נתונים, או לקוחות, למעט במקרים של רשלנות
@@ -75,7 +90,7 @@ export default function TermsPage() {
                 </div>
 
                 <div style={sectionStyle}>
-                    <h2 style={h2Style}>7. סיום שימוש</h2>
+                    <h2 style={h2Style}>8. סיום שימוש</h2>
                     <p style={pStyle}>
                         אנו רשאים להשעות או לסיים גישה לחשבון שמפר תנאים אלה. בעל/ת עסק רשאי/ת לבקש מחיקת חשבון וסגירת
                         המנוי בכל עת בפנייה אלינו.
@@ -83,7 +98,7 @@ export default function TermsPage() {
                 </div>
 
                 <div style={sectionStyle}>
-                    <h2 style={h2Style}>8. שינויים בתנאים</h2>
+                    <h2 style={h2Style}>9. שינויים בתנאים</h2>
                     <p style={pStyle}>
                         ייתכן שנעדכן תנאים אלה מעת לעת. שימוש מתמשך בשירות לאחר עדכון מהווה הסכמה לתנאים המעודכנים.
                         שינויים מהותיים יובאו לידיעתכם באמצעות הודעה באפליקציה או במייל.
@@ -91,7 +106,7 @@ export default function TermsPage() {
                 </div>
 
                 <div style={sectionStyle}>
-                    <h2 style={h2Style}>9. יצירת קשר</h2>
+                    <h2 style={h2Style}>10. יצירת קשר</h2>
                     <p style={pStyle}>
                         שאלות בנוגע לתנאים אלה ניתן להפנות אלינו בכתובת:{" "}
                         <a href="mailto:support@biz-control.com" style={{ color: "var(--bf-text)", textUnderlineOffset: 3 }}>support@biz-control.com</a>

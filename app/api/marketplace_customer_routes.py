@@ -379,7 +379,8 @@ def get_me(
 @router.delete("/me", status_code=204)
 def delete_me(db: Session = Depends(get_db), customer_id: str = Depends(_get_customer_id)):
     """Deletes the customer's BizFind account now (Apple: an account opened in the app can be deleted in it) —
-    the login, favorites, phones' notification tokens and pending notifications go with it (ON DELETE CASCADE).
+    the login, favorites, phones' notification tokens, pending notifications, the reviews they wrote, their review
+    reports and blocks go with it (ON DELETE CASCADE).
     What a business keeps of its own visits (its client card, receipts) is the business's record."""
     db.execute(text("DELETE FROM marketplace_customers WHERE id = :id"), {"id": customer_id})
     db.commit()

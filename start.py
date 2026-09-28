@@ -2612,6 +2612,44 @@ def ensure_schema():
             if _t == "coupons" or _birthday_table:
                 cur.execute(f"CREATE INDEX IF NOT EXISTS ix_{_t}_{_c} ON {_t} ({_c})")
 
+        # ── BizFind reviews: who wrote each one, reports and blocks (Apple 1.2 — content people write) ──
+        # A review is written by a signed-in customer, who agreed to the review terms once; anyone signed in can
+        # report a review (hidden for them at once, the business and the platform see it) or block its writer
+        # (none of the writer's reviews show for them). The platform can bar a writer from writing reviews.
+        # Deleting the customer's account deletes the reviews they wrote, their reports and their blocks.
+        cur.execute("ALTER TABLE studio_reviews ADD COLUMN IF NOT EXISTS customer_id UUID")
+        cur.execute("""
+            DO $$ BEGIN
+                IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_studio_reviews_customer') THEN
+                    ALTER TABLE studio_reviews ADD CONSTRAINT fk_studio_reviews_customer
+                        FOREIGN KEY (customer_id) REFERENCES marketplace_customers(id) ON DELETE CASCADE;
+                END IF;
+            END $$
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_studio_reviews_customer ON studio_reviews (customer_id)")
+        cur.execute("ALTER TABLE marketplace_customers ADD COLUMN IF NOT EXISTS review_terms_accepted_at TIMESTAMPTZ")
+        cur.execute("ALTER TABLE marketplace_customers ADD COLUMN IF NOT EXISTS reviews_barred_at TIMESTAMPTZ")
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS review_reports (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                review_id UUID NOT NULL REFERENCES studio_reviews(id) ON DELETE CASCADE,
+                customer_id UUID NOT NULL REFERENCES marketplace_customers(id) ON DELETE CASCADE,
+                reason VARCHAR(40),
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                handled_at TIMESTAMPTZ,
+                UNIQUE (review_id, customer_id)
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_review_reports_open ON review_reports (review_id) WHERE handled_at IS NULL")
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS customer_blocks (
+                customer_id UUID NOT NULL REFERENCES marketplace_customers(id) ON DELETE CASCADE,
+                blocked_customer_id UUID NOT NULL REFERENCES marketplace_customers(id) ON DELETE CASCADE,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                PRIMARY KEY (customer_id, blocked_customer_id)
+            )
+        """)
+
         conn.commit()
         cur.close()
         conn.close()
