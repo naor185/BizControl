@@ -1,4 +1,5 @@
 "use client";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "@/lib/toast";
 
 import { useEffect, useState, useCallback } from "react";
@@ -781,17 +782,8 @@ export default function ClientProfilePage() {
                                         </p>
                                         <p className="text-xs mt-0.5 text-slate-400">תזכורות, אישורי תור וקבלות נשלחים תמיד</p>
                                     </div>
-                                    <button
-                                        type="button"
-                                        dir="ltr"
-                                        role="switch"
-                                        aria-checked={!!profile.client.receives_marketing}
-                                        onClick={handleToggleMarketing}
-                                        title={profile.client.receives_marketing ? "לחץ להפסקת הודעות שיווקיות" : "לחץ לחידוש הודעות שיווקיות"}
-                                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${profile.client.receives_marketing ? "bg-emerald-500" : "bg-slate-300"}`}
-                                    >
-                                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${profile.client.receives_marketing ? "translate-x-6" : "translate-x-1"}`} />
-                                    </button>
+                                    <Switch checked={!!profile.client.receives_marketing} onChange={handleToggleMarketing}
+                                        title={profile.client.receives_marketing ? "לחץ להפסקת הודעות שיווקיות" : "לחץ לחידוש הודעות שיווקיות"} />
                                 </div>
                             </div>
 

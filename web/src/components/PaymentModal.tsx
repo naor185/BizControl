@@ -1,5 +1,6 @@
 "use client";
 
+import { Switch } from "@/components/ui/switch";
 import { toast } from "@/lib/toast";
 import { useState, useEffect } from "react";
 import { apiFetch, Product, getProducts } from "@/lib/api";
@@ -222,9 +223,7 @@ export default function PaymentModal({ isOpen, onClose, onSuccess, appointment }
                         }}
                         className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl border-2 transition-all text-sm font-bold ${splitEnabled ? "border-sky-400 bg-sky-50 text-sky-800" : "border-slate-200 bg-slate-50 text-slate-500 hover:border-slate-300"}`}
                     >
-                        <div className={`w-9 h-5 rounded-full transition-colors relative ${splitEnabled ? "bg-sky-500" : "bg-slate-300"}`}>
-                            <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${splitEnabled ? "left-4" : "left-0.5"}`} />
-                        </div>
+                        <Switch as="span" size="sm" checked={splitEnabled} onColor="bg-sky-500" />
                         <span>פיצול תשלום — שתי שיטות</span>
                     </button>
 
@@ -312,9 +311,7 @@ export default function PaymentModal({ isOpen, onClose, onSuccess, appointment }
                                         <p className="text-xs text-slate-500">{availablePoints} נקודות = {availablePoints} ₪ הנחה אפשרית</p>
                                     </div>
                                 </div>
-                                <div className={`w-11 h-6 rounded-full transition-all relative ${usePoints ? "bg-amber-400" : "bg-slate-300"}`}>
-                                    <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all ${usePoints ? "left-5" : "left-0.5"}`} />
-                                </div>
+                                <Switch as="span" checked={usePoints} onColor="bg-amber-400" />
                             </button>
 
                             {/* Redemption controls */}
@@ -487,9 +484,7 @@ export default function PaymentModal({ isOpen, onClose, onSuccess, appointment }
                         <span className={`text-xs font-bold ${sendReceipt ? "text-sky-700" : "text-slate-500"}`}>
                             {sendReceipt ? "📨 שלח קבלה ללקוח" : "🔕 לא לשלוח קבלה ללקוח"}
                         </span>
-                        <div className={`relative w-9 h-5 rounded-full transition-colors ${sendReceipt ? "bg-sky-500" : "bg-slate-300"}`}>
-                            <div className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${sendReceipt ? "right-0.5" : "left-0.5"}`} />
-                        </div>
+                        <Switch as="span" size="sm" checked={sendReceipt} onColor="bg-sky-500" />
                     </button>
                 </div>
 

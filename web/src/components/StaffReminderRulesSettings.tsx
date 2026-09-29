@@ -1,5 +1,6 @@
 "use client";
 
+import { Switch } from "@/components/ui/switch";
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
 
@@ -106,13 +107,7 @@ export default function StaffReminderRulesSettings({ compact }: { compact?: bool
                     {rules.map(rule => (
                         <div key={rule.id} className="flex items-center justify-between gap-2 bg-slate-50 rounded-lg px-2.5 py-2 border border-slate-100">
                             <div className="flex items-center gap-2 min-w-0">
-                                <button
-                                    type="button"
-                                    onClick={() => toggleRule(rule)}
-                                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ${rule.enabled ? "bg-emerald-500" : "bg-slate-200"}`}
-                                >
-                                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${rule.enabled ? "translate-x-4" : "translate-x-0"}`} />
-                                </button>
+                                <Switch size="sm" checked={rule.enabled} onChange={() => toggleRule(rule)} />
                                 <span className={`text-xs font-semibold truncate ${rule.enabled ? "text-slate-700" : "text-slate-400"}`}>
                                     {formatLeadLabel(rule.lead_minutes)}
                                 </span>

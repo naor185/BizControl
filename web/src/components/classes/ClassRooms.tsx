@@ -1,5 +1,6 @@
 "use client";
 
+import { Switch } from "@/components/ui/switch";
 import { useState } from "react";
 import { Plus, Loader2, Check, X, PencilLine, KeyRound } from "lucide-react";
 import BottomSheet from "@/components/ui/bottom-sheet";
@@ -122,10 +123,7 @@ function ActiveToggle({ room, onDone }: { room: Room; onDone: () => void }) {
         }
     };
     return (
-        <button type="button" role="switch" aria-checked={room.is_active} aria-label={`${room.name} בשימוש`} onClick={flip} disabled={busy}
-            className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors disabled:opacity-60 ${room.is_active ? "bg-indigo-600" : "bg-slate-300"}`}>
-            <span className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${room.is_active ? "-translate-x-6" : "-translate-x-1"}`} />
-        </button>
+        <Switch checked={room.is_active} onChange={flip} disabled={busy} label={`${room.name} בשימוש`} onColor="bg-indigo-600" />
     );
 }
 

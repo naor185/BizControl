@@ -1,5 +1,6 @@
 "use client";
 
+import { Switch } from "@/components/ui/switch";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { apiFetch } from "@/lib/api";
 import { toast } from "@/lib/toast";
@@ -569,12 +570,9 @@ export default function PosPage() {
                 {client && availablePoints > 0 && (
                     <div className={`rounded-xl border-2 transition-all px-3 py-2 ${usePoints ? "border-amber-400 bg-amber-50" : "border-slate-100 bg-slate-50"}`}>
                         <div className="flex items-center justify-between">
-                            <button type="button"
+                            <Switch size="sm" checked={usePoints} onColor="bg-amber-400"
                                 title={usePoints ? "בטל ניצול נקודות" : "נצל נקודות"}
-                                onClick={() => { setUsePoints(v => !v); if (!usePoints) setPointsRedeemed(maxRedeemPoints || availablePoints); else setPointsRedeemed(0); }}
-                                className={`w-9 h-5 rounded-full transition-colors relative shrink-0 ${usePoints ? "bg-amber-400" : "bg-slate-300"}`}>
-                                <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${usePoints ? "left-4" : "left-0.5"}`} />
-                            </button>
+                                onChange={() => { setUsePoints(v => !v); if (!usePoints) setPointsRedeemed(maxRedeemPoints || availablePoints); else setPointsRedeemed(0); }} />
                             <div className="text-right">
                                 <span className="text-xs font-bold text-slate-700">⭐ ניצול נקודות</span>
                                 <span className="text-[10px] text-slate-400 mr-1">({availablePoints} זמינות)</span>
@@ -637,11 +635,8 @@ export default function PosPage() {
                 {client?.phone && (
                     <div className={`flex items-center justify-between rounded-xl px-3 py-2 border transition-all ${sendReceipt ? "bg-blue-50 border-blue-200" : "bg-slate-50 border-slate-200"}`}>
                         <span className="text-xs font-semibold text-slate-700">📲 שלח קבלה בוואטסאפ</span>
-                        <button type="button" title={sendReceipt ? "בטל שליחת קבלה" : "שלח קבלה"}
-                            onClick={() => setSendReceipt(v => !v)}
-                            className={`w-9 h-5 rounded-full transition-colors relative shrink-0 ${sendReceipt ? "bg-blue-500" : "bg-slate-300"}`}>
-                            <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${sendReceipt ? "left-4" : "left-0.5"}`} />
-                        </button>
+                        <Switch size="sm" checked={sendReceipt} onChange={setSendReceipt} onColor="bg-blue-500"
+                            title={sendReceipt ? "בטל שליחת קבלה" : "שלח קבלה"} />
                     </div>
                 )}
 

@@ -1,4 +1,5 @@
 "use client";
+import { Switch } from "@/components/ui/switch";
 import { useState, useEffect, useCallback } from "react";
 import AppShell from "@/components/AppShell";
 import RequireAuth from "@/components/RequireAuth";
@@ -457,9 +458,7 @@ function DetailModal({ card, onClose, onCancel, onApprove, onDelete }: { card: G
                                 <span className={`text-xs font-bold ${sendReceipt ? "text-sky-700" : "text-slate-500"}`}>
                                     {sendReceipt ? "📨 שלח קבלה ללקוח" : "🔕 לא לשלוח קבלה ללקוח"}
                                 </span>
-                                <div className={`relative w-9 h-5 rounded-full transition-colors ${sendReceipt ? "bg-sky-500" : "bg-slate-300"}`}>
-                                    <div className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${sendReceipt ? "right-0.5" : "left-0.5"}`} />
-                                </div>
+                                <Switch as="span" size="sm" checked={sendReceipt} onColor="bg-sky-500" />
                             </button>
                             <button type="button" onClick={() => onApprove(sendReceipt)}
                                 className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl text-sm transition-colors mb-2">

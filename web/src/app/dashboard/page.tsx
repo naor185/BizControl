@@ -1,5 +1,6 @@
 "use client";
 
+import { Switch } from "@/components/ui/switch";
 import { useEffect, useState } from "react";
 import RequireAuth from "@/components/RequireAuth";
 import AppShell from "@/components/AppShell";
@@ -689,9 +690,7 @@ export default function Page() {
                                 onClick={() => setDepositSendReceipt(v => !v)}
                                 className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl border-2 transition-all mb-4 ${depositSendReceipt ? "bg-sky-50 border-sky-300" : "bg-slate-50 border-slate-200"}`}
                             >
-                                <div className={`relative w-10 h-6 rounded-full transition-colors ${depositSendReceipt ? "bg-sky-500" : "bg-slate-300"}`}>
-                                    <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all ${depositSendReceipt ? "left-4" : "left-0.5"}`} />
-                                </div>
+                                <Switch as="span" checked={depositSendReceipt} onColor="bg-sky-500" />
                                 <span className={`text-sm font-bold ${depositSendReceipt ? "text-sky-700" : "text-slate-500"}`}>
                                     {depositSendReceipt ? "📨 שלח קישור קבלה ללקוח" : "🔕 אל תשלח קישור קבלה"}
                                 </span>

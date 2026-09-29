@@ -1,4 +1,5 @@
 "use client";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "@/lib/toast";
 
 import { useEffect, useState, useCallback } from "react";
@@ -527,13 +528,8 @@ export default function StudioDetailPage() {
                                     <p className="text-sm font-medium text-gray-800">הזמנה עצמית מקוונת</p>
                                     <p className="text-xs text-gray-400">לקוחות יכולים לקבוע תורים בעצמם דרך הלינק הציבורי</p>
                                 </div>
-                                <button
-                                    onClick={() => handleSaveSettings({ self_booking_enabled: !settings.self_booking_enabled })}
-                                    disabled={savingSettings}
-                                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${settings.self_booking_enabled ? "bg-emerald-500" : "bg-gray-200"}`}
-                                >
-                                    <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${settings.self_booking_enabled ? "translate-x-5" : "translate-x-0"}`} />
-                                </button>
+                                <Switch checked={!!settings.self_booking_enabled} onChange={v => handleSaveSettings({ self_booking_enabled: v })}
+                                    disabled={savingSettings} label="הזמנה עצמית מקוונת" />
                             </div>
 
                             {/* AI generation count reset */}
@@ -795,13 +791,8 @@ export default function StudioDetailPage() {
                                             </p>
                                         </div>
                                         {/* Toggle */}
-                                        <button
-                                            onClick={() => handleIntegration(platform, { is_active: !isActive })}
-                                            disabled={saving}
-                                            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${isActive && !expired ? "bg-emerald-500" : "bg-gray-200"} disabled:opacity-50`}
-                                        >
-                                            <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform ${isActive && !expired ? "translate-x-5" : "translate-x-0"}`} />
-                                        </button>
+                                        <Switch checked={isActive && !expired} onChange={() => handleIntegration(platform, { is_active: !isActive })}
+                                            disabled={saving} />
                                     </div>
 
                                     {/* Trial / Permanent buttons */}
@@ -936,10 +927,10 @@ export default function StudioDetailPage() {
                                         <p className="text-sm font-medium text-gray-900">{item.label}</p>
                                         <p className="text-[10px] text-gray-400">{item.section}</p>
                                     </div>
-                                    <button
-                                        type="button"
+                                    <Switch
                                         title={enabled ? "הסתר מהתפריט" : "הצג בתפריט"}
-                                        onClick={async () => {
+                                        checked={enabled}
+                                        onChange={async () => {
                                             setTogglingNav(item.id);
                                             try {
                                                 await apiFetch(`/api/admin/studios/${studioId}/modules/${item.id}`, {
@@ -951,10 +942,7 @@ export default function StudioDetailPage() {
                                             finally { setTogglingNav(null); }
                                         }}
                                         disabled={saving}
-                                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none disabled:opacity-50 ${enabled ? "bg-emerald-500" : "bg-gray-200"}`}
-                                    >
-                                        <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${enabled ? "translate-x-5" : "translate-x-0"}`} />
-                                    </button>
+                                    />
                                 </div>
                             );
                         })}
@@ -995,13 +983,7 @@ export default function StudioDetailPage() {
                                                 {new Date(f.enabled_at).toLocaleDateString("he-IL")}
                                             </span>
                                         )}
-                                        <button
-                                            onClick={() => handleToggleFeature(f.feature, !f.is_enabled)}
-                                            disabled={toggling}
-                                            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none disabled:opacity-50 ${f.is_enabled ? "bg-emerald-500" : "bg-gray-200"}`}
-                                        >
-                                            <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${f.is_enabled ? "translate-x-5" : "translate-x-0"}`} />
-                                        </button>
+                                        <Switch checked={f.is_enabled} onChange={v => handleToggleFeature(f.feature, v)} disabled={toggling} />
                                     </div>
                                 );
                             })

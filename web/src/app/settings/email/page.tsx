@@ -1,4 +1,5 @@
 "use client";
+import { Switch } from "@/components/ui/switch";
 import { useEffect, useState } from "react";
 import AppShell from "@/components/AppShell";
 import { apiFetch } from "@/lib/api";
@@ -189,14 +190,8 @@ export default function StudioEmailSettingsPage() {
                                                 <div className="text-xs text-slate-400">{t.desc}</div>
                                             </div>
                                         </div>
-                                        <button
-                                            type="button"
-                                            title={`${(settings[t.key] ?? true) ? "כבה" : "הפעל"} ${t.label}`}
-                                            onClick={() => setSettings(p => ({ ...p, [t.key]: !(p[t.key] ?? true) }))}
-                                            className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${(settings[t.key] ?? true) ? "bg-emerald-500" : "bg-slate-300"}`}
-                                        >
-                                            <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${(settings[t.key] ?? true) ? "right-1" : "left-1"}`} />
-                                        </button>
+                                        <Switch checked={!!(settings[t.key] ?? true)} onChange={v => setSettings(p => ({ ...p, [t.key]: v }))}
+                                            title={`${(settings[t.key] ?? true) ? "כבה" : "הפעל"} ${t.label}`} />
                                     </div>
                                 ))}
                             </div>

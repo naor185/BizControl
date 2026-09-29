@@ -1,5 +1,6 @@
 "use client";
 
+import { Switch } from "@/components/ui/switch";
 import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import AppShell from "@/components/AppShell";
@@ -1118,9 +1119,7 @@ export default function CalendarPage() {
                 className={`w-full flex items-center justify-between px-3 py-2 rounded-lg border transition-all mb-3 min-h-11 ${showHolidays ? "bg-sky-50 border-sky-200 text-sky-800" : "bg-slate-50 border-slate-200 text-slate-500"}`}
             >
                 <span>🗓️ הצגת חגים</span>
-                <span className={`w-8 h-4 rounded-full transition-colors relative inline-block ${showHolidays ? "bg-sky-500" : "bg-slate-300"}`}>
-                    <span className={`absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-all ${showHolidays ? "left-4" : "left-0.5"}`} />
-                </span>
+                <Switch as="span" size="sm" checked={showHolidays} onColor="bg-sky-500" />
             </button>
             {showHolidays && (
                 <div className="mb-3 -mt-1 px-3 py-2 rounded-lg border border-slate-200 bg-white space-y-1.5">

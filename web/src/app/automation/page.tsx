@@ -1,4 +1,5 @@
 "use client";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "@/lib/toast";
 
 import { useEffect, useState } from "react";
@@ -386,13 +387,7 @@ function MarketplaceTab({ settings, handleChange, apiFetch }: { settings: any; h
                         <h3 className="text-lg font-bold text-slate-800">🗺️ פרופיל ציבורי ב-Marketplace</h3>
                         <p className="text-sm text-slate-500 mt-0.5">לקוחות יגלו את העסק שלך בחיפוש</p>
                     </div>
-                    <button
-                        type="button"
-                        onClick={() => handleChange("marketplace_visible", !settings.marketplace_visible)}
-                        className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${settings.marketplace_visible ? "bg-violet-500" : "bg-slate-200"}`}
-                    >
-                        <span className={`inline-block h-6 w-6 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${settings.marketplace_visible ? "translate-x-5" : "translate-x-0"}`} />
-                    </button>
+                    <Switch checked={!!settings.marketplace_visible} onChange={v => handleChange("marketplace_visible", v)} onColor="bg-violet-500" label="פרופיל ציבורי ב-BizFind" />
                 </div>
                 {settings.marketplace_visible && slug && (
                     <div className="flex gap-2 items-center p-3 bg-violet-50 rounded-xl border border-violet-200 mb-4">
@@ -1543,14 +1538,7 @@ export default function AutomationSettingsPage() {
                                                 הודעות WhatsApp, מייל ותפוצות לא יישלחו בשבת — יישלחו אוטומטית ביום ראשון.
                                             </p>
                                         </div>
-                                        <button
-                                            type="button"
-                                            title="חסום שליחה בשבת"
-                                            onClick={() => handleChange("block_shabbat_messages", !settings.block_shabbat_messages)}
-                                            className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${settings.block_shabbat_messages ? "bg-blue-600" : "bg-slate-200"}`}
-                                        >
-                                            <span className={`inline-block h-6 w-6 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${settings.block_shabbat_messages ? "translate-x-5" : "translate-x-0"}`} />
-                                        </button>
+                                        <Switch checked={!!settings.block_shabbat_messages} onChange={v => handleChange("block_shabbat_messages", v)} onColor="bg-blue-600" title="חסום שליחה בשבת" />
                                     </div>
 
                                     {/* Opt-out landing page wording */}
@@ -1580,14 +1568,7 @@ export default function AutomationSettingsPage() {
                                                     מעל סכום מסוים שהלקוח מממש בנקודות/קאשבק, נשלח אליו כרטיס חגיגי עם קונפטי (״חסכת ₪X היום!״) — משתף בסטורי ומזמין חברים למועדון.
                                                 </p>
                                             </div>
-                                            <button
-                                                type="button"
-                                                title="הפעל כרטיס חגיגה"
-                                                onClick={() => handleChange("points_celebration_enabled", !settings.points_celebration_enabled)}
-                                                className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${settings.points_celebration_enabled ? "bg-orange-500" : "bg-slate-200"}`}
-                                            >
-                                                <span className={`inline-block h-6 w-6 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${settings.points_celebration_enabled ? "translate-x-5" : "translate-x-0"}`} />
-                                            </button>
+                                            <Switch checked={!!settings.points_celebration_enabled} onChange={v => handleChange("points_celebration_enabled", v)} onColor="bg-orange-500" title="הפעל כרטיס חגיגה" />
                                         </div>
                                         {settings.points_celebration_enabled && (
                                             <div className="flex items-center gap-3 mt-4">
@@ -1730,14 +1711,7 @@ export default function AutomationSettingsPage() {
                                                         מעל סכום מסוים, הכרטיס שיוצא ללקוח יהיה שווה יותר ממה ששילם — למשל &quot;מעל ₪500, מקבלים 10% בונוס&quot;.
                                                     </p>
                                                 </div>
-                                                <button
-                                                    type="button"
-                                                    title="הפעל בונוס לגיפט קארד"
-                                                    onClick={() => handleChange("gift_card_bonus_enabled", !settings.gift_card_bonus_enabled)}
-                                                    className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${settings.gift_card_bonus_enabled ? "bg-violet-600" : "bg-slate-200"}`}
-                                                >
-                                                    <span className={`inline-block h-6 w-6 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${settings.gift_card_bonus_enabled ? "translate-x-5" : "translate-x-0"}`} />
-                                                </button>
+                                                <Switch checked={!!settings.gift_card_bonus_enabled} onChange={v => handleChange("gift_card_bonus_enabled", v)} onColor="bg-violet-600" title="הפעל בונוס לגיפט קארד" />
                                             </div>
                                             {settings.gift_card_bonus_enabled && (
                                                 <div className="flex flex-wrap items-center gap-6 mt-4">
@@ -1882,12 +1856,7 @@ export default function AutomationSettingsPage() {
                                             <h4 className="text-lg font-bold text-slate-800">📲 קביעת תורים אונליין</h4>
                                             <p className="text-sm text-slate-500 mt-0.5">לקוחות יוכלו לקבוע תור בעצמם דרך עמוד ציבורי</p>
                                         </div>
-                                        <button
-                                            onClick={() => handleChange("self_booking_enabled", !settings.self_booking_enabled)}
-                                            className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${settings.self_booking_enabled ? "bg-emerald-500" : "bg-slate-200"}`}
-                                        >
-                                            <span className={`inline-block h-6 w-6 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${settings.self_booking_enabled ? "translate-x-5" : "translate-x-0"}`} />
-                                        </button>
+                                        <Switch checked={!!settings.self_booking_enabled} onChange={v => handleChange("self_booking_enabled", v)} onColor="bg-emerald-500" label="קביעת תורים אונליין" />
                                     </div>
 
                                     {!settings.self_booking_enabled && (

@@ -174,13 +174,14 @@ function ExploreContent() {
                             </div>
 
                             {/* Booking only toggle */}
-                            <label style={{ display: "flex", alignItems: "center", gap: "0.4rem", cursor: "pointer", whiteSpace: "nowrap", fontSize: "0.82rem", color: "var(--bf-muted)", userSelect: "none" }}>
-                                <div onClick={() => setBookingOnly(v => !v)}
-                                    style={{ width: 36, height: 20, borderRadius: 10, background: bookingOnly ? "#fff" : "rgba(255,255,255,.14)", position: "relative", cursor: "pointer", transition: "background .2s" }}>
-                                    <span style={{ position: "absolute", top: 2, right: bookingOnly ? 2 : "calc(100% - 18px)", width: 16, height: 16, borderRadius: "50%", background: bookingOnly ? "#000" : "#fff", transition: "right .2s" }} />
-                                </div>
+                            {/* off: the circle at the start (right); on: it slides to the end (left) — like BizControl's switches */}
+                            <button type="button" role="switch" aria-checked={bookingOnly} onClick={() => setBookingOnly(v => !v)}
+                                style={{ display: "flex", alignItems: "center", gap: "0.4rem", cursor: "pointer", whiteSpace: "nowrap", fontSize: "0.82rem", fontFamily: "inherit", color: "var(--bf-muted)", background: "none", border: "none", padding: 0, userSelect: "none" }}>
+                                <span aria-hidden style={{ width: 36, height: 20, borderRadius: 10, background: bookingOnly ? "#fff" : "rgba(255,255,255,.14)", position: "relative", flexShrink: 0, transition: "background .2s" }}>
+                                    <span style={{ position: "absolute", top: 2, right: bookingOnly ? 18 : 2, width: 16, height: 16, borderRadius: "50%", background: bookingOnly ? "#000" : "#fff", transition: "right .2s" }} />
+                                </span>
                                 הזמנה אונליין בלבד
-                            </label>
+                            </button>
 
                             {hasFilters && (
                                 <button type="button" onClick={clearAll}

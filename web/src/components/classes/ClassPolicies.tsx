@@ -1,5 +1,6 @@
 "use client";
 
+import { Switch } from "@/components/ui/switch";
 import { useMemo, useState } from "react";
 import {
     CalendarClock, CalendarX2, ListOrdered, UsersRound, BellRing, Gift, PauseCircle, GraduationCap, QrCode, SlidersHorizontal, RotateCcw, Loader2,
@@ -183,11 +184,7 @@ function PolicyRow({ policy: p, value, disabled, onChange }: {
                 )}
 
                 {p.kind === "bool" && (
-                    <button id={id} type="button" role="switch" aria-checked={!!value} aria-labelledby={`${id}-label`} disabled={disabled}
-                        onClick={() => onChange(!value)}
-                        className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 ${value ? "bg-indigo-600" : "bg-slate-300"}`}>
-                        <span className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${value ? "-translate-x-6" : "-translate-x-1"}`} />
-                    </button>
+                    <Switch id={id} labelledBy={`${id}-label`} checked={!!value} onChange={v => onChange(v)} disabled={disabled} onColor="bg-indigo-600" />
                 )}
 
                 {p.kind === "choice" && (

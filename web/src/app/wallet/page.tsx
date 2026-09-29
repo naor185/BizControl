@@ -1,4 +1,5 @@
 "use client";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "@/lib/toast";
 
 import { useEffect, useState } from "react";
@@ -315,13 +316,7 @@ export default function WalletDesignerPage() {
                                 ] as [keyof Design, string][]).map(([key, label]) => (
                                     <div key={key} className="flex items-center justify-between py-1">
                                         <span className="text-sm font-medium text-slate-700">{label}</span>
-                                        <button
-                                            type="button"
-                                            onClick={() => update(key, !design[key])}
-                                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${design[key] ? "bg-indigo-600" : "bg-slate-200"}`}
-                                        >
-                                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${design[key] ? "translate-x-6" : "translate-x-1"}`} />
-                                        </button>
+                                        <Switch checked={!!design[key]} onChange={v => update(key, v)} onColor="bg-indigo-600" label={label} />
                                     </div>
                                 ))}
                             </div>

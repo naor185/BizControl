@@ -1,4 +1,5 @@
 "use client";
+import { Switch } from "@/components/ui/switch";
 import { useEffect, useState, useCallback } from "react";
 import { apiFetch } from "@/lib/api";
 import PasswordInput from "@/components/PasswordInput";
@@ -263,10 +264,7 @@ export default function EmailCenterPage() {
                                             <div className="font-semibold text-slate-800 text-sm">{t.label}</div>
                                             <div className="text-xs text-slate-400">{t.desc}</div>
                                         </div>
-                                        <button type="button" onClick={() => set(t.key as any, !(form as any)[t.key])}
-                                            className={`relative w-12 h-6 rounded-full transition-colors ${(form as any)[t.key] ? "bg-emerald-500" : "bg-slate-300"}`}>
-                                            <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${(form as any)[t.key] ? "right-1" : "left-1"}`} />
-                                        </button>
+                                        <Switch checked={!!(form as any)[t.key]} onChange={v => set(t.key as any, v)} label={t.label} />
                                     </div>
                                 ))}
                             </div>
