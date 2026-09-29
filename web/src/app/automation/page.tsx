@@ -1080,19 +1080,6 @@ export default function AutomationSettingsPage() {
                                 </div>
                             </div>
 
-                            {/* Brand Colors — now platform-wide (superadmin-controlled), not
-                                per-studio. The color pickers that used to live here are gone;
-                                this is a read-only note instead of silently vanishing, so an
-                                owner who remembers picking colors here before understands why. */}
-                            <div className="bg-white rounded-2xl border border-slate-100 shadow-xl shadow-slate-200/40 p-6 md:p-10 relative overflow-hidden">
-                                <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/10 rounded-bl-full -z-10"></div>
-                                <h3 className="text-2xl font-bold text-slate-800 mb-2">צבעי המותג</h3>
-                                <p className="text-slate-500 text-sm">
-                                    צבעי המותג וה-Font כעת אחידים לכל המערכת ומנוהלים ברמת הפלטפורמה — לא ניתנים יותר לעריכה לכל עסק בנפרד.
-                                    הלוגו שלך נשאר אישי ומופיע בכל מקום כרגיל.
-                                </p>
-                            </div>
-
                             {/* Studio Info — moved from policy tab */}
                             <div className="bg-white rounded-2xl border border-slate-100 shadow-xl shadow-slate-200/40 p-6 md:p-10 relative overflow-hidden">
                                 <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/10 rounded-bl-full -z-10"></div>
