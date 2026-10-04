@@ -493,6 +493,7 @@ export interface GoalProgress {
     days_in_month: number;
     days_elapsed: number;
     days_remaining: number;
+    work_days: number[];
     required_daily_avg: number;
     current_daily_avg: number;
 }

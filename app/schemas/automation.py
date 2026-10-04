@@ -89,6 +89,7 @@ class AutomationSettingsOut(BaseModel):
 
     calendar_start_hour: str = "08:00"
     calendar_end_hour: str = "23:00"
+    work_days: list[int] = [0, 1, 2, 3, 4, 5]
 
     # Deposit defaults
     deposit_fixed_amount_ils: int = 0
@@ -257,6 +258,17 @@ class AutomationSettingsUpdate(BaseModel):
 
     calendar_start_hour: str | None = None
     calendar_end_hour: str | None = None
+    work_days: list[int] | None = None
+
+    @field_validator("work_days")
+    @classmethod
+    def _validate_work_days(cls, v):
+        if v is None:
+            return v
+        days = sorted(set(v))
+        if not days or any(d < 0 or d > 6 for d in days):
+            raise ValueError("יש לבחור לפחות יום עבודה אחד")
+        return days
 
     # Deposit defaults
     deposit_fixed_amount_ils: int | None = Field(default=None, ge=0)

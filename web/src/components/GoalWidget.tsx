@@ -4,8 +4,13 @@ import { toast } from "@/lib/toast";
 import { useEffect, useState } from "react";
 import { getGoalProgress, setMonthlyGoal, GoalProgress } from "@/lib/api";
 import { AreaChart, Area, ResponsiveContainer, Tooltip } from "recharts";
+import Link from "next/link";
 
 const fmt = (n: number) => Math.round(n).toLocaleString("he-IL");
+
+// index = 0 Sunday … 6 Saturday, like the server's work_days
+const DAY_NAMES = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
+const joinHe = (names: string[]) => names.length < 2 ? names.join("") : `${names.slice(0, -1).join(", ")} ו${names[names.length - 1]}`;
 
 // SVG ring progress
 function RingProgress({ pct, size = 110, color }: { pct: number; size?: number; color: string }) {
@@ -71,6 +76,8 @@ export default function GoalWidget({ month, year }: { month?: number; year?: num
     });
 
     const color = isTargetMet ? "#10b981" : "#2563eb";
+    const workDays = progress.work_days ?? [0, 1, 2, 3, 4, 5, 6];
+    const offDays = DAY_NAMES.filter((_, d) => !workDays.includes(d));
 
     return (
         <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #e5e7eb", padding: "1.25rem 1.5rem", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }} dir="rtl">
@@ -130,7 +137,7 @@ export default function GoalWidget({ month, year }: { month?: number; year?: num
                             <div style={{ fontSize: "0.9rem", fontWeight: 700, color: isOnTrack ? "#10b981" : "#ef4444" }} dir="ltr">₪{fmt(dailyNeeded)}</div>
                         </div>
                         <div>
-                            <div style={{ fontSize: "0.65rem", color: "#9ca3af", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>ימים שנותרו</div>
+                            <div style={{ fontSize: "0.65rem", color: "#9ca3af", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>ימי עבודה שנותרו</div>
                             <div style={{ fontSize: "0.9rem", fontWeight: 700, color: "#1a1a2e" }}>{progress.days_remaining}</div>
                         </div>
                         <div style={{ display: "flex", alignItems: "center" }}>
@@ -138,6 +145,11 @@ export default function GoalWidget({ month, year }: { month?: number; year?: num
                                 {isOnTrack ? "✅ בקצב" : "⚠️ מאחור"}
                             </span>
                         </div>
+                    </div>
+                    <div style={{ marginTop: "0.5rem", fontSize: "0.72rem", color: "#9ca3af" }}>
+                        {offDays.length ? `לא נספרים ימי ${joinHe(offDays)}` : "כל ימי השבוע נספרים"}
+                        {" · "}
+                        <Link href="/automation?tab=branding#work-days" style={{ color: "#6366f1", fontWeight: 700, textDecoration: "none", whiteSpace: "nowrap" }}>שינוי ימי עבודה</Link>
                     </div>
                 </div>
 

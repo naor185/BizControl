@@ -11,6 +11,8 @@ from app.models.monthly_goal import MonthlyGoal
 from app.models.payment import Payment
 from app.crud.payment import money_received
 from app.models.pos_transaction import PosTransaction
+from app.models.studio_settings import StudioSettings
+from app.services.classes import js_weekday, today_il
 
 class GoalRepository:
     def __init__(self, session: Session):
@@ -84,16 +86,16 @@ class GoalRepository:
         remaining = max(Decimal("0.00"), target - current_revenue)
         progress_pct = (float(current_revenue / target) * 100) if target > 0 else 0.0
 
-        today = date.today()
-        if today.year == year and today.month == month:
-            days_elapsed = today.day
-        elif today > end_date.date():
-            days_elapsed = last_day
-        else:
-            days_elapsed = 0
+        # Only the business's own working days count (a business closed on Saturday has no Saturdays to fill);
+        # today counts as passed, the rest of the month is what is left.
+        settings = self.session.get(StudioSettings, studio_id)
+        work_days = sorted(settings.work_days) if settings and settings.work_days else [0, 1, 2, 3, 4, 5, 6]
+        month_days = [date(year, month, d) for d in range(1, last_day + 1)]
+        working = [d for d in month_days if js_weekday(d) in work_days]
+        today = today_il()
+        days_elapsed = sum(1 for d in working if d <= today)
+        days_remaining = len(working) - days_elapsed
 
-        days_remaining = max(0, last_day - days_elapsed)
-        
         current_daily_avg = (current_revenue / Decimal(days_elapsed)) if days_elapsed > 0 else Decimal("0.00")
         required_daily_avg = (remaining / Decimal(days_remaining)) if days_remaining > 0 else Decimal("0.00")
 
@@ -104,9 +106,10 @@ class GoalRepository:
             "current_revenue": current_revenue,
             "remaining_amount": remaining,
             "progress_percentage": round(progress_pct, 2),
-            "days_in_month": last_day,
+            "days_in_month": len(working),
             "days_elapsed": days_elapsed,
             "days_remaining": days_remaining,
+            "work_days": work_days,
             "required_daily_avg": required_daily_avg.quantize(Decimal("0.01")),
             "current_daily_avg": current_daily_avg.quantize(Decimal("0.01"))
         }

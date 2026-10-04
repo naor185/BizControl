@@ -1,5 +1,4 @@
 import uuid
-from datetime import date
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
@@ -9,6 +8,7 @@ from app.core.deps import require_studio_ctx, AuthContext
 from app.db.deps import get_db
 from app.repositories.goal_repository import GoalRepository
 from app.schemas.monthly_goal import MonthlyGoalResponse, MonthlyGoalUpdate, GoalProgressResponse
+from app.services.classes import today_il
 
 router = APIRouter(prefix="/goals", tags=["Monthly Goals"])
 
@@ -25,7 +25,7 @@ def get_goal_progress(
     repo: GoalRepository = Depends(get_goal_repo),
 ):
     """Get the revenue progress for a specific month (defaults to current)."""
-    today = date.today()
+    today = today_il()
     y = year or today.year
     m = month or today.month
     

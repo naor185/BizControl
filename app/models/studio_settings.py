@@ -3,8 +3,8 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, date
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Numeric, String, func, Integer, Text
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy import Boolean, DateTime, ForeignKey, Numeric, SmallInteger, String, func, Integer, Text
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
@@ -149,6 +149,8 @@ class StudioSettings(Base):
 
     calendar_start_hour: Mapped[str] = mapped_column(String(16), nullable=False, default="08:00", server_default="08:00")
     calendar_end_hour: Mapped[str] = mapped_column(String(16), nullable=False, default="23:00", server_default="23:00")
+    # 0 = Sunday … 6 = Saturday — the monthly goal counts only these days
+    work_days: Mapped[list[int]] = mapped_column(ARRAY(SmallInteger), nullable=False, default=lambda: [0, 1, 2, 3, 4, 5], server_default="{0,1,2,3,4,5}")
 
     # Studio Info & Policy
     studio_address: Mapped[str | None] = mapped_column(Text, nullable=True)

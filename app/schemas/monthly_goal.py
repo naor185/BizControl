@@ -33,8 +33,10 @@ class GoalProgressResponse(BaseModel):
     current_revenue: Decimal
     remaining_amount: Decimal
     progress_percentage: float
+    # working days only — the business's work_days (0 = Sunday … 6 = Saturday)
     days_in_month: int
     days_elapsed: int
     days_remaining: int
+    work_days: list[int]
     required_daily_avg: Decimal
     current_daily_avg: Decimal

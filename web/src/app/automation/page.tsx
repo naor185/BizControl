@@ -121,6 +121,7 @@ type Settings = {
 
     calendar_start_hour?: string;
     calendar_end_hour?: string;
+    work_days?: number[];
     self_booking_enabled?: boolean;
     self_booking_slot_minutes?: number;
     marketplace_visible?: boolean;
@@ -151,6 +152,10 @@ type Settings = {
     deposit_fixed_amount_ils: number;
     deposit_min_duration_minutes: number | null;
 };
+
+// index = 0 Sunday … 6 Saturday, like the server's work_days
+const WORK_DAY_LABELS = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
+const DEFAULT_WORK_DAYS = [0, 1, 2, 3, 4, 5];
 
 function WebhookUrlBox({ provider, instanceId }: { provider: "green_api" | "meta"; instanceId: string }) {
     const [copied, setCopied] = useState<string | null>(null);
@@ -711,6 +716,7 @@ export default function AutomationSettingsPage() {
                     ai_generations_reset_date: data.ai_generations_reset_date ?? null,
                     calendar_start_hour: data.calendar_start_hour ?? "08:00",
                     calendar_end_hour: data.calendar_end_hour ?? "23:00",
+                    work_days: data.work_days ?? DEFAULT_WORK_DAYS,
                     self_booking_enabled: data.self_booking_enabled ?? false,
                     self_booking_slot_minutes: data.self_booking_slot_minutes ?? 60,
                     marketplace_visible: data.marketplace_visible ?? false,
@@ -743,6 +749,13 @@ export default function AutomationSettingsPage() {
             .catch((e) => setErr(e?.message || "שגיאה בטעינת ההגדרות"))
             .finally(() => setLoading(false));
     }, []);
+
+    // the monthly-goal card links here (#work-days); the section exists only once the settings have loaded
+    useEffect(() => {
+        if (!loading && window.location.hash === "#work-days") {
+            document.getElementById("work-days")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+    }, [loading]);
 
     const handleChange = (field: keyof Settings, val: any) => {
         if (!settings) return;
@@ -1107,6 +1120,27 @@ export default function AutomationSettingsPage() {
                                 <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-bl-full -z-10"></div>
                                 <h3 className="text-2xl font-bold text-slate-800 mb-2">שעות פעילות העסק ביומן</h3>
                                 <p className="text-slate-500 text-sm mb-6">טווח השעות שיוצג ביומן התורים כדי לשמור על תצוגה נקייה.</p>
+                                <div id="work-days" className="mb-6 scroll-mt-24">
+                                    <span className="block text-sm font-semibold text-slate-700 mb-1">ימי עבודה</span>
+                                    <p className="text-slate-500 text-xs mb-3">יעד ההכנסה החודשי סופר רק את הימים שתסמן — למשל "ימים שנותרו" ו"נדרש ביום".</p>
+                                    <div className="flex flex-wrap gap-2">
+                                        {WORK_DAY_LABELS.map((label, day) => {
+                                            const days = settings.work_days ?? DEFAULT_WORK_DAYS;
+                                            const on = days.includes(day);
+                                            const isLast = on && days.length === 1;
+                                            return (
+                                                <button key={day} type="button" aria-pressed={on} disabled={isLast}
+                                                    title={isLast ? "צריך לפחות יום עבודה אחד" : undefined}
+                                                    onClick={() => handleChange("work_days", on ? days.filter(d => d !== day) : [...days, day].sort((a, b) => a - b))}
+                                                    className={`px-4 py-2 rounded-xl text-sm font-semibold border transition-colors ${on
+                                                        ? "bg-blue-600 border-blue-600 text-white"
+                                                        : "bg-white border-slate-200 text-slate-500 hover:border-blue-300"} ${isLast ? "cursor-not-allowed" : ""}`}>
+                                                    {label}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
                                 <div className="flex items-center gap-6">
                                     <div className="flex items-center gap-3">
                                         <span className="text-sm font-semibold text-slate-700">שעת פתיחה:</span>

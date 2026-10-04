@@ -2650,6 +2650,9 @@ def ensure_schema():
             )
         """)
 
+        # The days the business works (0 = Sunday … 6 = Saturday) — the monthly goal counts only these
+        cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS work_days SMALLINT[] NOT NULL DEFAULT '{0,1,2,3,4,5}'")
+
         conn.commit()
         cur.close()
         conn.close()
