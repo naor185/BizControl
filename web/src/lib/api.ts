@@ -494,6 +494,7 @@ export interface GoalProgress {
     days_elapsed: number;
     days_remaining: number;
     work_days: number[];
+    daily_revenue: { day: number; amount: number }[];
     required_daily_avg: number;
     current_daily_avg: number;
 }

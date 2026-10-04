@@ -26,6 +26,11 @@ class MonthlyGoalResponse(MonthlyGoalBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+class DailyRevenue(BaseModel):
+    day: int
+    amount: Decimal
+
+
 class GoalProgressResponse(BaseModel):
     year: int
     month: int
@@ -33,10 +38,11 @@ class GoalProgressResponse(BaseModel):
     current_revenue: Decimal
     remaining_amount: Decimal
     progress_percentage: float
-    # working days only — the business's work_days (0 = Sunday … 6 = Saturday)
+    # working days only — the business's work_days (0 = Sunday … 6 = Saturday); today is one of the days left
     days_in_month: int
     days_elapsed: int
     days_remaining: int
     work_days: list[int]
+    daily_revenue: list[DailyRevenue]      # every day of the month up to today, Israel time
     required_daily_avg: Decimal
     current_daily_avg: Decimal
