@@ -230,7 +230,9 @@ def test_daily_birthday_sweep_runs_and_only_reaches_clients_who_may_receive_mark
     monkeypatch.setattr(ec, "studio_email_allowed", lambda *a, **k: False)
     settings = SimpleNamespace(birthday_automation_enabled=True, birthday_benefit_percent=10, birthday_wa_template=None)
     ok, no_consent = client(), client(consent=False)
-    ok.full_name, ok.birth_date = "טל", datetime(1990, 3, 14).date()
+    import pytz
+    in_two_days = datetime.now(pytz.timezone("Asia/Jerusalem")).date() + timedelta(days=2)
+    ok.full_name, ok.birth_date = "טל", in_two_days.replace(year=1992)   # what the sweep's query returns: a birthday 2 days ahead
     no_consent.birth_date = ok.birth_date
     added = []
 

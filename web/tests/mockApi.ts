@@ -116,7 +116,7 @@ function exactMocks(): Record<string, unknown> {
         "/api/dashboard/daily-payments": [{ appointment_id: "a1", client_id: "c1", client_name: LONG_NAME, client_phone: "0501234567", client_loyalty_points: BIG_NUMBER, starts_at: new Date().toISOString(), total_price_cents: BIG_NUMBER, deposit_amount_cents: 0, paid_cents: BIG_NUMBER, remaining_cents: 0, status: "done", payment_sent_at: null, payment_verified_at: null }],
         "/api/dashboard/pending-payments": [],
         "/api/dashboard/occupancy": null,
-        "/api/dashboard/today-revenue": { appointment_payments_cents: BIG_NUMBER, pos_revenue_cents: BIG_NUMBER, total_today_cents: BIG_NUMBER, deposits_today: [], date: new Date().toISOString() },
+        "/api/dashboard/today-revenue": { total_today_cents: BIG_NUMBER, appointments_today_cents: BIG_NUMBER, deposits_today_cents: BIG_NUMBER, earlier_appointments_cents: BIG_NUMBER, other_payments_cents: BIG_NUMBER, pos_revenue_cents: BIG_NUMBER, refunds_cents: BIG_NUMBER, deposits_today: [{ client_name: LONG_NAME, amount_cents: BIG_NUMBER, appointment_date: new Date().toISOString() }], date: new Date().toISOString() },
         "/api/dashboard/pending-gift-cards": [],
         "/api/dashboard/analytics": { revenue_by_month: [], appts_by_month: [], artists: [], busiest_days: [], new_vs_returning: { new: 0, returning: 0 } },
         "/api/dashboard/consultation-conversion": null,

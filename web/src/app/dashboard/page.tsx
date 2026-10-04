@@ -42,7 +42,7 @@ type DailyPayment = {
     client_phone: string;
     client_loyalty_points: number;
     starts_at: string;
-    total_price_cents: number;
+    total_price_cents: number | null;
     deposit_amount_cents: number;
     paid_cents: number;
     remaining_cents: number;
@@ -87,10 +87,15 @@ export default function Page() {
     type OccupancyData = { this_week: OccupancyPeriod; last_week: OccupancyPeriod; this_month: OccupancyPeriod; last_month: OccupancyPeriod; work_hours_per_day: number };
     const [occupancy, setOccupancy] = useState<OccupancyData | null>(null);
 
+    // the parts add up to total_today_cents (refunds taken off)
     const [todayRevenue, setTodayRevenue] = useState<{
-        appointment_payments_cents: number;
-        pos_revenue_cents: number;
         total_today_cents: number;
+        appointments_today_cents: number;
+        deposits_today_cents: number;
+        earlier_appointments_cents: number;
+        other_payments_cents: number;
+        pos_revenue_cents: number;
+        refunds_cents: number;
         deposits_today: { client_name: string; amount_cents: number; appointment_date: string }[];
         date: string;
     } | null>(null);
@@ -480,17 +485,34 @@ export default function Page() {
                                         <span className="text-xl font-black text-emerald-700 mr-2">{fmt(todayRevenue.total_today_cents / 100)}</span>
                                     </div>
                                     <div className="w-px bg-emerald-200 h-6 hidden sm:block" />
-                                    <div className="flex gap-4 text-sm text-emerald-800 flex-wrap">
-                                        <span>תורים: <strong>{fmt(todayRevenue.appointment_payments_cents / 100)}</strong></span>
-                                        <span>·</span>
-                                        <span>קופה: <strong>{fmt(todayRevenue.pos_revenue_cents / 100)}</strong></span>
-                                        {todayRevenue.deposits_today?.map((d, i) => (
-                                            <span key={i} className="text-violet-700">
-                                                · 💰 מקדמה {d.client_name}: <strong>{fmt(d.amount_cents / 100)}</strong>
-                                                <span className="text-violet-400 font-normal"> (תור {new Date(d.appointment_date).toLocaleDateString("he-IL")})</span>
-                                            </span>
+                                    <div className="flex gap-x-4 gap-y-1 text-sm text-emerald-800 flex-wrap items-center">
+                                        <span className="text-xs text-emerald-600">מתוך זה:</span>
+                                        {[
+                                            { label: "תורים של היום", cents: todayRevenue.appointments_today_cents },
+                                            { label: "מקדמות לתורים הבאים", cents: todayRevenue.deposits_today_cents },
+                                            { label: "תשלומים על תורים קודמים", cents: todayRevenue.earlier_appointments_cents },
+                                            { label: "מנויים, שיעורים ואחר", cents: todayRevenue.other_payments_cents },
+                                            { label: "קופה", cents: todayRevenue.pos_revenue_cents },
+                                        ].filter(p => p.cents > 0).map(p => (
+                                            <span key={p.label}>{p.label}: <strong>{fmt(p.cents / 100)}</strong></span>
                                         ))}
+                                        {todayRevenue.refunds_cents > 0 && (
+                                            <span className="text-rose-600">החזרים: <strong>−{fmt(todayRevenue.refunds_cents / 100)}</strong></span>
+                                        )}
+                                        {todayRevenue.total_today_cents === 0 && todayRevenue.refunds_cents === 0 && (
+                                            <span className="text-emerald-600">עוד לא נכנס כסף היום</span>
+                                        )}
                                     </div>
+                                    {todayRevenue.deposits_today?.length > 0 && (
+                                        <div className="w-full flex gap-x-4 gap-y-1 text-xs flex-wrap text-violet-700">
+                                            {todayRevenue.deposits_today.map((d, i) => (
+                                                <span key={i}>
+                                                    💰 מקדמה {d.client_name}: <strong>{fmt(d.amount_cents / 100)}</strong>
+                                                    <span className="text-violet-400"> (תור {new Date(d.appointment_date).toLocaleDateString("he-IL")})</span>
+                                                </span>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                             )}
                             <div className="overflow-x-auto">
@@ -517,10 +539,15 @@ export default function Page() {
                                                 <td className="px-6 py-4 text-slate-600">
                                                     {new Date(p.starts_at).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })}
                                                 </td>
-                                                <td className="px-6 py-4 font-semibold text-slate-700" dir="ltr">{fmt(p.total_price_cents / 100)}</td>
+                                                <td className="px-6 py-4 font-semibold text-slate-700" dir="ltr">
+                                                    {(p.total_price_cents ?? 0) > 0 ? fmt((p.total_price_cents ?? 0) / 100) : <span className="text-slate-300 font-normal">—</span>}
+                                                </td>
                                                 <td className="px-6 py-4 text-slate-500" dir="ltr">{fmt(p.paid_cents / 100)}</td>
                                                 <td className="px-6 py-4">
-                                                    {p.remaining_cents > 0
+                                                    {!((p.total_price_cents ?? 0) > 0)
+                                                        // no price on the appointment — nothing to say it is fully paid
+                                                        ? <span className="text-xs text-slate-400">לא נקבע מחיר</span>
+                                                        : p.remaining_cents > 0
                                                         ? <span className="font-bold text-rose-500 bg-rose-50 px-2 py-0.5 rounded-full" dir="ltr">{fmt(p.remaining_cents / 100)}</span>
                                                         : <span className="font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">שולם ✨</span>
                                                     }

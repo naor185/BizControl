@@ -148,82 +148,67 @@ def get_dashboard_stats(
 
 @router.get("/today-revenue")
 def get_today_revenue(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
-    """Return breakdown of money actually received today: appointment payments + POS cash."""
+    """Money received today, in parts that add up to the total: payments for today's appointments, deposits for later
+    appointments, payments for earlier appointments, payments not for an appointment (memberships, classes, courses,
+    rentals), the till — less refunds. Club points and coupon discounts are not money (money_received)."""
+    from datetime import time as _time
     settings = db.get(StudioSettings, ctx.studio_id)
-    tz_name = settings.timezone if settings and settings.timezone else "Asia/Jerusalem"
-    tz = pytz.timezone(tz_name)
-    now_local = datetime.now(tz)
-    today_start = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
-    today_end   = now_local.replace(hour=23, minute=59, second=59, microsecond=999999)
+    tz = pytz.timezone(settings.timezone if settings and settings.timezone else "Asia/Jerusalem")
+    today = datetime.now(tz).date()
+    today_start = tz.localize(datetime.combine(today, _time.min))
+    tomorrow_start = tz.localize(datetime.combine(today + timedelta(days=1), _time.min))
 
-    # Payments linked to appointments created today
-    appt_cents = db.scalar(
-        select(func.sum(Payment.amount_cents)).where(
+    rows = db.execute(
+        select(Payment, Appointment, Client)
+        .outerjoin(Appointment, Appointment.id == Payment.appointment_id)
+        .outerjoin(Client, Client.id == Appointment.client_id)
+        .where(
             Payment.studio_id == ctx.studio_id,
             Payment.status == "paid",
-            Payment.type != "refund",
             money_received(),
             Payment.created_at >= today_start,
-            Payment.created_at <= today_end,
+            Payment.created_at < tomorrow_start,
         )
-    ) or 0
+        .order_by(Payment.created_at)
+    ).all()
 
-    # Refunds today (deduct)
-    refund_cents = db.scalar(
-        select(func.sum(Payment.amount_cents)).where(
-            Payment.studio_id == ctx.studio_id,
-            Payment.status == "paid",
-            Payment.type == "refund",
-            Payment.created_at >= today_start,
-            Payment.created_at <= today_end,
-        )
-    ) or 0
+    parts = {"appointments_today_cents": 0, "deposits_today_cents": 0, "earlier_appointments_cents": 0,
+             "other_payments_cents": 0, "refunds_cents": 0}
+    deposits_today = []
+    for payment, appt, client in rows:
+        amount = payment.amount_cents or 0
+        if payment.type == "refund":
+            parts["refunds_cents"] += amount
+        elif appt is None:
+            parts["other_payments_cents"] += amount
+        else:
+            appt_day = appt.starts_at.astimezone(tz).date()
+            if appt_day == today:
+                parts["appointments_today_cents"] += amount
+            elif appt_day > today:
+                parts["deposits_today_cents"] += amount
+                deposits_today.append({"client_name": client.full_name if client else "",
+                                       "amount_cents": amount, "appointment_date": appt_day.isoformat()})
+            else:
+                parts["earlier_appointments_cents"] += amount
 
-    # POS transactions today
     pos_cents = db.scalar(
         select(func.sum(PosTransaction.total_cents)).where(
             PosTransaction.studio_id == ctx.studio_id,
             PosTransaction.status == "paid",
             PosTransaction.created_at >= today_start,
-            PosTransaction.created_at <= today_end,
+            PosTransaction.created_at < tomorrow_start,
         )
     ) or 0
 
-    net_appt = max(0, appt_cents - refund_cents)
-    total    = net_appt + pos_cents
-
-    # מקדמות שאושרו היום לתורים עתידיים
-    from app.models.client import Client as _Client
-    future_deposits_rows = db.execute(
-        select(Appointment, _Client, Payment)
-        .join(_Client, _Client.id == Appointment.client_id)
-        .join(Payment, Payment.appointment_id == Appointment.id)
-        .where(
-            Appointment.studio_id == ctx.studio_id,
-            Appointment.status.notin_(["canceled", "no_show"]),
-            Appointment.starts_at > today_end,
-            Payment.status == "paid",
-            Payment.type != "refund",
-            Payment.created_at >= today_start,
-            Payment.created_at <= today_end,
-        )
-    ).all()
-
-    deposits_today = [
-        {
-            "client_name": client.full_name,
-            "amount_cents": payment.amount_cents,
-            "appointment_date": appt.starts_at.date().isoformat(),
-        }
-        for appt, client, payment in future_deposits_rows
-    ]
-
+    total = (parts["appointments_today_cents"] + parts["deposits_today_cents"] + parts["earlier_appointments_cents"]
+             + parts["other_payments_cents"] + pos_cents - parts["refunds_cents"])
     return {
-        "appointment_payments_cents": net_appt,
-        "pos_revenue_cents": pos_cents,
         "total_today_cents": total,
+        **parts,
+        "pos_revenue_cents": pos_cents,
         "deposits_today": deposits_today,
-        "date": today_start.date().isoformat(),
+        "date": today.isoformat(),
     }
 
 

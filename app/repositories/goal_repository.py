@@ -83,16 +83,18 @@ class GoalRepository:
         progress_pct = (float(current_revenue / target) * 100) if target > 0 else 0.0
 
         # Only the business's own working days count (a business closed on Saturday has no Saturdays to fill).
-        # Today is still ahead until it ends: it is one of the days left, and the daily average is over the days already over.
+        # Today counts as worked once money came in today; until then it is still one of the days left — so the
+        # morning does not show a day with no income yet, and the evening does not leave out the day's income.
         settings = self.session.get(StudioSettings, studio_id)
         work_days = sorted(settings.work_days) if settings and settings.work_days else [0, 1, 2, 3, 4, 5, 6]
         working = [d for d in month_days if js_weekday(d) in work_days]
         today = today_il()
-        days_elapsed = sum(1 for d in working if d < today)
+        today_worked = by_day.get(today, 0) > 0
+        days_elapsed = sum(1 for d in working if d < today or (d == today and today_worked))
         days_remaining = len(working) - days_elapsed
-        revenue_before_today = Decimal(sum(c for d, c in by_day.items() if d < today)) / Decimal(100)
+        revenue_so_far = Decimal(sum(c for d, c in by_day.items() if d <= today)) / Decimal(100)
 
-        current_daily_avg = (revenue_before_today / Decimal(days_elapsed)) if days_elapsed > 0 else Decimal("0.00")
+        current_daily_avg = (revenue_so_far / Decimal(days_elapsed)) if days_elapsed > 0 else Decimal("0.00")
         required_daily_avg = (remaining / Decimal(days_remaining)) if days_remaining > 0 else Decimal("0.00")
         daily_revenue = [{"day": d.day, "amount": Decimal(by_day.get(d, 0)) / Decimal(100)} for d in month_days if d <= today]
 

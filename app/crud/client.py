@@ -177,16 +177,9 @@ def _handle_new_club_member(db: Session, studio_id: UUID, client: Client):
         now = datetime.now(timezone.utc)
         if client.birth_date.month == now.month:
             try:
-                from app.crud.birthday_coupon import get_or_create_birthday_coupon
-                from sqlalchemy import select as _sel
-                reminder_type = f"birthday-{now.year}-{now.month:02d}"
-                already = db.scalar(
-                    _sel(MessageJob).where(
-                        MessageJob.client_id == client.id,
-                        MessageJob.reminder_type == reminder_type,
-                    )
-                )
-                if not already:
+                from app.crud.birthday_coupon import birthday_message_key, birthday_message_sent, get_or_create_birthday_coupon
+                reminder_type = birthday_message_key(now.year, now.month)
+                if not birthday_message_sent(db, client.id, now.year, now.month):
                     discount_percent = int(settings.birthday_benefit_percent or 10) or 10
                     coupon = get_or_create_birthday_coupon(
                         db,

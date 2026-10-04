@@ -56,6 +56,36 @@ type LoyaltyStats = {
 
 const MONTHS = ["ינואר","פברואר","מרץ","אפריל","מאי","יוני","יולי","אוגוסט","ספטמבר","אוקטובר","נובמבר","דצמבר"];
 
+type MemberSortKey = "points" | "birthday" | "joined" | "name";
+// the first click shows what the owner usually wants first: most points, the nearest birthday, the newest member
+const FIRST_DIR: Record<MemberSortKey, "asc" | "desc"> = { points: "desc", birthday: "asc", joined: "desc", name: "asc" };
+const MEMBER_SORTS: { value: string; label: string }[] = [
+    { value: "", label: "מיון: ללא" },
+    { value: "points:desc", label: "הכי הרבה נקודות" },
+    { value: "points:asc", label: "הכי מעט נקודות" },
+    { value: "birthday:asc", label: "יום הולדת הכי קרוב" },
+    { value: "birthday:desc", label: "יום הולדת הכי רחוק" },
+    { value: "joined:desc", label: "הצטרפו לאחרונה" },
+    { value: "joined:asc", label: "הצטרפו ראשונים" },
+    { value: "name:asc", label: "שם (א–ת)" },
+    { value: "name:desc", label: "שם (ת–א)" },
+];
+
+/** Days from today to the next birthday (0 = today); null with no birth date. */
+function daysToBirthday(birthDate: string | null): number | null {
+    if (!birthDate) return null;
+    const [, m, d] = birthDate.slice(0, 10).split("-").map(Number);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const at = (year: number) => {
+        const day = new Date(year, m - 1, d);
+        return day.getMonth() === m - 1 ? day : new Date(year, 1, 28);   // 29 Feb in a year without one → 28 Feb
+    };
+    let next = at(today.getFullYear());
+    if (next < today) next = at(today.getFullYear() + 1);
+    return Math.round((next.getTime() - today.getTime()) / 86_400_000);
+}
+
 function PageInner() {
     const searchParams = useSearchParams();
     const tab: "all" | "club" = searchParams.get("tab") === "club" ? "club" : "all";
@@ -87,6 +117,7 @@ function PageInner() {
     const [clubLoading, setClubLoading] = useState(false);
     const [clubSearch, setClubSearch] = useState("");
     const [sourceFilter, setSourceFilter] = useState<"all" | "landing" | "manual">("all");
+    const [memberSort, setMemberSort] = useState<{ key: MemberSortKey; dir: "asc" | "desc" } | null>(null);
 
     // ── Birthday coupon status ──
     type BirthdayClient = {
@@ -207,11 +238,41 @@ function PageInner() {
 
     const clubCount = items.filter(c => c.is_club_member).length;
 
-    const filteredMembers = useMemo(() => (clubStats?.members || []).filter(m => {
+    const toggleMemberSort = (key: MemberSortKey) =>
+        setMemberSort(s => s?.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: FIRST_DIR[key] });
+
+    const filteredMembers = useMemo(() => {
         const q = clubSearch.toLowerCase();
-        return (!q || m.full_name.toLowerCase().includes(q) || (m.phone || "").includes(q)) &&
-               (sourceFilter === "all" || m.source === sourceFilter);
-    }), [clubStats, clubSearch, sourceFilter]);
+        const list = (clubStats?.members || []).filter(m =>
+            (!q || m.full_name.toLowerCase().includes(q) || (m.phone || "").includes(q)) &&
+            (sourceFilter === "all" || m.source === sourceFilter));
+        if (!memberSort) return list;
+        const { key, dir } = memberSort;
+        const sign = dir === "asc" ? 1 : -1;
+        const value = (m: ClubMember): number | null =>
+            key === "points" ? m.points
+            : key === "joined" ? (m.joined_at ? Date.parse(m.joined_at) : null)
+            : daysToBirthday(m.birth_date);
+        return [...list].sort((a, b) => {
+            if (key === "name") return sign * a.full_name.localeCompare(b.full_name, "he");
+            const va = value(a), vb = value(b);
+            if (va === null || vb === null) return va === vb ? 0 : va === null ? 1 : -1;   // no date — always last
+            return sign * (va - vb);
+        });
+    }, [clubStats, clubSearch, sourceFilter, memberSort]);
+
+    const sortTh = (key: MemberSortKey, label: string, className: string) => {
+        const active = memberSort?.key === key;
+        return (
+            <th className={className} aria-sort={active ? (memberSort!.dir === "asc" ? "ascending" : "descending") : "none"}>
+                <button type="button" onClick={() => toggleMemberSort(key)}
+                    className={`inline-flex items-center gap-1 font-semibold text-xs hover:text-amber-700 transition-colors ${active ? "text-amber-700" : "text-slate-500"}`}>
+                    {label}
+                    <span className={active ? "text-amber-600" : "text-slate-300"}>{active ? (memberSort!.dir === "asc" ? "▲" : "▼") : "↕"}</span>
+                </button>
+            </th>
+        );
+    };
 
     return (
         <RequireAuth>
@@ -459,6 +520,16 @@ function PageInner() {
                                                 </button>
                                             ))}
                                         </div>
+                                        {/* on a narrow screen some columns are hidden — sorting by them is chosen here */}
+                                        <select title="מיון" aria-label="מיון"
+                                            value={memberSort ? `${memberSort.key}:${memberSort.dir}` : ""}
+                                            onChange={e => {
+                                                const [key, dir] = e.target.value.split(":") as [MemberSortKey, "asc" | "desc"];
+                                                setMemberSort(e.target.value ? { key, dir } : null);
+                                            }}
+                                            className="lg:hidden rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-400">
+                                            {MEMBER_SORTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                                        </select>
                                     </div>
                                     {filteredMembers.length === 0 ? (
                                         <div className="py-16 text-center space-y-2">
@@ -469,11 +540,11 @@ function PageInner() {
                                         <table className="w-full min-w-105 text-sm">
                                             <thead>
                                                 <tr className="bg-slate-50 border-b border-slate-100">
-                                                    <th className="text-right px-5 py-3 font-semibold text-slate-500 text-xs">שם</th>
+                                                    {sortTh("name", "שם", "text-right px-5 py-3")}
                                                     <th className="text-right px-5 py-3 font-semibold text-slate-500 text-xs hidden sm:table-cell">טלפון</th>
-                                                    <th className="text-right px-5 py-3 font-semibold text-slate-500 text-xs">נקודות</th>
-                                                    <th className="text-right px-5 py-3 font-semibold text-slate-500 text-xs hidden md:table-cell">יום הולדת</th>
-                                                    <th className="text-right px-5 py-3 font-semibold text-slate-500 text-xs hidden lg:table-cell">הצטרפות</th>
+                                                    {sortTh("points", "נקודות", "text-right px-5 py-3")}
+                                                    {sortTh("birthday", "יום הולדת", "text-right px-5 py-3 hidden md:table-cell")}
+                                                    {sortTh("joined", "הצטרפות", "text-right px-5 py-3 hidden lg:table-cell")}
                                                     <th className="text-right px-5 py-3 font-semibold text-slate-500 text-xs">מקור</th>
                                                 </tr>
                                             </thead>

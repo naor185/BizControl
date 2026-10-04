@@ -1,6 +1,6 @@
 """The monthly goal counts only the business's working days: a business closed on Saturday has no Saturdays left to
 fill, so "days left" and "needed per day" leave them out. The owner picks the days (default Sunday–Friday).
-Today is one of the days left until it ends; the daily average is over the working days already over. The month and
+Today counts as worked once money came in today, and is one of the days left until then. The month and
 the daily chart go by the clock in Israel. Local test database; nothing is sent."""
 from datetime import date, datetime, timezone
 
@@ -48,13 +48,20 @@ def test_days_left_and_needed_per_day_skip_days_off(client, db_session, monkeypa
     assert client.post("/api/goals/?year=2026&month=10", json={"target_amount": 75000}, headers=h).status_code == 200
     assert client.get("/api/studio/automation", headers=h).json()["work_days"] == [0, 1, 2, 3, 4, 5]
 
-    # Sunday–Friday: October 2026 has 5 Saturdays → 26 working days; 1 and 2 October are over, today is still ahead
+    # Sunday–Friday: October 2026 has 5 Saturdays → 26 working days; 1, 2 and 4 October worked (money came in today)
     p = client.get(OCT, headers=h).json()
     assert float(p["current_revenue"]) == 12500
-    assert (p["days_in_month"], p["days_elapsed"], p["days_remaining"], p["work_days"]) == (26, 2, 24, [0, 1, 2, 3, 4, 5])
-    assert float(p["required_daily_avg"]) == 2604.17       # 62,500 / 24
-    assert float(p["current_daily_avg"]) == 6100.00        # 12,200 before today / 2
+    assert (p["days_in_month"], p["days_elapsed"], p["days_remaining"], p["work_days"]) == (26, 3, 23, [0, 1, 2, 3, 4, 5])
+    assert float(p["required_daily_avg"]) == 2717.39       # 62,500 / 23
+    assert float(p["current_daily_avg"]) == 4166.67        # 12,500 / 3
     assert [(r["day"], float(r["amount"])) for r in p["daily_revenue"]] == [(1, 1000), (2, 11200), (3, 0), (4, 300)]
+
+    # the next morning, before any money: Monday is still one of the days left
+    monkeypatch.setattr("app.repositories.goal_repository.today_il", lambda: date(2026, 10, 5))
+    p = client.get(OCT, headers=h).json()
+    assert (p["days_elapsed"], p["days_remaining"]) == (3, 23)
+    assert float(p["current_daily_avg"]) == 4166.67 and float(p["required_daily_avg"]) == 2717.39
+    monkeypatch.setattr("app.repositories.goal_repository.today_il", lambda: date(2026, 10, 4))
 
     # the month ends at midnight in Israel, not at midnight UTC
     sep = client.get("/api/goals/progress?year=2026&month=9", headers=h).json()
@@ -66,12 +73,12 @@ def test_days_left_and_needed_per_day_skip_days_off(client, db_session, monkeypa
     r = client.patch("/api/studio/automation", json={"work_days": [4, 0, 3, 1, 2, 2]}, headers=h)
     assert r.status_code == 200 and r.json()["work_days"] == [0, 1, 2, 3, 4]
     p = client.get(OCT, headers=h).json()
-    assert (p["days_in_month"], p["days_elapsed"], p["days_remaining"]) == (21, 1, 20)
+    assert (p["days_in_month"], p["days_elapsed"], p["days_remaining"]) == (21, 2, 19)
 
     # every day of the week — the whole month counts
     client.patch("/api/studio/automation", json={"work_days": [0, 1, 2, 3, 4, 5, 6]}, headers=h)
     p = client.get(OCT, headers=h).json()
-    assert (p["days_in_month"], p["days_elapsed"], p["days_remaining"]) == (31, 3, 28)
+    assert (p["days_in_month"], p["days_elapsed"], p["days_remaining"]) == (31, 4, 27)
 
     # no working day at all, or a day that does not exist, is refused
     assert client.patch("/api/studio/automation", json={"work_days": []}, headers=h).status_code == 422

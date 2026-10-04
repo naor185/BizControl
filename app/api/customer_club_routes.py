@@ -212,9 +212,8 @@ def birthday_status(
     ctx: AuthContext = Depends(require_studio_ctx),
     db: Session = Depends(get_db),
 ):
-    """Return all clients with birthdays in the given month, including coupon sent/used status."""
-    from app.models.message_job import MessageJob
-    from app.models.studio_settings import StudioSettings
+    """Return all clients with birthdays in the given month, by date, including coupon sent/used status."""
+    from app.crud.birthday_coupon import birthday_message_sent
 
     now = datetime.now(timezone.utc)
     target_month = month or now.month
@@ -227,7 +226,7 @@ def birthday_status(
             Client.is_active.is_(True),
             Client.birth_date.isnot(None),
             extract("month", Client.birth_date) == target_month,
-        ).order_by(Client.full_name)
+        ).order_by(extract("day", Client.birth_date), Client.full_name)
     ).all()
 
     result = []
@@ -242,17 +241,7 @@ def birthday_status(
             )
         )
 
-        # Check if WhatsApp message was sent — reminder_type is the real dedup
-        # key both send paths (the daily sweep in message_worker.py and the
-        # on-join catch-up in crud/client.py) actually write; a body-tag
-        # never matched what either path puts in the message body, so this
-        # always reported "not sent" regardless of the truth.
-        msg_sent = db.scalar(
-            select(MessageJob).where(
-                MessageJob.client_id == c.id,
-                MessageJob.reminder_type == f"birthday-{target_year}-{target_month:02d}",
-            )
-        )
+        msg_sent = birthday_message_sent(db, c.id, target_year, target_month)
 
         result.append({
             "client_id": str(c.id),
@@ -287,7 +276,7 @@ def send_birthday_coupon_now(
     """Manually send a birthday coupon to a specific client (for clients who missed the monthly sweep)."""
     from app.models.message_job import MessageJob
     from app.models.studio_settings import StudioSettings
-    from app.crud.birthday_coupon import get_or_create_birthday_coupon
+    from app.crud.birthday_coupon import birthday_message_key, birthday_message_sent, get_or_create_birthday_coupon
     from app.crud.automation import format_template
 
     client = db.get(Client, client_id)
@@ -309,16 +298,8 @@ def send_birthday_coupon_now(
     if not settings:
         raise HTTPException(status_code=500, detail="הגדרות העסק לא נמצאו")
 
-    tag = f"[birthday-{target_year}-{target_month:02d}]"
-
-    # Check if already sent
-    existing_msg = db.scalar(
-        select(MessageJob).where(
-            MessageJob.client_id == client.id,
-            MessageJob.body.contains(tag),
-        )
-    )
-    if existing_msg:
+    # the same key as the daily sweep and the message on joining — one birthday message, whoever sends it first
+    if birthday_message_sent(db, client.id, target_year, target_month):
         raise HTTPException(status_code=400, detail="קופון יומולדת כבר נשלח ללקוח זה לחודש זה")
 
     discount_percent = int(settings.birthday_benefit_percent or 10) or 10
@@ -340,16 +321,11 @@ def send_birthday_coupon_now(
         "birth_month": target_month,
     }
 
-    wa_template = settings.birthday_wa_template
-    if not wa_template:
-        wa_template = (
-            f"{tag}\n"
-            "היי {client_name}, מזל טוב! 🎉\n"
-            "הנה הטבה מיוחדת של {benefit_percent}% הנחה לחודש ההולדת שלך — במיוחד בשבילך ❤️\n\n"
-            "קוד הקופון שלך: *{coupon_code}*"
-        )
-    else:
-        wa_template = f"{tag}\n{wa_template}"
+    wa_template = settings.birthday_wa_template or (
+        "היי {client_name}, מזל טוב! 🎉\n"
+        "הנה הטבה מיוחדת של {benefit_percent}% הנחה לחודש ההולדת שלך — במיוחד בשבילך ❤️\n\n"
+        "קוד הקופון שלך: *{coupon_code}*"
+    )
 
     if not client.phone:
         raise HTTPException(status_code=400, detail="ללקוח אין טלפון")
@@ -363,7 +339,7 @@ def send_birthday_coupon_now(
         body=wa_body,
         scheduled_at=now,
         status="pending",
-        reminder_type="birthday_manual",   # marks it as marketing for the dispatcher (app/services/marketing.py)
+        reminder_type=birthday_message_key(target_year, target_month),   # marketing (app/services/marketing.py)
     ))
     db.commit()
     return {"ok": True, "coupon_code": coupon.code}

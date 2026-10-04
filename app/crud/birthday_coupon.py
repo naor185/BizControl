@@ -57,6 +57,25 @@ def _generate_code(db: Session, client_name: str, discount: int, month: int = 0)
     return code
 
 
+def birthday_message_key(year: int, month: int) -> str:
+    """The one dedup key (reminder_type) of a client's birthday message — the daily sweep, the message on joining the
+    club and the owner's "send now" all write it, so a client gets one birthday message per birthday."""
+    return f"birthday-{year}-{month:02d}"
+
+
+def birthday_message_sent(db: Session, client_id: UUID, year: int, month: int):
+    """The birthday message already queued for this birthday, if any — including one the owner sent by hand before
+    "send now" used the shared key (reminder_type "birthday_manual", a "[birthday-YYYY-MM]" line in its text)."""
+    from sqlalchemy import and_, or_
+    from app.models.message_job import MessageJob
+    key = birthday_message_key(year, month)
+    return db.scalar(select(MessageJob).where(
+        MessageJob.client_id == client_id,
+        or_(MessageJob.reminder_type == key,
+            and_(MessageJob.reminder_type == "birthday_manual", MessageJob.body.contains(f"[{key}]"))),
+    ).order_by(MessageJob.created_at.desc()).limit(1))
+
+
 def get_or_create_birthday_coupon(
     db: Session,
     studio_id: UUID,
