@@ -41,6 +41,7 @@ class AutomationSettingsOut(BaseModel):
     birthday_email_template: str | None = None
     birthday_benefit_percent: int = 0
     birthday_automation_enabled: bool = True
+    birthday_send_timing: str = "month_start"
     block_shabbat_messages: bool = False
 
     # Gift card purchase bonus
@@ -204,6 +205,15 @@ class AutomationSettingsUpdate(BaseModel):
     birthday_email_template: str | None = None
     birthday_benefit_percent: int | None = Field(default=None, ge=0, le=100)
     birthday_automation_enabled: bool | None = None
+    birthday_send_timing: str | None = None
+
+    @field_validator("birthday_send_timing")
+    @classmethod
+    def _validate_birthday_send_timing(cls, v):
+        if v is not None and v not in ("month_start", "two_days"):
+            raise ValueError("מועד שליחת הודעת יום הולדת לא תקין")
+        return v
+
     block_shabbat_messages: bool | None = None
 
     # Gift card purchase bonus

@@ -57,6 +57,8 @@ class StudioSettings(Base):
     birthday_email_template: Mapped[str | None] = mapped_column(Text, nullable=True)
     birthday_benefit_percent: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     birthday_automation_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+    # 'month_start' — on the 1st of the birthday month; 'two_days' — 2 days before (crud/birthday_coupon.birthday_send_window)
+    birthday_send_timing: Mapped[str] = mapped_column(String(16), nullable=False, default="month_start", server_default="month_start")
 
     # Gift card purchase bonus — e.g. "orders over ₪500 get 10% extra value"
     gift_card_bonus_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")

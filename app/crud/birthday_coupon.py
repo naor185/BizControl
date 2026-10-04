@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import calendar
 import secrets
-from datetime import datetime, timezone, timedelta
+from datetime import date, datetime, timezone, timedelta
 from uuid import UUID
 
 from sqlalchemy import select
@@ -55,6 +56,24 @@ def _generate_code(db: Session, client_name: str, discount: int, month: int = 0)
             code = f"{base}{secrets.token_hex(2).upper()}"
             break
     return code
+
+
+BIRTHDAY_TIMINGS = ("month_start", "two_days")    # studio_settings.birthday_send_timing — the owner's choice
+
+
+def birthday_on(birth: date, year: int) -> date:
+    """The birthday in a given year — 29 February is the 28th in a year without one."""
+    if birth.month == 2 and birth.day == 29 and not calendar.isleap(year):
+        return date(year, 2, 28)
+    return date(year, birth.month, birth.day)
+
+
+def birthday_send_window(timing: str | None, birthday: date) -> tuple[date, date]:
+    """The days the birthday message goes out on: from the 1st of the birthday month (to its end), or from 2 days
+    before the birthday (to the birthday). The daily sweep sends on the first day; a day it missed is caught up later."""
+    if timing == "two_days":
+        return birthday - timedelta(days=2), birthday
+    return birthday.replace(day=1), birthday.replace(day=calendar.monthrange(birthday.year, birthday.month)[1])
 
 
 def birthday_message_key(year: int, month: int) -> str:

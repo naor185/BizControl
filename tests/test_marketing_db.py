@@ -46,7 +46,7 @@ def test_birthday_benefit_goes_out_once_with_a_working_unsubscribe_link(db_sessi
     studio = Studio(name="בדיקה", slug="bday")
     db_session.add(studio)
     db_session.flush()
-    db_session.add(StudioSettings(studio_id=studio.id))
+    db_session.add(StudioSettings(studio_id=studio.id, birthday_send_timing="two_days"))
     in_two_days = datetime.now(pytz.timezone("Asia/Jerusalem")).date() + timedelta(days=2)
     birthday = date(1992, in_two_days.month, in_two_days.day)   # 1992 is a leap year, so 29/2 works too
     ok = Client(studio_id=studio.id, full_name="טל", phone="0501110001", birth_date=birthday, is_club_member=True)

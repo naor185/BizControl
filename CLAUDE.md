@@ -86,7 +86,7 @@ Per-studio feature flags stored in `studio_features` table. Use `require_feature
 - Every 20s: `process_due_jobs` (sends pending WhatsApp/email from `message_jobs` queue)
 - Every 2h: `sweep_upcoming_reminders` (1-day reminders), `sweep_7day_reminders`, `sweep_3day_reminders`
 - Cron 08:00 Israel time: `sweep_same_day_reminders`
-- Cron 25th/month: `sweep_birthday_messages`
+- Cron daily 10:00 Israel time: `sweep_birthday_messages` — on the 1st of the birthday month or 2 days before, per studio (`birthday_send_timing`); a missed day is caught up, one message per birthday (`crud/birthday_coupon.birthday_message_key`)
 
 ### Message Queue (`message_jobs` table)
 All outbound messages (WhatsApp, email) are **enqueued** first, then processed by `process_due_jobs`. Use `MessageJob` model. Always set `reminder_type` (e.g. `"1day"`, `"7day"`, `"same_day"`) for reminder messages to enable dedup — never use body-tag dedup (`[7day]` in message text).

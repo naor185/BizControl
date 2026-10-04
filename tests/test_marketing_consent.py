@@ -228,7 +228,8 @@ def test_daily_birthday_sweep_runs_and_only_reaches_clients_who_may_receive_mark
     import app.services.email_center as ec
     monkeypatch.setattr(bc, "get_or_create_birthday_coupon", lambda db, **kw: SimpleNamespace(code="TAL10"))
     monkeypatch.setattr(ec, "studio_email_allowed", lambda *a, **k: False)
-    settings = SimpleNamespace(birthday_automation_enabled=True, birthday_benefit_percent=10, birthday_wa_template=None)
+    settings = SimpleNamespace(birthday_automation_enabled=True, birthday_benefit_percent=10, birthday_wa_template=None,
+                               birthday_send_timing="two_days")
     ok, no_consent = client(), client(consent=False)
     import pytz
     in_two_days = datetime.now(pytz.timezone("Asia/Jerusalem")).date() + timedelta(days=2)

@@ -849,38 +849,31 @@ def sweep_same_day_reminders(db: Session) -> int:
     return count
 
 
-def sweep_birthday_messages(db: Session, studio_id=None) -> int:
-    """Runs DAILY — sends a personal birthday WhatsApp + coupon to each club
-    member 2 days before their own birthday (a missed day is caught up until the birthday itself), instead of one
-    generic batch at the start of the birthday month. Each MessageJob is per-client,
-    so "who received / who didn't" is visible in the working system exactly
-    as before — only the timing/targeting changed.
+def sweep_birthday_messages(db: Session, studio_id=None, today=None) -> int:
+    """Runs DAILY — sends a personal birthday WhatsApp + coupon to each club member, when the studio chose
+    (birthday_send_timing): on the 1st of their birthday month, or 2 days before their birthday. A day the job did
+    not run (the server down at 10:00) is caught up within the window (crud/birthday_coupon.birthday_send_window);
+    the shared key keeps it to one message per birthday. Each MessageJob is per-client, so "who received / who
+    didn't" shows in the birthday table.
     Pass studio_id to limit the sweep to a single studio (for manual triggers by studio owners)."""
-    import calendar
     from app.models.client import Client
     from app.models.studio_settings import StudioSettings
-    from app.crud.birthday_coupon import birthday_message_key, birthday_message_sent, get_or_create_birthday_coupon
-    from sqlalchemy import and_, extract, or_
+    from app.crud.birthday_coupon import (birthday_message_key, birthday_message_sent, birthday_on,
+                                          birthday_send_window, get_or_create_birthday_coupon)
+    from sqlalchemy import extract
     import pytz
 
     now = datetime.now(timezone.utc)
-    # Birthday matching is a calendar-date concept — use Israel local date so
-    # "2 days before" lands on the right day regardless of the UTC offset.
-    today_il = datetime.now(pytz.timezone("Asia/Jerusalem")).date()
-    # Birthdays from today to 2 days ahead: on a normal day only the one 2 days ahead is new (the others got theirs);
-    # a day the job did not run (the server down at 10:00) is caught up the next day instead of skipped for good.
-    upcoming: dict[tuple[int, int], date] = {}
-    for i in range(3):
-        d = today_il + timedelta(days=i)
-        upcoming[(d.month, d.day)] = d
-        if d.month == 2 and d.day == 28 and not calendar.isleap(d.year):
-            upcoming[(2, 29)] = d           # born on 29 February: celebrated on the 28th in a year without one
+    # Birthday matching is a calendar-date concept — the date in Israel.
+    today_il = today or datetime.now(pytz.timezone("Asia/Jerusalem")).date()
+    next_month = (today_il.replace(day=1) + timedelta(days=32)).replace(day=1)
 
     filters = [
         Client.is_club_member.is_(True),
         Client.is_active.is_(True),
         Client.birth_date.isnot(None),
-        or_(*[and_(extract("month", Client.birth_date) == m, extract("day", Client.birth_date) == dd) for m, dd in upcoming]),
+        # this month's birthdays, and next month's (2 days before the 1st falls in this month)
+        extract("month", Client.birth_date).in_([today_il.month, next_month.month]),
     ]
     if studio_id is not None:
         filters.append(Client.studio_id == studio_id)
@@ -901,12 +894,20 @@ def sweep_birthday_messages(db: Session, studio_id=None) -> int:
         if not may_receive_marketing(client):
             continue
 
-        birthday = upcoming[(client.birth_date.month, client.birth_date.day)]
+        timing = getattr(settings, "birthday_send_timing", None) or "month_start"
+        year = today_il.year if client.birth_date.month == today_il.month else next_month.year
+        birthday = birthday_on(client.birth_date, year)
+        send_from, send_until = birthday_send_window(timing, birthday)
+        if not (send_from <= today_il <= send_until):
+            continue
         target_month, target_year = birthday.month, birthday.year
         reminder_type_wa = birthday_message_key(target_year, target_month)
         if birthday_message_sent(db, client.id, target_year, target_month):
             continue
-        when = {0: "היום יום ההולדת שלך!", 1: "מחר יום ההולדת שלך!"}.get((birthday - today_il).days, "עוד יומיים יום ההולדת שלך!")
+        if timing == "two_days":
+            when = {0: "היום יום ההולדת שלך!", 1: "מחר יום ההולדת שלך!"}.get((birthday - today_il).days, "עוד יומיים יום ההולדת שלך!")
+        else:
+            when = "חודש יום ההולדת שלך הגיע!"
 
         discount_percent = int(settings.birthday_benefit_percent or 10) or 10
         coupon = get_or_create_birthday_coupon(
@@ -927,15 +928,13 @@ def sweep_birthday_messages(db: Session, studio_id=None) -> int:
             "birth_month": target_month,
         }
 
-        # Respect a studio's custom template if set; otherwise use a warm,
-        # personal default that names the client and the fact it's *their*
-        # birthday in 2 days — not a generic "birthday month" blast.
+        # Respect a studio's custom template if set; otherwise a warm, personal default worded for when it goes out.
         wa_template = settings.birthday_wa_template
         if not wa_template:
             wa_template = (
                 "{client_name} יקר/ה, " + when + " 🎂✨\n"
                 "רצינו להיות הראשונים לאחל לך מכל הלב — מזל טוב! 🎉\n"
-                "הכנו לך מתנה אישית: {benefit_percent}% הנחה, במיוחד בשבילך ליום המיוחד שלך ❤️\n\n"
+                "הכנו לך מתנה אישית: {benefit_percent}% הנחה, במיוחד בשבילך לכבוד יום ההולדת ❤️\n\n"
                 "קוד הקופון שלך: *{coupon_code}*\n"
                 "נשמח לחגוג איתך 🥳"
             )
@@ -991,7 +990,7 @@ def sweep_birthday_messages(db: Session, studio_id=None) -> int:
 
     if count:
         db.commit()
-    log.info("sweep_birthday_messages: enqueued %d birthday messages for birthdays %s to %s", count, today_il, today_il + timedelta(days=2))
+    log.info("sweep_birthday_messages: enqueued %d birthday messages on %s", count, today_il)
     return count
 
 

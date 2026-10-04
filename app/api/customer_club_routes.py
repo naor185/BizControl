@@ -212,12 +212,16 @@ def birthday_status(
     ctx: AuthContext = Depends(require_studio_ctx),
     db: Session = Depends(get_db),
 ):
-    """Return all clients with birthdays in the given month, by date, including coupon sent/used status."""
-    from app.crud.birthday_coupon import birthday_message_sent
+    """Return all clients with birthdays in the given month, by date, including coupon sent/used status and the days
+    their birthday message goes out on (send_from–send_until, the studio's birthday_send_timing)."""
+    from app.crud.birthday_coupon import birthday_message_sent, birthday_on, birthday_send_window
+    from app.models.studio_settings import StudioSettings
 
     now = datetime.now(timezone.utc)
     target_month = month or now.month
     target_year = year or now.year
+    settings = db.get(StudioSettings, ctx.studio_id)
+    timing = (settings.birthday_send_timing if settings else None) or "month_start"
 
     # All active clients with birth_date in target month (club members + non-members)
     clients = db.scalars(
@@ -242,6 +246,7 @@ def birthday_status(
         )
 
         msg_sent = birthday_message_sent(db, c.id, target_year, target_month)
+        send_from, send_until = birthday_send_window(timing, birthday_on(c.birth_date, target_year))
 
         result.append({
             "client_id": str(c.id),
@@ -260,9 +265,11 @@ def birthday_status(
             # Message sent
             "message_sent": msg_sent is not None,
             "message_status": msg_sent.status if msg_sent else None,
+            "send_from": send_from.isoformat(),
+            "send_until": send_until.isoformat(),
         })
 
-    return {"month": target_month, "year": target_year, "clients": result}
+    return {"month": target_month, "year": target_year, "timing": timing, "clients": result}
 
 
 @router.post("/send-birthday-coupon/{client_id}")

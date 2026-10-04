@@ -2652,6 +2652,8 @@ def ensure_schema():
 
         # The days the business works (0 = Sunday … 6 = Saturday) — the monthly goal counts only these
         cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS work_days SMALLINT[] NOT NULL DEFAULT '{0,1,2,3,4,5}'")
+        # When the birthday message goes out: 'month_start' (the 1st of the birthday month) or 'two_days' (2 days before)
+        cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS birthday_send_timing VARCHAR(16) NOT NULL DEFAULT 'month_start'")
 
         conn.commit()
         cur.close()

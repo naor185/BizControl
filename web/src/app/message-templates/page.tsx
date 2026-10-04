@@ -49,6 +49,9 @@ interface AutomSection {
     toggleLabel?: string;
     delayKey?: string;
     delayLabel?: string;
+    choiceKey?: string;                                   // a setting picked from ready options, shown while the toggle is on
+    choiceLabel?: string;
+    choiceOptions?: { value: string; label: string }[];
     description: string;
     hints: string[];
     bizfind?: boolean;
@@ -212,7 +215,12 @@ const GROUPS: SectionGroup[] = [
                 id: "birthday", title: "יום הולדת", icon: "🎂",
                 templateKey: "birthday_wa_template", emailKey: "birthday_email_template",
                 toggleKey: "birthday_automation_enabled", toggleLabel: "שלח הודעת יום הולדת",
-                description: "נשלחת חודש לפני יום ההולדת לחברי מועדון",
+                choiceKey: "birthday_send_timing", choiceLabel: "מתי לשלוח",
+                choiceOptions: [
+                    { value: "month_start", label: "בתחילת חודש יום ההולדת" },
+                    { value: "two_days", label: "יומיים לפני יום ההולדת" },
+                ],
+                description: "נשלחת לחברי מועדון עם קופון הנחה — בתחילת חודש יום ההולדת או יומיים לפני, לפי הבחירה",
                 hints: ["client_name","coupon_code","benefit_percent"],
             },
             {
@@ -275,18 +283,20 @@ function PlaceholderBar({ hints, onInsert }: { hints: string[]; onInsert: (ph: s
 }
 
 function TemplateEditor({
-    section, value, emailValue, toggleValue, delayValue,
-    onChange, onEmailChange, onToggle, onDelayChange, onClear,
+    section, value, emailValue, toggleValue, delayValue, choiceValue,
+    onChange, onEmailChange, onToggle, onDelayChange, onChoiceChange, onClear,
 }: {
     section: AutomSection;
     value: string;
     emailValue?: string;
     toggleValue?: boolean;
     delayValue?: number;
+    choiceValue?: string;
     onChange: (v: string) => void;
     onEmailChange?: (v: string) => void;
     onToggle?: (v: boolean) => void;
     onDelayChange?: (v: number) => void;
+    onChoiceChange?: (v: string) => void;
     onClear: () => void;
 }) {
     const waRef = useRef<HTMLTextAreaElement>(null);
@@ -335,6 +345,15 @@ function TemplateEditor({
                                         onChange={e => onDelayChange(Number(e.target.value))}
                                         style={{ width: 64, background: "rgba(0,0,0,.3)", border: "1px solid rgba(255,255,255,.12)", borderRadius: 8, padding: "0.2rem 0.4rem", color: "#e2e8f0", fontSize: "0.8rem", textAlign: "center" }}
                                     />
+                                </label>
+                            )}
+                            {section.choiceKey && section.choiceOptions && onChoiceChange && toggleValue && (
+                                <label style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: "0.75rem", color: "#94a3b8" }}>
+                                    <span>{section.choiceLabel}</span>
+                                    <select value={choiceValue ?? section.choiceOptions[0].value} onChange={e => onChoiceChange(e.target.value)}
+                                        style={{ background: "rgba(0,0,0,.3)", border: "1px solid rgba(255,255,255,.12)", borderRadius: 8, padding: "0.25rem 0.5rem", color: "#e2e8f0", fontSize: "0.8rem" }}>
+                                        {section.choiceOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                                    </select>
                                 </label>
                             )}
                         </>
@@ -449,6 +468,8 @@ export default function MessageTemplatesPage() {
                                                 emailValue={section.emailKey ? (settings[section.emailKey] as string) || "" : undefined}
                                                 toggleValue={section.toggleKey ? (settings[section.toggleKey] as boolean) ?? true : undefined}
                                                 delayValue={section.delayKey ? (settings[section.delayKey] as number) ?? 0 : undefined}
+                                                choiceValue={section.choiceKey ? (settings[section.choiceKey] as string) ?? undefined : undefined}
+                                                onChoiceChange={section.choiceKey ? v => set(section.choiceKey!, v) : undefined}
                                                 onChange={v => set(section.templateKey, v || null)}
                                                 onEmailChange={section.emailKey ? v => set(section.emailKey!, v || null) : undefined}
                                                 onToggle={section.toggleKey ? v => set(section.toggleKey!, v) : undefined}

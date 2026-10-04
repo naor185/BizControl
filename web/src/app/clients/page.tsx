@@ -127,6 +127,7 @@ function PageInner() {
         coupon_code: string | null; coupon_status: string; coupon_discount: number | null;
         coupon_expires_at: string | null; redeemed_at: string | null;
         message_sent: boolean; message_status: string | null;
+        send_from: string; send_until: string;   // the days the birthday message goes out on (the studio's choice)
     };
     const now = new Date();
     const [bdMonth, setBdMonth] = useState(now.getMonth() + 1);
@@ -646,16 +647,12 @@ function PageInner() {
                                                 {bdData.map(c => {
                                                     const today = new Date();
                                                     today.setHours(0, 0, 0, 0);
-                                                    const birthDay = c.birth_date ? new Date(c.birth_date).getDate() : null;
-                                                    // The actual send trigger (sweep_birthday_messages, message_worker.py)
-                                                    // runs daily and messages each club member exactly 2 days before
-                                                    // *their own* birthday — not on a fixed day-of-month. Mirror that
-                                                    // here instead of the old "sweeps on the 25th" assumption, which no
-                                                    // longer matches what the backend actually does.
-                                                    const birthdayThisOccurrence = birthDay !== null ? new Date(bdYear, bdMonth - 1, birthDay) : null;
-                                                    const sendDate = birthdayThisOccurrence ? new Date(birthdayThisOccurrence) : null;
-                                                    if (sendDate) sendDate.setDate(sendDate.getDate() - 2);
-                                                    const birthdayPassed = birthdayThisOccurrence !== null && birthdayThisOccurrence <= today;
+                                                    // the server says when this client's message goes out (the studio's choice:
+                                                    // the 1st of the birthday month, or 2 days before); the daily run is at 10:00
+                                                    const localDay = (iso: string) => new Date(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1, Number(iso.slice(8, 10)));
+                                                    const sendDate = localDay(c.send_from);
+                                                    const sendUntil = localDay(c.send_until);
+                                                    const beforeRun = new Date().getHours() < 10;
                                                     const canSendNow = c.is_club_member && !c.message_sent && c.may_receive_marketing && c.coupon_status !== "redeemed";
                                                     const statusConfig: Record<string, { label: string; cls: string }> = {
                                                         active:   { label: "פעיל",    cls: "bg-emerald-50 text-emerald-700 border-emerald-200" },
@@ -666,11 +663,11 @@ function PageInner() {
                                                             ? { label: "✅ נשלח", cls: "bg-emerald-50 text-emerald-700 border-emerald-200" }
                                                             : !c.may_receive_marketing
                                                             ? { label: "לא יישלח — לא מאשר/ת שיווק", cls: "bg-slate-50 text-slate-500 border-slate-200" }
-                                                            : birthdayPassed
+                                                            : sendUntil < today || (sendUntil.getTime() === today.getTime() && !beforeRun)
                                                             ? { label: "לא קיבל", cls: "bg-red-50 text-red-600 border-red-200" }
-                                                            : sendDate && sendDate <= today
-                                                            ? { label: "יישלח היום", cls: "bg-amber-50 text-amber-700 border-amber-200" }
-                                                            : { label: `יישלח ב-${sendDate ? sendDate.toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit" }) : "—"}`, cls: "bg-slate-100 text-slate-500 border-slate-200" },
+                                                            : sendDate <= today
+                                                            ? { label: beforeRun ? "יישלח היום ב-10:00" : "יישלח מחר ב-10:00", cls: "bg-amber-50 text-amber-700 border-amber-200" }
+                                                            : { label: `יישלח ב-${sendDate.toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit" })}`, cls: "bg-slate-100 text-slate-500 border-slate-200" },
                                                     };
                                                     const st = statusConfig[c.coupon_status] ?? { label: c.coupon_status, cls: "bg-slate-50 text-slate-400 border-slate-200" };
                                                     return (
