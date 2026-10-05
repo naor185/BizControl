@@ -80,6 +80,12 @@ def get_counts(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Dep
     ) or 0
     return {"total": total, "club_members": club}
 
+@router.get("/marketing-optouts")
+def marketing_optouts(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+    """Everyone who does not get marketing messages, and why (app/services/marketing.marketing_optouts)."""
+    from app.services.marketing import marketing_optouts as _optouts
+    return _optouts(db, ctx.studio_id)
+
 @router.get("/club/stats")
 def club_stats(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
     from sqlalchemy import func

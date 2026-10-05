@@ -7,9 +7,10 @@ column names:
 - clients.marketing_consent is the checkbox on the club sign-up form (LandingPageTemplate):
   "אני מאשר/ת קבלת עדכונים, הטבות והודעות שיווקיות מ-<studio>". False = did not agree to marketing.
 - clients.whatsapp_opted_out is set by the personal unsubscribe link (invite_routes.optout_via_invite),
-  whose page tells the client "לא תקבל/י יותר הודעות שיווקיות אוטומטיות", and by the switch on the
-  client card. The same link is in the marketing e-mails ("להסרה מרשימת הדיוור"), so it covers every
-  channel.
+  whose page tells the client "לא תקבל/י יותר הודעות שיווקיות אוטומטיות", by a "הסר" reply on WhatsApp
+  (webhook_routes, is_unsubscribe_reply) and by the switch on the client card — record_unsubscribe /
+  set_receives_marketing keep when and how (marketing_opted_out_at/_via). The same link is in the
+  marketing e-mails ("להסרה מרשימת הדיוור"), so it covers every channel.
 
 Both flags stop MARKETING ONLY — the owner decided (2026-09-24) that reminders, confirmations,
 cancellation notices, aftercare, receipts and every other service message always go out. This module
@@ -22,6 +23,8 @@ one of the two sets below; a test fails when a new type appears unclassified.
 from __future__ import annotations
 
 import os
+import re
+from datetime import datetime, timezone
 
 from sqlalchemy import Select, select
 
@@ -97,11 +100,72 @@ def receives_marketing(client: Client) -> bool:
 
 def set_receives_marketing(client: Client, on: bool) -> None:
     """The client card switch. On = the client agreed (again) — both flags allow marketing.
-    Off = the client asked to stop, recorded like the unsubscribe link does."""
+    Off = the owner stopped it, recorded like the unsubscribe link does (via 'owner')."""
     if on:
         client.marketing_consent, client.whatsapp_opted_out = True, False
-    else:
+        client.marketing_opted_out_at = client.marketing_opted_out_via = None
+    elif not client.whatsapp_opted_out:
         client.whatsapp_opted_out = True
+        client.marketing_opted_out_at, client.marketing_opted_out_via = datetime.now(timezone.utc), "owner"
+
+
+def record_unsubscribe(db, client: Client, via: str) -> bool:
+    """The client asked to stop marketing — the unsubscribe link ('link') or a "הסר" reply on WhatsApp ('whatsapp').
+    Recorded once, with when and how, and the owner is told (a notification in the bell). False if already out."""
+    if client.whatsapp_opted_out:
+        return False
+    from app.models.notification import Notification
+    client.whatsapp_opted_out = True
+    client.marketing_opted_out_at, client.marketing_opted_out_via = datetime.now(timezone.utc), via
+    how = 'בתשובת "הסר" בוואטסאפ' if via == "whatsapp" else "בקישור ההסרה"
+    db.add(Notification(
+        studio_id=client.studio_id,
+        type="client_optout",
+        title=f"{client.full_name} הוסר/ה מרשימת ההודעות",
+        body=f"{client.phone or client.email or ''} ביקש/ה {how} לא לקבל יותר הודעות שיווקיות".strip(),
+        action_url=f"/clients/{client.id}",
+    ))
+    return True
+
+
+# What a client writes back on WhatsApp to be taken off the list — the whole message, not a word inside one
+# ("אפשר להסיר את התור?" is about an appointment, not the list).
+_UNSUBSCRIBE_REPLIES = frozenset({
+    "הסר", "הסרה", "להסרה", "הסירו", "תסירו", "תסיר",
+    "הסר אותי", "הסירו אותי", "תסירו אותי", "תסיר אותי",
+    "הסר מהרשימה", "הסר אותי מהרשימה", "הסירו אותי מהרשימה", "תסירו אותי מהרשימה", "תסיר אותי מהרשימה",
+    "הסר מרשימת התפוצה", "הסר אותי מרשימת התפוצה", "הסירו אותי מרשימת התפוצה", "תסירו אותי מרשימת התפוצה",
+    "הסר מהתפוצה", "הסר אותי מהתפוצה", "הסירו אותי מהתפוצה", "תסירו אותי מהתפוצה",
+    "stop", "unsubscribe", "remove", "remove me",
+})
+_POLITE_WORDS = frozenset({"בבקשה", "תודה", "please", "pls"})
+
+
+def is_unsubscribe_reply(text: str | None) -> bool:
+    words = re.sub(r"[^\w\s]", " ", (text or "").lower()).split()
+    return " ".join(w for w in words if w not in _POLITE_WORDS) in _UNSUBSCRIBE_REPLIES
+
+
+def marketing_optouts(db, studio_id) -> list[dict]:
+    """Every active client who does not get marketing, newest first, and why: 'link' / 'whatsapp' (asked to be
+    removed), 'owner' (switched off on the client card), 'unknown' (removed before how was recorded) or
+    'no_consent' (did not agree on the sign-up form)."""
+    from sqlalchemy import or_
+    rows = db.scalars(
+        select(Client).where(
+            Client.studio_id == studio_id,
+            Client.is_active.is_(True),
+            or_(Client.whatsapp_opted_out.is_(True), Client.marketing_consent.is_(False)),
+        ).order_by(Client.marketing_opted_out_at.desc().nulls_last(), Client.full_name)
+    ).all()
+    return [{
+        "client_id": str(c.id),
+        "full_name": c.full_name,
+        "phone": c.phone,
+        "is_club_member": bool(c.is_club_member),
+        "reason": (c.marketing_opted_out_via or "unknown") if c.whatsapp_opted_out else "no_consent",
+        "opted_out_at": c.marketing_opted_out_at.isoformat() if c.whatsapp_opted_out and c.marketing_opted_out_at else None,
+    } for c in rows]
 
 
 def unsubscribe_link(db, studio_id, client_id, commit: bool = True) -> str:

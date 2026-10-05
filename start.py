@@ -2654,6 +2654,18 @@ def ensure_schema():
         cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS work_days SMALLINT[] NOT NULL DEFAULT '{0,1,2,3,4,5}'")
         # When the birthday message goes out: 'month_start' (the 1st of the birthday month) or 'two_days' (2 days before)
         cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS birthday_send_timing VARCHAR(16) NOT NULL DEFAULT 'month_start'")
+        # When and how a client stopped marketing (app/services/marketing.record_unsubscribe): 'link', 'whatsapp'
+        # (a "הסר" reply) or 'owner' (the client card switch). Earlier unsubscribe-link clicks are recovered from
+        # the notification each one created.
+        cur.execute("ALTER TABLE clients ADD COLUMN IF NOT EXISTS marketing_opted_out_at TIMESTAMPTZ")
+        cur.execute("ALTER TABLE clients ADD COLUMN IF NOT EXISTS marketing_opted_out_via VARCHAR(16)")
+        cur.execute("""
+            UPDATE clients c SET marketing_opted_out_via = 'link', marketing_opted_out_at = n.created_at
+            FROM (SELECT studio_id, action_url, MIN(created_at) AS created_at FROM notifications
+                  WHERE type = 'client_optout' GROUP BY studio_id, action_url) n
+            WHERE c.whatsapp_opted_out AND c.marketing_opted_out_via IS NULL
+              AND n.studio_id = c.studio_id AND n.action_url = '/clients/' || c.id::text
+        """)
 
         conn.commit()
         cur.close()

@@ -37,13 +37,29 @@ def _find_by_ig_account(db: Session, ig_id: str) -> StudioSettings | None:
     return db.scalar(select(StudioSettings).where(StudioSettings.instagram_account_id == ig_id))
 
 def _match_client(db: Session, studio_id, phone: str) -> Client | None:
+    # WhatsApp sends 972501234567; clients are kept as 0501234567 (app/utils/phone.normalize_phone)
+    from app.utils.phone import normalize_phone
     clean = phone.replace("+", "").replace(" ", "").replace("-", "")
+    forms = {phone, f"+{clean}", clean} | ({normalize_phone(phone)} - {None})
     return db.scalar(
         select(Client).where(
             Client.studio_id == studio_id,
-            Client.phone.in_([phone, f"+{clean}", clean])
-        )
+            Client.phone.in_(forms),
+        ).order_by(Client.is_active.desc(), Client.created_at.desc()).limit(1)
     )
+
+
+def _unsubscribe_reply(db: Session, studio_id, phone: str, body: str) -> bool:
+    """A "הסר" reply: the client stops getting marketing and the owner is told. True when the message was one —
+    it is then not a lead either (an unknown number asking to be removed is simply left alone)."""
+    from app.services.marketing import is_unsubscribe_reply, record_unsubscribe
+    if not is_unsubscribe_reply(body):
+        return False
+    client = _match_client(db, studio_id, phone)
+    if client is not None and record_unsubscribe(db, client, "whatsapp"):
+        db.commit()
+        log.info("Client %s opted out by WhatsApp reply (studio %s)", client.id, studio_id)
+    return True
 
 def _match_lead(db: Session, studio_id, phone: str | None, external_id: str | None = None) -> Lead | None:
     """Find existing open lead so we don't create duplicates."""
@@ -195,6 +211,8 @@ def _handle_whatsapp(db: Session, data: dict):
                 campaign_name = referral.get("headline") or referral.get("source_url")
                 ad_id         = referral.get("source_id")
 
+                if _unsubscribe_reply(db, settings.studio_id, from_phone, body):
+                    continue
                 # Auto-create lead for unknowns
                 _auto_lead(db, settings.studio_id, "whatsapp", from_phone, from_name,
                            body, campaign_name=campaign_name, ad_id=ad_id)
@@ -297,11 +315,16 @@ async def green_incoming(instance_id: str, request: Request, db: Session = Depen
         sender_data = data.get("senderData", {})
         raw_phone   = sender_data.get("chatId", "").replace("@c.us", "")
         from_name   = sender_data.get("senderName")
-        body        = data.get("messageData", {}).get("textMessageData", {}).get("textMessage", "")
+        message     = data.get("messageData", {})
+        # a plain text, or a reply quoting our message / a text with a link (extendedTextMessageData)
+        body        = (message.get("textMessageData", {}).get("textMessage")
+                       or message.get("extendedTextMessageData", {}).get("text") or "")
 
         if not body or not raw_phone:
             return {"status": "ignored"}
 
+        if _unsubscribe_reply(db, settings.studio_id, raw_phone, body):
+            return {"status": "unsubscribed"}
         _auto_lead(db, settings.studio_id, "whatsapp", raw_phone, from_name, body)
 
     except Exception as e:

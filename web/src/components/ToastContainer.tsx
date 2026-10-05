@@ -17,6 +17,7 @@ const TYPE_CONFIG: Record<string, { icon: string; borderColor: string; bg: strin
     new_member:  { icon: "👤", borderColor: "border-green-300",  bg: "bg-green-50",  titleColor: "text-green-800" },
     new_lead:    { icon: "🎯", borderColor: "border-orange-300", bg: "bg-orange-50", titleColor: "text-orange-800" },
     new_message: { icon: "💬", borderColor: "border-blue-300",   bg: "bg-blue-50",   titleColor: "text-blue-800" },
+    client_optout: { icon: "🔕", borderColor: "border-rose-300", bg: "bg-rose-50",   titleColor: "text-rose-800" },
     system:      { icon: "🔔", borderColor: "border-slate-300",  bg: "bg-slate-50",  titleColor: "text-slate-800" },
 };
 

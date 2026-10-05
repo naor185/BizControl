@@ -5,7 +5,7 @@ Short code (8 chars, stored in client_optout_links) instead of a JWT — same
 studio_id+client_id a JWT would encode, just a lot shorter in the URL. The
 same client always gets the same code back (idempotent — no link rot).
 Endpoint (public, no auth):
-  POST /public/invite/{code}/optout  → set client.whatsapp_opted_out = True
+  POST /public/invite/{code}/optout  → the client stops getting marketing (app/services/marketing.record_unsubscribe)
 """
 from __future__ import annotations
 
@@ -114,17 +114,8 @@ def optout_via_invite(token: str, db: Session = Depends(get_db)):
     if not client or str(client.studio_id) != studio_id:
         raise HTTPException(status_code=404, detail="לא נמצא")
 
-    client.whatsapp_opted_out = True
-
-    from app.models.notification import Notification
-    db.add(Notification(
-        studio_id=UUID(studio_id),
-        type="client_optout",
-        title=f"{client.full_name} הוסר/ה מרשימת ההודעות",
-        body=f"{client.phone or client.email or ''} ביקש/ה להסיר את עצמו/ה מהודעות שיווקיות אוטומטיות",
-        action_url=f"/clients/{client_id}",
-    ))
-
+    from app.services.marketing import record_unsubscribe
+    record_unsubscribe(db, client, "link")     # once, with the owner's notification
     db.commit()
     log.info("Client %s opted out via link (studio %s)", client_id, studio_id)
     return {"ok": True}

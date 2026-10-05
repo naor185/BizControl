@@ -3,7 +3,7 @@
 import { Suspense, useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { BarChart3, Crown, Smartphone, Users, type LucideIcon } from "lucide-react";
+import { BarChart3, BellOff, Crown, Smartphone, Users, type LucideIcon } from "lucide-react";
 import { getCurrentUserRole } from "@/lib/api";
 
 type TabDef = {
@@ -18,6 +18,7 @@ const TABS: TabDef[] = [
     { href: "/clients",           label: "לקוחות",        icon: Users,      isActive: (p, t) => p === "/clients" && t !== "club" },
     { href: "/clients?tab=club",  label: "מועדון לקוחות", icon: Crown,      isActive: (p, t) => p === "/clients" && t === "club" },
     { href: "/clients/analytics", label: "אנליטיקה",      icon: BarChart3,  isActive: p => p === "/clients/analytics", managersOnly: true },
+    { href: "/clients/marketing-optouts", label: "הוסרו מהודעות", icon: BellOff, isActive: p => p === "/clients/marketing-optouts", managersOnly: true },
     { href: "/wallet",            label: "כרטיס דיגיטלי", icon: Smartphone, isActive: p => p === "/wallet", managersOnly: true },
 ];
 
