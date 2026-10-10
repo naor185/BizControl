@@ -2,7 +2,9 @@
 The businesses' payments to BizControl — the superadmin's CRM, part ג (owner, 2026-10-10). Until card clearing (Grow)
 is connected, the superadmin records a payment by hand (bank transfer, Bit, cash, card on the phone) and it extends the
 business's period: monthly = one calendar month, annual = twelve, counted from the later of today and the current end
-(a business paying during its free month keeps the free month). The billing terms (customers/src/app/billing-terms):
+(a business paying during its free month keeps the free month). A payment recorded by mistake can be undone — the
+business's last one only — and the business goes back to where it was (the end date, plan and status kept with the
+payment); the record stays, marked undone, out of the sums. The billing terms (customers/src/app/billing-terms):
 monthly has no commitment, annual is one charge for 12 months, renewing until cancelled.
 
 The collection list: a paying business whose period ends within 7 days (due soon) or ended in the last 30 days
@@ -33,7 +35,8 @@ def price_cents(plan, cycle: str) -> int:
 
 def last_cycle(db: Session, studio_id) -> str:
     """How the business last paid (monthly when it never did)."""
-    return db.scalar(text("SELECT cycle FROM platform_payments WHERE studio_id = :s ORDER BY paid_at DESC, created_at DESC LIMIT 1"),
+    return db.scalar(text("SELECT cycle FROM platform_payments WHERE studio_id = :s AND undone_at IS NULL "
+                          "ORDER BY paid_at DESC, created_at DESC LIMIT 1"),
                      {"s": str(studio_id)}) or "monthly"
 
 
@@ -63,10 +66,11 @@ def record_payment(db: Session, studio_id: str, *, plan_id: str, cycle: str, amo
     payment_id = uuid.uuid4()
     db.execute(text("""
         INSERT INTO platform_payments (id, studio_id, plan_id, cycle, amount_cents, method, paid_at, period_start, period_end,
-                                       note, recorded_by)
-        VALUES (:id, :s, :p, :c, :a, :m, :paid, :start, :end, :note, :by)
+                                       note, recorded_by, previous_end, previous_plan, previous_status)
+        VALUES (:id, :s, :p, :c, :a, :m, :paid, :start, :end, :note, :by, :prev_end, :prev_plan, :prev_status)
     """), {"id": payment_id, "s": studio.id, "p": plan_id, "c": cycle, "a": amount_cents, "m": method, "paid": paid_at,
-           "start": start, "end": end, "note": note or None, "by": recorded_by})
+           "start": start, "end": end, "note": note or None, "by": recorded_by,
+           "prev_end": studio.plan_expires_at, "prev_plan": studio.subscription_plan, "prev_status": sub.status if sub else None})
     studio.plan_expires_at = end                    # the date access is locked on (auth_deps)
     studio.subscription_plan = plan_id
     apply_subscription_event(                         # commits the payment with it
@@ -77,11 +81,50 @@ def record_payment(db: Session, studio_id: str, *, plan_id: str, cycle: str, amo
     return {"id": str(payment_id), "period_end": end.isoformat()}
 
 
+# the status a business goes back to → the event that puts it there (apply_subscription_event's transitions)
+_BACK_TO = {"trial": "trial_started", "active": "renewed", "past_due": "payment_failed",
+            "grace_period": "grace_period_started", "suspended": "suspended", "canceled": "canceled", "expired": "expired"}
+
+
+def undo_payment(db: Session, payment_id: str, undone_by) -> dict:
+    """Undo a payment recorded by mistake — the business's last one still in force. {studio_id, period_end}."""
+    from app.core.billing import apply_subscription_event
+    from app.models.studio import Studio
+
+    row = db.execute(text("""
+        SELECT id, studio_id, previous_end, previous_plan, previous_status, undone_at FROM platform_payments WHERE id = :id
+    """), {"id": payment_id}).first()
+    if row is None:
+        raise LookupError("התשלום לא נמצא")
+    if row.undone_at is not None:
+        raise ValueError("התשלום כבר בוטל")
+    last = db.scalar(text("""
+        SELECT id FROM platform_payments WHERE studio_id = :s AND undone_at IS NULL
+        ORDER BY paid_at DESC, created_at DESC LIMIT 1
+    """), {"s": row.studio_id})
+    if last != row.id:
+        raise ValueError("אפשר לבטל רק את התשלום האחרון של העסק")
+    if row.previous_plan is None:
+        raise ValueError("לתשלום הזה לא נשמר המצב הקודם — מתקנים ידנית")
+
+    studio = db.get(Studio, row.studio_id)
+    db.execute(text("UPDATE platform_payments SET undone_at = NOW(), undone_by = :by WHERE id = :id"),
+               {"by": undone_by, "id": row.id})
+    studio.plan_expires_at, studio.subscription_plan = row.previous_end, row.previous_plan
+    apply_subscription_event(                         # commits the undo with it
+        db, studio.id, _BACK_TO.get(row.previous_status or "", "renewed"), source="admin", plan_id=row.previous_plan,
+        current_period_end=row.previous_end, metadata={"payment_undone": str(row.id)},
+    )
+    return {"studio_id": str(row.studio_id), "period_end": row.previous_end.isoformat() if row.previous_end else None}
+
+
 def payments(db: Session, studio_id: str | None = None, limit: int = 200) -> list[dict]:
     """Recorded payments, newest first — all of them, or one business's."""
     rows = db.execute(text(f"""
         SELECT p.id, p.studio_id, s.name, p.plan_id, pl.display_name, p.cycle, p.amount_cents, p.method, p.paid_at,
-               p.period_end, p.note
+               p.period_end, p.note, p.undone_at,
+               p.id = (SELECT q.id FROM platform_payments q WHERE q.studio_id = p.studio_id AND q.undone_at IS NULL
+                       ORDER BY q.paid_at DESC, q.created_at DESC LIMIT 1) AS is_last
         FROM platform_payments p
         JOIN studios s ON s.id = p.studio_id
         LEFT JOIN plans pl ON pl.id = p.plan_id
@@ -91,7 +134,7 @@ def payments(db: Session, studio_id: str | None = None, limit: int = 200) -> lis
     return [{"id": str(r[0]), "studio_id": str(r[1]), "studio_name": r[2], "plan_id": r[3], "plan_label": r[4] or r[3],
              "cycle": r[5], "amount_ils": r[6] / 100, "method": METHODS.get(r[7], r[7]),
              "paid_at": r[8].isoformat() if r[8] else None, "period_end": r[9].isoformat() if r[9] else None,
-             "note": r[10]} for r in rows]
+             "note": r[10], "undone_at": r[11].isoformat() if r[11] else None, "can_undo": bool(r[12])} for r in rows]
 
 
 def overview(db: Session) -> dict:
@@ -102,11 +145,12 @@ def overview(db: Session) -> dict:
 
     plans = {p.id: p for p in db.scalars(select(Plan)).all()}
     cycles = dict(db.execute(text("""
-        SELECT DISTINCT ON (studio_id) studio_id::text, cycle FROM platform_payments ORDER BY studio_id, paid_at DESC, created_at DESC
+        SELECT DISTINCT ON (studio_id) studio_id::text, cycle FROM platform_payments WHERE undone_at IS NULL
+        ORDER BY studio_id, paid_at DESC, created_at DESC
     """)).all())
     il = pytz.timezone("Asia/Jerusalem")
     month_start = datetime.now(il).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    received = db.scalar(text("SELECT COALESCE(SUM(amount_cents), 0) FROM platform_payments WHERE paid_at >= :m"),
+    received = db.scalar(text("SELECT COALESCE(SUM(amount_cents), 0) FROM platform_payments WHERE paid_at >= :m AND undone_at IS NULL"),
                          {"m": month_start}) or 0
 
     monthly_cents, collect = 0, []

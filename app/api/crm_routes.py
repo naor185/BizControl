@@ -10,6 +10,7 @@ GET  /api/admin/crm/billing          — the money picture: monthly income, due 
 GET  /api/admin/crm/payment-options  — the plans for sale with their prices, and the ways to pay
 GET  /api/admin/crm/payments         — recorded payments (?studio_id= for one business)
 POST /api/admin/crm/payments         — record a payment by hand; it extends the business's period
+POST /api/admin/crm/payments/{id}/undo — undo one recorded by mistake (the business's last); the period goes back
 """
 from datetime import date, datetime, time, timezone
 from typing import Literal, Optional
@@ -112,5 +113,18 @@ def record_payment(payload: PaymentIn, admin: User = Depends(require_superadmin)
         raise HTTPException(400, str(e))
     _audit(db, admin, "crm_payment_recorded", None, {"studio_id": payload.studio_id, "plan": payload.plan_id,
                                                      "cycle": payload.cycle, "amount_ils": payload.amount_ils})
+    db.commit()
+    return result
+
+
+@router.post("/payments/{payment_id}/undo")
+def undo_payment(payment_id: str, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    try:
+        result = platform_billing.undo_payment(db, payment_id, admin.id)
+    except LookupError as e:
+        raise HTTPException(404, str(e))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    _audit(db, admin, "crm_payment_undone", None, {"payment_id": payment_id, **result})
     db.commit()
     return result

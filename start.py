@@ -2830,6 +2830,12 @@ def ensure_schema():
             )
         """)
         cur.execute("CREATE INDEX IF NOT EXISTS ix_platform_payments_studio ON platform_payments (studio_id, paid_at DESC)")
+        # undoing a payment recorded by mistake — where the business was before it, and the undo itself
+        cur.execute("ALTER TABLE platform_payments ADD COLUMN IF NOT EXISTS previous_end TIMESTAMPTZ")
+        cur.execute("ALTER TABLE platform_payments ADD COLUMN IF NOT EXISTS previous_plan VARCHAR(32)")
+        cur.execute("ALTER TABLE platform_payments ADD COLUMN IF NOT EXISTS previous_status VARCHAR(20)")
+        cur.execute("ALTER TABLE platform_payments ADD COLUMN IF NOT EXISTS undone_at TIMESTAMPTZ")
+        cur.execute("ALTER TABLE platform_payments ADD COLUMN IF NOT EXISTS undone_by UUID")
 
         # The health declaration: the business's form, its files, and each client's signed declaration
         # (app/models/health_form.py)

@@ -93,3 +93,30 @@ def test_who_is_due_who_is_late_and_an_annual_payment(client, db_session):
     money = client.get("/api/admin/crm/billing", headers=sa).json()
     assert late.name not in {r["name"] for r in money["collect"]}
     assert money["monthly_ils"] == 249 + 99
+
+
+def test_a_payment_recorded_by_mistake_is_undone_and_the_business_goes_back(client, db_session):
+    sa = _superadmin(client, db_session)
+    st = _business(client, db_session, "oops-shop", plan="trial", status="trial", ends_in=10 * DAY)
+    trial_end = st.plan_expires_at
+    pay = lambda amount: client.post("/api/admin/crm/payments", headers=sa, json={            # noqa: E731
+        "studio_id": str(st.id), "plan_id": "pro", "cycle": "monthly", "amount_ils": amount, "method": "bit",
+        "paid_on": date.today().isoformat()}).json()
+    first, second = pay(249), pay(2490)                                              # the second one was a mistake
+
+    rows = client.get(f"/api/admin/crm/payments?studio_id={st.id}", headers=sa).json()
+    assert [(r["amount_ils"], r["can_undo"]) for r in rows] == [(2490, True), (249, False)]       # the last only
+    assert client.post(f"/api/admin/crm/payments/{first['id']}/undo", headers=sa).status_code == 400
+    r = client.post(f"/api/admin/crm/payments/{second['id']}/undo", headers=sa)
+    assert r.status_code == 200, r.text
+    db_session.expire_all()
+    assert db_session.get(Studio, st.id).plan_expires_at.isoformat() == first["period_end"]
+    assert client.get("/api/admin/crm/billing", headers=sa).json()["received_this_month_ils"] == 249   # undone — not counted
+    assert client.post(f"/api/admin/crm/payments/{second['id']}/undo", headers=sa).status_code == 400
+
+    # the first one too — back to the free month, as before any payment
+    assert client.post(f"/api/admin/crm/payments/{first['id']}/undo", headers=sa).status_code == 200
+    db_session.expire_all()
+    st = db_session.get(Studio, st.id)
+    sub = db_session.scalar(select(Subscription).where(Subscription.studio_id == st.id))
+    assert (st.plan_expires_at, st.subscription_plan, sub.status) == (trial_end, "trial", "trial")

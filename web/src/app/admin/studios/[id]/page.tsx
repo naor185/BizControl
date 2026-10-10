@@ -1100,7 +1100,7 @@ export default function StudioDetailPage() {
                         <h2 className="text-sm font-semibold text-gray-700">תשלומים ל-BizControl</h2>
                         <button onClick={() => setPayModal(true)} className="text-xs font-bold px-3 py-1.5 rounded-lg bg-black text-white hover:bg-gray-800">רישום תשלום</button>
                     </div>
-                    <CrmPayments studioId={studioId} reload={paymentsReload} />
+                    <CrmPayments studioId={studioId} reload={paymentsReload} onChanged={load} />
                 </div>
 
                 {/* Messages from the company to the owner — sent from the CRM (/admin/crm) */}

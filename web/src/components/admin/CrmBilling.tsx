@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Check, MessageCircle, Plus, X } from "lucide-react";
+import { Check, MessageCircle, Plus, Undo2, X } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { formatCurrency, whatsappNumber } from "@/lib/format";
 
@@ -17,6 +17,7 @@ type Overview = { monthly_ils: number; received_this_month_ils: number; due_soon
 type Payment = {
     id: string; studio_id: string; studio_name: string; plan_label: string; cycle: Cycle; amount_ils: number;
     method: string; paid_at: string | null; period_end: string | null; note: string | null;
+    undone_at: string | null; can_undo: boolean;      // undoing — the business's last payment only
 };
 type Options = { plans: { id: string; label: string; monthly_ils: number; annual_ils: number }[]; methods: Record<string, string> };
 type Cycle = "monthly" | "annual";
@@ -165,29 +166,44 @@ export function RecordPayment({ business, onClose, onSaved }: { business: PayFor
     );
 }
 
-export function CrmPayments({ studioId, reload = 0 }: { studioId?: string; reload?: number }) {
+export function CrmPayments({ studioId, reload = 0, onChanged }: { studioId?: string; reload?: number; onChanged?: () => void }) {
     const [rows, setRows] = useState<Payment[] | null>(null);
+    const [undone, setUndone] = useState(0);
+    const [err, setErr] = useState<string | null>(null);
 
     useEffect(() => {
         apiFetch<Payment[]>(`/api/admin/crm/payments${studioId ? `?studio_id=${studioId}` : ""}`).then(setRows).catch(() => setRows([]));
-    }, [studioId, reload]);
+    }, [studioId, reload, undone]);
+
+    const undo = async (p: Payment) => {
+        if (!window.confirm(`לבטל את התשלום של ${p.studio_name} (${formatCurrency(p.amount_ils)})? המנוי יחזור לתאריך שהיה לפניו.`)) return;
+        setErr(null);
+        try {
+            await apiFetch(`/api/admin/crm/payments/${p.id}/undo`, { method: "POST" });
+            setUndone(n => n + 1);
+            onChanged?.();
+        } catch (e) {
+            setErr(e instanceof Error ? e.message : "הביטול נכשל");
+        }
+    };
 
     const box = "bg-white border border-slate-200 rounded-2xl";
     if (rows === null) return <p className={`${box} text-center text-sm text-slate-400 py-8`}>טוען...</p>;
     if (rows.length === 0) return <p className={`${box} text-center text-sm text-slate-400 py-8`}>עוד לא נרשמו תשלומים{studioId ? " מהעסק הזה" : ""}</p>;
     return (
         <div className={`${box} overflow-x-auto`}>
+            {err && <p className="px-4 pt-3 text-sm text-rose-600">{err}</p>}
             <table className="w-full text-sm">
                 <thead>
                     <tr className="text-slate-500 border-b border-slate-100">
-                        {["תאריך", ...(studioId ? [] : ["עסק"]), "מסלול", "סכום", "איך שילם", "בתוקף עד", "הערה"].map(h => (
+                        {["תאריך", ...(studioId ? [] : ["עסק"]), "מסלול", "סכום", "איך שילם", "בתוקף עד", "הערה", ""].map(h => (
                             <th key={h} className="text-right font-semibold px-4 py-3 whitespace-nowrap">{h}</th>
                         ))}
                     </tr>
                 </thead>
                 <tbody>
                     {rows.map(p => (
-                        <tr key={p.id} className="border-b border-slate-50 last:border-0">
+                        <tr key={p.id} className={`border-b border-slate-50 last:border-0 ${p.undone_at ? "opacity-50 line-through" : ""}`}>
                             <td className="px-4 py-3 whitespace-nowrap tabular-nums text-slate-600">{day(p.paid_at)}</td>
                             {!studioId && <td className="px-4 py-3 font-semibold text-slate-800 whitespace-nowrap">{p.studio_name}</td>}
                             <td className="px-4 py-3 whitespace-nowrap text-slate-700">{p.plan_label} · {CYCLE[p.cycle]}</td>
@@ -195,6 +211,14 @@ export function CrmPayments({ studioId, reload = 0 }: { studioId?: string; reloa
                             <td className="px-4 py-3 whitespace-nowrap text-slate-600">{p.method}</td>
                             <td className="px-4 py-3 whitespace-nowrap tabular-nums text-slate-600">{day(p.period_end)}</td>
                             <td className="px-4 py-3 text-slate-500">{p.note ?? ""}</td>
+                            <td className="px-4 py-3 text-left whitespace-nowrap">
+                                {p.undone_at ? <span className="text-xs text-slate-500 no-underline">בוטל</span>
+                                    : p.can_undo && (
+                                        <button onClick={() => undo(p)} className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-rose-600">
+                                            <Undo2 className="h-3.5 w-3.5" aria-hidden /> ביטול רישום
+                                        </button>
+                                    )}
+                            </td>
                         </tr>
                     ))}
                 </tbody>
@@ -286,7 +310,7 @@ export function CrmBilling() {
 
             <section className="space-y-2">
                 <h2 className="font-bold text-slate-900">תשלומים שנרשמו</h2>
-                <CrmPayments reload={reload} />
+                <CrmPayments reload={reload} onChanged={() => setReload(n => n + 1)} />
             </section>
 
             {paying && <RecordPayment business={paying} onClose={() => setPaying(null)} onSaved={() => setReload(n => n + 1)} />}
