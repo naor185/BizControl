@@ -6,7 +6,8 @@ import { getToken, getCurrentUserRole, isAccessTokenExpiringSoon, tryRefresh, cl
 import { hydrateTokensFromSecureStorage } from "@/lib/secureTokenStorage";
 
 // Pages accessible to artist/staff role only
-const ARTIST_ALLOWED = ["/calendar"];
+// the staff who give the service also sign and read the health declarations (app/health-declarations)
+const ARTIST_ALLOWED = ["/calendar", "/health-declarations"];
 
 export default function RequireAuth({ children }: { children: React.ReactNode }) {
     const router = useRouter();

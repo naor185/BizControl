@@ -10,6 +10,7 @@ import { toLocalDateStr } from "@/lib/format";
 import PaymentModal from "@/components/PaymentModal";
 import { statusMeta } from "@/lib/appointment-status";
 import AppointmentCard from "@/components/AppointmentCard";
+import HealthDeclarations from "@/components/health/HealthDeclarations";
 import BottomSheet from "@/components/ui/bottom-sheet";
 import { HIDE_BOOKING_BANNER_KEY } from "@/lib/localPrefs";
 import StaffReminderRulesSettings from "@/components/StaffReminderRulesSettings";
@@ -2010,6 +2011,16 @@ export default function CalendarPage() {
                                         className="w-full bg-slate-50 border border-emerald-300 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-semibold"
                                     />
                                 </div>
+
+                                {/* the health declaration — of the appointment as saved (its client) */}
+                                {(() => {
+                                    const saved = selectedEventId ? appointments.find(a => a.id === selectedEventId) : null;
+                                    return saved?.client_id ? (
+                                        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                                            <HealthDeclarations clientId={saved.client_id} appointmentId={saved.id} />
+                                        </div>
+                                    ) : null;
+                                })()}
 
                                 <div>
                                     <label className="block text-sm font-semibold text-slate-700 mb-1">הערות פנימיות</label>

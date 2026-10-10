@@ -39,6 +39,7 @@ from app.models.notification_template import NotificationTemplate
 from app.models.policy_setting import PolicySetting
 from app.models.classes import Room, ClassTemplate, ClassSession, ClassBooking
 from app.models.memberships import MembershipType, Membership, MembershipEntry, MembershipEvent, PenaltyRule, ClassFee
+from app.models.health_form import HealthForm, HealthFormFile, HealthDeclaration
 
 __all__ = [
     "Base", "Studio", "User", "StudioSettings", "RefreshToken",
@@ -51,4 +52,5 @@ __all__ = [
     "DeviceToken", "CustomerDeviceToken",
     "StaffReminderRule", "StaffReminderSentLog",
     "Migration", "MigrationRow", "ExternalRecord", "MigrationEvent",
+    "HealthForm", "HealthFormFile", "HealthDeclaration",
 ]

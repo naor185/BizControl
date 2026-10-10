@@ -5,6 +5,7 @@ import { toast } from "@/lib/toast";
 import { useEffect, useState, useCallback } from "react";
 import RequireAuth from "@/components/RequireAuth";
 import AppShell from "@/components/AppShell";
+import HealthDeclarations from "@/components/health/HealthDeclarations";
 import { apiFetch } from "@/lib/api";
 import { formatCurrency } from "@/lib/format";
 
@@ -520,6 +521,11 @@ export default function ClientProfilePage() {
                                         {appointments.filter(a => a.status === 'completed' || a.status === 'done').length}
                                     </div>
                                 </div>
+                            </div>
+
+                            {/* Health declarations — signed on an appointment, or from here */}
+                            <div className="rounded-xl border bg-white p-4 shadow-sm">
+                                <HealthDeclarations clientId={id} />
                             </div>
 
                             <button

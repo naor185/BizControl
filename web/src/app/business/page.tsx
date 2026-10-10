@@ -8,7 +8,7 @@ import {
     Briefcase, Lock, Unlock, KeyRound, Zap, BarChart3, ShieldCheck, ClipboardList, Timer,
     Wallet, Users, TrendingUp, Phone, Megaphone, Gift, Settings,
     CreditCard, Receipt, Banknote, UserCog, MessageSquare, Target, Mail,
-    Send, Clock, Package, ConciergeBell, Smartphone, LifeBuoy, Crown, FileUp, CalendarRange, SlidersHorizontal,
+    Send, Clock, Package, ConciergeBell, Smartphone, LifeBuoy, Crown, FileUp, CalendarRange, SlidersHorizontal, HeartPulse,
     type LucideIcon,
 } from "lucide-react";
 import AppShell from "@/components/AppShell";
@@ -37,6 +37,7 @@ const SECTION_GROUPS: { groupLabel: string; icon: LucideIcon; items: { href: str
         items: [
             { href: "/clients",           label: "לקוחות",          description: "רשימה, כרטיס לקוח והיסטוריה",                   icon: Users, gradient: "from-sky-500 to-sky-700", module: "crm" },
             { href: "/clients?tab=club",  label: "מועדון לקוחות",   description: "חברים, נקודות, לוח אלופים וימי הולדת",           icon: Crown, gradient: "from-amber-500 to-amber-700", module: "customer_club" },
+            { href: "/settings/health-form", label: "הצהרת בריאות",  description: "הטופס שהלקוח ממלא וחותם לפני הטיפול",           icon: HeartPulse, gradient: "from-rose-500 to-rose-700" },
             { href: "/clients/analytics", label: "אנליטיקת לקוחות", description: "שימור, ערך לקוח, לקוחות שנעלמו ואחוזי המרה",      icon: BarChart3, gradient: "from-violet-500 to-violet-700" },
             { href: "/wallet",            label: "כרטיס דיגיטלי",    description: "עיצוב כרטיס מועדון ל-Apple/Google Wallet",       icon: Smartphone, gradient: "from-teal-500 to-teal-700", module: "wallet" },
             { href: "/migration",         label: "ייבוא נתונים",     description: "העברת לקוחות ושירותים ממערכת אחרת או מקובץ Excel", icon: FileUp, gradient: "from-emerald-500 to-emerald-700", module: "migration" },

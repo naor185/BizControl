@@ -2832,6 +2832,67 @@ def ensure_schema():
         """)
         cur.execute("CREATE INDEX IF NOT EXISTS ix_platform_payments_studio ON platform_payments (studio_id, paid_at DESC)")
 
+        # The health declaration: the business's form, its files, and each client's signed declaration
+        # (app/models/health_form.py)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS health_form_files (
+                id UUID PRIMARY KEY,
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                filename VARCHAR(200) NOT NULL,
+                content_type VARCHAR(80) NOT NULL,
+                data BYTEA NOT NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_health_form_files_studio_id ON health_form_files (studio_id)")
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS health_forms (
+                id UUID PRIMARY KEY,
+                studio_id UUID NOT NULL UNIQUE REFERENCES studios(id) ON DELETE CASCADE,
+                title VARCHAR(120) NOT NULL,
+                intro TEXT NOT NULL DEFAULT '',
+                questions JSONB NOT NULL DEFAULT '[]',
+                closing TEXT NOT NULL DEFAULT '',
+                ask_id_number BOOLEAN NOT NULL DEFAULT TRUE,
+                file_id UUID REFERENCES health_form_files(id),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS health_declarations (
+                id UUID PRIMARY KEY,
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+                appointment_id UUID REFERENCES appointments(id) ON DELETE SET NULL,
+                status VARCHAR(20) NOT NULL DEFAULT 'waiting_client',
+                title VARCHAR(120) NOT NULL,
+                intro TEXT NOT NULL DEFAULT '',
+                questions JSONB NOT NULL DEFAULT '[]',
+                closing TEXT NOT NULL DEFAULT '',
+                ask_id_number BOOLEAN NOT NULL DEFAULT TRUE,
+                file_id UUID REFERENCES health_form_files(id),
+                answers JSONB,
+                id_number VARCHAR(20),
+                client_signature TEXT,
+                client_signed_at TIMESTAMPTZ,
+                client_signed_via VARCHAR(10),
+                client_ip VARCHAR(64),
+                client_device VARCHAR(300),
+                performer_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+                performer_name VARCHAR(120),
+                performer_signature TEXT,
+                performer_signed_at TIMESTAMPTZ,
+                token VARCHAR(64) UNIQUE,
+                token_expires_at TIMESTAMPTZ,
+                link_sent_at TIMESTAMPTZ,
+                created_by_id UUID REFERENCES users(id) ON DELETE SET NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_health_declarations_studio_id ON health_declarations (studio_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_health_declarations_client_id ON health_declarations (client_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_health_declarations_appointment_id ON health_declarations (appointment_id)")
+
         conn.commit()
         cur.close()
         conn.close()
