@@ -9,7 +9,12 @@ POST   /api/health-declarations                 — open one for a client (and a
 GET    /api/health-declarations/{id}            — all of it
 POST   /api/health-declarations/{id}/client     — the client fills and signs, on the studio's device
 POST   /api/health-declarations/{id}/performer  — the one giving the service signs
+POST   /api/health-declarations/{id}/send-link  — the link to the client on WhatsApp
 DELETE /api/health-declarations/{id}            — one nobody signed yet
+The link (no sign-in — the token in it is the key, good for 14 days, closed once filled):
+GET    /api/public/health/{token}               — the form to fill
+GET    /api/public/health/{token}/file          — its file
+POST   /api/public/health/{token}               — the client fills and signs from their own phone
 """
 from __future__ import annotations
 
@@ -27,6 +32,13 @@ from app.models.user import User
 from app.services import health_forms
 
 router = APIRouter(tags=["Health declarations"])
+public_router = APIRouter(prefix="/public/health", tags=["Public"])
+
+
+def _ip(request: Request) -> str | None:
+    """The client's address — behind the host's proxy, the first one it forwarded."""
+    forwarded = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+    return forwarded or (request.client.host if request.client else None)
 
 
 def _uuid(value: str, what: str) -> uuid.UUID:
@@ -137,7 +149,7 @@ def client_signs(declaration_id: str, payload: ClientSignIn, request: Request,
     d = _declaration(db, ctx, declaration_id)
     try:
         health_forms.client_signs(db, d, answers=payload.answers, id_number=payload.id_number, signature=payload.signature,
-                                  via="studio", ip=request.client.host if request.client else None,
+                                  via="studio", ip=_ip(request),
                                   device=request.headers.get("user-agent"))
     except ValueError as e:
         raise HTTPException(400, str(e))
@@ -159,6 +171,16 @@ def performer_signs(declaration_id: str, payload: PerformerSignIn, ctx: AuthCont
     return health_forms.full(db, d)
 
 
+@router.post("/health-declarations/{declaration_id}/send-link")
+def send_link(declaration_id: str, ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+    d = _declaration(db, ctx, declaration_id)
+    try:
+        health_forms.send_link(db, d)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return health_forms.full(db, d)
+
+
 @router.delete("/health-declarations/{declaration_id}")
 def cancel_declaration(declaration_id: str, ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
     try:
@@ -166,3 +188,39 @@ def cancel_declaration(declaration_id: str, ctx: AuthContext = Depends(require_s
     except ValueError as e:
         raise HTTPException(400, str(e))
     return {"deleted": True}
+
+
+@public_router.get("/{token}")
+def public_form(token: str, db: Session = Depends(get_db)):
+    try:
+        return health_forms.public_view(db, health_forms.by_token(db, token))
+    except LookupError as e:
+        raise HTTPException(404, str(e))
+
+
+@public_router.get("/{token}/file")
+def public_file(token: str, db: Session = Depends(get_db)):
+    try:
+        d = health_forms.by_token(db, token)
+    except LookupError as e:
+        raise HTTPException(404, str(e))
+    f = health_forms.get_file(db, d.studio_id, d.file_id) if d.file_id and health_forms.link_open(d) else None
+    if f is None:
+        raise HTTPException(404, "הקובץ לא נמצא")
+    return Response(f.data, media_type=f.content_type, headers={"Cache-Control": "private, no-store"})
+
+
+@public_router.post("/{token}")
+def public_sign(token: str, payload: ClientSignIn, request: Request, db: Session = Depends(get_db)):
+    try:
+        d = health_forms.by_token(db, token)
+    except LookupError as e:
+        raise HTTPException(404, str(e))
+    if not health_forms.link_open(d):
+        raise HTTPException(410, "הקישור כבר לא בתוקף — בקשו מהעסק קישור חדש")
+    try:
+        health_forms.client_signs(db, d, answers=payload.answers, id_number=payload.id_number, signature=payload.signature,
+                                  via="link", ip=_ip(request), device=request.headers.get("user-agent"))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return health_forms.public_view(db, d)

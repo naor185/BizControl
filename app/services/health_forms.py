@@ -1,10 +1,11 @@
 """
 The health declaration (app/models/health_form.py): the business's form, a client's declaration and its two
 signatures. A declaration is opened from an appointment or a client's file, filled and signed by the client on the
-studio's device or from a link (stage 2), and signed after by the one giving the service.
+studio's device or from a link sent on WhatsApp, and signed after by the one giving the service.
 """
 from __future__ import annotations
 
+import os
 import re
 import secrets
 import uuid
@@ -209,7 +210,7 @@ def summary(d: HealthDeclaration, appt_starts_at=None, appt_title=None) -> dict:
         "client_signed_at": d.client_signed_at.isoformat() if d.client_signed_at else None,
         "client_signed_via": d.client_signed_via, "performer_name": d.performer_name,
         "performer_signed_at": d.performer_signed_at.isoformat() if d.performer_signed_at else None,
-        "link_sent_at": d.link_sent_at.isoformat() if d.link_sent_at else None,
+        "link_sent_at": d.link_sent_at.isoformat() if d.link_sent_at else None, "link": link(d),
         "created_at": d.created_at.isoformat() if d.created_at else None,
         "flagged": yes,                        # the questions answered "yes" — what the one giving the service should see
     }
@@ -228,6 +229,77 @@ def full(db: Session, d: HealthDeclaration) -> dict:
         "performer_signature": d.performer_signature, "client_ip": d.client_ip, "client_device": d.client_device,
         "client_id": str(d.client_id), "client_name": client.full_name if client else "",
         "client_phone": client.phone if client else None, "business_name": studio.name if studio else "",
+        "file": {"id": str(file.id), "filename": file.filename, "content_type": file.content_type} if file else None,
+    }
+
+
+def link(d: HealthDeclaration) -> str | None:
+    """The address the client fills it from — while it waits for them."""
+    if d.status != "waiting_client" or not d.token:
+        return None
+    return f"{os.getenv('FRONTEND_URL', 'https://bizcontrol-seven.vercel.app').rstrip('/')}/health/{d.token}"
+
+
+def send_link(db: Session, d: HealthDeclaration) -> None:
+    """The link to the client on WhatsApp — a service message through the queue, from the business's own number;
+    the link is good for LINK_DAYS from now (a resend renews it)."""
+    import pytz
+    from app.models.appointment import Appointment
+    from app.models.client import Client
+    from app.models.message_job import MessageJob
+    from app.models.studio import Studio
+
+    if d.status != "waiting_client":
+        raise ValueError("ההצהרה כבר מולאה")
+    client = db.get(Client, d.client_id)
+    if client is None or not client.phone:
+        raise ValueError("ללקוח אין מספר טלפון")
+    studio = db.get(Studio, d.studio_id)
+    now = datetime.now(timezone.utc)
+    d.token_expires_at, d.link_sent_at = now + timedelta(days=LINK_DAYS), now
+    first = (client.full_name or "").split()[0] if (client.full_name or "").strip() else ""
+    appt = db.get(Appointment, d.appointment_id) if d.appointment_id else None
+    if appt is not None:
+        local = appt.starts_at.astimezone(pytz.timezone("Asia/Jerusalem"))
+        before = f"לקראת התור שלך ב-{studio.name} ב-{local.strftime('%d/%m')} בשעה {local.strftime('%H:%M')}"
+    else:
+        before = f"לפני הטיפול ב-{studio.name}"
+    body = f"היי {first}, {before} — נבקש למלא הצהרת בריאות קצרה ולחתום. זה לוקח דקה:\n{link(d)}"
+    db.add(MessageJob(studio_id=d.studio_id, client_id=d.client_id, appointment_id=d.appointment_id, channel="whatsapp",
+                      to_phone=client.phone, body=body.replace("היי , ", "היי, "), reminder_type="health_form",
+                      scheduled_at=now, status="pending"))
+    db.commit()
+
+
+def by_token(db: Session, token: str) -> HealthDeclaration:
+    d = db.scalar(select(HealthDeclaration).where(HealthDeclaration.token == token)) if token else None
+    if d is None:
+        raise LookupError("הקישור לא נמצא")
+    return d
+
+
+def link_open(d: HealthDeclaration) -> bool:
+    return d.status == "waiting_client" and d.token_expires_at is not None and d.token_expires_at > datetime.now(timezone.utc)
+
+
+def public_view(db: Session, d: HealthDeclaration) -> dict:
+    """What the link shows the client: the form to fill — only while it waits for them; nothing of what was signed."""
+    from app.models.appointment import Appointment
+    from app.models.client import Client
+    from app.models.studio import Studio
+    studio = db.get(Studio, d.studio_id)
+    business = studio.name if studio else ""
+    if d.status != "waiting_client":
+        return {"status": "signed", "business_name": business}
+    if not link_open(d):
+        return {"status": "expired", "business_name": business}
+    client = db.get(Client, d.client_id)
+    appt = db.get(Appointment, d.appointment_id) if d.appointment_id else None
+    file = db.get(HealthFormFile, d.file_id) if d.file_id else None
+    return {
+        "status": "waiting_client", "business_name": business, "client_name": client.full_name if client else "",
+        "title": d.title, "intro": d.intro, "questions": d.questions, "closing": d.closing, "ask_id_number": d.ask_id_number,
+        "appointment_at": appt.starts_at.isoformat() if appt else None,
         "file": {"id": str(file.id), "filename": file.filename, "content_type": file.content_type} if file else None,
     }
 

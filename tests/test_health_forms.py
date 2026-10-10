@@ -103,3 +103,53 @@ def test_a_client_signs_then_the_artist_and_it_stays_as_signed(client, db_sessio
     loose = client.post("/api/health-declarations", headers=h, json={"client_id": str(c.id)}).json()
     assert loose["questions"] == [{"id": loose["questions"][0]["id"], "text": "שאלה חדשה", "kind": "yes_no"}]
     assert client.delete(f"/api/health-declarations/{loose['id']}", headers=h).status_code == 200
+
+
+def test_the_client_fills_it_from_a_whatsapp_link_and_the_artist_signs_in_the_studio(client, db_session):
+    from datetime import timedelta
+
+    from app.models.health_form import HealthDeclaration
+    from app.models.message_job import MessageJob
+
+    h, c, appt = _business(client, db_session)
+    d = client.post("/api/health-declarations", headers=h, json={"client_id": str(c.id), "appointment_id": str(appt.id)}).json()
+    token = d["link"].rsplit("/", 1)[1]
+
+    sent = client.post(f"/api/health-declarations/{d['id']}/send-link", headers=h)
+    assert sent.status_code == 200, sent.text
+    job = db_session.scalar(select(MessageJob).where(MessageJob.reminder_type == "health_form"))
+    assert (job.channel, job.to_phone, job.client_id, job.appointment_id) == ("whatsapp", "0501234567", c.id, appt.id)
+    assert job.body.startswith("היי נועה, לקראת התור שלך ב-Studio ink-health ב-20/10 בשעה 11:00") and job.body.endswith(f"/health/{token}")
+    assert sent.json()["link_sent_at"]
+
+    # the link, without signing in: the form, and nothing more
+    view = client.get(f"/api/public/health/{token}").json()
+    assert (view["status"], view["client_name"], view["title"]) == ("waiting_client", "נועה כהן", "הצהרת בריאות")
+    assert "answers" not in view and "client_signature" not in view
+    assert client.get("/api/public/health/not-a-real-token").status_code == 404
+
+    answers = {q["id"]: {"answer": "no"} for q in view["questions"] if q["kind"] == "yes_no"}
+    signed = client.post(f"/api/public/health/{token}", json={"answers": answers, "id_number": "123456782", "signature": SIG},
+                         headers={"x-forwarded-for": "203.0.113.7, 10.0.0.1", "user-agent": "iPhone"})
+    assert signed.status_code == 200, signed.text
+    assert signed.json() == {"status": "signed", "business_name": "Studio ink-health"}           # nothing of what was signed
+    assert client.post(f"/api/public/health/{token}", json={"answers": answers, "id_number": "123456782",
+                                                            "signature": SIG}).status_code == 410  # closed once filled
+    assert client.get(f"/api/public/health/{token}").json()["status"] == "signed"
+
+    row = client.get(f"/api/health-declarations/{d['id']}", headers=h).json()
+    assert (row["status"], row["client_signed_via"], row["client_ip"], row["client_device"], row["link"]) == (
+        "waiting_performer", "link", "203.0.113.7", "iPhone", None)
+    assert client.post(f"/api/health-declarations/{d['id']}/send-link", headers=h).status_code == 400
+    assert client.post(f"/api/health-declarations/{d['id']}/performer", headers=h, json={"signature": SIG}).json()["status"] == "signed"
+
+    # a link not filled in time closes; a client without a phone gets no link
+    late = client.post("/api/health-declarations", headers=h, json={"client_id": str(c.id)}).json()
+    db_session.get(HealthDeclaration, late["id"]).token_expires_at = datetime.now(timezone.utc) - timedelta(minutes=1)
+    db_session.commit()
+    late_token = late["link"].rsplit("/", 1)[1]
+    assert client.get(f"/api/public/health/{late_token}").json()["status"] == "expired"
+    assert client.post(f"/api/public/health/{late_token}", json={"answers": {}, "signature": SIG}).status_code == 410
+    c.phone = None
+    db_session.commit()
+    assert client.post(f"/api/health-declarations/{late['id']}/send-link", headers=h).json()["detail"] == "ללקוח אין מספר טלפון"

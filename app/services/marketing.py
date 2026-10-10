@@ -46,6 +46,7 @@ SERVICE_TYPES = frozenset({
     "new_appointment", "reschedule", "appointment_cancelled", "no_show",
     "1day", "3day", "7day", "same_day", "1day_email", "3day_email", "7day_email", "same_day_email",
     "deposit_24h", "aftercare", "post_payment",
+    "health_form",           # the link to fill the health declaration before the treatment (services/health_forms)
     # receipts and purchases
     "receipt_link", "receipt_link_email", "pos_receipt",
     "gift_card_voucher", "gift_card_receipt_link", "gift_card_receipt_link_email",
@@ -57,6 +58,7 @@ SERVICE_TYPES = frozenset({
     "club_welcome", "points_celebration",
     # to the studio's staff, not to clients
     "new_lead", "manual",
+    "crm",                   # from BizControl to a business's owner (the superadmin's CRM — services/platform_outreach)
 })
 SERVICE_PREFIXES = (
     "plan_",     # subscription notices to the studio owner

@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
-KIND = "crm"                       # message_jobs.reminder_type of a message from the company
+KIND = "crm"                       # message_jobs.reminder_type of a message from the company (a service type — marketing.py)
 CHANNELS = {"whatsapp": ("whatsapp",), "email": ("email",), "both": ("whatsapp", "email")}
 
 DEFAULT_TEMPLATES = [

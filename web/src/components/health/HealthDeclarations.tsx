@@ -2,13 +2,15 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Check, HeartPulse, PenLine, Printer, Trash2, TriangleAlert, X } from "lucide-react";
+import { Check, Copy, HeartPulse, PenLine, Printer, Send, Trash2, TriangleAlert, X } from "lucide-react";
 import { API_BASE, apiFetch, getToken } from "@/lib/api";
+import { toast } from "@/lib/toast";
 import HealthFormFill, { type ClientPart, type HealthAnswer, type HealthFormView } from "./HealthFormFill";
 import SignaturePad from "./SignaturePad";
 
 // The health declarations of an appointment, or of a client (their file) — and the full screen they're signed on:
-// the client fills and signs on the studio's device, hands it over, and the one giving the service signs.
+// the client fills and signs on the studio's device (or from a link sent on WhatsApp, app/health/[token]),
+// hands it over, and the one giving the service signs.
 // The rules: app/services/health_forms.py.
 
 export type DeclarationRow = {
@@ -16,6 +18,7 @@ export type DeclarationRow = {
     appointment_id: string | null; appointment_at: string | null; appointment_title: string | null;
     client_signed_at: string | null; client_signed_via: "studio" | "link" | null; performer_name: string | null;
     performer_signed_at: string | null; link_sent_at: string | null; created_at: string | null; flagged: string[];
+    link: string | null;          // while it waits for the client
 };
 export type Declaration = DeclarationRow & HealthFormView & {
     answers: Record<string, HealthAnswer> | null; id_number: string | null;
@@ -165,17 +168,37 @@ export default function HealthDeclarations({ clientId, appointmentId }: { client
     }, [clientId, appointmentId]);
     useEffect(() => { load(); }, [load]);
 
-    const start = async () => {
+    // open one (an appointment's open one is reused) — to fill now on this device, or to send the link
+    const start = async (then: "fill" | "send") => {
         setBusy(true); setErr(null);
         try {
             const d = await apiFetch<Declaration>("/api/health-declarations", {
                 method: "POST", body: JSON.stringify({ client_id: clientId, appointment_id: appointmentId ?? null }),
             });
-            setOpen(d.id);
+            if (then === "fill") setOpen(d.id);
+            else await sendLink(d.id);
         } catch (e) {
             setErr(e instanceof Error ? e.message : "הפתיחה נכשלה");
         } finally {
             setBusy(false);
+        }
+    };
+    const sendLink = async (id: string) => {
+        setErr(null);
+        try {
+            await apiFetch(`/api/health-declarations/${id}/send-link`, { method: "POST" });
+            toast.success("הקישור נשלח ללקוח ב-WhatsApp");
+        } catch (e) {
+            setErr(e instanceof Error ? e.message : "השליחה נכשלה");
+        }
+        load();
+    };
+    const copyLink = async (link: string) => {
+        try {
+            await navigator.clipboard.writeText(link);
+            toast.success("הקישור הועתק");
+        } catch {
+            window.prompt("העתיקו את הקישור:", link);
         }
     };
     const remove = async (id: string) => {
@@ -196,10 +219,16 @@ export default function HealthDeclarations({ clientId, appointmentId }: { client
                     <HeartPulse className="h-4 w-4 text-rose-600" aria-hidden /> הצהרת בריאות
                 </span>
                 {rows !== null && !(appointmentId && pending) && (
-                    <button type="button" onClick={start} disabled={busy}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 disabled:opacity-50">
-                        <PenLine className="h-3.5 w-3.5" aria-hidden /> {busy ? "פותח..." : rows.length && appointmentId ? "הצהרה נוספת" : "מילוי וחתימה"}
-                    </button>
+                    <div className="flex items-center gap-1.5">
+                        <button type="button" onClick={() => start("send")} disabled={busy}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 text-xs font-bold hover:bg-slate-50 disabled:opacity-50">
+                            <Send className="h-3.5 w-3.5" aria-hidden /> שליחת קישור
+                        </button>
+                        <button type="button" onClick={() => start("fill")} disabled={busy}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 disabled:opacity-50">
+                            <PenLine className="h-3.5 w-3.5" aria-hidden /> {busy ? "רגע..." : rows.length && appointmentId ? "הצהרה נוספת" : "מילוי וחתימה"}
+                        </button>
+                    </div>
                 )}
             </div>
             {err && <p className="text-xs text-rose-600">{err}</p>}
@@ -213,7 +242,9 @@ export default function HealthDeclarations({ clientId, appointmentId }: { client
                                 <div className="flex items-center gap-2 flex-wrap text-xs">
                                     <span className={`font-bold px-2 py-0.5 rounded-full ${STATUS[r.status].cls}`}>{STATUS[r.status].label}</span>
                                     <span className="text-slate-500">
-                                        {r.status === "signed" ? `נחתם ${when(r.performer_signed_at)}` : `נפתח ${when(r.created_at)}`}
+                                        {r.status === "signed" ? `נחתם ${when(r.performer_signed_at)}`
+                                            : r.status === "waiting_performer" ? `הלקוח חתם ${when(r.client_signed_at)}${r.client_signed_via === "link" ? " מהטלפון" : ""}`
+                                            : r.link_sent_at ? `קישור נשלח ${when(r.link_sent_at)}` : `נפתח ${when(r.created_at)}`}
                                         {!appointmentId && r.appointment_at ? ` · לתור ${new Date(r.appointment_at).toLocaleDateString("he-IL")}` : ""}
                                     </span>
                                 </div>
@@ -226,6 +257,19 @@ export default function HealthDeclarations({ clientId, appointmentId }: { client
                                         <button type="button" onClick={() => setOpen(r.id)} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-900 text-white">
                                             <PenLine className="h-3.5 w-3.5" aria-hidden /> {r.status === "waiting_client" ? "מילוי וחתימה" : "חתימת המבצע"}
                                         </button>
+                                    )}
+                                    {r.status === "waiting_client" && r.link && (
+                                        <>
+                                            <button type="button" onClick={() => sendLink(r.id)} title={r.link_sent_at ? "לשלוח שוב ב-WhatsApp" : "שליחה ב-WhatsApp"}
+                                                aria-label={r.link_sent_at ? "לשלוח שוב ב-WhatsApp" : "שליחה ב-WhatsApp"}
+                                                className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100">
+                                                <Send className="h-3.5 w-3.5" />
+                                            </button>
+                                            <button type="button" onClick={() => copyLink(r.link as string)} title="העתקת הקישור" aria-label="העתקת הקישור"
+                                                className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100">
+                                                <Copy className="h-3.5 w-3.5" />
+                                            </button>
+                                        </>
                                     )}
                                     {r.status === "waiting_client" && (
                                         <button type="button" onClick={() => remove(r.id)} aria-label="מחיקה" className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50">
