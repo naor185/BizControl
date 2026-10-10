@@ -37,6 +37,9 @@ def quick_send(
         raise HTTPException(status_code=400, detail="ללקוח זה אין מספר טלפון")
 
     settings = db.get(StudioSettings, ctx.studio_id)
+    from app.services import message_quota
+    if not message_quota.can_send(db, ctx.studio_id):
+        raise HTTPException(status_code=429, detail=f"{message_quota.OUT}. אפשר לשלוח מהוואטסאפ שלך.")
 
     try:
         send_whatsapp_message(client.phone, payload.body, settings, db)
@@ -44,6 +47,7 @@ def quick_send(
         raise HTTPException(status_code=503, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"שגיאה בשליחת ההודעה: {e}")
+    message_quota.count_sent(db, ctx.studio_id)
 
     now = datetime.now(timezone.utc)
     db.add(MessageJob(

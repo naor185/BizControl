@@ -102,6 +102,15 @@ def create_broadcast(
     from app.services.marketing import broadcast_recipients_query
     count = len(db.scalars(broadcast_recipients_query(ctx.studio_id, payload.audience)).all())
 
+    # The plan's month (app/services/message_quota.py): עסק קטן sends 10 broadcasts, and a broadcast is one
+    # WhatsApp per recipient — it goes out only when there are messages left for all of them.
+    from app.services import message_quota
+    if message_quota.broadcasts_left(db, ctx.studio_id) == 0:
+        raise HTTPException(400, "נשלחו כל התפוצות של החודש במסלול. אפשר לשלוח שוב בחודש הבא.")
+    left = message_quota.balance(db, ctx.studio_id)["remaining"]
+    if left is not None and count > left:
+        raise HTTPException(400, f"התפוצה היא ל-{count} לקוחות, ונשארו במסלול {left} הודעות WhatsApp החודש.")
+
     b = Broadcast(
         studio_id=ctx.studio_id,
         created_by=ctx.user_id,
@@ -114,6 +123,7 @@ def create_broadcast(
         media_url=payload.media_url or None,
     )
     db.add(b)
+    message_quota.count_broadcast(db, ctx.studio_id)
     db.commit()
     db.refresh(b)
     return _out(b)
@@ -136,6 +146,8 @@ def cancel_broadcast(
     if b.status != "scheduled":
         raise HTTPException(400, "ניתן לבטל רק תפוצות שעדיין לא נשלחו")
     b.status = "canceled"
+    from app.services import message_quota
+    message_quota.count_broadcast(db, ctx.studio_id, b.created_at, by=-1)     # it never went out
     db.commit()
     return None
 

@@ -403,6 +403,15 @@ def process_due_jobs(db: Session, limit: int = 20) -> int:
                     count += 1
                     continue
 
+            # The plan's WhatsApp messages this month (app/services/message_quota.py)
+            if job.channel == "whatsapp":
+                from app.services import message_quota
+                if not message_quota.can_send(db, job.studio_id):
+                    message_quota.out_of_messages(db, job)    # cancelled, or now an e-mail
+                    if job.channel != "email":
+                        count += 1
+                        continue
+
             if job.channel == "email":
                 # a body written as plain lines keeps them — before a marketing footer turns it into HTML
                 from app.utils.email_templates import text_as_email_html
@@ -464,6 +473,8 @@ def process_due_jobs(db: Session, limit: int = 20) -> int:
                 settings = db.get(StudioSettings, job.studio_id)
                 send_whatsapp_message(job.to_phone, job.body, settings, db=db,
                                       media_url=getattr(job, "media_url", None))
+                from app.services import message_quota
+                message_quota.count_sent(db, job.studio_id)
 
             job.status = "sent"
             job.sent_at = now

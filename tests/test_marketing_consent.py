@@ -140,6 +140,9 @@ def sent(monkeypatch):
     import app.services.email_center as ec
     monkeypatch.setattr(ec, "send_email", lambda db, **kw: out.append(("email", kw["to_email"])) or True)
     monkeypatch.setattr(marketing, "unsubscribe_link", lambda db, sid, cid, commit=True: f"https://x.test/optout/{str(cid)[:8]}")
+    import app.services.message_quota as mq          # the plan's WhatsApp month — not what these tests are about
+    monkeypatch.setattr(mq, "can_send", lambda db, studio_id, n=1: True)
+    monkeypatch.setattr(mq, "count_sent", lambda db, studio_id, n=1: None)
     return out
 
 

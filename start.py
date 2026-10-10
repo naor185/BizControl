@@ -2768,6 +2768,31 @@ def ensure_schema():
                   AND NOT EXISTS (SELECT 1 FROM plan_modules pm WHERE pm.plan = s.subscription_plan AND pm.module_id = sm.module_id)
             """, (_class_modules,))
 
+        # ── Plans stage 3: WhatsApp messages and broadcasts a month (app/services/message_quota.py) ─────────
+        if _once("plans_2026_10_stage3"):
+            # עסק קטן's 10 broadcasts are a hard stop; WhatsApp past the limit is handled message by message
+            cur.execute("UPDATE plan_modules SET on_exceed_action = 'block' WHERE module_id = 'broadcasts' AND limit_value IS NOT NULL")
+            cur.execute("UPDATE plan_modules SET on_exceed_action = 'custom' WHERE module_id = 'whatsapp' AND limit_value IS NOT NULL")
+            # this month so far — what already went out counts from day one
+            cur.execute("""
+                INSERT INTO studio_usage_counters (studio_id, quota_key, period_key, used_count)
+                SELECT studio_id, 'whatsapp', to_char(NOW() AT TIME ZONE 'Asia/Jerusalem', 'YYYY-MM'), count(*)
+                FROM message_jobs
+                WHERE channel = 'whatsapp' AND status = 'sent'
+                  AND sent_at >= (date_trunc('month', NOW() AT TIME ZONE 'Asia/Jerusalem') AT TIME ZONE 'Asia/Jerusalem')
+                GROUP BY studio_id
+                ON CONFLICT (studio_id, quota_key, period_key) DO NOTHING
+            """)
+            cur.execute("""
+                INSERT INTO studio_usage_counters (studio_id, quota_key, period_key, used_count)
+                SELECT studio_id, 'broadcasts', to_char(NOW() AT TIME ZONE 'Asia/Jerusalem', 'YYYY-MM'), count(*)
+                FROM broadcasts
+                WHERE status <> 'canceled'
+                  AND created_at >= (date_trunc('month', NOW() AT TIME ZONE 'Asia/Jerusalem') AT TIME ZONE 'Asia/Jerusalem')
+                GROUP BY studio_id
+                ON CONFLICT (studio_id, quota_key, period_key) DO NOTHING
+            """)
+
         conn.commit()
         cur.close()
         conn.close()

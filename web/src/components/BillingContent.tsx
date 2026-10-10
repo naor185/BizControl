@@ -5,6 +5,8 @@ import { Check, ChevronDown, TriangleAlert } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { isNativeApp } from "@/lib/platform";
 import { IF_NOT_RENEWED } from "@/lib/planConsequences";
+import UsageThisMonth from "@/components/UsageThisMonth";
+import { BIZFIND_URL } from "@/lib/config";
 
 type BillingStatus = {
     plan: string;
@@ -123,6 +125,8 @@ export default function BillingContent() {
                 </div>
             )}
 
+            <UsageThisMonth />
+
             {isTrial && !isNative && (
                 <p className="text-sm text-slate-600">
                     אתה בתקופת ניסיון. כדי להמשיך להשתמש במערכת אחריה, בחר מנוי מהרשימה למטה.
@@ -196,7 +200,10 @@ export default function BillingContent() {
                 })}
             </div>}
 
-            <p className="text-center text-xs text-slate-400">תשלומים מאובטחים דרך Stripe · ניתן לבטל בכל עת</p>
+            <p className="text-center text-xs text-slate-400">
+                תשלום חודשי ללא התחייבות — ביטול נכנס לתוקף בסוף החודש ששולם · תשלום שנתי — התחייבות לשנה ·{" "}
+                <a href={`${BIZFIND_URL}/billing-terms`} target="_blank" rel="noopener" className="underline hover:text-slate-600">תקנון ביטולים וחיובים</a>
+            </p>
         </div>
     );
 }

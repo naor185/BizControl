@@ -52,7 +52,7 @@ function PlanCard({
             <div style={{ fontWeight: 800, fontSize: "1.2rem", color: "var(--bf-text)", marginBottom: "0.35rem" }}>{tier.label}</div>
             <div style={{ marginBottom: "1.25rem" }}>
                 <span style={{ fontSize: "2.2rem", fontWeight: 900, color: "var(--bf-text)", fontVariantNumeric: "tabular-nums" }}>₪{tier.price}</span>
-                <span style={{ fontSize: "0.85rem", color: "var(--bf-faint)", marginRight: "0.3rem" }}>/ חודש</span>
+                <span style={{ fontSize: "0.85rem", color: "var(--bf-faint)", marginRight: "0.3rem" }}>/ חודש · ללא התחייבות</span>
             </div>
             <ul style={{ listStyle: "none", padding: 0, margin: "0 0 1.5rem", flex: 1 }}>
                 {tier.features.map(f => (
@@ -159,7 +159,8 @@ export default function PricingPage() {
                         ))}
                     </div>
                     <p style={{ textAlign: "center", color: "var(--bf-faint)", fontSize: "0.82rem", marginTop: "1rem" }}>
-                        המחירים לחודש, לפני מע״מ. סליקת אשראי בתשלום נפרד.
+                        המחירים לחודש, לפני מע״מ. תשלום חודשי ללא התחייבות; תשלום שנתי — התחייבות לשנה. סליקת אשראי בתשלום נפרד.
+                        {" "}<Link href="/billing-terms" style={{ color: "var(--bf-muted)" }}>תקנון ביטולים וחיובים</Link>
                     </p>
                 </div>
 
@@ -171,6 +172,7 @@ export default function PricingPage() {
                         ["מה קורה בסוף החודש?", "תקבלו התראה 7 ו-3 ימים לפני הסיום. בוחרים מסלול לפני שהחודש נגמר, אחרת הגישה למערכת נחסמת עד שבוחרים."],
                         ["האם הנתונים משותפים בין BizFind ל-BizControl?", "כן. שתי הפלטפורמות עובדות על אותה מערכת — נרשמים פעם אחת, הנתונים זמינים בכל מקום."],
                         ["אפשר לעבור מסלול?", "כן, בכל שלב."],
+                        ["איך מבטלים?", "תשלום חודשי — מבטלים מתי שרוצים, והביטול נכנס לתוקף בסוף החודש ששולם. תשלום שנתי — התחייבות לשנה, מתחדש לבד עד שמבטלים. הפרטים בתקנון הביטולים והחיובים."],
                     ].map(([q, a]) => (
                         <div key={q} style={{ borderBottom: "1px solid var(--bf-line)", paddingBottom: "1rem", marginBottom: "1rem" }}>
                             <div style={{ fontWeight: 700, color: "var(--bf-text)", marginBottom: "0.3rem", fontSize: "0.92rem" }}>{q}</div>

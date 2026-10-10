@@ -175,11 +175,14 @@ function RegisterInner() {
                                 {paidPlans.map(p => (
                                     <div key={p.key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", border: "1px solid var(--bf-line)", borderRadius: 12, padding: "0.6rem 1rem", fontSize: "0.88rem" }}>
                                         <span style={{ fontWeight: 700, color: "var(--bf-text)" }}>{p.label}</span>
-                                        <span style={{ color: "var(--bf-muted)", fontVariantNumeric: "tabular-nums" }}>₪{p.price_ils} לחודש, לפני מע״מ</span>
+                                        <span style={{ color: "var(--bf-muted)", fontVariantNumeric: "tabular-nums" }}>₪{p.price_ils} לחודש, לפני מע״מ · ללא התחייבות</span>
                                     </div>
                                 ))}
                             </div>
-                            <Link href="/for-business/pricing" style={{ display: "block", textAlign: "center", fontSize: "0.8rem", color: "var(--bf-muted)", marginTop: "0.6rem" }}>מה כלול בכל מסלול</Link>
+                            <div style={{ display: "flex", justifyContent: "center", gap: "1rem", fontSize: "0.8rem", marginTop: "0.6rem" }}>
+                                <Link href="/for-business/pricing" style={{ color: "var(--bf-muted)" }}>מה כלול בכל מסלול</Link>
+                                <Link href="/billing-terms" style={{ color: "var(--bf-muted)" }}>תקנון ביטולים וחיובים</Link>
+                            </div>
                         </div>
                     )}
 
@@ -305,7 +308,7 @@ function RegisterInner() {
                     </div>
 
                     <p style={{ textAlign: "center", fontSize: "0.78rem", color: "var(--bf-faint)", marginTop: "1rem" }}>
-                        בלחיצה על הצטרפו אתם מסכימים ל<a href="/terms" style={{ color: "var(--bf-text)" }}>תנאי השימוש</a> שלנו
+                        בלחיצה על הצטרפו אתם מסכימים ל<a href="/terms" style={{ color: "var(--bf-text)" }}>תנאי השימוש</a> ול<a href="/billing-terms" style={{ color: "var(--bf-text)" }}>תקנון הביטולים והחיובים</a>
                     </p>
                 </div>
             )}

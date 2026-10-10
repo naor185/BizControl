@@ -21,6 +21,32 @@ def get_my_modules(
     return get_studio_modules(db, ctx.studio_id, plan)
 
 
+@router.get("/me/usage")
+def get_my_usage(
+    ctx: AuthContext = Depends(require_studio_ctx),
+    db: Session = Depends(get_db),
+) -> list[dict]:
+    """This month's use of what the plan counts — WhatsApp messages always, broadcasts when the plan limits them,
+    invoice scans when the business has them. {key, label, used, limit (None — no limit), remaining, resets_on}."""
+    from datetime import date
+    from app.core.features import get_studio_modules
+    from app.services import message_quota
+    studio = db.get(Studio, ctx.studio_id)
+    on = get_studio_modules(db, ctx.studio_id, studio.subscription_plan if studio else "free")
+    today = date.today()
+    resets_on = date(today.year + (today.month == 12), today.month % 12 + 1, 1).isoformat()
+    out = []
+    for key, label in (("whatsapp", "הודעות WhatsApp"), ("broadcasts", "תפוצות"), ("invoice_ai_scan", "סריקות חשבוניות")):
+        if key != "whatsapp" and not on.get(key):
+            continue
+        b = message_quota.balance(db, ctx.studio_id, key)
+        if key == "broadcasts" and b["limit"] is None:
+            continue                                 # unlimited broadcasts — WhatsApp messages tell the story
+        out.append({"key": key, "label": label, "used": b["used"], "limit": b["limit"], "remaining": b["remaining"],
+                    "resets_on": resets_on})
+    return out
+
+
 @router.get("/me/upgrades")
 def get_my_upgrades(
     ctx: AuthContext = Depends(require_studio_ctx),

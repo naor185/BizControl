@@ -536,6 +536,11 @@ function LoginContent() {
                                     </a>
                                 </>)}
                             </div>
+                            <div className="text-center">
+                                <a href={`${BIZFIND_URL}/billing-terms`} target="_blank" rel="noopener" className="text-[11px] text-blue-200/40 hover:text-blue-200/70 transition-colors">
+                                    {locale.startsWith("en") ? "Cancellation & billing terms" : "תקנון ביטולים וחיובים"}
+                                </a>
+                            </div>
                         </form>
                     </div>
 

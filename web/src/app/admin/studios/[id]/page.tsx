@@ -1,4 +1,5 @@
 "use client";
+import StudioUsage from "@/components/admin/StudioUsage";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/lib/toast";
 
@@ -580,6 +581,9 @@ export default function StudioDetailPage() {
                         </div>
                     </div>
                 )}
+
+                {/* This business's use of what its plan counts */}
+                <StudioUsage studioId={studioId} />
 
                 {/* Green API WhatsApp */}
                 {settings && (

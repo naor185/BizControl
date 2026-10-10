@@ -5,6 +5,7 @@ import { apiFetch, API_BASE } from "@/lib/api";
 import Link from "next/link";
 import { Rocket, Zap } from "lucide-react";
 import { isNativeApp } from "@/lib/platform";
+import { BIZFIND_URL } from "@/lib/config";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -272,6 +273,11 @@ export default function OnboardingPage() {
                                     );
                                 })}
                             </div>
+
+                            <p className="text-center text-xs text-slate-400 mt-3">
+                                תשלום חודשי ללא התחייבות ·{" "}
+                                <a href={`${BIZFIND_URL}/billing-terms`} target="_blank" rel="noopener" className="underline">תקנון ביטולים וחיובים</a>
+                            </p>
 
                             <div className="flex gap-3 mt-6">
                                 <button onClick={() => setStep(1)} className="flex-1 py-3 rounded-2xl border border-slate-200 text-slate-500 font-semibold text-sm hover:bg-slate-50">
