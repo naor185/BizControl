@@ -10,7 +10,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, LargeBinary, String, Text, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, LargeBinary, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -31,7 +31,8 @@ class HealthFormFile(Base):
 
 
 class HealthForm(Base):
-    """The business's form — one per business. Questions: [{id, text, kind: 'yes_no' | 'text'}]."""
+    """The business's form — one per business. Questions: [{id, text, kind: 'yes_no' | 'text' | 'none'}] — 'none' is
+    read only, the client answers nothing (owner, 2026-10-10)."""
     __tablename__ = "health_forms"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -40,7 +41,7 @@ class HealthForm(Base):
     intro: Mapped[str] = mapped_column(Text, nullable=False, default="")
     questions: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
     closing: Mapped[str] = mapped_column(Text, nullable=False, default="")
-    ask_id_number: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    ask_age: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)      # the client's age (not an ID number)
     file_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("health_form_files.id"), nullable=True)
     # the business's choices: on or off; the link sent by itself — off | on_booking | day_before; how long a filled
     # declaration counts — every_visit | 6m | 12m | forever (a client with one in force isn't asked again)
@@ -67,12 +68,12 @@ class HealthDeclaration(Base):
     intro: Mapped[str] = mapped_column(Text, nullable=False, default="")
     questions: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
     closing: Mapped[str] = mapped_column(Text, nullable=False, default="")
-    ask_id_number: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    ask_age: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     file_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("health_form_files.id"), nullable=True)
 
     # the client's part: {question_id: {"answer": "yes" | "no", "details": str} | {"text": str}}
     answers: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
-    id_number: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    age: Mapped[int | None] = mapped_column(Integer, nullable=True)
     client_signature: Mapped[str | None] = mapped_column(Text, nullable=True)        # PNG data URL
     client_signed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     client_signed_via: Mapped[str | None] = mapped_column(String(10), nullable=True)  # studio | link

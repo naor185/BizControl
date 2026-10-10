@@ -2852,7 +2852,7 @@ def ensure_schema():
                 intro TEXT NOT NULL DEFAULT '',
                 questions JSONB NOT NULL DEFAULT '[]',
                 closing TEXT NOT NULL DEFAULT '',
-                ask_id_number BOOLEAN NOT NULL DEFAULT TRUE,
+                ask_age BOOLEAN NOT NULL DEFAULT TRUE,
                 file_id UUID REFERENCES health_form_files(id),
                 updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
             )
@@ -2868,10 +2868,10 @@ def ensure_schema():
                 intro TEXT NOT NULL DEFAULT '',
                 questions JSONB NOT NULL DEFAULT '[]',
                 closing TEXT NOT NULL DEFAULT '',
-                ask_id_number BOOLEAN NOT NULL DEFAULT TRUE,
+                ask_age BOOLEAN NOT NULL DEFAULT TRUE,
                 file_id UUID REFERENCES health_form_files(id),
                 answers JSONB,
-                id_number VARCHAR(20),
+                age INTEGER,
                 client_signature TEXT,
                 client_signed_at TIMESTAMPTZ,
                 client_signed_via VARCHAR(10),
@@ -2896,6 +2896,13 @@ def ensure_schema():
         cur.execute("ALTER TABLE health_forms ADD COLUMN IF NOT EXISTS auto_send VARCHAR(12) NOT NULL DEFAULT 'off'")
         cur.execute("ALTER TABLE health_forms ADD COLUMN IF NOT EXISTS validity VARCHAR(12) NOT NULL DEFAULT 'forever'")
         cur.execute("ALTER TABLE health_forms ADD COLUMN IF NOT EXISTS auto_since TIMESTAMPTZ")
+        # the client's age instead of an ID number (owner, 2026-10-10 — production had no declaration yet)
+        cur.execute("ALTER TABLE health_forms ADD COLUMN IF NOT EXISTS ask_age BOOLEAN NOT NULL DEFAULT TRUE")
+        cur.execute("ALTER TABLE health_forms DROP COLUMN IF EXISTS ask_id_number")
+        cur.execute("ALTER TABLE health_declarations ADD COLUMN IF NOT EXISTS ask_age BOOLEAN NOT NULL DEFAULT TRUE")
+        cur.execute("ALTER TABLE health_declarations ADD COLUMN IF NOT EXISTS age INTEGER")
+        cur.execute("ALTER TABLE health_declarations DROP COLUMN IF EXISTS ask_id_number")
+        cur.execute("ALTER TABLE health_declarations DROP COLUMN IF EXISTS id_number")
 
         if _once("viki_removed_v1"):
             # ויקי, the chat assistant, was removed (owner, 2026-10-10). Its module stays as the parent of the other AI

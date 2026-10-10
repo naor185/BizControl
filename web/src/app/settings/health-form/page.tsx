@@ -17,7 +17,7 @@ import { useFormFile } from "@/components/health/HealthDeclarations";
 type AutoSend = "off" | "on_booking" | "day_before";
 type Validity = "every_visit" | "6m" | "12m" | "forever";
 type Form = {
-    title: string; intro: string; questions: HealthQuestion[]; closing: string; ask_id_number: boolean; file: HealthFile | null;
+    title: string; intro: string; questions: HealthQuestion[]; closing: string; ask_age: boolean; file: HealthFile | null;
     saved: boolean; enabled: boolean; auto_send: AutoSend; validity: Validity;
 };
 const AUTO_SEND: { key: AutoSend; label: string; note: string }[] = [
@@ -192,10 +192,10 @@ export default function HealthFormSettingsPage() {
                                     <div className="flex-1 space-y-1.5">
                                         <textarea className={`${input} leading-relaxed`} rows={2} value={q.text} maxLength={500} onChange={e => setQ(i, { text: e.target.value })} aria-label={`שאלה ${i + 1}`} />
                                         <div className="flex gap-1.5">
-                                            {(["yes_no", "text"] as const).map(k => (
+                                            {(["yes_no", "text", "none"] as const).map(k => (
                                                 <button key={k} type="button" onClick={() => setQ(i, { kind: k })} aria-pressed={q.kind === k}
                                                     className={`px-2.5 py-1 rounded-lg text-xs font-semibold border ${q.kind === k ? "bg-slate-900 text-white border-slate-900" : "bg-white text-slate-600 border-slate-200"}`}>
-                                                    {k === "yes_no" ? "כן / לא" : "תשובה פתוחה"}
+                                                    {k === "yes_no" ? "כן / לא" : k === "text" ? "תשובה פתוחה" : "ללא תשובה"}
                                                 </button>
                                             ))}
                                         </div>
@@ -220,7 +220,7 @@ export default function HealthFormSettingsPage() {
                             <textarea className={`${input} mt-1 min-h-[80px] leading-relaxed`} value={form.closing} maxLength={2000} onChange={e => set({ closing: e.target.value })} />
                         </label>
                         <label className="flex items-center gap-3 cursor-pointer">
-                            <input type="checkbox" checked={form.ask_id_number} onChange={e => set({ ask_id_number: e.target.checked })} className="h-5 w-5 accent-slate-900" />
+                            <input type="checkbox" checked={form.ask_age} onChange={e => set({ ask_age: e.target.checked })} className="h-5 w-5 accent-slate-900" />
                             <span className="text-sm text-slate-800">לבקש מספר תעודת זהות</span>
                         </label>
                     </section>

@@ -57,7 +57,7 @@ export default function HealthDeclarationPage() {
 
                             <dl className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3 text-sm">
                                 <div><dt className="text-slate-500">שם הלקוח</dt><dd className="font-bold text-slate-900">{d.client_name}</dd></div>
-                                {d.id_number && <div><dt className="text-slate-500">תעודת זהות</dt><dd className="font-bold text-slate-900 tabular-nums">{d.id_number}</dd></div>}
+                                {d.age != null && <div><dt className="text-slate-500">גיל</dt><dd className="font-bold text-slate-900 tabular-nums">{d.age}</dd></div>}
                                 {d.client_phone && <div><dt className="text-slate-500">טלפון</dt><dd className="font-bold text-slate-900 tabular-nums" dir="ltr">{d.client_phone}</dd></div>}
                                 {d.appointment_at && (
                                     <div><dt className="text-slate-500">תור</dt><dd className="font-bold text-slate-900">{d.appointment_title} · {at(d.appointment_at)}</dd></div>

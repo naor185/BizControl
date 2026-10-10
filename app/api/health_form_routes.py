@@ -72,7 +72,7 @@ class FormIn(BaseModel):
     intro: str = Field(default="", max_length=5000)
     questions: list[Question] = Field(default_factory=list, max_length=60)
     closing: str = Field(default="", max_length=2000)
-    ask_id_number: bool = True
+    ask_age: bool = True
     file_id: Optional[str] = None
     enabled: bool = True
     auto_send: str = "off"
@@ -85,7 +85,7 @@ def save_form(payload: FormIn, ctx: AuthContext = Depends(require_management("ע
     try:
         return health_forms.save_form(db, ctx.studio_id, title=payload.title, intro=payload.intro,
                                       questions=[q.model_dump() for q in payload.questions], closing=payload.closing,
-                                      ask_id_number=payload.ask_id_number, file_id=payload.file_id,
+                                      ask_age=payload.ask_age, file_id=payload.file_id,
                                       enabled=payload.enabled, auto_send=payload.auto_send, validity=payload.validity)
     except ValueError as e:
         raise HTTPException(400, str(e))
@@ -144,7 +144,7 @@ def get_declaration(declaration_id: str, ctx: AuthContext = Depends(require_stud
 
 class ClientSignIn(BaseModel):
     answers: dict = Field(default_factory=dict)
-    id_number: Optional[str] = Field(default=None, max_length=20)
+    age: Optional[int] = Field(default=None, ge=0, le=150)
     signature: str
 
 
@@ -153,7 +153,7 @@ def client_signs(declaration_id: str, payload: ClientSignIn, request: Request,
                  ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
     d = _declaration(db, ctx, declaration_id)
     try:
-        health_forms.client_signs(db, d, answers=payload.answers, id_number=payload.id_number, signature=payload.signature,
+        health_forms.client_signs(db, d, answers=payload.answers, age=payload.age, signature=payload.signature,
                                   via="studio", ip=_ip(request),
                                   device=request.headers.get("user-agent"))
     except ValueError as e:
@@ -224,7 +224,7 @@ def public_sign(token: str, payload: ClientSignIn, request: Request, db: Session
     if not health_forms.link_open(d):
         raise HTTPException(410, "הקישור כבר לא בתוקף — בקשו מהעסק קישור חדש")
     try:
-        health_forms.client_signs(db, d, answers=payload.answers, id_number=payload.id_number, signature=payload.signature,
+        health_forms.client_signs(db, d, answers=payload.answers, age=payload.age, signature=payload.signature,
                                   via="link", ip=_ip(request), device=request.headers.get("user-agent"))
     except ValueError as e:
         raise HTTPException(400, str(e))

@@ -40,7 +40,7 @@ DEFAULT_CLOSING = ("אני מצהיר/ה שכל הפרטים שמסרתי נכו
                    "במצב הבריאות שלי.")
 
 STATUSES = ("waiting_client", "waiting_performer", "signed")
-KINDS = ("yes_no", "text")
+KINDS = ("yes_no", "text", "none")            # none — read only, nothing to answer
 FILE_TYPES = {"application/pdf", "image/jpeg", "image/png", "image/webp"}
 MAX_FILE_BYTES = 8 * 1024 * 1024
 MAX_SIGNATURE_CHARS = 400_000                 # a PNG data URL of a finger signature is a few dozen KB
@@ -62,10 +62,10 @@ def form(db: Session, studio_id) -> dict:
     file = db.get(HealthFormFile, f.file_id) if f and f.file_id else None
     if f is None:
         return {"title": DEFAULT_TITLE, "intro": DEFAULT_INTRO, "questions": _default_questions(),
-                "closing": DEFAULT_CLOSING, "ask_id_number": True, "file": None, "saved": False,
+                "closing": DEFAULT_CLOSING, "ask_age": True, "file": None, "saved": False,
                 "enabled": True, "auto_send": "off", "validity": "forever"}
     return {"title": f.title, "intro": f.intro, "questions": f.questions, "closing": f.closing,
-            "ask_id_number": f.ask_id_number, "saved": True,
+            "ask_age": f.ask_age, "saved": True,
             "file": {"id": str(file.id), "filename": file.filename, "content_type": file.content_type} if file else None,
             "enabled": f.enabled, "auto_send": f.auto_send, "validity": f.validity}
 
@@ -86,7 +86,7 @@ def clean_questions(questions: list[dict]) -> list[dict]:
 
 
 def save_form(db: Session, studio_id, *, title: str, intro: str, questions: list[dict], closing: str,
-              ask_id_number: bool, file_id: str | None, enabled: bool = True, auto_send: str = "off",
+              ask_age: bool, file_id: str | None, enabled: bool = True, auto_send: str = "off",
               validity: str = "forever") -> dict:
     if auto_send not in AUTO_SEND or validity not in VALIDITY:
         raise ValueError("בחירה לא מוכרת")
@@ -103,7 +103,7 @@ def save_form(db: Session, studio_id, *, title: str, intro: str, questions: list
         f = HealthForm(studio_id=studio_id)
         db.add(f)
     f.title, f.intro, f.questions, f.closing = title.strip() or DEFAULT_TITLE, intro.strip(), questions, closing.strip()
-    f.ask_id_number, f.file_id = ask_id_number, fid
+    f.ask_age, f.file_id = ask_age, fid
     # sending by itself counts appointments booked from the moment it was turned on — not every appointment there is
     if auto_send != "off" and (f.auto_send in (None, "off") or f.auto_since is None):
         f.auto_since = datetime.now(timezone.utc)
@@ -175,7 +175,7 @@ def open_declaration(db: Session, studio_id, client_id, appointment_id, created_
     d = HealthDeclaration(
         studio_id=studio_id, client_id=client.id, appointment_id=appointment_id, status="waiting_client",
         title=f["title"], intro=f["intro"], questions=f["questions"], closing=f["closing"],
-        ask_id_number=f["ask_id_number"], file_id=uuid.UUID(f["file"]["id"]) if f["file"] else None,
+        ask_age=f["ask_age"], file_id=uuid.UUID(f["file"]["id"]) if f["file"] else None,
         token=secrets.token_urlsafe(24), token_expires_at=datetime.now(timezone.utc) + timedelta(days=LINK_DAYS),
         created_by_id=created_by,
     )
@@ -190,7 +190,7 @@ def _check_signature(sig: str) -> str:
     return sig
 
 
-def client_signs(db: Session, d: HealthDeclaration, *, answers: dict, id_number: str | None, signature: str,
+def client_signs(db: Session, d: HealthDeclaration, *, answers: dict, age: int | None, signature: str,
                  via: str, ip: str | None, device: str | None) -> HealthDeclaration:
     if d.status != "waiting_client":
         raise ValueError("ההצהרה כבר נחתמה")
@@ -201,12 +201,12 @@ def client_signs(db: Session, d: HealthDeclaration, *, answers: dict, id_number:
             if a.get("answer") not in ("yes", "no"):
                 raise ValueError(f"לא נענתה השאלה: {q['text']}")
             clean[q["id"]] = {"answer": a["answer"], "details": (a.get("details") or "").strip()[:1000]}
-        else:
+        elif q["kind"] == "text":
             clean[q["id"]] = {"text": (a.get("text") or "").strip()[:2000]}
-    id_number = re.sub(r"\D", "", id_number or "")
-    if d.ask_id_number and not 5 <= len(id_number) <= 9:
-        raise ValueError("מספר תעודת זהות לא תקין")
-    d.answers, d.id_number = clean, id_number or None
+        # "none" — read only: nothing to keep
+    if d.ask_age and (age is None or not 1 <= age <= 120):
+        raise ValueError("נא למלא גיל")
+    d.answers, d.age = clean, age if d.ask_age else None
     d.client_signature = _check_signature(signature)
     d.client_signed_at, d.client_signed_via = datetime.now(timezone.utc), via
     d.client_ip, d.client_device = (ip or "")[:64] or None, (device or "")[:300] or None
@@ -281,8 +281,8 @@ def full(db: Session, d: HealthDeclaration) -> dict:
     studio = db.get(Studio, d.studio_id)
     file = db.get(HealthFormFile, d.file_id) if d.file_id else None
     return {
-        **summary(d), "intro": d.intro, "questions": d.questions, "closing": d.closing, "ask_id_number": d.ask_id_number,
-        "answers": d.answers, "id_number": d.id_number, "client_signature": d.client_signature,
+        **summary(d), "intro": d.intro, "questions": d.questions, "closing": d.closing, "ask_age": d.ask_age,
+        "answers": d.answers, "age": d.age, "client_signature": d.client_signature,
         "performer_signature": d.performer_signature, "client_ip": d.client_ip, "client_device": d.client_device,
         "client_id": str(d.client_id), "client_name": client.full_name if client else "",
         "client_phone": client.phone if client else None, "business_name": studio.name if studio else "",
@@ -392,7 +392,7 @@ def public_view(db: Session, d: HealthDeclaration) -> dict:
     file = db.get(HealthFormFile, d.file_id) if d.file_id else None
     return {
         "status": "waiting_client", "business_name": business, "client_name": client.full_name if client else "",
-        "title": d.title, "intro": d.intro, "questions": d.questions, "closing": d.closing, "ask_id_number": d.ask_id_number,
+        "title": d.title, "intro": d.intro, "questions": d.questions, "closing": d.closing, "ask_age": d.ask_age,
         "appointment_at": appt.starts_at.isoformat() if appt else None,
         "file": {"id": str(file.id), "filename": file.filename, "content_type": file.content_type} if file else None,
     }

@@ -7,20 +7,21 @@ import SignaturePad from "./SignaturePad";
 // The health declaration as a client fills it — on the studio's iPad/iPhone, or from the link on their own phone.
 // The form is the business's (app/services/health_forms.py): its text, its yes/no and open questions, its file.
 
-export type HealthQuestion = { id: string; text: string; kind: "yes_no" | "text" };
+// none — read only (owner, 2026-10-10): the client answers nothing, only reads, agrees and signs
+export type HealthQuestion = { id: string; text: string; kind: "yes_no" | "text" | "none" };
 export type HealthAnswer = { answer?: "yes" | "no"; details?: string; text?: string };
 export type HealthFile = { id: string; filename: string; content_type: string };
 export type HealthFormView = {
-    title: string; intro: string; questions: HealthQuestion[]; closing: string; ask_id_number: boolean;
+    title: string; intro: string; questions: HealthQuestion[]; closing: string; ask_age: boolean;
     file: HealthFile | null; client_name: string; business_name: string;
 };
-export type ClientPart = { answers: Record<string, HealthAnswer>; id_number: string; signature: string };
+export type ClientPart = { answers: Record<string, HealthAnswer>; age: number | null; signature: string };
 
 export default function HealthFormFill({ form, fileSrc, onSubmit }: {
     form: HealthFormView; fileSrc: string | null; onSubmit: (part: ClientPart) => Promise<void>;
 }) {
     const [answers, setAnswers] = useState<Record<string, HealthAnswer>>({});
-    const [idNumber, setIdNumber] = useState("");
+    const [age, setAge] = useState("");
     const [agreed, setAgreed] = useState(false);
     const [signature, setSignature] = useState<string | null>(null);
     const [sending, setSending] = useState(false);
@@ -28,10 +29,11 @@ export default function HealthFormFill({ form, fileSrc, onSubmit }: {
 
     const set = (id: string, patch: HealthAnswer) => setAnswers(a => ({ ...a, [id]: { ...a[id], ...patch } }));
     const unanswered = form.questions.filter(q => q.kind === "yes_no" && !answers[q.id]?.answer).length;
-    const idOk = !form.ask_id_number || /^\d{5,9}$/.test(idNumber.replace(/\D/g, ""));
+    const ageNumber = /^\d{1,3}$/.test(age.trim()) ? Number(age.trim()) : null;
+    const ageOk = !form.ask_age || (ageNumber !== null && ageNumber >= 1 && ageNumber <= 120);
     const missing = [
         unanswered > 0 && (unanswered === 1 ? "שאלה אחת לא נענתה" : `${unanswered} שאלות לא נענו`),
-        !idOk && "מספר תעודת זהות",
+        !ageOk && "גיל",
         !agreed && "אישור ההצהרה",
         !signature && "חתימה",
     ].filter(Boolean) as string[];
@@ -40,7 +42,7 @@ export default function HealthFormFill({ form, fileSrc, onSubmit }: {
         if (missing.length || !signature) return;
         setSending(true); setErr(null);
         try {
-            await onSubmit({ answers, id_number: idNumber, signature });
+            await onSubmit({ answers, age: form.ask_age ? ageNumber : null, signature });
         } catch (e) {
             setErr(e instanceof Error ? e.message : "השליחה נכשלה, נסו שוב");
         } finally {
@@ -100,21 +102,21 @@ export default function HealthFormFill({ form, fileSrc, onSubmit }: {
                                                 className="w-full border border-slate-200 rounded-xl px-3 py-2 text-[15px] outline-none focus:ring-2 focus:ring-slate-300" />
                                         )}
                                     </>
-                                ) : (
+                                ) : q.kind === "text" ? (
                                     <textarea value={a.text ?? ""} onChange={e => set(q.id, { text: e.target.value })} maxLength={2000} rows={3}
                                         className="w-full border border-slate-200 rounded-xl px-3 py-2 text-[15px] outline-none focus:ring-2 focus:ring-slate-300" />
-                                )}
+                                ) : null}
                             </li>
                         );
                     })}
                 </ol>
             )}
 
-            {form.ask_id_number && (
+            {form.ask_age && (
                 <label className="block">
-                    <span className="text-sm font-semibold text-slate-700">מספר תעודת זהות</span>
-                    <input value={idNumber} onChange={e => setIdNumber(e.target.value)} inputMode="numeric" autoComplete="off" maxLength={12} dir="ltr"
-                        className="mt-1 w-full border border-slate-200 rounded-xl px-3 py-3 text-base tabular-nums text-right outline-none focus:ring-2 focus:ring-slate-300" />
+                    <span className="text-sm font-semibold text-slate-700">גיל</span>
+                    <input value={age} onChange={e => setAge(e.target.value)} inputMode="numeric" autoComplete="off" maxLength={3} dir="ltr"
+                        className="mt-1 w-32 border border-slate-200 rounded-xl px-3 py-3 text-base tabular-nums text-right outline-none focus:ring-2 focus:ring-slate-300" />
                 </label>
             )}
 

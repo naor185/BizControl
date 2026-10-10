@@ -33,7 +33,7 @@ def _business(client, db, slug="ink-health"):
 def test_the_form_a_file_and_who_may_edit_it(client, db_session):
     h, _, _ = _business(client, db_session)
     f = client.get("/api/health-form", headers=h).json()
-    assert (f["title"], f["saved"], f["ask_id_number"]) == ("הצהרת בריאות", False, True)     # the ready-made form
+    assert (f["title"], f["saved"], f["ask_age"]) == ("הצהרת בריאות", False, True)     # the ready-made form
     assert len(f["questions"]) == 12 and f["questions"][-1]["kind"] == "text"
 
     pdf = b"%PDF-1.4 the studio's own declaration"
@@ -44,7 +44,7 @@ def test_the_form_a_file_and_who_may_edit_it(client, db_session):
     saved = client.put("/api/health-form", headers=h, json={
         "title": "הצהרה לפני קעקוע", "intro": "נא לקרוא את הקובץ ולענות",
         "questions": [{"text": "אלרגיה?", "kind": "yes_no"}, {"text": "  "}, {"text": "הערות", "kind": "text"}],
-        "closing": "אני מאשר/ת", "ask_id_number": False, "file_id": up.json()["id"]}).json()
+        "closing": "אני מאשר/ת", "ask_age": False, "file_id": up.json()["id"]}).json()
     assert [q["text"] for q in saved["questions"]] == ["אלרגיה?", "הערות"]                  # the empty one dropped
     assert saved["file"]["filename"] == "declaration.pdf" and saved["saved"]
     assert client.get(f"/api/health-form/files/{up.json()['id']}", headers=h).content == pdf
@@ -72,15 +72,15 @@ def test_a_client_signs_then_the_artist_and_it_stays_as_signed(client, db_sessio
     sign = f"/api/health-declarations/{d['id']}/client"
     missing = dict(answers)
     missing.pop(yes_no[0]["id"])
-    assert client.post(sign, headers=h, json={"answers": missing, "id_number": "123456782", "signature": SIG}).status_code == 400
-    assert client.post(sign, headers=h, json={"answers": answers, "id_number": "12", "signature": SIG}).status_code == 400
-    assert client.post(sign, headers=h, json={"answers": answers, "id_number": "123456782", "signature": "x"}).status_code == 400
+    assert client.post(sign, headers=h, json={"answers": missing, "age": 28, "signature": SIG}).status_code == 400
+    assert client.post(sign, headers=h, json={"answers": answers, "age": None, "signature": SIG}).status_code == 400
+    assert client.post(sign, headers=h, json={"answers": answers, "age": 28, "signature": "x"}).status_code == 400
     assert client.post(f"/api/health-declarations/{d['id']}/performer", headers=h, json={"signature": SIG}).status_code == 400
 
-    r = client.post(sign, headers=h, json={"answers": answers, "id_number": "123-456-782", "signature": SIG})
+    r = client.post(sign, headers=h, json={"answers": answers, "age": 28, "signature": SIG})
     assert r.status_code == 200, r.text
-    assert (r.json()["status"], r.json()["id_number"], r.json()["client_signed_via"]) == ("waiting_performer", "123456782", "studio")
-    assert client.post(sign, headers=h, json={"answers": answers, "id_number": "123456782", "signature": SIG}).status_code == 400
+    assert (r.json()["status"], r.json()["age"], r.json()["client_signed_via"]) == ("waiting_performer", 28, "studio")
+    assert client.post(sign, headers=h, json={"answers": answers, "age": 28, "signature": SIG}).status_code == 400
 
     done = client.post(f"/api/health-declarations/{d['id']}/performer", headers=h, json={"signature": SIG}).json()
     assert done["status"] == "signed" and done["performer_signature"] == SIG and done["performer_name"]
@@ -129,11 +129,11 @@ def test_the_client_fills_it_from_a_whatsapp_link_and_the_artist_signs_in_the_st
     assert client.get("/api/public/health/not-a-real-token").status_code == 404
 
     answers = {q["id"]: {"answer": "no"} for q in view["questions"] if q["kind"] == "yes_no"}
-    signed = client.post(f"/api/public/health/{token}", json={"answers": answers, "id_number": "123456782", "signature": SIG},
+    signed = client.post(f"/api/public/health/{token}", json={"answers": answers, "age": 28, "signature": SIG},
                          headers={"x-forwarded-for": "203.0.113.7, 10.0.0.1", "user-agent": "iPhone"})
     assert signed.status_code == 200, signed.text
     assert signed.json() == {"status": "signed", "business_name": "Studio ink-health"}           # nothing of what was signed
-    assert client.post(f"/api/public/health/{token}", json={"answers": answers, "id_number": "123456782",
+    assert client.post(f"/api/public/health/{token}", json={"answers": answers, "age": 28,
                                                             "signature": SIG}).status_code == 410  # closed once filled
     assert client.get(f"/api/public/health/{token}").json()["status"] == "signed"
 
@@ -203,7 +203,7 @@ def test_the_business_chooses_on_off_sending_by_itself_and_how_long_a_declaratio
     token = view["rows"][0]["link"].rsplit("/", 1)[1]
     form = client.get(f"/api/public/health/{token}").json()
     answers = {q["id"]: {"answer": "no"} for q in form["questions"] if q["kind"] == "yes_no"}
-    assert client.post(f"/api/public/health/{token}", json={"answers": answers, "id_number": "123456782", "signature": SIG}).status_code == 200
+    assert client.post(f"/api/public/health/{token}", json={"answers": answers, "age": 28, "signature": SIG}).status_code == 200
     third = appointment(c, timedelta(days=7))
     assert sweep_links(db_session) == 0
     on_third = client.get(f"/api/health-declarations?appointment_id={third.id}", headers=h).json()
@@ -234,3 +234,21 @@ def test_the_business_chooses_on_off_sending_by_itself_and_how_long_a_declaratio
     assert sweep_links(db_session) == 0
     assert client.post("/api/health-declarations", headers=h, json={"client_id": str(c.id)}).status_code == 400
     assert client.get(f"/api/health-declarations?client_id={c.id}", headers=h).json()["enabled"] is False
+
+
+def test_a_read_only_item_and_the_age(client, db_session):
+    """"ללא תשובה" — the client only reads it, agrees and signs; the age instead of an ID number (owner, 2026-10-10)."""
+    h, c, appt = _business(client, db_session)
+    client.put("/api/health-form", headers=h, json={
+        "title": "הצהרה", "questions": [{"text": "קראתי את הוראות הטיפול", "kind": "none"}, {"text": "אלרגיה?", "kind": "yes_no"}],
+        "closing": "מאשר/ת", "ask_age": True})
+    d = client.post("/api/health-declarations", headers=h, json={"client_id": str(c.id), "appointment_id": str(appt.id)}).json()
+    read_only, allergy = d["questions"]
+    assert read_only["kind"] == "none"
+    sign = f"/api/health-declarations/{d['id']}/client"
+    assert client.post(sign, headers=h, json={"answers": {}, "age": 30, "signature": SIG}).status_code == 400   # the yes/no
+    assert client.post(sign, headers=h, json={"answers": {allergy["id"]: {"answer": "no"}}, "age": 0,
+                                              "signature": SIG}).status_code == 400                             # no age
+    r = client.post(sign, headers=h, json={"answers": {allergy["id"]: {"answer": "no"}}, "age": 30, "signature": SIG})
+    assert r.status_code == 200, r.text
+    assert (r.json()["age"], r.json()["answers"]) == (30, {allergy["id"]: {"answer": "no", "details": ""}})

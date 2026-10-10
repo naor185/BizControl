@@ -21,7 +21,7 @@ export type DeclarationRow = {
     link: string | null;          // while it waits for the client
 };
 export type Declaration = DeclarationRow & HealthFormView & {
-    answers: Record<string, HealthAnswer> | null; id_number: string | null;
+    answers: Record<string, HealthAnswer> | null; age: number | null;
     client_signature: string | null; performer_signature: string | null; client_id: string; client_phone: string | null;
 };
 
