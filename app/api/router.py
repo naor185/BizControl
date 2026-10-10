@@ -27,6 +27,7 @@ from app.api.task_routes import router as task_router
 from app.api.coupon_routes import router as coupon_router, public_router as coupon_public_router
 from app.api.account_routes import router as account_router
 from app.api.review_report_routes import router as review_report_router
+from app.api.crm_routes import router as crm_router
 from app.api.customer_club_routes import router as customer_club_router, design_router as wallet_design_router
 from app.api.ai_routes import router as ai_router
 from app.api.nfc_routes import router as nfc_router
@@ -91,6 +92,7 @@ api_router.include_router(coupon_router)
 api_router.include_router(coupon_public_router)
 api_router.include_router(account_router)
 api_router.include_router(review_report_router)
+api_router.include_router(crm_router)
 api_router.include_router(customer_club_router)
 api_router.include_router(wallet_design_router)
 api_router.include_router(ai_router)

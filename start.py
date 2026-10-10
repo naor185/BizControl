@@ -2793,6 +2793,45 @@ def ensure_schema():
                 ON CONFLICT (studio_id, quota_key, period_key) DO NOTHING
             """)
 
+        # ── The superadmin's CRM: messages from the company to the owners (app/services/platform_outreach.py) ──
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS platform_message_templates (
+                key VARCHAR(40) PRIMARY KEY,
+                name VARCHAR(80) NOT NULL,
+                email_subject VARCHAR(160) NOT NULL DEFAULT '',
+                body TEXT NOT NULL,
+                sort INTEGER NOT NULL DEFAULT 0,
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+        if _once("crm_templates_v1"):                     # the starting templates — the superadmin edits them after
+            from app.services.platform_outreach import DEFAULT_TEMPLATES
+            for _i, (_key, _name, _subject, _body) in enumerate(DEFAULT_TEMPLATES):
+                cur.execute("""
+                    INSERT INTO platform_message_templates (key, name, email_subject, body, sort)
+                    VALUES (%s, %s, %s, %s, %s) ON CONFLICT (key) DO NOTHING
+                """, (_key, _name, _subject, _body, _i))
+
+        # The businesses' payments to BizControl, recorded by the superadmin until card clearing is connected —
+        # each one extends the business's period (app/services/platform_billing.py)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS platform_payments (
+                id UUID PRIMARY KEY,
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                plan_id VARCHAR(32) NOT NULL,
+                cycle VARCHAR(10) NOT NULL,
+                amount_cents INTEGER NOT NULL,
+                method VARCHAR(16) NOT NULL,
+                paid_at TIMESTAMPTZ NOT NULL,
+                period_start TIMESTAMPTZ NOT NULL,
+                period_end TIMESTAMPTZ NOT NULL,
+                note TEXT,
+                recorded_by UUID,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_platform_payments_studio ON platform_payments (studio_id, paid_at DESC)")
+
         conn.commit()
         cur.close()
         conn.close()

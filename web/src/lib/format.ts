@@ -39,3 +39,11 @@ export function formatCurrency(amount: number): string {
 export function formatPhone(phone: string): string {
     return phone.replace(/(\d{3})(\d{3})(\d{4})/, "$1-$2-$3");
 }
+
+/**
+ * An Israeli phone for a wa.me link: 050-1234567 → 972501234567.
+ */
+export function whatsappNumber(phone: string): string {
+    const digits = phone.replace(/\D/g, "");
+    return digits.startsWith("0") ? `972${digits.slice(1)}` : digits;
+}

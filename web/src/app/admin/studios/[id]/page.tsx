@@ -1,5 +1,7 @@
 "use client";
 import StudioUsage from "@/components/admin/StudioUsage";
+import { CrmSentLog } from "@/components/admin/CrmMessages";
+import { CrmPayments, RecordPayment } from "@/components/admin/CrmBilling";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/lib/toast";
 
@@ -132,6 +134,8 @@ export default function StudioDetailPage() {
     const [newNote, setNewNote] = useState("");
     const [addingNote, setAddingNote] = useState(false);
     const [extendModal, setExtendModal] = useState(false);
+    const [payModal, setPayModal] = useState(false);
+    const [paymentsReload, setPaymentsReload] = useState(0);
     const [extendDays, setExtendDays] = useState(30);
     const [extending, setExtending] = useState(false);
     const [impersonating, setImpersonating] = useState(false);
@@ -1090,6 +1094,21 @@ export default function StudioDetailPage() {
                     )}
                 </div>
 
+                {/* Payments to BizControl, recorded by hand until card clearing — each one extends the period */}
+                <div className="space-y-2">
+                    <div className="flex items-center justify-between px-1">
+                        <h2 className="text-sm font-semibold text-gray-700">תשלומים ל-BizControl</h2>
+                        <button onClick={() => setPayModal(true)} className="text-xs font-bold px-3 py-1.5 rounded-lg bg-black text-white hover:bg-gray-800">רישום תשלום</button>
+                    </div>
+                    <CrmPayments studioId={studioId} reload={paymentsReload} />
+                </div>
+
+                {/* Messages from the company to the owner — sent from the CRM (/admin/crm) */}
+                <div className="space-y-2">
+                    <h2 className="text-sm font-semibold text-gray-700 px-1">הודעות מהחברה לבעל העסק</h2>
+                    <CrmSentLog studioId={studioId} />
+                </div>
+
                 {/* Internal Notes */}
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                     <div className="px-4 py-3 border-b border-gray-50">
@@ -1141,6 +1160,11 @@ export default function StudioDetailPage() {
             </div>
 
             {/* Extend Modal */}
+            {payModal && (
+                <RecordPayment business={{ id: studioId, name: detail.name, plan_id: detail.subscription_plan }}
+                    onClose={() => setPayModal(false)} onSaved={() => { setPaymentsReload(n => n + 1); load(); }} />
+            )}
+
             {extendModal && (
                 <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/40 px-4" onClick={() => setExtendModal(false)}>
                     <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full sm:max-w-sm p-6" onClick={e => e.stopPropagation()}>

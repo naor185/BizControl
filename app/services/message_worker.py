@@ -287,7 +287,8 @@ _PLATFORM_FOOTER = (
 )
 
 
-def send_whatsapp_message(to_phone: str, body: str, settings=None, db: Session | None = None, media_url: str | None = None) -> None:
+def send_whatsapp_message(to_phone: str, body: str, settings=None, db: Session | None = None, media_url: str | None = None,
+                          footer: bool = True) -> None:
     provider = getattr(settings, "whatsapp_provider", None) if settings else None
     studio_id = getattr(settings, "studio_id", None) if settings else None
     using_platform_fallback = False
@@ -303,8 +304,9 @@ def send_whatsapp_message(to_phone: str, body: str, settings=None, db: Session |
     if not provider:
         raise ValueError("WhatsApp provider not configured for this studio")
 
-    # Append system footer when sending from BizControl's own number
-    if using_platform_fallback:
+    # Append system footer when sending from BizControl's own number — not on a message from the company itself,
+    # which the owner may answer
+    if using_platform_fallback and footer:
         body = body.rstrip() + _PLATFORM_FOOTER
 
     instance_id_used = ""
@@ -430,6 +432,10 @@ def process_due_jobs(db: Session, limit: int = 20) -> int:
                     continue
                 ensure_unsubscribe_option(db, job)   # every marketing message lets the client opt out
 
+            # a message from the company to a business owner (the superadmin's CRM): BizControl's own name and number
+            from app.services import platform_outreach
+            from_company = getattr(job, "reminder_type", None) == platform_outreach.KIND
+
             if job.channel == "email":
                 # All emails go through the central Email Center — no per-studio
                 # Resend key path anymore.
@@ -443,11 +449,11 @@ def process_due_jobs(db: Session, limit: int = 20) -> int:
                     to_email=job.to_phone,
                     subject=subject,
                     html_content=job.body,
-                    from_name=studio_name,
+                    from_name="BizControl" if from_company else studio_name,
                     studio_id=str(job.studio_id),
                     client_id=str(job.client_id) if job.client_id else None,
                     template_key=getattr(job, "reminder_type", None) or "notification",
-                    email_type="appointment",
+                    email_type="system" if from_company else "appointment",
                 )
                 if not ok:
                     raise ValueError("Email center send failed — check system API key")
@@ -470,9 +476,10 @@ def process_due_jobs(db: Session, limit: int = 20) -> int:
                 if sent_count == 0:
                     raise ValueError("No active device tokens for recipient")
             else:
-                settings = db.get(StudioSettings, job.studio_id)
+                # the company's own messages go from the number every business without its own uses
+                settings = None if from_company else db.get(StudioSettings, job.studio_id)
                 send_whatsapp_message(job.to_phone, job.body, settings, db=db,
-                                      media_url=getattr(job, "media_url", None))
+                                      media_url=getattr(job, "media_url", None), footer=not from_company)
                 from app.services import message_quota
                 message_quota.count_sent(db, job.studio_id)
 
