@@ -457,8 +457,6 @@ def set_business_type(
     studio = db.get(Studio, ctx.studio_id)
     if not studio:
         raise HTTPException(status_code=404, detail="Studio not found")
-    studio.business_type = bt
-    from app.services.business_types import enable_field_modules
-    enable_field_modules(db, studio.id, bt)               # the new field's own modules (classes for pilates…)
+    studio.business_type = bt              # the new field's own modules (classes for a gym) follow from it — features._own_enabled
     db.commit()
     return {"business_type": bt}

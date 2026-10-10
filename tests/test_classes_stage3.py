@@ -16,7 +16,6 @@ from app.models.studio import Studio
 from app.models.user import User
 from app.services import class_bookings as cb
 from app.services import classes as svc
-from app.services.business_types import enable_field_modules
 from tests.conftest import register_and_login
 
 NOW = datetime(2026, 10, 1, 7, 0, tzinfo=timezone.utc)          # Thursday 10:00 in Israel
@@ -34,7 +33,7 @@ def _business(client, db, slug="pilates", capacity=10, **tpl):
     h = register_and_login(client, slug=slug, email=f"owner@{slug}.com")
     s = db.scalar(select(Studio).where(Studio.slug == slug))
     s.name, s.business_type = "פילאטיס בלב", "pilates"
-    db.add(StudioModule(studio_id=s.id, module_id="classes", is_enabled=True))
+    db.add(StudioModule(studio_id=s.id, module_id="classes", is_enabled=True, is_locked=True))
     db.commit()
     body = {"name": "פילאטיס מכשירים", "weekdays": [0, 2], "start_time": "18:00", "duration_minutes": 55,
             "starts_on": "2026-10-01", "capacity": capacity, **tpl}
@@ -208,31 +207,25 @@ def test_bookings_belong_to_one_business(client, db_session, clock):
 # ── classes from signup ──────────────────────────────────────────────────────
 
 def test_a_pilates_business_has_its_classes_from_signup_and_a_tattoo_studio_does_not(client, db_session):
-    from app.models.module import Module, Plan, PlanModule
+    """Group classes are sold in pro, enterprise and the free month, and are on only where the business's field uses
+    them (features._own_enabled) — a pilates studio from sign-up, a tattoo studio not, a gym after the change."""
+    from app.core.features import get_studio_modules
     from tests.conftest import SENT
-    if not db_session.get(Plan, "trial"):
-        # as in production (checked 2026-09-25): plans sell every module except the four class modules
-        db_session.add(Plan(id="trial", display_name="ניסיון", trial_days=14))
-        db_session.flush()
-        for mid in db_session.scalars(select(Module.id)).all():
-            if mid not in ("classes", "rooms", "memberships", "class_waitlist"):
-                db_session.add(PlanModule(plan="trial", module_id=mid))
-        db_session.commit()
+    classes = {"classes", "rooms", "memberships", "class_waitlist"}
     r = client.post("/api/marketplace/auth/register", json={
         "business_name": "פילאטיס בים", "category": "pilates", "city": "חיפה", "owner_name": "רותם כהן",
         "email": "rotem@pilatesyam.com", "password": "secret123", "plan_key": "trial"})
     assert r.status_code in (200, 201), r.text
     pilates = db_session.scalar(select(Studio).where(Studio.name == "פילאטיס בים"))
-    on = set(db_session.scalars(select(StudioModule.module_id).where(StudioModule.studio_id == pilates.id,
-                                                                     StudioModule.is_enabled.is_(True))).all())
-    assert on == {"classes", "rooms", "memberships", "class_waitlist"}     # plan modules stay with the plan
+    assert all(get_studio_modules(db_session, pilates.id, "trial")[m] for m in classes)
     assert [to for _, to in SENT][:1] == ["rotem@pilatesyam.com"]          # signup's own e-mails (to the fake sender)
     SENT.clear()
 
     h = register_and_login(client, slug="ink", email="owner@ink.com")
     ink = db_session.scalar(select(Studio).where(Studio.slug == "ink"))
-    assert enable_field_modules(db_session, ink.id, "tattoo") == []
-    db_session.add(StudioModule(studio_id=ink.id, module_id="rooms", is_enabled=False))   # the superadmin said no
+    ink.business_type, ink.subscription_plan = "tattoo", "trial"         # the free month sells classes; the field decides
+    assert not any(get_studio_modules(db_session, ink.id, "trial")[m] for m in classes)
+    db_session.add(StudioModule(studio_id=ink.id, module_id="rooms", is_enabled=False))   # turned off for this business
     db_session.commit()
     assert client.get("/api/classes/templates", headers=h).status_code == 403
     assert client.patch("/api/studio/upload/business-type", headers=h, json={"business_type": "gym"}).status_code == 200

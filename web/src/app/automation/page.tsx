@@ -17,6 +17,8 @@ import StaffReminderRulesSettings from "@/components/StaffReminderRulesSettings"
 import MySessionsSettings from "@/components/MySessionsSettings";
 import DeleteAccountSettings from "@/components/DeleteAccountSettings";
 import { Flag } from "lucide-react";
+import PlanLock from "@/components/PlanLock";
+import { usePlan } from "@/lib/usePlan";
 
 // logo_filename may be a bare local filename or a full Cloudinary URL —
 // only prefix with /uploads/ for the former.
@@ -590,6 +592,7 @@ function MarketplaceTab({ settings, handleChange, apiFetch }: { settings: any; h
 }
 
 export default function AutomationSettingsPage() {
+    const plan = usePlan();             // the club's and the gift card's settings follow the business's plan
     const [settings, setSettings] = useState<Settings | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -1593,7 +1596,8 @@ export default function AutomationSettingsPage() {
                                         </p>
                                     </div>
 
-                                    {/* Points redemption celebration card */}
+                                    {/* Points redemption celebration card — the club's */}
+                                    {plan.has("customer_club") && (
                                     <div className="bg-orange-50 border border-orange-200 rounded-2xl px-6 py-5 mb-6">
                                         <div className="flex items-center justify-between gap-4 mb-3">
                                             <div>
@@ -1622,6 +1626,7 @@ export default function AutomationSettingsPage() {
                                             </div>
                                         )}
                                     </div>
+                                    )}
 
                                     <div className="grid md:grid-cols-2 gap-8">
                                         <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
@@ -1639,6 +1644,7 @@ export default function AutomationSettingsPage() {
                                             </div>
                                         </div>
 
+                                        <PlanLock module="customer_club" feature="מועדון לקוחות: מתנת הצטרפות, קאשבק ויום הולדת" compact><>
                                         <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
                                             <label className="block text-base font-bold text-slate-800 mb-2">מתנת הצטרפות למועדון</label>
                                             <p className="text-sm text-slate-500 mb-4">כמה נקודות יקבל לקוח חדש ברגע שיירשם דרך דף הנחיתה?</p>
@@ -1685,7 +1691,9 @@ export default function AutomationSettingsPage() {
                                                 <span className="text-pink-600 font-medium font-bold">אחוז הנחה (%)</span>
                                             </div>
                                         </div>
+                                        </></PlanLock>
 
+                                        <PlanLock module="gift_cards" feature="גיפט קארד: סכומים, בונוס ועיצוב השובר" compact><>
                                         <div className="bg-violet-50 p-6 rounded-2xl border border-violet-200 md:col-span-2">
                                             <label className="block text-base font-bold text-slate-800 mb-2">💳 טווח סכומים לרכישת גיפט קארד</label>
                                             <p className="text-sm text-slate-500 mb-4">
@@ -1817,7 +1825,9 @@ export default function AutomationSettingsPage() {
                                                 </div>
                                             )}
                                         </div>
+                                        </></PlanLock>
 
+                                        {plan.has("customer_club") && (<>
                                         <div className="bg-pink-50 p-6 rounded-2xl border border-pink-200 md:col-span-2">
                                             <label className="block text-base font-bold text-slate-800 mb-2">שליחה ידנית של הודעות יומולדת 🎂</label>
                                             <p className="text-sm text-slate-500 mb-4">
@@ -1867,6 +1877,7 @@ export default function AutomationSettingsPage() {
                                                 </div>
                                             )}
                                         </div>
+                                        </>)}
 
                                         <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 md:col-span-2 flex items-center justify-between gap-4 flex-wrap">
                                             <div>

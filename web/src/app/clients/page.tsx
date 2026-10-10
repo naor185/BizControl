@@ -1,4 +1,5 @@
 "use client";
+import PlanLock from "@/components/PlanLock";
 import { toast } from "@/lib/toast";
 import { useEffect, useState, useMemo, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
@@ -419,7 +420,7 @@ function PageInner() {
                     )}
 
                     {/* ── TAB: מועדון לקוחות ── */}
-                    {tab === "club" && (
+                    {tab === "club" && (<PlanLock module="customer_club" feature="מועדון לקוחות">{
                         clubLoading ? (
                             <div className="flex justify-center items-center h-48">
                                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-500" />
@@ -749,7 +750,7 @@ function PageInner() {
                                 </div>
                             </div>
                         )
-                    )}
+                    }</PlanLock>)}
                 </div>
 
                 {/* Delete modal */}

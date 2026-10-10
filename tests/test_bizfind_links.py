@@ -24,7 +24,7 @@ def test_the_address_until_a_new_domain_is_set(monkeypatch):
 def test_a_place_opened_links_to_bizfind(client, db_session):
     h = register_and_login(client, slug="waitlink", email="owner@waitlink.com")
     s = db_session.scalar(select(Studio).where(Studio.slug == "waitlink"))
-    db_session.add(StudioModule(studio_id=s.id, module_id="wait_list", is_enabled=True))
+    db_session.add(StudioModule(studio_id=s.id, module_id="wait_list", is_enabled=True, is_locked=True))
     db_session.commit()
     entry = client.post("/api/wait-list", headers=h, json={"client_name": "דנה", "client_phone": "0550000001"}).json()
     assert client.post(f"/api/wait-list/{entry['id']}/notify", headers=h).status_code == 200

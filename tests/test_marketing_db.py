@@ -43,7 +43,7 @@ def test_the_single_marketing_switch_on_the_client_card(client, db_session):
 
 
 def test_birthday_benefit_goes_out_once_with_a_working_unsubscribe_link(db_session):
-    studio = Studio(name="בדיקה", slug="bday")
+    studio = Studio(name="בדיקה", slug="bday", subscription_plan="pro")    # the birthday benefit is the club's — pro
     db_session.add(studio)
     db_session.flush()
     db_session.add(StudioSettings(studio_id=studio.id, birthday_send_timing="two_days"))

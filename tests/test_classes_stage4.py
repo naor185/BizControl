@@ -37,7 +37,7 @@ def _business(client, db, slug="pilates", weekdays=(0, 2)):
     s = db.scalar(select(Studio).where(Studio.slug == slug))
     s.name = "פילאטיס בלב"
     for m in ("classes", "memberships"):
-        db.add(StudioModule(studio_id=s.id, module_id=m, is_enabled=True))
+        db.add(StudioModule(studio_id=s.id, module_id=m, is_enabled=True, is_locked=True))
     service = Service(studio_id=s.id, name="שיעור קבוצתי", duration_minutes=55, price_cents=8000)
     db.add(service)
     db.commit()

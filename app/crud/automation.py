@@ -609,6 +609,9 @@ def maybe_enqueue_club_invite(db: Session, studio_id, client, appointment_id=Non
     # בדיקת toggle
     if not getattr(settings, "club_invite_enabled", True):
         return False
+    from app.services.club import club_on
+    if not club_on(db, studio_id):           # the club is not in the business's plan
+        return False
 
     # dedup — שלחנו פעם אחת בלבד לכל לקוח
     from sqlalchemy import select as _sel

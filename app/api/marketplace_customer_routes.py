@@ -654,6 +654,9 @@ def my_business_apple_wallet(
         raise HTTPException(status_code=404, detail="Club membership not found for this business")
 
     client_id, studio_id, full_name, points, _, studio_name, studio_logo = row
+    from app.core.features import has_module
+    if not has_module(db, studio_id, "wallet"):               # pro and up
+        raise HTTPException(status_code=404, detail="כרטיס בארנק לא זמין אצל העסק")
     card = get_or_create_card(db, studio_id, client_id)
     design = get_design(db, studio_id)
     db.commit()

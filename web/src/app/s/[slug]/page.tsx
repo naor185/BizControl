@@ -22,6 +22,7 @@ type LandingData = {
     landing_page_image_2: string | null;
     landing_page_image_3: string | null;
     points_on_signup: number;
+    club_open?: boolean;          // the club is in the business's plan
 };
 
 function imgUrl(filename: string | null | undefined): string | null {
@@ -141,6 +142,18 @@ export default function StudioLandingPage() {
                     <p className="text-6xl">🔍</p>
                     <h1 className="text-2xl font-bold text-slate-800">העסק לא נמצא</h1>
                     <p className="text-slate-500">הקישור לא תקין או שהעסק אינו פעיל</p>
+                </div>
+            </div>
+        );
+    }
+
+    // the club is not in the business's plan — no join form (app/services/club.py)
+    if (data.club_open === false) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4" dir="rtl">
+                <div className="text-center space-y-2 max-w-sm">
+                    <h1 className="text-2xl font-bold text-slate-800">{data.studio_name}</h1>
+                    <p className="text-slate-500">מועדון הלקוחות של העסק לא פעיל כרגע.</p>
                 </div>
             </div>
         );

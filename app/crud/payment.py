@@ -74,6 +74,9 @@ def create_payment(db: Session, studio_id: UUID, data) -> Payment:
         raise ValueError("Client not found")
 
     if data.points_redeemed > 0:
+        from app.services import club
+        if not club.club_on(db, studio_id):
+            raise ValueError(club.OFF)
         if (client.loyalty_points or 0) < data.points_redeemed:
             raise ValueError(f"Not enough points. Client has {client.loyalty_points or 0} points.")
         client.loyalty_points = (client.loyalty_points or 0) - data.points_redeemed
@@ -155,11 +158,10 @@ def create_payment(db: Session, studio_id: UUID, data) -> Payment:
     # Award Cashback if the payment is "paid" and represents positive revenue
     points_earned = 0
     if obj.status == "paid" and obj.type in ("payment", "deposit"):
-        from app.models.studio_settings import StudioSettings
-
-        settings = db.get(StudioSettings, studio_id)
-        if settings and settings.points_percent_per_payment is not None and settings.points_percent_per_payment > 0 and client.is_club_member:
-            points_earned = award_points(db, studio_id, client, obj, settings.points_percent_per_payment, appointment_id=appt.id)
+        from app.services.club import cashback_percent
+        percent = cashback_percent(db, studio_id, client)
+        if percent > 0:
+            points_earned = award_points(db, studio_id, client, obj, percent, appointment_id=appt.id)
             if points_earned > 0:
                 db.commit()
 

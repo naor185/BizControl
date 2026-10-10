@@ -1,4 +1,5 @@
 "use client";
+import PlanLock from "@/components/PlanLock";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/lib/toast";
 
@@ -235,6 +236,7 @@ export default function WalletDesignerPage() {
         <RequireAuth>
             <AppShell title="לקוחות">
                 <div className="pb-4"><ClientsTabs /></div>
+                <PlanLock module="wallet" feature="כרטיס דיגיטלי בארנק">
                 <div className="grid lg:grid-cols-[1fr_380px] gap-10 items-start">
 
                     {/* ── Controls ── */}
@@ -341,6 +343,7 @@ export default function WalletDesignerPage() {
                         </p>
                     </div>
                 </div>
+                </PlanLock>
             </AppShell>
         </RequireAuth>
     );

@@ -2747,6 +2747,27 @@ def ensure_schema():
                 """, (plan,))
                 cur.execute(f"UPDATE studios s SET subscription_plan = %s WHERE {where}", (plan,))
 
+        # ── Plans stage 2: the plan is the ceiling (owner, 2026-10-10 — plans are fixed bundles) ─────────────
+        # Group classes, memberships and rooms are sold in pro, enterprise and the free month, and are on only where
+        # the business's field uses them (pilates and gyms — modules.field_bound, app/core/features._own_enabled).
+        cur.execute("ALTER TABLE modules ADD COLUMN IF NOT EXISTS field_bound BOOLEAN NOT NULL DEFAULT false")
+        if _once("plans_2026_10_stage2"):
+            _class_modules = ("classes", "rooms", "memberships", "class_waitlist")
+            cur.execute("UPDATE modules SET field_bound = true WHERE id IN %s", (_class_modules,))
+            for _plan in ("pro", "enterprise", "trial"):
+                for _mid in _class_modules:
+                    cur.execute("""
+                        INSERT INTO plan_modules (plan, module_id, period_type, on_exceed_action)
+                        VALUES (%s, %s, 'unlimited', 'block') ON CONFLICT DO NOTHING
+                    """, (_plan, _mid))
+            # An exception already given to a business beyond its plan stays: locked, it holds over the plan.
+            cur.execute("""
+                UPDATE studio_modules sm SET is_locked = true
+                FROM studios s
+                WHERE sm.studio_id = s.id AND sm.is_enabled AND NOT sm.is_locked AND sm.module_id NOT IN %s
+                  AND NOT EXISTS (SELECT 1 FROM plan_modules pm WHERE pm.plan = s.subscription_plan AND pm.module_id = sm.module_id)
+            """, (_class_modules,))
+
         conn.commit()
         cur.close()
         conn.close()

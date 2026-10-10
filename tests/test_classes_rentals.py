@@ -15,7 +15,7 @@ FRIDAY_0900 = datetime(2026, 10, 2, 6, 0, tzinfo=timezone.utc)      # an hour be
 
 
 def _room(client, db, h, s, **rules):
-    db.add(StudioModule(studio_id=s.id, module_id="rooms", is_enabled=True))
+    db.add(StudioModule(studio_id=s.id, module_id="rooms", is_enabled=True, is_locked=True))
     db.commit()
     room = client.post("/api/classes/rooms", headers=h, json={"name": "הסטודיו הגדול", "capacity": 12}).json()
     r = client.patch(f"/api/classes/rooms/{room['id']}", headers=h, json={

@@ -42,6 +42,7 @@ class PublicLandingInfo(BaseModel):
     landing_page_image_2: str | None = None
     landing_page_image_3: str | None = None
     points_on_signup: int = 0
+    club_open: bool = True          # the club is in the business's plan — the join form shows only then
 
 class PublicStudioInfo(BaseModel):
     id: str
@@ -58,6 +59,7 @@ class PublicStudioInfo(BaseModel):
     landing_page_image_1: str | None = None
     landing_page_image_2: str | None = None
     landing_page_image_3: str | None = None
+    club_open: bool = True
 
 class PublicPaymentInfo(BaseModel):
     id: str
@@ -175,7 +177,13 @@ def get_landing_by_slug(slug: str, db: Session = Depends(get_db)):
         landing_page_image_2=settings.landing_page_image_2,
         landing_page_image_3=settings.landing_page_image_3,
         points_on_signup=settings.points_on_signup or 0,
+        club_open=_club_open(db, studio.id),
     )
+
+def _club_open(db: Session, studio_id) -> bool:
+    from app.services.club import club_on
+    return club_on(db, studio_id)
+
 
 @router.get("/studio/{studio_id}", response_model=PublicStudioInfo)
 def get_public_studio_info(studio_id: str, db: Session = Depends(get_db)):
@@ -202,7 +210,8 @@ def get_public_studio_info(studio_id: str, db: Session = Depends(get_db)):
         landing_page_desc_font=settings.landing_page_desc_font or "Assistant",
         landing_page_image_1=settings.landing_page_image_1,
         landing_page_image_2=settings.landing_page_image_2,
-        landing_page_image_3=settings.landing_page_image_3
+        landing_page_image_3=settings.landing_page_image_3,
+        club_open=_club_open(db, studio.id),
     )
 
 @router.post("/studio/{studio_id}/join")
@@ -213,6 +222,9 @@ def join_studio(studio_id: str, payload: ClientJoinRequest, db: Session = Depend
     if not studio:
         raise HTTPException(status_code=404, detail="Studio not found")
     raise_if_archived(db, studio)
+    from app.services.club import club_on
+    if not club_on(db, studio.id):
+        raise HTTPException(status_code=404, detail="מועדון הלקוחות לא פעיל אצל העסק")
 
     full_name_clean = payload.full_name.strip()
     phone_clean = payload.phone.strip() if payload.phone else None

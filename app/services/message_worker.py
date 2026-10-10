@@ -885,9 +885,13 @@ def sweep_birthday_messages(db: Session, studio_id=None, today=None) -> int:
     )
     rows = db.execute(stmt).all()
     count = 0
+    from app.services.club import club_on
+    club_cache: dict = {}
 
     for client, settings in rows:
         if not getattr(settings, "birthday_automation_enabled", True):
+            continue
+        if not club_on(db, client.studio_id, club_cache):     # the birthday benefit is the club's — not in the plan
             continue
 
         # A birthday benefit is marketing: only to clients who may receive it (app/services/marketing.py).

@@ -1,4 +1,5 @@
 "use client";
+import PlanLock from "@/components/PlanLock";
 import { Switch } from "@/components/ui/switch";
 import { useState, useEffect, useCallback } from "react";
 import AppShell from "@/components/AppShell";
@@ -142,7 +143,7 @@ export default function GiftCardsPage() {
                         ))}
                     </div>
 
-                    {tab === "coupons" ? <CouponsPanel /> : (<>
+                    {tab === "coupons" ? <PlanLock module="coupons" feature="קופונים"><CouponsPanel /></PlanLock> : (<PlanLock module="gift_cards" feature="גיפט קארד"><>
 
                     {/* The link customers buy a gift card at */}
                     <section className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 space-y-3">
@@ -265,7 +266,7 @@ export default function GiftCardsPage() {
                             </div>
                         </div>
                     )}
-                    </>)}
+                    </></PlanLock>)}
                 </div>
 
                 {showCreate && (

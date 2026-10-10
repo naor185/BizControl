@@ -17,6 +17,12 @@ def _handle_new_club_member(db: Session, studio_id: UUID, client: Client):
     from datetime import datetime, timezone
     from sqlalchemy import select as _sel
 
+    # Not in the business's plan: no membership, points or welcome (app/services/club.py)
+    from app.services.club import club_on
+    if not club_on(db, studio_id):
+        client.is_club_member = False
+        return
+
     # Set unconditionally, ahead of the idempotency guard below — this
     # function used to only grant the signup bonus/welcome message and never
     # actually flipped the membership flag itself, so a repeat call (e.g. a

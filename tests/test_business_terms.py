@@ -109,8 +109,8 @@ def test_lead_tagging_runs_only_where_its_module_is_on(db_session, monkeypatch):
         if not db_session.get(Module, mid):   # as in production: tagging sits under ויקי
             db_session.add(Module(id=mid, name=name, category="ai", parent_module_id=parent))
             db_session.flush()
-    db_session.add_all([StudioModule(studio_id=gym.id, module_id="ai_assistant", is_enabled=True),
-                        StudioModule(studio_id=gym.id, module_id="ai_auto_tag", is_enabled=True)])
+    db_session.add_all([StudioModule(studio_id=gym.id, module_id="ai_assistant", is_enabled=True, is_locked=True),
+                        StudioModule(studio_id=gym.id, module_id="ai_auto_tag", is_enabled=True, is_locked=True)])
     db_session.commit()
     tag.tag_lead(db_session, lead.id, "כמה עולה אימון אישי?")
     db_session.expire_all()

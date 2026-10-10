@@ -14,7 +14,7 @@ KEYS = ("club_points_membership_percent", "club_points_entry_percent")
 
 
 def _club(db, studio, on=True):
-    db.add(StudioModule(studio_id=studio.id, module_id="customer_club", is_enabled=on))
+    db.add(StudioModule(studio_id=studio.id, module_id="customer_club", is_enabled=on, is_locked=True))
     db.commit()
 
 

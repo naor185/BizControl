@@ -83,7 +83,7 @@ def test_the_owners_choices_decide_and_always_on_events_stay_on(client, db_sessi
     h = register_and_login(client, slug="cls-api", email="owner@cls.com")
     s = db_session.scalar(select(Studio).where(Studio.slug == "cls-api"))
     assert client.get("/api/classes/notifications", headers=h).status_code == 403    # module off
-    db_session.add(StudioModule(studio_id=s.id, module_id="classes", is_enabled=True))
+    db_session.add(StudioModule(studio_id=s.id, module_id="classes", is_enabled=True, is_locked=True))
     db_session.commit()
 
     r = client.patch("/api/classes/notifications/class_booked", headers=h, json={"channel": "whatsapp", "enabled": False})
@@ -131,7 +131,7 @@ def test_staff_events_go_to_the_bell_once(db_session):
 def test_a_test_message_is_sent_once_per_wording(client, db_session):
     h = register_and_login(client, slug="cls-test", email="owner@clstest.com")
     s = db_session.scalar(select(Studio).where(Studio.slug == "cls-test"))
-    db_session.add(StudioModule(studio_id=s.id, module_id="classes", is_enabled=True))
+    db_session.add(StudioModule(studio_id=s.id, module_id="classes", is_enabled=True, is_locked=True))
     user = db_session.scalar(select(User).where(User.email == "owner@clstest.com"))
     user.phone = "0527777777"
     db_session.commit()
@@ -150,7 +150,7 @@ def test_a_test_message_is_sent_once_per_wording(client, db_session):
 def test_changing_a_setting_changes_behaviour_without_code(client, db_session):
     h = register_and_login(client, slug="cls-set", email="owner@clsset.com")
     s = db_session.scalar(select(Studio).where(Studio.slug == "cls-set"))
-    db_session.add(StudioModule(studio_id=s.id, module_id="classes", is_enabled=True))
+    db_session.add(StudioModule(studio_id=s.id, module_id="classes", is_enabled=True, is_locked=True))
     db_session.commit()
     starts = datetime(2026, 10, 5, 18, 0, tzinfo=timezone.utc)
     cancel = starts - timedelta(hours=8)
@@ -196,7 +196,7 @@ def test_who_may_do_what(client, db_session):
                                   "memberships.sell", "memberships.change", "limits.override", "reports.view"}
     h = register_and_login(client, slug="cls-perm", email="owner@clsperm.com")
     s = db_session.scalar(select(Studio).where(Studio.slug == "cls-perm"))
-    db_session.add(StudioModule(studio_id=s.id, module_id="classes", is_enabled=True))
+    db_session.add(StudioModule(studio_id=s.id, module_id="classes", is_enabled=True, is_locked=True))
     db_session.scalar(select(User).where(User.email == "owner@clsperm.com")).role = "staff"
     db_session.commit()
     assert client.get("/api/classes/settings", headers=h).status_code == 200            # may look
@@ -230,7 +230,7 @@ def test_every_placeholder_has_a_label_and_labels_speak_the_fields_words(client,
     h = register_and_login(client, slug="cls-gym", email="owner@clsgym.com")
     s = db_session.scalar(select(Studio).where(Studio.slug == "cls-gym"))
     s.business_type = "gym"
-    db_session.add(StudioModule(studio_id=s.id, module_id="classes", is_enabled=True))
+    db_session.add(StudioModule(studio_id=s.id, module_id="classes", is_enabled=True, is_locked=True))
     db_session.commit()
     staff = client.get("/api/studio/upload/terms", headers=h).json()["terms"]["staff"]      # the gym's word
     events = {e["event"]: e for e in client.get("/api/classes/notifications", headers=h).json()}

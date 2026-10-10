@@ -1,5 +1,6 @@
 "use client";
 
+import { usePlan } from "@/lib/usePlan";
 import { Switch } from "@/components/ui/switch";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { apiFetch } from "@/lib/api";
@@ -170,6 +171,7 @@ function ReceiptModal({ txn, clientId, onClose }: { txn: TransactionOut; clientI
 
 // ── Main Component ─────────────────────────────────────────────────────────────
 export default function PosPage() {
+    const plan = usePlan();            // paying with points, the club's and the gift card's links follow the plan
     const [products, setProducts] = useState<Product[]>([]);
     const [cart, setCart] = useState<CartItem[]>([]);
     const [method, setMethod] = useState("cash");
@@ -567,7 +569,7 @@ export default function PosPage() {
                 )}
 
                 {/* Points redemption — only when club member with points */}
-                {client && availablePoints > 0 && (
+                {client && availablePoints > 0 && plan.has("customer_club") && (
                     <div className={`rounded-xl border-2 transition-all px-3 py-2 ${usePoints ? "border-amber-400 bg-amber-50" : "border-slate-100 bg-slate-50"}`}>
                         <div className="flex items-center justify-between">
                             <Switch size="sm" checked={usePoints} onColor="bg-amber-400"

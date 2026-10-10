@@ -35,7 +35,7 @@ def _business(client, db, **type_extra):
     s = db.scalar(select(Studio).where(Studio.slug == "pilates"))
     s.name = "פילאטיס בלב"
     for m in ("classes", "memberships"):
-        db.add(StudioModule(studio_id=s.id, module_id=m, is_enabled=True))
+        db.add(StudioModule(studio_id=s.id, module_id=m, is_enabled=True, is_locked=True))
     db.commit()
     t = client.post("/api/classes/templates", headers=h, json={
         "name": "פילאטיס מכשירים", "weekdays": [0, 2], "start_time": "18:00", "duration_minutes": 55,

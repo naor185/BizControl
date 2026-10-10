@@ -131,10 +131,8 @@ def generate(db: Session, tpl: ClassTemplate) -> int:
 def classes_on(db: Session, studio_id, cache: dict) -> bool:
     """Is the classes module on for this business — for the background jobs (cached per run)."""
     if studio_id not in cache:
-        from app.core.features import is_module_enabled
-        from app.models.studio import Studio
-        st = db.get(Studio, studio_id)
-        cache[studio_id] = bool(st) and is_module_enabled(db, st.id, st.subscription_plan or "free", "classes")
+        from app.core.features import has_module
+        cache[studio_id] = has_module(db, studio_id, "classes")
     return cache[studio_id]
 
 

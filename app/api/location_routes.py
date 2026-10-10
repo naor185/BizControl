@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import require_studio_ctx, AuthContext
 from app.core.auth_deps import get_current_user
+from app.core.features import require_module
 from app.db.deps import get_db
 from app.models.user import User
 from app.models.studio import Studio
@@ -40,8 +41,9 @@ def get_my_locations(
 ):
     """Return all locations in the same organization as the current studio."""
     studio = db.get(Studio, ctx.studio_id)
-    if not studio or not studio.organization_id:
-        # Single location — return just this studio
+    from app.core.features import has_module
+    if not studio or not studio.organization_id or not has_module(db, studio.id, "multi_location"):
+        # Single location (or branches not in the plan — enterprise) — return just this studio
         return [_studio_out(studio)] if studio else []
 
     siblings = db.scalars(
@@ -59,6 +61,7 @@ def switch_location(
     ctx: AuthContext = Depends(require_studio_ctx),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
+    _plan: None = Depends(require_module("multi_location")),      # branches — enterprise
 ):
     """Get a token for a different location in the same organization."""
     from app.core.security import create_access_token
@@ -104,6 +107,7 @@ def switch_location(
 def unified_stats(
     ctx: AuthContext = Depends(require_studio_ctx),
     db: Session = Depends(get_db),
+    _plan: None = Depends(require_module("multi_location")),
 ):
     """Aggregate stats across all locations in the organization."""
     from app.models.appointment import Appointment

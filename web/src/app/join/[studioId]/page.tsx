@@ -24,6 +24,7 @@ type PublicStudioInfo = {
     landing_page_image_1: string | null;
     landing_page_image_2: string | null;
     landing_page_image_3: string | null;
+    club_open?: boolean;          // the club is in the business's plan
 };
 
 export default function JoinStudioPage() {
@@ -96,6 +97,16 @@ export default function JoinStudioPage() {
     if (loading) return <div className="min-h-screen flex items-center justify-center">טוען נתונים...</div>;
     if (err === "archived") return <ArchivedNotice />;
     if (err || !info) return <div className="min-h-screen flex items-center justify-center text-red-500">העסק לא נמצא</div>;
+    if (info.club_open === false) {          // the club is not in the business's plan
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4" dir="rtl">
+                <div className="text-center space-y-2 max-w-sm">
+                    <h1 className="text-2xl font-bold text-slate-800">{info.name}</h1>
+                    <p className="text-slate-500">מועדון הלקוחות של העסק לא פעיל כרגע.</p>
+                </div>
+            </div>
+        );
+    }
 
     const logoUrl = info.logo_filename
         ? (info.logo_filename.startsWith("http") ? info.logo_filename : `${API_BASE}/uploads/${info.logo_filename}`)

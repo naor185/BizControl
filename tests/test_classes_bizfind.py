@@ -34,7 +34,7 @@ def _business(client, db, slug="pilates", capacity=10):
     from app.models.studio_settings import StudioSettings
     db.get(StudioSettings, s.id).marketplace_visible = True                  # a business shown on BizFind
     for m in ("classes", "memberships"):
-        db.add(StudioModule(studio_id=s.id, module_id=m, is_enabled=True))
+        db.add(StudioModule(studio_id=s.id, module_id=m, is_enabled=True, is_locked=True))
     db.commit()
     t = client.post("/api/classes/templates", headers=h, json={
         "name": "פילאטיס מכשירים", "weekdays": [0, 2], "start_time": "18:00", "duration_minutes": 55,

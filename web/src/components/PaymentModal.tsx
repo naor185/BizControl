@@ -1,5 +1,6 @@
 "use client";
 
+import { usePlan } from "@/lib/usePlan";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/lib/toast";
 import { useState, useEffect } from "react";
@@ -22,6 +23,7 @@ type PaymentModalProps = {
 };
 
 export default function PaymentModal({ isOpen, onClose, onSuccess, appointment }: PaymentModalProps) {
+    const plan = usePlan();            // paying with points, the club's and the gift card's links follow the plan
     const [amount, setAmount] = useState<string>("");
     const [method, setMethod] = useState<string>("cash");
     const [type, setType] = useState<string>("payment");
@@ -299,7 +301,7 @@ export default function PaymentModal({ isOpen, onClose, onSuccess, appointment }
                     )}
 
                     {/* Points Redemption */}
-                    {availablePoints > 0 ? (
+                    {availablePoints > 0 && plan.has("customer_club") ? (
                         <div className={`rounded-2xl border-2 transition-all overflow-hidden ${usePoints ? "border-amber-400 bg-amber-50" : "border-slate-100 bg-slate-50"}`}>
                             {/* Toggle header */}
                             <button type="button" onClick={() => { setUsePoints(v => !v); if (!usePoints) setPointsRedeemed(0); }}

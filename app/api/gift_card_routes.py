@@ -10,6 +10,7 @@ from datetime import datetime, timezone, date, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
+from app.core.features import require_module
 from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -522,11 +523,25 @@ class PublicGiftCardOrderIn(BaseModel):
 
 # ── Routes ────────────────────────────────────────────────────────────────────
 
+# Selling a new card needs the gift_cards module (pro and up — the plans, owner 2026-10-10). A card already sold keeps
+# working whatever the plan: listed, looked up, redeemed, cancelled.
+IN_PLAN = Depends(require_module("gift_cards"))
+
+
+def _shop_open(db: Session, studio_id: str) -> bool:
+    from app.core.features import has_module
+    try:
+        return has_module(db, uuid.UUID(str(studio_id)), "gift_cards")
+    except ValueError:
+        return False
+
+
 @router.post("", status_code=201)
 def create_gift_card(
     body: CreateGiftCardIn,
     ctx: AuthContext = Depends(require_studio_ctx),
     db: Session = Depends(get_db),
+    _plan: None = IN_PLAN,
 ):
     settings_row = db.execute(
         text("""
@@ -626,6 +641,7 @@ def preview_gift_card_voucher(
     theme: Optional[str] = None,
     ctx: AuthContext = Depends(require_studio_ctx),
     db: Session = Depends(get_db),
+    _plan: None = IN_PLAN,
 ):
     """Render a sample voucher with dummy data so a studio owner can see what
     a theme looks like (with their own logo) before choosing it in settings."""
@@ -665,6 +681,7 @@ def preview_gift_card_voucher(
 def gift_card_page_views(
     ctx: AuthContext = Depends(require_studio_ctx),
     db: Session = Depends(get_db),
+    _plan: None = IN_PLAN,
 ):
     """How many times the studio's public gift-card purchase page was viewed."""
     row = db.execute(
@@ -1176,6 +1193,8 @@ def public_gift_card_shop_info(studio_id: str, db: Session = Depends(get_db)):
     from app.core.studio_access import raise_if_archived
     from app.models.studio import Studio
     raise_if_archived(db, db.get(Studio, studio_id))
+    if not _shop_open(db, studio_id):
+        raise HTTPException(404, "העסק לא מוכר גיפט קארד כרגע")
     return {
         "studio_name": row[0],
         "logo_url": row[1],
@@ -1195,7 +1214,7 @@ def track_gift_card_page_view(studio_id: str, db: Session = Depends(get_db)):
     from app.core.studio_access import studio_is_archived
     from app.models.studio import Studio
     studio = db.get(Studio, studio_id)
-    if studio is None or studio_is_archived(db, studio):
+    if studio is None or studio_is_archived(db, studio) or not _shop_open(db, studio_id):
         return
     db.execute(
         text("""
@@ -1230,6 +1249,8 @@ def public_create_gift_card_order(studio_id: str, body: PublicGiftCardOrderIn, d
     from app.core.studio_access import raise_if_archived
     from app.models.studio import Studio
     raise_if_archived(db, db.get(Studio, studio_id))
+    if not _shop_open(db, studio_id):
+        raise HTTPException(404, "העסק לא מוכר גיפט קארד כרגע")
     studio_name = studio[0]
 
     settings_row = db.execute(

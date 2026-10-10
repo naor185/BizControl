@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.deps import AuthContext, require_studio_ctx
+from app.core.features import has_module, require_module
 from app.core.permissions import require_management
 from app.models.client import Client
 from app.models.coupon import Coupon
@@ -25,6 +26,7 @@ from app.services import coupons as svc
 router = APIRouter(prefix="/coupons", tags=["Coupons"])
 public_router = APIRouter(prefix="/public/coupons", tags=["CouponsPublic"])
 MANAGE = Depends(require_management("קופונים"))
+IN_PLAN = Depends(require_module("coupons"))   # pro and up
 
 
 # ── checking a code at payment ────────────────────────────────────────────────
@@ -110,7 +112,7 @@ def _get(db: Session, studio_id, coupon_id: UUID) -> Coupon:
 
 
 @router.get("")
-def list_coupons(ctx: AuthContext = MANAGE, db: Session = Depends(get_db)):
+def list_coupons(ctx: AuthContext = MANAGE, db: Session = Depends(get_db), _plan: None = IN_PLAN):
     """Every coupon with its numbers, the birthday coupons as one line, sums by category and by source, and the
     business's BizFind address part (for the coupon links)."""
     studio = db.get(Studio, ctx.studio_id)
@@ -118,7 +120,7 @@ def list_coupons(ctx: AuthContext = MANAGE, db: Session = Depends(get_db)):
 
 
 @router.post("")
-def create_coupon(body: CouponIn, ctx: AuthContext = MANAGE, db: Session = Depends(get_db)):
+def create_coupon(body: CouponIn, ctx: AuthContext = MANAGE, db: Session = Depends(get_db), _plan: None = IN_PLAN):
     code = svc.clean_code(body.code)
     if not svc.CODE_RE.match(code):
         raise HTTPException(400, "הקוד — אותיות באנגלית, ספרות, מקף או קו תחתון, 3 עד 32 תווים")
@@ -133,7 +135,8 @@ def create_coupon(body: CouponIn, ctx: AuthContext = MANAGE, db: Session = Depen
 
 
 @router.patch("/{coupon_id}")
-def update_coupon(coupon_id: UUID, body: CouponPatch, ctx: AuthContext = MANAGE, db: Session = Depends(get_db)):
+def update_coupon(coupon_id: UUID, body: CouponPatch, ctx: AuthContext = MANAGE, db: Session = Depends(get_db),
+                  _plan: None = IN_PLAN):
     """The code itself stays (its link is already out there); everything else is the owner's to change. Sending
     max_uses / expires_on as null clears the limit."""
     c = _get(db, ctx.studio_id, coupon_id)
@@ -152,7 +155,7 @@ def update_coupon(coupon_id: UUID, body: CouponPatch, ctx: AuthContext = MANAGE,
 
 
 @router.delete("/{coupon_id}", status_code=204)
-def delete_coupon(coupon_id: UUID, ctx: AuthContext = MANAGE, db: Session = Depends(get_db)):
+def delete_coupon(coupon_id: UUID, ctx: AuthContext = MANAGE, db: Session = Depends(get_db), _plan: None = IN_PLAN):
     """Only a coupon nobody used — a used one is stopped instead, so its numbers stay in the report."""
     c = _get(db, ctx.studio_id, coupon_id)
     if svc.uses_of(db, c):
@@ -174,6 +177,8 @@ def open_coupon_link(slug: str, code: str, body: ClickIn, db: Session = Depends(
     studio = db.scalar(select(Studio).where(Studio.slug == slug))
     if not studio:
         raise HTTPException(404, "העסק לא נמצא")
+    if not has_module(db, studio.id, "coupons"):
+        raise HTTPException(404, "הקופון לא בתוקף")
     code = svc.clean_code(code)
     c = db.scalar(select(Coupon).where(Coupon.studio_id == studio.id, Coupon.code == code).with_for_update())
     if not c or svc.state(db, c) != "active":

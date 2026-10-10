@@ -187,6 +187,17 @@ def register_and_login(client, slug: str, email: str):
         "password": "password123"
     })
     assert r.status_code == 200, r.text
+    # A bare business, as every test before the October 2026 plans assumes: on the old base plan ("free" — calendar,
+    # clients and the till), each test turning on what it uses (a locked StudioModule, like the superadmin does).
+    # Registration itself now opens the free month with everything on (test_plans_2026_10.py).
+    from sqlalchemy import text
+    with core_db.SessionLocal() as db:
+        db.execute(text("UPDATE studios SET subscription_plan = 'free' WHERE slug = :s"), {"s": slug})
+        db.execute(text("""
+            UPDATE subscriptions SET plan_id = 'free', status = 'active', trial_ends_at = NULL, current_period_end = NULL
+            WHERE studio_id = (SELECT id FROM studios WHERE slug = :s)
+        """), {"s": slug})
+        db.commit()
 
     r = client.post("/api/auth/login", json={
         "studio_slug": slug,

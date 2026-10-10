@@ -12,7 +12,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, func, true
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, false, func, true
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -37,6 +37,9 @@ class Module(Base):
     parent_module_id: Mapped[str | None] = mapped_column(
         String(64), ForeignKey("modules.id", ondelete="CASCADE"), nullable=True
     )
+    # A module the business's field decides on — group classes: a pilates studio or a gym yes, a tattoo studio no.
+    # On only where the plan sells it AND the field's default modules include it (app/core/features._own_enabled).
+    field_bound: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=false())
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

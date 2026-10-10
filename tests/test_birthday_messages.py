@@ -31,7 +31,7 @@ def _jobs(db, client_id):
 def test_one_birthday_message_whoever_sends_it_and_a_missed_day_is_caught_up(client, db_session):
     h = register_and_login(client, slug="bdaymsg", email="owner@bdaymsg.com")
     s = db_session.scalar(select(Studio).where(Studio.slug == "bdaymsg"))
-    db_session.add(StudioModule(studio_id=s.id, module_id="customer_club", is_enabled=True))
+    db_session.add(StudioModule(studio_id=s.id, module_id="customer_club", is_enabled=True, is_locked=True))
     db_session.get(StudioSettings, s.id).birthday_send_timing = "two_days"
     member = dict(studio_id=s.id, is_club_member=True)
     by_hand = Client(**member, full_name="נועה", phone="0501230001", birth_date=_born(2))
@@ -71,7 +71,7 @@ def test_start_of_the_birthday_month_is_the_default(client, db_session):
     up until the month ends — a birthday already past this month still gets its month's benefit."""
     h = register_and_login(client, slug="bdaymonth", email="owner@bdaymonth.com")
     s = db_session.scalar(select(Studio).where(Studio.slug == "bdaymonth"))
-    db_session.add(StudioModule(studio_id=s.id, module_id="customer_club", is_enabled=True))
+    db_session.add(StudioModule(studio_id=s.id, module_id="customer_club", is_enabled=True, is_locked=True))
     assert db_session.get(StudioSettings, s.id).birthday_send_timing == "month_start"
     born = {"early": date(1990, 10, 2), "late": date(1991, 10, 28), "next": date(1992, 11, 1), "last": date(1993, 9, 30)}
     people = {k: Client(studio_id=s.id, full_name=k, phone=f"05044400{i}", birth_date=d, is_club_member=True)
@@ -103,7 +103,7 @@ def test_start_of_the_birthday_month_is_the_default(client, db_session):
 def test_the_months_birthday_list_is_by_date(client, db_session):
     h = register_and_login(client, slug="bdaylist", email="owner@bdaylist.com")
     s = db_session.scalar(select(Studio).where(Studio.slug == "bdaylist"))
-    db_session.add(StudioModule(studio_id=s.id, module_id="customer_club", is_enabled=True))
+    db_session.add(StudioModule(studio_id=s.id, module_id="customer_club", is_enabled=True, is_locked=True))
     for name, day in (("אבי", 28), ("איילה", 9), ("מארק", 21), ("עדן", 19), ("שני", 29), ("שקד", 29)):
         db_session.add(Client(studio_id=s.id, full_name=name, phone=f"05000000{day}", birth_date=date(1990, 3, day), is_club_member=True))
     db_session.commit()

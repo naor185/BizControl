@@ -1,5 +1,6 @@
 "use client";
 
+import { usePlan } from "@/lib/usePlan";
 import { useEffect, useRef, useState } from "react";
 import RequireAuth from "@/components/RequireAuth";
 import AppShell from "@/components/AppShell";
@@ -49,6 +50,7 @@ const BROADCAST_TEMPLATES = [
 ];
 
 export default function BroadcastsPage() {
+    const plan = usePlan();            // paying with points, the club's and the gift card's links follow the plan
     const [broadcasts, setBroadcasts] = useState<Broadcast[]>([]);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
@@ -393,14 +395,14 @@ export default function BroadcastsPage() {
                                         className="text-xs px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 font-mono">
                                         {"{client_name}"}
                                     </button>
-                                    {clubJoinLink && (
+                                    {clubJoinLink && plan.has("customer_club") && (
                                         <button type="button"
                                             onClick={() => insertAtCursor(`🌟 הצטרף למועדון הלקוחות שלנו:\n${clubJoinLink}`)}
                                             className="text-xs px-2.5 py-1 rounded-lg bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 font-medium">
                                             🌟 לינק מועדון
                                         </button>
                                     )}
-                                    {giftCardShopLink && (
+                                    {giftCardShopLink && plan.has("gift_cards") && (
                                         <button type="button"
                                             onClick={() => insertAtCursor(`🎁 גיפט קארד לך או למישהו שאתה אוהב:\n${giftCardShopLink}`)}
                                             className="text-xs px-2.5 py-1 rounded-lg bg-violet-50 text-violet-700 border border-violet-200 hover:bg-violet-100 font-medium">

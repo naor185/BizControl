@@ -544,15 +544,12 @@ def verify_sent_payment(
         try:
             from app.models.client import Client as _Client
             from app.models.client_points_ledger import ClientPointsLedger as _Ledger
+            from app.services.club import cashback_percent
             _client = db.get(_Client, appt.client_id)
-            _settings = db.get(StudioSettings, ctx.studio_id)
-            if (
-                _client and _client.is_club_member
-                and _settings
-                and (_settings.points_percent_per_payment or 0) > 0
-            ):
+            _percent = cashback_percent(db, ctx.studio_id, _client)
+            if _percent > 0:
                 _amount_ils = appt.deposit_amount_cents / 100.0
-                _pts = int(_amount_ils * (_settings.points_percent_per_payment / 100.0))
+                _pts = int(_amount_ils * (_percent / 100.0))
                 if _pts > 0:
                     _client.loyalty_points = int(_client.loyalty_points or 0) + _pts
                     db.add(_Ledger(

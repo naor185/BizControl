@@ -2,10 +2,11 @@
 Module & Feature gate — Generic Plans Engine (modules table also carries
 fine-grained "permissions" via parent_module_id — see app/models/module.py).
 
-Resolution order for any module_id (including a nested sub-capability):
-  1. studio_modules explicit override (is_enabled true/false) → use it
-  2. plan_modules for studio.subscription_plan → use plan default
-  3. Default: DISABLED
+Resolution for any module_id — one rule, _own_enabled():
+  1. a locked studio_modules override — the superadmin's decision for this business — wins, on or off
+  2. the plan is the ceiling: nothing the plan doesn't sell (owner, 2026-10-10: plans are fixed bundles)
+  3. within the plan, an unlocked override turns it off (or back on)
+  4. a field-bound module (group classes) is on only where the business's field uses it
   ...then repeat for every ancestor via parent_module_id — a sub-capability
   is only enabled if it AND all its ancestors resolve to enabled.
 
@@ -74,22 +75,39 @@ def _active_addon_grants(db: Session, studio_id, addon_ids_override: list[str] |
     return grants
 
 
+def _field_modules(db: Session, studio_id) -> set[str]:
+    """The modules the business's field uses — its type's default modules (group classes for pilates and gyms)."""
+    from app.models.module import BusinessTypeTemplate
+    from app.models.studio import Studio
+    business_type = db.scalar(select(Studio.business_type).where(Studio.id == studio_id))
+    tmpl = db.get(BusinessTypeTemplate, business_type) if business_type else None
+    return set(tmpl.default_modules or []) if tmpl else set()
+
+
+def _own_enabled(override, addon_granted: bool, plan_allows: bool, field_bound: bool, field_uses: bool) -> bool:
+    """Whether a module itself (not its parents) is on for a business — the one rule both callers use:
+      1. a locked override, the superadmin's decision for this business, wins — on or off, whatever the plan;
+      2. an active add-on grants it (add-ons are not sold — owner, 2026-10-10 — the engine keeps them);
+      3. the plan is the ceiling: nothing the plan doesn't sell, without a locked override;
+      4. within the plan, an unlocked override turns it off (or back on);
+      5. a field-bound module (group classes…) is on only where the business's field uses it."""
+    if override is not None and override.is_locked:
+        return override.is_enabled
+    if addon_granted:
+        return True
+    if not plan_allows:
+        return False
+    if override is not None:
+        return override.is_enabled
+    return field_uses if field_bound else True
+
+
 def _is_module_enabled_own(
     db: Session, studio_id, subscription_plan: str, module_id: str,
     addon_ids_override: list[str] | None = None,
 ) -> bool:
-    """
-    Check if module_id itself (ignoring any parent) is enabled for a studio.
-    Precedence (Add-ons policy, Generic Plans Engine step 6):
-      1. studio_modules override with is_locked=true — a final Super Admin
-         decision, wins over everything including active add-ons.
-      2. An active add-on granting module_id — add-ons sit ABOVE the plan
-         default and an unlocked override (they only ever add capability).
-      3. studio_modules override (unlocked) — the studio's own default.
-      4. plan_modules — the plan's default.
-      5. disabled.
-    """
-    from app.models.module import StudioModule, PlanModule
+    """Whether module_id itself (ignoring any parent) is on for a studio — _own_enabled()."""
+    from app.models.module import Module, StudioModule, PlanModule
 
     override = db.scalar(
         select(StudioModule).where(
@@ -97,22 +115,18 @@ def _is_module_enabled_own(
             StudioModule.module_id == module_id,
         )
     )
-    if override is not None and override.is_locked:
-        return override.is_enabled
-
-    if module_id in _active_addon_grants(db, studio_id, addon_ids_override):
-        return True
-
-    if override is not None:
-        return override.is_enabled
-
     plan_row = db.scalar(
         select(PlanModule).where(
             PlanModule.plan == (subscription_plan or "free"),
             PlanModule.module_id == module_id,
         )
     )
-    return plan_row is not None
+    module = db.get(Module, module_id)
+    field_bound = bool(module and module.field_bound)
+    return _own_enabled(
+        override, module_id in _active_addon_grants(db, studio_id, addon_ids_override), plan_row is not None,
+        field_bound, field_bound and module_id in _field_modules(db, studio_id),
+    )
 
 
 def is_module_enabled(
@@ -139,6 +153,14 @@ def is_module_enabled(
             return False
         mid = db.scalar(select(Module.parent_module_id).where(Module.id == mid))
     return True
+
+
+def has_module(db: Session, studio_id, module_id: str) -> bool:
+    """Whether a business has a module now — its plan, its field and the superadmin's decisions (_own_enabled).
+    For what runs without a signed-in user (a public page, a background job, a payment's side effects)."""
+    from app.models.studio import Studio
+    studio = db.get(Studio, studio_id)
+    return bool(studio) and is_module_enabled(db, studio.id, studio.subscription_plan or "free", module_id)
 
 
 def require_module(module_id: str) -> Callable:
@@ -171,10 +193,8 @@ def get_studio_modules(
     Return all available modules with effective enabled status for a studio.
     Honors parent_module_id chains the same way is_module_enabled() does — a
     sub-capability shows disabled if its parent module is disabled, even if
-    it has its own enabled override/plan default. Same Add-ons precedence
-    policy as _is_module_enabled_own() (locked override > active add-on >
-    unlocked override > plan default), computed once here instead of via
-    repeated per-module calls for efficiency.
+    it has its own enabled override/plan default. The same rule,
+    _own_enabled(), computed once here instead of per module.
     """
     from app.models.module import Module, StudioModule, PlanModule
 
@@ -187,16 +207,12 @@ def get_studio_modules(
     ).all()}
     addon_grants = _active_addon_grants(db, studio_id, addon_ids_override)
     parent_of = {m.id: m.parent_module_id for m in all_modules}
+    field_bound = {m.id for m in all_modules if m.field_bound}
+    field_uses = _field_modules(db, studio_id)
 
     def own_enabled(mid: str) -> bool:
-        override = overrides.get(mid)
-        if override is not None and override.is_locked:
-            return override.is_enabled
-        if mid in addon_grants:
-            return True
-        if override is not None:
-            return override.is_enabled
-        return mid in plan_defaults
+        return _own_enabled(overrides.get(mid), mid in addon_grants, mid in plan_defaults,
+                            mid in field_bound, mid in field_uses)
 
     def effective_enabled(mid: str | None) -> bool:
         seen: set[str] = set()

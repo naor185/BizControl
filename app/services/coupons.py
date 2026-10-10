@@ -65,6 +65,9 @@ def find(db: Session, studio_id, code: str, client_id=None, *, lock: bool = Fals
     q = select(Coupon).where(Coupon.studio_id == studio_id, Coupon.code == code)
     c = db.scalar(q.with_for_update() if lock else q)
     if c:
+        from app.core.features import has_module
+        if not has_module(db, studio_id, "coupons"):
+            raise ValueError("קופונים לא כלולים במסלול של העסק")
         st = state(db, c)
         if st == "stopped":
             raise ValueError(f"הקופון {code} הופסק")
@@ -81,6 +84,9 @@ def find(db: Session, studio_id, code: str, client_id=None, *, lock: bool = Fals
 
     b = db.scalar(select(BirthdayCoupon).where(BirthdayCoupon.studio_id == studio_id, BirthdayCoupon.code == code))
     if b:
+        from app.services import club
+        if not club.club_on(db, studio_id):
+            raise ValueError(club.OFF)
         if b.status != "active":
             raise ValueError(f"קופון יום ההולדת {code} כבר נוצל" if b.status == "redeemed" else f"קופון יום ההולדת {code} לא בתוקף")
         if b.expires_at < datetime.now(timezone.utc):

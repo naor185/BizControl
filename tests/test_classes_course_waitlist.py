@@ -16,7 +16,7 @@ from tests.test_classes_stage4 import _business, _client, _jobs, clock  # noqa: 
 def _full_course(client, db):
     """A course of three spots, full; two more clients to wait."""
     h, s, _ = _business(client, db)
-    db.add(StudioModule(studio_id=s.id, module_id="class_waitlist", is_enabled=True))
+    db.add(StudioModule(studio_id=s.id, module_id="class_waitlist", is_enabled=True, is_locked=True))
     db.commit()
     t = _course(client, h)
     people = [_client(db, s, n) for n in range(1, 6)]
@@ -48,7 +48,7 @@ def test_the_first_in_line_is_enrolled_when_a_spot_frees(client, db_session, clo
 
 def test_joining_the_line_only_when_the_course_is_full(client, db_session, clock):
     h, s, _ = _business(client, db_session)
-    db_session.add(StudioModule(studio_id=s.id, module_id="class_waitlist", is_enabled=True))
+    db_session.add(StudioModule(studio_id=s.id, module_id="class_waitlist", is_enabled=True, is_locked=True))
     db_session.commit()
     t = _course(client, h)
     c = _client(db_session, s, 1)

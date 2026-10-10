@@ -228,6 +228,7 @@ def test_daily_birthday_sweep_runs_and_only_reaches_clients_who_may_receive_mark
     import app.services.email_center as ec
     monkeypatch.setattr(bc, "get_or_create_birthday_coupon", lambda db, **kw: SimpleNamespace(code="TAL10"))
     monkeypatch.setattr(ec, "studio_email_allowed", lambda *a, **k: False)
+    monkeypatch.setattr("app.services.club.club_on", lambda *a, **k: True)      # the business has the club
     settings = SimpleNamespace(birthday_automation_enabled=True, birthday_benefit_percent=10, birthday_wa_template=None,
                                birthday_send_timing="two_days")
     ok, no_consent = client(), client(consent=False)

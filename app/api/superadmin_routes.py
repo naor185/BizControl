@@ -1930,10 +1930,8 @@ def disable_invoice_scan(
 
 class ModuleToggle(BaseModel):
     is_enabled: bool
-    # Add-ons precedence policy (Generic Plans Engine step 6) — when true,
-    # this override is a final Super Admin decision that no active add-on
-    # can override. Optional so existing callers that only send is_enabled
-    # don't accidentally reset an existing lock.
+    # Locked = the superadmin's decision for this business, which holds whatever its plan sells (the plan is the
+    # ceiling only for unlocked overrides — features._own_enabled). Left out = locked.
     is_locked: Optional[bool] = None
 
 
@@ -1974,22 +1972,21 @@ def set_studio_module(
     studio = db.query(Studio).filter_by(id=studio_id).first()
     if not studio:
         raise HTTPException(status_code=404, detail="Studio not found")
+    locked = True if payload.is_locked is None else payload.is_locked
     override = db.query(StudioModule).filter_by(studio_id=studio_id, module_id=module_id).first()
     if override:
         override.is_enabled = payload.is_enabled
         override.enabled_by_id = admin.id
-        if payload.is_locked is not None:
-            override.is_locked = payload.is_locked
+        override.is_locked = locked
     else:
         db.add(StudioModule(
             studio_id=studio_id, module_id=module_id,
-            is_enabled=payload.is_enabled, enabled_by_id=admin.id,
-            is_locked=payload.is_locked or False,
+            is_enabled=payload.is_enabled, enabled_by_id=admin.id, is_locked=locked,
         ))
     action = f"{'enable' if payload.is_enabled else 'disable'}_module_{module_id}"
-    _audit(db, admin, action, studio, {"module": module_id, "enabled": payload.is_enabled, "is_locked": payload.is_locked})
+    _audit(db, admin, action, studio, {"module": module_id, "enabled": payload.is_enabled, "is_locked": locked})
     db.commit()
-    return {"studio_id": studio_id, "module_id": module_id, "is_enabled": payload.is_enabled, "is_locked": override.is_locked if override else (payload.is_locked or False)}
+    return {"studio_id": studio_id, "module_id": module_id, "is_enabled": payload.is_enabled, "is_locked": locked}
 
 
 class StudioQuotaOverride(BaseModel):

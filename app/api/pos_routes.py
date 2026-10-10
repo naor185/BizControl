@@ -22,7 +22,6 @@ from app.models.pos_transaction import PosTransaction, PosTransactionItem
 from app.models.product import Product
 from app.models.client import Client
 from app.models.client_points_ledger import ClientPointsLedger
-from app.models.studio_settings import StudioSettings
 
 router = APIRouter(prefix="/pos", tags=["POS"])
 
@@ -202,7 +201,10 @@ def pos_checkout(
         db.add(di)
 
     # Deduct redeemed points from client balance
+    from app.services import club
     points_redeemed = max(0, int(body.points_redeemed or 0))
+    if client and points_redeemed > 0 and not club.club_on(db, ctx.studio_id):
+        raise HTTPException(400, club.OFF)
     actual_redeem = 0
     if client and points_redeemed > 0:
         actual_redeem = min(points_redeemed, int(client.loyalty_points or 0))
@@ -217,10 +219,9 @@ def pos_checkout(
 
     # Award loyalty points from cashback — club members only
     points_earned = 0
-    if client and getattr(client, "is_club_member", False):
-        settings = db.scalar(select(StudioSettings).where(StudioSettings.studio_id == ctx.studio_id))
-        cashback_pct = getattr(settings, "points_percent_per_payment", 0) if settings else 0
-        if cashback_pct and cashback_pct > 0:
+    if client:
+        cashback_pct = club.cashback_percent(db, ctx.studio_id, client)
+        if cashback_pct > 0:
             points_earned = int(total * cashback_pct / 10000)  # cents * pct% → points
             if points_earned > 0:
                 client.loyalty_points = int(client.loyalty_points or 0) + points_earned

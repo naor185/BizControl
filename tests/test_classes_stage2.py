@@ -32,7 +32,7 @@ def _business(client, db, slug="pilates", modules=("classes", "rooms")):
     s = db.scalar(select(Studio).where(Studio.slug == slug))
     s.name, s.business_type = "פילאטיס בלב", "pilates"
     for m in modules:
-        db.add(StudioModule(studio_id=s.id, module_id=m, is_enabled=True))
+        db.add(StudioModule(studio_id=s.id, module_id=m, is_enabled=True, is_locked=True))
     db.commit()
     return h, s
 

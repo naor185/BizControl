@@ -161,7 +161,7 @@ def test_a_membership_covers_the_course_when_the_owner_says_so(client, db_sessio
 
 def test_club_points_on_a_course_payment_by_the_owners_percentage(client, db_session, clock):
     h, s, _ = _business(client, db_session)
-    db_session.add(StudioModule(studio_id=s.id, module_id="customer_club", is_enabled=True))
+    db_session.add(StudioModule(studio_id=s.id, module_id="customer_club", is_enabled=True, is_locked=True))
     db_session.commit()
     t = _course(client, h)
     c = _client(db_session, s, 1)

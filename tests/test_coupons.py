@@ -21,6 +21,8 @@ from tests.test_classes_stage4 import clock  # noqa: F401  (a fixed "now" for th
 def _business(client, db, slug="coupons"):
     h = register_and_login(client, slug=slug, email=f"owner@{slug}.com")
     s = db.scalar(select(Studio).where(Studio.slug == slug))
+    s.subscription_plan = "pro"             # coupons and the club (birthday coupons) are pro's (the plans, 2026-10)
+    db.commit()
     return h, s
 
 
@@ -188,6 +190,8 @@ def test_the_discount_closes_the_bill_and_is_not_money(client, db_session):
 def test_a_membership_class_course_or_rental_payment_takes_a_coupon(client, db_session, clock):
     from tests.test_classes_stage4 import _business as _classes_business, _client as _classes_client, _sell, _type
     h, s, _ = _classes_business(client, db_session)
+    s.subscription_plan = "pro"             # coupons are pro's (the plans, 2026-10)
+    db_session.commit()
     _coupon(client, h, code="YOGA20", discount_percent=20, category="סטודיו", source="פייסבוק")
     c = _classes_client(db_session, s, 1)
     card = _sell(client, h, c, _type(client, h))                                   # ₪600

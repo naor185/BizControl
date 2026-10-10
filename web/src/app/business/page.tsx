@@ -1,5 +1,7 @@
 "use client";
 
+import { isNativeApp } from "@/lib/platform";
+import { usePlan } from "@/lib/usePlan";
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -34,9 +36,9 @@ const SECTION_GROUPS: { groupLabel: string; icon: LucideIcon; items: { href: str
         icon: Users,
         items: [
             { href: "/clients",           label: "לקוחות",          description: "רשימה, כרטיס לקוח והיסטוריה",                   icon: Users, gradient: "from-sky-500 to-sky-700", module: "crm" },
-            { href: "/clients?tab=club",  label: "מועדון לקוחות",   description: "חברים, נקודות, לוח אלופים וימי הולדת",           icon: Crown, gradient: "from-amber-500 to-amber-700", module: "crm" },
+            { href: "/clients?tab=club",  label: "מועדון לקוחות",   description: "חברים, נקודות, לוח אלופים וימי הולדת",           icon: Crown, gradient: "from-amber-500 to-amber-700", module: "customer_club" },
             { href: "/clients/analytics", label: "אנליטיקת לקוחות", description: "שימור, ערך לקוח, לקוחות שנעלמו ואחוזי המרה",      icon: BarChart3, gradient: "from-violet-500 to-violet-700" },
-            { href: "/wallet",            label: "כרטיס דיגיטלי",    description: "עיצוב כרטיס מועדון ל-Apple/Google Wallet",       icon: Smartphone, gradient: "from-teal-500 to-teal-700" },
+            { href: "/wallet",            label: "כרטיס דיגיטלי",    description: "עיצוב כרטיס מועדון ל-Apple/Google Wallet",       icon: Smartphone, gradient: "from-teal-500 to-teal-700", module: "wallet" },
             { href: "/migration",         label: "ייבוא נתונים",     description: "העברת לקוחות ושירותים ממערכת אחרת או מקובץ Excel", icon: FileUp, gradient: "from-emerald-500 to-emerald-700", module: "migration" },
         ],
     },
@@ -86,7 +88,7 @@ const SECTION_GROUPS: { groupLabel: string; icon: LucideIcon; items: { href: str
         items: [
             { href: "/products",   label: "מוצרים ומלאי",     description: "קטלוג מוצרים, מחירים ומלאי",             icon: Package, gradient: "from-sky-500 to-sky-700", module: "products" },
             { href: "/services",   label: "שירותים",          description: "סוגי טיפול, מחירים ומשך זמן",            icon: ConciergeBell, gradient: "from-sky-600 to-cyan-700", module: "services" },
-            { href: "/gift-cards", label: "גיפט קארד וקופונים", description: "קישור למכירת גיפט קארד, קופונים ומעקב",                icon: Gift, gradient: "from-purple-600 to-fuchsia-700", module: "pos" },
+            { href: "/gift-cards", label: "גיפט קארד וקופונים", description: "קישור למכירת גיפט קארד, קופונים ומעקב",                icon: Gift, gradient: "from-purple-600 to-fuchsia-700", module: "gift_cards" },
         ],
     },
     {
@@ -107,7 +109,8 @@ export default function BusinessPage() {
     const [showPinModal, setShowPinModal] = useState(false);
     const [pinMode, setPinMode] = useState<"verify" | "set">("verify");
     const [showSetPin, setShowSetPin] = useState(false);
-    const [enabledModules, setEnabledModules] = useState<Record<string, boolean> | null>(null);
+    const plan = usePlan();              // what the business's plan includes — and, for what it doesn't, the plan that does
+    const [isNative] = useState(() => isNativeApp());
     const [enabledFeatures, setEnabledFeatures] = useState<Record<string, boolean> | null>(null);
 
     const checkSession = useCallback(() => {
@@ -119,9 +122,6 @@ export default function BusinessPage() {
         apiFetch<PinStatus>("/api/security/pin/status")
             .then(setPinStatus)
             .catch(() => setPinStatus({ has_pin: false, is_locked: false, locked_until: null }));
-        apiFetch<Record<string, boolean>>("/api/modules/me")
-            .then(setEnabledModules)
-            .catch(() => setEnabledModules(null));
         apiFetch<Record<string, boolean>>("/api/studio/features/me")
             .then(setEnabledFeatures)
             .catch(() => setEnabledFeatures({}));
@@ -241,7 +241,8 @@ export default function BusinessPage() {
 
                             {SECTION_GROUPS.map(group => {
                                 const visibleItems = group.items.filter(item => {
-                                    const moduleOk = !item.module || !enabledModules || enabledModules[item.module] !== false;
+                                    // not in the plan: shown locked on the website when a plan on sale has it; not in the apps
+                                    const moduleOk = !item.module || plan.has(item.module) || (!isNative && !!plan.upgrade(item.module));
                                     const featureOk = !item.feature || !!enabledFeatures?.[item.feature];
                                     return moduleOk && featureOk;
                                 });
@@ -271,6 +272,11 @@ export default function BusinessPage() {
                                                     style={{ background: "var(--primary)" }}
                                                 />
 
+                                                {section.module && !plan.has(section.module) && (
+                                                    <span className="absolute top-3 left-3 inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 bg-slate-100 border border-slate-200 rounded-full px-2 py-0.5">
+                                                        <Lock className="w-3 h-3" aria-hidden /> ב{plan.upgrade(section.module)}
+                                                    </span>
+                                                )}
                                                 <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-200">
                                                     <section.icon className="w-7 h-7" style={{ color: "var(--foreground)" }} />
                                                 </div>

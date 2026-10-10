@@ -42,7 +42,7 @@ export default function GiftCardShopPage() {
     useEffect(() => {
         if (!studioId) return;
         fetch(`${API}/api/public/gift-cards/shop/${studioId}`)
-            .then(r => r.ok ? r.json() : Promise.reject(r.status))
+            .then(r => r.ok ? r.json() : r.json().catch(() => ({})).then(b => Promise.reject({ status: r.status, detail: b?.detail })))
             .then((data: ShopInfo) => {
                 setInfo(data);
                 const minIls = (data.min_amount_cents || 100) / 100;
@@ -50,7 +50,9 @@ export default function GiftCardShopPage() {
                 const valid = ALL_PRESETS.filter(a => a >= minIls && a <= maxIls);
                 setAmount(valid.length > 0 ? valid[0] : minIls);
             })
-            .catch(status => setLoadErr(status === 410 ? "חנות כרטיסי המתנה סגורה כרגע — האתר של העסק בארכיון והיא תיפתח שוב ברגע שהעסק יחדש את המנוי." : "העסק לא נמצא"))
+            .catch(e => setLoadErr(e?.status === 410
+                ? "חנות כרטיסי המתנה סגורה כרגע — האתר של העסק בארכיון והיא תיפתח שוב ברגע שהעסק יחדש את המנוי."
+                : e?.detail === "העסק לא מוכר גיפט קארד כרגע" ? e.detail : "העסק לא נמצא"))
             .finally(() => setLoading(false));
 
         // Fire-and-forget page-view counter — doesn't affect the page either way

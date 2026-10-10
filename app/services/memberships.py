@@ -40,10 +40,8 @@ def uses_memberships(db: Session, studio_id) -> bool:
 
 
 def _module(db: Session, studio_id, module_id: str) -> bool:
-    from app.core.features import is_module_enabled
-    from app.models.studio import Studio
-    st = db.get(Studio, studio_id)
-    return bool(st) and is_module_enabled(db, st.id, st.subscription_plan or "free", module_id)
+    from app.core.features import has_module
+    return has_module(db, studio_id, module_id)
 
 
 # ── selling ──────────────────────────────────────────────────────────────────
