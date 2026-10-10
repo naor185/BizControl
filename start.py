@@ -679,7 +679,7 @@ def ensure_schema():
             ("customer_club",      "advanced",      "מועדון לקוחות & נקודות",    6),
             ("wallet",             "advanced",      "Digital Wallet Pass",         7),
             ("ocr",                "ai",            "סריקת מסמכים & OCR",         8),
-            ("ai_assistant",       "ai",            "עוזר AI (ויקי)",             9),
+            ("ai_assistant",       "ai",            "כלי AI",                     9),
             ("online_booking",     "marketplace",   "קביעת תורים אונליין",       10),
             ("marketplace",        "marketplace",   "פרופיל ציבורי & Marketplace",11),
             ("wait_list",          "advanced",      "רשימת המתנה",                12),
@@ -1718,7 +1718,7 @@ def ensure_schema():
             ("pro", "bizcontrol_automations",     "אוטומציות ו-WhatsApp",            True,  None),
             ("pro", "bizcontrol_pos",             "קופה",                            True,  None),
             ("pro", "max_artists",                "מספר מקסימלי של אמנים",           True,  5),
-            ("pro", "bizcontrol_ai",              "AI — ויקי",                        True,  None),
+            ("pro", "bizcontrol_ai",              "כלי AI",                           True,  None),
             # ── studio (BizFind + BizControl Studio) ──────────────────────────
             ("studio", "bizfind_listing",         "פרופיל עסקי ב-BizFind",          True,  None),
             ("studio", "online_booking",          "הזמנות תורים אונליין",            True,  None),
@@ -1732,7 +1732,7 @@ def ensure_schema():
             ("studio", "bizcontrol_payments",     "תשלומים וקבלות",                  True,  None),
             ("studio", "bizcontrol_automations",  "אוטומציות ו-WhatsApp",            True,  None),
             ("studio", "bizcontrol_pos",          "קופה",                            True,  None),
-            ("studio", "bizcontrol_ai",           "AI — ויקי",                        True,  None),
+            ("studio", "bizcontrol_ai",           "כלי AI",                           True,  None),
             ("studio", "self_booking_page",       "דף הזמנה עצמית",                  True,  None),
             ("studio", "excel_export",            "ייצוא Excel",                      True,  None),
             ("studio", "max_artists",             "מספר מקסימלי של אמנים",           True,  None),  # unlimited
@@ -2708,7 +2708,6 @@ def ensure_schema():
             monthly = {
                 "whatsapp":          {"starter": 400, "pro": 1500, "enterprise": 8000, "trial": 1500},
                 "broadcasts":        {"starter": 10},
-                "ai_assistant":      {"starter": 200, "pro": 1000, "enterprise": 3000, "trial": 1000},
                 "invoice_ai_scan":   {"starter": 30, "pro": 150, "enterprise": 500, "trial": 150},
                 "ai_theme_generate": {"starter": 3, "pro": 3, "enterprise": 3, "trial": 3},
             }
@@ -2897,6 +2896,16 @@ def ensure_schema():
         cur.execute("ALTER TABLE health_forms ADD COLUMN IF NOT EXISTS auto_send VARCHAR(12) NOT NULL DEFAULT 'off'")
         cur.execute("ALTER TABLE health_forms ADD COLUMN IF NOT EXISTS validity VARCHAR(12) NOT NULL DEFAULT 'forever'")
         cur.execute("ALTER TABLE health_forms ADD COLUMN IF NOT EXISTS auto_since TIMESTAMPTZ")
+
+        if _once("viki_removed_v1"):
+            # ויקי, the chat assistant, was removed (owner, 2026-10-10). Its module stays as the parent of the other AI
+            # tools (lead tagging, the page design) — renamed, with no monthly count of questions.
+            cur.execute("UPDATE modules SET name = 'כלי AI' WHERE id = 'ai_assistant'")
+            cur.execute("""
+                UPDATE plan_modules SET limit_value = NULL, period_type = 'unlimited', on_exceed_action = 'block'
+                WHERE module_id = 'ai_assistant'
+            """)
+            cur.execute("UPDATE bizfind_plan_features SET feature_label = 'כלי AI' WHERE feature_key = 'bizcontrol_ai'")
 
         conn.commit()
         cur.close()

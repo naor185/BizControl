@@ -71,14 +71,7 @@ def test_a_booking_request_names_the_staff_in_the_businesss_words(db_session):
     assert "מטפל/ת: דנה" in job.body and "אמן" not in job.body
 
 
-def test_the_ai_is_told_the_businesss_field_and_words(db_session, monkeypatch):
-    from app.services.ai.orchestrator import _build_system_prompt, business_context
-    studio = _studio(db_session, "gym-1", "gym")
-    field, words = business_context(db_session, studio.id)
-    prompt = _build_system_prompt("כושר פלוס", "owner", "/dashboard", field, words)
-    assert "מכון כושר ואימונים" in prompt and "מאמן/ת" in prompt and "מתאמן/ת" in prompt
-    assert "קעקוע" not in prompt
-
+def test_the_ai_is_told_the_businesss_field(db_session, monkeypatch):
     import app.services.auto_tag_service as tag
     seen = {}
     monkeypatch.setattr(tag, "complete_json", lambda prompt, max_tokens=0: seen.update(prompt=prompt) or {"temperature": "warm"})
@@ -105,8 +98,8 @@ def test_lead_tagging_runs_only_where_its_module_is_on(db_session, monkeypatch):
     assert calls == [] and db_session.get(Lead, lead.id).service_interest is None       # module off: no AI call
 
     from app.models.module import Module
-    for mid, name, parent in (("ai_assistant", "עוזר AI (ויקי)", None), ("ai_auto_tag", "תיוג AI אוטומטי ללידים", "ai_assistant")):
-        if not db_session.get(Module, mid):   # as in production: tagging sits under ויקי
+    for mid, name, parent in (("ai_assistant", "כלי AI", None), ("ai_auto_tag", "תיוג AI אוטומטי ללידים", "ai_assistant")):
+        if not db_session.get(Module, mid):   # as in production: tagging sits under the AI tools
             db_session.add(Module(id=mid, name=name, category="ai", parent_module_id=parent))
             db_session.flush()
     db_session.add_all([StudioModule(studio_id=gym.id, module_id="ai_assistant", is_enabled=True, is_locked=True),

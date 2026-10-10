@@ -1,7 +1,7 @@
 """
 BizControl Voice — Phase 2: transcription + AI summary for a call recording.
 
-Reuses the same provider client used by ויקי (app/services/ai/orchestrator.py) —
+Reuses the platform's AI provider client (app/services/ai_client.py) —
 Groq / Gemini / OpenAI, detected by API key prefix. Groq and OpenAI expose an
 OpenAI-compatible Whisper endpoint (client.audio.transcriptions.create); Gemini
 does not, so transcription is skipped (not failed) when only a Gemini key is
@@ -19,7 +19,7 @@ import requests
 from sqlalchemy.orm import Session
 
 from app.models.call import Call
-from app.services.ai.orchestrator import _get_client, complete_json
+from app.services.ai_client import complete_json, provider_client
 
 log = logging.getLogger(__name__)
 
@@ -50,7 +50,7 @@ def _whisper_model_for(base_url: str) -> str | None:
 
 def transcribe_recording(recording_url: str) -> str | None:
     try:
-        client, _ = _get_client()
+        client, _ = provider_client()
     except RuntimeError:
         log.info("[call_ai] no AI provider configured — skipping transcription")
         return None

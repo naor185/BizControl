@@ -20,7 +20,7 @@ uvicorn app.main:app --reload --port 8000
 # Environment variables required locally
 DATABASE_URL=postgresql://...
 JWT_SECRET=...
-GROQ_API_KEY=...   # or GEMINI_API_KEY / OPENAI_API_KEY for ויקי AI
+GROQ_API_KEY=...   # or GEMINI_API_KEY / OPENAI_API_KEY — the AI tools (lead tagging, call analysis)
 ```
 
 ### Frontend (Next.js 14)
@@ -93,19 +93,17 @@ All outbound messages (WhatsApp, email) are **enqueued** first, then processed b
 
 WhatsApp providers: `green_api` (linked device) or `meta` (Cloud API). Both dispatched via `send_whatsapp_message()` in `message_worker.py`.
 
-### AI Assistant (ויקי)
-- Backend: `app/services/ai/` — `orchestrator.py`, `tools.py`, `prompts.py`
-- Supports Groq (llama), Gemini, OpenAI — detected by API key prefix (`gsk_` → Groq, `AIza` → Gemini)
-- Tools that fetch live data: `get_today_appointments`, `get_monthly_revenue`, `search_client`, `get_dashboard_stats`, `get_inactive_clients`, `get_top_artists`
-- **Important**: Navigation/help questions skip tools entirely (`_needs_tools()` check) to avoid Groq 400 errors on llama function-calling
-- Tool results include an `answer` field with a pre-built Hebrew sentence; always use it verbatim
+### AI
+- `app/services/ai_client.py` — the one AI provider client: Groq, Gemini or OpenAI, detected by API key prefix
+  (`gsk_` → Groq, `AIza` → Gemini). Used by lead tagging (`auto_tag_service`) and call analysis (`call_ai`).
+- The ויקי chat assistant was removed (owner, 2026-10-10); its module id `ai_assistant` ("כלי AI") stays as the
+  parent of the AI sub-modules (`ai_auto_tag`, `ai_theme_generate`).
 
 ### Frontend Structure (`web/src/`)
 | Path | Purpose |
 |------|---------|
 | `app/` | Next.js App Router pages |
 | `components/AppShell.tsx` | Main layout with sidebar nav and SSE unread count |
-| `components/AIAssistant.tsx` | ויקי floating chat widget |
 | `lib/api.ts` | `apiFetch<T>()` — authenticated fetch with auto-refresh |
 
 All API calls go through `apiFetch()` from `lib/api.ts`. Token stored in `localStorage` as `bizcontrol_token`. `API_BASE` is set via `NEXT_PUBLIC_API_URL` env var.

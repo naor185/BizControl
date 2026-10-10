@@ -10,7 +10,7 @@ type Row = { quota_key: string; period_type: string; used: number; limit: number
 
 const LABELS: Record<string, string> = {
     whatsapp: "הודעות WhatsApp", broadcasts: "תפוצות", invoice_ai_scan: "סריקות חשבוניות",
-    ai_assistant: "שאלות לוויקי", ai_theme_generate: "עיצוב דף ב-AI", staff_seats: "אנשי צוות", multi_location: "סניפים",
+    ai_theme_generate: "עיצוב דף ב-AI", staff_seats: "אנשי צוות", multi_location: "סניפים",
 };
 const PERIOD: Record<string, string> = { monthly: "החודש", lifetime: "סה״כ", daily: "היום", weekly: "השבוע", yearly: "השנה" };
 

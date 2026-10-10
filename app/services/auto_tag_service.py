@@ -2,9 +2,9 @@
 Auto-tags a lead from its first message: the service it asks about and how warm it is.
 Called in the background from the webhook when a new lead is created.
 
-Uses the same AI provider as ויקי (Groq / Gemini / OpenAI — app/services/ai/orchestrator.complete_json).
+Uses the platform's AI provider (Groq / Gemini / OpenAI — app/services/ai_client.complete_json).
 It used Anthropic before, whose package is not installed, so it never ran. It runs only for a studio
-whose "ai_auto_tag" module (under ויקי) is on — the superadmin decides per plan or studio.
+whose "ai_auto_tag" module (under the AI tools, ai_assistant) is on — the superadmin decides per plan or studio.
 """
 from __future__ import annotations
 import uuid
@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select
 
 from app.models.lead import Lead
-from app.services.ai.orchestrator import complete_json
+from app.services.ai_client import complete_json
 from app.utils.logger import get_logger
 
 log = get_logger(__name__)

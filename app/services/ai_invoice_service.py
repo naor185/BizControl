@@ -254,7 +254,7 @@ class AIInvoiceService:
             self._gemini_key = gemini_key
         elif openai_key and not openai_key.startswith("gsk_"):
             # OPENAI_API_KEY sometimes holds a Gemini key by mistake (but not a Groq
-            # key — "gsk_..." belongs to the separate ויקי assistant integration).
+            # key — "gsk_..." is Groq, used by lead tagging and call analysis, app/services/ai_client.py).
             self._provider = "gemini"
             self._gemini_key = openai_key
         elif google_creds_json and project_id and processor_id:

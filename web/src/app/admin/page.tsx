@@ -811,12 +811,6 @@ export default function AdminPage() {
                         💳 Wallet System
                     </a>
                     <a
-                        href="/admin/ai"
-                        className="px-4 py-2 rounded-xl text-sm font-semibold transition-colors text-slate-400 hover:text-white"
-                    >
-                        🤖 AI Dashboard
-                    </a>
-                    <a
                         href="/admin/crm"
                         className="px-4 py-2 rounded-xl text-sm font-semibold transition-colors text-slate-400 hover:text-white inline-flex items-center gap-1.5"
                     >

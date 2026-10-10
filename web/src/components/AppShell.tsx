@@ -10,7 +10,6 @@ import BottomNav from "./BottomNav";
 import NotificationBell from "./NotificationBell";
 import ToastContainer from "./ToastContainer";
 import GlobalToast from "./GlobalToast";
-import AIAssistant from "./AIAssistant";
 import PinModal from "./PinModal";
 import QuickWhatsAppModal from "./QuickWhatsAppModal";
 import { useLang } from "./LanguageProvider";
@@ -435,7 +434,6 @@ export default function AppShell({
                 </div>
             </div>
 
-            <AIAssistant />
             {planInfo && showPlanBar && <PlanBar info={planInfo} />}
             <BottomNav />
             <ToastContainer />

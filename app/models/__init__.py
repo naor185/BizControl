@@ -19,9 +19,6 @@ from app.models.lead import Lead
 from app.models.audit_log import AuditLog
 from app.models.studio_integration import StudioIntegration
 from app.models.booking_request import BookingRequest
-from app.models.ai_conversation import AIConversation
-from app.models.ai_message import AIMessage
-from app.models.ai_audit_log import AIAuditLog
 from app.models.employee_nfc_tag import EmployeeNfcTag
 from app.models.attendance_log import AttendanceLog
 from app.models.pos_transaction import PosTransaction, PosTransactionItem
@@ -44,7 +41,6 @@ from app.models.health_form import HealthForm, HealthFormFile, HealthDeclaration
 __all__ = [
     "Base", "Studio", "User", "StudioSettings", "RefreshToken",
     "Client", "Appointment", "Payment", "ClientPointsLedger", "ClientTreatmentPhoto", "MessageJob", "Expense", "WorkSession", "MonthlyGoal", "Product", "ProductSale", "StudioNote", "Lead", "AuditLog", "StudioIntegration", "BookingRequest",
-    "AIConversation", "AIMessage", "AIAuditLog",
     "EmployeeNfcTag", "AttendanceLog",
     "PosTransaction", "PosTransactionItem",
     "UserPinSettings", "PinAttemptLog",
