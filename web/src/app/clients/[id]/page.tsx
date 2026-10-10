@@ -524,9 +524,7 @@ export default function ClientProfilePage() {
                             </div>
 
                             {/* Health declarations — signed on an appointment, or from here */}
-                            <div className="rounded-xl border bg-white p-4 shadow-sm">
-                                <HealthDeclarations clientId={id} />
-                            </div>
+                            <HealthDeclarations clientId={id} boxClassName="rounded-xl border bg-white p-4 shadow-sm" />
 
                             <button
                                 onClick={() => {

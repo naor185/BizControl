@@ -91,13 +91,13 @@ def test_a_client_signs_then_the_artist_and_it_stays_as_signed(client, db_sessio
     assert kept["questions"] == d["questions"] and kept["answers"][yes_no[4]["id"]] == {"answer": "yes", "details": "לטקס"}
 
     for query in (f"client_id={c.id}", f"appointment_id={appt.id}"):
-        rows = client.get(f"/api/health-declarations?{query}", headers=h).json()
+        rows = client.get(f"/api/health-declarations?{query}", headers=h).json()["rows"]
         assert [(x["id"], x["status"], x["flagged"]) for x in rows] == [(d["id"], "signed", [yes_no[4]["text"]])]
     assert client.delete(f"/api/health-declarations/{d['id']}", headers=h).status_code == 400   # a signed one stays
 
     other = register_and_login(client, slug="other-shop", email="owner@other-shop.com")
     assert client.get(f"/api/health-declarations/{d['id']}", headers=other).status_code == 404
-    assert client.get(f"/api/health-declarations?client_id={c.id}", headers=other).json() == []
+    assert client.get(f"/api/health-declarations?client_id={c.id}", headers=other).json()["rows"] == []
 
     # a new one from the client's file, not signed — can be removed
     loose = client.post("/api/health-declarations", headers=h, json={"client_id": str(c.id)}).json()
@@ -153,3 +153,84 @@ def test_the_client_fills_it_from_a_whatsapp_link_and_the_artist_signs_in_the_st
     c.phone = None
     db_session.commit()
     assert client.post(f"/api/health-declarations/{late['id']}/send-link", headers=h).json()["detail"] == "ללקוח אין מספר טלפון"
+
+
+def test_the_business_chooses_on_off_sending_by_itself_and_how_long_a_declaration_counts(client, db_session):
+    from datetime import timedelta
+
+    from app.models.message_job import MessageJob
+    from app.services.health_forms import sweep_links
+
+    h, c, _ = _business(client, db_session)
+    s = db_session.get(Studio, c.studio_id)
+    owner = db_session.scalar(select(User).where(User.studio_id == s.id))
+    now = datetime.now(timezone.utc)
+
+    def appointment(cl, starts_in, created_ago=None):
+        a = Appointment(studio_id=s.id, client_id=cl.id, artist_id=owner.id, title="קעקוע",
+                        starts_at=now + starts_in, ends_at=now + starts_in + timedelta(hours=1))
+        if created_ago is not None:
+            a.created_at = now - created_ago
+        db_session.add(a)
+        db_session.commit()
+        return a
+
+    def links():
+        return sorted(str(j.appointment_id) for j in db_session.scalars(select(MessageJob).where(MessageJob.reminder_type == "health_form")))
+
+    def choose(**kw):
+        form = client.get("/api/health-form", headers=h).json()
+        r = client.put("/api/health-form", headers=h, json={**form, "file_id": None, **kw})
+        assert r.status_code == 200, r.text
+        return r.json()
+
+    f = client.get("/api/health-form", headers=h).json()
+    assert (f["enabled"], f["auto_send"], f["validity"]) == (True, "off", "forever")        # nothing goes by itself
+    booked_before = appointment(c, timedelta(days=3), created_ago=timedelta(hours=1))
+    assert sweep_links(db_session) == 0
+
+    # on booking: only appointments booked from now on, once each
+    choose(auto_send="on_booking")
+    assert sweep_links(db_session) == 0                                                   # booked before it was on
+    first = appointment(c, timedelta(days=5))
+    assert sweep_links(db_session) == 1 and links() == [str(first.id)]
+    assert sweep_links(db_session) == 0
+    second = appointment(c, timedelta(days=6))
+    assert sweep_links(db_session) == 0                                                   # a link is already on its way
+
+    # the client fills it from the link → in force for good: their next appointments get nothing
+    view = client.get("/api/health-declarations?appointment_id=" + str(first.id), headers=h).json()
+    token = view["rows"][0]["link"].rsplit("/", 1)[1]
+    form = client.get(f"/api/public/health/{token}").json()
+    answers = {q["id"]: {"answer": "no"} for q in form["questions"] if q["kind"] == "yes_no"}
+    assert client.post(f"/api/public/health/{token}", json={"answers": answers, "id_number": "123456782", "signature": SIG}).status_code == 200
+    third = appointment(c, timedelta(days=7))
+    assert sweep_links(db_session) == 0
+    on_third = client.get(f"/api/health-declarations?appointment_id={third.id}", headers=h).json()
+    assert on_third["rows"] == [] and on_third["in_force"]["id"] == view["rows"][0]["id"]
+
+    # a new declaration for every appointment: the coming ones get their own link
+    choose(auto_send="on_booking", validity="every_visit")
+    assert sweep_links(db_session) == 2 and links() == sorted([str(first.id), str(second.id), str(third.id)])
+    assert str(booked_before.id) not in links()
+
+    # the day before, in the day only — and a client without a phone gets nothing
+    choose(auto_send="day_before", validity="forever")
+    other = Client(studio_id=s.id, full_name="רון", phone="0507654321")
+    no_phone = Client(studio_id=s.id, full_name="בלי טלפון")
+    db_session.add_all([other, no_phone])
+    db_session.commit()
+    at_night = now.replace(hour=22, minute=0, second=0, microsecond=0)                     # 01:00 in Israel
+    morning = at_night + timedelta(hours=11)                                               # 09:00–10:00 in Israel
+    tomorrow = appointment(other, (morning - now) + timedelta(hours=10))
+    later = appointment(other, (morning - now) + timedelta(hours=30))
+    appointment(no_phone, (morning - now) + timedelta(hours=5))
+    assert sweep_links(db_session, now=at_night) == 0
+    assert sweep_links(db_session, now=morning) == 1 and str(tomorrow.id) in links() and str(later.id) not in links()
+
+    # off: nothing by itself, and no new declarations by hand either
+    choose(enabled=False, auto_send="on_booking")
+    appointment(other, timedelta(days=9))
+    assert sweep_links(db_session) == 0
+    assert client.post("/api/health-declarations", headers=h, json={"client_id": str(c.id)}).status_code == 400
+    assert client.get(f"/api/health-declarations?client_id={c.id}", headers=h).json()["enabled"] is False

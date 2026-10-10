@@ -156,15 +156,25 @@ export function Answers({ d }: { d: Declaration }) {
     );
 }
 
-export default function HealthDeclarations({ clientId, appointmentId }: { clientId: string; appointmentId?: string }) {
+type Overview = { enabled: boolean; in_force: { id: string; client_signed_at: string } | null; rows: DeclarationRow[] };
+
+// boxClassName: the frame around it — not drawn at all when the business turned the declaration off and there's
+// nothing to show
+export default function HealthDeclarations({ clientId, appointmentId, boxClassName = "" }: {
+    clientId: string; appointmentId?: string; boxClassName?: string;
+}) {
     const [rows, setRows] = useState<DeclarationRow[] | null>(null);
+    const [enabled, setEnabled] = useState(true);
+    const [inForce, setInForce] = useState<Overview["in_force"]>(null);
     const [open, setOpen] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
     const [err, setErr] = useState<string | null>(null);
 
     const load = useCallback(() => {
         const q = appointmentId ? `appointment_id=${appointmentId}` : `client_id=${clientId}`;
-        apiFetch<DeclarationRow[]>(`/api/health-declarations?${q}`).then(setRows).catch(() => setRows([]));
+        apiFetch<Overview>(`/api/health-declarations?${q}`)
+            .then(o => { setRows(o.rows); setEnabled(o.enabled); setInForce(o.in_force); })
+            .catch(() => setRows([]));
     }, [clientId, appointmentId]);
     useEffect(() => { load(); }, [load]);
 
@@ -212,13 +222,16 @@ export default function HealthDeclarations({ clientId, appointmentId }: { client
     };
 
     const pending = rows?.some(r => r.status !== "signed");
+    if (rows === null || (!enabled && rows.length === 0)) return null;
+    // a declaration the client filled that still counts — from another appointment (on this one it's in the list)
+    const forceElsewhere = inForce && !rows.some(r => r.id === inForce.id) ? inForce : null;
     return (
-        <div className="space-y-2" dir="rtl">
+        <div className={`space-y-2 ${boxClassName}`} dir="rtl">
             <div className="flex items-center justify-between gap-2">
                 <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-700">
                     <HeartPulse className="h-4 w-4 text-rose-600" aria-hidden /> הצהרת בריאות
                 </span>
-                {rows !== null && !(appointmentId && pending) && (
+                {enabled && !(appointmentId && pending) && (
                     <div className="flex items-center gap-1.5">
                         <button type="button" onClick={() => start("send")} disabled={busy}
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 text-xs font-bold hover:bg-slate-50 disabled:opacity-50">
@@ -226,14 +239,21 @@ export default function HealthDeclarations({ clientId, appointmentId }: { client
                         </button>
                         <button type="button" onClick={() => start("fill")} disabled={busy}
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 disabled:opacity-50">
-                            <PenLine className="h-3.5 w-3.5" aria-hidden /> {busy ? "רגע..." : rows.length && appointmentId ? "הצהרה נוספת" : "מילוי וחתימה"}
+                            <PenLine className="h-3.5 w-3.5" aria-hidden /> {busy ? "רגע..." : (rows.length && appointmentId) || forceElsewhere ? "הצהרה חדשה" : "מילוי וחתימה"}
                         </button>
                     </div>
                 )}
             </div>
             {err && <p className="text-xs text-rose-600">{err}</p>}
-            {rows === null ? null : rows.length === 0 ? (
-                <p className="text-xs text-slate-400">עוד לא נחתמה הצהרת בריאות{appointmentId ? " לתור הזה" : ""}.</p>
+            {forceElsewhere && (
+                <p className="flex items-center gap-1.5 text-xs text-emerald-800 bg-emerald-50 rounded-lg px-2.5 py-1.5">
+                    <Check className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                    יש הצהרה בתוקף מ-{new Date(forceElsewhere.client_signed_at).toLocaleDateString("he-IL")} — לא צריך חדשה.
+                    <Link href={`/health-declarations/${forceElsewhere.id}`} className="font-bold underline mr-auto">צפייה</Link>
+                </p>
+            )}
+            {rows.length === 0 ? (
+                !forceElsewhere && <p className="text-xs text-slate-400">עוד לא נחתמה הצהרת בריאות{appointmentId ? " לתור הזה" : ""}.</p>
             ) : (
                 <ul className="space-y-2">
                     {rows.map(r => (
@@ -241,6 +261,7 @@ export default function HealthDeclarations({ clientId, appointmentId }: { client
                             <div className="flex items-center justify-between gap-2 flex-wrap">
                                 <div className="flex items-center gap-2 flex-wrap text-xs">
                                     <span className={`font-bold px-2 py-0.5 rounded-full ${STATUS[r.status].cls}`}>{STATUS[r.status].label}</span>
+                                    {!appointmentId && inForce?.id === r.id && <span className="font-bold px-2 py-0.5 rounded-full bg-emerald-600 text-white">בתוקף</span>}
                                     <span className="text-slate-500">
                                         {r.status === "signed" ? `נחתם ${when(r.performer_signed_at)}`
                                             : r.status === "waiting_performer" ? `הלקוח חתם ${when(r.client_signed_at)}${r.client_signed_via === "link" ? " מהטלפון" : ""}`

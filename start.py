@@ -2892,6 +2892,11 @@ def ensure_schema():
         cur.execute("CREATE INDEX IF NOT EXISTS ix_health_declarations_studio_id ON health_declarations (studio_id)")
         cur.execute("CREATE INDEX IF NOT EXISTS ix_health_declarations_client_id ON health_declarations (client_id)")
         cur.execute("CREATE INDEX IF NOT EXISTS ix_health_declarations_appointment_id ON health_declarations (appointment_id)")
+        # the business's choices — on/off, the link sent by itself, how long a filled declaration counts
+        cur.execute("ALTER TABLE health_forms ADD COLUMN IF NOT EXISTS enabled BOOLEAN NOT NULL DEFAULT TRUE")
+        cur.execute("ALTER TABLE health_forms ADD COLUMN IF NOT EXISTS auto_send VARCHAR(12) NOT NULL DEFAULT 'off'")
+        cur.execute("ALTER TABLE health_forms ADD COLUMN IF NOT EXISTS validity VARCHAR(12) NOT NULL DEFAULT 'forever'")
+        cur.execute("ALTER TABLE health_forms ADD COLUMN IF NOT EXISTS auto_since TIMESTAMPTZ")
 
         conn.commit()
         cur.close()

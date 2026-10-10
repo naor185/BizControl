@@ -42,6 +42,12 @@ class HealthForm(Base):
     closing: Mapped[str] = mapped_column(Text, nullable=False, default="")
     ask_id_number: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     file_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("health_form_files.id"), nullable=True)
+    # the business's choices: on or off; the link sent by itself — off | on_booking | day_before; how long a filled
+    # declaration counts — every_visit | 6m | 12m | forever (a client with one in force isn't asked again)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    auto_send: Mapped[str] = mapped_column(String(12), nullable=False, default="off")
+    validity: Mapped[str] = mapped_column(String(12), nullable=False, default="forever")
+    auto_since: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)   # when sending by itself began
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
 
 

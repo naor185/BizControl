@@ -2016,9 +2016,8 @@ export default function CalendarPage() {
                                 {(() => {
                                     const saved = selectedEventId ? appointments.find(a => a.id === selectedEventId) : null;
                                     return saved?.client_id ? (
-                                        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                                            <HealthDeclarations clientId={saved.client_id} appointmentId={saved.id} />
-                                        </div>
+                                        <HealthDeclarations clientId={saved.client_id} appointmentId={saved.id}
+                                            boxClassName="rounded-xl border border-slate-200 bg-slate-50 p-3" />
                                     ) : null;
                                 })()}
 

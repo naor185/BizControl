@@ -323,6 +323,20 @@ def start_scheduler():
         finally:
             db.close()
 
+    def tick_health_links():
+        """The health declaration's link, sent by itself where the business chose so (services/health_forms)."""
+        from app.services.health_forms import sweep_links
+        db = SessionLocal()
+        try:
+            sweep_links(db)
+        except Exception:
+            db.rollback()
+            logging.getLogger("bizcontrol.health").exception("health declaration links tick failed")
+        finally:
+            db.close()
+
+    scheduler.add_job(tick_health_links, "interval", minutes=5, id="health_links_tick", replace_existing=True,
+                      max_instances=1, coalesce=True)
     scheduler.add_job(tick_membership_notices, "cron", hour=10, minute=0, timezone="Asia/Jerusalem",
                       misfire_grace_time=6 * 3600, id="membership_notices_tick", replace_existing=True)
     scheduler.add_job(tick_migrations, "interval", seconds=15, id="migrations_tick", replace_existing=True,

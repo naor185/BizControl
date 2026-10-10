@@ -1,10 +1,11 @@
 """
 The health declaration (app/services/health_forms.py):
 GET    /api/health-form                         — the business's form (the ready-made one until it saves its own)
+                                                  and its choices: on/off, the link sent by itself, how long it counts
 PUT    /api/health-form                         — save it (owner / manager)
 POST   /api/health-form/file                    — attach a file (PDF / image) (owner / manager)
 GET    /api/health-form/files/{file_id}         — a file of the form
-GET    /api/health-declarations                 — ?client_id= / ?appointment_id=
+GET    /api/health-declarations                 — ?client_id= / ?appointment_id= — {enabled, in_force, rows}
 POST   /api/health-declarations                 — open one for a client (and an appointment)
 GET    /api/health-declarations/{id}            — all of it
 POST   /api/health-declarations/{id}/client     — the client fills and signs, on the studio's device
@@ -73,6 +74,9 @@ class FormIn(BaseModel):
     closing: str = Field(default="", max_length=2000)
     ask_id_number: bool = True
     file_id: Optional[str] = None
+    enabled: bool = True
+    auto_send: str = "off"
+    validity: str = "forever"
 
 
 @router.put("/health-form")
@@ -81,7 +85,8 @@ def save_form(payload: FormIn, ctx: AuthContext = Depends(require_management("ע
     try:
         return health_forms.save_form(db, ctx.studio_id, title=payload.title, intro=payload.intro,
                                       questions=[q.model_dump() for q in payload.questions], closing=payload.closing,
-                                      ask_id_number=payload.ask_id_number, file_id=payload.file_id)
+                                      ask_id_number=payload.ask_id_number, file_id=payload.file_id,
+                                      enabled=payload.enabled, auto_send=payload.auto_send, validity=payload.validity)
     except ValueError as e:
         raise HTTPException(400, str(e))
 
@@ -109,9 +114,9 @@ def list_declarations(client_id: Optional[str] = None, appointment_id: Optional[
                       ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
     if not client_id and not appointment_id:
         raise HTTPException(400, "חסר לקוח או תור")
-    return health_forms.listing(db, ctx.studio_id,
-                                client_id=_uuid(client_id, "הלקוח") if client_id else None,
-                                appointment_id=_uuid(appointment_id, "התור") if appointment_id else None)
+    return health_forms.overview(db, ctx.studio_id,
+                                 client_id=_uuid(client_id, "הלקוח") if client_id else None,
+                                 appointment_id=_uuid(appointment_id, "התור") if appointment_id else None)
 
 
 class OpenIn(BaseModel):

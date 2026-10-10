@@ -11,9 +11,24 @@ import { useFormFile } from "@/components/health/HealthDeclarations";
 
 // The business's health declaration (app/services/health_forms.py): its text, its questions (yes/no — "yes" asks for
 // details — or open), a file of its own (PDF / image), or all of them together. A ready-made form until it's saved.
-// Changing it never changes a declaration someone already signed.
+// Changing it never changes a declaration someone already signed. And the business's choices: on or off, the link
+// sent by itself (never / on booking / the day before), and how long a filled declaration counts.
 
-type Form = { title: string; intro: string; questions: HealthQuestion[]; closing: string; ask_id_number: boolean; file: HealthFile | null; saved: boolean };
+type AutoSend = "off" | "on_booking" | "day_before";
+type Validity = "every_visit" | "6m" | "12m" | "forever";
+type Form = {
+    title: string; intro: string; questions: HealthQuestion[]; closing: string; ask_id_number: boolean; file: HealthFile | null;
+    saved: boolean; enabled: boolean; auto_send: AutoSend; validity: Validity;
+};
+const AUTO_SEND: { key: AutoSend; label: string; note: string }[] = [
+    { key: "off",        label: "רק בלחיצה",          note: "שולחים מהתור או מתיק הלקוח, כשרוצים" },
+    { key: "on_booking", label: "עם קביעת התור",       note: "הקישור יוצא כמה דקות אחרי שנקבע תור" },
+    { key: "day_before", label: "יום לפני התור",       note: "יוצא ב-24 השעות שלפני התור, בין 09:00 ל-21:00" },
+];
+const VALIDITY: { key: Validity; label: string }[] = [
+    { key: "every_visit", label: "בכל תור מחדש" }, { key: "6m", label: "6 חודשים" },
+    { key: "12m", label: "שנה" }, { key: "forever", label: "פעם אחת לתמיד" },
+];
 const input = "w-full border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-slate-300";
 
 export default function HealthFormSettingsPage() {
@@ -83,6 +98,51 @@ export default function HealthFormSettingsPage() {
                             <Eye className="h-4 w-4" aria-hidden /> איך הלקוח רואה את זה
                         </button>
                     </div>
+
+                    <section className="bg-white border border-slate-200 rounded-2xl p-5 space-y-5">
+                        <label className="flex items-center justify-between gap-4 cursor-pointer">
+                            <span>
+                                <span className="block font-bold text-slate-900">הצהרת בריאות בעסק</span>
+                                <span className="block text-xs text-slate-500 mt-0.5">כבויה — לא מופיעה בתורים ובתיק הלקוח, ולא נשלחת. הצהרות שכבר נחתמו נשמרות.</span>
+                            </span>
+                            <input type="checkbox" checked={form.enabled} onChange={e => set({ enabled: e.target.checked })} className="h-6 w-6 accent-slate-900 shrink-0" />
+                        </label>
+                        {form.enabled && (
+                            <>
+                                <div>
+                                    <p className="text-sm font-bold text-slate-900">שליחת הקישור ללקוח</p>
+                                    <div className="mt-2 grid sm:grid-cols-3 gap-2">
+                                        {AUTO_SEND.map(o => (
+                                            <button key={o.key} type="button" onClick={() => set({ auto_send: o.key })} aria-pressed={form.auto_send === o.key}
+                                                className={`text-right rounded-xl border-2 px-3 py-2.5 ${form.auto_send === o.key ? "border-slate-900 bg-slate-50" : "border-slate-200 bg-white hover:border-slate-300"}`}>
+                                                <span className="block text-sm font-bold text-slate-900">{o.label}</span>
+                                                <span className="block text-xs text-slate-500 mt-0.5">{o.note}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                    {form.auto_send !== "off" && (
+                                        <p className="text-xs text-slate-500 mt-2">נשלח ב-WhatsApp מהמספר של העסק, רק ללקוח עם טלפון, ורק לתורים שייקבעו מעכשיו.</p>
+                                    )}
+                                </div>
+                                <div>
+                                    <p className="text-sm font-bold text-slate-900">הצהרה שמולאה תקפה ל-</p>
+                                    <div className="mt-2 flex flex-wrap gap-2">
+                                        {VALIDITY.map(o => (
+                                            <button key={o.key} type="button" onClick={() => set({ validity: o.key })} aria-pressed={form.validity === o.key}
+                                                className={`px-3 py-1.5 rounded-full text-sm font-semibold border ${form.validity === o.key ? "bg-slate-900 text-white border-slate-900" : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"}`}>
+                                                {o.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <p className="text-xs text-slate-500 mt-2">
+                                        {form.validity === "every_visit"
+                                            ? "כל תור מקבל הצהרה משלו."
+                                            : "לקוח שמילא הצהרה שעוד בתוקף לא יקבל קישור שוב, ובתור יופיע \"יש הצהרה בתוקף\". אפשר תמיד לבקש חדשה בלחיצה."}
+                                    </p>
+                                </div>
+                            </>
+                        )}
+                    </section>
 
                     <section className="bg-white border border-slate-200 rounded-2xl p-5 space-y-4">
                         <label className="block">
