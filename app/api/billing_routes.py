@@ -207,14 +207,14 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
     payload = await request.body()
     sig = request.headers.get("stripe-signature", "")
 
-    if WEBHOOK_SECRET:
-        try:
-            event = stripe.Webhook.construct_event(payload, sig, WEBHOOK_SECRET)
-        except stripe.errors.SignatureVerificationError:
-            return JSONResponse(status_code=400, content={"detail": "Invalid signature"})
-    else:
-        import json
-        event = json.loads(payload)
+    # Only an event Stripe signed: without the secret there's no way to tell a real payment from a made-up one
+    # (an unsigned "invoice.paid" would extend any business's plan for free) — so none is accepted.
+    if not WEBHOOK_SECRET:
+        return JSONResponse(status_code=503, content={"detail": "Stripe webhook not configured"})
+    try:
+        event = stripe.Webhook.construct_event(payload, sig, WEBHOOK_SECRET)
+    except (stripe.SignatureVerificationError, ValueError):
+        return JSONResponse(status_code=400, content={"detail": "Invalid signature"})
 
     event_type = event["type"]
     event_id = event.get("id")

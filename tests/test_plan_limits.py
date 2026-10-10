@@ -68,3 +68,14 @@ def test_branches_by_the_superadmin_only_and_up_to_three(client, db_session):
     no = client.post("/api/locations/admin/link-organization", headers=sa,
                      json={"studio_ids": [ids["chain-2"], ids["chain-3"]], "main_studio_id": ids["chain-2"]})
     assert no.status_code == 400 and "לא כולל סניפים" in no.json()["detail"]
+
+
+def test_a_payment_event_stripe_did_not_sign_is_refused(client, db_session, monkeypatch):
+    """Without the webhook secret no event can be told from a made-up one — an unsigned "invoice.paid" used to be
+    accepted and would extend any business's plan for free."""
+    import app.api.billing_routes as billing
+    made_up = {"id": "evt_fake", "type": "invoice.paid", "data": {"object": {"metadata": {"studio_id": "x", "plan": "pro"}}}}
+    monkeypatch.setattr(billing, "WEBHOOK_SECRET", "")
+    assert client.post("/api/billing/webhook", json=made_up).status_code == 503
+    monkeypatch.setattr(billing, "WEBHOOK_SECRET", "whsec_test")
+    assert client.post("/api/billing/webhook", json=made_up, headers={"stripe-signature": "t=1,v1=bad"}).status_code == 400
