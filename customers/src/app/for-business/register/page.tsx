@@ -1,22 +1,17 @@
 "use client";
 import { useState, useEffect, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { API } from "@/lib/api";
 import { setStudioToken, goToBizControl } from "@/lib/handoff";
-import { Check, PartyPopper, Rocket, Zap, type LucideIcon } from "lucide-react";
+import { PartyPopper, Rocket, Zap } from "lucide-react";
 import PasswordInput from "@/components/PasswordInput";
 import { isNativeApp } from "@/lib/platform";
 import { GLASS_CARD, OPTION_STYLE } from "@/lib/look";
 
-// ── Plan display config ───────────────────────────────────────────────────────
-
-const PLAN_META: Record<string, { label: string; price: string; scope: string; icon: LucideIcon }> = {
-    trial:          { label: "ניסיון חינמי 14 יום", price: "חינם",    scope: "BizFind + BizControl",  icon: Rocket },
-    starter:        { label: "BizControl Starter",   price: "₪199/חודש",scope: "BizFind + BizControl", icon: Zap },
-    pro:            { label: "BizControl Pro",        price: "₪349/חודש",scope: "BizFind + BizControl", icon: Zap },
-    studio:         { label: "BizControl Studio",     price: "₪499/חודש",scope: "BizFind + BizControl", icon: Zap },
-};
+// ── The plans ─────────────────────────────────────────────────────────────────
+// Every new business starts with the free month, everything open (owner, 2026-10-10); a plan is chosen when it
+// ends. Names, prices and the month's length come from the plans the superadmin set (GET /api/marketplace/plans).
+type ApiPlan = { key: string; label: string; price_ils: number; days: number; is_trial: boolean };
 
 // The business types come from the one list (GET /api/public/business-types) — BizFind lists every
 // type, including shops without appointments.
@@ -43,13 +38,11 @@ function Steps({ current, total }: { current: number; total: number }) {
 // ── Main component ────────────────────────────────────────────────────────────
 
 function RegisterInner() {
-    const params = useSearchParams();
-    // inside the app: the free trial only — no paid plan with a price (Apple: no buying outside the app from it)
+    // inside the app: no plan with a price (Apple: no buying outside the app from it)
     const [inApp] = useState(() => isNativeApp());
-    const planFromUrl = inApp ? "trial" : (params.get("plan") || "trial");
+    const [plans, setPlans] = useState<ApiPlan[]>([]);
 
     const [step, setStep] = useState(1);
-    const [planKey, setPlanKey] = useState(planFromUrl);
     const [form, setForm] = useState({
         business_name: "",
         category: "",
@@ -67,16 +60,18 @@ function RegisterInner() {
     const [types, setTypes] = useState<BusinessType[]>([]);
     useEffect(() => {
         fetch(`${API}/api/public/business-types`).then(r => r.json()).then(setTypes).catch(() => setTypes([]));
+        fetch(`${API}/api/marketplace/plans`).then(r => r.json()).then(setPlans).catch(() => setPlans([]));
     }, []);
 
-    const plan = PLAN_META[planKey] || PLAN_META["trial"];
-    const PlanIcon = plan.icon;
+    const freeMonth = plans.find(p => p.is_trial);
+    const freeLabel = freeMonth?.label || "חודש ראשון חינם";
+    const freeDays = freeMonth?.days || 30;
+    const paidPlans = plans.filter(p => !p.is_trial);
     const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
 
     const next = () => { setErr(null); setStep(s => s + 1); };
     const back = () => { setErr(null); setStep(s => s - 1); };
 
-    const canStep1 = planKey !== "";
     const canStep2 = form.business_name.trim().length >= 2 && form.category
         && (form.category !== "other" || form.category_other.trim().length >= 2)
         && form.city.trim();
@@ -102,7 +97,6 @@ function RegisterInner() {
                     email: form.email.trim(),
                     password: form.password,
                     phone: form.phone.trim() || undefined,
-                    plan_key: planKey,
                 }),
             });
             const data = await res.json();
@@ -154,81 +148,48 @@ function RegisterInner() {
         <>
             <Steps current={step} total={3} />
 
-            {/* Step 1 — Plan selection */}
+            {/* Step 1 — the free month */}
             {step === 1 && (
                 <div>
                     <h2 style={{ fontWeight: 900, fontSize: "1.4rem", color: "var(--bf-text)", textAlign: "center", marginBottom: "0.5rem" }}>
-                        בחרו תוכנית
+                        {freeLabel}
                     </h2>
                     <p style={{ color: "var(--bf-muted)", textAlign: "center", fontSize: "0.88rem", marginBottom: "1.75rem" }}>
-                        כל התוכניות כוללות 14 יום ניסיון חינמי
+                        כל המערכת פתוחה ל-{freeDays} יום, בלי כרטיס אשראי. בסוף התקופה בוחרים מסלול.
                     </p>
 
-                    {/* Scope toggle */}
-                    <div style={{ display: "grid", gap: "0.75rem", marginBottom: "1.5rem" }}>
-                        {/* Trial */}
-                        {(["trial"] as const).map(key => {
-                            const p = PLAN_META[key];
-                            const sel = planKey === key;
-                            return (
-                                <button key={key} onClick={() => setPlanKey(key)} style={{
-                                    border: sel ? "1.5px solid #fff" : "1px solid var(--bf-line)",
-                                    borderRadius: 14, padding: "1rem 1.25rem", color: "var(--bf-text)",
-                                    background: sel ? "var(--bf-glass-strong)" : "var(--bf-glass)",
-                                    cursor: "pointer", textAlign: "right", display: "flex",
-                                    alignItems: "center", gap: "0.75rem", transition: "all .15s",
-                                }}>
-                                    <p.icon size={22} aria-hidden />
-                                    <div style={{ flex: 1 }}>
-                                        <div style={{ fontWeight: 800, color: "var(--bf-text)" }}>{p.label}</div>
-                                        <div style={{ fontSize: "0.8rem", color: "var(--bf-muted)" }}>{p.scope} — ללא כרטיס אשראי</div>
-                                    </div>
-                                    <div style={{ fontWeight: 900, color: "var(--bf-text)", fontSize: "1.1rem" }}>{p.price}</div>
-                                    {sel && <Check size={18} aria-hidden />}
-                                </button>
-                            );
-                        })}
-
-                        {!inApp && <div style={{ textAlign: "center", fontSize: "0.8rem", color: "var(--bf-faint)", margin: "0.25rem 0" }}>— או בחרו תוכנית בתשלום —</div>}
-
-                        {/* Paid plans — on the website only */}
-                        {(inApp ? [] : ["starter", "pro", "studio"] as const).map(key => {
-                            const p = PLAN_META[key];
-                            const sel = planKey === key;
-                            return (
-                                <button key={key} onClick={() => setPlanKey(key)} style={{
-                                    border: sel ? "1.5px solid #fff" : "1px solid var(--bf-line)",
-                                    borderRadius: 14, padding: "0.9rem 1.25rem", color: "var(--bf-text)",
-                                    background: sel ? "var(--bf-glass-strong)" : "var(--bf-glass)",
-                                    cursor: "pointer", textAlign: "right", display: "flex",
-                                    alignItems: "center", gap: "0.75rem", transition: "all .15s",
-                                }}>
-                                    <p.icon size={20} aria-hidden />
-                                    <div style={{ flex: 1 }}>
-                                        <div style={{ fontWeight: 800, color: "var(--bf-text)", fontSize: "0.95rem" }}>{p.label}</div>
-                                        <div style={{ fontSize: "0.78rem", color: "var(--bf-muted)" }}>{p.scope}</div>
-                                    </div>
-                                    <div style={{ fontWeight: 900, color: "var(--bf-text)", fontSize: "0.95rem" }}>{p.price}</div>
-                                    {sel && <Check size={18} aria-hidden />}
-                                </button>
-                            );
-                        })}
+                    <div style={{ ...GLASS_CARD, borderRadius: 14, border: "1.5px solid #fff", padding: "1rem 1.25rem", display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "1.25rem" }}>
+                        <Rocket size={22} aria-hidden />
+                        <div style={{ flex: 1 }}>
+                            <div style={{ fontWeight: 800, color: "var(--bf-text)" }}>{freeLabel}</div>
+                            <div style={{ fontSize: "0.8rem", color: "var(--bf-muted)" }}>BizFind + BizControl, הכול פתוח</div>
+                        </div>
+                        <div style={{ fontWeight: 900, color: "var(--bf-text)", fontSize: "1.1rem" }}>חינם</div>
                     </div>
 
-                    <button onClick={next} disabled={!canStep1} style={{
+                    {/* what comes after the month — on the website only */}
+                    {!inApp && paidPlans.length > 0 && (
+                        <div style={{ marginBottom: "1.5rem" }}>
+                            <div style={{ fontSize: "0.8rem", color: "var(--bf-faint)", textAlign: "center", marginBottom: "0.6rem" }}>אחרי החודש החינמי</div>
+                            <div style={{ display: "grid", gap: "0.4rem" }}>
+                                {paidPlans.map(p => (
+                                    <div key={p.key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", border: "1px solid var(--bf-line)", borderRadius: 12, padding: "0.6rem 1rem", fontSize: "0.88rem" }}>
+                                        <span style={{ fontWeight: 700, color: "var(--bf-text)" }}>{p.label}</span>
+                                        <span style={{ color: "var(--bf-muted)", fontVariantNumeric: "tabular-nums" }}>₪{p.price_ils} לחודש, לפני מע״מ</span>
+                                    </div>
+                                ))}
+                            </div>
+                            <Link href="/for-business/pricing" style={{ display: "block", textAlign: "center", fontSize: "0.8rem", color: "var(--bf-muted)", marginTop: "0.6rem" }}>מה כלול בכל מסלול</Link>
+                        </div>
+                    )}
+
+                    <button onClick={next} style={{
                         width: "100%", background: "#fff",
                         color: "#000", border: "none", borderRadius: 14, padding: "0.9rem",
-                        fontWeight: 800, fontSize: "1rem", cursor: "pointer", opacity: canStep1 ? 1 : 0.45,
+                        fontWeight: 800, fontSize: "1rem", cursor: "pointer",
                     }}>
                         המשיכו ←
                     </button>
-
-                    {/* Selected plan badge */}
-                    {planKey && (
-                        <p style={{ textAlign: "center", fontSize: "0.8rem", color: "var(--bf-text)", marginTop: "0.75rem", fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: "0.3rem" }}>
-                            <PlanIcon size={14} aria-hidden /> {plan.label} · {plan.price}
-                        </p>
-                    )}
                 </div>
             )}
 
@@ -293,8 +254,8 @@ function RegisterInner() {
 
                     {/* Plan summary */}
                     <div style={{ background: "var(--bf-glass-strong)", border: "1px solid var(--bf-line)", borderRadius: 12, padding: "0.75rem 1rem", marginBottom: "1.25rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <span style={{ fontSize: "0.85rem", color: "var(--bf-text)", fontWeight: 700, display: "flex", alignItems: "center", gap: "0.3rem" }}><PlanIcon size={15} aria-hidden /> {plan.label}</span>
-                        <span style={{ fontSize: "0.85rem", color: "var(--bf-text)", fontWeight: 800 }}>{plan.price}</span>
+                        <span style={{ fontSize: "0.85rem", color: "var(--bf-text)", fontWeight: 700, display: "flex", alignItems: "center", gap: "0.3rem" }}><Rocket size={15} aria-hidden /> {freeLabel}</span>
+                        <span style={{ fontSize: "0.85rem", color: "var(--bf-text)", fontWeight: 800 }}>חינם</span>
                     </div>
 
                     <div style={{ display: "grid", gap: "1rem" }}>

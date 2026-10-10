@@ -785,55 +785,43 @@ def ensure_schema():
             ON CONFLICT (studio_id, module_id) DO UPDATE SET is_enabled = true
         """)
 
-        # ── Seed plan → module defaults (idempotent) ──────────────────────────
+        # ── One-time data changes ─────────────────────────────────────────────
+        # A seed that runs on every startup puts back what the superadmin removed in the Plan Management Center (a
+        # module taken out of a plan came back on the next deploy). _once(key) is True only the first time on a
+        # database, and records it in this same transaction (a failed startup records nothing).
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS platform_data_changes (
+                key VARCHAR(64) PRIMARY KEY,
+                done_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+
+        def _once(key: str) -> bool:
+            cur.execute("INSERT INTO platform_data_changes (key) VALUES (%s) ON CONFLICT DO NOTHING RETURNING key", (key,))
+            return cur.fetchone() is not None
+
+        # ── Seed plan → module defaults (once) ────────────────────────────────
+        # Only the plans no longer sold (kept for history) and the platform's own. The sold plans — trial, starter,
+        # pro, enterprise — are defined in the "plans_2026_10" change at the end of this function.
         _NAV_MODULES = ["pos", "products", "expenses", "services", "broadcasts"]
+        _EVERYTHING = ["crm", "calendar", "payments", "whatsapp", "email", "customer_club", "wallet", "ocr",
+                       "ai_assistant", "online_booking", "marketplace", "wait_list", "gift_cards", "analytics",
+                       "multi_location", "employee_mgmt"] + _NAV_MODULES
         PLAN_MODULES = {
-            # "trial" (14-day free trial at signup) is meant to get full access —
-            # was previously missing from this dict, which resolved every
-            # gateable module to disabled for brand-new studios.
-            "trial":      ["crm", "calendar", "payments", "whatsapp", "email", "sms",
-                           "customer_club", "wallet", "ocr", "ai_assistant",
-                           "online_booking", "marketplace", "wait_list", "gift_cards",
-                           "analytics", "multi_location", "employee_mgmt"] + _NAV_MODULES,
-            "free":       ["crm", "calendar"] + _NAV_MODULES,
-            # bizfind_basic/bizfind_pro are retired (BizFind no longer sells a
-            # BizControl-less plan) — kept here only as a safety net so any
-            # studio still on one of these plans in production isn't locked
-            # out of every module.
+            "free":          ["crm", "calendar"] + _NAV_MODULES,
             "bizfind_basic": ["crm", "calendar", "payments", "whatsapp", "email"] + _NAV_MODULES,
             "bizfind_pro":   ["crm", "calendar", "payments", "whatsapp", "email"] + _NAV_MODULES,
-            "starter":    ["crm", "calendar", "payments", "whatsapp", "email"] + _NAV_MODULES,
-            "pro":        ["crm", "calendar", "payments", "whatsapp", "email",
-                           "customer_club", "ocr", "ai_assistant", "employee_mgmt"] + _NAV_MODULES,
-            # "studio" is a real, actively-sold top-tier plan (₪499/month via
-            # billing_routes.py's Stripe checkout) — was missing here entirely,
-            # same bug class as the trial/bizfind_basic/bizfind_pro gaps fixed
-            # earlier: real paying customers on this plan got zero modules.
-            "studio":     ["crm", "calendar", "payments", "whatsapp", "email", "sms",
-                           "customer_club", "wallet", "ocr", "ai_assistant",
-                           "online_booking", "marketplace", "wait_list", "gift_cards",
-                           "analytics", "multi_location", "employee_mgmt"] + _NAV_MODULES,
-            "enterprise": ["crm", "calendar", "payments", "whatsapp", "email", "sms",
-                           "customer_club", "wallet", "ocr", "ai_assistant",
-                           "online_booking", "marketplace", "wait_list", "gift_cards",
-                           "analytics", "multi_location", "employee_mgmt"] + _NAV_MODULES,
-            "platform":   ["crm", "calendar", "payments", "whatsapp", "email", "sms",
-                           "customer_club", "wallet", "ocr", "ai_assistant",
-                           "online_booking", "marketplace", "wait_list", "gift_cards",
-                           "analytics", "multi_location", "employee_mgmt"] + _NAV_MODULES,
+            "studio":        _EVERYTHING,
+            "platform":      _EVERYTHING,
         }
-        # ai_theme_generate had no plan gate at all before (any owner/admin/
-        # manager could call it) — added to every plan so the new module row
-        # doesn't restrict access anyone already had; only the quota (set
-        # below) is new, migrated from the old hardcoded ">= 3" check.
-        for plan in PLAN_MODULES:
-            PLAN_MODULES[plan] = PLAN_MODULES[plan] + ["ai_theme_generate"]
-        for plan, mods in PLAN_MODULES.items():
-            for mod in mods:
-                cur.execute("""
-                    INSERT INTO plan_modules (plan, module_id) VALUES (%s, %s)
-                    ON CONFLICT DO NOTHING
-                """, (plan, mod))
+        if _once("plan_modules_seed_v1"):
+            for plan, mods in PLAN_MODULES.items():
+                for mod in mods + ["ai_theme_generate"]:
+                    cur.execute("""
+                        INSERT INTO plan_modules (plan, module_id, period_type, on_exceed_action)
+                        VALUES (%s, %s, 'unlimited', 'block')
+                        ON CONFLICT DO NOTHING
+                    """, (plan, mod))
 
         # "obligations" (התחייבויות) used to be a default core module on
         # every plan via _NAV_MODULES — now opt-in only, granted per studio
@@ -845,56 +833,62 @@ def ensure_schema():
         # getting it only via a plan default loses it; the one below
         # (Nctattoo, the studio owner's own) gets it back via its own
         # explicit override so nothing regresses there.
-        cur.execute("DELETE FROM plan_modules WHERE module_id = 'obligations'")
-        cur.execute("""
-            INSERT INTO studio_modules (id, studio_id, module_id, is_enabled)
-            VALUES (gen_random_uuid(), 'f390d761-c9ca-425d-88c3-647b4ccee2d2', 'obligations', true)
-            ON CONFLICT (studio_id, module_id) DO UPDATE SET is_enabled = true
-        """)
+        if _once("obligations_opt_in_v1"):
+            cur.execute("DELETE FROM plan_modules WHERE module_id = 'obligations'")
+            cur.execute("""
+                INSERT INTO studio_modules (id, studio_id, module_id, is_enabled)
+                VALUES (gen_random_uuid(), 'f390d761-c9ca-425d-88c3-647b4ccee2d2', 'obligations', true)
+                ON CONFLICT (studio_id, module_id) DO UPDATE SET is_enabled = true
+            """)
 
         # Quota config for ai_theme_generate — same 3/month cap for every
         # plan, matching the old global hardcoded check in automation_routes.py.
-        cur.execute("""
-            UPDATE plan_modules
-            SET limit_value = 3, period_type = 'monthly', on_exceed_action = 'block'
-            WHERE module_id = 'ai_theme_generate'
-        """)
+        # This and the carry-overs below ran on every startup, resetting what the superadmin had set — now once.
+        _carry_over = _once("quota_engine_carry_over_v1")
+        if _carry_over:
+            cur.execute("""
+                UPDATE plan_modules
+                SET limit_value = 3, period_type = 'monthly', on_exceed_action = 'block'
+                WHERE module_id = 'ai_theme_generate'
+            """)
 
         # Carry over each studio's current-cycle AI-generation usage so
         # nobody's count silently resets to 0 (which would hand out extra
         # generations for the rest of their current month) or loses a
         # near-limit warning.
-        cur.execute("""
-            INSERT INTO studio_usage_counters (studio_id, quota_key, period_key, used_count)
-            SELECT ss.studio_id, 'ai_theme_generate', to_char(ss.ai_generations_reset_date, 'YYYY-MM'), ss.ai_generations_count
-            FROM studio_settings ss
-            WHERE ss.ai_generations_count > 0 AND ss.ai_generations_reset_date IS NOT NULL
-            ON CONFLICT (studio_id, quota_key, period_key) DO UPDATE SET used_count = EXCLUDED.used_count
-        """)
+        if _carry_over:
+            cur.execute("""
+                INSERT INTO studio_usage_counters (studio_id, quota_key, period_key, used_count)
+                SELECT ss.studio_id, 'ai_theme_generate', to_char(ss.ai_generations_reset_date, 'YYYY-MM'), ss.ai_generations_count
+                FROM studio_settings ss
+                WHERE ss.ai_generations_count > 0 AND ss.ai_generations_reset_date IS NOT NULL
+                ON CONFLICT (studio_id, quota_key, period_key) DO UPDATE SET used_count = EXCLUDED.used_count
+            """)
 
         # Carry over invoice-scan quota/usage onto the invoice_ai_scan module
         # (only for studios where it's already an active override — created
         # either by step 2's studio_features migration or enable_invoice_scan()
         # — never invented for a studio that isn't actually enabled).
-        cur.execute("""
-            UPDATE studio_modules sm
-            SET limit_value_override = s.invoice_scan_quota,
-                period_type_override = 'monthly',
-                on_exceed_action_override = 'block'
-            FROM studios s
-            WHERE sm.studio_id = s.id
-              AND sm.module_id = 'invoice_ai_scan'
-              AND sm.is_enabled = true
-              AND s.invoice_scan_quota > 0
-        """)
-        cur.execute("""
-            INSERT INTO studio_usage_counters (studio_id, quota_key, period_key, used_count)
-            SELECT s.id, 'invoice_ai_scan', s.invoice_scan_reset_month, s.invoice_scan_used
-            FROM studios s
-            JOIN studio_modules sm ON sm.studio_id = s.id AND sm.module_id = 'invoice_ai_scan' AND sm.is_enabled = true
-            WHERE s.invoice_scan_quota > 0 AND s.invoice_scan_used > 0 AND s.invoice_scan_reset_month IS NOT NULL
-            ON CONFLICT (studio_id, quota_key, period_key) DO UPDATE SET used_count = EXCLUDED.used_count
-        """)
+        if _carry_over:
+            cur.execute("""
+                UPDATE studio_modules sm
+                SET limit_value_override = s.invoice_scan_quota,
+                    period_type_override = 'monthly',
+                    on_exceed_action_override = 'block'
+                FROM studios s
+                WHERE sm.studio_id = s.id
+                  AND sm.module_id = 'invoice_ai_scan'
+                  AND sm.is_enabled = true
+                  AND s.invoice_scan_quota > 0
+            """)
+            cur.execute("""
+                INSERT INTO studio_usage_counters (studio_id, quota_key, period_key, used_count)
+                SELECT s.id, 'invoice_ai_scan', s.invoice_scan_reset_month, s.invoice_scan_used
+                FROM studios s
+                JOIN studio_modules sm ON sm.studio_id = s.id AND sm.module_id = 'invoice_ai_scan' AND sm.is_enabled = true
+                WHERE s.invoice_scan_quota > 0 AND s.invoice_scan_used > 0 AND s.invoice_scan_reset_month IS NOT NULL
+                ON CONFLICT (studio_id, quota_key, period_key) DO UPDATE SET used_count = EXCLUDED.used_count
+            """)
 
         # ── Seed plans registry (idempotent) ───────────────────────────────────
         # One-time migration of plan identity out of scattered dicts (BIZFIND_PLANS
@@ -916,11 +910,13 @@ def ensure_schema():
             ("enterprise",    "Enterprise",                 0,     30, 0,  True,  False, 7),
             ("platform",      "Platform",                   0,     30, 0,  True,  False, 8),
         ]
+        # every required column spelled out — a plans table made from the ORM model (the tests' database) has no
+        # database defaults for them, and the seed used to fail there without a word
         for pid, display_name, price_cents, period_days, trial_days, scope_bc, purchasable, sort in PLANS_SEED:
             cur.execute("""
-                INSERT INTO plans (id, display_name, price_cents, billing_period_days, trial_days,
-                                    scope_bizcontrol, is_purchasable, sort_order)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                INSERT INTO plans (id, display_name, price_cents, currency, billing_period_days, trial_days,
+                                    scope_bizcontrol, is_purchasable, sort_order, is_active, is_visible)
+                VALUES (%s, %s, %s, 'ILS', %s, %s, %s, %s, %s, true, true)
                 ON CONFLICT (id) DO NOTHING
             """, (pid, display_name, price_cents, period_days, trial_days, scope_bc, purchasable, sort))
 
@@ -967,12 +963,13 @@ def ensure_schema():
             "pro":     os.environ.get("STRIPE_PRICE_PRO", ""),
             "studio":  os.environ.get("STRIPE_PRICE_STUDIO", ""),
         }
-        for pid, price_id in PRICE_ID_ENV.items():
-            if price_id:
-                cur.execute(
-                    "UPDATE plans SET stripe_price_id = %s WHERE id = %s AND stripe_price_id IS NULL",
-                    (price_id, pid),
-                )
+        if _once("stripe_price_ids_from_env_v1"):
+            for pid, price_id in PRICE_ID_ENV.items():
+                if price_id:
+                    cur.execute(
+                        "UPDATE plans SET stripe_price_id = %s WHERE id = %s AND stripe_price_id IS NULL",
+                        (price_id, pid),
+                    )
 
         # One-time data migration: every studio without a subscriptions row
         # yet gets one derived from its current Studio columns — a studio
@@ -2666,6 +2663,89 @@ def ensure_schema():
             WHERE c.whatsapp_opted_out AND c.marketing_opted_out_via IS NULL
               AND n.studio_id = c.studio_id AND n.action_url = '/clients/' || c.id::text
         """)
+
+        # ── The plans as sold from October 2026 (owner, 2026-10-10) — once ─────
+        # Three paid plans, no free plan; every new business starts with a free month with everything open (trial,
+        # 30 days). What each plan includes and its limits — the superadmin changes all of it later in the Plan
+        # Management Center. Classes, memberships and rooms stay opened by the business's field (pilates yes, tattoo
+        # no — business_types.enable_field_modules), not by plan, until the plans are enforced (stage 2). The limits
+        # below are recorded now; only the AI ones are enforced today (the rest come in stages 3–4).
+        cur.execute("""
+            INSERT INTO modules (id, name, category, sort_order) VALUES
+                ('coupons', 'קופונים', 'advanced', 40),
+                ('staff_seats', 'אנשי צוות', 'core', 5)
+            ON CONFLICT (id) DO NOTHING
+        """)
+        if _once("plans_2026_10"):
+            # (id, name, monthly price, a year's price, sold, sort) — prices in agorot, before VAT
+            for pid, name, price, annual, purchasable, sort in (
+                ("trial",      "חודש ראשון חינם", 0,     None,   False, 0),
+                ("starter",    "עסק קטן",         11900, 118800, True,  1),
+                ("pro",        "פרו",             24900, 250800, True,  2),
+                ("enterprise", "חברה גדולה",      44900, 454800, True,  3),
+            ):
+                # the Stripe price ids carried the old prices (199/349) — cleared until payments are set up again
+                cur.execute("""
+                    UPDATE plans SET display_name = %s, price_cents = %s, price_monthly_cents = %s, price_annual_cents = %s,
+                                     is_purchasable = %s, is_visible = true, is_active = true, sort_order = %s,
+                                     stripe_price_id = NULL
+                    WHERE id = %s
+                """, (name, price, price or None, annual, purchasable, sort, pid))
+            cur.execute("UPDATE plans SET trial_days = 30 WHERE id = 'trial'")
+            cur.execute("""
+                UPDATE plans SET is_visible = false, is_purchasable = false, sort_order = sort_order + 10
+                WHERE id IN ('free', 'bizfind_basic', 'bizfind_pro', 'studio')
+            """)
+
+            _small = ["crm", "calendar", "payments", "pos", "products", "expenses", "services", "employee_mgmt",
+                      "analytics", "wait_list", "online_booking", "marketplace", "whatsapp", "email", "broadcasts",
+                      "migration", "ai_assistant", "ocr", "invoice_ai_scan", "ai_theme_generate", "staff_seats"]
+            _pro = _small + ["coupons", "customer_club", "gift_cards", "wallet"]
+            _everything = _pro + ["multi_location"]
+            contents = {"starter": _small, "pro": _pro, "enterprise": _everything, "trial": _everything}
+            # a month's limit, per plan (none listed = no limit). WhatsApp counts every message (reminders and
+            # broadcasts); broadcasts counts sends, a test send is not one. The free month gets pro's limits.
+            monthly = {
+                "whatsapp":          {"starter": 400, "pro": 1500, "enterprise": 8000, "trial": 1500},
+                "broadcasts":        {"starter": 10},
+                "ai_assistant":      {"starter": 200, "pro": 1000, "enterprise": 3000, "trial": 1000},
+                "invoice_ai_scan":   {"starter": 30, "pro": 150, "enterprise": 500, "trial": 150},
+                "ai_theme_generate": {"starter": 3, "pro": 3, "enterprise": 3, "trial": 3},
+            }
+            enforced_now = {"invoice_ai_scan", "ai_theme_generate"}      # the rest only warn until stages 3–4
+            # how many at most at any time (not a month)
+            at_most = {"staff_seats": {"starter": 2, "pro": 5}, "multi_location": {"enterprise": 3, "trial": 3}}
+
+            cur.execute("DELETE FROM plan_modules WHERE plan IN ('trial', 'starter', 'pro', 'enterprise')")
+            for plan, mods in contents.items():
+                for mod in mods:
+                    if plan in monthly.get(mod, {}):
+                        row = (monthly[mod][plan], "monthly", "block" if mod in enforced_now else "warn_only")
+                    elif plan in at_most.get(mod, {}):
+                        row = (at_most[mod][plan], "lifetime", "block")
+                    else:
+                        row = (None, "unlimited", "block")
+                    cur.execute("""
+                        INSERT INTO plan_modules (plan, module_id, limit_value, period_type, on_exceed_action)
+                        VALUES (%s, %s, %s, %s, %s)
+                    """, (plan, mod, *row))
+            cur.execute("DELETE FROM plan_modules WHERE module_id IN ('sms', 'voice')")   # not sold (owner, 2026-09-25)
+
+            # The two businesses on a plan no longer sold: the owner's own studio (Nctattoo) gets everything; the demo
+            # business Apple's reviewers sign in to gets pro and never expires — a locked demo fails the review.
+            for where, plan in (("s.id = 'f390d761-c9ca-425d-88c3-647b4ccee2d2'", "enterprise"), ("s.slug = 'demo-studio'", "pro")):
+                cur.execute(f"""
+                    INSERT INTO subscription_events (studio_id, subscription_id, event_type, from_status, to_status,
+                                                     from_plan, to_plan, source)
+                    SELECT s.id, sub.id, 'activated', sub.status, 'active', sub.plan_id, %s, 'system'
+                    FROM studios s JOIN subscriptions sub ON sub.studio_id = s.id
+                    WHERE {where} AND sub.plan_id <> %s
+                """, (plan, plan))
+                cur.execute(f"""
+                    UPDATE subscriptions sub SET plan_id = %s, status = 'active', updated_at = NOW()
+                    FROM studios s WHERE sub.studio_id = s.id AND {where}
+                """, (plan,))
+                cur.execute(f"UPDATE studios s SET subscription_plan = %s WHERE {where}", (plan,))
 
         conn.commit()
         cur.close()

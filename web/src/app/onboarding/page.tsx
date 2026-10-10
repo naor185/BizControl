@@ -3,6 +3,8 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch, API_BASE } from "@/lib/api";
 import Link from "next/link";
+import { Rocket, Zap } from "lucide-react";
+import { isNativeApp } from "@/lib/platform";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -19,11 +21,6 @@ type StudioMe = {
 // Business types come from the one list (GET /api/public/business-types). BizControl offers the types
 // that take appointments — shops without them are listed on BizFind only.
 type BusinessType = { key: string; label: string };
-
-const PLAN_ICONS: Record<string, string> = {
-    trial: "🚀", bizfind_basic: "📍", bizfind_pro: "📍",
-    starter: "⚡", pro: "⚡", studio: "⚡",
-};
 
 // ── Progress bar ──────────────────────────────────────────────────────────────
 
@@ -46,6 +43,8 @@ export default function OnboardingPage() {
     const [step, setStep] = useState(1);
     const [me, setMe] = useState<StudioMe | null>(null);
     const [plans, setPlans] = useState<Plan[]>([]);
+    // inside the app: no plan with a price (Apple: no buying outside the app from it) — the free month only
+    const [isNative] = useState(() => isNativeApp());
     const [saving, setSaving] = useState(false);
 
     // Form state
@@ -214,15 +213,15 @@ export default function OnboardingPage() {
                     {/* ── Step 2: Choose Plan ── */}
                     {step === 2 && (
                         <div>
-                            <h1 className="text-2xl font-black text-slate-800 mb-1">בחרו מסלול</h1>
+                            <h1 className="text-2xl font-black text-slate-800 mb-1">המסלולים</h1>
                             <p className="text-slate-400 text-sm mb-6">
                                 {trialDaysLeft !== null
-                                    ? `יש לכם עוד ${trialDaysLeft} ימי ניסיון. תוכלו לשדרג בכל שלב.`
+                                    ? `יש לכם עוד ${trialDaysLeft} ימים בחודש החינמי, עם כל המערכת פתוחה. בסופו בוחרים מסלול.`
                                     : "בחרו את המסלול המתאים לכם."}
                             </p>
 
                             <div className="space-y-2.5 max-h-96 overflow-y-auto pb-1">
-                                {plans.map(plan => {
+                                {(isNative ? plans.filter(p => p.is_trial) : plans).map(plan => {
                                     const sel = selectedPlan === plan.key;
                                     const isBizControl = plan.scope_bizcontrol;
                                     return (
@@ -236,7 +235,9 @@ export default function OnboardingPage() {
                                             }`}
                                         >
                                             <div className="flex items-start gap-3">
-                                                <span className="text-xl mt-0.5">{PLAN_ICONS[plan.key] || "📦"}</span>
+                                                {plan.is_trial
+                                                    ? <Rocket className="w-5 h-5 mt-0.5 text-amber-500 shrink-0" aria-hidden />
+                                                    : <Zap className="w-5 h-5 mt-0.5 text-violet-500 shrink-0" aria-hidden />}
                                                 <div className="flex-1">
                                                     <div className="flex items-center justify-between">
                                                         <span className="font-bold text-slate-800 text-sm">

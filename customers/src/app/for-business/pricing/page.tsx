@@ -12,12 +12,16 @@ const API = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
 // of the Plan Management Center (a third disconnected source, alongside
 // the ones already unified in the backend) — an admin's price change here
 // would never have shown up on the page a prospect actually sees.
+// The plans as sold from October 2026 (owner, 2026-10-10). What each plan includes in the system itself — the
+// Plan Management Center (BizControl's billing page lists it from there).
 const BIZCONTROL_FEATURES: Record<string, string[]> = {
-    starter: ["כל פיצ׳רי BizFind Pro", "יומן + ניהול תורים", "CRM לקוחות", "תשלומים", "עד 2 אנשי צוות"],
-    pro: ["כל פיצ׳רי Starter", "עד 5 אנשי צוות", "AI הודעות", "אנליטיקה מלאה", "תזכורות אוטומטיות"],
-    studio: ["כל פיצ׳רי Pro", "אנשי צוות ללא הגבלה", "דף הזמנה עצמית", "ייצוא Excel", "תמיכה מועדפת"],
+    starter: ["יומן, לקוחות, קופה וקבלות", "עד 2 אנשי צוות", "פרופיל ב-BizFind וקביעת תור אונליין",
+              "400 הודעות WhatsApp בחודש", "עד 10 תפוצות בחודש", "רשימת המתנה, שכר עובדים ודוחות"],
+    pro: ["כל מה שבעסק קטן", "עד 5 אנשי צוות", "1,500 הודעות WhatsApp בחודש", "מועדון לקוחות, קאשבק וקופון יום הולדת",
+          "קופונים, גיפט קארד וכרטיס בארנק", "שיעורים, מנויים וכרטיסיות", "עוזר AI וסריקת חשבוניות"],
+    enterprise: ["כל מה שבפרו", "אנשי צוות ללא הגבלה, עד 3 סניפים", "8,000 הודעות WhatsApp בחודש", "תמיכה בעדיפות והקמה מלווה"],
 };
-const BIZCONTROL_BADGE: Record<string, string | null> = { starter: null, pro: "הכי פופולרי", studio: null };
+const BIZCONTROL_BADGE: Record<string, string | null> = { starter: null, pro: "הכי פופולרי", enterprise: null };
 
 type ApiPlan = { key: string; label: string; price_ils: number; days: number; is_trial: boolean; scope_bizcontrol: boolean };
 
@@ -126,14 +130,14 @@ export default function PricingPage() {
                         בחרו את התוכנית המתאימה לכם
                     </h1>
                     <p style={{ fontSize: "1.05rem", color: "var(--bf-muted)", maxWidth: 560, margin: "0 auto 1.5rem" }}>
-                        כל התוכניות כוללות {trialDays} יום ניסיון חינמי. ללא כרטיס אשראי.
+                        כל מסלול מתחיל בחודש ראשון חינם: {trialDays} יום עם כל המערכת פתוחה, בלי כרטיס אשראי.
                     </p>
 
                     {/* Trial banner */}
                     <Link href="/for-business/register?plan=trial" style={{
                         ...PRIMARY_BTN, display: "inline-flex", padding: "0.9rem 2rem", fontSize: "1rem",
                     }}>
-                        <Rocket size={18} aria-hidden /> התחילו ניסיון חינמי {trialDays} יום <ChevronLeft size={18} aria-hidden />
+                        <Rocket size={18} aria-hidden /> התחילו חודש ראשון חינם <ChevronLeft size={18} aria-hidden />
                     </Link>
                     <p style={{ color: "var(--bf-faint)", fontSize: "0.8rem", marginTop: "0.6rem", display: "flex", gap: "0.9rem", justifyContent: "center", flexWrap: "wrap" }}>
                         <span style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem" }}><Check size={13} aria-hidden /> ללא כרטיס אשראי</span>
@@ -154,16 +158,19 @@ export default function PricingPage() {
                             <PlanCard key={t.key} tier={t} scope="bizcontrol" featured={t.badge !== null} />
                         ))}
                     </div>
+                    <p style={{ textAlign: "center", color: "var(--bf-faint)", fontSize: "0.82rem", marginTop: "1rem" }}>
+                        המחירים לחודש, לפני מע״מ. סליקת אשראי בתשלום נפרד.
+                    </p>
                 </div>
 
                 {/* FAQ */}
                 <div style={{ ...GLASS_CARD, maxWidth: 640, margin: "0 auto", padding: "2rem" }}>
                     <h2 style={{ fontWeight: 800, fontSize: "1.2rem", marginBottom: "1.5rem", color: "var(--bf-text)" }}>שאלות נפוצות</h2>
                     {[
-                        ["האם ניסיון חינמי כולל גם BizControl?", `כן! הניסיון של ${trialDays} יום כולל גישה מלאה לכל הפיצ׳רים, כולל מערכת הניהול של BizControl.`],
-                        ["מה קורה בסוף הניסיון?", "תקבלו התראה 7 ו-3 ימים לפני הסיום. יש לבחור תוכנית ולשדרג לפני שהניסיון מסתיים — אחרת הגישה למערכת נחסמת עד לשדרוג."],
+                        ["מה כולל החודש החינמי?", `הכול. ${trialDays} יום עם כל המערכת פתוחה, כולל BizControl, בלי כרטיס אשראי.`],
+                        ["מה קורה בסוף החודש?", "תקבלו התראה 7 ו-3 ימים לפני הסיום. בוחרים מסלול לפני שהחודש נגמר, אחרת הגישה למערכת נחסמת עד שבוחרים."],
                         ["האם הנתונים משותפים בין BizFind ל-BizControl?", "כן. שתי הפלטפורמות עובדות על אותה מערכת — נרשמים פעם אחת, הנתונים זמינים בכל מקום."],
-                        ["אפשר לשדרג בכל שלב?", "בהחלט. שדרוג פועל באופן מיידי ואתם משלמים רק על ההפרש."],
+                        ["אפשר לעבור מסלול?", "כן, בכל שלב."],
                     ].map(([q, a]) => (
                         <div key={q} style={{ borderBottom: "1px solid var(--bf-line)", paddingBottom: "1rem", marginBottom: "1rem" }}>
                             <div style={{ fontWeight: 700, color: "var(--bf-text)", marginBottom: "0.3rem", fontSize: "0.92rem" }}>{q}</div>

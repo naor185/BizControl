@@ -101,7 +101,7 @@ class BizFindRegisterIn(BaseModel):
     email: EmailStr
     password: str = Field(min_length=6)
     phone: Optional[str] = None
-    plan_key: str = "trial"   # trial | bizfind_basic | bizfind_pro | starter | pro | studio
+    plan_key: str = "trial"   # kept for older sign-up pages — every new business starts with the free month
 
 
 def _slugify(name: str) -> str:
@@ -147,10 +147,13 @@ def bizfind_register(payload: BizFindRegisterIn, db: Session = Depends(get_db)):
     # disconnected source of trial length/pricing that never agreed with
     # what an admin configured — e.g. trial length was a literal `14` here
     # forever, no matter what Plan.trial_days on the 'trial' row said.
+    # Every new business starts with the free month, everything open (owner, 2026-10-10) — a plan is chosen, and
+    # paid for, when the month ends. A plan picked on an older sign-up page doesn't skip the month unpaid.
+    plan_key = "trial"
     from app.models.module import Plan
-    plan = db.get(Plan, payload.plan_key)
+    plan = db.get(Plan, plan_key)
     if not plan or not plan.is_active:
-        raise HTTPException(status_code=400, detail=f"תכנית לא חוקית: {payload.plan_key}")
+        raise HTTPException(status_code=400, detail=f"תכנית לא חוקית: {plan_key}")
 
     ph = PasswordHasher()
     email = payload.email.lower().strip()
@@ -168,11 +171,8 @@ def bizfind_register(payload: BizFindRegisterIn, db: Session = Depends(get_db)):
         slug = f"{base_slug}-{counter}"
         counter += 1
 
-    # Trial length comes from Plan.trial_days (admin-configurable); every
-    # other plan's initial period is its normal billing cycle length —
-    # matches what BIZFIND_PLANS' "days" used to hardcode per-plan (always
-    # 30 for paid plans), just read from the real table now.
-    days = plan.trial_days if payload.plan_key == "trial" else plan.billing_period_days
+    # the free month's length comes from Plan.trial_days (the superadmin sets it)
+    days = plan.trial_days
     expires = datetime.now(timezone.utc) + timedelta(days=days)
     # a type from the one list (an older form's name maps to its type); "other" keeps the owner's words
     business_type, business_type_note = resolve_with_note(db, payload.category, payload.category_other)
@@ -233,12 +233,12 @@ def bizfind_register(payload: BizFindRegisterIn, db: Session = Depends(get_db)):
     from app.core.billing import apply_subscription_event
     apply_subscription_event(
         db, studio.id,
-        "trial_started" if payload.plan_key == "trial" else "activated",
+        "trial_started",
         source="customer",
         plan_id=plan.id,
         current_period_start=datetime.now(timezone.utc),
         current_period_end=expires,
-        trial_ends_at=expires if payload.plan_key == "trial" else None,
+        trial_ends_at=expires,
     )
 
     access = create_access_token({"user_id": str(owner.id), "studio_id": str(studio.id), "role": "owner"})
@@ -307,10 +307,10 @@ def bizfind_register(payload: BizFindRegisterIn, db: Session = Depends(get_db)):
         "refresh_token": refresh,
         "token_type": "bearer",
         "studio_slug": slug,
-        "plan_key": payload.plan_key,
+        "plan_key": plan_key,
         "plan_label": plan.display_name,
         "scope_bizcontrol": plan.scope_bizcontrol,
-        "trial_days": days if payload.plan_key == "trial" else None,
+        "trial_days": days,
         "plan_expires_at": expires.isoformat(),
     }
 
