@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import AppShell from "@/components/AppShell";
 import RequireAuth from "@/components/RequireAuth";
 import { apiFetch } from "@/lib/api";
+import { isNativeApp } from "@/lib/platform";
 import PasswordInput from "@/components/PasswordInput";
 import StaffSessionsModal from "@/components/StaffSessionsModal";
 
@@ -97,9 +98,13 @@ export default function TeamPage() {
     const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
     const [sessionsFor, setSessionsFor] = useState<{ id: string; name: string } | null>(null);
 
+    // the plan's staff — the owner counted (app/services/plan_limits.py)
+    const [seats, setSeats] = useState<{ used: number; limit: number | null; left: number | null } | null>(null);
+
     const loadArtists = async () => {
         setLoading(true);
         setErr(null);
+        apiFetch<{ used: number; limit: number | null; left: number | null }>("/api/users/artists/seats").then(setSeats).catch(() => setSeats(null));
         try {
             const data = await apiFetch<Artist[]>("/api/users/artists");
             setArtists(data);
@@ -221,15 +226,24 @@ export default function TeamPage() {
                                 ניהול חברי צוות, הרשאות, שיטות שכר וצבעים ביומן.
                             </p>
                         </div>
-                        <button
-                            onClick={openCreateModal}
-                            className="flex items-center justify-center gap-2 bg-sky-600 text-white px-5 py-2.5 rounded-xl font-bold shadow-lg shadow-sky-600/20 hover:bg-sky-700 hover:-translate-y-0.5 transition-all w-full md:w-auto"
-                        >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                            </svg>
-                            הוסף איש צוות
-                        </button>
+                        <div className="flex flex-col items-stretch md:items-end gap-1.5 w-full md:w-auto">
+                            <button
+                                onClick={openCreateModal}
+                                disabled={seats?.left === 0}
+                                className="flex items-center justify-center gap-2 bg-sky-600 text-white px-5 py-2.5 rounded-xl font-bold shadow-lg shadow-sky-600/20 hover:bg-sky-700 hover:-translate-y-0.5 transition-all w-full md:w-auto disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:bg-sky-600"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                                </svg>
+                                הוסף איש צוות
+                            </button>
+                            {seats?.limit != null && (
+                                <p className={`text-xs ${seats.left === 0 ? "text-amber-700 font-semibold" : "text-slate-500"}`}>
+                                    {seats.used} מתוך {seats.limit} אנשי צוות במסלול (כולל בעל העסק)
+                                    {seats.left === 0 && !isNativeApp() && <> · <a href="/billing" className="underline">שדרוג מסלול</a></>}
+                                </p>
+                            )}
+                        </div>
                     </div>
 
                     {err && (

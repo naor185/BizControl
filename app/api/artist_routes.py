@@ -7,6 +7,7 @@ from app.core.database import get_db
 from app.core.permissions import require_roles, Perms
 from app.schemas.user import UserOut, ArtistCreate, ArtistUpdate
 from app.crud.artist import create_artist, list_artists, update_artist, deactivate_artist
+from app.services.plan_limits import check_staff_seat, staff_seats
 from uuid import UUID
 
 router = APIRouter(prefix="/users/artists", tags=["Artists"])
@@ -30,6 +31,12 @@ def list_artists_endpoint(
     return [UserOut.model_validate(u).model_copy(update=_NO_PAY) for u in users]
 
 
+@router.get("/seats")
+def staff_seats_endpoint(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+    """How many staff the plan allows and how many there are — {used, limit, left}, the owner counted."""
+    return staff_seats(db, ctx.studio_id)
+
+
 @router.post(
     "",
     response_model=UserOut,
@@ -41,7 +48,8 @@ def create_artist_endpoint(
     ctx: AuthContext = Depends(require_studio_ctx),
     db: Session = Depends(get_db),
 ):
-    """Add a new artist to the studio."""
+    """Add a new artist to the studio — within the plan's staff (app/services/plan_limits.py)."""
+    check_staff_seat(db, ctx.studio_id)
     try:
         return create_artist(db, ctx.studio_id, payload)
     except IntegrityError:
@@ -68,6 +76,11 @@ def update_artist_endpoint(
         # Admins can't edit other admins/owners (simplified assumption)
         pass
 
+    if payload.is_active:                                   # bringing someone back counts like adding them
+        from app.models.user import User
+        current = db.get(User, user_id)
+        if current is not None and current.studio_id == ctx.studio_id and not current.is_active:
+            check_staff_seat(db, ctx.studio_id)
     user = update_artist(db, ctx.studio_id, user_id, payload)
     if not user:
         raise HTTPException(status_code=404, detail="Artist not found")

@@ -17,6 +17,7 @@ from app.core.features import require_module
 from app.db.deps import get_db
 from app.models.user import User
 from app.models.studio import Studio
+from app.api.superadmin_routes import require_superadmin
 
 router = APIRouter(prefix="/locations", tags=["MultiLocation"])
 
@@ -203,11 +204,21 @@ class LinkOrgPayload(BaseModel):
 def link_organization(
     payload: LinkOrgPayload,
     db: Session = Depends(get_db),
+    admin: User = Depends(require_superadmin),
 ):
-    """Super Admin endpoint: link studios into an organization."""
-    from app.core.auth_deps import get_current_user as _get_user
-    # Simple admin check via header — superadmin only
+    """Super Admin endpoint: link studios into an organization — superadmin only (it was open to anyone, and a
+    linked business is one its owner can switch into), within the main business's plan (up to 3 branches)."""
+    from app.core.features import has_module
+    from app.services.plan_limits import check_branches
+    if not payload.studio_ids:
+        raise HTTPException(400, "לא נבחרו עסקים")
     org_id = uuid.UUID(payload.organization_id) if payload.organization_id else uuid.uuid4()
+    main_id = uuid.UUID(payload.main_studio_id or payload.studio_ids[0])
+    if not has_module(db, main_id, "multi_location"):
+        raise HTTPException(400, "המסלול של העסק הראשי לא כולל סניפים")
+    joining = {uuid.UUID(sid) for sid in payload.studio_ids}
+    already = set(db.scalars(select(Studio.id).where(Studio.organization_id == org_id)).all()) if payload.organization_id else set()
+    check_branches(db, main_id, len(joining | already))
 
     for sid in payload.studio_ids:
         studio = db.get(Studio, uuid.UUID(sid))

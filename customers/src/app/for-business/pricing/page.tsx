@@ -15,9 +15,9 @@ const API = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
 // The plans as sold from October 2026 (owner, 2026-10-10). What each plan includes in the system itself — the
 // Plan Management Center (BizControl's billing page lists it from there).
 const BIZCONTROL_FEATURES: Record<string, string[]> = {
-    starter: ["יומן, לקוחות, קופה וקבלות", "עד 2 אנשי צוות", "פרופיל ב-BizFind וקביעת תור אונליין",
+    starter: ["יומן, לקוחות, קופה וקבלות", "עד 2 אנשי צוות (כולל בעל העסק)", "פרופיל ב-BizFind וקביעת תור אונליין",
               "400 הודעות WhatsApp בחודש", "עד 10 תפוצות בחודש", "רשימת המתנה, שכר עובדים ודוחות"],
-    pro: ["כל מה שבעסק קטן", "עד 5 אנשי צוות", "1,500 הודעות WhatsApp בחודש", "מועדון לקוחות, קאשבק וקופון יום הולדת",
+    pro: ["כל מה שבעסק קטן", "עד 5 אנשי צוות (כולל בעל העסק)", "1,500 הודעות WhatsApp בחודש", "מועדון לקוחות, קאשבק וקופון יום הולדת",
           "קופונים, גיפט קארד וכרטיס בארנק", "שיעורים, מנויים וכרטיסיות", "עוזר AI וסריקת חשבוניות"],
     enterprise: ["כל מה שבפרו", "אנשי צוות ללא הגבלה, עד 3 סניפים", "8,000 הודעות WhatsApp בחודש", "תמיכה בעדיפות והקמה מלווה"],
 };
