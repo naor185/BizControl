@@ -1411,6 +1411,9 @@ export default function CalendarPage() {
                     .fc .fc-today-button { min-width: 3.5rem !important; }
                     .fc .fc-toolbar-title { font-size: 1.1rem !important; font-weight: bold !important; }
                     .fc-timegrid-slot { height: 1.5em !important; }
+                    /* The hours don't stretch past their ends — on a phone the pull at the top opened a white gap
+                       between "כל היום" and the first hour (the owner, 2026-10-11) */
+                    .fc .fc-scroller { overscroll-behavior: none; }
                     .fc .fc-toolbar.fc-footer-toolbar { margin-top: 0.4rem !important; justify-content: center !important; }
                     .fc .fc-toolbar.fc-footer-toolbar .fc-button { min-width: 3.5rem !important; }
                     .holiday-event { font-size: 0.7rem !important; opacity: 0.9; }
@@ -1632,7 +1635,7 @@ export default function CalendarPage() {
                                 return (
                                     <AppointmentCard
                                         timeText={arg.timeText}
-                                        title={arg.event.title}
+                                        title={p.title}
                                         clientName={p.client_name || "ללא לקוח"}
                                         artistName={p.artist_name}
                                         status={p.status}
