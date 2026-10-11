@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
+from app.utils.phone import OptionalPhone
 
 from app.core.database import get_db
 from app.core.auth_deps import get_current_user
@@ -45,7 +46,7 @@ class LeadOut(BaseModel):
 
 class LeadCreate(BaseModel):
     name: str
-    phone: Optional[str] = None
+    phone: OptionalPhone = None
     email: Optional[str] = None
     source: str = "manual"
     service_interest: Optional[str] = None
@@ -54,7 +55,7 @@ class LeadCreate(BaseModel):
 
 class LeadUpdate(BaseModel):
     name: Optional[str] = None
-    phone: Optional[str] = None
+    phone: OptionalPhone = None
     email: Optional[str] = None
     source: Optional[str] = None
     status: Optional[str] = None

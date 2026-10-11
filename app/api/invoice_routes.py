@@ -16,6 +16,7 @@ from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+from app.utils.phone import OptionalPhone
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -87,7 +88,7 @@ class CreateInvoiceIn(BaseModel):
     doc_type: str
     client_id: Optional[str] = None
     client_name: Optional[str] = None
-    client_phone: Optional[str] = None
+    client_phone: OptionalPhone = None
     client_email: Optional[str] = None
     client_address: Optional[str] = None
     client_business_number: Optional[str] = None

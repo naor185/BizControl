@@ -193,11 +193,7 @@ export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promi
             throw new Error("Plan expired");
         }
 
-        const msg =
-            (data && (data.detail || data.message)) ||
-            text ||
-            `HTTP ${res.status}`;
-        throw new Error(typeof msg === "string" ? msg : JSON.stringify(msg));
+        throw new Error(errorText(data?.detail ?? data?.message, text || `HTTP ${res.status}`));
     }
 
     return (data ?? ({} as any)) as T;
@@ -716,4 +712,15 @@ export function getDashboardStats(month?: number, year?: number): Promise<Dashbo
     if (year) params.append("year", String(year));
     const query = params.toString() ? "?" + params.toString() : "";
     return apiFetch<DashboardStats>(`/api/dashboard/stats${query}`);
+}
+
+// A server error's words. A validation error (422) comes as a list — its messages, without pydantic's
+// "Value error, " (e.g. "מספר טלפון לא תקין — …" from app/utils/phone.py), instead of the raw JSON.
+export function errorText(detail: unknown, fallback: string): string {
+    if (typeof detail === "string" && detail) return detail;
+    if (Array.isArray(detail)) {
+        const words = detail.map(d => String((d as { msg?: string })?.msg ?? "").replace(/^Value error, /, "")).filter(Boolean);
+        if (words.length) return Array.from(new Set(words)).join(" · ");
+    }
+    return fallback;
 }

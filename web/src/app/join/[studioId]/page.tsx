@@ -1,5 +1,6 @@
 "use client";
 
+import { errorText } from "@/lib/api";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import LandingPageTemplate from "@/components/LandingPageTemplate";
@@ -83,7 +84,7 @@ export default function JoinStudioPage() {
 
             if (!res.ok) {
                 const data = await res.json();
-                throw new Error(data.detail || "שגיאה בהרשמה");
+                throw new Error(errorText(data.detail, "שגיאה בהרשמה"));
             }
 
             setSuccess(true);

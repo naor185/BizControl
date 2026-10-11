@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
-import { imgUrl } from "@/lib/api";
+import { errorText, imgUrl } from "@/lib/api";
 import { usePlatformTheme } from "@/lib/usePlatformTheme";
 
 const API = (process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_BASE || "").replace(/^http:\/\//, "https://");
@@ -84,7 +84,7 @@ export default function BookingPage() {
                     notes: form.notes || null,
                 }),
             });
-            if (!r.ok) { const e = await r.json(); throw new Error(e.detail || "שגיאה"); }
+            if (!r.ok) { const e = await r.json(); throw new Error(errorText(e.detail, "שגיאה")); }
             const data = await r.json();
             setConfirmation(data);
             setStep("success");
@@ -290,7 +290,7 @@ export default function BookingPage() {
                                                             headers: { "Content-Type": "application/json" },
                                                             body: JSON.stringify({ client_name: wlForm.name.trim(), client_phone: wlForm.phone.trim(), service_id: service?.id }),
                                                         });
-                                                        if (!r.ok) throw new Error((await r.json()).detail || "שגיאה");
+                                                        if (!r.ok) throw new Error(errorText((await r.json()).detail, "שגיאה"));
                                                         setWlDone(true);
                                                     } catch (e: any) { setWlErr(e.message); }
                                                     finally { setWlSubmitting(false); }

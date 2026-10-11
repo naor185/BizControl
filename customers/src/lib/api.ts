@@ -32,7 +32,7 @@ export async function apiFetch<T>(path: string, opts?: RequestInit): Promise<T> 
     });
     if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || `HTTP ${res.status}`);
+        throw new Error(errorText(err.detail, `HTTP ${res.status}`));
     }
     // an empty answer (204 — e.g. deleting the account) is a success, not a failed JSON read
     const body = await res.text();
@@ -43,4 +43,15 @@ export async function publicFetch<T>(path: string): Promise<T> {
     const res = await fetch(`${API}${path}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return res.json();
+}
+
+// A server error's words. A validation error (422) comes as a list — its messages, without pydantic's
+// "Value error, " (e.g. "מספר טלפון לא תקין — …" from app/utils/phone.py), instead of the raw JSON.
+export function errorText(detail: unknown, fallback: string): string {
+    if (typeof detail === "string" && detail) return detail;
+    if (Array.isArray(detail)) {
+        const words = detail.map(d => String((d as { msg?: string })?.msg ?? "").replace(/^Value error, /, "")).filter(Boolean);
+        if (words.length) return Array.from(new Set(words)).join(" · ");
+    }
+    return fallback;
 }

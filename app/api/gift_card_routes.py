@@ -12,6 +12,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from app.core.features import require_module
 from pydantic import BaseModel
+from app.utils.phone import OptionalPhone, Phone
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -496,7 +497,7 @@ class CreateGiftCardIn(BaseModel):
     amount_cents: int
     recipient_name: str
     recipient_email: Optional[str] = None
-    recipient_phone: Optional[str] = None
+    recipient_phone: OptionalPhone = None
     personal_message: Optional[str] = None
     expires_at: Optional[date] = None
 
@@ -513,11 +514,11 @@ class ApprovePaymentIn(BaseModel):
 class PublicGiftCardOrderIn(BaseModel):
     amount_cents: int
     recipient_name: str
-    recipient_phone: Optional[str] = None
+    recipient_phone: OptionalPhone = None
     personal_message: Optional[str] = None
     buyer_name: str
     buyer_email: Optional[str] = None
-    buyer_phone: str
+    buyer_phone: Phone
     deliver_to: str = "buyer"  # "buyer" | "recipient"
 
 

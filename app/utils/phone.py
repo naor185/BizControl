@@ -53,3 +53,36 @@ def normalize_phone(value) -> str | None:
     if s[1] in "23489":
         return s if len(s) == 9 else None
     return None
+
+
+# ── A phone typed in (owner, 2026-10-11: "the system shouldn't accept an invalid number any more") ────────────
+# A client was saved with 05036140465 (11 digits) and every WhatsApp to them failed. Every form that takes a client's
+# or customer's phone checks it with this: a usable number is kept in the storage format above, anything else is
+# refused with INVALID_PHONE. Production (2026-10-11): 211 of 212 client phones were already in that format.
+
+from typing import Annotated, Optional
+
+from pydantic import BeforeValidator
+
+INVALID_PHONE = "מספר טלפון לא תקין — נייד בישראל הוא 10 ספרות (למשל 050-1234567), קווי 9 ספרות, ומחו״ל עם + וקידומת"
+
+
+def checked_phone(value):
+    """Empty stays empty (None); a usable number comes back in storage format; anything else is refused."""
+    if value is None or not str(value).strip():
+        return None
+    phone = normalize_phone(value)
+    if phone is None:
+        raise ValueError(INVALID_PHONE)
+    return phone
+
+
+def _required(value):
+    phone = checked_phone(value)
+    if phone is None:
+        raise ValueError("חסר מספר טלפון")
+    return phone
+
+
+OptionalPhone = Annotated[Optional[str], BeforeValidator(checked_phone)]
+Phone = Annotated[str, BeforeValidator(_required)]

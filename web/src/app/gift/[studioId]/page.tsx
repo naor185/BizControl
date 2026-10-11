@@ -1,4 +1,5 @@
 "use client";
+import { errorText } from "@/lib/api";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 
@@ -97,7 +98,7 @@ export default function GiftCardShopPage() {
             });
             if (!res.ok) {
                 const data = await res.json().catch(() => ({}));
-                throw new Error(data.detail || "שגיאה בשליחת ההזמנה");
+                throw new Error(errorText(data.detail, "שגיאה בשליחת ההזמנה"));
             }
             const data = await res.json();
             setOrderedAmountIls(data.amount_ils ?? effectiveAmount);

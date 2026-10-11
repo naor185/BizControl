@@ -23,6 +23,7 @@ from app.models.service import Service
 from app.models.lead import Lead
 from app.api.marketplace_customer_routes import _get_customer_id
 from pydantic import BaseModel, EmailStr
+from app.utils.phone import Phone
 
 router = APIRouter(prefix="/public", tags=["Public"])
 
@@ -81,7 +82,7 @@ class PaymentConfirmRequest(BaseModel):
 
 class ClientJoinRequest(BaseModel):
     full_name: str
-    phone: str
+    phone: Phone
     email: EmailStr | None = None
     birth_date: date | None = None
     marketing_consent: bool = True

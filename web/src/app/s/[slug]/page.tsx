@@ -1,5 +1,6 @@
 "use client";
 
+import { errorText } from "@/lib/api";
 import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import LandingPageTemplate from "@/components/LandingPageTemplate";
@@ -109,7 +110,7 @@ export default function StudioLandingPage() {
             });
             if (!res.ok) {
                 const err = await res.json().catch(() => ({}));
-                throw new Error(err?.detail || "שגיאה בהרשמה");
+                throw new Error(errorText(err?.detail, "שגיאה בהרשמה"));
             }
             const result = await res.json().catch(() => ({}));
             setJoinedPoints(result?.loyalty_points ?? 0);

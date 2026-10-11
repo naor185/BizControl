@@ -3,6 +3,8 @@ from datetime import date, datetime
 from uuid import UUID
 from pydantic import BaseModel, EmailStr, Field
 
+from app.utils.phone import OptionalPhone
+
 class ClientBase(BaseModel):
     full_name: str = Field(min_length=2, max_length=160)
     phone: str | None = Field(default=None, max_length=40)
@@ -13,11 +15,11 @@ class ClientBase(BaseModel):
     is_club_member: bool = False
 
 class ClientCreate(ClientBase):
-    pass
+    phone: OptionalPhone = None          # checked as typed in (app/utils/phone) — not on ClientOut: a bad old number still shows
 
 class ClientUpdate(BaseModel):
     full_name: str | None = Field(default=None, min_length=2, max_length=160)
-    phone: str | None = Field(default=None, max_length=40)
+    phone: OptionalPhone = None
     email: EmailStr | None = None
     birth_date: date | None = None
     notes: str | None = None

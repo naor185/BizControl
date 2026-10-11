@@ -9,6 +9,8 @@ from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
+
+from app.utils.phone import Phone
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -148,7 +150,7 @@ class BookingRequest(BaseModel):
     starts_at: str           # ISO datetime
     ends_at: str             # ISO datetime
     client_name: str
-    client_phone: str
+    client_phone: Phone
     client_email: Optional[str] = None
     notes: Optional[str] = None
 
@@ -274,7 +276,7 @@ def create_booking(slug: str, payload: BookingRequest, db: Session = Depends(get
 
 class AppointmentRequestIn(BaseModel):
     client_name: str
-    client_phone: str
+    client_phone: Phone
     client_email: Optional[str] = None
     service_name: Optional[str] = None
     notes: Optional[str] = None
@@ -349,7 +351,7 @@ def public_request_appointment(
 
 class WaitListJoinIn(BaseModel):
     client_name: str
-    client_phone: str
+    client_phone: Phone
     service_id: Optional[str] = None
     notes: Optional[str] = None
 
