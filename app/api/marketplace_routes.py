@@ -57,19 +57,16 @@ def marketplace_login(request: Request, payload: MarketplaceLoginIn, db: Session
     endpoint used to have no 2FA support at all and a narrower role filter,
     purely from being a separate copy of the same logic).
     """
-    from app.models.user import User
     from app.services.auth_service import (
-        find_login_candidates, track_login_failure, raise_if_locked, reset_login_failures,
+        find_login_candidates, login_failed_error, raise_if_locked, reset_login_failures,
         create_pending_token, create_studio_selection_token, issue_full_tokens, studio_label,
     )
 
     candidates = find_login_candidates(db, payload.email, payload.password)
 
     if not candidates:
-        email = str(payload.email).lower().strip()
-        for u in db.query(User).filter(User.email == email, User.is_active == True).all():  # noqa: E712
-            track_login_failure(db, u, "סיסמה שגויה")
-        raise HTTPException(status_code=401, detail="מייל או סיסמה שגויים")
+        # customers/src/app/studio/login/page.tsx turns the answer into words
+        raise login_failed_error(db, str(payload.email), "סיסמה שגויה")
 
     if len(candidates) > 1:
         return {

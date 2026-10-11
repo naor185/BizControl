@@ -80,6 +80,10 @@ def update_artist(db: Session, studio_id: UUID, user_id: UUID, data: ArtistUpdat
         user.password_hash = ph.hash(data.password)
 
     db.commit()
+    if data.password is not None:
+        # the owner gave a new password — a lock from earlier wrong tries is lifted, as on a reset
+        from app.services.auth_service import reset_login_failures
+        reset_login_failures(db, user)
     db.refresh(user)
     return user
 

@@ -73,11 +73,13 @@ def track_login_failure(db: Session, user: User, reason: str) -> None:
         email = user.email
 
         row = db.execute(
-            _text("SELECT failure_count, first_failure_at, last_alerted_at FROM login_failure_tracking WHERE studio_id = :sid AND email = :email"),
+            _text("SELECT failure_count, first_failure_at, last_alerted_at, locked_until FROM login_failure_tracking WHERE studio_id = :sid AND email = :email"),
             {"sid": studio_id, "email": email},
         ).fetchone()
 
-        if row and row[1] and (now - row[1]) < LOGIN_FAILURE_WINDOW:
+        # A lock that has run out starts a fresh count — otherwise the first try after it locks again at once.
+        lock_over = bool(row and row[3] and row[3] <= now)
+        if row and row[1] and (now - row[1]) < LOGIN_FAILURE_WINDOW and not lock_over:
             new_count = row[0] + 1
             first_failure_at = row[1]
         else:
@@ -85,15 +87,17 @@ def track_login_failure(db: Session, user: User, reason: str) -> None:
             first_failure_at = now
         last_alerted_at = row[2] if row else None
 
-        locked_until = now + LOGIN_LOCKOUT_DURATION if new_count >= LOGIN_FAILURE_THRESHOLD else None
+        if new_count >= LOGIN_FAILURE_THRESHOLD:
+            locked_until = now + LOGIN_LOCKOUT_DURATION
+        else:
+            locked_until = row[3] if row and not lock_over else None
 
         db.execute(
             _text("""
                 INSERT INTO login_failure_tracking (studio_id, email, failure_count, first_failure_at, last_failure_at, last_alerted_at, locked_until)
                 VALUES (:sid, :email, :cnt, :first, :now, :alerted, :locked)
                 ON CONFLICT (studio_id, email)
-                DO UPDATE SET failure_count = :cnt, first_failure_at = :first, last_failure_at = :now,
-                    locked_until = COALESCE(:locked, login_failure_tracking.locked_until)
+                DO UPDATE SET failure_count = :cnt, first_failure_at = :first, last_failure_at = :now, locked_until = :locked
             """),
             {"sid": studio_id, "email": email, "cnt": new_count, "first": first_failure_at, "now": now, "alerted": last_alerted_at, "locked": locked_until},
         )
@@ -146,7 +150,7 @@ def _send_login_alert(db: Session, user: User, failure_count: int, reason: str) 
     <div dir="rtl" style="font-family:Arial,sans-serif;padding:20px">
         <h2 style="color:#dc2626">🔒 ניסיונות התחברות כושלים חוזרים — החשבון ננעל זמנית</h2>
         <p>זוהו <b>{failure_count}</b> ניסיונות התחברות כושלים ({reason}) עבור החשבון <b>{user.email}</b> ב-30 הדקות האחרונות.</p>
-        <p>החשבון ננעל אוטומטית ל-{lockout_minutes} דקות — גם אם הסיסמה הנכונה תוזן, ההתחברות תיחסם עד שהנעילה תפוג. הנעילה חלה על החשבון עצמו ולא תלויה בכתובת ה-IP או ה-VPN של מי שמנסה, כך שלא ניתן לעקוף אותה במעבר לרשת אחרת.</p>
+        <p>החשבון ננעל אוטומטית ל-{lockout_minutes} דקות — גם אם הסיסמה הנכונה תוזן, ההתחברות תיחסם עד שהנעילה תפוג או עד שהסיסמה תאופס. הנעילה חלה על החשבון עצמו ולא תלויה בכתובת ה-IP או ה-VPN של מי שמנסה, כך שלא ניתן לעקוף אותה במעבר לרשת אחרת.</p>
         <p style="color:#64748b;font-size:12px">אם זה לא היית אתה — כדאי לשקול לאפס סיסמה לחשבון זה. התראה זו לא תישלח שוב על אותו חשבון למשך שעה.</p>
     </div>
     """
@@ -217,3 +221,64 @@ def studio_label(user: User) -> dict:
         "studio_name": studio.name if studio else None,
         "role": user.role,
     }
+
+
+# ── What's left before the lock (owner, 2026-10-11) ────────────────────────────────────────────────────────────
+# A user who got it wrong ~8 times reset the password and was still locked for 14 minutes: the lock only showed up
+# once the right password came, and resetting didn't lift it. Now every wrong password says how many tries are left,
+# a locked account says so at once, and a successful reset (or change) lifts the lock — the reset proves it's them.
+
+_NO_ACCOUNT: dict[str, tuple[int, datetime, datetime | None]] = {}   # e-mail → (tries, first, locked until)
+
+
+def _state(db: Session, user: User) -> tuple[int, datetime | None]:
+    try:
+        row = db.execute(_text("SELECT failure_count, locked_until FROM login_failure_tracking WHERE studio_id = :sid AND email = :email"),
+                         {"sid": str(user.studio_id), "email": user.email}).fetchone()
+    except Exception:
+        log.exception("[login-alert] failed to read login failure tracking")
+        db.rollback()
+        return 0, None
+    return (row[0], row[1]) if row else (0, None)
+
+
+def login_failed(db: Session, email: str, reason: str, users: list[User] | None = None) -> tuple[int, int | None]:
+    """A wrong password: counted on the account(s) — every active one with this e-mail unless `users` is given — and
+    (tries left, minutes locked or None). An e-mail with no account gets the same answers from a counter in memory,
+    so the answer never tells whether an account exists."""
+    email = (email or "").lower().strip()
+    now = datetime.now(timezone.utc)
+    if users is None:
+        users = db.query(User).filter(User.email == email, User.is_active == True).all()  # noqa: E712
+    if users:
+        for u in users:
+            track_login_failure(db, u, reason)
+        states = [_state(db, u) for u in users]
+        count = max(c for c, _ in states)
+        locks = [lk for _, lk in states if lk and lk > now]
+        locked_until = max(locks) if locks else None
+    else:
+        count, first, lock = _NO_ACCOUNT.get(email, (0, now, None))
+        if lock and lock <= now:
+            count, first, lock = 0, now, None
+        elif now - first >= LOGIN_FAILURE_WINDOW:
+            count, first = 0, now
+        count += 1
+        if count >= LOGIN_FAILURE_THRESHOLD and not (lock and lock > now):
+            lock = now + LOGIN_LOCKOUT_DURATION
+        if len(_NO_ACCOUNT) > 5000:
+            _NO_ACCOUNT.clear()
+        _NO_ACCOUNT[email] = (count, first, lock)
+        locked_until = lock if lock and lock > now else None
+    if locked_until:
+        return 0, max(1, int((locked_until - now).total_seconds() // 60) + 1)
+    return max(0, LOGIN_FAILURE_THRESHOLD - count), None
+
+
+def login_failed_error(db: Session, email: str, reason: str, users: list[User] | None = None) -> HTTPException:
+    """The answer to a wrong password, for the business sign-in screen: "invalid_credentials:{left}" (401) or
+    "account_locked:{minutes}" (423) — web/src/app/login/page.tsx turns both into words."""
+    left, minutes = login_failed(db, email, reason, users)
+    if minutes:
+        return HTTPException(status_code=423, detail=f"account_locked:{minutes}")
+    return HTTPException(status_code=401, detail=f"invalid_credentials:{left}")

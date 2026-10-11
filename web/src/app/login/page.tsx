@@ -41,10 +41,18 @@ function parseErr(msg: string, locale: string): { text: string; field: FieldErr 
         const mins = lockMatch[1];
         return {
             text: l === "en"
-                ? `Too many failed attempts. Try again in ${mins} minute(s).`
-                : `יותר מדי ניסיונות כושלים. נסה שוב בעוד ${mins} דקות.`,
+                ? `Too many failed attempts — sign-in is locked for ${mins} minute(s). Resetting your password unlocks it right away.`
+                : `יותר מדי ניסיונות כושלים — הכניסה נעולה ל-${mins} דקות. איפוס סיסמה פותח אותה מיד.`,
             field: null,
         };
+    }
+    // "invalid_credentials:{tries left}" — how many tries before the lock
+    const left = Number(msg.match(/invalid_credentials:(\d+)/)?.[1] || 0);
+    if (left > 0) {
+        const tail = l === "en"
+            ? (left === 1 ? "1 try left before a temporary lock" : `${left} tries left before a temporary lock`)
+            : (left === 1 ? "נותר ניסיון אחד לפני נעילה זמנית" : `נותרו ${left} ניסיונות לפני נעילה זמנית`);
+        return { text: `${ERR_TEXT.invalid_credentials[l]} · ${tail}`, field: null };
     }
     for (const [code, field] of Object.entries(ERR_FIELD)) {
         if (msg.includes(code)) return { text: ERR_TEXT[code][l], field };
@@ -255,7 +263,7 @@ function LoginContent() {
             const me = await apiFetch<{ role: string }>("/api/auth/me");
             router.replace(me.role === "superadmin" ? "/admin" : nextUrl);
         } catch (e: unknown) {
-            setErr((e as Error)?.message || "קוד שגוי");
+            setErr(parseErr(String((e as Error)?.message || "קוד שגוי"), locale).text);
         } finally {
             setLoading(false);
         }
@@ -412,8 +420,9 @@ function LoginContent() {
 
             <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/30 pointer-events-none" />
 
-            {/* Language switcher */}
-            <div className="fixed top-4 left-4 flex gap-1 z-20">
+            {/* Language switcher — below the phone's clock and battery, not on them */}
+            <div className="fixed flex gap-1 z-20"
+                 style={{ top: "calc(1rem + env(safe-area-inset-top, 0px))", left: "calc(1rem + env(safe-area-inset-left, 0px))" }}>
                 {LOCALES.map(l => (
                     <button
                         key={l.code}

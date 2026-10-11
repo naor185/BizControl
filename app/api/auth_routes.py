@@ -24,7 +24,7 @@ from app.models.user import User
 from app.models.refresh_token import RefreshToken
 from app.schemas.auth_schemas import LoginRequest, TokenResponse, RefreshRequest, SessionOut
 from app.services.auth_service import (
-    find_login_candidates, track_login_failure, raise_if_locked, reset_login_failures,
+    find_login_candidates, raise_if_locked, reset_login_failures, login_failed, login_failed_error,
     create_pending_token, create_studio_selection_token, issue_full_tokens, studio_label,
 )
 from app.utils.email_templates import reset_password_email_html
@@ -47,7 +47,7 @@ def login(request: Request, payload: LoginRequest, db: Session = Depends(get_db)
         # Same generic error as wrong email/password — don't reveal which
         # field was wrong, or even which field exists (avoids enumeration of
         # valid studio slugs).
-        raise HTTPException(status_code=401, detail="invalid_credentials")
+        raise login_failed_error(db, str(payload.email), "סיסמה שגויה", users=[])
 
     email = str(payload.email).lower().strip()
     user = db.query(User).filter(User.studio_id == studio.id, User.email == email, User.is_active == True).first()  # noqa: E712
@@ -57,13 +57,12 @@ def login(request: Request, payload: LoginRequest, db: Session = Depends(get_db)
     if not user:
         # Same generic error as a wrong password — don't reveal whether the
         # email exists (avoids account enumeration).
-        raise HTTPException(status_code=401, detail="invalid_credentials")
+        raise login_failed_error(db, email, "סיסמה שגויה", users=[])
 
     try:
         ph.verify(user.password_hash, payload.password)
     except VerifyMismatchError:
-        track_login_failure(db, user, "סיסמה שגויה")
-        raise HTTPException(status_code=401, detail="invalid_credentials")
+        raise login_failed_error(db, email, "סיסמה שגויה", users=[user])
 
     raise_if_locked(db, user)
 
@@ -100,8 +99,10 @@ def verify_2fa(request: Request, payload: TwoFAVerifyIn, db: Session = Depends(g
 
     totp = pyotp.TOTP(user.totp_secret)
     if not totp.verify(payload.code.strip(), valid_window=1):
-        track_login_failure(db, user, "קוד אימות דו-שלבי שגוי — הסיסמה כבר הוזנה נכון")
-        raise HTTPException(status_code=401, detail="קוד שגוי — נסה שנית")
+        left, minutes = login_failed(db, user.email, "קוד אימות דו-שלבי שגוי — הסיסמה כבר הוזנה נכון", users=[user])
+        if minutes:
+            raise HTTPException(status_code=423, detail=f"account_locked:{minutes}")
+        raise HTTPException(status_code=401, detail="קוד שגוי — נותר ניסיון אחד" if left == 1 else f"קוד שגוי — נותרו {left} ניסיונות")
 
     raise_if_locked(db, user)
     reset_login_failures(db, user)
@@ -131,12 +132,9 @@ def login_by_email(request: Request, payload: EmailLoginIn, db: Session = Depend
     candidates = find_login_candidates(db, payload.email, payload.password)
 
     if not candidates:
-        # Don't know which studio was intended — track the failure against
+        # Don't know which studio was intended — the failure counts against
         # every row sharing this email, not just one.
-        email = payload.email.lower().strip()
-        for u in db.query(User).filter(User.email == email, User.is_active == True).all():  # noqa: E712
-            track_login_failure(db, u, "סיסמה שגויה")
-        raise HTTPException(status_code=401, detail="invalid_credentials")
+        raise login_failed_error(db, payload.email, "סיסמה שגויה")
 
     if len(candidates) > 1:
         return {
@@ -613,6 +611,7 @@ def set_password(payload: SetPasswordRequest, db: Session = Depends(get_db)):
     validate_password_strength(payload.new_password)
     user.password_hash = ph.hash(payload.new_password)
     db.commit()
+    reset_login_failures(db, user)   # the reset proves it's them — a lock from earlier wrong tries is lifted
     return {"status": "ok"}
 
 
@@ -632,6 +631,7 @@ def change_password(payload: ChangePasswordRequest, current_user: User = Depends
     validate_password_strength(payload.new_password)
     current_user.password_hash = ph.hash(payload.new_password)
     db.commit()
+    reset_login_failures(db, current_user)
     return {"status": "ok"}
 
 

@@ -1,10 +1,23 @@
 "use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { API } from "@/lib/api";
+import { API, errorText } from "@/lib/api";
 import { getStudioToken, setStudioToken, goToBizControl } from "@/lib/handoff";
 import { AlertTriangle, Info, Rocket } from "lucide-react";
 import PasswordInput from "@/components/PasswordInput";
+
+// The sign-in answers come as "invalid_credentials:{tries left}" / "account_locked:{minutes}" (app/services/auth_service.py)
+function loginErrText(detail: unknown): string {
+    const d = typeof detail === "string" ? detail : "";
+    const lock = d.match(/account_locked:(\d+)/);
+    if (lock) return `יותר מדי ניסיונות כושלים — הכניסה נעולה ל-${lock[1]} דקות. איפוס סיסמה פותח אותה מיד.`;
+    if (d.startsWith("invalid_credentials")) {
+        const left = Number(d.split(":")[1] || 0);
+        if (left === 1) return "מייל או סיסמה שגויים · נותר ניסיון אחד לפני נעילה זמנית";
+        return left > 0 ? `מייל או סיסמה שגויים · נותרו ${left} ניסיונות לפני נעילה זמנית` : "מייל או סיסמה שגויים";
+    }
+    return errorText(detail, "מייל או סיסמה שגויים");
+}
 
 export default function StudioLoginPage() {
     const [email, setEmail] = useState("");
@@ -33,7 +46,7 @@ export default function StudioLoginPage() {
                 body: JSON.stringify({ email: email.trim(), password }),
             });
             const data = await res.json();
-            if (!res.ok) throw new Error(data.detail || "מייל או סיסמה שגויים");
+            if (!res.ok) throw new Error(loginErrText(data.detail));
             // 2FA / multi-business accounts need a fuller flow than this
             // simple form has — hand off to BizControl's own login, which
             // has both, instead of duplicating that UI here.
