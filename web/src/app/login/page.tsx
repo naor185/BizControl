@@ -528,13 +528,15 @@ function LoginContent() {
                                 <a href="/forgot-password" className="text-xs text-blue-200/50 hover:text-blue-200/80 transition-colors">
                                     {locale.startsWith("en") ? "Forgot password?" : "שכחתי סיסמה"}
                                 </a>
-                                {/* the sign-up shows the paid plans — not inside the app (Apple: no buying outside the app from it) */}
-                                {!isNativeApp() && (<>
-                                    <span className="text-blue-200/30 text-xs">•</span>
-                                    <a href={`${BIZFIND_URL}/for-business/register`} className="text-xs text-blue-200/50 hover:text-blue-200/80 transition-colors">
-                                        {locale.startsWith("en") ? "No account? Sign up" : "אין לך חשבון? הירשם"}
-                                    </a>
-                                </>)}
+                                {/* the sign-up is on the website — from the app it opens in the phone's browser (the owner's
+                                    choice, 2026-10-11, knowing Apple may see it as steering to buy outside the app; it isn't
+                                    an allowed host in capacitor.config, so it leaves the app either way) */}
+                                <span className="text-blue-200/30 text-xs">•</span>
+                                <a href={`${BIZFIND_URL}/for-business/register`}
+                                    {...(isNativeApp() ? { target: "_blank", rel: "noopener" } : {})}
+                                    className="text-xs text-blue-200/50 hover:text-blue-200/80 transition-colors">
+                                    {locale.startsWith("en") ? "No account? Sign up" : "אין לך חשבון? הירשם"}
+                                </a>
                             </div>
                             <div className="text-center">
                                 <a href={`${BIZFIND_URL}/billing-terms`} target="_blank" rel="noopener" className="text-[11px] text-blue-200/40 hover:text-blue-200/70 transition-colors">
