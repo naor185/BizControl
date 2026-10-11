@@ -2922,14 +2922,18 @@ def ensure_schema():
         cur.execute("ALTER TABLE health_declarations DROP COLUMN IF EXISTS id_number")
 
         if _once("viki_removed_v1"):
-            # ויקי, the chat assistant, was removed (owner, 2026-10-10). Its module stays as the parent of the other AI
-            # tools (lead tagging, the page design) — renamed, with no monthly count of questions.
+            # The chat assistant was removed (owner, 2026-10-10). Its module stays as the parent of the other AI tools
+            # (lead tagging, the page design) — renamed, with no monthly count of questions.
             cur.execute("UPDATE modules SET name = 'כלי AI' WHERE id = 'ai_assistant'")
             cur.execute("""
                 UPDATE plan_modules SET limit_value = NULL, period_type = 'unlimited', on_exceed_action = 'block'
                 WHERE module_id = 'ai_assistant'
             """)
             cur.execute("UPDATE bizfind_plan_features SET feature_label = 'כלי AI' WHERE feature_key = 'bizcontrol_ai'")
+        # ...and its conversations and logs are deleted (owner, 2026-10-11: "delete every connection to it, chats too")
+        cur.execute("DROP TABLE IF EXISTS ai_messages")
+        cur.execute("DROP TABLE IF EXISTS ai_conversations")
+        cur.execute("DROP TABLE IF EXISTS ai_audit_logs")
 
         conn.commit()
         cur.close()

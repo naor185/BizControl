@@ -96,8 +96,8 @@ WhatsApp providers: `green_api` (linked device) or `meta` (Cloud API). Both disp
 ### AI
 - `app/services/ai_client.py` — the one AI provider client: Groq, Gemini or OpenAI, detected by API key prefix
   (`gsk_` → Groq, `AIza` → Gemini). Used by lead tagging (`auto_tag_service`) and call analysis (`call_ai`).
-- The ויקי chat assistant was removed (owner, 2026-10-10); its module id `ai_assistant` ("כלי AI") stays as the
-  parent of the AI sub-modules (`ai_auto_tag`, `ai_theme_generate`).
+- There is no chat assistant. The module id `ai_assistant` ("כלי AI") is the parent of the AI sub-modules
+  (`ai_auto_tag`, `ai_theme_generate`).
 
 ### Frontend Structure (`web/src/`)
 | Path | Purpose |

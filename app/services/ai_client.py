@@ -1,7 +1,7 @@
 """
 The AI provider — Groq / Gemini / OpenAI, told apart by the API key's prefix whichever variable holds it
 (GROQ_API_KEY / GEMINI_API_KEY / OPENAI_API_KEY). Shared by lead tagging (auto_tag_service) and call
-analysis (call_ai). The ויקי chat assistant that first used it was removed (owner, 2026-10-10).
+analysis (call_ai).
 """
 from __future__ import annotations
 

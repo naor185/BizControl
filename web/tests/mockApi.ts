@@ -90,12 +90,6 @@ function exactMocks(): Record<string, unknown> {
         "/api/auth/studio-info": { subscription_plan: "pro", plan_expires_at: null },
         "/api/whatsapp/status": { connected: true, status: "authorized" },
         "/api/appointments/version": { version: "1:2026-01-01T00:00:00Z" },
-        // Object-wrapped, not a bare array, despite the plural-sounding
-        // name — the generic list-shaped fallback below would otherwise
-        // hand AIAssistant (mounted globally, on every route) an array
-        // where it expects { suggestions: [...] }, crashing on
-        // suggestions.length since arrays have no .suggestions property.
-        "/api/ai/suggestions": { suggestions: [] },
         "/api/staff/clock-status": { is_clocked_in: false },
         "/api/nfc/presence": [],
         "/api/notifications/unread-count": { count: 0 },
