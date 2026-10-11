@@ -1736,6 +1736,12 @@ export default function CalendarPage() {
                                 />
                             </label>
 
+                            {/* the health declaration — fill and sign now, or send the link (owner, 2026-10-11) */}
+                            {app.client_id && (
+                                <HealthDeclarations clientId={app.client_id} appointmentId={app.id}
+                                    boxClassName="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-3" />
+                            )}
+
                             <div className="space-y-2">
                                 <button
                                     type="button"

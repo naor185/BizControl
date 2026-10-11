@@ -19,9 +19,7 @@ _CHANNEL_LABEL = {"whatsapp": "וואטסאפ", "email": "מייל", "push": "פ
 def _notify_message_failed(db: Session, job: MessageJob) -> None:
     """Surface a permanently-failed message (exhausted its 3 retry attempts)
     as an in-app notification, so the studio finds out from the bell icon
-    instead of only by noticing a client never got confirmation — which is
-    what actually happened before this existed (see message-log gate 4 in
-    the launch checklist)."""
+    instead of only by noticing a client never got confirmation."""
     try:
         recipient = None
         if job.client_id:
@@ -33,17 +31,24 @@ def _notify_message_failed(db: Session, job: MessageJob) -> None:
             recipient = (user.display_name or user.email) if user else None
         recipient = recipient or job.to_phone or "לקוח"
         ch_label = _CHANNEL_LABEL.get(job.channel, job.channel)
+        # the queue and its technical errors are the superadmin's (owner, 2026-10-11) — the business is told what
+        # didn't reach whom, and that BizControl was alerted (integration_alerts.alert_account_failure)
         db.add(Notification(
             studio_id=job.studio_id,
             type="message_failed",
             title=f"הודעת {ch_label} נכשלה",
-            body=f"ההודעה ל{recipient} לא נשלחה אחרי 3 ניסיונות. {job.last_error or ''}"[:500],
-            action_url="/message-log",
+            body=f"ההודעה ל{recipient} לא נשלחה. צוות BizControl קיבל התראה ומטפל."[:500],
+            action_url=f"/clients/{job.client_id}" if job.client_id else None,
         ))
     except Exception:
         log.exception("[message_worker] failed to create failure notification for job %s", job.id)
 
 _REMINDER_LABELS = {"1day": "מחר", "7day": "בעוד שבוע", "3day": "בעוד 3 ימים", "same_day": "היום"}
+# messages that belong before the appointment — not sent once it has begun (process_due_jobs)
+BEFORE_APPOINTMENT = frozenset({
+    "1day", "3day", "7day", "same_day", "1day_email", "3day_email", "7day_email", "same_day_email",
+    "new_appointment", "reschedule", "deposit_24h", "health_form",
+})
 from app.crud.automation import format_template
 from app.utils.logger import get_logger
 
@@ -397,6 +402,17 @@ def process_due_jobs(db: Session, limit: int = 20) -> int:
                         needs_commit = True
                     continue
 
+            # A message that belongs before the appointment — a reminder, the confirmation, the health link — never
+            # goes out once the appointment has begun (2026-10-11: a "retry all failed" sent June's "מחר יש לך תור"
+            # reminders in October). Whatever brought it back: a retry, a stuck queue, a worker that was down.
+            if getattr(job, "reminder_type", None) in BEFORE_APPOINTMENT and job.appointment_id:
+                _appt = db.get(Appointment, job.appointment_id)
+                if _appt is not None and _appt.starts_at <= now:
+                    job.status = "canceled"
+                    job.last_error = "התור כבר התחיל — ההודעה לא נשלחה"
+                    count += 1
+                    continue
+
             # Club invite: skip if client already joined the club since enqueueing
             if getattr(job, "reminder_type", None) in ("club_invite", "club_invite_email") and job.client_id:
                 _client_check = db.get(Client, job.client_id)
@@ -489,8 +505,10 @@ def process_due_jobs(db: Session, limit: int = 20) -> int:
             job.sent_at = now
             job.last_error = None
         except Exception as e:
+            from app.services.integration_alerts import alert_account_failure, mask_secrets
             job.attempts = int(job.attempts or 0) + 1
-            job.last_error = str(e)
+            job.last_error = mask_secrets(str(e))          # a provider's error can carry the account's key
+            alert_account_failure(db, job.studio_id, job.channel, job.last_error)   # the superadmin, by e-mail
             if job.attempts >= 3:
                 job.status = "failed"
                 _notify_message_failed(db, job)

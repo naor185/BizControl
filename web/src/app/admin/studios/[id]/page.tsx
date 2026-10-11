@@ -1105,7 +1105,10 @@ export default function StudioDetailPage() {
 
                 {/* Messages from the company to the owner — sent from the CRM (/admin/crm) */}
                 <div className="space-y-2">
-                    <h2 className="text-sm font-semibold text-gray-700 px-1">הודעות מהחברה לבעל העסק</h2>
+                    <div className="flex items-center justify-between px-1">
+                        <h2 className="text-sm font-semibold text-gray-700">הודעות מהחברה לבעל העסק</h2>
+                        <a href={`/admin/messages?studio_id=${studioId}`} className="text-xs font-bold text-gray-600 hover:text-gray-900 underline">תור ההודעות של העסק</a>
+                    </div>
                     <CrmSentLog studioId={studioId} />
                 </div>
 

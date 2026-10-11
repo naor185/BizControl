@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { Check, Copy, HeartPulse, PenLine, Printer, Send, Trash2, TriangleAlert, X } from "lucide-react";
 import { API_BASE, apiFetch, getToken } from "@/lib/api";
@@ -309,7 +310,8 @@ export default function HealthDeclarations({ clientId, appointmentId, boxClassNa
                     ))}
                 </ul>
             )}
-            {open && <SignFlow declarationId={open} onClose={() => { setOpen(null); load(); }} />}
+            {/* on the page itself — inside a sheet or a modal that moves, a full screen would be cut to its size */}
+            {open && createPortal(<SignFlow declarationId={open} onClose={() => { setOpen(null); load(); }} />, document.body)}
         </div>
     );
 }
