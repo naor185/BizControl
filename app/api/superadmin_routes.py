@@ -1797,7 +1797,8 @@ def platform_health(db: Session = Depends(get_db), _admin: User = Depends(requir
         wa_status = "not_configured"
         if settings and settings.whatsapp_provider == "green_api" and settings.whatsapp_instance_id and settings.whatsapp_api_key:
             try:
-                url = f"https://api.green-api.com/waInstance{settings.whatsapp_instance_id}/getStateInstance/{settings.whatsapp_api_key}"
+                from app.utils.green_api import instance_url
+                url = instance_url(settings.whatsapp_instance_id, "getStateInstance", settings.whatsapp_api_key)
                 with _req.urlopen(_req.Request(url), timeout=5) as resp:
                     data = _json.loads(resp.read())
                     state = data.get("stateInstance", "unknown")

@@ -130,7 +130,8 @@ def _check_green_state(instance_id: str, api_key: str) -> str:
     if cached and now < cached[1]:
         return cached[0]
     try:
-        url = f"https://api.green-api.com/waInstance{instance_id}/getStateInstance/{api_key}"
+        from app.utils.green_api import instance_url
+        url = instance_url(instance_id, "getStateInstance", api_key)
         with _ur.urlopen(_ur.Request(url), timeout=5) as r:
             state = _j.loads(r.read()).get("stateInstance", "unknown")
     except Exception:
@@ -154,6 +155,7 @@ def _local_path_for_media(media_url: str) -> str | None:
 
 def _send_via_green(instance_id: str, api_key: str, to_phone: str, body: str, media_url: str | None = None) -> None:
     import json as _json, os as _os, base64 as _b64
+    from app.utils.green_api import instance_url
 
     state = _check_green_state(instance_id, api_key)
     if state != "authorized":
@@ -181,7 +183,7 @@ def _send_via_green(instance_id: str, api_key: str, to_phone: str, body: str, me
             try:
                 with open(local_path, "rb") as fh:
                     b64data = _b64.b64encode(fh.read()).decode()
-                url = f"https://api.green-api.com/waInstance{instance_id}/sendFileByBase64/{api_key}"
+                url = instance_url(instance_id, "sendFileByBase64", api_key)
                 payload = _json.dumps({
                     "chatId": clean,
                     "base64File": b64data,
@@ -195,7 +197,7 @@ def _send_via_green(instance_id: str, api_key: str, to_phone: str, body: str, me
 
         # 2. Fall back to sendFileByUrl for absolute external URLs
         if not sent_media and media_url.startswith("http"):
-            url = f"https://api.green-api.com/waInstance{instance_id}/sendFileByUrl/{api_key}"
+            url = instance_url(instance_id, "sendFileByUrl", api_key)
             payload = _json.dumps({
                 "chatId": clean,
                 "urlFile": media_url,
@@ -212,7 +214,7 @@ def _send_via_green(instance_id: str, api_key: str, to_phone: str, body: str, me
             return
 
     # Plain text message (primary path, or fallback after media failure)
-    url = f"https://api.green-api.com/waInstance{instance_id}/sendMessage/{api_key}"
+    url = instance_url(instance_id, "sendMessage", api_key)
     payload = _json.dumps({"chatId": clean, "message": body}).encode()
     _green_post(url, payload)
 

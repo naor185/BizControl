@@ -118,7 +118,8 @@ def _send_sms(phone: str, code: str, db=None):
     if wa_instance and wa_token:
         try:
             import requests as _req
-            url = f"https://api.green-api.com/waInstance{wa_instance}/sendMessage/{wa_token}"
+            from app.utils.green_api import instance_url
+            url = instance_url(wa_instance, "sendMessage", wa_token)
             _req.post(url, json={"chatId": chat_id, "message": msg}, timeout=10)
             return
         except Exception as e:

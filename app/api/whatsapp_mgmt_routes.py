@@ -27,14 +27,14 @@ from app.core.deps import require_studio_ctx, AuthContext
 
 router = APIRouter(prefix="/whatsapp", tags=["WhatsApp"])
 
-GREEN_BASE = "https://api.green-api.com"
+from app.utils.green_api import PARTNER_BASE, instance_url
 PARTNER_TOKEN = os.getenv("GREEN_API_PARTNER_TOKEN", "")
 
 
 # ── Green API helpers ─────────────────────────────────────────────────────────
 
 def _green_get(instance_id: str, api_token: str, endpoint: str) -> dict:
-    url = f"{GREEN_BASE}/waInstance{instance_id}/{endpoint}/{api_token}"
+    url = instance_url(instance_id, endpoint, api_token)
     req = urllib.request.Request(url)
     try:
         with urllib.request.urlopen(req, timeout=8) as resp:
@@ -89,7 +89,7 @@ def _green_get_phone(instance_id: str, api_token: str) -> Optional[str]:
 
 
 def _green_logout(instance_id: str, api_token: str) -> None:
-    url = f"{GREEN_BASE}/waInstance{instance_id}/logout/{api_token}"
+    url = instance_url(instance_id, "logout", api_token)
     try:
         req = urllib.request.Request(url, method="GET")
         with urllib.request.urlopen(req, timeout=8):
@@ -102,7 +102,7 @@ def _partner_create_instance() -> dict:
     """Create a new Green API instance via partner API."""
     if not PARTNER_TOKEN:
         raise HTTPException(400, "GREEN_API_PARTNER_TOKEN לא מוגדר בשרת")
-    url = f"{GREEN_BASE}/partner/createInstance/{PARTNER_TOKEN}"
+    url = f"{PARTNER_BASE}/partner/createInstance/{PARTNER_TOKEN}"
     req = urllib.request.Request(url, method="POST")
     req.add_header("Content-Type", "application/json")
     try:
@@ -115,7 +115,7 @@ def _partner_create_instance() -> dict:
 def _partner_delete_instance(instance_id: str) -> None:
     if not PARTNER_TOKEN:
         return
-    url = f"{GREEN_BASE}/partner/deleteInstance/{PARTNER_TOKEN}"
+    url = f"{PARTNER_BASE}/partner/deleteInstance/{PARTNER_TOKEN}"
     payload = json.dumps({"idInstance": instance_id}).encode()
     req = urllib.request.Request(url, data=payload, method="DELETE")
     req.add_header("Content-Type", "application/json")

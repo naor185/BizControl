@@ -473,7 +473,8 @@ def _send_reset_code_whatsapp(phone: str, code: str, db: Session) -> None:
 
     try:
         import requests
-        url = f"https://api.green-api.com/waInstance{wa_instance}/sendMessage/{wa_token}"
+        from app.utils.green_api import instance_url
+        url = instance_url(wa_instance, "sendMessage", wa_token)
         requests.post(url, json={"chatId": chat_id, "message": msg}, timeout=10)
     except Exception as e:
         log.warning("[forgot_password_phone] WhatsApp send failed: %s", e)
