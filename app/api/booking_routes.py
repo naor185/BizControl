@@ -207,7 +207,8 @@ def create_booking(slug: str, payload: BookingRequest, db: Session = Depends(get
             Appointment.ends_at > starts,
         )
     )
-    if conflict:
+    from app.services.google_busy import conflicts as google_conflicts
+    if conflict or google_conflicts(db, studio.id, payload.artist_id, starts, ends):     # or the owner's Google
         raise HTTPException(409, "זמן זה כבר תפוס. אנא בחר זמן אחר.")
 
     artist_id = _uuid.UUID(payload.artist_id) if payload.artist_id else None

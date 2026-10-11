@@ -563,7 +563,8 @@ def create_booking(
             Appointment.ends_at > requested_at,
         )
     )
-    if conflict:
+    from app.services.google_busy import conflicts as google_conflicts
+    if conflict or google_conflicts(db, studio.id, payload.artist_id, requested_at, ends_at):   # or the owner's Google
         raise HTTPException(status_code=409, detail="Slot no longer available")
 
     pending_conflict = db.scalar(

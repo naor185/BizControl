@@ -33,7 +33,8 @@ def compute_available_slots(
     """Every open slot of `slot_duration_minutes` on `target_date`, within
     the studio's local [start_hour, end_hour) window, excluding anything
     overlapping an existing non-canceled appointment (optionally scoped to
-    one artist). Returns (local "HH:MM" label, starts_at UTC, ends_at UTC)."""
+    one artist) or a time the owner is busy in their Google Calendar
+    (app/services/google_busy.py). Returns (local "HH:MM" label, starts_at UTC, ends_at UTC)."""
     try:
         tz = ZoneInfo(tz_str)
     except Exception:
@@ -61,6 +62,8 @@ def compute_available_slots(
         for a in existing
         if a.ends_at
     ]
+    from app.services.google_busy import busy_times
+    busy += busy_times(db, studio_id, day_start.astimezone(timezone.utc), day_end.astimezone(timezone.utc), artist_id)
 
     slots: list[tuple[str, datetime, datetime]] = []
     current = datetime(target_date.year, target_date.month, target_date.day,
