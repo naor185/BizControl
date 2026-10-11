@@ -15,6 +15,11 @@ interface AppointmentCardProps {
     isExternalGoogle?: boolean;
 }
 
+/** "10:00 - 14:00" → "10:00": what a narrow block shows */
+export function startOfTimeText(timeText: string): string {
+    return timeText.split(/\s+[-–]\s+/)[0];
+}
+
 export default function AppointmentCard({
     timeText, title, clientName, artistName, status,
     paidCents = 0, remainingCents = null, isWalkIn, isExternalGoogle,
@@ -27,13 +32,17 @@ export default function AppointmentCard({
     const isPartiallyPaid = paidCents > 0 && (remainingCents === null || remainingCents > 0);
     const paymentIcon = isFullyPaid ? "✅" : isPartiallyPaid ? "💰" : null;
     const meta = statusMeta(status);
-    const startText = timeText.split(/\s+[-–]\s+/)[0];
+    const startText = startOfTimeText(timeText);
 
     return (
         // On a phone the columns are narrow: the client's name and the service wrap onto lines of their own, between
         // words, instead of being cut to "ק…" (the owner, 2026-10-11); a block narrower than 6rem shows only the start
-        // time, one narrower than 3.5rem (a whole week on a phone) smaller letters. From md up — one line each, as before.
-        <div className="@container px-1 md:px-1.5 py-1 h-full w-full flex flex-col overflow-hidden text-white">
+        // time, one narrower than 3.5rem (a whole week on a phone) smaller letters, and one narrower than 1.75rem (two
+        // things at the same hours in a whole week) writes along the block, from the top (turned, as Hebrew in a vertical
+        // line otherwise starts at the bottom), instead of a letter a line.
+        // From md up — one line each, as before.
+        <div className="@container h-full w-full overflow-hidden text-white">
+        <div className="px-1 md:px-1.5 py-1 h-full w-full flex flex-col @max-[1.75rem]:[writing-mode:vertical-rl] @max-[1.75rem]:rotate-180 @max-[1.75rem]:px-0">
             <div className="flex flex-wrap md:flex-nowrap items-center gap-x-1 text-[11px] @max-[3.5rem]:text-[9px] font-bold leading-tight">
                 <span className="tabular-nums whitespace-nowrap md:shrink-0">
                     <span className="@max-[6rem]:hidden">{timeText}</span>
@@ -50,6 +59,7 @@ export default function AppointmentCard({
                 {paymentIcon}
                 {status !== "scheduled" && <span>{meta.icon}</span>}
             </span>
+        </div>
         </div>
     );
 }

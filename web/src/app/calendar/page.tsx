@@ -9,13 +9,13 @@ import { apiFetch, getCurrentUserId, getCurrentUserRole } from "@/lib/api";
 import { toLocalDateStr } from "@/lib/format";
 import PaymentModal from "@/components/PaymentModal";
 import { statusMeta } from "@/lib/appointment-status";
-import AppointmentCard from "@/components/AppointmentCard";
+import AppointmentCard, { startOfTimeText } from "@/components/AppointmentCard";
 import HealthDeclarations from "@/components/health/HealthDeclarations";
 import PickerBox from "@/components/ui/picker-box";
 import BottomSheet from "@/components/ui/bottom-sheet";
 import { HIDE_BOOKING_BANNER_KEY } from "@/lib/localPrefs";
 import StaffReminderRulesSettings from "@/components/StaffReminderRulesSettings";
-import { Users, UsersRound, CalendarPlus, Pin, X, Clock } from "lucide-react";
+import { Users, UsersRound, CalendarPlus, Pin, X, Clock, Repeat } from "lucide-react";
 import type { ClassSession, Room } from "@/lib/classes";
 import { SessionSheet } from "@/components/classes/ClassSchedule";
 import { TemplateSheet, type TemplatePreset } from "@/components/classes/ClassTemplates";
@@ -1428,6 +1428,10 @@ export default function CalendarPage() {
                         flex: 0 0 auto !important;
                         justify-content: center !important;
                     }
+                    /* ...and inside its (wider) chunk "היום" and the arrows sit at the left edge, as "יום / שבוע / חודש"
+                       sit at the right one — they used to sit at the chunk's right side, a gap at the left (the owner,
+                       2026-10-11) */
+                    .fc .fc-toolbar.fc-header-toolbar > .fc-toolbar-chunk:has(.fc-today-button) { justify-content: flex-end !important; }
                     /* The centering above balances the title against the full
                        toolbar width — but in day/week (timeGrid) views the
                        grid below has a time-axis gutter (hour labels) on one
@@ -1450,8 +1454,13 @@ export default function CalendarPage() {
                         .fc-timegrid-slot { height: 2.5rem !important; }
                         /* Readable time labels */
                         .fc-timegrid-slot-label { font-size: 0.75rem !important; color: #475569 !important; font-weight: 600 !important; }
-                        /* Wider time axis */
-                        .fc-timegrid-axis { width: 3rem !important; }
+                        /* The hours and "כל היום" on the right side of their column; "כל היום" smaller, its row thin —
+                           the room goes to the days (the owner, 2026-10-11) */
+                        .fc-timegrid-axis { width: 2.5rem !important; }
+                        .fc-direction-rtl .fc-timegrid-slot-label-frame { text-align: right !important; }
+                        .fc .fc-timegrid-axis-frame { justify-content: flex-start !important; }
+                        .fc .fc-timegrid-axis-cushion { font-size: 0.62rem !important; line-height: 1.1 !important; padding: 0 2px !important; white-space: normal !important; }
+                        .fc .fc-timegrid .fc-daygrid-body-natural .fc-daygrid-day-events { margin-bottom: 2px !important; }
                         /* Cancels the general (desktop) axis-compensation padding —
                            at mobile widths there's no spare room for it (see the
                            titleFormat note above); the view-switch buttons already
@@ -1488,7 +1497,8 @@ export default function CalendarPage() {
                         .fc-event { font-size: 0.82rem !important; border-radius: 6px !important; }
                         .fc-event-title { font-size: 0.82rem !important; font-weight: 700 !important; white-space: normal !important; word-break: break-word !important; overflow: hidden !important; text-overflow: unset !important; line-height: 1.25 !important; }
                         .fc-event-time { font-size: 0.74rem !important; opacity: 0.88; }
-                        .fc-timegrid-event .fc-event-main { padding: 2px 5px !important; }
+                        /* 1px — the block's own content has its padding; a week's columns are narrow */
+                        .fc-timegrid-event .fc-event-main { padding: 1px !important; }
                         .fc-timegrid-event .fc-event-main-frame { overflow: hidden !important; }
                         /* Day header */
                         .fc-col-header-cell { font-size: 0.88rem !important; font-weight: 700 !important; }
@@ -1602,10 +1612,32 @@ export default function CalendarPage() {
                                         </div>
                                     );
                                 }
-                                if (p.isHoliday || p.isTask) {
+                                // Holidays and tasks wrap onto more lines instead of being cut to "ראש", "פרש" or "📌 לז"; a
+                                // task with hours shows them and its name at the top of its block, not lost in the middle
+                                // (the owner, 2026-10-11).
+                                if (p.isHoliday) {
                                     return (
-                                        <div className="px-1.5 py-0.5 h-full w-full flex items-center overflow-hidden text-[11px] font-semibold truncate">
+                                        <div className="px-1 py-0.5 w-full text-[10px] font-semibold leading-tight whitespace-normal break-words">
                                             {arg.event.title}
+                                        </div>
+                                    );
+                                }
+                                if (p.isTask) {
+                                    const TaskIcon = p.is_recurring ? Repeat : Pin;
+                                    return (
+                                        <div className="@container h-full w-full overflow-hidden">
+                                        <div className="px-1 md:px-1.5 py-0.5 h-full w-full text-[11px] @max-[3.5rem]:text-[9.5px] font-semibold leading-tight whitespace-normal break-words @max-[1.75rem]:[writing-mode:vertical-rl] @max-[1.75rem]:rotate-180 @max-[1.75rem]:px-0">
+                                            {!arg.event.allDay && (
+                                                <div className="tabular-nums whitespace-nowrap @max-[1.75rem]:hidden">
+                                                    <span className="@max-[6rem]:hidden">{arg.timeText}</span>
+                                                    <span className="hidden @max-[6rem]:inline">{startOfTimeText(arg.timeText)}</span>
+                                                </div>
+                                            )}
+                                            <div className="flex items-start gap-0.5">
+                                                <TaskIcon className="w-3 h-3 shrink-0 mt-px" aria-hidden />
+                                                <span className="min-w-0">{p.title}</span>
+                                            </div>
+                                        </div>
                                         </div>
                                     );
                                 }
