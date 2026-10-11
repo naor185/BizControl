@@ -14,7 +14,7 @@ import HealthDeclarations from "@/components/health/HealthDeclarations";
 import BottomSheet from "@/components/ui/bottom-sheet";
 import { HIDE_BOOKING_BANNER_KEY } from "@/lib/localPrefs";
 import StaffReminderRulesSettings from "@/components/StaffReminderRulesSettings";
-import { Users, UsersRound, CalendarPlus, Pin, X } from "lucide-react";
+import { Users, UsersRound, CalendarPlus, Pin, X, Clock } from "lucide-react";
 import type { ClassSession, Room } from "@/lib/classes";
 import { SessionSheet } from "@/components/classes/ClassSchedule";
 import { TemplateSheet, type TemplatePreset } from "@/components/classes/ClassTemplates";
@@ -1128,24 +1128,29 @@ export default function CalendarPage() {
                 </div>
             )}
 
-            {/* Start / End hour inputs */}
-            <div className="flex gap-2 mb-2">
-                <div className="flex-1">
-                    <div className="text-xs font-bold text-slate-500 mb-1">🕐 התחלה</div>
+            {/* Start / End hour inputs — side by side with a gap; min-w-0 keeps the phone's time boxes inside the
+                screen (they ran past its left edge onto each other — the owner, 2026-10-11) */}
+            <div className="grid grid-cols-2 gap-3 mb-2">
+                <div className="min-w-0">
+                    <div className="text-xs font-bold text-slate-500 mb-1 flex items-center gap-1"><Clock className="w-3.5 h-3.5" aria-hidden /> התחלה</div>
                     <input
                         type="time"
                         value={draftStartHour}
                         onChange={e => setDraftStartHour(e.target.value)}
-                        className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm text-slate-700 focus:outline-none focus:border-blue-400 min-h-11"
+                        aria-label="שעת התחלה"
+                        className="block w-full min-w-0 border border-slate-200 rounded-lg px-2 py-1.5 text-sm font-semibold text-slate-700 text-center [&::-webkit-date-and-time-value]:text-center focus:outline-none focus:border-blue-400 min-h-11"
+                        dir="ltr"
                     />
                 </div>
-                <div className="flex-1">
-                    <div className="text-xs font-bold text-slate-500 mb-1">🕙 סיום</div>
+                <div className="min-w-0">
+                    <div className="text-xs font-bold text-slate-500 mb-1 flex items-center gap-1"><Clock className="w-3.5 h-3.5" aria-hidden /> סיום</div>
                     <input
                         type="time"
                         value={draftEndHour}
                         onChange={e => setDraftEndHour(e.target.value)}
-                        className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm text-slate-700 focus:outline-none focus:border-blue-400 min-h-11"
+                        aria-label="שעת סיום"
+                        className="block w-full min-w-0 border border-slate-200 rounded-lg px-2 py-1.5 text-sm font-semibold text-slate-700 text-center [&::-webkit-date-and-time-value]:text-center focus:outline-none focus:border-blue-400 min-h-11"
+                        dir="ltr"
                     />
                 </div>
             </div>

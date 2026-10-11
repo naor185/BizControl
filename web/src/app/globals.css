@@ -92,6 +92,13 @@ html {
   box-sizing: border-box;
 }
 
+/* A phone draws its date and time boxes at a width of its own — in a narrow column they ran past the screen's edge,
+   onto the box beside them (the owner, 2026-10-11). Never wider than their place. */
+input[type="date"], input[type="time"], input[type="datetime-local"], input[type="month"] {
+  min-width: 0;
+  max-width: 100%;
+}
+
 /* Focus ring — תכלת */
 input:focus-visible,
 textarea:focus-visible,

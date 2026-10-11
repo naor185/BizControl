@@ -1151,7 +1151,7 @@ export default function AutomationSettingsPage() {
                                         })}
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-6">
+                                <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
                                     <div className="flex items-center gap-3">
                                         <span className="text-sm font-semibold text-slate-700">שעת פתיחה:</span>
                                         <input type="time" value={settings.calendar_start_hour || "08:00"}
