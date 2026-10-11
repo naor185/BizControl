@@ -14,7 +14,7 @@ import HealthDeclarations from "@/components/health/HealthDeclarations";
 import BottomSheet from "@/components/ui/bottom-sheet";
 import { HIDE_BOOKING_BANNER_KEY } from "@/lib/localPrefs";
 import StaffReminderRulesSettings from "@/components/StaffReminderRulesSettings";
-import { Users, UsersRound, CalendarPlus, Pin } from "lucide-react";
+import { Users, UsersRound, CalendarPlus, Pin, X } from "lucide-react";
 import type { ClassSession, Room } from "@/lib/classes";
 import { SessionSheet } from "@/components/classes/ClassSchedule";
 import { TemplateSheet, type TemplatePreset } from "@/components/classes/ClassTemplates";
@@ -1757,24 +1757,24 @@ export default function CalendarPage() {
                     <div className={`fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm animate-in fade-in duration-200 ${isMobile ? "flex items-end justify-center" : "flex items-center justify-center p-3 sm:p-4"}`}>
                         <div className={`bg-white w-full shadow-2xl overflow-hidden flex flex-col ${isMobile ? "rounded-t-3xl max-h-[92dvh] animate-in slide-in-from-bottom duration-300" : "rounded-3xl max-w-lg max-h-[calc(100dvh-5rem)] animate-in zoom-in-95 duration-300"}`} dir="rtl">
                             {isMobile && <div className="flex justify-center pt-3 pb-1 flex-shrink-0"><div className="w-10 h-1 rounded-full bg-slate-300" /></div>}
-                            <div className="bg-slate-50 border-b border-slate-100 px-5 py-4 flex items-center justify-between flex-shrink-0">
-                                <h3 className="text-xl font-bold text-slate-800">{selectedEventId ? "עריכת תור" : "קביעת תור חדש"}</h3>
-                                <button type="button" onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-2 bg-white rounded-full shadow-sm hover:shadow transition-all">✕</button>
+                            {/* The close button on the right, the title in the middle (the owner, 2026-10-11) */}
+                            <div className="bg-slate-50 border-b border-slate-100 px-4 py-3 grid grid-cols-[2.75rem_1fr_2.75rem] items-center flex-shrink-0">
+                                <button type="button" onClick={() => setIsModalOpen(false)} aria-label="סגור"
+                                    className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-600 bg-white rounded-full shadow-sm hover:shadow transition-all">
+                                    <X className="w-5 h-5" aria-hidden />
+                                </button>
+                                <h3 className="text-xl font-bold text-slate-800 text-center">{selectedEventId ? "עריכת תור" : "קביעת תור חדש"}</h3>
+                                <span aria-hidden />
                             </div>
 
                             <div className="p-4 space-y-3 overflow-y-auto flex-1 min-h-0">
                                 {/* Date row */}
                                 <div>
-                                    <label className="block text-sm font-semibold text-slate-700 mb-1">
-                                        תאריך
-                                        {startAt && (() => {
-                                            const days = ["ראשון","שני","שלישי","רביעי","חמישי","שישי","שבת"];
-                                            const d = new Date(startAt);
-                                            return !isNaN(d.getTime()) ? (
-                                                <span className="mr-2 text-blue-600 font-normal">יום {days[d.getDay()]}</span>
-                                            ) : null;
-                                        })()}
-                                    </label>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-1">תאריך</label>
+                                    {/* The day and the date in words, in the middle and in Hebrew order ("יום שני, 12 באוקטובר
+                                        2026") — the phone's own date box cut the 12 off on the left (the owner, 2026-10-11).
+                                        The real date box lies on top of it, invisible, and opens the date picker. */}
+                                    <div className="relative">
                                     <input
                                         type="date"
                                         value={startAt.split("T")[0] || ""}
@@ -1785,14 +1785,24 @@ export default function CalendarPage() {
                                             setStartAt(`${newDate}T${startTime}`);
                                             setEndAt(`${newDate}T${endTime}`);
                                         }}
-                                        title="תאריך התור"
-                                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-blue-500 text-base font-medium"
-                                        dir="ltr"
+                                        onClick={e => { try { e.currentTarget.showPicker?.(); } catch { /* the tap opens it anyway */ } }}
+                                        aria-label="תאריך התור"
+                                        className="peer absolute inset-0 w-full h-full min-w-0 opacity-0 cursor-pointer"
                                     />
+                                    <div className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-base font-semibold text-slate-800 text-center pointer-events-none peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500">
+                                        {(() => {
+                                            const d = new Date(startAt);
+                                            return startAt && !isNaN(d.getTime())
+                                                ? d.toLocaleDateString("he-IL", { weekday: "long", day: "numeric", month: "long", year: "numeric" })
+                                                : "בחירת תאריך";
+                                        })()}
+                                    </div>
+                                    </div>
                                 </div>
-                                {/* Time row — start & end side by side, equal width */}
-                                <div className="flex gap-3">
-                                    <div className="flex-1">
+                                {/* Time row — start & end side by side, equal width, a gap between them; min-w-0 keeps the
+                                    phone's time boxes inside the screen (they pushed past its left edge and touched) */}
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="min-w-0">
                                         <label className="block text-sm font-semibold text-slate-700 mb-1">שעת התחלה</label>
                                         <input
                                             type="time"
@@ -1802,11 +1812,11 @@ export default function CalendarPage() {
                                                 const [d] = startAt.split("T");
                                                 setStartAt(`${d}T${e.target.value}`);
                                             }}
-                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-blue-500 text-base font-semibold text-center"
+                                            className="block w-full min-w-0 min-h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-blue-500 text-base font-semibold text-center [&::-webkit-date-and-time-value]:text-center"
                                             dir="ltr"
                                         />
                                     </div>
-                                    <div className="flex-1">
+                                    <div className="min-w-0">
                                         <label className="block text-sm font-semibold text-slate-700 mb-1">שעת סיום</label>
                                         <input
                                             type="time"
@@ -1816,7 +1826,7 @@ export default function CalendarPage() {
                                                 const [d] = startAt.split("T");
                                                 setEndAt(`${d}T${e.target.value}`);
                                             }}
-                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-blue-500 text-base font-semibold text-center"
+                                            className="block w-full min-w-0 min-h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-blue-500 text-base font-semibold text-center [&::-webkit-date-and-time-value]:text-center"
                                             dir="ltr"
                                         />
                                     </div>
@@ -2311,17 +2321,17 @@ export default function CalendarPage() {
                                     </div>
                                 )}
 
-                                {/* Time */}
-                                <div className="flex gap-3">
-                                    <div className="flex-1">
+                                {/* Time — min-w-0 keeps the phone's time boxes inside the screen */}
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="min-w-0">
                                         <label className="block text-sm font-semibold text-slate-700 mb-1">שעת התחלה</label>
                                         <input type="time" value={taskStartTime} onChange={e => setTaskStartTime(e.target.value)}
-                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-violet-400 text-sm" dir="ltr" />
+                                            className="block w-full min-w-0 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-violet-400 text-sm" dir="ltr" />
                                     </div>
-                                    <div className="flex-1">
+                                    <div className="min-w-0">
                                         <label className="block text-sm font-semibold text-slate-700 mb-1">שעת סיום</label>
                                         <input type="time" value={taskEndTime} onChange={e => setTaskEndTime(e.target.value)}
-                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-violet-400 text-sm" dir="ltr" />
+                                            className="block w-full min-w-0 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-violet-400 text-sm" dir="ltr" />
                                     </div>
                                 </div>
 
