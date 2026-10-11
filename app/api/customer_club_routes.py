@@ -304,12 +304,15 @@ def send_birthday_coupon_now(
     settings = db.get(StudioSettings, ctx.studio_id)
     if not settings:
         raise HTTPException(status_code=500, detail="הגדרות העסק לא נמצאו")
+    from app.services.service_switches import birthday_on, birthday_percent
+    if not birthday_on(db, ctx.studio_id, settings):
+        raise HTTPException(status_code=400, detail="הטבת יום ההולדת כבויה בהגדרות העסק")
 
     # the same key as the daily sweep and the message on joining — one birthday message, whoever sends it first
     if birthday_message_sent(db, client.id, target_year, target_month):
         raise HTTPException(status_code=400, detail="קופון יומולדת כבר נשלח ללקוח זה לחודש זה")
 
-    discount_percent = int(settings.birthday_benefit_percent or 10) or 10
+    discount_percent = birthday_percent(settings)
     coupon = get_or_create_birthday_coupon(
         db,
         studio_id=ctx.studio_id,

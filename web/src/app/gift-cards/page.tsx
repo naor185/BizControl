@@ -49,6 +49,7 @@ export default function GiftCardsPage() {
     const [showCreate, setShowCreate] = useState(false);
     const [filterStatus, setFilterStatus] = useState("");
     const [selected, setSelected] = useState<GiftCard | null>(null);
+    const [salesOn, setSalesOn] = useState(true);         // the owner's switch — Settings (app/services/service_switches.py)
     const [pageViews, setPageViews] = useState<{ last_7_days: number; last_30_days: number; total: number } | null>(null);
 
     const load = useCallback(async () => {
@@ -68,6 +69,8 @@ export default function GiftCardsPage() {
             .then(setPageViews)
             .catch(() => {});
         apiFetch<{ studio_id: string }>("/api/auth/me").then(me => setStudioId(me.studio_id)).catch(() => {});
+        apiFetch<{ gift_card_sales_enabled?: boolean }>("/api/studio/automation")
+            .then(s => setSalesOn(s.gift_card_sales_enabled !== false)).catch(() => {});
         if (new URLSearchParams(window.location.search).get("tab") === "coupons") setTab("coupons");
     }, []);
 
@@ -151,7 +154,11 @@ export default function GiftCardsPage() {
                             <h3 className="flex items-center gap-2 text-base font-bold text-slate-800"><Link2 className="w-4.5 h-4.5 text-violet-600" aria-hidden />הקישור שלך למכירת גיפט קארד</h3>
                             <p className="text-sm text-slate-500 mt-1">שולחים ללקוחות, שמים באינסטגרם או מדפיסים כקוד QR — הלקוח בוחר סכום וקונה. כל רכישה מופיעה כאן למטה לאישור התשלום.</p>
                         </div>
-                        {shopLink ? (
+                        {!salesOn ? (
+                            <p className="text-sm text-amber-800 bg-amber-50 rounded-xl px-3 py-2">
+                                מכירת גיפט קארד כבויה — דף הרכישה סגור. מפעילים בהגדרות, בכרטיס &quot;מכירת גיפט קארד&quot;. כרטיסים שכבר נמכרו ממשיכים לעבוד.
+                            </p>
+                        ) : shopLink ? (
                             <ShareLink url={shopLink} whatsappText="גיפט קארד — מתנה מושלמת, קונים כאן:" printTitle="גיפט קארד" printLine="סורקים וקונים מתנה" />
                         ) : <div className="h-10 rounded-xl bg-slate-100 animate-pulse" />}
                     </section>

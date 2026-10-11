@@ -27,6 +27,7 @@ type AutomationSettings = {
     paybox_link?: string | null;
     studio_address?: string | null;
     studio_name?: string | null;
+    gift_card_sales_enabled?: boolean;   // the owner sells gift cards (app/services/service_switches.py)
 };
 
 const AUDIENCE_LABELS: Record<string, string> = {
@@ -402,7 +403,7 @@ export default function BroadcastsPage() {
                                             🌟 לינק מועדון
                                         </button>
                                     )}
-                                    {giftCardShopLink && plan.has("gift_cards") && (
+                                    {giftCardShopLink && plan.has("gift_cards") && autoSettings.gift_card_sales_enabled !== false && (
                                         <button type="button"
                                             onClick={() => insertAtCursor(`🎁 גיפט קארד לך או למישהו שאתה אוהב:\n${giftCardShopLink}`)}
                                             className="text-xs px-2.5 py-1 rounded-lg bg-violet-50 text-violet-700 border border-violet-200 hover:bg-violet-100 font-medium">

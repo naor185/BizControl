@@ -176,9 +176,14 @@ def get_landing_by_slug(slug: str, db: Session = Depends(get_db)):
         landing_page_image_1=settings.landing_page_image_1,
         landing_page_image_2=settings.landing_page_image_2,
         landing_page_image_3=settings.landing_page_image_3,
-        points_on_signup=settings.points_on_signup or 0,
+        points_on_signup=_join_gift(db, studio.id, settings),
         club_open=_club_open(db, studio.id),
     )
+
+def _join_gift(db: Session, studio_id, settings) -> int:
+    from app.services.service_switches import join_gift_points
+    return join_gift_points(db, studio_id, settings)
+
 
 def _club_open(db: Session, studio_id) -> bool:
     from app.services.club import club_on

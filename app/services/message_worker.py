@@ -931,7 +931,8 @@ def sweep_birthday_messages(db: Session, studio_id=None, today=None) -> int:
         else:
             when = "חודש יום ההולדת שלך הגיע!"
 
-        discount_percent = int(settings.birthday_benefit_percent or 10) or 10
+        from app.services.service_switches import birthday_percent
+        discount_percent = birthday_percent(settings)
         coupon = get_or_create_birthday_coupon(
             db,
             studio_id=client.studio_id,

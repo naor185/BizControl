@@ -39,10 +39,17 @@ class AutomationSettingsOut(BaseModel):
     # Birthday Templates
     birthday_wa_template: str | None = None
     birthday_email_template: str | None = None
-    birthday_benefit_percent: int = 0
+    birthday_benefit_percent: int = 10
     birthday_automation_enabled: bool = True
     birthday_send_timing: str = "month_start"
     block_shabbat_messages: bool = False
+
+    # The owner's on/off for each service (app/services/service_switches.py)
+    aftercare_enabled: bool = True
+    club_join_gift_enabled: bool = True
+    cashback_enabled: bool = True
+    gift_card_sales_enabled: bool = True
+    gift_voucher_design_enabled: bool = True
 
     # Gift card purchase bonus
     gift_card_bonus_enabled: bool = False
@@ -215,6 +222,12 @@ class AutomationSettingsUpdate(BaseModel):
         return v
 
     block_shabbat_messages: bool | None = None
+
+    aftercare_enabled: bool | None = None
+    club_join_gift_enabled: bool | None = None
+    cashback_enabled: bool | None = None
+    gift_card_sales_enabled: bool | None = None
+    gift_voucher_design_enabled: bool | None = None
 
     # Gift card purchase bonus
     gift_card_bonus_enabled: bool | None = None

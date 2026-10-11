@@ -68,6 +68,9 @@ def patch_settings(payload: AutomationSettingsUpdate, ctx: AuthContext = Depends
         submitted = (data[field] or "").strip()
         if not submitted or submitted in not_owners:
             data[field] = None
+    # a birthday discount is at least 1% — turning the benefit off is its own switch (a cleared field isn't saved)
+    if data.get("birthday_benefit_percent") == 0:
+        data.pop("birthday_benefit_percent")
     for k, v in data.items():
         setattr(settings, k, v)
 

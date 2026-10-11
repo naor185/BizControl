@@ -116,7 +116,10 @@ def club_points(db: Session, studio_id, client, p: Payment, *, kind: str) -> int
     from app.crud.payment import award_points
     from app.services import policies
     from app.services.memberships import _module
-    if not client.is_club_member or not _module(db, studio_id, "customer_club"):
+    from app.models.studio_settings import StudioSettings
+    from app.services.service_switches import cashback_on
+    if not client.is_club_member or not _module(db, studio_id, "customer_club") \
+            or not cashback_on(db.get(StudioSettings, studio_id)):           # the owner turned cashback off
         return 0
     percent = policies.get_policy(db, studio_id, f"club_points_{kind}_percent")
     return award_points(db, studio_id, client, p, percent)

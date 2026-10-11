@@ -529,11 +529,9 @@ IN_PLAN = Depends(require_module("gift_cards"))
 
 
 def _shop_open(db: Session, studio_id: str) -> bool:
-    from app.core.features import has_module
-    try:
-        return has_module(db, uuid.UUID(str(studio_id)), "gift_cards")
-    except ValueError:
-        return False
+    """Selling new cards — in the plan and switched on by the owner (app/services/service_switches.py)."""
+    from app.services.service_switches import gift_card_sales_on
+    return gift_card_sales_on(db, studio_id)
 
 
 @router.post("", status_code=201)
@@ -543,6 +541,8 @@ def create_gift_card(
     db: Session = Depends(get_db),
     _plan: None = IN_PLAN,
 ):
+    if not _shop_open(db, str(ctx.studio_id)):
+        raise HTTPException(400, "מכירת גיפט קארד כבויה בהגדרות העסק")
     settings_row = db.execute(
         text("""
             SELECT gift_card_min_amount_cents, gift_card_max_amount_cents
@@ -927,7 +927,8 @@ def approve_gift_card_payment(
 
     studio_row = db.execute(
         text("""
-            SELECT s.name, s.logo_url, ss.logo_filename, ss.gift_voucher_theme
+            SELECT s.name, s.logo_url, ss.logo_filename, ss.gift_voucher_theme,
+                   COALESCE(ss.gift_voucher_design_enabled, TRUE)
             FROM studios s
             LEFT JOIN studio_settings ss ON ss.studio_id = s.id
             WHERE s.id = :sid
@@ -937,23 +938,25 @@ def approve_gift_card_payment(
     studio_name = studio_row[0] if studio_row else "העסק"
     logo_image = _fetch_studio_logo(studio_row[1] if studio_row else None, studio_row[2] if studio_row else None)
     voucher_theme = (studio_row[3] if studio_row else None) or "black_gold"
+    design_on = bool(studio_row[4]) if studio_row else True     # off: the card goes as a message with its link
 
     voucher_url = None
-    try:
-        png_bytes = _build_gift_card_voucher_png(
-            studio_name=studio_name,
-            recipient_name=card.get("recipient_name") or "",
-            amount_ils=card["amount_cents"] / 100,
-            code=card["code"],
-            personal_message=card.get("personal_message"),
-            expires_at=card.get("expires_at"),
-            bonus_ils=(card.get("bonus_cents") or 0) / 100,
-            logo_image=logo_image,
-            theme=voucher_theme,
-        )
-        voucher_url = _save_voucher_image(png_bytes, str(ctx.studio_id), db=db)
-    except Exception:
-        log.exception("[GiftCard] voucher image build/save failed for %s", card_id)
+    if design_on:
+        try:
+            png_bytes = _build_gift_card_voucher_png(
+                studio_name=studio_name,
+                recipient_name=card.get("recipient_name") or "",
+                amount_ils=card["amount_cents"] / 100,
+                code=card["code"],
+                personal_message=card.get("personal_message"),
+                expires_at=card.get("expires_at"),
+                bonus_ils=(card.get("bonus_cents") or 0) / 100,
+                logo_image=logo_image,
+                theme=voucher_theme,
+            )
+            voucher_url = _save_voucher_image(png_bytes, str(ctx.studio_id), db=db)
+        except Exception:
+            log.exception("[GiftCard] voucher image build/save failed for %s", card_id)
 
     if target_email:
         try:

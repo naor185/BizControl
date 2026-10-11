@@ -613,8 +613,9 @@ def mark_appointment_done(
     # changed whether aftercare respected the service's own setting.
     try:
         settings = db.get(StudioSettings, ctx.studio_id)
+        from app.services.service_switches import aftercare_on
         aftercare_allowed = appt.service.send_aftercare if (appt.service_id and appt.service) else True
-        if settings and appt.client_id and aftercare_allowed:
+        if settings and appt.client_id and aftercare_allowed and aftercare_on(settings):
             _has_content = bool(
                 getattr(settings, "aftercare_message", None) or
                 getattr(settings, "review_link_google", None) or

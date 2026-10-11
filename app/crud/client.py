@@ -62,7 +62,8 @@ def _handle_new_club_member(db: Session, studio_id: UUID, client: Client):
 
     points = 0
     if not already_bonus:
-        points = settings.points_on_signup or 0
+        from app.services.service_switches import join_gift_points
+        points = join_gift_points(db, studio_id, settings)
         if points > 0:
             client.loyalty_points = int(client.loyalty_points or 0) + points
             db.add(ClientPointsLedger(
@@ -179,14 +180,16 @@ def _handle_new_club_member(db: Session, studio_id: UUID, client: Client):
     # birthday_wa_template — every default-template birthday message opened
     # with a literal "[birthday-2026-09]" line.
     from app.services.marketing import may_receive_marketing
-    if client.birth_date and client.phone and may_receive_marketing(client):   # a birthday benefit is marketing
+    from app.services.service_switches import birthday_on, birthday_percent
+    if client.birth_date and client.phone and may_receive_marketing(client) \
+            and birthday_on(db, studio_id, settings):                          # a birthday benefit is marketing
         now = datetime.now(timezone.utc)
         if client.birth_date.month == now.month:
             try:
                 from app.crud.birthday_coupon import birthday_message_key, birthday_message_sent, get_or_create_birthday_coupon
                 reminder_type = birthday_message_key(now.year, now.month)
                 if not birthday_message_sent(db, client.id, now.year, now.month):
-                    discount_percent = int(settings.birthday_benefit_percent or 10) or 10
+                    discount_percent = birthday_percent(settings)
                     coupon = get_or_create_birthday_coupon(
                         db,
                         studio_id=studio_id,

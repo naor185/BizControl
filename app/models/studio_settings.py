@@ -55,7 +55,7 @@ class StudioSettings(Base):
 
     birthday_wa_template: Mapped[str | None] = mapped_column(Text, nullable=True)
     birthday_email_template: Mapped[str | None] = mapped_column(Text, nullable=True)
-    birthday_benefit_percent: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    birthday_benefit_percent: Mapped[int] = mapped_column(Integer, nullable=False, default=10, server_default="10")
     birthday_automation_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
     # 'month_start' — on the 1st of the birthday month; 'two_days' — 2 days before (crud/birthday_coupon.birthday_send_window)
     birthday_send_timing: Mapped[str] = mapped_column(String(16), nullable=False, default="month_start", server_default="month_start")
@@ -170,6 +170,12 @@ class StudioSettings(Base):
     points_redeem_wa_template: Mapped[str | None] = mapped_column(Text, nullable=True)
     non_member_wa_template: Mapped[str | None] = mapped_column(Text, nullable=True)
     club_invite_enabled: Mapped[bool] = mapped_column(default=True)
+    # the owner's on/off for each service (app/services/service_switches.py) — all start on
+    aftercare_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+    club_join_gift_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+    cashback_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+    gift_card_sales_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+    gift_voucher_design_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
     club_invite_delay_minutes: Mapped[int] = mapped_column(default=30)
     points_balance_wa_template: Mapped[str | None] = mapped_column(Text, nullable=True)
 

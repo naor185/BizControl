@@ -25,5 +25,6 @@ def cashback_percent(db: Session, studio_id, client) -> int:
     if not client or not client.is_club_member or not club_on(db, studio_id):
         return 0
     from app.models.studio_settings import StudioSettings
+    from app.services.service_switches import cashback_on
     settings = db.get(StudioSettings, studio_id)
-    return max(0, int(settings.points_percent_per_payment or 0)) if settings else 0
+    return max(0, int(settings.points_percent_per_payment or 0)) if cashback_on(settings) else 0

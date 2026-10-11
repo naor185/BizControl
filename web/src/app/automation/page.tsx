@@ -75,8 +75,15 @@ type Settings = {
     birthday_wa_template?: string | null;
     birthday_email_template?: string | null;
     birthday_benefit_percent: number;
-    birthday_automation_enabled: boolean;
+    birthday_automation_enabled: boolean;      // on/off of the whole birthday benefit (app/services/service_switches.py)
     block_shabbat_messages: boolean;
+
+    // the owner's on/off for each service — all start on (app/services/service_switches.py)
+    aftercare_enabled?: boolean;
+    club_join_gift_enabled?: boolean;
+    cashback_enabled?: boolean;
+    gift_card_sales_enabled?: boolean;
+    gift_voucher_design_enabled?: boolean;
 
     gift_card_bonus_enabled: boolean;
     gift_card_bonus_threshold_cents: number;
@@ -689,7 +696,7 @@ export default function AutomationSettingsPage() {
                     vat_percent: data.vat_percent ?? 17,
                     income_tax_percent: data.income_tax_percent ?? 10,
                     social_security_percent: data.social_security_percent ?? 5,
-                    birthday_benefit_percent: data.birthday_benefit_percent ?? 0,
+                    birthday_benefit_percent: data.birthday_benefit_percent ?? 10,
                     birthday_automation_enabled: data.birthday_automation_enabled ?? true,
                     block_shabbat_messages: data.block_shabbat_messages ?? false,
                     gift_card_bonus_enabled: data.gift_card_bonus_enabled ?? false,
@@ -1630,7 +1637,13 @@ export default function AutomationSettingsPage() {
 
                                     <div className="grid md:grid-cols-2 gap-8">
                                         <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
-                                            <label className="block text-base font-bold text-slate-800 mb-2">תזמון הודעת Aftercare</label>
+<div className="flex items-center justify-between gap-3 mb-2">
+                                                <label className="block text-base font-bold text-slate-800">הודעת Aftercare וביקורת</label>
+                                                <Switch checked={settings.aftercare_enabled !== false} onChange={v => handleChange("aftercare_enabled", v)} onColor="bg-blue-600" label="הודעת Aftercare וביקורת" />
+                                            </div>
+                                            {settings.aftercare_enabled === false ? (
+                                                <p className="text-sm text-slate-500">כבויה — לא נשלחת ללקוח הודעה עם הוראות טיפול ובקשת ביקורת אחרי התור.</p>
+                                            ) : (<>
                                             <p className="text-sm text-slate-500 mb-4">כמה דקות לאחר סיום התור תישלח ללקוח ההודעה והבקשה לביקורת?</p>
                                             <div className="flex items-center gap-3">
                                                 <input
@@ -1642,11 +1655,18 @@ export default function AutomationSettingsPage() {
                                                 />
                                                 <span className="text-slate-600 font-medium">דקות</span>
                                             </div>
+                                            </>)}
                                         </div>
 
                                         <PlanLock module="customer_club" feature="מועדון לקוחות: מתנת הצטרפות, קאשבק ויום הולדת" compact><>
                                         <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
-                                            <label className="block text-base font-bold text-slate-800 mb-2">מתנת הצטרפות למועדון</label>
+<div className="flex items-center justify-between gap-3 mb-2">
+                                                <label className="block text-base font-bold text-slate-800">מתנת הצטרפות למועדון</label>
+                                                <Switch checked={settings.club_join_gift_enabled !== false} onChange={v => handleChange("club_join_gift_enabled", v)} onColor="bg-pink-500" label="מתנת הצטרפות למועדון" />
+                                            </div>
+                                            {settings.club_join_gift_enabled === false ? (
+                                                <p className="text-sm text-slate-500">כבויה — מצטרפים חדשים לא מקבלים נקודות, וההזמנה למועדון לא מבטיחה נקודות.</p>
+                                            ) : (<>
                                             <p className="text-sm text-slate-500 mb-4">כמה נקודות יקבל לקוח חדש ברגע שיירשם דרך דף הנחיתה?</p>
                                             <div className="flex items-center gap-3">
                                                 <input
@@ -1658,11 +1678,18 @@ export default function AutomationSettingsPage() {
                                                 />
                                                 <span className="text-slate-600 font-medium">נקודות</span>
                                             </div>
+                                            </>)}
                                         </div>
 
                                         <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
-                                            <label className="block text-base font-bold text-slate-800 mb-2">אחוז צבירה מקסימלי (% קאשבק מתשלום)</label>
-                                            <p className="text-sm text-slate-500 mb-4">כמה נקודות זוכה הלקוח אוטומטית כ-Cashback לאחר תשלום?</p>
+<div className="flex items-center justify-between gap-3 mb-2">
+                                                <label className="block text-base font-bold text-slate-800">קאשבק מתשלום</label>
+                                                <Switch checked={settings.cashback_enabled !== false} onChange={v => handleChange("cashback_enabled", v)} onColor="bg-pink-500" label="קאשבק מתשלום" />
+                                            </div>
+                                            {settings.cashback_enabled === false ? (
+                                                <p className="text-sm text-slate-500">כבוי — לא נצברות נקודות על תשלום: תור, קופה, מנוי או שיעור.</p>
+                                            ) : (<>
+                                            <p className="text-sm text-slate-500 mb-4">כמה אחוזים מהתשלום חוזרים ללקוח כנקודות (Cashback)?</p>
                                             <div className="flex items-center gap-3">
                                                 <input
                                                     type="number"
@@ -1674,28 +1701,42 @@ export default function AutomationSettingsPage() {
                                                 />
                                                 <span className="text-slate-600 font-medium">אחוזים (%)</span>
                                             </div>
+                                            </>)}
                                         </div>
 
                                         <div className="bg-pink-50 p-6 rounded-2xl border border-pink-100">
-                                            <label className="block text-base font-bold text-slate-800 mb-2">אחוז הנחת יום הולדת 🎉</label>
+<div className="flex items-center justify-between gap-3 mb-2">
+                                                <label className="block text-base font-bold text-slate-800">הטבת יום הולדת 🎉</label>
+                                                <Switch checked={settings.birthday_automation_enabled !== false} onChange={v => handleChange("birthday_automation_enabled", v)} onColor="bg-pink-500" label="הטבת יום הולדת 🎉" />
+                                            </div>
+                                            {settings.birthday_automation_enabled === false ? (
+                                                <p className="text-sm text-slate-500">כבויה — לא נשלחת הודעת יום הולדת ולא קופון, גם לא בשליחה ידנית.</p>
+                                            ) : (<>
                                             <p className="text-sm text-slate-500 mb-4">איזו הנחה יקבל לקוח בחודש של יום ההולדת שלו?</p>
                                             <div className="flex items-center gap-3">
                                                 <input
                                                     type="number"
                                                     value={settings.birthday_benefit_percent || ""}
-                                                    placeholder="0"
+                                                    placeholder="10"
                                                     onChange={e => handleChange("birthday_benefit_percent", e.target.value === "" ? 0 : parseInt(e.target.value) || 0)}
                                                     className="w-24 text-center bg-white border border-pink-200 rounded-xl px-4 py-3 font-semibold text-lg outline-none focus:ring-2 focus:ring-pink-500"
-                                                    min="0" max="100"
+                                                    min="1" max="100"
                                                 />
                                                 <span className="text-pink-600 font-medium font-bold">אחוז הנחה (%)</span>
                                             </div>
+                                            </>)}
                                         </div>
                                         </></PlanLock>
 
                                         <PlanLock module="gift_cards" feature="גיפט קארד: סכומים, בונוס ועיצוב השובר" compact><>
                                         <div className="bg-violet-50 p-6 rounded-2xl border border-violet-200 md:col-span-2">
-                                            <label className="block text-base font-bold text-slate-800 mb-2">💳 טווח סכומים לרכישת גיפט קארד</label>
+<div className="flex items-center justify-between gap-3 mb-2">
+                                                <label className="block text-base font-bold text-slate-800">💳 מכירת גיפט קארד</label>
+                                                <Switch checked={settings.gift_card_sales_enabled !== false} onChange={v => handleChange("gift_card_sales_enabled", v)} onColor="bg-violet-600" label="💳 מכירת גיפט קארד" />
+                                            </div>
+                                            {settings.gift_card_sales_enabled === false ? (
+                                                <p className="text-sm text-slate-500">כבויה — דף הרכישה סגור ואי אפשר למכור כרטיס חדש, גם לא מהמערכת. כרטיסים שכבר נמכרו ממשיכים לעבוד.</p>
+                                            ) : (<>
                                             <p className="text-sm text-slate-500 mb-4">
                                                 הסכום המינימלי והמקסימלי שלקוח יכול לבחור בדף הרכישה הציבורי. השאר את המקסימום ריק לאין הגבלה.
                                             </p>
@@ -1743,7 +1784,10 @@ export default function AutomationSettingsPage() {
                                                     </div>
                                                 </div>
                                             </div>
+                                            </>)}
                                         </div>
+
+                                        {settings.gift_card_sales_enabled !== false && (<>
 
                                         <div className="bg-violet-50 p-6 rounded-2xl border border-violet-200 md:col-span-2">
                                             <div className="flex items-center justify-between gap-4 mb-3">
@@ -1788,7 +1832,13 @@ export default function AutomationSettingsPage() {
                                         </div>
 
                                         <div className="bg-violet-50 p-6 rounded-2xl border border-violet-200 md:col-span-2">
-                                            <label className="block text-base font-bold text-slate-800 mb-2">🎨 עיצוב שובר כרטיס המתנה</label>
+<div className="flex items-center justify-between gap-3 mb-2">
+                                                <label className="block text-base font-bold text-slate-800">🎨 שובר מעוצב לכרטיס המתנה</label>
+                                                <Switch checked={settings.gift_voucher_design_enabled !== false} onChange={v => handleChange("gift_voucher_design_enabled", v)} onColor="bg-violet-600" label="🎨 שובר מעוצב לכרטיס המתנה" />
+                                            </div>
+                                            {settings.gift_voucher_design_enabled === false ? (
+                                                <p className="text-sm text-slate-500">כבוי — הלקוח מקבל את הגיפט קארד כהודעה עם הקוד והקישור, בלי תמונת שובר.</p>
+                                            ) : (<>
                                             <p className="text-sm text-slate-500 mb-4">
                                                 העיצוב שהלקוח יקבל בוואטסאפ ובמייל אחרי שהתשלום אושר — כולל הלוגו שלך.
                                             </p>
@@ -1824,7 +1874,9 @@ export default function AutomationSettingsPage() {
                                                     <img src={voucherPreviewImage} alt="תצוגה מקדימה של שובר גיפט קארד" className="w-full max-w-md rounded-2xl border border-violet-200 shadow-sm" />
                                                 </div>
                                             )}
+                                            </>)}
                                         </div>
+                                        </>)}
                                         </></PlanLock>
 
                                         {plan.has("customer_club") && (<>

@@ -2902,6 +2902,17 @@ def ensure_schema():
         cur.execute("ALTER TABLE health_forms ADD COLUMN IF NOT EXISTS auto_send VARCHAR(12) NOT NULL DEFAULT 'off'")
         cur.execute("ALTER TABLE health_forms ADD COLUMN IF NOT EXISTS validity VARCHAR(12) NOT NULL DEFAULT 'forever'")
         cur.execute("ALTER TABLE health_forms ADD COLUMN IF NOT EXISTS auto_since TIMESTAMPTZ")
+
+        # The owner's on/off for each service (app/services/service_switches.py) — all on: nothing changes until
+        # an owner turns something off.
+        for _col in ("aftercare_enabled", "club_join_gift_enabled", "cashback_enabled", "gift_card_sales_enabled",
+                     "gift_voucher_design_enabled"):
+            cur.execute(f"ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS {_col} BOOLEAN NOT NULL DEFAULT TRUE")
+        if _once("birthday_percent_0_is_10"):
+            # A birthday percent left at 0 always gave 10% (the code turned 0 into 10) — now 0 isn't turned into
+            # anything, so those businesses get the 10% they have been giving, written down.
+            cur.execute("UPDATE studio_settings SET birthday_benefit_percent = 10 WHERE COALESCE(birthday_benefit_percent, 0) <= 0")
+        cur.execute("ALTER TABLE studio_settings ALTER COLUMN birthday_benefit_percent SET DEFAULT 10")   # a new business: 10%
         # the client's age instead of an ID number (owner, 2026-10-10 — production had no declaration yet)
         cur.execute("ALTER TABLE health_forms ADD COLUMN IF NOT EXISTS ask_age BOOLEAN NOT NULL DEFAULT TRUE")
         cur.execute("ALTER TABLE health_forms DROP COLUMN IF EXISTS ask_id_number")

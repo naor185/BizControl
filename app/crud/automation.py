@@ -469,8 +469,10 @@ def enqueue_post_payment_message(db: Session, appt: Appointment, amount_cents: i
         return
 
     # ── Build review block — Google only ────────────────────
+    from app.services.service_switches import aftercare_on
+    aftercare_wanted = aftercare_on(settings)          # off: the thank-you goes without care instructions or review
     review_block = ""
-    if settings.review_link_google:
+    if settings.review_link_google and aftercare_wanted:
         review_block = (
             "\n\n⭐ נשמח לביקורת שלך בגוגל!\n"
             f"{settings.review_link_google.strip()}"
@@ -480,7 +482,7 @@ def enqueue_post_payment_message(db: Session, appt: Appointment, amount_cents: i
     aftercare_block = ""
     from app.services.business_types import message_default
     _aftercare = (settings.aftercare_message or "").strip() or message_default(db, appt.studio_id, "aftercare").strip()
-    if _aftercare:
+    if _aftercare and aftercare_wanted:
         aftercare_text = format_template(_aftercare, {"client_name": client.full_name or ""})
         aftercare_block = f"\n\n{aftercare_text}"
 
@@ -539,14 +541,14 @@ def enqueue_post_payment_message(db: Session, appt: Appointment, amount_cents: i
     email_template = settings.post_payment_email_template
     if not email_template:
         review_html = ""
-        if settings.review_link_google:
+        if settings.review_link_google and aftercare_wanted:
             review_html = (
                 f'<h3 style="color:#333;">⭐ נשמח לביקורת שלך בגוגל!</h3>'
                 f'<p><a href="{settings.review_link_google.strip()}" style="color:#111;">'
                 f'{settings.review_link_google.strip()}</a></p>'
             )
         from html import escape as _esc_ac
-        aftercare_html = f'<h3 style="color:#333;">💊 הוראות טיפול</h3><p style="color:#555;">{_esc_ac(settings.aftercare_message)}</p>' if settings.aftercare_message else ""
+        aftercare_html = f'<h3 style="color:#333;">💊 הוראות טיפול</h3><p style="color:#555;">{_esc_ac(settings.aftercare_message)}</p>' if settings.aftercare_message and aftercare_wanted else ""
         points_html = f'<div style="background:#f0fdf4;border-radius:8px;padding:12px 16px;margin:16px 0;"><strong style="color:#166534;">🎁 צברת {points_earned} נקודות!</strong><br><span style="color:#555;">סה"כ: {points_total} נקודות.</span></div>' if points_earned > 0 else ""
         email_template = f"""<div dir="rtl" style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#111;">
   <div style="background:#111;padding:24px 30px;border-radius:12px 12px 0 0;">
@@ -632,12 +634,16 @@ def maybe_enqueue_club_invite(db: Session, studio_id, client, appointment_id=Non
     slug = studio.slug if studio else None
     join_link = f"{frontend_url}/s/{slug}" if slug else ""
     optout_link = unsubscribe_link(db, studio_id, client.id)
-    points_on_signup = int(getattr(settings, "points_on_signup", 50) or 50)
+    # what joining really gives — it used to promise 50 points when the owner set 0 (app/services/service_switches.py)
+    from app.services.service_switches import join_gift_points
+    points_on_signup = join_gift_points(db, studio_id, settings)
+    gift_line = (f"הצטרף/י למועדון הלקוחות שלנו וקבל/י {{points_on_signup}} נקודות מתנה לביקור הבא 🎉\n\n"
+                 if points_on_signup else "הצטרף/י למועדון הלקוחות שלנו 🎉\n\n")
 
     template = getattr(settings, "non_member_wa_template", None) or (
         "היי {client_name}! 👋\n\n"
         "שמחים שביקרת אצלנו!\n"
-        "הצטרף/י למועדון הלקוחות שלנו וקבל/י {points_on_signup} נקודות מתנה לביקור הבא 🎉\n\n"
+        + gift_line +
         "הרשמה: {join_link}\n\n"
         "להסרה מרשימת ההודעות: {optout_link}"
     )
@@ -673,7 +679,8 @@ def maybe_enqueue_club_invite(db: Session, studio_id, client, appointment_id=Non
         email_html = (
             f"<p>היי <strong>{_esc(client.full_name or '')}</strong>! 👋</p>"
             f"<p>שמחים שביקרת אצלנו!</p>"
-            f"<p>הצטרף/י למועדון הלקוחות שלנו וקבל/י <strong>{points_on_signup} נקודות מתנה</strong> לביקור הבא 🎉</p>"
+            + (f"<p>הצטרף/י למועדון הלקוחות שלנו וקבל/י <strong>{points_on_signup} נקודות מתנה</strong> לביקור הבא 🎉</p>"
+               if points_on_signup else "<p>הצטרף/י למועדון הלקוחות שלנו 🎉</p>") +
             f"{_join_btn}"
             f"<p style='color:#94a3b8;font-size:12px;margin-top:24px;'>להסרה מרשימת הדיוור: <a href='{optout_link}' style='color:#94a3b8;'>לחץ כאן</a></p>"
         )
@@ -683,7 +690,8 @@ def maybe_enqueue_club_invite(db: Session, studio_id, client, appointment_id=Non
             appointment_id=appointment_id,
             channel="email",
             to_phone=client.email,
-            subject=f"🎁 {points_on_signup} נקודות מתנה מחכות לך — הצטרף/י למועדון",
+            subject=(f"🎁 {points_on_signup} נקודות מתנה מחכות לך — הצטרף/י למועדון" if points_on_signup
+                     else "🎁 הצטרף/י למועדון הלקוחות שלנו"),
             body=_email_base("הצטרף/י למועדון הלקוחות שלנו 🎁", email_html),
             scheduled_at=scheduled_at,
             status="pending",
