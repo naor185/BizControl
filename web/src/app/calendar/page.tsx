@@ -11,6 +11,7 @@ import PaymentModal from "@/components/PaymentModal";
 import { statusMeta } from "@/lib/appointment-status";
 import AppointmentCard from "@/components/AppointmentCard";
 import HealthDeclarations from "@/components/health/HealthDeclarations";
+import PickerBox from "@/components/ui/picker-box";
 import BottomSheet from "@/components/ui/bottom-sheet";
 import { HIDE_BOOKING_BANNER_KEY } from "@/lib/localPrefs";
 import StaffReminderRulesSettings from "@/components/StaffReminderRulesSettings";
@@ -1128,30 +1129,17 @@ export default function CalendarPage() {
                 </div>
             )}
 
-            {/* Start / End hour inputs — side by side with a gap; min-w-0 keeps the phone's time boxes inside the
-                screen (they ran past its left edge onto each other — the owner, 2026-10-11) */}
+            {/* Start / End hour inputs — side by side, a gap between them */}
             <div className="grid grid-cols-2 gap-3 mb-2">
                 <div className="min-w-0">
                     <div className="text-xs font-bold text-slate-500 mb-1 flex items-center gap-1"><Clock className="w-3.5 h-3.5" aria-hidden /> התחלה</div>
-                    <input
-                        type="time"
-                        value={draftStartHour}
-                        onChange={e => setDraftStartHour(e.target.value)}
-                        aria-label="שעת התחלה"
-                        className="block w-full min-w-0 border border-slate-200 rounded-lg px-2 py-1.5 text-sm font-semibold text-slate-700 text-center [&::-webkit-date-and-time-value]:text-center focus:outline-none focus:border-blue-400 min-h-11"
-                        dir="ltr"
-                    />
+                    <PickerBox type="time" label="שעת התחלה" value={draftStartHour} onChange={setDraftStartHour}
+                        className="border border-slate-200 rounded-lg px-2 py-2.5 text-sm font-semibold text-slate-700" />
                 </div>
                 <div className="min-w-0">
                     <div className="text-xs font-bold text-slate-500 mb-1 flex items-center gap-1"><Clock className="w-3.5 h-3.5" aria-hidden /> סיום</div>
-                    <input
-                        type="time"
-                        value={draftEndHour}
-                        onChange={e => setDraftEndHour(e.target.value)}
-                        aria-label="שעת סיום"
-                        className="block w-full min-w-0 border border-slate-200 rounded-lg px-2 py-1.5 text-sm font-semibold text-slate-700 text-center [&::-webkit-date-and-time-value]:text-center focus:outline-none focus:border-blue-400 min-h-11"
-                        dir="ltr"
-                    />
+                    <PickerBox type="time" label="שעת סיום" value={draftEndHour} onChange={setDraftEndHour}
+                        className="border border-slate-200 rounded-lg px-2 py-2.5 text-sm font-semibold text-slate-700" />
                 </div>
             </div>
             <button
@@ -1776,63 +1764,47 @@ export default function CalendarPage() {
                                 {/* Date row */}
                                 <div>
                                     <label className="block text-sm font-semibold text-slate-700 mb-1">תאריך</label>
-                                    {/* The day and the date in words, in the middle and in Hebrew order ("יום שני, 12 באוקטובר
-                                        2026") — the phone's own date box cut the 12 off on the left (the owner, 2026-10-11).
-                                        The real date box lies on top of it, invisible, and opens the date picker. */}
-                                    <div className="relative">
-                                    <input
+                                    {/* The day and the date in words, in Hebrew order ("יום שני, 12 באוקטובר 2026") — the
+                                        phone's own date box cut the 12 off on the left (the owner, 2026-10-11) */}
+                                    <PickerBox
                                         type="date"
+                                        label="תאריך התור"
                                         value={startAt.split("T")[0] || ""}
-                                        onChange={e => {
-                                            const newDate = e.target.value;
+                                        onChange={newDate => {
                                             const startTime = startAt.split("T")[1] || "10:00";
                                             const endTime = endAt.split("T")[1] || "11:00";
                                             setStartAt(`${newDate}T${startTime}`);
                                             setEndAt(`${newDate}T${endTime}`);
                                         }}
-                                        onClick={e => { try { e.currentTarget.showPicker?.(); } catch { /* the tap opens it anyway */ } }}
-                                        aria-label="תאריך התור"
-                                        className="peer absolute inset-0 w-full h-full min-w-0 opacity-0 cursor-pointer"
-                                    />
-                                    <div className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-base font-semibold text-slate-800 text-center pointer-events-none peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500">
-                                        {(() => {
+                                        display={(() => {
                                             const d = new Date(startAt);
                                             return startAt && !isNaN(d.getTime())
                                                 ? d.toLocaleDateString("he-IL", { weekday: "long", day: "numeric", month: "long", year: "numeric" })
                                                 : "בחירת תאריך";
                                         })()}
-                                    </div>
-                                    </div>
+                                        className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-base font-semibold text-slate-800"
+                                    />
                                 </div>
-                                {/* Time row — start & end side by side, equal width, a gap between them; min-w-0 keeps the
-                                    phone's time boxes inside the screen (they pushed past its left edge and touched) */}
+                                {/* Time row — start & end side by side, equal width, a gap between them */}
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="min-w-0">
                                         <label className="block text-sm font-semibold text-slate-700 mb-1">שעת התחלה</label>
-                                        <input
+                                        <PickerBox
                                             type="time"
-                                            title="שעת התחלה"
+                                            label="שעת התחלה"
                                             value={startAt.split("T")[1] || ""}
-                                            onChange={e => {
-                                                const [d] = startAt.split("T");
-                                                setStartAt(`${d}T${e.target.value}`);
-                                            }}
-                                            className="block w-full min-w-0 min-h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-blue-500 text-base font-semibold text-center [&::-webkit-date-and-time-value]:text-center"
-                                            dir="ltr"
+                                            onChange={t => setStartAt(`${startAt.split("T")[0]}T${t}`)}
+                                            className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-base font-semibold text-slate-800"
                                         />
                                     </div>
                                     <div className="min-w-0">
                                         <label className="block text-sm font-semibold text-slate-700 mb-1">שעת סיום</label>
-                                        <input
+                                        <PickerBox
                                             type="time"
-                                            title="שעת סיום"
+                                            label="שעת סיום"
                                             value={endAt.split("T")[1] || ""}
-                                            onChange={e => {
-                                                const [d] = startAt.split("T");
-                                                setEndAt(`${d}T${e.target.value}`);
-                                            }}
-                                            className="block w-full min-w-0 min-h-11 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-blue-500 text-base font-semibold text-center [&::-webkit-date-and-time-value]:text-center"
-                                            dir="ltr"
+                                            onChange={t => setEndAt(`${startAt.split("T")[0]}T${t}`)}
+                                            className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-base font-semibold text-slate-800"
                                         />
                                     </div>
                                 </div>
@@ -2326,17 +2298,17 @@ export default function CalendarPage() {
                                     </div>
                                 )}
 
-                                {/* Time — min-w-0 keeps the phone's time boxes inside the screen */}
+                                {/* Time — side by side, a gap between them */}
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="min-w-0">
                                         <label className="block text-sm font-semibold text-slate-700 mb-1">שעת התחלה</label>
-                                        <input type="time" value={taskStartTime} onChange={e => setTaskStartTime(e.target.value)}
-                                            className="block w-full min-w-0 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-violet-400 text-sm" dir="ltr" />
+                                        <PickerBox type="time" label="שעת התחלה" value={taskStartTime} onChange={setTaskStartTime}
+                                            className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm" />
                                     </div>
                                     <div className="min-w-0">
                                         <label className="block text-sm font-semibold text-slate-700 mb-1">שעת סיום</label>
-                                        <input type="time" value={taskEndTime} onChange={e => setTaskEndTime(e.target.value)}
-                                            className="block w-full min-w-0 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-violet-400 text-sm" dir="ltr" />
+                                        <PickerBox type="time" label="שעת סיום" value={taskEndTime} onChange={setTaskEndTime}
+                                            className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm" />
                                     </div>
                                 </div>
 
