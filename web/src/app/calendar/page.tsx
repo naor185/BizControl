@@ -237,13 +237,8 @@ export default function CalendarPage() {
 
     useEffect(() => {
         // Set the real value once mounted (client-only, post-hydration — safe).
-        const mobile = window.innerWidth < 768;
-        setIsMobile(mobile);
-        // FullCalendar's `initialView` prop is read once at mount only — it can't
-        // be mobile-conditional the normal way since `isMobile` is deliberately
-        // `false` at first paint (hydration-safety). Set the real default view
-        // imperatively here, once, right after mount is confirmed.
-        if (mobile) calendarRef.current?.getApi().changeView("timeGridDay");
+        // On a phone too the calendar opens on the whole week (the owner, 2026-10-11).
+        setIsMobile(window.innerWidth < 768);
         const onResize = () => setIsMobile(window.innerWidth < 768);
         window.addEventListener("resize", onResize);
         return () => window.removeEventListener("resize", onResize);
@@ -1542,21 +1537,10 @@ export default function CalendarPage() {
                             ref={calendarRef}
                             plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
                             initialView="timeGridWeek"
-                            views={{
-                                // Mobile's "week" button: a swipeable 3-day strip instead of 7 cramped
-                                // columns. Uses the free `duration` option (a plain timeGrid variant),
-                                // NOT `dayMinWidth`/horizontal-scroll — that path needs a premium
-                                // ScrollGrid plugin we don't have and crashes (see note below).
-                                mobileWeek: {
-                                    type: "timeGrid",
-                                    duration: { days: 3 },
-                                    buttonText: "שבוע",
-                                },
-                            }}
                             headerToolbar={isMobile ? {
                                 left: "prev,next,today",
                                 center: "title",
-                                right: "timeGridDay,mobileWeek,dayGridMonth"
+                                right: "timeGridDay,timeGridWeek,dayGridMonth"
                             } : {
                                 left: "prev,next today",
                                 center: "title",
