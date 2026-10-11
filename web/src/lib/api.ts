@@ -644,6 +644,14 @@ export function downloadInvoice(paymentId: string) {
     return _downloadFile(`${API_BASE}/api/payments/${paymentId}/invoice`, `invoice_${paymentId.slice(0, 8).toUpperCase()}.pdf`);
 }
 
+// one worker's pay summary for the period — every shift, how the sum was made (not an official payslip)
+export function downloadStaffPaySummaryPdf(userId: string, name: string, startDate: string, endDate: string) {
+    return _downloadFile(
+        `${API_BASE}/api/staff/payroll/${userId}/pdf?start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}`,
+        `סיכום שכר ${name} ${startDate.slice(0, 7)}.pdf`
+    );
+}
+
 export function downloadPayrollPdf(startDate: string, endDate: string) {
     return _downloadFile(
         `${API_BASE}/api/staff/payroll/pdf?start_date=${encodeURIComponent(startDate)}&end_date=${encodeURIComponent(endDate)}`,

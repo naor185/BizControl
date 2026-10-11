@@ -16,7 +16,7 @@ from app.models.studio_settings import StudioSettings
 from app.models.user import User
 from app.repositories.staff_repository import StaffRepository
 from app.schemas.work_session import ClockStatusResponse, WorkSessionResponse, StaffPayrollSummary
-from app.services.pdf_service import generate_payroll_pdf
+from app.services.pdf_service import generate_payroll_pdf, generate_staff_pay_summary_pdf
 
 router = APIRouter(prefix="/staff", tags=["Staff & Payroll"])
 
@@ -138,3 +138,38 @@ def download_payroll_pdf(
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+@router.get("/payroll/{user_id}/pdf")
+def download_staff_pay_summary_pdf(
+    user_id: uuid.UUID,
+    start_date: datetime = Query(...),
+    end_date: datetime = Query(...),
+    ctx: AuthContext = Depends(require_studio_ctx),
+    repo: StaffRepository = Depends(get_staff_repo),
+    db: Session = Depends(get_db),
+):
+    """One worker's pay summary for the period — the same sums as the team's report, and every shift."""
+    if ctx.role not in PAY_VIEWERS:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    start_date, end_date = _localize_payroll_range(db, ctx.studio_id, start_date, end_date)
+    item = next((i for i in repo.get_user_payroll_summary(ctx.studio_id, start_date, end_date) if i["user_id"] == user_id), None)
+    if item is None:
+        raise HTTPException(status_code=404, detail="העובד/ת לא נמצא/ה")
+
+    from sqlalchemy import select as _select
+    from app.models.work_session import WorkSession
+    settings = db.query(StudioSettings).filter(StudioSettings.studio_id == ctx.studio_id).first()
+    tz = pytz.timezone((settings.timezone if settings else None) or "Asia/Jerusalem")
+    rows = db.scalars(_select(WorkSession).where(
+        WorkSession.user_id == user_id, WorkSession.start_time >= start_date, WorkSession.start_time <= end_date,
+        WorkSession.end_time.is_not(None)).order_by(WorkSession.start_time)).all()
+    shifts = [{"date": w.start_time.astimezone(tz).strftime("%d/%m/%Y"), "start": w.start_time.astimezone(tz).strftime("%H:%M"),
+               "end": w.end_time.astimezone(tz).strftime("%H:%M"),
+               "hours": (w.end_time - w.start_time).total_seconds() / 3600, "pay": float(w.session_pay or 0)} for w in rows]
+
+    studio = db.get(Studio, ctx.studio_id)
+    pdf_bytes = generate_staff_pay_summary_pdf(dict(item), shifts, start_date, end_date, studio.name if studio else "")
+    filename = f"pay_{start_date.strftime('%Y%m')}_{str(user_id)[:8]}.pdf"
+    return StreamingResponse(io.BytesIO(pdf_bytes), media_type="application/pdf",
+                             headers={"Content-Disposition": f'attachment; filename="{filename}"'})

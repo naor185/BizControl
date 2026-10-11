@@ -492,6 +492,109 @@ def generate_payroll_pdf(
     return buf.getvalue()
 
 
+# ── One worker's pay summary (owner, 2026-10-10) ───────────────────────────────
+
+PAY_TYPE_LABELS = {"hourly": "שעתי", "commission": "עמלה", "global": "משכורת קבועה", "none": "ללא"}
+SHIFTS_PER_PAGE = 32
+
+
+def generate_staff_pay_summary_pdf(
+    item: dict,
+    shifts: list[dict],
+    period_start: datetime,
+    period_end: datetime,
+    studio_name: str,
+) -> bytes:
+    """One worker's pay for a period — how the sum was made (hours, salary, commission, classes) and every shift
+    (date, in, out, hours, pay). A summary from the system, not an official payslip: no tax, national insurance or
+    pension deductions — those are the accountant's. shifts: [{date, start, end, hours, pay}] — local times."""
+    font_reg, font_bold = _ensure_fonts()
+    buf = io.BytesIO()
+    c = canvas.Canvas(buf, pagesize=A4)
+    W, H = A4
+
+    def header() -> float:
+        c.setFillColor(colors.HexColor("#111111"))
+        c.rect(0, H - 80, W, 80, fill=1, stroke=0)
+        c.setFont(font_bold, 18)
+        c.setFillColor(colors.white)
+        c.drawCentredString(W / 2, H - 46, h(f"סיכום שכר — {item.get('display_name', '')}"))
+        c.setFont(font_reg, 10)
+        c.setFillColor(colors.HexColor("#aaaaaa"))
+        c.drawCentredString(W / 2, H - 66, h(f"{studio_name} · {_fmt_date(period_start)[:10]} — {_fmt_date(period_end)[:10]}"))
+        return H - 105
+
+    def footer() -> None:
+        c.setFillColor(colors.HexColor("#f9fafb"))
+        c.rect(0, 0, W, 40, fill=1, stroke=0)
+        c.setFont(font_reg, 8)
+        c.setFillColor(colors.HexColor("#9ca3af"))
+        c.drawCentredString(W / 2, 22, h("סיכום תשלום מתוך BizControl — אינו תלוש שכר רשמי (ללא ניכויי מס, ביטוח לאומי ופנסיה)"))
+        c.drawCentredString(W / 2, 10, h(f"הופק ב: {datetime.now(timezone.utc).strftime('%d/%m/%Y %H:%M')} UTC"))
+
+    def table(rows, widths, y, bold_last=False):
+        tbl = Table(rows, colWidths=widths, rowHeights=20)
+        style = [
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#111111")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("FONTNAME", (0, 0), (-1, 0), font_bold),
+            ("FONTNAME", (0, 1), (-1, -1), font_reg),
+            ("FONTSIZE", (0, 0), (-1, -1), 9),
+            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e5e7eb")),
+        ]
+        if bold_last:
+            style += [("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#f0fdf4")), ("FONTNAME", (0, -1), (-1, -1), font_bold)]
+        tbl.setStyle(TableStyle(style))
+        _, th = tbl.wrapOn(c, W - 4 * cm, H)
+        tbl.drawOn(c, 2 * cm, y - th)
+        return y - th - 18
+
+    pay_type = item.get("pay_type", "none")
+    lines = [[h("סכום"), h("פירוט"), h("רכיב")]]
+    hours = float(item.get("total_hours", 0) or 0)
+    if hours or pay_type == "hourly":
+        lines.append([f"₪{float(item.get('hourly_pay', 0)):,.2f}",
+                      h(f"{hours:.1f} שעות" + (f" · ₪{float(item.get('hourly_rate', 0)):,.2f} לשעה" if pay_type == "hourly" else "")),
+                      h("שעות עבודה")])
+    if pay_type == "global":
+        lines.append([f"₪{float(item.get('global_salary', 0)):,.2f}", h("לחודש"), h("משכורת קבועה")])
+    if pay_type == "commission":
+        lines.append([f"₪{float(item.get('commission_pay', 0)):,.2f}", h(f"{float(item.get('commission_rate', 0)):g}% מהתשלומים על התורים"),
+                      h("עמלה")])
+    if (item.get("class_pay_mode") or "none") != "none":
+        lines.append([f"₪{float(item.get('class_pay', 0)):,.2f}",
+                      h(f"{item.get('class_count', 0)} שיעורים · {item.get('class_participants', 0)} משתתפים"), h("הדרכת שיעורים")])
+    lines.append([f"₪{float(item.get('total_pay', 0)):,.2f}", h(f"סוג שכר: {PAY_TYPE_LABELS.get(pay_type, pay_type)}"), h("סה\"כ לתשלום")])
+
+    y = header()
+    y = table(lines, [(W - 4 * cm) * f for f in (0.25, 0.45, 0.30)], y, bold_last=True)
+
+    widths = [(W - 4 * cm) * f for f in (0.2, 0.2, 0.2, 0.2, 0.2)]
+    head = [h(t) for t in ("סכום", "שעות", "יציאה", "כניסה", "תאריך")]
+    if not shifts:
+        c.setFont(font_reg, 10)
+        c.setFillColor(colors.HexColor("#6b7280"))
+        c.drawCentredString(W / 2, y, h("לא נרשמו משמרות בתקופה"))
+    for i in range(0, len(shifts), SHIFTS_PER_PAGE):
+        if i:
+            footer()
+            c.showPage()
+            y = header()
+        c.setFont(font_bold, 11)
+        c.setFillColor(colors.HexColor("#111111"))
+        c.drawRightString(W - 2 * cm, y, h("משמרות"))
+        y -= 8
+        rows = [head] + [[f"₪{s['pay']:,.2f}", f"{s['hours']:.2f}", s["end"], s["start"], s["date"]]
+                         for s in shifts[i:i + SHIFTS_PER_PAGE]]
+        y = table(rows, widths, y)
+    footer()
+    c.showPage()
+    c.save()
+    return buf.getvalue()
+
+
 # ── Expenses summary PDF (one page — for sending to the accountant) ────────────
 
 def generate_expenses_summary_pdf(

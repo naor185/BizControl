@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import RequireAuth from "@/components/RequireAuth";
 import AppShell from "@/components/AppShell";
-import { getPayroll, downloadPayrollPdf, PayrollSummary } from "@/lib/api";
+import { getPayroll, downloadPayrollPdf, downloadStaffPaySummaryPdf, PayrollSummary } from "@/lib/api";
+import { FileDown } from "lucide-react";
 
 export default function StaffPage() {
     const [payroll, setPayroll] = useState<PayrollSummary | null>(null);
@@ -25,6 +26,19 @@ export default function StaffPage() {
             console.error(err);
         } finally {
             setLoading(false);
+        }
+    };
+
+    // one worker's pay summary — every shift and how the sum was made
+    const [summaryFor, setSummaryFor] = useState<string | null>(null);
+    const handleWorkerPdf = async (userId: string, name: string) => {
+        try {
+            setSummaryFor(userId);
+            await downloadStaffPaySummaryPdf(userId, name, startStr, endStr);
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setSummaryFor(null);
         }
     };
 
@@ -105,6 +119,7 @@ export default function StaffPage() {
                                                 <th className="px-8 py-4">עמלות</th>
                                                 {hasClasses && <th className="px-8 py-4">שיעורים</th>}
                                                 <th className="px-8 py-4 text-emerald-600">סה״כ לתשלום</th>
+                                                <th className="px-8 py-4"></th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-50">
@@ -135,6 +150,13 @@ export default function StaffPage() {
                                                     )}
                                                     <td className="px-8 py-5">
                                                         <div className="text-lg font-black text-emerald-600" dir="ltr">₪{item.total_pay.toLocaleString()}</div>
+                                                    </td>
+                                                    <td className="px-8 py-5">
+                                                        <button onClick={() => handleWorkerPdf(String(item.user_id), item.display_name)} disabled={summaryFor === String(item.user_id)}
+                                                            title="סיכום שכר לעובד/ת — כל המשמרות ואיך חושב הסכום"
+                                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 whitespace-nowrap disabled:opacity-50">
+                                                            <FileDown className="h-3.5 w-3.5" aria-hidden /> {summaryFor === String(item.user_id) ? "מוריד..." : "סיכום שכר"}
+                                                        </button>
                                                     </td>
                                                 </tr>
                                             ))}
