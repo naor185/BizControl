@@ -1363,7 +1363,7 @@ export default function CalendarPage() {
             >
                 {/* Self-booking prompt banner */}
                 {selfBookingEnabled === false && !dismissedBookingBanner && (
-                    <div className="mb-3 flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2.5 text-sm">
+                    <div className="mx-4 mt-3 md:mx-0 md:mt-0 mb-3 flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2.5 text-sm">
                         <span className="text-lg">📅</span>
                         <div className="flex-1 min-w-0">
                             <span className="font-bold text-emerald-900">רוצה שלקוחות יקבעו תורים עצמאית? </span>
@@ -1511,7 +1511,8 @@ export default function CalendarPage() {
                         .fc-timegrid-slot-lane { cursor: pointer !important; }
                     }
                 `}} />
-                <div className={`p-1 md:p-2 max-w-[1600px] w-full mx-auto flex flex-col ${isMobile ? "h-[calc(100dvh-3.5rem-4rem)]" : "h-[calc(100dvh-5rem)]"}`}>
+                {/* on a phone the calendar fills the screen — 12px from the sides (+ its own 4px), not touching them */}
+                <div className={`px-3 py-1 md:p-2 max-w-[1600px] w-full mx-auto flex flex-col ${isMobile ? "h-[calc(100dvh-3.5rem-4rem)]" : "h-[calc(100dvh-5rem)]"}`}>
 
                     {/* Minimal top bar — only error/loading, no date range or holidays toggle */}
                     {(loading || err) && (

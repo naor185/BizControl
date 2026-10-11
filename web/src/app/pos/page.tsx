@@ -377,13 +377,13 @@ export default function PosPage() {
                 </div>
             </div>
             {/* Desc input */}
-            <div className="px-2 pt-2 shrink-0">
+            <div className="px-4 md:px-2 pt-2 shrink-0">
                 <input value={itemDesc} onChange={e => setItemDesc(e.target.value)} placeholder="תיאור..."
                     className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
                     onKeyDown={e => e.key === "Enter" && handleAddItem()} />
             </div>
             {/* Numpad */}
-            <div className="grid grid-cols-3 gap-1.5 px-2 pt-2 shrink-0">
+            <div className="grid grid-cols-3 gap-1.5 px-4 md:px-2 pt-2 shrink-0">
                 {[["7","8","9"],["4","5","6"],["1","2","3"],[".", "0","⌫"]].flat().map(k => (
                     <button key={k} type="button" onClick={() => handleNumKey(k)}
                         className={`h-10 rounded-lg font-bold text-base transition-all active:scale-95 ${k === "⌫" ? "bg-rose-50 text-rose-500 border border-rose-200 hover:bg-rose-100" : "bg-slate-50 border border-slate-200 text-slate-800 hover:bg-emerald-50 hover:border-emerald-300"}`}>
@@ -392,14 +392,14 @@ export default function PosPage() {
                 ))}
             </div>
             {/* Add button */}
-            <div className="px-2 pt-2 shrink-0">
+            <div className="px-4 md:px-2 pt-2 shrink-0">
                 <button type="button" onClick={handleAddItem} disabled={calcDisplay === "0" || parseFloat(calcDisplay) <= 0}
                     className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white font-bold py-2.5 rounded-xl text-sm transition-all active:scale-95 shadow-sm">
                     + הוסף לעגלה
                 </button>
             </div>
             {/* Category filter */}
-            <div className="flex gap-1 px-2 pt-2 overflow-x-auto shrink-0">
+            <div className="flex gap-1 px-4 md:px-2 pt-2 overflow-x-auto shrink-0">
                 {[null, ...categories].map(cat => (
                     <button key={cat ?? "all"} type="button" onClick={() => setCategoryFilter(cat)}
                         className={`shrink-0 px-2 py-1 rounded-lg text-xs font-medium transition-colors ${categoryFilter === cat ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
@@ -408,7 +408,7 @@ export default function PosPage() {
                 ))}
             </div>
             {/* Products */}
-            <div className="flex-1 min-h-0 overflow-y-auto p-2">
+            <div className="flex-1 min-h-0 overflow-y-auto px-4 py-2 md:p-2">
                 {filteredProducts.length === 0 ? (
                     <div className="text-center text-slate-300 mt-6 text-xs">
                         <div className="text-2xl mb-1">📦</div>אין מוצרים
