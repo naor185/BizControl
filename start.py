@@ -2935,6 +2935,12 @@ def ensure_schema():
         cur.execute("DROP TABLE IF EXISTS ai_conversations")
         cur.execute("DROP TABLE IF EXISTS ai_audit_logs")
 
+        if _once("notifications_message_log_gone"):
+            # The message queue moved to the superadmin (2026-10-11); "message failed" notices from before pointed at
+            # /message-log, which a business no longer has — tapping one in the bell showed an error (owner,
+            # 2026-10-12). New ones point at the client's file (services/message_worker.py).
+            cur.execute("UPDATE notifications SET action_url = NULL WHERE action_url = '/message-log'")
+
         conn.commit()
         cur.close()
         conn.close()
