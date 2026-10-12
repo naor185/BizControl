@@ -188,6 +188,10 @@ export default function PosPage() {
     const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
     const [calcDisplay, setCalcDisplay] = useState("0");
     const [itemDesc, setItemDesc] = useState("");
+    // The business's treatments, ready under the description — a tap writes it (several join: "א + ב"), so nothing has to
+    // be typed (the owner, 2026-10-12). Their prices fill the calculator only while no amount was typed by hand.
+    const [services, setServices] = useState<{ id: string; name: string; price_cents: number }[]>([]);
+    const [autoPrice, setAutoPrice] = useState<string | null>(null);
     const [discountPct, setDiscountPct] = useState(0);
     const [showDiscountPicker, setShowDiscountPicker] = useState(false);
     const [couponCode, setCouponCode] = useState("");
@@ -215,6 +219,7 @@ export default function PosPage() {
 
     useEffect(() => {
         apiFetch<Product[]>("/api/products/?is_active=true").then(setProducts).catch(() => {});
+        apiFetch<{ id: string; name: string; price_cents: number }[]>("/api/services").then(setServices).catch(() => {});
     }, []);
 
     useEffect(() => {
@@ -240,11 +245,23 @@ export default function PosPage() {
         });
     }, []);
 
+    const pickedNames = itemDesc.split(" + ").map(n => n.trim()).filter(Boolean);
+    const toggleService = (name: string) => {
+        const names = pickedNames.includes(name) ? pickedNames.filter(n => n !== name) : [...pickedNames, name];
+        setItemDesc(names.join(" + "));
+        if (calcDisplay === "0" || calcDisplay === autoPrice) {
+            const sum = names.reduce((t, n) => t + (services.find(s => s.name === n)?.price_cents || 0), 0) / 100;
+            const shown = sum > 0 ? String(sum) : "0";
+            setCalcDisplay(shown);
+            setAutoPrice(sum > 0 ? shown : null);
+        }
+    };
+
     const handleAddItem = useCallback(() => {
         const price = parseFloat(calcDisplay);
         if (isNaN(price) || price <= 0) { toast.error("הכנס מחיר"); return; }
         setCart(prev => [...prev, { key: `m-${Date.now()}`, product_id: null, description: itemDesc.trim() || "פריט", quantity: 1, unit_price_cents: Math.round(price * 100) }]);
-        setCalcDisplay("0"); setItemDesc("");
+        setCalcDisplay("0"); setItemDesc(""); setAutoPrice(null);
         if (window.innerWidth < 768) setMobileTab("cart");
     }, [calcDisplay, itemDesc]);
 
@@ -382,11 +399,25 @@ export default function PosPage() {
                     className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
                     onKeyDown={e => e.key === "Enter" && handleAddItem()} />
             </div>
+            {services.length > 0 && (
+                <div className="flex md:flex-wrap gap-1.5 px-4 md:px-3 pt-2 overflow-x-auto md:overflow-visible shrink-0" role="group" aria-label="טיפולים מוכנים">
+                    {services.map(svc => {
+                        const on = pickedNames.includes(svc.name);
+                        return (
+                            <button key={svc.id} type="button" onClick={() => toggleService(svc.name)} aria-pressed={on}
+                                className={`shrink-0 min-h-9 px-3 rounded-full text-sm font-semibold border transition-colors ${on ? "bg-emerald-600 text-white border-emerald-600" : "bg-white text-slate-700 border-slate-200 hover:border-emerald-300 hover:bg-emerald-50"}`}>
+                                {svc.name}
+                            </button>
+                        );
+                    })}
+                </div>
+            )}
             {/* Numpad */}
-            <div className="grid grid-cols-3 gap-1.5 px-4 md:px-2 pt-2 shrink-0">
+            {/* the keys: big enough for a thumb, not huge (the owner, 2026-10-12) */}
+            <div className="grid grid-cols-3 gap-2 px-4 md:px-3 pt-2 shrink-0">
                 {[["7","8","9"],["4","5","6"],["1","2","3"],[".", "0","⌫"]].flat().map(k => (
                     <button key={k} type="button" onClick={() => handleNumKey(k)}
-                        className={`h-10 rounded-lg font-bold text-base transition-all active:scale-95 ${k === "⌫" ? "bg-rose-50 text-rose-500 border border-rose-200 hover:bg-rose-100" : "bg-slate-50 border border-slate-200 text-slate-800 hover:bg-emerald-50 hover:border-emerald-300"}`}>
+                        className={`h-12 md:h-14 rounded-xl font-bold text-xl transition-all active:scale-95 ${k === "⌫" ? "bg-rose-50 text-rose-500 border border-rose-200 hover:bg-rose-100" : "bg-slate-50 border border-slate-200 text-slate-800 hover:bg-emerald-50 hover:border-emerald-300"}`}>
                         {k}
                     </button>
                 ))}
@@ -658,7 +689,7 @@ export default function PosPage() {
 
             {/* ── DESKTOP: 2 columns side by side ── */}
             <div className="hidden md:flex h-full">
-                <div className="w-56 shrink-0 border-l border-slate-200 shadow-sm">{LeftPanel}</div>
+                <div className="w-80 shrink-0 border-l border-slate-200 shadow-sm">{LeftPanel}</div>
                 <div className="flex-1 min-w-0">{RightPanel}</div>
             </div>
 
