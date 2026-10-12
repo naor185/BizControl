@@ -7,6 +7,8 @@ import { apiFetch } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import AppShell from "@/components/AppShell";
 import RequireAuth from "@/components/RequireAuth";
+import PinModal from "@/components/PinModal";
+import { Tag, Gift, X } from "lucide-react";
 
 type Product = { id: string; name: string; price: number; category: string | null; stock_quantity: number; image_url: string | null; };
 type CartItem = { key: string; product_id: string | null; description: string; quantity: number; unit_price_cents: number; };
@@ -194,6 +196,10 @@ export default function PosPage() {
     const [autoPrice, setAutoPrice] = useState<string | null>(null);
     const [discountPct, setDiscountPct] = useState(0);
     const [showDiscountPicker, setShowDiscountPicker] = useState(false);
+    // A discount needs the business owner's PIN, whoever is at the till; it stays open until the sale is done
+    // (the owner, 2026-10-12)
+    const [discountUnlocked, setDiscountUnlocked] = useState(false);
+    const [askOwnerPin, setAskOwnerPin] = useState(false);
     const [couponCode, setCouponCode] = useState("");
     const [couponDiscount, setCouponDiscount] = useState(0);
     const [couponLoading, setCouponLoading] = useState(false);
@@ -363,7 +369,7 @@ export default function PosPage() {
                     });
                 } catch { /* silent — sale already processed */ }
             }
-            setCart([]); setCalcDisplay("0"); setItemDesc(""); setClient(null); setClientSearch("");
+            setCart([]); setCalcDisplay("0"); setItemDesc(""); setClient(null); setClientSearch(""); setDiscountUnlocked(false);
             setDiscountPct(0); setCouponCode(""); setCouponDiscount(0); setCouponError("");
             setUsePoints(false); setPointsRedeemed(0);
             setGiftCardCode(""); setGiftCardInfo(null); setGiftCardDiscount(0); setGiftCardError("");
@@ -538,25 +544,25 @@ export default function PosPage() {
                 <div className="flex gap-2 items-center">
                     {/* Discount toggle */}
                     <div className="relative">
-                        <button type="button" onClick={() => setShowDiscountPicker(s => !s)}
-                            className={`flex items-center gap-1 text-xs font-bold px-2.5 py-1.5 rounded-lg border transition-all ${discountPct > 0 ? "bg-rose-50 border-rose-300 text-rose-700" : "bg-slate-50 border-slate-200 text-slate-500"}`}>
-                            🏷️ {discountPct > 0 ? `${discountPct}%` : "הנחה"}
-                            {discountPct > 0 && <span onClick={e => { e.stopPropagation(); setDiscountPct(0); }} className="mr-0.5 hover:text-rose-600">×</span>}
+                        <button type="button" onClick={() => discountUnlocked ? setShowDiscountPicker(s => !s) : setAskOwnerPin(true)}
+                            className={`flex items-center gap-1.5 text-sm font-bold px-3 min-h-11 rounded-xl border transition-all ${discountPct > 0 ? "bg-rose-50 border-rose-300 text-rose-700" : "bg-slate-50 border-slate-200 text-slate-600"}`}>
+                            <Tag className="w-4 h-4" aria-hidden /> {discountPct > 0 ? `${discountPct}%` : "הנחה"}
+                            {discountPct > 0 && <span role="button" aria-label="בטל הנחה" onClick={e => { e.stopPropagation(); setDiscountPct(0); }} className="ms-0.5 hover:text-rose-600"><X className="w-4 h-4" aria-hidden /></span>}
                         </button>
                         {showDiscountPicker && (
-                            <div className="absolute bottom-full mb-1 right-0 z-40 bg-white border border-slate-200 rounded-xl shadow-xl p-2 w-52">
-                                <div className="flex flex-wrap gap-1 mb-2">
+                            <div className="absolute bottom-full mb-1 right-0 z-40 bg-white border border-slate-200 rounded-xl shadow-xl p-2 w-64">
+                                <div className="grid grid-cols-3 gap-1.5 mb-2">
                                     {[5,10,15,20,25,30].map(pct => (
                                         <button key={pct} type="button" onClick={() => { setDiscountPct(pct); setShowDiscountPicker(false); }}
-                                            className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-all ${discountPct === pct ? "bg-rose-500 text-white border-rose-500" : "bg-white border-slate-200 text-slate-700 hover:border-rose-300"}`}>
+                                            className={`min-h-10 rounded-lg text-sm font-bold border transition-all ${discountPct === pct ? "bg-rose-500 text-white border-rose-500" : "bg-white border-slate-200 text-slate-700 hover:border-rose-300"}`}>
                                             {pct}%
                                         </button>
                                     ))}
                                 </div>
                                 <div className="flex gap-1">
-                                    <input type="number" min="0" max="100" placeholder="%" className="flex-1 border border-slate-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-rose-400"
+                                    <input type="number" inputMode="decimal" min="0" max="100" placeholder="אחוז אחר" className="flex-1 min-w-0 min-h-10 border border-slate-200 rounded-lg px-2 text-base focus:outline-none focus:ring-1 focus:ring-rose-400"
                                         onKeyDown={e => { if (e.key === "Enter") { setDiscountPct(parseFloat((e.target as HTMLInputElement).value) || 0); setShowDiscountPicker(false); } }} />
-                                    <button type="button" onClick={() => setShowDiscountPicker(false)} className="text-xs text-slate-400 px-1">✕</button>
+                                    <button type="button" onClick={() => setShowDiscountPicker(false)} aria-label="סגור" className="w-10 min-h-10 flex items-center justify-center text-slate-400"><X className="w-4 h-4" aria-hidden /></button>
                                 </div>
                             </div>
                         )}
@@ -565,34 +571,35 @@ export default function PosPage() {
                     <div className="flex-1 flex gap-1 items-center">
                         <input value={couponCode} onChange={e => { setCouponCode(e.target.value.toUpperCase()); setCouponDiscount(0); setCouponError(""); }}
                             placeholder="קוד קופון..."
-                            className={`flex-1 border rounded-lg px-2 py-1.5 text-xs font-mono focus:outline-none focus:ring-1 ${couponDiscount > 0 ? "border-emerald-400 bg-emerald-50" : couponError ? "border-rose-400" : "border-slate-200"}`}
+                            className={`flex-1 min-w-0 min-h-11 border rounded-xl px-3 text-base font-mono focus:outline-none focus:ring-1 ${couponDiscount > 0 ? "border-emerald-400 bg-emerald-50" : couponError ? "border-rose-400" : "border-slate-200"}`}
                             onKeyDown={e => e.key === "Enter" && validateCoupon()} />
                         <button type="button" onClick={validateCoupon} disabled={!couponCode.trim() || couponLoading}
-                            className="shrink-0 bg-slate-800 text-white px-2 py-1.5 rounded-lg text-xs font-bold disabled:opacity-40">
+                            className="shrink-0 bg-slate-800 text-white px-4 min-h-11 rounded-xl text-sm font-bold disabled:opacity-40">
                             {couponLoading ? "..." : "אמת"}
                         </button>
                     </div>
                 </div>
                 {(couponError || couponDiscount > 0) && (
-                    <div className={`text-[10px] -mt-1 ${couponDiscount > 0 ? "text-emerald-600" : "text-rose-500"}`}>
+                    <div className={`text-xs -mt-1 ${couponDiscount > 0 ? "text-emerald-600" : "text-rose-500"}`}>
                         {couponDiscount > 0 ? `✓ קופון ${couponDiscount}% הופעל` : couponError}
                     </div>
                 )}
 
                 {/* Gift card redemption */}
-                <div className="flex-1 flex gap-1 items-center">
+                <div className="flex-1 flex gap-2 items-center">
+                    <Gift className="w-5 h-5 shrink-0 text-violet-600" aria-hidden />
                     <input value={giftCardCode}
                         onChange={e => { setGiftCardCode(e.target.value.toUpperCase()); setGiftCardInfo(null); setGiftCardDiscount(0); setGiftCardError(""); }}
-                        placeholder="קוד גיפט קארד... 🎁"
-                        className={`flex-1 border rounded-lg px-2 py-1.5 text-xs font-mono focus:outline-none focus:ring-1 ${giftCardInfo ? "border-violet-400 bg-violet-50" : giftCardError ? "border-rose-400" : "border-slate-200"}`}
+                        placeholder="קוד גיפט קארד..."
+                        className={`flex-1 min-w-0 min-h-11 border rounded-xl px-3 text-base font-mono focus:outline-none focus:ring-1 ${giftCardInfo ? "border-violet-400 bg-violet-50" : giftCardError ? "border-rose-400" : "border-slate-200"}`}
                         onKeyDown={e => e.key === "Enter" && validateGiftCard()} />
                     <button type="button" onClick={validateGiftCard} disabled={!giftCardCode.trim() || giftCardLoading}
-                        className="shrink-0 bg-violet-700 text-white px-2 py-1.5 rounded-lg text-xs font-bold disabled:opacity-40">
+                        className="shrink-0 bg-violet-700 text-white px-4 min-h-11 rounded-xl text-sm font-bold disabled:opacity-40">
                         {giftCardLoading ? "..." : "אמת"}
                     </button>
                 </div>
                 {(giftCardError || giftCardInfo) && (
-                    <div className={`text-[10px] -mt-1 ${giftCardInfo ? "text-violet-600" : "text-rose-500"}`}>
+                    <div className={`text-xs -mt-1 ${giftCardInfo ? "text-violet-600" : "text-rose-500"}`}>
                         {giftCardInfo
                             ? `✓ כרטיס של ${giftCardInfo.recipient_name} · יתרה ₪${giftCardInfo.balance_ils} · ינוכה ₪${(giftCardDiscountCents / 100).toFixed(0)}`
                             : giftCardError}
@@ -742,6 +749,11 @@ export default function PosPage() {
                     </div>
                 </div>
             </div>
+        )}
+        {askOwnerPin && (
+            <PinModal mode="verify" owner heading="אישור הנחה" hint="הזן את ה-PIN של בעל העסק כדי לתת הנחה"
+                onSuccess={() => { setAskOwnerPin(false); setDiscountUnlocked(true); setShowDiscountPicker(true); }}
+                onClose={() => setAskOwnerPin(false)} />
         )}
         </AppShell>
         </RequireAuth>

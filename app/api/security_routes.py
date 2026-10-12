@@ -4,6 +4,7 @@ Business PIN Security API
 GET  /api/security/pin/status   — is PIN set? is locked?
 POST /api/security/pin/set      — set or change PIN (requires current PIN if already set)
 POST /api/security/pin/verify   — verify PIN → returns short-lived business_unlock token
+POST /api/security/pin/verify-owner — the business owner's PIN approves a discount at the till, whoever is there
 POST /api/security/pin/reset    — owner resets another user's PIN (owner/admin only)
 """
 from __future__ import annotations
@@ -41,6 +42,33 @@ def _get_or_none(db: Session, user_id: uuid.UUID) -> UserPinSettings | None:
 
 def _log_attempt(db: Session, studio_id: uuid.UUID, user_id: uuid.UUID, success: bool, ip: str | None) -> None:
     db.add(PinAttemptLog(studio_id=studio_id, user_id=user_id, success=success, ip_address=ip))
+
+
+def _check_pin(db: Session, settings: UserPinSettings, pin: str, studio_id: uuid.UUID, actor_id: uuid.UUID,
+               ip: str | None) -> None:
+    """The PIN against these settings — the lockout, the wrong tries and the log; raises on a wrong or locked PIN.
+    The tries count on the PIN's own settings; the log records who typed it (actor_id)."""
+    now = datetime.now(timezone.utc)
+    if settings.locked_until and settings.locked_until > now:
+        remaining = int((settings.locked_until - now).total_seconds() / 60) + 1
+        _log_attempt(db, studio_id, actor_id, False, ip)
+        db.commit()
+        raise HTTPException(status_code=429, detail=f"חשבון נעול. נסה שוב בעוד {remaining} דקות")
+    try:
+        ph.verify(settings.pin_hash, pin)
+    except VerifyMismatchError:
+        settings.failed_attempts += 1
+        _log_attempt(db, studio_id, actor_id, False, ip)
+        if settings.failed_attempts >= MAX_ATTEMPTS:
+            settings.locked_until = now + timedelta(minutes=LOCKOUT_MINUTES)
+            db.commit()
+            raise HTTPException(status_code=429, detail=f"יותר מדי ניסיונות כושלים. חשבון נעול ל-{LOCKOUT_MINUTES} דקות")
+        db.commit()
+        raise HTTPException(status_code=400, detail=f"PIN שגוי. נותרו {MAX_ATTEMPTS - settings.failed_attempts} ניסיונות")
+    settings.failed_attempts = 0
+    settings.locked_until = None
+    _log_attempt(db, studio_id, actor_id, True, ip)
+    db.commit()
 
 
 def _get_ip(request: Request) -> str | None:
@@ -151,42 +179,28 @@ def verify_pin(
     settings = _get_or_none(db, ctx.user_id)
     if not settings:
         raise HTTPException(status_code=404, detail="PIN לא הוגדר עדיין. הגדר PIN בהגדרות חשבון")
-
-    now = datetime.now(timezone.utc)
-
-    # Check lockout
-    if settings.locked_until and settings.locked_until > now:
-        remaining = int((settings.locked_until - now).total_seconds() / 60) + 1
-        _log_attempt(db, ctx.studio_id, ctx.user_id, False, _get_ip(request))
-        db.commit()
-        raise HTTPException(status_code=429, detail=f"חשבון נעול. נסה שוב בעוד {remaining} דקות")
-
-    # Verify
-    try:
-        ph.verify(settings.pin_hash, body.pin)
-    except VerifyMismatchError:
-        settings.failed_attempts += 1
-        if settings.failed_attempts >= MAX_ATTEMPTS:
-            settings.locked_until = now + timedelta(minutes=LOCKOUT_MINUTES)
-            _log_attempt(db, ctx.studio_id, ctx.user_id, False, _get_ip(request))
-            db.commit()
-            raise HTTPException(
-                status_code=429,
-                detail=f"יותר מדי ניסיונות כושלים. חשבון נעול ל-{LOCKOUT_MINUTES} דקות"
-            )
-        remaining_attempts = MAX_ATTEMPTS - settings.failed_attempts
-        _log_attempt(db, ctx.studio_id, ctx.user_id, False, _get_ip(request))
-        db.commit()
-        raise HTTPException(status_code=400, detail=f"PIN שגוי. נותרו {remaining_attempts} ניסיונות")
-
-    # Success — reset attempts, issue unlock token
-    settings.failed_attempts = 0
-    settings.locked_until = None
-    _log_attempt(db, ctx.studio_id, ctx.user_id, True, _get_ip(request))
-    db.commit()
+    _check_pin(db, settings, body.pin, ctx.studio_id, ctx.user_id, _get_ip(request))
 
     token = create_business_unlock_token(str(ctx.user_id), str(ctx.studio_id))
     return {"business_token": token, "expires_in_minutes": 30}
+
+
+@router.post("/pin/verify-owner")
+def verify_owner_pin(
+    body: PinIn,
+    request: Request,
+    ctx: AuthContext = Depends(require_studio_ctx),
+    db: Session = Depends(get_db),
+):
+    """The business owner's PIN — a discount at the till needs it, whoever is at the till (the owner, 2026-10-12)."""
+    from app.models.user import User
+    owners = db.scalars(select(User).where(User.studio_id == ctx.studio_id, User.role == "owner",
+                                           User.is_active == True)).all()  # noqa: E712
+    settings = next((st for st in (_get_or_none(db, o.id) for o in owners) if st), None)
+    if not settings:
+        raise HTTPException(status_code=404, detail="בעל העסק עוד לא הגדיר קוד PIN — מגדירים אותו בכניסה ל'ניהול עסק'")
+    _check_pin(db, settings, body.pin, ctx.studio_id, ctx.user_id, _get_ip(request))
+    return {"ok": True}
 
 
 @router.post("/pin/reset/{target_user_id}")

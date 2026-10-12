@@ -11,13 +11,17 @@ type Props = {
     mode: Mode;
     onSuccess: () => void;
     onClose?: () => void;
+    /** verify against the business owner's PIN instead of the user's own — a discount at the till */
+    owner?: boolean;
+    heading?: string;
+    hint?: string;
 };
 
 const DIGITS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "⌫"];
 
 type ApiError = { message?: string };
 
-export default function PinModal({ mode, onSuccess, onClose }: Props) {
+export default function PinModal({ mode, onSuccess, onClose, owner, heading, hint }: Props) {
     const [pin, setPin] = useState("");
     const [currentPin, setCurrentPin] = useState("");
     const [step, setStep] = useState<"current" | "new" | "confirm">(
@@ -111,7 +115,10 @@ export default function PinModal({ mode, onSuccess, onClose }: Props) {
         setError("");
 
         try {
-            if (mode === "verify") {
+            if (mode === "verify" && owner) {
+                await apiFetch("/api/security/pin/verify-owner", { method: "POST", body: JSON.stringify({ pin: target }) });
+                onSuccess();
+            } else if (mode === "verify") {
                 const res = await apiFetch<{ business_token: string }>("/api/security/pin/verify", {
                     method: "POST",
                     body: JSON.stringify({ pin: target }),
@@ -152,7 +159,7 @@ export default function PinModal({ mode, onSuccess, onClose }: Props) {
     }[step];
 
     const stepHint = {
-        verify: "הזן את ה-PIN שלך כדי לגשת לניהול עסק",
+        verify: hint ?? "הזן את ה-PIN שלך כדי לגשת לניהול עסק",
         current: "הזן את ה-PIN הנוכחי שלך",
         new: "בחר PIN חדש (4 ספרות)",
         confirm: "הזן שוב את ה-PIN החדש לאישור",
@@ -170,7 +177,7 @@ export default function PinModal({ mode, onSuccess, onClose }: Props) {
 
             {/* Modal */}
             <div className={`relative w-full sm:w-96 bg-white sm:rounded-3xl rounded-t-3xl shadow-2xl overflow-hidden transition-all ${shake ? "animate-[shake_0.5s_ease-in-out]" : ""}`}
-                style={{ boxShadow: "0 25px 60px -12px rgba(0,0,0,0.4)" }}>
+                style={{ boxShadow: "0 25px 60px -12px rgba(0,0,0,0.4)", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
 
                 {/* Top bar */}
                 <div className="h-1 w-full bg-gradient-to-r from-violet-500 via-purple-500 to-indigo-500" />
@@ -184,7 +191,7 @@ export default function PinModal({ mode, onSuccess, onClose }: Props) {
                             <circle cx="12" cy="16" r="1.5" fill="currentColor" />
                         </svg>
                     </div>
-                    <h2 className="text-lg font-bold text-slate-900">ניהול עסק</h2>
+                    <h2 className="text-lg font-bold text-slate-900">{heading ?? "ניהול עסק"}</h2>
                     <p className="text-sm text-slate-500 mt-1">{stepHint}</p>
 
                     {/* Step indicator for set/change */}
