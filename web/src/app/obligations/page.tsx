@@ -1,5 +1,6 @@
 "use client";
 
+import PickerBox from "@/components/ui/picker-box";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import AppShell from "@/components/AppShell";
 import RequireAuth from "@/components/RequireAuth";
@@ -168,8 +169,7 @@ function ObligationForm({
                 {!isEdit && (
                     <div className="col-span-2">
                         <label className="text-xs font-semibold text-slate-600 mb-1 block">תאריך התחלה</label>
-                        <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
-                            className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400" />
+                        <PickerBox type="date" label="תאריך התחלה" value={startDate} onChange={v => setStartDate(v)} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 text-start" />
                     </div>
                 )}
             </div>

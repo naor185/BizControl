@@ -1,4 +1,5 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import PickerBox from "@/components/ui/picker-box";
 
 export type LandingPageContentProps = {
     themePrimary: string;
@@ -169,8 +170,11 @@ export default function LandingPageTemplate({
     setMarketingConsent,
 }: LandingPageContentProps) {
 
+    // the birth date is a month of our own (PickerBox), not a form field the browser can require — checked here
+    const [birthMissing, setBirthMissing] = useState(false);
     const handleFormSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        if (isLive && !birthDate) { setBirthMissing(true); return; }
         if (onSubmit) onSubmit(e);
     };
 
@@ -190,7 +194,9 @@ export default function LandingPageTemplate({
             </div>
             <div>
                 <label className="block text-sm font-medium mb-1 text-slate-700">תאריך לידה (ליום הולדת 🎉)</label>
-                <input required={isLive} type="date" value={birthDate} onChange={e => setBirthDate?.(e.target.value)} disabled={!isLive} className="w-full border px-4 py-2.5 rounded-xl bg-white/60 backdrop-blur-sm text-right focus:bg-white focus:ring-2 focus:outline-none transition-all" style={{ borderColor: themePrimary, outlineColor: themePrimary }} />
+                <PickerBox type="date" label="תאריך לידה" value={birthDate} onChange={v => { setBirthDate?.(v); setBirthMissing(false); }} disabled={!isLive} max={new Date().toISOString().slice(0, 10)}
+                    className="w-full border px-4 py-2.5 rounded-xl bg-white/60 backdrop-blur-sm text-right focus:bg-white transition-all" style={{ borderColor: themePrimary, outlineColor: themePrimary }} />
+                {birthMissing && <p className="text-xs text-red-600 mt-1">יש לבחור תאריך לידה</p>}
             </div>
 
             <div className="flex items-start gap-3 py-2">

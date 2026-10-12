@@ -1,5 +1,6 @@
 "use client";
 
+import PickerBox from "@/components/ui/picker-box";
 import { useCallback, useEffect, useState } from "react";
 import { Cake, Link2, Loader2, Pause, Pencil, Play, Plus, Tag, Ticket, Trash2, X } from "lucide-react";
 import { apiFetch } from "@/lib/api";
@@ -316,7 +317,7 @@ function CouponSheet({ coupon, categories, onClose, onSaved }: { coupon: CouponR
                         {([["ללא", ""], ["שבוע", addDays(7)], ["חודש", addDays(30)], ["3 חודשים", addDays(90)]] as const).map(([l, v]) => (
                             <button key={l} type="button" onClick={() => setExpires(v)} className={chip(expires === v)}>{l}</button>
                         ))}
-                        <input type="date" value={expires} onChange={e => setExpires(e.target.value)} className="border border-slate-200 rounded-lg px-2 py-1.5 text-sm" />
+                        <PickerBox type="date" label="תוקף הקופון" value={expires} onChange={v => setExpires(v)} className="border border-slate-200 rounded-lg px-2 py-1.5 text-sm text-start" />
                     </div>
                 </div>
 

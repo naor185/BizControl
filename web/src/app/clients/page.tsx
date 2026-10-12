@@ -1,4 +1,5 @@
 "use client";
+import PickerBox from "@/components/ui/picker-box";
 import PlanLock from "@/components/PlanLock";
 import { toast } from "@/lib/toast";
 import { useEffect, useState, useMemo, Suspense } from "react";
@@ -794,9 +795,7 @@ function PageInner() {
                                 ))}
                                 <div>
                                     <label className="block text-xs font-semibold text-slate-600 mb-1.5">תאריך לידה</label>
-                                    <input value={newBirthDate} onChange={e => setNewBirthDate(e.target.value)} type="date"
-                                        min="1900-01-01" max={toLocalDateStr(new Date())}
-                                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-black/10 transition" />
+                                    <PickerBox type="date" label="תאריך לידה" value={newBirthDate} onChange={v => setNewBirthDate(v)} min="1900-01-01" max={toLocalDateStr(new Date())} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-black/10 transition text-start" />
                                 </div>
                                 <div>
                                     <label className="block text-xs font-semibold text-slate-600 mb-1.5">הערות</label>

@@ -1,4 +1,5 @@
 "use client";
+import PickerBox from "@/components/ui/picker-box";
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import AppShell from "@/components/AppShell";
@@ -441,8 +442,7 @@ function DocumentsTab({ invoices, total, loading, settings, filterType, setFilte
                     ))}
                 </select>
 
-                <input type="date" value={filterDate} onChange={e => { setFilterDate(e.target.value); setTimeout(onFilter, 0); }}
-                    style={{ padding: "0.5rem 0.75rem", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: "0.85rem" }} />
+                <PickerBox type="date" label="סינון לפי תאריך" value={filterDate} onChange={v => { setFilterDate(v); setTimeout(onFilter, 0); }} className="text-start" style={{ padding: "0.5rem 0.75rem", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: "0.85rem" }} />
 
                 <span style={{ color: "#94a3b8", fontSize: "0.82rem", marginRight: "auto" }}>{total} מסמכים</span>
 
@@ -1167,11 +1167,9 @@ function ReportsTab() {
 
             {/* Date filter */}
             <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem", flexWrap: "wrap" }}>
-                <input type="date" title="מתאריך" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
-                    style={{ padding: "0.5rem 0.75rem", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: "0.85rem" }} />
+                <PickerBox type="date" label="מתאריך" value={dateFrom} onChange={v => setDateFrom(v)} className="text-start" style={{ padding: "0.5rem 0.75rem", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: "0.85rem" }} />
                 <span style={{ alignSelf: "center", color: "#94a3b8" }}>עד</span>
-                <input type="date" title="עד תאריך" value={dateTo} onChange={e => setDateTo(e.target.value)}
-                    style={{ padding: "0.5rem 0.75rem", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: "0.85rem" }} />
+                <PickerBox type="date" label="עד תאריך" value={dateTo} onChange={v => setDateTo(v)} className="text-start" style={{ padding: "0.5rem 0.75rem", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: "0.85rem" }} />
                 <button type="button" onClick={load} style={{ background: "#7c3aed", color: "#fff", border: "none", borderRadius: 8, padding: "0.5rem 1rem", cursor: "pointer", fontSize: "0.85rem" }}>סנן</button>
             </div>
 

@@ -1,4 +1,5 @@
 "use client";
+import PickerBox from "@/components/ui/picker-box";
 import { toast } from "@/lib/toast";
 import { toLocalDateStr } from "@/lib/format";
 import dynamic from "next/dynamic";
@@ -296,7 +297,7 @@ function InvoiceUploadModal({ onClose, onSaved }: { onClose: () => void; onSaved
                                 <input type="number" value={vat} onChange={e => setVat(e.target.value)} />
                             </label>
                             <label>תאריך חשבונית
-                                <input type="date" value={invoiceDate} onChange={e => setInvoiceDate(e.target.value)} />
+                                <PickerBox type="date" label="תאריך החשבונית" value={invoiceDate} onChange={v => setInvoiceDate(v)} className="w-full text-start rounded-[10px] border border-white/15 bg-white/[.08] px-[.9rem] py-[.65rem] text-[.9rem] text-white" />
                             </label>
                             <label>אמצעי תשלום
                                 <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}>
@@ -438,7 +439,7 @@ function ManualExpenseModal({ onClose, onSaved }: { onClose: () => void; onSaved
                         <input type="number" step="0.01" min="0" value={form.vat_amount || ""} onChange={e => set("vat_amount", parseFloat(e.target.value))} />
                     </label>
                     <label>תאריך *
-                        <input type="date" value={form.expense_date} onChange={e => set("expense_date", e.target.value)} />
+                        <PickerBox type="date" label="תאריך ההוצאה" value={form.expense_date} onChange={v => set("expense_date", v)} className="w-full text-start rounded-[10px] border border-white/15 bg-white/[.08] px-[.9rem] py-[.65rem] text-[.9rem] text-white" />
                     </label>
                     <label>קטגוריה
                         <select value={form.category || ""} onChange={e => set("category", e.target.value)}>
@@ -704,10 +705,10 @@ function SendToAccountantModal({
                 </div>
                 <div className="form-grid">
                     <label>מתאריך
-                        <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
+                        <PickerBox type="date" label="מתאריך" value={dateFrom} onChange={v => setDateFrom(v)} className="w-full text-start rounded-[10px] border border-white/15 bg-white/[.08] px-[.9rem] py-[.65rem] text-[.9rem] text-white" />
                     </label>
                     <label>עד תאריך
-                        <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} />
+                        <PickerBox type="date" label="עד תאריך" value={dateTo} onChange={v => setDateTo(v)} className="w-full text-start rounded-[10px] border border-white/15 bg-white/[.08] px-[.9rem] py-[.65rem] text-[.9rem] text-white" />
                     </label>
                 </div>
                 <p style={{ color: "#94a3b8", fontSize: ".8rem", marginTop: "1rem" }}>

@@ -1,5 +1,7 @@
 "use client";
 
+import { cn } from "@/lib/utils";
+import PickerBox from "@/components/ui/picker-box";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Plus, PencilLine, CirclePause, Loader2, GraduationCap, Settings2, ChevronDown } from "lucide-react";
 import BottomSheet from "@/components/ui/bottom-sheet";
@@ -274,7 +276,7 @@ export function TemplateSheet({ tpl, preset, rooms, staff, services, policies, t
                         </select>
                     </label>
                     <label className={`${label} col-span-2 sm:col-span-1`}>{once ? "תאריך" : "מתחיל מתאריך"}
-                        <input type="date" value={f.starts_on} onChange={e => set({ starts_on: e.target.value })} className={`${field} mt-1`} dir="ltr" />
+                        <PickerBox type="date" label="תאריך התחלה" value={f.starts_on} onChange={v => set({ starts_on: v })} className={cn(`${field} mt-1`, "text-start")} />
                     </label>
                 </div>
 
@@ -294,8 +296,7 @@ export function TemplateSheet({ tpl, preset, rooms, staff, services, policies, t
                             className={`${field} mt-2 w-32 tabular-nums`} placeholder="5" />
                     )}
                     {f.course === "date" && (
-                        <input type="date" value={f.ends_on} min={f.starts_on} aria-label="תאריך סיום" dir="ltr"
-                            onChange={e => set({ ends_on: e.target.value })} className={`${field} mt-2 w-44`} />
+                        <PickerBox type="date" label="תאריך סיום" value={f.ends_on} onChange={v => set({ ends_on: v })} min={f.starts_on} className={cn(`${field} mt-2 w-44`, "text-start")} />
                     )}
                     {isCourse && (
                         <label className={`${label} block mt-3`}>מחיר לקורס כולו (₪)

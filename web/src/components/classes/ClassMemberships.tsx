@@ -1,5 +1,7 @@
 "use client";
 
+import { cn } from "@/lib/utils";
+import PickerBox from "@/components/ui/picker-box";
 import { useCallback, useEffect, useState } from "react";
 import { Plus, Loader2, RefreshCw, PencilLine, X } from "lucide-react";
 import BottomSheet from "@/components/ui/bottom-sheet";
@@ -189,7 +191,7 @@ function SellSheet({ terms, onClose, onDone }: { terms: Terms; onClose: () => vo
                 {family && type && <SellMembers type={type} holderId={who?.id ?? null} members={members} setMembers={setMembers} terms={terms} />}
                 <div className="grid grid-cols-2 gap-3">
                     <label className={label}>מתחיל ב-
-                        <input type="date" value={start} min={new Date().toISOString().slice(0, 10)} onChange={e => setStart(e.target.value)} className={`${field} mt-1`} dir="ltr" />
+                        <PickerBox type="date" label="תחילת המנוי" value={start} onChange={v => setStart(v)} min={new Date().toISOString().slice(0, 10)} className={cn(`${field} mt-1`, "text-start")} />
                     </label>
                     <label className={label}>מחיר (₪)
                         <input type="number" min={0} value={price} onChange={e => setPrice(e.target.value === "" ? "" : Number(e.target.value))} className={`${field} mt-1 tabular-nums`} dir="ltr" />

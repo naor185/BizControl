@@ -1,4 +1,5 @@
 "use client";
+import PickerBox from "@/components/ui/picker-box";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/lib/toast";
 
@@ -571,12 +572,7 @@ export default function ClientProfilePage() {
                                         />
                                         <div>
                                             <label className="block text-xs text-violet-700 mb-1">תאריך לידה * (נדרש לצורך הטבת יום הולדת)</label>
-                                            <input
-                                                type="date"
-                                                value={joinBirthDate}
-                                                onChange={e => setJoinBirthDate(e.target.value)}
-                                                className="w-full border border-violet-200 bg-white rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-violet-400"
-                                            />
+                                            <PickerBox type="date" label="תאריך לידה" value={joinBirthDate} onChange={v => setJoinBirthDate(v)} className="w-full border border-violet-200 bg-white rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-violet-400 text-start" />
                                         </div>
                                     </div>
                                     <div className="flex gap-2">

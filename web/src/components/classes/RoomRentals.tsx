@@ -1,5 +1,7 @@
 "use client";
 
+import { cn } from "@/lib/utils";
+import PickerBox from "@/components/ui/picker-box";
 import { useCallback, useEffect, useState } from "react";
 import { Plus, Repeat, Package, X, Loader2 } from "lucide-react";
 import BottomSheet from "@/components/ui/bottom-sheet";
@@ -288,7 +290,7 @@ function RentSheet({ rooms, terms, onClose, onDone }: { rooms: Room[]; terms: Te
                 <RenterPick terms={terms} who={who} setWho={setWho} />
                 <RoomPick rooms={rooms} roomId={roomId} setRoomId={setRoomId} />
                 <div className="grid grid-cols-2 gap-3">
-                    <label className={label}>תאריך<input type="date" value={day} onChange={e => setDay(e.target.value)} className={`${field} mt-1`} dir="ltr" /></label>
+                    <label className={label}>תאריך<PickerBox type="date" label="תאריך" value={day} onChange={v => setDay(v)} className={cn(`${field} mt-1`, "text-start")} /></label>
                     <label className={label}>משעה<input type="time" value={start} onChange={e => setStart(e.target.value)} className={`${field} mt-1`} dir="ltr" /></label>
                 </div>
                 <Duration minutes={minutes} setMinutes={setMinutes} />
@@ -348,8 +350,8 @@ function SeriesSheet({ rooms, terms, onClose, onDone }: { rooms: Room[]; terms: 
                 <label className={label}>משעה<input type="time" value={start} onChange={e => { setStart(e.target.value); reset(); }} className={`${field} mt-1 w-40`} dir="ltr" /></label>
                 <Duration minutes={minutes} setMinutes={m => { setMinutes(m); reset(); }} />
                 <div className="grid grid-cols-2 gap-3">
-                    <label className={label}>מתאריך<input type="date" value={from} onChange={e => { setFrom(e.target.value); reset(); }} className={`${field} mt-1`} dir="ltr" /></label>
-                    <label className={label}>עד תאריך (לא חובה)<input type="date" value={until} onChange={e => { setUntil(e.target.value); reset(); }} className={`${field} mt-1`} dir="ltr" /></label>
+                    <label className={label}>מתאריך<PickerBox type="date" label="מתאריך" value={from} onChange={v => { setFrom(v); reset(); }} className={cn(`${field} mt-1`, "text-start")} /></label>
+                    <label className={label}>עד תאריך (לא חובה)<PickerBox type="date" label="עד תאריך" value={until} onChange={v => { setUntil(v); reset(); }} className={cn(`${field} mt-1`, "text-start")} /></label>
                 </div>
                 {taken !== null && (
                     <p className={`text-sm rounded-xl px-3 py-2 ${taken.length ? "bg-amber-50 text-amber-900" : "bg-emerald-50 text-emerald-800"}`}>

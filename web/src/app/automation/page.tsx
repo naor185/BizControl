@@ -1,4 +1,5 @@
 "use client";
+import PickerBox from "@/components/ui/picker-box";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/lib/toast";
 
@@ -2456,11 +2457,9 @@ function AccountantEmailCard() {
             <div className="border-t border-emerald-100 pt-4">
                 <label className="block text-sm font-semibold text-emerald-900 mb-2">שלח מסמכים לרואה חשבון לפי תקופה</label>
                 <div className="flex flex-wrap items-center gap-2 mb-3">
-                    <input type="date" title="מתאריך" value={sendFrom} onChange={e => setSendFrom(e.target.value)}
-                        className="px-3 py-2 rounded-lg border border-emerald-200 text-sm bg-white" />
+                    <PickerBox type="date" label="מתאריך" value={sendFrom} onChange={v => setSendFrom(v)} className="px-3 py-2 rounded-lg border border-emerald-200 text-sm bg-white text-start" />
                     <span className="text-emerald-600 font-bold">עד</span>
-                    <input type="date" title="עד תאריך" value={sendTo} onChange={e => setSendTo(e.target.value)}
-                        className="px-3 py-2 rounded-lg border border-emerald-200 text-sm bg-white" />
+                    <PickerBox type="date" label="עד תאריך" value={sendTo} onChange={v => setSendTo(v)} className="px-3 py-2 rounded-lg border border-emerald-200 text-sm bg-white text-start" />
                 </div>
                 <button type="button" onClick={sendNow} disabled={sending || !email}
                     className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold disabled:opacity-60 disabled:cursor-not-allowed">

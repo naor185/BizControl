@@ -1,5 +1,7 @@
 "use client";
 
+import { cn } from "@/lib/utils";
+import PickerBox from "@/components/ui/picker-box";
 import { useState } from "react";
 import { Snowflake, Sun, CirclePause, CirclePlay, Ban, Loader2 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
@@ -90,10 +92,10 @@ export default function MembershipChanges({ m, canChange, onDone }: { m: Members
                 <div className="rounded-xl border border-slate-200 p-3 space-y-2">
                     <div className="grid grid-cols-2 gap-2">
                         <label className="text-xs text-slate-600">מתחילה ב-
-                            <input type="date" value={from} min={today()} onChange={e => setFrom(e.target.value)} className={field} dir="ltr" />
+                            <PickerBox type="date" label="מתאריך" value={from} onChange={v => setFrom(v)} min={today()} className={cn(field, "text-start")} />
                         </label>
                         <label className="text-xs text-slate-600">חוזר לפעילות ב-
-                            <input type="date" value={until} min={from} onChange={e => setUntil(e.target.value)} className={field} dir="ltr" />
+                            <PickerBox type="date" label="עד תאריך" value={until} onChange={v => setUntil(v)} min={from} className={cn(field, "text-start")} />
                         </label>
                         <label className="text-xs text-slate-600">סיבה
                             <input value={reason} onChange={e => setReason(e.target.value)} maxLength={300} placeholder="למשל: חופשה" className={field} />

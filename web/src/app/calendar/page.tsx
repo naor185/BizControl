@@ -1802,6 +1802,7 @@ export default function CalendarPage() {
                                     <PickerBox
                                         type="date"
                                         label="תאריך התור"
+                                        clearable={false}
                                         value={startAt.split("T")[0] || ""}
                                         onChange={newDate => {
                                             const startTime = startAt.split("T")[1] || "10:00";
@@ -2268,8 +2269,7 @@ export default function CalendarPage() {
                                 {taskRecurrence === "none" && (
                                     <div>
                                         <label className="block text-sm font-semibold text-slate-700 mb-1">תאריך *</label>
-                                        <input type="date" value={taskDate} onChange={e => setTaskDate(e.target.value)}
-                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-violet-400 text-sm" dir="ltr" />
+                                        <PickerBox type="date" label="תאריך המשימה" value={taskDate} onChange={v => setTaskDate(v)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-violet-400 text-sm text-start" />
                                     </div>
                                 )}
                                 {taskRecurrence === "weekly" && (
@@ -2326,8 +2326,7 @@ export default function CalendarPage() {
                                 {taskRecurrence !== "none" && (
                                     <div>
                                         <label className="block text-sm font-semibold text-slate-700 mb-1">תאריך סיום חזרה (אופציונלי)</label>
-                                        <input type="date" value={taskRecurrenceEndDate} onChange={e => setTaskRecurrenceEndDate(e.target.value)}
-                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-violet-400 text-sm" dir="ltr" />
+                                        <PickerBox type="date" label="תאריך סיום החזרה" value={taskRecurrenceEndDate} onChange={v => setTaskRecurrenceEndDate(v)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-violet-400 text-sm text-start" />
                                     </div>
                                 )}
 

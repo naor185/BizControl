@@ -1,5 +1,7 @@
 "use client";
 
+import { cn } from "@/lib/utils";
+import PickerBox from "@/components/ui/picker-box";
 import { useCallback, useEffect, useState } from "react";
 import { Check, MessageCircle, Plus, Undo2, X } from "lucide-react";
 import { apiFetch } from "@/lib/api";
@@ -135,7 +137,7 @@ export function RecordPayment({ business, onClose, onSaved }: { business: PayFor
                                     </label>
                                     <label className="block">
                                         <span className="text-xs font-semibold text-slate-500">תאריך התשלום</span>
-                                        <input type="date" className={`${input} mt-1`} value={paidOn} max={today()} onChange={e => setPaidOn(e.target.value)} />
+                                        <PickerBox type="date" label="תאריך התשלום" value={paidOn} onChange={v => setPaidOn(v)} max={today()} className={cn(`${input} mt-1`, "text-start")} />
                                     </label>
                                 </div>
                                 <label className="block">

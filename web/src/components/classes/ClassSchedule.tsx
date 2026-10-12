@@ -1,5 +1,7 @@
 "use client";
 
+import { cn } from "@/lib/utils";
+import PickerBox from "@/components/ui/picker-box";
 import { useCallback, useEffect, useState } from "react";
 import {
     ChevronRight, ChevronLeft, Users, DoorOpen, UserRound, Ban, PencilLine, Loader2, TriangleAlert, GraduationCap,
@@ -290,7 +292,7 @@ function ChangeForm({ s, rooms, staff, terms, onBack, onDone }: {
         <div className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
                 <label className="text-xs font-semibold text-slate-600">תאריך
-                    <input type="date" value={f.day} onChange={e => set({ day: e.target.value })} className={`${field} mt-1`} dir="ltr" />
+                    <PickerBox type="date" label="תאריך השיעור" value={f.day} onChange={v => set({ day: v })} className={cn(`${field} mt-1`, "text-start")} />
                 </label>
                 <label className="text-xs font-semibold text-slate-600">שעה
                     <input type="time" value={f.start_time} onChange={e => set({ start_time: e.target.value })} className={`${field} mt-1`} dir="ltr" />

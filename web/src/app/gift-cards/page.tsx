@@ -1,4 +1,6 @@
 "use client";
+import { cn } from "@/lib/utils";
+import PickerBox from "@/components/ui/picker-box";
 import PlanLock from "@/components/PlanLock";
 import { Switch } from "@/components/ui/switch";
 import { useState, useEffect, useCallback } from "react";
@@ -386,8 +388,7 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
                             </div>
                             <div>
                                 <label className={lbl}>תוקף עד (אופציונלי)</label>
-                                <input value={expiresAt} onChange={e => setExpiresAt(e.target.value)}
-                                    type="date" className={inp} />
+                                <PickerBox type="date" label="תוקף" value={expiresAt} onChange={v => setExpiresAt(v)} className={cn(inp, "text-start")} />
                             </div>
                             {err && <p className="text-rose-600 text-sm">{err}</p>}
                             <button type="button" onClick={submit} disabled={saving}
