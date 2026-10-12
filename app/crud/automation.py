@@ -662,7 +662,8 @@ def maybe_enqueue_club_invite(db: Session, studio_id, client, appointment_id=Non
         "optout_link": optout_link,
     })
 
-    delay = int(getattr(settings, "club_invite_delay_minutes", 30) or 30)
+    _d = getattr(settings, "club_invite_delay_minutes", None)
+    delay = 30 if _d is None else max(0, int(_d))     # 0 = at once (it used to become 30)
     scheduled_at = datetime.now(timezone.utc) + timedelta(minutes=delay)
 
     if client.phone:

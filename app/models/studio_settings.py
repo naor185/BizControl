@@ -212,6 +212,11 @@ class StudioSettings(Base):
     # Reminder toggles — כל סטודיו שולט בנפרד
     # the messages turned off on the message templates page — a JSON list of their ids (services/service_switches.py)
     messages_off: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # the morning-of reminder's hour, Israel time (the owner picks 7–10; was always 8) and a reminder about two hours
+    # before — off until the owner turns it on (owner, 2026-10-12)
+    same_day_reminder_hour: Mapped[int] = mapped_column(Integer, nullable=False, default=8, server_default="8")
+    reminder_2_hours_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    reminder_2h_wa_template: Mapped[str | None] = mapped_column(Text, nullable=True)
     same_day_reminder_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
     reminder_1_day_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
     reminder_3_days_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")

@@ -85,7 +85,8 @@ Per-studio feature flags stored in `studio_features` table. Use `require_feature
 `BackgroundScheduler` starts in `main.py`. Key jobs:
 - Every 20s: `process_due_jobs` (sends pending WhatsApp/email from `message_jobs` queue)
 - Every 2h: `sweep_upcoming_reminders` (1-day reminders), `sweep_7day_reminders`, `sweep_3day_reminders`
-- Cron 08:00 Israel time: `sweep_same_day_reminders`
+- Cron 07:00–10:00 Israel time, hourly: `sweep_same_day_reminders(hour=…)` — each business at its `same_day_reminder_hour` (default 8)
+- Hourly with the other reminders: `sweep_2hour_reminders` — about 2 hours before, only where `reminder_2_hours_enabled` (off by default)
 - Cron daily 10:00 Israel time: `sweep_birthday_messages` — on the 1st of the birthday month or 2 days before, per studio (`birthday_send_timing`); a missed day is caught up, one message per birthday (`crud/birthday_coupon.birthday_message_key`)
 
 ### Message Queue (`message_jobs` table)

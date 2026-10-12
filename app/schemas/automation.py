@@ -146,6 +146,9 @@ class AutomationSettingsOut(BaseModel):
 
     # Reminder toggles
     same_day_reminder_enabled: bool = True
+    same_day_reminder_hour: int = 8
+    reminder_2_hours_enabled: bool = False
+    reminder_2h_wa_template: str | None = None
     # the messages turned off on the message templates page (services/service_switches.py) — stored as a JSON list
     messages_off: list[str] = []
 
@@ -345,6 +348,9 @@ class AutomationSettingsUpdate(BaseModel):
 
     # Reminder toggles
     same_day_reminder_enabled: bool | None = None
+    same_day_reminder_hour: int | None = Field(default=None, ge=6, le=12)
+    reminder_2_hours_enabled: bool | None = None
+    reminder_2h_wa_template: str | None = None
     messages_off: list[str] | None = None
     reminder_1_day_enabled: bool | None = None
     reminder_3_days_enabled: bool | None = None

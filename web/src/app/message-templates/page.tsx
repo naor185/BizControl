@@ -59,11 +59,18 @@ interface Message {
     toggleKey?: string;               // a switch of its own in the settings
     manual?: boolean;                 // sent by hand only — no switch
     autoDetails?: boolean;            // a text with no {details} gets the appointment's details added under it (smart_format)
-    delayKey?: string; delayLabel?: string;
-    choiceKey?: string; choiceLabel?: string; choiceOptions?: { value: string; label: string }[];
+    times?: Times;                    // when it goes out — ready choices, one tap (stage 2, the owner, 2026-10-12)
     hints: string[];
 }
 interface Group { id: string; title: string; icon: LucideIcon; messages: Message[]; }
+interface Times { key: string; label: string; fallback: number | string; options: { value: number | string; label: string }[]; other?: (v: number) => string; }
+
+// after a visit: at once … a day later — minutes
+const AFTER_VISIT = (key: string, fallback: number): Times => ({
+    key, label: "מתי לשלוח", fallback, other: v => `אחרי ${v} דקות`,
+    options: [{ value: 0, label: "מיד" }, { value: 30, label: "חצי שעה אחרי" }, { value: 60, label: "שעה אחרי" },
+              { value: 180, label: "3 שעות אחרי" }, { value: 1440, label: "יום אחרי" }],
+});
 
 const GROUPS: Group[] = [
     {
@@ -96,8 +103,12 @@ const GROUPS: Group[] = [
             { id: "reminder_1day", title: "תזכורת יום לפני", when: "כ-24 שעות לפני התור", toggleKey: "reminder_1_day_enabled",
               templateKey: "reminder_wa_template", emailKey: "reminder_email_template",
               hints: ["client_name","appointment_title","appointment_date","appointment_time","studio_address","map_link","deposit_amount","payment_link"] },
-            { id: "reminder_sameday", title: "תזכורת ביום התור", when: "ב-08:00 בבוקר יום התור", toggleKey: "same_day_reminder_enabled",
+            { id: "reminder_sameday", title: "תזכורת בבוקר התור", when: "בבוקר יום התור, בשעה שבוחרים כאן", toggleKey: "same_day_reminder_enabled",
+              times: { key: "same_day_reminder_hour", label: "באיזו שעה", fallback: 8,
+                       options: [7, 8, 9, 10].map(h => ({ value: h, label: `${String(h).padStart(2, "0")}:00` })) },
               templateKey: "same_day_reminder_wa_template", hints: ["client_name","appointment_title","appointment_time","studio_address","map_link","deposit_amount","payment_link"] },
+            { id: "reminder_2h", title: "תזכורת כשעתיים לפני", when: "כשעתיים לפני התור", toggleKey: "reminder_2_hours_enabled",
+              templateKey: "reminder_2h_wa_template", hints: ["client_name","appointment_title","appointment_time","studio_address","map_link"] },
             { id: "deposit_reminder", title: "תזכורת מקדמה", when: "24 שעות אחרי קביעת התור, אם המקדמה עוד לא שולמה",
               templateKey: "deposit_reminder_wa_template", hints: ["client_name","date","time","deposit_amount"] },
         ],
@@ -113,6 +124,7 @@ const GROUPS: Group[] = [
             { id: "pos_receipt", title: "תודה על הרכישה", when: "אחרי רכישה בקופה", templateKey: "pos_receipt_wa_template",
               hints: ["client_name","total_amount","points_earned","loyalty_points"] },
             { id: "aftercare", title: "הוראות אחרי הטיפול", when: "אחרי שהתור הסתיים", toggleKey: "aftercare_enabled",
+              times: AFTER_VISIT("aftercare_delay_minutes", 30),
               templateKey: "aftercare_message", hints: ["client_name","appointment_title","artist_name"] },
         ],
     },
@@ -136,11 +148,11 @@ const GROUPS: Group[] = [
               templateKey: "welcome_wa_template", emailKey: "welcome_email_template", hints: ["client_name","loyalty_points","join_link"] },
             { id: "birthday", title: "יום הולדת", when: "עם קופון הנחה", toggleKey: "birthday_automation_enabled",
               templateKey: "birthday_wa_template", emailKey: "birthday_email_template",
-              choiceKey: "birthday_send_timing", choiceLabel: "מתי לשלוח",
-              choiceOptions: [{ value: "month_start", label: "בתחילת חודש יום ההולדת" }, { value: "two_days", label: "יומיים לפני יום ההולדת" }],
+              times: { key: "birthday_send_timing", label: "מתי לשלוח", fallback: "month_start",
+                       options: [{ value: "month_start", label: "בתחילת החודש" }, { value: "two_days", label: "יומיים לפני" }] },
               hints: ["client_name","coupon_code","benefit_percent"] },
             { id: "non_member", title: "הזמנה להצטרף למועדון", when: "ללקוח שביקר ועוד לא במועדון", toggleKey: "club_invite_enabled",
-              delayKey: "club_invite_delay_minutes", delayLabel: "כמה דקות אחרי הביקור",
+              times: AFTER_VISIT("club_invite_delay_minutes", 30),
               templateKey: "non_member_wa_template", hints: ["client_name","join_link","loyalty_points"] },
             { id: "points_redeem", title: "מימוש נקודות", when: "כשלקוח מממש נקודות", toggleKey: "points_celebration_enabled",
               templateKey: "points_redeem_wa_template", hints: ["client_name","points_used","discount_amount","loyalty_points","studio_name"] },
@@ -285,7 +297,6 @@ function MessageCard({ m, on, text, values, settings, terms, onSwitch, onEdit, o
     onSetting: (key: string, value: unknown, done: string) => void;
 }) {
     const own = !!text.trim();
-    const [delay, setDelay] = useState(String(m.delayKey ? settings[m.delayKey] ?? 30 : ""));
     return (
         <article className={`rounded-2xl border bg-white p-4 shadow-sm transition-opacity ${on ? "border-slate-200" : "border-slate-200 opacity-70"}`}>
             <div className="flex items-start gap-3">
@@ -305,25 +316,29 @@ function MessageCard({ m, on, text, values, settings, terms, onSwitch, onEdit, o
 
             {on ? (
                 <>
-                    {/* when, for the ones with a choice */}
-                    {m.choiceKey && m.choiceOptions && (
-                        <label className="mt-3 flex flex-wrap items-center gap-2 text-sm text-slate-700">
-                            <span className="font-semibold">{m.choiceLabel}:</span>
-                            <select value={String(settings[m.choiceKey] ?? m.choiceOptions[0].value)}
-                                onChange={e => onSetting(m.choiceKey!, e.target.value, "נשמר")}
-                                className="min-h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm">
-                                {m.choiceOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                            </select>
-                        </label>
-                    )}
-                    {m.delayKey && (
-                        <label className="mt-3 flex flex-wrap items-center gap-2 text-sm text-slate-700">
-                            <span className="font-semibold">{m.delayLabel}:</span>
-                            <input type="number" inputMode="numeric" min={0} value={delay} onChange={e => setDelay(e.target.value)}
-                                onBlur={() => { const n = Math.max(0, Number(delay) || 0); if (n !== Number(settings[m.delayKey!] ?? 30)) onSetting(m.delayKey!, n, "נשמר"); }}
-                                className="w-24 min-h-10 rounded-xl border border-slate-200 px-3 text-base text-center" />
-                        </label>
-                    )}
+                    {/* when it goes out — a tap on a ready time */}
+                    {m.times && (() => {
+                        const t = m.times;
+                        const now = settings[t.key] ?? t.fallback;
+                        const known = t.options.some(o => o.value === now);
+                        return (
+                            <div className="mt-3" role="radiogroup" aria-label={`${t.label} — ${m.title}`}>
+                                <div className="text-sm font-semibold text-slate-700 mb-1.5">{t.label}</div>
+                                <div className="flex flex-wrap gap-1.5">
+                                    {t.options.map(o => (
+                                        <button key={String(o.value)} type="button" role="radio" aria-checked={o.value === now}
+                                            onClick={() => o.value !== now && onSetting(t.key, o.value, `"${m.title}" — ${o.label}`)}
+                                            className={`min-h-9 px-3 rounded-full text-sm font-semibold border transition-colors ${o.value === now ? "bg-sky-600 text-white border-sky-600" : "bg-white text-slate-700 border-slate-200 hover:border-sky-300 hover:bg-sky-50"}`}>
+                                            {o.label}
+                                        </button>
+                                    ))}
+                                    {!known && t.other && typeof now === "number" && (
+                                        <span role="radio" aria-checked className="min-h-9 px-3 inline-flex items-center rounded-full text-sm font-semibold border bg-sky-600 text-white border-sky-600">{t.other(now)}</span>
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    })()}
 
                     {/* what goes out */}
                     <div className="mt-3">

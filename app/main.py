@@ -33,7 +33,7 @@ from app.core.limiter import limiter
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from app.db.session import SessionLocal
-from app.services.message_worker import process_due_jobs, sweep_upcoming_reminders, sweep_7day_reminders, sweep_3day_reminders, sweep_birthday_messages, sweep_same_day_reminders, sweep_deposit_reminders, sweep_staff_reminders
+from app.services.message_worker import process_due_jobs, sweep_upcoming_reminders, sweep_2hour_reminders, sweep_7day_reminders, sweep_3day_reminders, sweep_birthday_messages, sweep_same_day_reminders, sweep_deposit_reminders, sweep_staff_reminders
 from app.services.plan_alert_service import sweep_plan_expiry_alerts, sweep_subscription_transitions
 from app.api.router import api_router
 from app.services.automation_service import AutomationService
@@ -72,6 +72,7 @@ def start_scheduler():
         db = SessionLocal()
         try:
             sweep_upcoming_reminders(db)
+            sweep_2hour_reminders(db)
             sweep_7day_reminders(db)
             sweep_3day_reminders(db)
         finally:
@@ -80,7 +81,9 @@ def start_scheduler():
     def tick_same_day_reminders():
         db = SessionLocal()
         try:
-            sweep_same_day_reminders(db)
+            from datetime import datetime as _dt
+            import pytz as _pytz
+            sweep_same_day_reminders(db, hour=_dt.now(_pytz.timezone("Asia/Jerusalem")).hour)
         finally:
             db.close()
 
@@ -144,7 +147,8 @@ def start_scheduler():
     scheduler.add_job(tick_jobs, "interval", seconds=20, id="message_jobs_tick", replace_existing=True)
     scheduler.add_job(tick_purge_deleted_businesses, "cron", hour=3, minute=30, timezone="Asia/Jerusalem", id="purge_deleted_businesses_tick", replace_existing=True)
     scheduler.add_job(tick_reminders, "interval", minutes=60, id="reminders_sweep_tick", replace_existing=True)
-    scheduler.add_job(tick_same_day_reminders, "cron", hour=8, minute=0, timezone="Asia/Jerusalem", id="same_day_reminders_tick", replace_existing=True)
+    # every morning hour a business can choose for its morning reminder (7–10)
+    scheduler.add_job(tick_same_day_reminders, "cron", hour="7-10", minute=0, timezone="Asia/Jerusalem", id="same_day_reminders_tick", replace_existing=True)
     scheduler.add_job(tick_plan_alerts, "cron", hour=9, minute=0, id="plan_alerts_tick", replace_existing=True)
     scheduler.add_job(tick_subscription_transitions, "cron", hour=9, minute=15, id="subscription_transitions_tick", replace_existing=True)
     # Runs DAILY (not monthly) — sweep_birthday_messages now sends each club

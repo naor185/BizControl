@@ -2910,6 +2910,10 @@ def ensure_schema():
             cur.execute(f"ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS {_col} BOOLEAN NOT NULL DEFAULT TRUE")
         # ...and for each message on the message templates page — the ones turned off, a JSON list (none: all on)
         cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS messages_off TEXT")
+        # ready times: the morning reminder's hour, a reminder about two hours before (off until turned on)
+        cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS same_day_reminder_hour INTEGER NOT NULL DEFAULT 8")
+        cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS reminder_2_hours_enabled BOOLEAN NOT NULL DEFAULT FALSE")
+        cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS reminder_2h_wa_template TEXT")
         if _once("birthday_percent_0_is_10"):
             # A birthday percent left at 0 always gave 10% (the code turned 0 into 10) — now 0 isn't turned into
             # anything, so those businesses get the 10% they have been giving, written down.

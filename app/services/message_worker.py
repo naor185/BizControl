@@ -43,10 +43,10 @@ def _notify_message_failed(db: Session, job: MessageJob) -> None:
     except Exception:
         log.exception("[message_worker] failed to create failure notification for job %s", job.id)
 
-_REMINDER_LABELS = {"1day": "מחר", "7day": "בעוד שבוע", "3day": "בעוד 3 ימים", "same_day": "היום"}
+_REMINDER_LABELS = {"1day": "מחר", "7day": "בעוד שבוע", "3day": "בעוד 3 ימים", "same_day": "היום", "2hours": "בעוד שעתיים"}
 # messages that belong before the appointment — not sent once it has begun (process_due_jobs)
 BEFORE_APPOINTMENT = frozenset({
-    "1day", "3day", "7day", "same_day", "1day_email", "3day_email", "7day_email", "same_day_email",
+    "1day", "3day", "7day", "same_day", "2hours", "1day_email", "3day_email", "7day_email", "same_day_email",
     "new_appointment", "reschedule", "deposit_24h", "health_form",
 })
 from app.crud.automation import format_template
@@ -698,6 +698,24 @@ def sweep_upcoming_reminders(db: Session) -> int:
     )
 
 
+def sweep_2hour_reminders(db: Session) -> int:
+    """תזכורת כשעתיים לפני התור — only where the owner turned it on (reminder_2_hours_enabled, off by default). The
+    hourly tick sees appointments 1.4–2.6 hours ahead, so each is caught once, about two hours before."""
+    return _sweep_reminders_for_window(
+        db,
+        hours_ahead=2,
+        window_hours=1.2,
+        reminder_type="2hours",
+        enabled_attr="reminder_2_hours_enabled",
+        wa_template_attr="reminder_2h_wa_template",
+        wa_default=(
+            "היי {client_name} 👋\n"
+            "מזכירים — התור שלך היום בשעה {appointment_time} 📋 {appointment_title}\n\n"
+            "מחכים לך!"
+        ),
+    )
+
+
 def sweep_7day_reminders(db: Session) -> int:
     """תזכורת שבוע לפני התור."""
     return _sweep_reminders_for_window(
@@ -772,8 +790,10 @@ def sweep_3day_reminders(db: Session) -> int:
     )
 
 
-def sweep_same_day_reminders(db: Session) -> int:
-    """תזכורת בוקר ביום התור — רצה כל יום בשעה 08:00 שעון ישראל."""
+def sweep_same_day_reminders(db: Session, hour: int | None = None) -> int:
+    """תזכורת בוקר ביום התור — runs every hour of the morning; each business at the hour it chose (same_day_reminder_hour,
+    8 unless changed — the owner, 2026-10-12). `hour` is the hour now in Israel; None (a test, a manual run): every
+    business, whatever its hour."""
     now_utc = datetime.now(timezone.utc)
     today_il = now_utc.astimezone(_IL_TZ).date()
 
@@ -796,6 +816,8 @@ def sweep_same_day_reminders(db: Session) -> int:
 
     for appt, client, settings in rows:
         if not getattr(settings, "same_day_reminder_enabled", True):
+            continue
+        if hour is not None and int(getattr(settings, "same_day_reminder_hour", 8) or 8) != hour:
             continue
 
         if _already_enqueued(db, appt.id, "same_day"):
