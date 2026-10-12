@@ -2908,6 +2908,8 @@ def ensure_schema():
         for _col in ("aftercare_enabled", "club_join_gift_enabled", "cashback_enabled", "gift_card_sales_enabled",
                      "gift_voucher_design_enabled"):
             cur.execute(f"ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS {_col} BOOLEAN NOT NULL DEFAULT TRUE")
+        # ...and for each message on the message templates page — the ones turned off, a JSON list (none: all on)
+        cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS messages_off TEXT")
         if _once("birthday_percent_0_is_10"):
             # A birthday percent left at 0 always gave 10% (the code turned 0 into 10) — now 0 isn't turned into
             # anything, so those businesses get the 10% they have been giving, written down.

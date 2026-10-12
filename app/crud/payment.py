@@ -392,6 +392,9 @@ def _enqueue_receipt_link(db, studio_id, invoice_id: str, appt, client) -> None:
     now = datetime.now(timezone.utc)
 
     _rl_settings = db.get(_RLSettings, studio_id)
+    from app.services.service_switches import message_on
+    if not message_on(_rl_settings, "receipt_link"):
+        return
     custom_tpl = getattr(_rl_settings, "receipt_link_wa_template", None) if _rl_settings else None
 
     if client.phone:

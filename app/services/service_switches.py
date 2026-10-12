@@ -11,6 +11,28 @@ from sqlalchemy.orm import Session
 
 DEFAULT_BIRTHDAY_PERCENT = 10
 
+# The messages the owner turns on and off on the message templates page (owner, 2026-10-12: "only a delete button,
+# no way to cancel a message"), by the page's id — those without a switch of their own; the reminders, the birthday,
+# the club invite, the aftercare and the points card keep theirs. Every one starts on.
+MESSAGE_IDS = frozenset({
+    "confirm", "deposit_request", "deposit_approved", "reschedule", "cancel",
+    "post_payment", "receipt_link", "pos_receipt", "deposit_reminder",
+    "booking_request_approved", "booking_request_rejected", "waitlist_joined", "waitlist_notify", "welcome",
+})
+
+
+def messages_off(settings) -> set[str]:
+    import json
+    try:
+        return set(json.loads(getattr(settings, "messages_off", None) or "[]")) & MESSAGE_IDS
+    except (ValueError, TypeError):
+        return set()
+
+
+def message_on(settings, message_id: str) -> bool:
+    """Is this message sent — not turned off on the message templates page."""
+    return message_id not in messages_off(settings)
+
 
 def _settings(db: Session, studio_id):
     from app.models.studio_settings import StudioSettings

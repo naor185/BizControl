@@ -1,410 +1,200 @@
 "use client";
 import { useState, useEffect, useRef, useCallback } from "react";
+import { CalendarCheck, Bell, Receipt, Globe, Star, Pencil, RotateCcw, MessageCircle, Mail, Info, type LucideIcon } from "lucide-react";
 import AppShell from "@/components/AppShell";
 import RequireAuth from "@/components/RequireAuth";
+import BottomSheet from "@/components/ui/bottom-sheet";
+import { Switch } from "@/components/ui/switch";
 import { apiFetch } from "@/lib/api";
 import { fillTerms, useTerms } from "@/lib/useTerms";
 import { toast } from "@/lib/toast";
 
-// ── Placeholder definitions ────────────────────────────────────────────────────
+// The messages the business sends its clients — one card each: on or off, what it says, its text edited in one window
+// that goes out on WhatsApp and, when the client has an e-mail, in the e-mail too (the owner, 2026-10-12: "much easier,
+// prettier and accessible for someone who doesn't know automations; one window per template; a way to cancel a
+// message, not just delete").
+
+// ── The details a text can hold — {key} in the text, the client's own in each message ────────────────────────────────
 const PLACEHOLDERS = [
     { key: "{client_name}",            label: "שם לקוח" },
     { key: "{appointment_title}",      label: "שם שירות" },
     { key: "{service_name}",           label: "שם שירות" },
     { key: "{appointment_date}",       label: "תאריך תור" },
     { key: "{appointment_time}",       label: "שעת תור" },
+    { key: "{date}",                   label: "תאריך תור" },
+    { key: "{time}",                   label: "שעת תור" },
     { key: "{artist_name}",            label: "שם {staff}" },
     { key: "{staff_title}",            label: "המילה \"{staff}\"" },
     { key: "{studio_name}",            label: "שם העסק" },
     { key: "{studio_address}",         label: "כתובת העסק" },
-    { key: "{map_link}",               label: "🗺️ קישור מפה" },
-    { key: "{portfolio_link}",         label: "🖼️ תיק עבודות" },
-    { key: "{bit_link}",               label: "💳 קישור ביט" },
-    { key: "{paybox_link}",            label: "💳 קישור פייבוקס" },
-    { key: "{payment_link}",           label: "💳 קישור תשלום" },
-    { key: "{deposit_amount}",         label: "₪ סכום מקדמה" },
+    { key: "{map_link}",               label: "קישור מפה" },
+    { key: "{portfolio_link}",         label: "תיק עבודות" },
+    { key: "{bit_link}",               label: "קישור ביט" },
+    { key: "{paybox_link}",            label: "קישור פייבוקס" },
+    { key: "{payment_link}",           label: "קישור תשלום" },
+    { key: "{deposit_amount}",         label: "סכום מקדמה" },
     { key: "{cancellation_free_days}", label: "ימי ביטול חינם" },
     { key: "{deposit_lock_days}",      label: "ימי נעילת מקדמה" },
     { key: "{loyalty_points}",         label: "נקודות לקוח" },
-    { key: "{coupon_code}",            label: "🎁 קוד קופון" },
+    { key: "{points_earned}",          label: "נקודות שנצברו" },
+    { key: "{coupon_code}",            label: "קוד קופון" },
     { key: "{benefit_percent}",        label: "% הנחה יום הולדת" },
-    { key: "{join_link}",              label: "🔗 קישור הצטרפות" },
+    { key: "{join_link}",              label: "קישור הצטרפות" },
     { key: "{points_used}",            label: "נקודות שנוצלו" },
-    { key: "{discount_amount}",        label: "₪ סכום הנחה" },
-    { key: "{receipt_link}",           label: "🧾 קישור קבלה" },
-    { key: "{booking_link}",           label: "🔗 קישור הזמנה" },
-    { key: "{total_amount}",           label: "₪ סכום כולל" },
+    { key: "{discount_amount}",        label: "סכום הנחה" },
+    { key: "{receipt_link}",           label: "קישור קבלה" },
+    { key: "{booking_link}",           label: "קישור הזמנה" },
+    { key: "{total_amount}",           label: "סכום כולל" },
     { key: "{rejection_reason}",       label: "סיבת דחייה" },
     { key: "{service_note}",           label: "הערת שירות" },
 ];
 
-// ── Section types ──────────────────────────────────────────────────────────────
-interface AutomSection {
-    id: string;
+// ── The messages ──────────────────────────────────────────────────────────────────────────────────────────────────────
+interface Message {
+    id: string;                       // also its id in messages_off (app/services/service_switches.py) when it has no own switch
     title: string;
-    icon: string;
+    when: string;                     // when it goes out, in a few words
     templateKey: string;
-    emailKey?: string;
-    toggleKey?: string;
-    toggleLabel?: string;
-    delayKey?: string;
-    delayLabel?: string;
-    choiceKey?: string;                                   // a setting picked from ready options, shown while the toggle is on
-    choiceLabel?: string;
-    choiceOptions?: { value: string; label: string }[];
-    description: string;
+    emailKey?: string;                // the same text goes to the e-mail too
+    toggleKey?: string;               // a switch of its own in the settings
+    manual?: boolean;                 // sent by hand only — no switch
+    autoDetails?: boolean;            // a text with no {details} gets the appointment's details added under it (smart_format)
+    delayKey?: string; delayLabel?: string;
+    choiceKey?: string; choiceLabel?: string; choiceOptions?: { value: string; label: string }[];
     hints: string[];
-    bizfind?: boolean;
 }
-interface SectionGroup { id: string; title: string; icon: string; sections: AutomSection[]; }
+interface Group { id: string; title: string; icon: LucideIcon; messages: Message[]; }
 
-const GROUPS: SectionGroup[] = [
+const GROUPS: Group[] = [
     {
-        id: "appointments", title: "תורים", icon: "📅",
-        sections: [
-            {
-                id: "confirm", title: "אישור תור", icon: "✅",
-                templateKey: "confirm_wa_template", emailKey: "confirm_email_template",
-                description: "נשלחת מיד לאחר קביעת תור (ללא מקדמה)",
-                hints: ["client_name","appointment_title","appointment_date","appointment_time","artist_name","studio_address","map_link","portfolio_link","cancellation_free_days"],
-            },
-            {
-                id: "deposit_request", title: "בקשת מקדמה", icon: "💳",
-                templateKey: "deposit_request_wa_template",
-                description: "נשלחת כשנקבע תור שדורש מקדמה",
-                hints: ["client_name","appointment_title","appointment_date","appointment_time","studio_address","map_link","bit_link","paybox_link","payment_link","deposit_amount","cancellation_free_days"],
-            },
-            {
-                id: "deposit_approved", title: "מקדמה אושרה", icon: "✅💳",
-                templateKey: "deposit_approved_wa_template",
-                description: "נשלחת לאחר אישור קבלת המקדמה",
-                hints: ["client_name","appointment_date","appointment_time","artist_name","studio_address","map_link","portfolio_link","cancellation_free_days","deposit_lock_days"],
-            },
-            {
-                id: "reschedule", title: "שינוי תור", icon: "🔄",
-                templateKey: "reschedule_wa_template", emailKey: "reschedule_email_template",
-                description: "נשלחת כאשר תור מועבר לזמן אחר",
-                hints: ["client_name","appointment_title","appointment_date","appointment_time","artist_name","studio_address","map_link"],
-            },
-            {
-                id: "cancel", title: "ביטול תור", icon: "❌",
-                templateKey: "cancel_wa_template", emailKey: "cancel_email_template",
-                description: "נשלחת כאשר תור מבוטל",
-                hints: ["client_name","appointment_title","appointment_date","appointment_time"],
-            },
+        id: "appointments", title: "תורים", icon: CalendarCheck,
+        messages: [
+            { id: "confirm", title: "אישור תור", when: "מיד כשנקבע תור בלי מקדמה", autoDetails: true,
+              templateKey: "confirm_wa_template", emailKey: "confirm_email_template",
+              hints: ["client_name","appointment_title","appointment_date","appointment_time","artist_name","studio_address","map_link","portfolio_link","cancellation_free_days"] },
+            { id: "deposit_request", title: "בקשת מקדמה", when: "מיד כשנקבע תור שדורש מקדמה", autoDetails: true,
+              templateKey: "deposit_request_wa_template",
+              hints: ["client_name","appointment_title","appointment_date","appointment_time","studio_address","map_link","bit_link","paybox_link","payment_link","deposit_amount","cancellation_free_days"] },
+            { id: "deposit_approved", title: "המקדמה התקבלה", when: "כשמאשרים שהמקדמה שולמה", autoDetails: true,
+              templateKey: "deposit_approved_wa_template",
+              hints: ["client_name","appointment_date","appointment_time","artist_name","studio_address","map_link","portfolio_link","cancellation_free_days","deposit_lock_days"] },
+            { id: "reschedule", title: "שינוי מועד", when: "כשתור עובר לזמן אחר", autoDetails: true,
+              templateKey: "reschedule_wa_template", emailKey: "reschedule_email_template",
+              hints: ["client_name","appointment_title","appointment_date","appointment_time","artist_name","studio_address","map_link"] },
+            { id: "cancel", title: "ביטול תור", when: "כשהלקוח ביטל או לא הגיע", autoDetails: true,
+              templateKey: "cancel_wa_template", emailKey: "cancel_email_template",
+              hints: ["client_name","appointment_title","appointment_date","appointment_time"] },
         ],
     },
     {
-        id: "reminders", title: "תזכורות", icon: "🔔",
-        sections: [
-            {
-                id: "reminder_sameday", title: "תזכורת — ביום התור", icon: "☀️",
-                templateKey: "same_day_reminder_wa_template",
-                toggleKey: "same_day_reminder_enabled", toggleLabel: "שלח תזכורת בבוקר יום התור",
-                description: "נשלחת בשעה 08:00 ביום התור",
-                hints: ["client_name","appointment_title","appointment_time","studio_address","map_link","deposit_amount","payment_link"],
-            },
-            {
-                id: "reminder_1day", title: "תזכורת — יום לפני", icon: "📅",
-                templateKey: "reminder_wa_template", emailKey: "reminder_email_template",
-                toggleKey: "reminder_1_day_enabled", toggleLabel: "שלח תזכורת יום לפני",
-                description: "נשלחת ~24 שעות לפני התור",
-                hints: ["client_name","appointment_title","appointment_date","appointment_time","studio_address","map_link","deposit_amount","payment_link"],
-            },
-            {
-                id: "reminder_3day", title: "תזכורת — 3 ימים לפני", icon: "📅",
-                templateKey: "reminder_3day_wa_template",
-                toggleKey: "reminder_3_days_enabled", toggleLabel: "שלח תזכורת 3 ימים לפני",
-                description: "נשלחת ~3 ימים לפני התור",
-                hints: ["client_name","appointment_title","appointment_date","appointment_time","studio_address","map_link"],
-            },
-            {
-                id: "reminder_7day", title: "תזכורת — שבוע לפני", icon: "📅",
-                templateKey: "reminder_7day_wa_template",
-                toggleKey: "reminder_7_days_enabled", toggleLabel: "שלח תזכורת שבוע לפני",
-                description: "נשלחת ~7 ימים לפני התור",
-                hints: ["client_name","appointment_title","appointment_date","appointment_time"],
-            },
+        id: "reminders", title: "תזכורות", icon: Bell,
+        messages: [
+            { id: "reminder_7day", title: "תזכורת שבוע לפני", when: "כשבוע לפני התור", toggleKey: "reminder_7_days_enabled",
+              templateKey: "reminder_7day_wa_template", hints: ["client_name","appointment_title","appointment_date","appointment_time"] },
+            { id: "reminder_3day", title: "תזכורת 3 ימים לפני", when: "כ-3 ימים לפני התור", toggleKey: "reminder_3_days_enabled",
+              templateKey: "reminder_3day_wa_template", hints: ["client_name","appointment_title","appointment_date","appointment_time","studio_address","map_link"] },
+            { id: "reminder_1day", title: "תזכורת יום לפני", when: "כ-24 שעות לפני התור", toggleKey: "reminder_1_day_enabled",
+              templateKey: "reminder_wa_template", emailKey: "reminder_email_template",
+              hints: ["client_name","appointment_title","appointment_date","appointment_time","studio_address","map_link","deposit_amount","payment_link"] },
+            { id: "reminder_sameday", title: "תזכורת ביום התור", when: "ב-08:00 בבוקר יום התור", toggleKey: "same_day_reminder_enabled",
+              templateKey: "same_day_reminder_wa_template", hints: ["client_name","appointment_title","appointment_time","studio_address","map_link","deposit_amount","payment_link"] },
+            { id: "deposit_reminder", title: "תזכורת מקדמה", when: "24 שעות אחרי קביעת התור, אם המקדמה עוד לא שולמה",
+              templateKey: "deposit_reminder_wa_template", hints: ["client_name","date","time","deposit_amount"] },
         ],
     },
     {
-        id: "payment", title: "תשלומים וטיפול", icon: "🧾",
-        sections: [
-            {
-                id: "post_payment", title: "לאחר תשלום", icon: "🧾",
-                templateKey: "post_payment_wa_template", emailKey: "post_payment_email_template",
-                description: "נשלחת ללקוח לאחר ביצוע תשלום בקופה",
-                hints: ["client_name","appointment_title","appointment_date","loyalty_points"],
-            },
-            {
-                id: "receipt_link", title: "קישור קבלה", icon: "🧾",
-                templateKey: "receipt_link_wa_template",
-                description: "נשלחת ללקוח עם קישור לקבלה דיגיטלית לאחר תשלום",
-                hints: ["client_name","service_name","receipt_link"],
-            },
-            {
-                id: "pos_receipt", title: "תודה על רכישה (קופה)", icon: "🛍️",
-                templateKey: "pos_receipt_wa_template",
-                description: "נשלחת ללקוח לאחר רכישה בקופה (POS)",
-                hints: ["client_name","total_amount","points_earned","loyalty_points"],
-            },
-            {
-                id: "deposit_reminder", title: "תזכורת מקדמה", icon: "💰",
-                templateKey: "deposit_reminder_wa_template",
-                description: "נשלחת ללקוח 24 שעות לאחר קביעת תור אם המקדמה טרם שולמה. ניתן גם לשלוח ידנית מלוח הבקרה.",
-                hints: ["client_name","date","time","deposit_amount"],
-            },
-            {
-                id: "aftercare", title: "הוראות טיפול לאחר תור", icon: "🩹",
-                templateKey: "aftercare_message",
-                description: "הוראות אפטרקר שנשלחות לאחר סיום תור",
-                hints: ["client_name","appointment_title","artist_name"],
-            },
+        id: "payment", title: "תשלומים ואחרי הטיפול", icon: Receipt,
+        messages: [
+            { id: "post_payment", title: "תודה על התשלום", when: "אחרי תשלום על תור", autoDetails: true,
+              templateKey: "post_payment_wa_template", emailKey: "post_payment_email_template",
+              hints: ["client_name","appointment_title","appointment_date","loyalty_points"] },
+            { id: "receipt_link", title: "קישור לקבלה", when: "אחרי תשלום, עם הקבלה הדיגיטלית",
+              templateKey: "receipt_link_wa_template", hints: ["client_name","service_name","receipt_link"] },
+            { id: "pos_receipt", title: "תודה על הרכישה", when: "אחרי רכישה בקופה", templateKey: "pos_receipt_wa_template",
+              hints: ["client_name","total_amount","points_earned","loyalty_points"] },
+            { id: "aftercare", title: "הוראות אחרי הטיפול", when: "אחרי שהתור הסתיים", toggleKey: "aftercare_enabled",
+              templateKey: "aftercare_message", hints: ["client_name","appointment_title","artist_name"] },
         ],
     },
     {
-        id: "bizfind", title: "BizFind — קביעות אונליין", icon: "🌐",
-        sections: [
-            {
-                id: "booking_confirm", title: "אישור קביעה עצמית", icon: "✅",
-                templateKey: "booking_confirm_wa_template",
-                bizfind: true,
-                description: "נשלחת ללקוח שקבע תור עצמאית דרך דף BizFind",
-                hints: ["client_name","service_name","appointment_date","appointment_time","studio_name"],
-            },
-            {
-                id: "booking_request_approved", title: "בקשת תור — אושרה", icon: "👍",
-                templateKey: "booking_request_approved_wa_template",
-                bizfind: true,
-                description: "נשלחת ללקוח כאשר בקשת התור שלו אושרה על-ידי העסק",
-                hints: ["client_name","artist_name","appointment_date","service_note","booking_link"],
-            },
-            {
-                id: "booking_request_rejected", title: "בקשת תור — נדחתה", icon: "❌",
-                templateKey: "booking_request_rejected_wa_template",
-                bizfind: true,
-                description: "נשלחת ללקוח כאשר בקשת התור שלו נדחתה",
-                hints: ["client_name","appointment_date","rejection_reason"],
-            },
-            {
-                id: "waitlist_joined", title: "הצטרפות לרשימת המתנה", icon: "📋",
-                templateKey: "waitlist_joined_wa_template",
-                bizfind: true,
-                description: "נשלחת ללקוח כאשר הוא מצטרף לרשימת ההמתנה",
-                hints: ["client_name","studio_name"],
-            },
-            {
-                id: "waitlist_notify", title: "התפנה מקום — רשימת המתנה", icon: "🎉",
-                templateKey: "waitlist_notify_wa_template",
-                bizfind: true,
-                description: "נשלחת ללקוחות ברשימת ההמתנה כאשר מתפנה מקום",
-                hints: ["client_name","studio_name","booking_link"],
-            },
+        id: "online", title: "קביעת תורים אונליין", icon: Globe,
+        messages: [
+            { id: "booking_request_approved", title: "בקשת תור אושרה", when: "כשמאשרים בקשת תור מהאתר",
+              templateKey: "booking_request_approved_wa_template", hints: ["client_name","artist_name","appointment_date","service_note","booking_link"] },
+            { id: "booking_request_rejected", title: "בקשת תור נדחתה", when: "כשדוחים בקשת תור מהאתר",
+              templateKey: "booking_request_rejected_wa_template", hints: ["client_name","appointment_date","rejection_reason"] },
+            { id: "waitlist_joined", title: "נרשמת לרשימת המתנה", when: "כשלקוח נרשם לרשימת ההמתנה",
+              templateKey: "waitlist_joined_wa_template", hints: ["client_name","studio_name"] },
+            { id: "waitlist_notify", title: "התפנה מקום", when: "כשמתפנה תור ללקוחות ברשימת ההמתנה",
+              templateKey: "waitlist_notify_wa_template", hints: ["client_name","studio_name","booking_link"] },
         ],
     },
     {
-        id: "club", title: "מועדון לקוחות", icon: "⭐",
-        sections: [
-            {
-                id: "welcome", title: "ברוכים הבאים", icon: "👋",
-                templateKey: "welcome_wa_template", emailKey: "welcome_email_template",
-                description: "נשלחת ללקוח חדש כאשר מצטרף למועדון",
-                hints: ["client_name","loyalty_points","join_link"],
-            },
-            {
-                id: "birthday", title: "יום הולדת", icon: "🎂",
-                templateKey: "birthday_wa_template", emailKey: "birthday_email_template",
-                toggleKey: "birthday_automation_enabled", toggleLabel: "שלח הודעת יום הולדת",
-                choiceKey: "birthday_send_timing", choiceLabel: "מתי לשלוח",
-                choiceOptions: [
-                    { value: "month_start", label: "בתחילת חודש יום ההולדת" },
-                    { value: "two_days", label: "יומיים לפני יום ההולדת" },
-                ],
-                description: "נשלחת לחברי מועדון עם קופון הנחה — בתחילת חודש יום ההולדת או יומיים לפני, לפי הבחירה",
-                hints: ["client_name","coupon_code","benefit_percent"],
-            },
-            {
-                id: "non_member", title: "הזמנה למועדון", icon: "🎁",
-                templateKey: "non_member_wa_template",
-                toggleKey: "club_invite_enabled", toggleLabel: "שלח הזמנה ללקוחות שאינם חברים",
-                delayKey: "club_invite_delay_minutes", delayLabel: "דקות המתנה לאחר ביקור",
-                description: "נשלחת ללקוחות שביקרו אך אינם חברי מועדון",
-                hints: ["client_name","join_link","loyalty_points"],
-            },
-            {
-                id: "points_redeem", title: "מימוש נקודות", icon: "🏆",
-                templateKey: "points_redeem_wa_template",
-                description: "נשלחת עם כרטיס החגיגה, כשלקוח מממש נקודות מעל הסכום שנקבע בהגדרות המועדון",
-                hints: ["client_name","points_used","discount_amount","loyalty_points","studio_name"],
-            },
-            {
-                id: "points_balance", title: "יתרת נקודות", icon: "⭐",
-                templateKey: "points_balance_wa_template",
-                description: "נשלחת ידנית מפרופיל הלקוח — מאפשרת ללקוח לדעת כמה נקודות נצברו",
-                hints: ["client_name","loyalty_points"],
-            },
+        id: "club", title: "מועדון לקוחות", icon: Star,
+        messages: [
+            { id: "welcome", title: "ברוכים הבאים למועדון", when: "כשלקוח מצטרף למועדון",
+              templateKey: "welcome_wa_template", emailKey: "welcome_email_template", hints: ["client_name","loyalty_points","join_link"] },
+            { id: "birthday", title: "יום הולדת", when: "עם קופון הנחה", toggleKey: "birthday_automation_enabled",
+              templateKey: "birthday_wa_template", emailKey: "birthday_email_template",
+              choiceKey: "birthday_send_timing", choiceLabel: "מתי לשלוח",
+              choiceOptions: [{ value: "month_start", label: "בתחילת חודש יום ההולדת" }, { value: "two_days", label: "יומיים לפני יום ההולדת" }],
+              hints: ["client_name","coupon_code","benefit_percent"] },
+            { id: "non_member", title: "הזמנה להצטרף למועדון", when: "ללקוח שביקר ועוד לא במועדון", toggleKey: "club_invite_enabled",
+              delayKey: "club_invite_delay_minutes", delayLabel: "כמה דקות אחרי הביקור",
+              templateKey: "non_member_wa_template", hints: ["client_name","join_link","loyalty_points"] },
+            { id: "points_redeem", title: "מימוש נקודות", when: "כשלקוח מממש נקודות", toggleKey: "points_celebration_enabled",
+              templateKey: "points_redeem_wa_template", hints: ["client_name","points_used","discount_amount","loyalty_points","studio_name"] },
+            { id: "points_balance", title: "יתרת נקודות", when: "נשלחת ידנית מתיק הלקוח", manual: true,
+              templateKey: "points_balance_wa_template", hints: ["client_name","loyalty_points"] },
         ],
     },
 ];
 
-// ── Template editor ────────────────────────────────────────────────────────────
-function PlaceholderBar({ hints, onInsert }: { hints: string[]; onInsert: (ph: string) => void }) {
-    const terms = useTerms();
-    const relevant = PLACEHOLDERS.filter(p => hints.includes(p.key.replace(/[{}]/g, "")));
-    const other = PLACEHOLDERS.filter(p => !hints.includes(p.key.replace(/[{}]/g, "")));
-    return (
-        <div style={{ marginBottom: "0.4rem" }}>
-            <div style={{ fontSize: "0.7rem", color: "#64748b", marginBottom: "0.3rem" }}>לחץ להוסיף:</div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.25rem" }}>
-                {relevant.map(p => (
-                    <button key={p.key} type="button" onClick={() => onInsert(p.key)}
-                        style={{ padding: "0.2rem 0.55rem", borderRadius: 7, border: "1px solid rgba(167,139,250,.4)", background: "rgba(167,139,250,.12)", color: "#a78bfa", cursor: "pointer", fontSize: "0.7rem", fontWeight: 700 }}>
-                        {fillTerms(p.label, terms)}
-                    </button>
-                ))}
-                {other.length > 0 && (
-                    <details style={{ display: "inline-block" }}>
-                        <summary style={{ padding: "0.2rem 0.55rem", borderRadius: 7, border: "1px solid rgba(100,116,139,.3)", background: "rgba(100,116,139,.08)", color: "#64748b", cursor: "pointer", fontSize: "0.7rem", fontWeight: 600, listStyle: "none" }}>
-                            + עוד
-                        </summary>
-                        <div style={{ position: "absolute", zIndex: 50, background: "#1e293b", border: "1px solid rgba(255,255,255,.15)", borderRadius: 10, padding: "0.5rem", display: "flex", flexWrap: "wrap", gap: "0.25rem", maxWidth: 300, marginTop: "0.2rem" }}>
-                            {other.map(p => (
-                                <button key={p.key} type="button" onClick={() => onInsert(p.key)}
-                                    style={{ padding: "0.2rem 0.55rem", borderRadius: 7, border: "1px solid rgba(100,116,139,.3)", background: "rgba(100,116,139,.08)", color: "#94a3b8", cursor: "pointer", fontSize: "0.7rem" }}>
-                                    {fillTerms(p.label, terms)}
-                                </button>
-                            ))}
-                        </div>
-                    </details>
-                )}
-            </div>
-        </div>
-    );
-}
+type Settings = Record<string, unknown> & { messages_off?: string[] };
 
-function TemplateEditor({
-    section, value, emailValue, toggleValue, delayValue, choiceValue,
-    onChange, onEmailChange, onToggle, onDelayChange, onChoiceChange, onClear,
-}: {
-    section: AutomSection;
-    value: string;
-    emailValue?: string;
-    toggleValue?: boolean;
-    delayValue?: number;
-    choiceValue?: string;
-    onChange: (v: string) => void;
-    onEmailChange?: (v: string) => void;
-    onToggle?: (v: boolean) => void;
-    onDelayChange?: (v: number) => void;
-    onChoiceChange?: (v: string) => void;
-    onClear: () => void;
-}) {
-    const waRef = useRef<HTMLTextAreaElement>(null);
-    const emailRef = useRef<HTMLTextAreaElement>(null);
-
-    const insertInto = (ph: string, ref: React.RefObject<HTMLTextAreaElement | null>, val: string, setter: (v: string) => void) => {
-        const el = ref.current;
-        if (!el) { setter(val + ph); return; }
-        const start = el.selectionStart;
-        const end = el.selectionEnd;
-        setter(val.substring(0, start) + ph + val.substring(end));
-        setTimeout(() => { el.focus(); el.setSelectionRange(start + ph.length, start + ph.length); }, 0);
+// A client's own details stand in for {…} in the preview — an example, not anyone's real data
+function sample(settings: Settings, staff: string, service: string): Record<string, string> {
+    const d = new Date(Date.now() + 3 * 86400000);
+    const date = `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+    return {
+        client_name: "דנה", appointment_title: service, service_name: service, appointment_date: date, date, appointment_time: "10:00",
+        time: "10:00", artist_name: "נועה", staff_title: staff, studio_name: String(settings.studio_name || "העסק שלך"),
+        studio_address: String(settings.studio_address || "רחוב הדוגמה 1"), map_link: "https://maps.google.com/…",
+        portfolio_link: "https://instagram.com/…", bit_link: "https://bit.ly/…", paybox_link: "https://payboxapp.page.link/…",
+        payment_link: "https://bit.ly/…", deposit_amount: "100", cancellation_free_days: String(settings.cancellation_free_days ?? 2),
+        deposit_lock_days: "2", loyalty_points: "120", points_earned: "25", coupon_code: "BDAY10", benefit_percent: "10",
+        join_link: "https://…/join", points_used: "50", discount_amount: "50", receipt_link: "https://…/receipt",
+        booking_link: "https://…/booking", total_amount: "₪250.00", rejection_reason: "השעה כבר תפוסה", service_note: "",
     };
-
-    const hasEmail = !!section.emailKey;
-
-    return (
-        <div style={{ border: "1px solid rgba(255,255,255,.1)", borderRadius: 16, padding: "1.2rem", background: "rgba(255,255,255,.03)" }}>
-            {/* Header row */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.75rem", flexWrap: "wrap", gap: "0.5rem" }}>
-                <div>
-                    <span style={{ fontSize: "1.05rem", marginLeft: "0.35rem" }}>{section.icon}</span>
-                    <span style={{ fontWeight: 800, fontSize: "0.97rem" }}>{section.title}</span>
-                    {section.bizfind && (
-                        <span style={{ display: "inline-block", fontSize: "0.64rem", fontWeight: 700, background: "rgba(59,130,246,.12)", border: "1px solid rgba(59,130,246,.3)", color: "#60a5fa", padding: "0.1rem 0.45rem", borderRadius: 6, marginRight: "0.4rem", verticalAlign: "middle" }}>
-                            BizFind
-                        </span>
-                    )}
-                    <div style={{ color: "#64748b", fontSize: "0.77rem", marginTop: "0.2rem" }}>{section.description}</div>
-                </div>
-                <div style={{ display: "flex", gap: "0.4rem", alignItems: "center", flexWrap: "wrap" }}>
-                    {section.toggleKey && onToggle && (
-                        <>
-                            <button type="button" onClick={() => onToggle(!toggleValue)}
-                                style={{ padding: "0.3rem 0.85rem", borderRadius: 10, cursor: "pointer", fontWeight: 700, fontSize: "0.76rem",
-                                    background: toggleValue ? "rgba(74,222,128,.15)" : "rgba(248,113,113,.1)",
-                                    color: toggleValue ? "#4ade80" : "#f87171",
-                                    border: `1px solid ${toggleValue ? "rgba(74,222,128,.3)" : "rgba(248,113,113,.2)"}`,
-                                }}>
-                                {toggleValue ? "✓ פעיל" : "כבוי"}
-                            </button>
-                            {section.delayKey && onDelayChange && toggleValue && (
-                                <label style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: "0.75rem", color: "#94a3b8" }}>
-                                    <span>{section.delayLabel}</span>
-                                    <input type="number" min={0} step={1} value={delayValue ?? 0}
-                                        onChange={e => onDelayChange(Number(e.target.value))}
-                                        style={{ width: 64, background: "rgba(0,0,0,.3)", border: "1px solid rgba(255,255,255,.12)", borderRadius: 8, padding: "0.2rem 0.4rem", color: "#e2e8f0", fontSize: "0.8rem", textAlign: "center" }}
-                                    />
-                                </label>
-                            )}
-                            {section.choiceKey && section.choiceOptions && onChoiceChange && toggleValue && (
-                                <label style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: "0.75rem", color: "#94a3b8" }}>
-                                    <span>{section.choiceLabel}</span>
-                                    <select value={choiceValue ?? section.choiceOptions[0].value} onChange={e => onChoiceChange(e.target.value)}
-                                        style={{ background: "rgba(0,0,0,.3)", border: "1px solid rgba(255,255,255,.12)", borderRadius: 8, padding: "0.25rem 0.5rem", color: "#e2e8f0", fontSize: "0.8rem" }}>
-                                        {section.choiceOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                                    </select>
-                                </label>
-                            )}
-                        </>
-                    )}
-                    <button type="button" onClick={onClear} title="מחק — ישתמש בברירת מחדל"
-                        style={{ padding: "0.3rem 0.65rem", borderRadius: 10, border: "1px solid rgba(248,113,113,.2)", background: "rgba(248,113,113,.08)", color: "#f87171", cursor: "pointer", fontSize: "0.73rem", fontWeight: 600 }}>
-                        🗑 מחק
-                    </button>
-                </div>
-            </div>
-
-            {/* Textareas */}
-            <div style={{ display: "grid", gridTemplateColumns: hasEmail ? "1fr 1fr" : "1fr", gap: "0.75rem" }}>
-                {/* WhatsApp */}
-                <div>
-                    {hasEmail && (
-                        <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#4ade80", marginBottom: "0.3rem" }}>📱 וואטסאפ</div>
-                    )}
-                    <PlaceholderBar hints={section.hints} onInsert={ph => insertInto(ph, waRef, value, onChange)} />
-                    <textarea ref={waRef} value={value} onChange={e => onChange(e.target.value)}
-                        placeholder="השאר ריק לשימוש בברירת מחדל" rows={6} dir="rtl"
-                        style={{ width: "100%", background: "rgba(0,0,0,.3)", border: "1px solid rgba(255,255,255,.12)", borderRadius: 10, padding: "0.7rem", color: "#e2e8f0", fontSize: "0.83rem", resize: "vertical", outline: "none", lineHeight: 1.7, boxSizing: "border-box", fontFamily: "inherit" }}
-                    />
-                    {!value && <div style={{ fontSize: "0.7rem", color: "#475569", marginTop: "0.2rem" }}>ריק = ברירת מחדל של המערכת</div>}
-                </div>
-
-                {/* Email */}
-                {hasEmail && onEmailChange && (
-                    <div>
-                        <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#60a5fa", marginBottom: "0.3rem" }}>📧 מייל</div>
-                        <PlaceholderBar hints={section.hints} onInsert={ph => insertInto(ph, emailRef, emailValue || "", onEmailChange)} />
-                        <textarea ref={emailRef} value={emailValue || ""} onChange={e => onEmailChange(e.target.value)}
-                            placeholder="השאר ריק לשימוש בברירת מחדל" rows={6} dir="rtl"
-                            style={{ width: "100%", background: "rgba(0,0,0,.3)", border: "1px solid rgba(255,255,255,.12)", borderRadius: 10, padding: "0.7rem", color: "#e2e8f0", fontSize: "0.83rem", resize: "vertical", outline: "none", lineHeight: 1.7, boxSizing: "border-box", fontFamily: "inherit" }}
-                        />
-                        {!emailValue && <div style={{ fontSize: "0.7rem", color: "#475569", marginTop: "0.2rem" }}>ריק = ברירת מחדל של המערכת</div>}
-                    </div>
-                )}
-            </div>
-        </div>
-    );
 }
 
-// ── Main page ──────────────────────────────────────────────────────────────────
-type Settings = Record<string, string | boolean | number | null | undefined>;
+// In the edit box a detail is written in words — [שם לקוח] — not {client_name}: the owner never sees the system's keys.
+// Saved back as {key}; a label two keys share (שם שירות) becomes the one this message knows.
+function toWords(text: string, terms: ReturnType<typeof useTerms>): string {
+    return text.replace(/\{(\w+)\}/g, (whole, key: string) => {
+        const p = PLACEHOLDERS.find(x => x.key === `{${key}}`);
+        return p ? `[${fillTerms(p.label, terms)}]` : whole;
+    });
+}
 
+function toKeys(text: string, hints: string[], terms: ReturnType<typeof useTerms>): string {
+    return text.replace(/\[([^\]\n]+)\]/g, (whole, label: string) => {
+        const same = PLACEHOLDERS.filter(x => fillTerms(x.label, terms) === label.trim());
+        const p = same.find(x => hints.includes(x.key.slice(1, -1))) ?? same[0];
+        return p ? p.key : whole;
+    });
+}
+
+function fill(text: string, values: Record<string, string>): string {
+    return text.replace(/\{(\w+)\}/g, (whole, key: string) => (key in values ? values[key] : whole));
+}
+
+// ── The page ──────────────────────────────────────────────────────────────────────────────────────────────────────────
 export default function MessageTemplatesPage() {
+    const terms = useTerms();
     const [settings, setSettings] = useState<Settings>({});
     const [loading, setLoading] = useState(true);
-    const [saving, setSaving] = useState(false);
-    const [dirty, setDirty] = useState(false);
+    const [editing, setEditing] = useState<Message | null>(null);
 
     useEffect(() => {
         apiFetch<Settings>("/api/studio/automation")
@@ -412,88 +202,241 @@ export default function MessageTemplatesPage() {
             .catch(() => setLoading(false));
     }, []);
 
-    const set = useCallback((key: string, val: string | boolean | number | null) => {
-        setSettings(prev => ({ ...prev, [key]: val }));
-        setDirty(true);
-    }, []);
-
-    const save = async () => {
-        setSaving(true);
+    // every change is saved at once — no "save" button to forget
+    const save = useCallback(async (patch: Record<string, unknown>, done: string) => {
         try {
-            await apiFetch("/api/studio/automation", { method: "PATCH", body: JSON.stringify(settings) });
-            toast.success("התבניות נשמרו בהצלחה ✓");
-            setDirty(false);
+            const d = await apiFetch<Settings>("/api/studio/automation", { method: "PATCH", body: JSON.stringify(patch) });
+            setSettings(d);
+            toast.success(done);
+            return true;
         } catch (e: unknown) {
             toast.error((e as Error)?.message || "שגיאה בשמירה");
-        } finally {
-            setSaving(false);
+            return false;
         }
+    }, []);
+
+    const isOn = (m: Message) => m.manual ? true
+        : m.toggleKey ? (settings[m.toggleKey] as boolean | undefined) ?? true
+            : !(settings.messages_off ?? []).includes(m.id);
+    const setOn = (m: Message, on: boolean) => {
+        const done = on ? `"${m.title}" פעילה` : `"${m.title}" כבויה — לא תישלח`;
+        if (m.toggleKey) return save({ [m.toggleKey]: on }, done);
+        const off = new Set(settings.messages_off ?? []);
+        if (on) off.delete(m.id); else off.add(m.id);
+        return save({ messages_off: Array.from(off) }, done);
     };
+
+    const values = sample(settings, terms.staff, terms.service);
 
     return (
         <RequireAuth>
-            <AppShell>
-                <div style={{ maxWidth: 900, margin: "0 auto", padding: "1.5rem 1.25rem 5rem", direction: "rtl" }}>
-
-                    {/* Header */}
-                    <div style={{ marginBottom: "1.75rem" }}>
-                        <h1 style={{ fontSize: "1.6rem", fontWeight: 900, margin: 0 }}>💬 תבניות הודעות</h1>
-                        <p style={{ color: "#64748b", fontSize: "0.85rem", marginTop: "0.4rem" }}>
-                            ערוך את הטקסט של כל הודעה אוטומטית. השאר ריק לשימוש בברירת מחדל.
+            <AppShell title="הודעות ללקוחות">
+                <div className="max-w-3xl mx-auto pb-24" dir="rtl">
+                    <div className="mb-6">
+                        <p className="text-slate-600 leading-relaxed">
+                            כאן בוחרים אילו הודעות יוצאות ללקוחות ומה כתוב בהן. כל הודעה נשלחת בוואטסאפ — ואם ללקוח יש מייל,
+                            אותו טקסט נשלח גם למייל.
                         </p>
-                        <div style={{ marginTop: "0.75rem", background: "rgba(167,139,250,.08)", border: "1px solid rgba(167,139,250,.2)", borderRadius: 12, padding: "0.75rem 1rem", fontSize: "0.82rem", color: "#a78bfa" }}>
-                            <strong>איך זה עובד:</strong> לחץ על כפתורי המשתנים להוסיפם לתבנית.
-                            המשתנים יוחלפו אוטומטית בנתונים האמיתיים.
-                            הודעות עם 📱 נשלחות בוואטסאפ • הודעות עם 📧 נשלחות גם במייל (אם הוגדר).
-                        </div>
                     </div>
 
                     {loading ? (
-                        <div style={{ textAlign: "center", color: "#64748b", padding: "3rem" }}>טוען...</div>
+                        <p className="text-center text-slate-400 py-16">טוען...</p>
                     ) : (
-                        <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
-                            {GROUPS.map(group => (
-                                <div key={group.id}>
-                                    {/* Group header */}
-                                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.85rem", borderBottom: "1px solid rgba(255,255,255,.08)", paddingBottom: "0.5rem" }}>
-                                        <span style={{ fontSize: "1.1rem" }}>{group.icon}</span>
-                                        <span style={{ fontWeight: 900, fontSize: "1rem", color: "#cbd5e1", letterSpacing: "0.03em" }}>{group.title}</span>
-                                    </div>
-                                    <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
-                                        {group.sections.map(section => (
-                                            <TemplateEditor
-                                                key={section.id}
-                                                section={section}
-                                                value={(settings[section.templateKey] as string) || ""}
-                                                emailValue={section.emailKey ? (settings[section.emailKey] as string) || "" : undefined}
-                                                toggleValue={section.toggleKey ? (settings[section.toggleKey] as boolean) ?? true : undefined}
-                                                delayValue={section.delayKey ? (settings[section.delayKey] as number) ?? 0 : undefined}
-                                                choiceValue={section.choiceKey ? (settings[section.choiceKey] as string) ?? undefined : undefined}
-                                                onChoiceChange={section.choiceKey ? v => set(section.choiceKey!, v) : undefined}
-                                                onChange={v => set(section.templateKey, v || null)}
-                                                onEmailChange={section.emailKey ? v => set(section.emailKey!, v || null) : undefined}
-                                                onToggle={section.toggleKey ? v => set(section.toggleKey!, v) : undefined}
-                                                onDelayChange={section.delayKey ? v => set(section.delayKey!, v) : undefined}
-                                                onClear={() => { set(section.templateKey, null); if (section.emailKey) set(section.emailKey, null); }}
-                                            />
+                        <div className="space-y-8">
+                            {GROUPS.map(g => (
+                                <section key={g.id} aria-labelledby={`g-${g.id}`}>
+                                    <h2 id={`g-${g.id}`} className="flex items-center gap-2 text-base font-black text-slate-800 mb-3">
+                                        <g.icon className="w-5 h-5 text-sky-600" aria-hidden /> {g.title}
+                                    </h2>
+                                    <div className="space-y-3">
+                                        {g.messages.map(m => (
+                                            <MessageCard key={m.id} m={m} on={isOn(m)} text={(settings[m.templateKey] as string) || ""}
+                                                values={values} settings={settings} terms={terms}
+                                                onSwitch={v => setOn(m, v)} onEdit={() => setEditing(m)}
+                                                onReset={() => save({ [m.templateKey]: null, ...(m.emailKey ? { [m.emailKey]: null } : {}) }, "חזר לנוסח של המערכת")}
+                                                onSetting={(k, v, done) => save({ [k]: v }, done)} />
                                         ))}
                                     </div>
-                                </div>
+                                </section>
                             ))}
                         </div>
                     )}
-
-                    {/* Sticky save */}
-                    {dirty && (
-                        <div style={{ position: "fixed", bottom: "1.5rem", left: "50%", transform: "translateX(-50%)", zIndex: 100 }}>
-                            <button type="button" onClick={save} disabled={saving}
-                                style={{ background: "linear-gradient(135deg,#7c3aed,#4c1d95)", border: "none", borderRadius: 16, color: "#fff", padding: "0.85rem 2.5rem", fontWeight: 800, fontSize: "1rem", cursor: "pointer", boxShadow: "0 8px 24px rgba(124,58,237,.5)" }}>
-                                {saving ? "שומר..." : "💾 שמור שינויים"}
-                            </button>
-                        </div>
-                    )}
                 </div>
+
+                {editing && (
+                    <EditSheet m={editing} text={(settings[editing.templateKey] as string) || ""} values={values} terms={terms}
+                        onClose={() => setEditing(null)}
+                        onSave={async t => {
+                            const text = t.trim() ? t : null;
+                            // one text — WhatsApp and e-mail alike
+                            const ok = await save({ [editing.templateKey]: text, ...(editing.emailKey ? { [editing.emailKey]: text } : {}) }, "הנוסח נשמר");
+                            if (ok) setEditing(null);
+                        }} />
+                )}
             </AppShell>
         </RequireAuth>
+    );
+}
+
+// ── One message ───────────────────────────────────────────────────────────────────────────────────────────────────────
+function MessageCard({ m, on, text, values, settings, terms, onSwitch, onEdit, onReset, onSetting }: {
+    m: Message; on: boolean; text: string; values: Record<string, string>; settings: Settings; terms: ReturnType<typeof useTerms>;
+    onSwitch: (on: boolean) => void; onEdit: () => void; onReset: () => void;
+    onSetting: (key: string, value: unknown, done: string) => void;
+}) {
+    const own = !!text.trim();
+    const [delay, setDelay] = useState(String(m.delayKey ? settings[m.delayKey] ?? 30 : ""));
+    return (
+        <article className={`rounded-2xl border bg-white p-4 shadow-sm transition-opacity ${on ? "border-slate-200" : "border-slate-200 opacity-70"}`}>
+            <div className="flex items-start gap-3">
+                <div className="flex-1 min-w-0">
+                    <h3 id={`m-${m.id}`} className="font-bold text-slate-900">{m.title}</h3>
+                    <p className="text-sm text-slate-500 mt-0.5">{m.when}</p>
+                </div>
+                {m.manual ? (
+                    <span className="shrink-0 text-xs font-semibold text-slate-500 bg-slate-100 rounded-full px-2.5 py-1">ידנית</span>
+                ) : (
+                    <div className="shrink-0 flex items-center gap-2">
+                        <span className={`text-xs font-bold ${on ? "text-emerald-700" : "text-slate-500"}`}>{on ? "פעילה" : "כבויה"}</span>
+                        <Switch checked={on} onChange={onSwitch} labelledBy={`m-${m.id}`} />
+                    </div>
+                )}
+            </div>
+
+            {on ? (
+                <>
+                    {/* when, for the ones with a choice */}
+                    {m.choiceKey && m.choiceOptions && (
+                        <label className="mt-3 flex flex-wrap items-center gap-2 text-sm text-slate-700">
+                            <span className="font-semibold">{m.choiceLabel}:</span>
+                            <select value={String(settings[m.choiceKey] ?? m.choiceOptions[0].value)}
+                                onChange={e => onSetting(m.choiceKey!, e.target.value, "נשמר")}
+                                className="min-h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm">
+                                {m.choiceOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                            </select>
+                        </label>
+                    )}
+                    {m.delayKey && (
+                        <label className="mt-3 flex flex-wrap items-center gap-2 text-sm text-slate-700">
+                            <span className="font-semibold">{m.delayLabel}:</span>
+                            <input type="number" inputMode="numeric" min={0} value={delay} onChange={e => setDelay(e.target.value)}
+                                onBlur={() => { const n = Math.max(0, Number(delay) || 0); if (n !== Number(settings[m.delayKey!] ?? 30)) onSetting(m.delayKey!, n, "נשמר"); }}
+                                className="w-24 min-h-10 rounded-xl border border-slate-200 px-3 text-base text-center" />
+                        </label>
+                    )}
+
+                    {/* what goes out */}
+                    <div className="mt-3">
+                        {own ? (
+                            <Bubble text={fill(text, values)} autoDetails={m.autoDetails && !text.includes("{")} />
+                        ) : (
+                            <div className="flex items-start gap-2 rounded-xl bg-slate-50 border border-slate-100 p-3 text-sm text-slate-600">
+                                <Info className="w-4 h-4 mt-0.5 shrink-0 text-slate-400" aria-hidden />
+                                <span>נשלח הנוסח של המערכת — עם הפרטים של כל לקוח ותור. רוצה נוסח משלך? לחצו "עריכת הנוסח".</span>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <button type="button" onClick={onEdit}
+                            className="inline-flex items-center gap-1.5 min-h-10 px-4 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-sm font-bold">
+                            <Pencil className="w-4 h-4" aria-hidden /> עריכת הנוסח
+                        </button>
+                        {own && (
+                            <button type="button" onClick={onReset}
+                                className="inline-flex items-center gap-1.5 min-h-10 px-4 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 text-sm font-semibold">
+                                <RotateCcw className="w-4 h-4" aria-hidden /> חזרה לנוסח של המערכת
+                            </button>
+                        )}
+                        <span className="ms-auto inline-flex items-center gap-1 text-xs text-slate-400">
+                            <MessageCircle className="w-3.5 h-3.5" aria-hidden /> וואטסאפ
+                            {m.emailKey && <><span aria-hidden>·</span><Mail className="w-3.5 h-3.5" aria-hidden /> מייל</>}
+                        </span>
+                    </div>
+                </>
+            ) : (
+                <p className="mt-2 text-sm text-slate-500">ההודעה לא נשלחת. אפשר להפעיל אותה שוב בכל רגע.</p>
+            )}
+        </article>
+    );
+}
+
+// ── How the client sees it ────────────────────────────────────────────────────────────────────────────────────────────
+function Bubble({ text, autoDetails }: { text: string; autoDetails?: boolean }) {
+    return (
+        <div>
+            <div className="rounded-2xl rounded-tr-sm bg-[#dcf8c6] text-slate-900 px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap wrap-break-word shadow-sm max-w-md">
+                {text}
+            </div>
+            {autoDetails && <p className="text-xs text-slate-500 mt-1.5">ומתחת לטקסט המערכת מוסיפה את פרטי התור — תאריך, שעה, כתובת ומפה.</p>}
+        </div>
+    );
+}
+
+// ── Editing the text ──────────────────────────────────────────────────────────────────────────────────────────────────
+function EditSheet({ m, text, values, terms, onClose, onSave }: {
+    m: Message; text: string; values: Record<string, string>; terms: ReturnType<typeof useTerms>;
+    onClose: () => void; onSave: (text: string) => Promise<void>;
+}) {
+    const [draft, setDraft] = useState(() => toWords(text, terms));
+    const stored = toKeys(draft, m.hints, terms);
+    const [saving, setSaving] = useState(false);
+    const [more, setMore] = useState(false);
+    const box = useRef<HTMLTextAreaElement>(null);
+    const relevant = PLACEHOLDERS.filter(p => m.hints.includes(p.key.slice(1, -1)));
+    const other = PLACEHOLDERS.filter(p => !m.hints.includes(p.key.slice(1, -1)));
+
+    const insert = (ph: string) => {
+        const el = box.current;
+        if (!el) { setDraft(d => d + ph); return; }
+        const a = el.selectionStart, b = el.selectionEnd;
+        setDraft(d => d.slice(0, a) + ph + d.slice(b));
+        setTimeout(() => { el.focus(); el.setSelectionRange(a + ph.length, a + ph.length); }, 0);
+    };
+    const chip = (p: { key: string; label: string }) => (
+        <button key={p.key} type="button" onClick={() => insert(`[${fillTerms(p.label, terms)}]`)}
+            className="min-h-9 px-3 rounded-full border border-sky-200 bg-sky-50 text-sky-800 text-sm font-semibold hover:bg-sky-100">
+            + {fillTerms(p.label, terms)}
+        </button>
+    );
+
+    return (
+        <BottomSheet open onClose={onClose} title={`עריכת הנוסח — ${m.title}`}
+            footer={
+                <div className="flex gap-2">
+                    <button type="button" disabled={saving} onClick={async () => { setSaving(true); await onSave(stored); setSaving(false); }}
+                        className="flex-1 min-h-11 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold disabled:opacity-50">
+                        {saving ? "שומר..." : "שמירה"}
+                    </button>
+                    <button type="button" onClick={onClose} className="min-h-11 px-5 rounded-xl border border-slate-200 text-slate-700 font-semibold">ביטול</button>
+                </div>
+            }>
+            <div className="space-y-4" dir="rtl">
+                <p className="text-sm text-slate-600">
+                    הטקסט נשלח בוואטסאפ{m.emailKey ? " וגם במייל" : ""}. לחיצה על פרט מוסיפה אותו לטקסט — וכל לקוח יקבל את שלו.
+                    {text ? "" : " השארת הטקסט ריק = הנוסח של המערכת."}
+                </p>
+                <textarea ref={box} value={draft} onChange={e => setDraft(e.target.value)} rows={7} dir="rtl"
+                    placeholder="כתבו כאן את ההודעה, למשל: היי [שם לקוח], מחכים לך ב-[תאריך תור] 😊"
+                    aria-label={`הנוסח של ${m.title}`}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-base leading-relaxed focus:outline-none focus:ring-2 focus:ring-sky-500" />
+                <div>
+                    <div className="text-sm font-bold text-slate-700 mb-2">הוספת פרטים</div>
+                    <div className="flex flex-wrap gap-2">
+                        {relevant.map(chip)}
+                        {other.length > 0 && !more && (
+                            <button type="button" onClick={() => setMore(true)} className="min-h-9 px-3 rounded-full border border-slate-200 text-slate-600 text-sm">עוד פרטים</button>
+                        )}
+                        {more && other.map(chip)}
+                    </div>
+                </div>
+                {draft.trim() && (
+                    <div>
+                        <div className="text-sm font-bold text-slate-700 mb-2">כך הלקוח יראה את זה</div>
+                        <Bubble text={fill(stored, values)} autoDetails={m.autoDetails && !stored.includes("{")} />
+                    </div>
+                )}
+            </div>
+        </BottomSheet>
     );
 }

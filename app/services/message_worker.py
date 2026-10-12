@@ -1080,7 +1080,8 @@ def sweep_deposit_reminders(db: Session) -> int:
             continue
 
         settings = db.get(StudioSettings, appt.studio_id)
-        if not settings:
+        from app.services.service_switches import message_on
+        if not settings or not message_on(settings, "deposit_reminder"):
             continue
 
         il_dt = appt.starts_at.astimezone(_IL_TZ)

@@ -71,6 +71,10 @@ def patch_settings(payload: AutomationSettingsUpdate, ctx: AuthContext = Depends
     # a birthday discount is at least 1% — turning the benefit off is its own switch (a cleared field isn't saved)
     if data.get("birthday_benefit_percent") == 0:
         data.pop("birthday_benefit_percent")
+    if "messages_off" in data:      # the ids it knows, kept as a JSON list
+        import json
+        from app.services.service_switches import MESSAGE_IDS
+        data["messages_off"] = json.dumps(sorted(set(data["messages_off"] or []) & MESSAGE_IDS))
     for k, v in data.items():
         setattr(settings, k, v)
 

@@ -381,8 +381,9 @@ def public_join_wait_list(slug: str, payload: WaitListJoinIn, db: Session = Depe
 
     # Notify client they were added to the waitlist
     phone = payload.client_phone.strip()
-    if phone:
-        from app.models.studio_settings import StudioSettings as _SS2
+    from app.models.studio_settings import StudioSettings as _SS2
+    from app.services.service_switches import message_on
+    if phone and message_on(db.get(_SS2, studio.id), "waitlist_joined"):
         from app.models.message_job import MessageJob
         _settings2 = db.get(_SS2, studio.id)
         custom_tpl = getattr(_settings2, "waitlist_joined_wa_template", None) if _settings2 else None

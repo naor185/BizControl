@@ -195,6 +195,9 @@ def _send_wait_list_notification(db: Session, entry: WaitListEntry, studio_id) -
 
     from app.models.studio_settings import StudioSettings as _WLSettings
     _wl_settings = db.get(_WLSettings, studio_id)
+    from app.services.service_switches import message_on
+    if not message_on(_wl_settings, "waitlist_notify"):
+        return
     custom_tpl = getattr(_wl_settings, "waitlist_notify_wa_template", None) if _wl_settings else None
     if custom_tpl:
         from app.crud.automation import format_template

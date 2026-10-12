@@ -289,9 +289,10 @@ def pos_checkout(
 
     # WhatsApp thank-you message to client — only if user requested it
     receipt_message_job_id: Optional[str] = None
-    if body.send_receipt and client and client.phone:
+    from app.models.studio_settings import StudioSettings as _SS
+    from app.services.service_switches import message_on
+    if body.send_receipt and client and client.phone and message_on(db.get(_SS, ctx.studio_id), "pos_receipt"):
         try:
-            from app.models.studio_settings import StudioSettings as _SS
             from app.services.message_worker import send_whatsapp_message
             from app.models.message_job import MessageJob
             _settings = db.get(_SS, ctx.studio_id)

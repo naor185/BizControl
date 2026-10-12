@@ -76,8 +76,9 @@ def _handle_new_club_member(db: Session, studio_id: UUID, client: Client):
 
     total_points = int(client.loyalty_points or 0)
 
-    if already_welcome:
-        # Bonus (if any) was applied above; nothing left to send.
+    from app.services.service_switches import message_on
+    if already_welcome or not message_on(settings, "welcome"):
+        # Bonus (if any) was applied above; nothing left to send — or the welcome is turned off.
         return
 
     # Build points block — shown in WhatsApp and email

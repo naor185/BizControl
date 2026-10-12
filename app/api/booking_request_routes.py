@@ -223,7 +223,8 @@ def approve_request(
             f"{link_line}\n\n"
             f"מחכים לך! 🙏"
         )
-    if req.client_phone:
+    from app.services.service_switches import message_on
+    if req.client_phone and message_on(settings, "booking_request_approved"):
         db.add(MessageJob(
             studio_id=current_user.studio_id,
             channel="whatsapp",
@@ -287,7 +288,8 @@ def reject_request(
             f"❌ בקשת התור שלך ל-{local_time} לא אושרה.{reason_line}\n\n"
             f"ניתן לשריין זמן אחר דרך האתר שלנו. 🙏"
         )
-    if req.client_phone:
+    from app.services.service_switches import message_on
+    if req.client_phone and message_on(settings, "booking_request_rejected"):
         db.add(MessageJob(
             studio_id=current_user.studio_id,
             channel="whatsapp",

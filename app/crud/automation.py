@@ -99,6 +99,9 @@ def enqueue_confirmation_message(db: Session, appt: Appointment, artist_name: st
     context = _build_context(settings, client, appt, artist_name, db)
     now = datetime.now(timezone.utc)
     has_deposit = bool(appt.deposit_amount_cents and appt.deposit_amount_cents > 0)
+    from app.services.service_switches import message_on
+    if not message_on(settings, "deposit_request" if has_deposit else "confirm"):
+        return
 
     # Strip payment placeholders when no deposit so templates don't leak Bit/Paybox links
     if not has_deposit:
@@ -229,7 +232,8 @@ def enqueue_deposit_approved_message(db: Session, appt: Appointment, artist_name
     """Send full details message after studio owner approves the deposit."""
     settings = db.get(StudioSettings, appt.studio_id)
     client = db.get(Client, appt.client_id)
-    if not settings or not client:
+    from app.services.service_switches import message_on
+    if not settings or not client or not message_on(settings, "deposit_approved"):
         return
 
     context = _build_context(settings, client, appt, artist_name, db)
@@ -294,7 +298,8 @@ def enqueue_reschedule_message(db: Session, appt: Appointment) -> None:
     """
     settings = db.get(StudioSettings, appt.studio_id)
     client = db.get(Client, appt.client_id)
-    if not settings or not client:
+    from app.services.service_switches import message_on
+    if not settings or not client or not message_on(settings, "reschedule"):
         return
 
     tz = pytz.timezone(settings.timezone or "Asia/Jerusalem")
@@ -387,7 +392,8 @@ def enqueue_cancel_message(db: Session, appt: Appointment) -> None:
     """Send a WhatsApp/Email cancellation notice to the client."""
     settings = db.get(StudioSettings, appt.studio_id)
     client = db.get(Client, appt.client_id)
-    if not settings or not client:
+    from app.services.service_switches import message_on
+    if not settings or not client or not message_on(settings, "cancel"):
         return
 
     context = {
@@ -455,7 +461,8 @@ def enqueue_post_payment_message(db: Session, appt: Appointment, amount_cents: i
     from sqlalchemy import select as _select
     settings = db.get(StudioSettings, appt.studio_id)
     client = db.get(Client, appt.client_id)
-    if not settings or not client:
+    from app.services.service_switches import message_on
+    if not settings or not client or not message_on(settings, "post_payment"):
         return
 
     # ── Dedup: skip if post-payment thank-you already sent for this appointment ──
