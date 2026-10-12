@@ -1386,7 +1386,7 @@ export default function CalendarPage() {
                 {/* Toast Notification */}
                 {toast && (
                     <div
-                        className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] flex items-center gap-3 px-5 py-3 rounded-2xl shadow-2xl text-white text-sm font-bold transition-all animate-in fade-in slide-in-from-bottom-4 duration-300 ${toast.type === "success" ? "bg-emerald-600" : "bg-red-600"}`}
+                        className={`fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom,0px))] left-1/2 -translate-x-1/2 z-[200] flex items-center gap-3 px-5 py-3 rounded-2xl shadow-2xl text-white text-sm font-bold transition-all animate-in fade-in slide-in-from-bottom-4 duration-300 ${toast.type === "success" ? "bg-emerald-600" : "bg-red-600"}`}
                     >
                         {toast.message}
                     </div>
@@ -1512,8 +1512,9 @@ export default function CalendarPage() {
                         .fc-timegrid-slot-lane { cursor: pointer !important; }
                     }
                 `}} />
-                {/* on a phone the calendar fills the screen — 12px from the sides (+ its own 4px), not touching them */}
-                <div className={`px-3 py-1 md:p-2 max-w-[1600px] w-full mx-auto flex flex-col ${isMobile ? "h-[calc(100dvh-3.5rem-4rem)]" : "h-[calc(100dvh-5rem)]"}`}>
+                {/* on a phone the calendar fills what's left of the screen below the banners and above the bottom bar — 12px
+                    from the sides (+ its own 4px), not touching them */}
+                <div className={`px-3 py-1 md:p-2 max-w-[1600px] w-full mx-auto flex flex-col ${isMobile ? "flex-1 min-h-0" : "h-[calc(100dvh-5rem)]"}`}>
 
                     {/* Minimal top bar — only error/loading, no date range or holidays toggle */}
                     {(loading || err) && (

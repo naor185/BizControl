@@ -147,7 +147,7 @@ export default function EmailCenterPage() {
     return (
         <div dir="rtl" className="min-h-screen bg-slate-50 pb-20">
             {/* Header */}
-            <div className="bg-white border-b border-slate-100 sticky top-0 z-10">
+            <div className="bg-white border-b border-slate-100 sticky top-0 z-10" style={{ top: "env(safe-area-inset-top, 0px)" }}>
                 <div className="max-w-4xl mx-auto px-4 py-4 flex items-center gap-3">
                     <a href="/admin" className="text-slate-400 hover:text-black text-xl">←</a>
                     <div>

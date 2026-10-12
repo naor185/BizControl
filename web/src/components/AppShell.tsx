@@ -185,7 +185,7 @@ export default function AppShell({
     const topBars = (showVerifyBar ? 1 : 0) + (isImpersonating ? 1 : 0);
 
     return (
-        <div className="min-h-screen bg-slate-50" dir={dir}>
+        <div className="app-shell min-h-screen bg-slate-50" dir={dir}>
             <div className="flex">
                 {/* Sidebar */}
                 <aside className="hidden md:flex md:w-60 md:flex-col md:fixed md:inset-y-0 bg-white border-l border-slate-100 shadow-sm z-20">
@@ -442,9 +442,13 @@ export default function AppShell({
                         </div>
                     </header>
 
+                    {/* A full-screen page (the calendar, the till) is the screen less the header, its bars and — on a
+                        phone — the bottom bar with the home bar under it; it used to run on under the bottom bar */}
                     <main
-                        className={fullBleed ? "overflow-hidden" : showPlanBar ? "p-5 pb-40 md:pb-16" : "p-5 pb-28 md:pb-6"}
-                        style={fullBleed ? { height: `calc(100dvh - 3.5rem - env(safe-area-inset-top, 0px) - ${topBars} * ${TOP_BAR}${showPlanBar ? ` - ${PLAN_BAR_HEIGHT}` : ""})` } : undefined}
+                        className={fullBleed
+                            ? "overflow-hidden flex flex-col h-[calc(100dvh-3.5rem-env(safe-area-inset-top,0px)-var(--top-bars)-var(--plan-bar)-4rem-env(safe-area-inset-bottom,0px))] md:h-[calc(100dvh-3.5rem-env(safe-area-inset-top,0px)-var(--top-bars)-var(--plan-bar))]"
+                            : showPlanBar ? "p-5 pb-40 md:pb-16" : "p-5 pb-28 md:pb-6"}
+                        style={fullBleed ? { "--top-bars": `calc(${topBars} * ${TOP_BAR})`, "--plan-bar": showPlanBar ? PLAN_BAR_HEIGHT : "0px" } as React.CSSProperties : undefined}
                     >{children}</main>
                 </div>
             </div>

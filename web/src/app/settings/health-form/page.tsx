@@ -235,13 +235,13 @@ export default function HealthFormSettingsPage() {
 
                 {preview && (
                     <div className="fixed inset-0 z-[70] bg-slate-50 overflow-y-auto" role="dialog" aria-modal="true">
-                        <div className="sticky top-0 bg-white/90 backdrop-blur border-b border-slate-200">
+                        <div className="sticky top-0 bg-white/90 backdrop-blur border-b border-slate-200" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
                             <div className="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between" dir="rtl">
                                 <span className="font-bold text-slate-900">תצוגה מקדימה — כך הלקוח רואה את הטופס</span>
                                 <button onClick={() => setPreview(false)} aria-label="סגירה" className="p-2 -m-2 text-slate-500 hover:text-slate-900"><X className="h-6 w-6" /></button>
                             </div>
                         </div>
-                        <div className="max-w-2xl mx-auto px-4 py-6">
+                        <div className="max-w-2xl mx-auto px-4 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))]">
                             <HealthFormFill
                                 form={{ ...form, questions: form.questions.filter(q => q.text.trim()), client_name: "ישראל ישראלי (דוגמה)", business_name: "" }}
                                 fileSrc={fileSrc}

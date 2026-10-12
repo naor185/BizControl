@@ -80,13 +80,14 @@ function SignFlow({ declarationId, onClose }: { declarationId: string; onClose: 
 
     return (
         <div className="fixed inset-0 z-[70] bg-slate-50 overflow-y-auto" role="dialog" aria-modal="true">
-            <div className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-slate-200">
+            {/* below the phone's clock and battery — the X sat next to the battery (the owner, 2026-10-12) */}
+            <div className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-slate-200" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
                 <div className="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between" dir="rtl">
                     <span className="inline-flex items-center gap-2 font-bold text-slate-900"><HeartPulse className="h-5 w-5 text-rose-600" aria-hidden /> הצהרת בריאות</span>
                     <button onClick={onClose} aria-label="סגירה" className="p-2 -m-2 text-slate-500 hover:text-slate-900"><X className="h-6 w-6" /></button>
                 </div>
             </div>
-            <div className="max-w-2xl mx-auto px-4 py-6" dir="rtl">
+            <div className="max-w-2xl mx-auto px-4 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))]" dir="rtl">
                 {!d ? (
                     <p className="text-center text-slate-400 py-16">{err ?? "טוען..."}</p>
                 ) : d.status === "waiting_client" ? (

@@ -396,7 +396,7 @@ export default function StudioDetailPage() {
     return (
         <div dir="rtl" className="min-h-screen bg-gray-50 pb-20">
             {/* Header */}
-            <div className="bg-white border-b border-gray-100 sticky top-0 z-10">
+            <div className="bg-white border-b border-gray-100 sticky top-0 z-10" style={{ top: "env(safe-area-inset-top, 0px)" }}>
                 <div className="max-w-4xl mx-auto px-4 py-4 flex items-center gap-3">
                     <button onClick={() => router.push("/admin")} className="text-gray-400 hover:text-black transition-colors text-xl">←</button>
                     <div className="flex-1 min-w-0">

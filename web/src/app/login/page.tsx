@@ -274,12 +274,12 @@ function LoginContent() {
 
     /* ── Deciding whether there's a remembered session to unlock with Face ID — brief, avoids a form flash ── */
     if (nativeUnlock === "checking") return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-[#001a2e] to-[#003055]" />
+        <div className="own-safe-area min-h-screen flex items-center justify-center bg-gradient-to-b from-[#001a2e] to-[#003055]" />
     );
 
     /* ── Native Face ID / Touch ID unlock (iOS/Android app only) ── */
     if (nativeUnlock === "show") return (
-        <div className="min-h-screen relative overflow-hidden flex flex-col items-center justify-center p-6 bg-gradient-to-b from-[#001a2e] to-[#003055]" dir={dir}>
+        <div className="own-safe-area min-h-screen relative overflow-hidden flex flex-col items-center justify-center p-6 bg-gradient-to-b from-[#001a2e] to-[#003055]" dir={dir}>
             <div className="w-full max-w-sm text-center">
                 <img src="/logo.png" alt="BizControl" className="w-32 h-32 object-contain drop-shadow-2xl mx-auto mb-6" />
                 <div className="font-black text-2xl text-white tracking-tight drop-shadow-lg mb-1">BizControl</div>
@@ -329,7 +329,7 @@ function LoginContent() {
 
     /* ── 2FA step ── */
     if (step === "2fa") return (
-        <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-gradient-to-br from-slate-50 to-slate-100" dir={dir}>
+        <div className="own-safe-area min-h-screen flex flex-col items-center justify-center p-6 bg-gradient-to-br from-slate-50 to-slate-100" dir={dir}>
             <div className="w-full max-w-sm">
                 <div className="bg-white rounded-3xl shadow-xl border border-slate-100 p-8">
                     <div className="flex flex-col items-center mb-7">
@@ -371,7 +371,7 @@ function LoginContent() {
 
     /* ── Studio selection step (same email+password matched >1 business) ── */
     if (step === "select-studio") return (
-        <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-gradient-to-br from-slate-50 to-slate-100" dir={dir}>
+        <div className="own-safe-area min-h-screen flex flex-col items-center justify-center p-6 bg-gradient-to-br from-slate-50 to-slate-100" dir={dir}>
             <div className="w-full max-w-sm">
                 <div className="bg-white rounded-3xl shadow-xl border border-slate-100 p-8">
                     <div className="flex flex-col items-center mb-6">
@@ -412,7 +412,7 @@ function LoginContent() {
 
     /* ── Main login ── */
     return (
-        <div className="min-h-screen relative overflow-x-hidden overflow-y-auto" dir={dir}>
+        <div className="own-safe-area min-h-screen relative overflow-x-hidden overflow-y-auto" dir={dir}>
 
             <Suspense fallback={<div className="absolute inset-0 bg-gradient-to-b from-[#001a2e] to-[#003055]" />}>
                 <OceanBackground />
@@ -568,7 +568,7 @@ function LoginContent() {
 export default function LoginPage() {
     return (
         <Suspense fallback={
-            <div className="min-h-screen flex items-center justify-center bg-slate-50">
+            <div className="own-safe-area min-h-screen flex items-center justify-center bg-slate-50">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-900" />
             </div>
         }>
