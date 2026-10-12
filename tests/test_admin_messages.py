@@ -110,3 +110,22 @@ def test_a_reminder_is_never_sent_after_the_appointment_began_and_retry_all_is_r
     r = client.post(f"/api/admin/messages/{reminder.id}/retry", headers=sa)
     assert r.status_code == 400 and "התור כבר התחיל" in r.json()["detail"]
     assert client.post(f"/api/admin/messages/retry-all-failed?studio_id={s.id}", headers=sa).json() == {"reset": 0}  # 90 days old
+
+
+def test_a_push_to_someone_without_the_app_is_no_failure(client, db_session):
+    """Owner, 2026-10-12: a worker without the app filled the owner's bell with "הודעת פוש נכשלה"."""
+    register_and_login(client, slug="push-shop", email="owner@push-shop.com")
+    s = db_session.scalar(select(Studio).where(Studio.slug == "push-shop"))
+    owner = db_session.scalar(select(User).where(User.email == "owner@push-shop.com"))
+    j = MessageJob(studio_id=s.id, recipient_user_id=owner.id, channel="push", body="תור חדש", attempts=2,
+                   scheduled_at=datetime.now(timezone.utc), status="pending")
+    db_session.add(j)
+    db_session.commit()
+    mw.process_due_jobs(db_session)
+
+    db_session.expire_all()
+    j = db_session.get(MessageJob, j.id)
+    assert j.status == "canceled" and "אין את האפליקציה" in j.last_error
+    assert SENT == []                                                      # no alert to the superadmin
+    assert db_session.scalar(select(Notification).where(Notification.studio_id == s.id,
+                                                        Notification.type == "message_failed")) is None

@@ -2940,6 +2940,15 @@ def ensure_schema():
             # /message-log, which a business no longer has — tapping one in the bell showed an error (owner,
             # 2026-10-12). New ones point at the client's file (services/message_worker.py).
             cur.execute("UPDATE notifications SET action_url = NULL WHERE action_url = '/message-log'")
+        if _once("notifications_failed_plain_v1"):
+            # "push failed" for a worker without the app was no failure — those notices go; the other "message failed"
+            # notices keep their first sentence only — the technical error after it is the superadmin's (owner,
+            # 2026-10-12). Read-only check before: 13 + 4 notices.
+            cur.execute("DELETE FROM notifications WHERE type = 'message_failed' AND body LIKE '%No active device tokens%'")
+            cur.execute("""
+                UPDATE notifications SET body = substring(body from '^ההודעה ל.+? לא נשלחה') || '.'
+                WHERE type = 'message_failed' AND body ~ '^ההודעה ל.+? לא נשלחה אחרי'
+            """)
 
         conn.commit()
         cur.close()

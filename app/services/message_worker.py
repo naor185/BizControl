@@ -492,7 +492,13 @@ def process_due_jobs(db: Session, limit: int = 20) -> int:
                         deep_link=getattr(job, "deep_link", None),
                     )
                 if sent_count == 0:
-                    raise ValueError("No active device tokens for recipient")
+                    # None of their phones has the app — nothing failed, there's just nowhere to send it: no alert to
+                    # the superadmin, no "push failed" notice to the business (owner, 2026-10-12: a worker without
+                    # the app filled the owner's bell with them)
+                    job.status = "canceled"
+                    job.last_error = "לנמען אין את האפליקציה בטלפון — לא נשלח"
+                    count += 1
+                    continue
             else:
                 # the company's own messages go from the number every business without its own uses
                 settings = None if from_company else db.get(StudioSettings, job.studio_id)
