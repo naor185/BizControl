@@ -886,8 +886,11 @@ def _build_setup_items(db: Session, ctx: AuthContext) -> tuple[list[dict], dict]
     has_service = count(Service) > 0
     has_client = count(Client) > 0
     has_appointment = count(Appointment) > 0
+    # anyone on the team but the owner — a manager (admin) too: a business that added its manager stayed "not done"
+    # (the owner, 2026-10-12)
     has_staff = (db.scalar(
-        select(func.count(User.id)).where(User.studio_id == ctx.studio_id, User.role.in_(["artist", "staff"]))
+        select(func.count(User.id)).where(User.studio_id == ctx.studio_id, User.role.in_(["admin", "artist", "staff"]),
+                                          User.is_active == True)  # noqa: E712
     ) or 0) > 0
     has_payment_method = bool(settings and (settings.bit_link or settings.paybox_link or settings.bank_account))
     has_self_booking = bool(settings and settings.self_booking_enabled)

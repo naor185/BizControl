@@ -1,6 +1,6 @@
 "use client";
 import { toast } from "@/lib/toast";
-import { Briefcase, Crown, User } from "lucide-react";
+import { Briefcase, Crown, User, CircleHelp } from "lucide-react";
 import { useTerms } from "@/lib/useTerms";
 
 import { useEffect, useState } from "react";
@@ -72,6 +72,7 @@ const COLOR_PRESETS = [
 
 export default function TeamPage() {
     const terms = useTerms();   // the service giver's title in this business's words, not "אמן"
+    const [emailHelp, setEmailHelp] = useState(false);
     const [artists, setArtists] = useState<Artist[]>([]);
     const [loading, setLoading] = useState(true);
     const [err, setErr] = useState<string | null>(null);
@@ -501,8 +502,37 @@ export default function TeamPage() {
                                 {classesOn && <ClassPaySection value={classPay} onChange={setClassPay} />}
 
                                 <div className="pt-4 border-t border-slate-100">
-                                    <label className="block text-sm font-semibold text-slate-700 mb-1">אימייל (לכניסה למערכת)</label>
+                                    {/* What this e-mail is — whose, who signs in with it, what they see (the owner, 2026-10-12): a tap
+                                        on the "?" opens it (a phone has no hover), a pointer over it too */}
+                                    <div className="flex items-center gap-1.5 mb-1">
+                                        <label htmlFor="staff-email" className="text-sm font-semibold text-slate-700">אימייל (לכניסה למערכת)</label>
+                                        <button type="button" aria-label="מה זה המייל הזה?" aria-expanded={emailHelp} aria-controls="staff-email-help"
+                                            onClick={() => setEmailHelp(v => !v)}
+                                            onMouseEnter={() => { if (window.matchMedia("(hover: hover)").matches) setEmailHelp(true); }}
+                                            onMouseLeave={() => { if (window.matchMedia("(hover: hover)").matches) setEmailHelp(false); }}
+                                            className="w-7 h-7 -my-1 flex items-center justify-center rounded-full text-slate-400 hover:text-sky-700 hover:bg-sky-50">
+                                            <CircleHelp className="w-4 h-4" aria-hidden />
+                                        </button>
+                                    </div>
+                                    {emailHelp && (
+                                        <div id="staff-email-help" role="note" className="mb-2 rounded-xl border border-sky-100 bg-sky-50 p-3 text-xs leading-relaxed text-slate-700 space-y-1.5">
+                                            <p>זה המייל <b>של העובד/ת</b> — איתו הוא/היא נכנס/ת ל-BizControl, באפליקציה או באתר, עם הסיסמה שבוחרים כאן. לכל עובד מייל משלו, לא המייל של העסק.</p>
+                                            <p className="font-semibold">מה רואים ביומן:</p>
+                                            <ul className="space-y-1">
+                                                {([
+                                                    ["artist", terms.staff, "רק את התורים שלו/ה — לא את של האחרים, ובלי ניהול העסק."],
+                                                    ["staff", "איש/אשת צוות", "רק את התורים שלו/ה — לא את של האחרים, ובלי ניהול העסק."],
+                                                    ["admin", "סגן מנהל", "את כל היומן — התורים של כולם — ואת כל הניהול."],
+                                                ] as const).map(([r, name, what]) => (
+                                                    <li key={r} className={role === r ? "font-bold text-slate-900" : ""}>
+                                                        {role === r ? "◂ " : "• "}<b>{name}</b>: {what}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    )}
                                     <input
+                                        id="staff-email"
                                         type="email"
                                         value={email}
                                         onChange={e => setEmail(e.target.value)}

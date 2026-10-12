@@ -11,6 +11,7 @@ import NotificationBell from "./NotificationBell";
 import ToastContainer from "./ToastContainer";
 import GlobalToast from "./GlobalToast";
 import PinModal from "./PinModal";
+import PullToRefresh from "./PullToRefresh";
 import QuickWhatsAppModal from "./QuickWhatsAppModal";
 import { useLang } from "./LanguageProvider";
 import { LOCALES } from "@/lib/i18n";
@@ -455,6 +456,7 @@ export default function AppShell({
 
             {planInfo && showPlanBar && <PlanBar info={planInfo} />}
             <BottomNav />
+            <PullToRefresh />
             <ToastContainer />
             <GlobalToast />
 
