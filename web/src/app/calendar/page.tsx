@@ -164,7 +164,9 @@ export default function CalendarPage() {
     // of free-text "treatment type" names on studio_settings with its own
     // deposit/aftercare flags unrelated to any real Service row).
     const [services, setServices] = useState<{ id: string; name: string; duration_minutes: number; price_cents: number; color: string; requires_consultation: boolean; requires_deposit: boolean; deposit_amount_cents: number }[]>([]);
-    const [selectedServiceId, setSelectedServiceId] = useState<string>("");
+    // An appointment can be several treatments together — "הלבנת שיניים + ניקוי אבנית" (the owner, 2026-10-12): the
+    // services picked, in the order picked; the first is the appointment's service_id
+    const [pickedServiceIds, setPickedServiceIds] = useState<string[]>([]);
 
     const [showCalSettings, setShowCalSettings] = useState(false);
     const calSettingsRef = useRef<HTMLDivElement>(null);
@@ -660,7 +662,7 @@ export default function CalendarPage() {
         setEndAt(formatForInput(localEnd));
         setDepositAmount(autoDeposit(localStart.toISOString(), localEnd.toISOString()));
         setClientId(""); setClientSearch(""); setIsWalkIn(false);
-        setArtistId(""); setStatus("scheduled"); setNotes(""); setSelectedServiceId("");
+        setArtistId(""); setStatus("scheduled"); setNotes(""); setPickedServiceIds([]);
         setShowNewClientForm(false);
         setNewClientName(""); setNewClientPhone(""); setNewClientClub(false); setNewClientErr(null);
         setIsModalOpen(true);
@@ -699,7 +701,11 @@ export default function CalendarPage() {
         setStatus(app.status);
         setNotes(app.notes || "");
         setDepositAmount(app.deposit_amount_cents ? Math.round(app.deposit_amount_cents / 100) : "");
-        setSelectedServiceId(app.service_id || "");
+        {   // the services back from the title ("א + ב"), or the one saved
+            const names: string[] = String(app.title || "").split(" + ");
+            const ids = names.map(n => services.find(s => s.name === n)?.id).filter((x): x is string => !!x);
+            setPickedServiceIds(ids.length === names.length ? ids : app.service_id ? [app.service_id] : []);
+        }
         setApptInvoiceId(null);
         setApptInvoiceData(null);
         setShowNewClientForm(false);
@@ -937,7 +943,7 @@ export default function CalendarPage() {
                 notes: notes || null,
                 deposit_amount_cents: depositAmount !== "" ? Math.round(Number(depositAmount) * 100) : 0,
             };
-            if (selectedServiceId) body.service_id = selectedServiceId;
+            if (pickedServiceIds.length) body.service_id = pickedServiceIds[0];
 
             if (selectedEventId) {
                 await apiFetch(`/api/appointments/${selectedEventId}`, { method: "PATCH", body: JSON.stringify(body) });
@@ -1984,12 +1990,21 @@ export default function CalendarPage() {
                                                 <button
                                                     key={svc.id}
                                                     type="button"
+                                                    aria-pressed={pickedServiceIds.includes(svc.id)}
                                                     onClick={() => {
-                                                        setTitle(svc.name);
-                                                        setSelectedServiceId(svc.id);
-                                                        setDepositAmount(svc.requires_deposit ? (svc.deposit_amount_cents / 100 || defaultDepositAmount || "") : "");
+                                                        // a tap adds the treatment, another tap takes it off; the title joins them and the
+                                                        // deposit is the sum of theirs (the owner changes it as before)
+                                                        const ids = pickedServiceIds.includes(svc.id)
+                                                            ? pickedServiceIds.filter(id => id !== svc.id)
+                                                            : [...pickedServiceIds, svc.id];
+                                                        const picked = ids.map(id => services.find(s => s.id === id)!).filter(Boolean);
+                                                        setPickedServiceIds(ids);
+                                                        setTitle(picked.map(s => s.name).join(" + "));
+                                                        const deposit = picked.filter(s => s.requires_deposit)
+                                                            .reduce((sum, s) => sum + (s.deposit_amount_cents / 100 || Number(defaultDepositAmount) || 0), 0);
+                                                        setDepositAmount(deposit || "");
                                                     }}
-                                                    className={`px-3 py-1 rounded-full text-sm font-semibold border transition-all ${selectedServiceId === svc.id ? "bg-blue-600 text-white border-blue-600" : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-blue-50 hover:border-blue-300"}`}
+                                                    className={`px-3 py-1 rounded-full text-sm font-semibold border transition-all ${pickedServiceIds.includes(svc.id) ? "bg-blue-600 text-white border-blue-600" : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-blue-50 hover:border-blue-300"}`}
                                                 >
                                                     {svc.name}{svc.requires_deposit ? " 💳" : ""}
                                                 </button>
@@ -1998,8 +2013,8 @@ export default function CalendarPage() {
                                     )}
                                     <input
                                         value={title}
-                                        onChange={e => { setTitle(e.target.value); setSelectedServiceId(""); }}
-                                        placeholder={services.length > 0 ? "בחר שירות למעלה או הקלד ישירות..." : "כותרת הטיפול"}
+                                        onChange={e => { setTitle(e.target.value); setPickedServiceIds([]); }}
+                                        placeholder={services.length > 0 ? "בחר טיפול אחד או כמה למעלה, או הקלד ישירות..." : "כותרת הטיפול"}
                                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500"
                                     />
                                 </div>
