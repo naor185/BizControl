@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { ArrowLeft, ArrowRight, Calendar, ShoppingCart, LayoutDashboard, Users, Gauge, Building2, Lock, type LucideIcon } from "lucide-react";
+import { ArrowLeft, ArrowRight, Calendar, ShoppingCart, LayoutDashboard, Users, Gauge, Building2, Lock, Mail, Eye, X, type LucideIcon } from "lucide-react";
 import { apiFetch, clearToken, getToken, setToken } from "@/lib/api";
 import ClockWidget from "./ClockWidget";
 import BottomNav from "./BottomNav";
@@ -39,6 +39,8 @@ const MAIN_NAV: { href: string; label: string; icon: LucideIcon; module?: string
     { href: "/clients",   label: "לקוחות",       icon: Users, module: "crm" },
 ];
 
+const TOP_BAR = "2.75rem";   // the height of each bar at the top of the header (h-11)
+
 export default function AppShell({
     title,
     titleAction,
@@ -69,6 +71,15 @@ export default function AppShell({
     const [enabledModules, setEnabledModules] = useState<Record<string, boolean> | null>(null);
     const [showWaModal, setShowWaModal] = useState(false);
     const [verifyState, setVerifyState] = useState<"idle" | "sending" | "sent" | "error">("idle");
+    // The e-mail banner can be put away until the next visit — it sits in the header now, always on screen
+    const [verifyHidden, setVerifyHidden] = useState(false);
+    useEffect(() => {
+        try { setVerifyHidden(sessionStorage.getItem("biz_verify_hidden") === "1"); } catch { /* shown */ }
+    }, []);
+    const hideVerify = () => {
+        setVerifyHidden(true);
+        try { sessionStorage.setItem("biz_verify_hidden", "1"); } catch { /* hidden for this page only */ }
+    };
 
     const resendVerification = async () => {
         setVerifyState("sending");
@@ -170,46 +181,11 @@ export default function AppShell({
     };
 
     const avatarLetter = (me?.display_name || me?.email || "?")[0].toUpperCase();
+    const showVerifyBar = me?.email_verified === false && !verifyHidden;
+    const topBars = (showVerifyBar ? 1 : 0) + (isImpersonating ? 1 : 0);
 
     return (
         <div className="min-h-screen bg-slate-50" dir={dir}>
-            {/* Email verification banner (soft — does not block usage) */}
-            {me?.email_verified === false && (
-                <div className="bg-amber-500 text-white text-sm font-semibold px-4 py-2.5 flex items-center justify-between gap-2 z-50 relative">
-                    <span className="flex items-center gap-2">
-                        <span>📧</span>
-                        <span>אמת את כתובת המייל שלך ({me.email}) כדי לקבל עדכונים ותזכורות.</span>
-                    </span>
-                    {verifyState === "sent" ? (
-                        <span className="bg-white/20 px-3 py-1 rounded-lg text-xs font-bold shrink-0">✓ נשלח מייל אימות</span>
-                    ) : (
-                        <button
-                            onClick={resendVerification}
-                            disabled={verifyState === "sending"}
-                            className="bg-white text-amber-700 px-3 py-1 rounded-lg text-xs font-bold hover:bg-amber-50 transition-colors shrink-0 disabled:opacity-60"
-                        >
-                            {verifyState === "sending" ? "שולח…" : verifyState === "error" ? "נסה שוב" : "שלח מייל אימות ←"}
-                        </button>
-                    )}
-                </div>
-            )}
-
-            {/* Impersonation banner */}
-            {isImpersonating && (
-                <div className="bg-amber-400 text-amber-950 text-sm font-bold px-4 py-2.5 flex items-center justify-between z-50 relative">
-                    <span className="flex items-center gap-2">
-                        <span>👁️</span>
-                        <span>מצב צפייה — אתה רואה את המערכת כבעל העסק</span>
-                    </span>
-                    <button
-                        onClick={handleReturnToAdmin}
-                        className="bg-amber-950 text-amber-100 px-4 py-1.5 rounded-lg text-xs font-semibold hover:bg-amber-900 transition-colors"
-                    >
-                        חזור לאדמין ←
-                    </button>
-                </div>
-            )}
-
             <div className="flex">
                 {/* Sidebar */}
                 <aside className="hidden md:flex md:w-60 md:flex-col md:fixed md:inset-y-0 bg-white border-l border-slate-100 shadow-sm z-20">
@@ -377,6 +353,45 @@ export default function AppShell({
                         className="sticky top-0 z-10 bg-white/95 backdrop-blur-sm border-b border-slate-100"
                         style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
                     >
+                        {/* The bars at the top live in the header, below the phone's clock and battery — at the top of the
+                            page they sat under them and their button couldn't be tapped (the owner, 2026-10-12). One line
+                            each, TOP_BAR high, so a full-screen page (the calendar) still fits. */}
+                        {showVerifyBar && me && (
+                            <div className="bg-amber-500 text-white text-xs sm:text-sm font-semibold px-3 sm:px-4 h-11 flex items-center gap-2">
+                                <Mail className="w-4 h-4 shrink-0" aria-hidden />
+                                <span className="flex-1 min-w-0 truncate">
+                                    <span className="sm:hidden">המייל שלך עוד לא אומת</span>
+                                    <span className="hidden sm:inline">אמת את כתובת המייל שלך ({me.email}) כדי לקבל עדכונים ותזכורות.</span>
+                                </span>
+                                {verifyState === "sent" ? (
+                                    <span className="bg-white/20 px-3 py-1.5 rounded-lg text-xs font-bold shrink-0">נשלח מייל אימות</span>
+                                ) : (
+                                    <button
+                                        onClick={resendVerification}
+                                        disabled={verifyState === "sending"}
+                                        className="bg-white text-amber-700 px-3 min-h-8 rounded-lg text-xs font-bold hover:bg-amber-50 transition-colors shrink-0 disabled:opacity-60"
+                                    >
+                                        {verifyState === "sending" ? "שולח…" : verifyState === "error" ? "נסה שוב" : "שלח אימות"}
+                                    </button>
+                                )}
+                                <button type="button" onClick={hideVerify} aria-label="הסתר עד הכניסה הבאה"
+                                    className="w-8 h-8 -me-1 flex items-center justify-center rounded-lg hover:bg-white/15 shrink-0">
+                                    <X className="w-4 h-4" aria-hidden />
+                                </button>
+                            </div>
+                        )}
+                        {isImpersonating && (
+                            <div className="bg-amber-400 text-amber-950 text-xs sm:text-sm font-bold px-3 sm:px-4 h-11 flex items-center gap-2">
+                                <Eye className="w-4 h-4 shrink-0" aria-hidden />
+                                <span className="flex-1 min-w-0 truncate">מצב צפייה — אתה רואה את המערכת כבעל העסק</span>
+                                <button
+                                    onClick={handleReturnToAdmin}
+                                    className="bg-amber-950 text-amber-100 px-3 min-h-8 rounded-lg text-xs font-semibold hover:bg-amber-900 transition-colors shrink-0"
+                                >
+                                    חזור לאדמין
+                                </button>
+                            </div>
+                        )}
                         <div className="h-14 px-5 flex items-center justify-between">
                             <div className="flex items-center gap-2 min-w-0">
                                 {canGoBack && (
@@ -429,7 +444,7 @@ export default function AppShell({
 
                     <main
                         className={fullBleed ? "overflow-hidden" : showPlanBar ? "p-5 pb-40 md:pb-16" : "p-5 pb-28 md:pb-6"}
-                        style={fullBleed ? { height: `calc(100dvh - 3.5rem - env(safe-area-inset-top, 0px)${showPlanBar ? ` - ${PLAN_BAR_HEIGHT}` : ""})` } : undefined}
+                        style={fullBleed ? { height: `calc(100dvh - 3.5rem - env(safe-area-inset-top, 0px) - ${topBars} * ${TOP_BAR}${showPlanBar ? ` - ${PLAN_BAR_HEIGHT}` : ""})` } : undefined}
                     >{children}</main>
                 </div>
             </div>
