@@ -1,6 +1,6 @@
 "use client";
 import { toast } from "@/lib/toast";
-import { Briefcase, Crown, User, CircleHelp } from "lucide-react";
+import { Briefcase, Crown, User, CircleHelp, Nfc } from "lucide-react";
 import { useTerms } from "@/lib/useTerms";
 
 import { useEffect, useState } from "react";
@@ -73,6 +73,9 @@ const COLOR_PRESETS = [
 export default function TeamPage() {
     const terms = useTerms();   // the service giver's title in this business's words, not "אמן"
     const [emailHelp, setEmailHelp] = useState(false);
+    // the NFC attendance clock — turned on by BizControl; the business sees it's on, nothing to set
+    const [nfcOn, setNfcOn] = useState(false);
+    useEffect(() => { apiFetch<{ on: boolean }>("/api/nfc/status").then(r => setNfcOn(r.on)).catch(() => {}); }, []);
     const [artists, setArtists] = useState<Artist[]>([]);
     const [loading, setLoading] = useState(true);
     const [err, setErr] = useState<string | null>(null);
@@ -246,6 +249,17 @@ export default function TeamPage() {
                             )}
                         </div>
                     </div>
+
+                    {nfcOn && (
+                        <div className="flex items-start gap-3 bg-emerald-50 border border-emerald-100 rounded-2xl p-4">
+                            <Nfc className="w-5 h-5 mt-0.5 shrink-0 text-emerald-700" aria-hidden />
+                            <div className="text-sm text-slate-700 leading-relaxed">
+                                <div className="font-bold text-emerald-800">שעון נוכחות NFC פעיל</div>
+                                העובדים נכנסים ויוצאים בנגיעה של הטלפון שלהם במדבקה שבכניסה — כל אחד מחובר לחשבון שלו, וכך המערכת יודעת מי זה.
+                                השעות נכנסות לשכר. רוצים מדבקה חדשה? פנו ל-BizControl.
+                            </div>
+                        </div>
+                    )}
 
                     {err && (
                         <div className="bg-red-50 text-red-600 p-4 rounded-2xl border border-red-100 flex items-center gap-3">

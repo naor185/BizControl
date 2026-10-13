@@ -3,6 +3,7 @@ import StudioUsage from "@/components/admin/StudioUsage";
 import { CrmSentLog } from "@/components/admin/CrmMessages";
 import { CrmPayments, RecordPayment } from "@/components/admin/CrmBilling";
 import { Switch } from "@/components/ui/switch";
+import NfcClockAdmin from "@/components/admin/NfcClockAdmin";
 import { toast } from "@/lib/toast";
 
 import { useEffect, useState, useCallback } from "react";
@@ -493,6 +494,8 @@ export default function StudioDetailPage() {
                         </button>
                     </div>
                 </div>
+
+                <NfcClockAdmin studioId={studioId} />
 
                 {/* Platform Settings */}
                 {settings && (

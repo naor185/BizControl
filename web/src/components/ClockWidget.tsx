@@ -14,6 +14,8 @@ type PresenceEntry = {
 type ClockStatus = {
     is_clocked_in: boolean;
     pay_type?: string;
+    active_session?: { start_time: string } | null;
+    nfc?: boolean;              // the business clocks in at the NFC sticker at the door — no button here
 };
 
 function fmtDuration(minutes: number): string {
@@ -88,8 +90,18 @@ export default function ClockWidget() {
                 </button>
             )}
 
+            {/* With the NFC clock: where they stand, not a button — clocking is a touch on the sticker at the door */}
+            {showClock && myStatus.nfc && (
+                <span className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-bold ${isClockedIn ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-slate-100 text-slate-500"}`}
+                    title="כניסה ויציאה — בנגיעה בטלפון במדבקת ה-NFC שבכניסה">
+                    {isClockedIn && myStatus.active_session
+                        ? `בעבודה מ-${new Date(myStatus.active_session.start_time).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })}`
+                        : "החתמה במדבקה"}
+                </span>
+            )}
+
             {/* Clock-in / Clock-out button — only for hourly/global employees */}
-            {showClock && (
+            {showClock && !myStatus.nfc && (
                 <button
                     onClick={handleClockToggle}
                     disabled={loading}

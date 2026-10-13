@@ -30,6 +30,7 @@ class ClockStatusResponse(BaseModel):
     is_clocked_in: bool
     active_session: Optional[WorkSessionResponse] = None
     pay_type: str = "none"
+    nfc: bool = False          # the business clocks in at the NFC sticker — no button (services/nfc_clock.py)
 
 
 class StaffPayrollItem(BaseModel):

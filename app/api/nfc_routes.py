@@ -1,54 +1,44 @@
 """
-NFC Attendance API
+The NFC attendance clock (app/services/nfc_clock.py) — a worker's own phone touching the sticker at the door.
 
-POST /api/nfc/scan          — scan NFC tag → auto clock-in or clock-out
-GET  /api/nfc/tags          — list all NFC tags for this studio (admin)
-POST /api/nfc/tags          — assign NFC UID to an employee (admin)
-DELETE /api/nfc/tags/{id}   — remove NFC tag (admin)
-GET  /api/nfc/presence      — who is currently clocked in (live view)
-GET  /api/nfc/today         — today's attendance log
+GET  /api/nfc/status    — is the clock on for this business (no code: only the superadmin sees it)
+POST /api/nfc/tap       — the sticker's code → clock the signed-in worker in, or out
+POST /api/nfc/undo      — a touch by mistake, taken back within two minutes
+GET  /api/nfc/presence  — who is clocked in right now
+
+(It replaces a design that was never used — a personal tag per worker read by a device at the business; its tables
+were never created in production.)
 """
 from __future__ import annotations
 
 import uuid
 from datetime import datetime, timezone, timedelta
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy.orm import Session
 from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.deps import require_studio_ctx, AuthContext
-from app.models.employee_nfc_tag import EmployeeNfcTag
-from app.models.attendance_log import AttendanceLog
+from app.models.studio_settings import StudioSettings
 from app.models.user import User
 from app.models.work_session import WorkSession
+from app.repositories.staff_repository import StaffRepository
+from app.services import nfc_clock
 
 router = APIRouter(prefix="/nfc", tags=["NFC Attendance"])
 
-
-# ── Schemas ────────────────────────────────────────────────────────────────────
-
-class NfcScanIn(BaseModel):
-    nfc_uid: str
-    device_info: Optional[str] = None
+REPEAT_WINDOW = timedelta(seconds=60)    # a second read within a minute (the phone read twice, the page reloaded) repeats
+UNDO_WINDOW = timedelta(minutes=2)
 
 
-class AssignTagIn(BaseModel):
-    user_id: str
-    nfc_uid: str
-    label: Optional[str] = None
+class TapIn(BaseModel):
+    code: str
 
 
-class TagOut(BaseModel):
-    id: str
-    user_id: str
-    user_name: str
-    nfc_uid: str
-    label: Optional[str]
-    created_at: str
+class UndoIn(BaseModel):
+    session_id: str
 
 
 class PresenceOut(BaseModel):
@@ -58,79 +48,58 @@ class PresenceOut(BaseModel):
     duration_minutes: int
 
 
-class AttendanceOut(BaseModel):
-    id: str
-    user_id: str
-    user_name: str
-    event: str
-    nfc_uid: Optional[str]
-    created_at: str
+@router.get("/status")
+def nfc_status(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+    return {"on": nfc_clock.on(db.get(StudioSettings, ctx.studio_id))}
 
 
-# ── NFC Scan (public-ish — validated by studio NFC UID match) ──────────────────
+def _answer(session: WorkSession, user: User, repeat: bool) -> dict:
+    out = session.end_time is not None
+    return {"action": "out" if out else "in", "at": (session.end_time if out else session.start_time).isoformat(),
+            "name": user.display_name or user.email, "session_id": str(session.id), "repeat": repeat}
 
-@router.post("/scan")
-def nfc_scan(
-    body: NfcScanIn,
-    ctx: AuthContext = Depends(require_studio_ctx),
-    db: Session = Depends(get_db),
-):
-    """Scan NFC tag → clock in if out, clock out if in."""
-    tag = db.scalar(
-        select(EmployeeNfcTag).where(
-            EmployeeNfcTag.nfc_uid == body.nfc_uid.strip().upper(),
-            EmployeeNfcTag.studio_id == ctx.studio_id,
-        )
-    )
-    if not tag:
-        raise HTTPException(status_code=404, detail="תג NFC לא מוכר בעסק זה")
 
-    user = db.get(User, tag.user_id)
-    if not user or user.studio_id != ctx.studio_id:
-        raise HTTPException(status_code=403, detail="עובד לא שייך לעסק זה")
-
+@router.post("/tap")
+def nfc_tap(body: TapIn, ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+    """The signed-in worker touched the sticker: clocked in if out, out if in."""
+    settings = db.get(StudioSettings, ctx.studio_id)
+    if not nfc_clock.matches(settings, body.code):
+        raise HTTPException(status_code=404, detail="המדבקה הזו לא שייכת לעסק שלך — ודא/י שנכנסת לחשבון שלך בעסק הזה")
+    user = db.get(User, ctx.user_id)
     now = datetime.now(timezone.utc)
-
-    # Check current clock status (open work session)
-    open_session = db.scalar(
-        select(WorkSession).where(
-            WorkSession.studio_id == ctx.studio_id,
-            WorkSession.user_id == tag.user_id,
-            WorkSession.end_time.is_(None),
-        )
-    )
-
-    if open_session:
-        # Clock out
-        open_session.end_time = now
-        event = "clock_out"
-        action = "יציאה"
-    else:
-        # Clock in
-        db.add(WorkSession(studio_id=ctx.studio_id, user_id=tag.user_id, start_time=now))
-        event = "clock_in"
-        action = "כניסה"
-
-    db.add(AttendanceLog(
-        studio_id=ctx.studio_id,
-        user_id=tag.user_id,
-        nfc_uid=body.nfc_uid.strip().upper(),
-        event=event,
-        device_info=body.device_info,
-        clock_in=now if event == "clock_in" else None,
-        clock_out=now if event == "clock_out" else None,
-    ))
-    db.commit()
-
-    return {
-        "action": action,
-        "event": event,
-        "user_name": user.display_name or user.email,
-        "timestamp": now.isoformat(),
-    }
+    last = db.scalar(select(WorkSession).where(WorkSession.studio_id == ctx.studio_id, WorkSession.user_id == ctx.user_id)
+                     .order_by(WorkSession.start_time.desc()).limit(1))
+    if last is not None and now - (last.end_time or last.start_time) < REPEAT_WINDOW:
+        return _answer(last, user, repeat=True)
+    repo = StaffRepository(db)
+    session = repo.clock_out(ctx.studio_id, ctx.user_id) if repo.get_active_session(ctx.studio_id, ctx.user_id) \
+        else repo.clock_in(ctx.studio_id, ctx.user_id)
+    return _answer(session, user, repeat=False)
 
 
-# ── Presence (who is in right now) ────────────────────────────────────────────
+@router.post("/undo")
+def nfc_undo(body: UndoIn, ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+    """A touch by mistake: a clock-out reopens the shift, a clock-in is removed — within two minutes; later, the owner
+    or a manager fixes it."""
+    try:
+        sid = uuid.UUID(body.session_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="לא נמצא")
+    s = db.get(WorkSession, sid)
+    if s is None or s.studio_id != ctx.studio_id or s.user_id != ctx.user_id:
+        raise HTTPException(status_code=404, detail="לא נמצא")
+    now = datetime.now(timezone.utc)
+    if s.end_time is not None and now - s.end_time <= UNDO_WINDOW:
+        s.end_time = None
+        s.session_pay = 0
+        db.commit()
+        return {"undone": "out"}
+    if s.end_time is None and now - s.start_time <= UNDO_WINDOW:
+        db.delete(s)
+        db.commit()
+        return {"undone": "in"}
+    raise HTTPException(status_code=400, detail="אפשר לבטל רק בשתי הדקות הראשונות — בעל העסק או המנהל יכולים לתקן")
+
 
 @router.get("/presence", response_model=list[PresenceOut])
 def get_presence(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
@@ -155,103 +124,3 @@ def get_presence(ctx: AuthContext = Depends(require_studio_ctx), db: Session = D
             duration_minutes=duration,
         ))
     return result
-
-
-# ── Today's log ───────────────────────────────────────────────────────────────
-
-@router.get("/today", response_model=list[AttendanceOut])
-def get_today_attendance(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
-    since = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
-    logs = db.scalars(
-        select(AttendanceLog).where(
-            AttendanceLog.studio_id == ctx.studio_id,
-            AttendanceLog.created_at >= since,
-        ).order_by(AttendanceLog.created_at.desc())
-    ).all()
-
-    result = []
-    for log in logs:
-        user = db.get(User, log.user_id)
-        result.append(AttendanceOut(
-            id=str(log.id),
-            user_id=str(log.user_id),
-            user_name=user.display_name or user.email if user else "—",
-            event=log.event,
-            nfc_uid=log.nfc_uid,
-            created_at=log.created_at.isoformat(),
-        ))
-    return result
-
-
-# ── Tag management (admin/owner) ──────────────────────────────────────────────
-
-@router.get("/tags", response_model=list[TagOut])
-def list_tags(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
-    if ctx.role not in ("owner", "admin", "superadmin"):
-        raise HTTPException(status_code=403, detail="אין הרשאה")
-    tags = db.scalars(
-        select(EmployeeNfcTag).where(EmployeeNfcTag.studio_id == ctx.studio_id)
-    ).all()
-    result = []
-    for t in tags:
-        user = db.get(User, t.user_id)
-        result.append(TagOut(
-            id=str(t.id),
-            user_id=str(t.user_id),
-            user_name=user.display_name or user.email if user else "—",
-            nfc_uid=t.nfc_uid,
-            label=t.label,
-            created_at=t.created_at.isoformat(),
-        ))
-    return result
-
-
-@router.post("/tags", response_model=TagOut)
-def assign_tag(
-    body: AssignTagIn,
-    ctx: AuthContext = Depends(require_studio_ctx),
-    db: Session = Depends(get_db),
-):
-    if ctx.role not in ("owner", "admin", "superadmin"):
-        raise HTTPException(status_code=403, detail="אין הרשאה")
-
-    uid = body.nfc_uid.strip().upper()
-
-    existing = db.scalar(select(EmployeeNfcTag).where(EmployeeNfcTag.nfc_uid == uid))
-    if existing:
-        raise HTTPException(status_code=409, detail="תג NFC זה כבר בשימוש")
-
-    user_id = uuid.UUID(body.user_id)
-    user = db.get(User, user_id)
-    if not user or user.studio_id != ctx.studio_id:
-        raise HTTPException(status_code=404, detail="עובד לא נמצא")
-
-    tag = EmployeeNfcTag(studio_id=ctx.studio_id, user_id=user_id, nfc_uid=uid, label=body.label)
-    db.add(tag)
-    db.commit()
-    db.refresh(tag)
-
-    return TagOut(
-        id=str(tag.id),
-        user_id=str(tag.user_id),
-        user_name=user.display_name or user.email,
-        nfc_uid=tag.nfc_uid,
-        label=tag.label,
-        created_at=tag.created_at.isoformat(),
-    )
-
-
-@router.delete("/tags/{tag_id}")
-def delete_tag(
-    tag_id: uuid.UUID,
-    ctx: AuthContext = Depends(require_studio_ctx),
-    db: Session = Depends(get_db),
-):
-    if ctx.role not in ("owner", "admin", "superadmin"):
-        raise HTTPException(status_code=403, detail="אין הרשאה")
-    tag = db.get(EmployeeNfcTag, tag_id)
-    if not tag or tag.studio_id != ctx.studio_id:
-        raise HTTPException(status_code=404, detail="תג לא נמצא")
-    db.delete(tag)
-    db.commit()
-    return {"ok": True}

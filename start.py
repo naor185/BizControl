@@ -2910,6 +2910,8 @@ def ensure_schema():
             cur.execute(f"ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS {_col} BOOLEAN NOT NULL DEFAULT TRUE")
         # ...and for each message on the message templates page — the ones turned off, a JSON list (none: all on)
         cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS messages_off TEXT")
+        # the NFC attendance clock's code (services/nfc_clock.py) — none: off
+        cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS nfc_clock_code TEXT")
         # ready times: the morning reminder's hour, a reminder about two hours before (off until turned on)
         cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS same_day_reminder_hour INTEGER NOT NULL DEFAULT 8")
         cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS reminder_2_hours_enabled BOOLEAN NOT NULL DEFAULT FALSE")

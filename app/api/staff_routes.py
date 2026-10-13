@@ -51,21 +51,33 @@ def get_clock_status(
     db: Session = Depends(get_db),
 ):
     """Check if the current user is currently clocked in."""
+    from app.services import nfc_clock
     session = repo.get_active_session(ctx.studio_id, ctx.user_id)
     user = db.get(User, ctx.user_id)
     return ClockStatusResponse(
         is_clocked_in=session is not None,
         active_session=WorkSessionResponse.model_validate(session) if session else None,
         pay_type=user.pay_type if user else "none",
+        nfc=nfc_clock.on(db.get(StudioSettings, ctx.studio_id)),
     )
+
+
+def _not_while_nfc(db: Session, studio_id) -> None:
+    """While the business has the NFC clock, its people clock in and out at the sticker — that's the proof they're
+    there; the owner and the managers fix a time by hand."""
+    from app.services import nfc_clock
+    if nfc_clock.on(db.get(StudioSettings, studio_id)):
+        raise HTTPException(status_code=403, detail="בעסק הזה מחתימים כניסה ויציאה בנגיעה במדבקת ה-NFC שבכניסה")
 
 
 @router.post("/clock-in", response_model=WorkSessionResponse)
 def clock_in(
     ctx: AuthContext = Depends(require_studio_ctx),
     repo: StaffRepository = Depends(get_staff_repo),
+    db: Session = Depends(get_db),
 ):
     """Clock in the current user."""
+    _not_while_nfc(db, ctx.studio_id)
     return repo.clock_in(ctx.studio_id, ctx.user_id)
 
 
@@ -73,8 +85,10 @@ def clock_in(
 def clock_out(
     ctx: AuthContext = Depends(require_studio_ctx),
     repo: StaffRepository = Depends(get_staff_repo),
+    db: Session = Depends(get_db),
 ):
     """Clock out the current user."""
+    _not_while_nfc(db, ctx.studio_id)
     session = repo.clock_out(ctx.studio_id, ctx.user_id)
     if not session:
         raise HTTPException(status_code=400, detail="Not currently clocked in")

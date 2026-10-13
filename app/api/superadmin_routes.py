@@ -484,6 +484,54 @@ def update_owner(studio_id: uuid.UUID, payload: UpdateOwnerIn, admin: User = Dep
     return {"status": "updated"}
 
 
+class NfcClockIn(BaseModel):
+    on: bool
+
+
+def _nfc_clock_out(settings) -> dict:
+    from app.services import nfc_clock
+    return {"on": nfc_clock.on(settings), "link": nfc_clock.link(settings)}
+
+
+@router.get("/studios/{studio_id}/nfc-clock")
+def nfc_clock_get(studio_id: uuid.UUID, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    """The business's NFC attendance clock — on or off, and the link to write on its sticker."""
+    if not db.get(Studio, studio_id):
+        raise HTTPException(404, "Studio not found")
+    return _nfc_clock_out(db.get(StudioSettings, studio_id))
+
+
+@router.post("/studios/{studio_id}/nfc-clock")
+def nfc_clock_set(studio_id: uuid.UUID, payload: NfcClockIn, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    """On: a code is issued (kept if it has one); off: the code is dropped — its sticker stops working."""
+    from app.services import nfc_clock
+    studio = db.get(Studio, studio_id)
+    settings = db.get(StudioSettings, studio_id)
+    if not studio or not settings:
+        raise HTTPException(404, "Studio not found")
+    if payload.on and not nfc_clock.on(settings):
+        nfc_clock.issue(settings)
+    elif not payload.on:
+        settings.nfc_clock_code = None
+    _audit(db, admin, "nfc_clock_on" if payload.on else "nfc_clock_off", studio)
+    db.commit()
+    return _nfc_clock_out(settings)
+
+
+@router.post("/studios/{studio_id}/nfc-clock/new-code")
+def nfc_clock_new_code(studio_id: uuid.UUID, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
+    """A new code — the old sticker stops working (lost, or its link got out)."""
+    from app.services import nfc_clock
+    studio = db.get(Studio, studio_id)
+    settings = db.get(StudioSettings, studio_id)
+    if not studio or not settings or not nfc_clock.on(settings):
+        raise HTTPException(400, "שעון ה-NFC לא פעיל לעסק הזה")
+    nfc_clock.issue(settings)
+    _audit(db, admin, "nfc_clock_new_code", studio)
+    db.commit()
+    return _nfc_clock_out(settings)
+
+
 @router.get("/studios/{studio_id}/users")
 def list_studio_users(studio_id: uuid.UUID, admin: User = Depends(require_superadmin), db: Session = Depends(get_db)):
     studio = db.get(Studio, studio_id)
