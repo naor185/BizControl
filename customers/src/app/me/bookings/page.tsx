@@ -2,26 +2,9 @@
 import { useEffect, useState } from "react";
 import { API, getToken } from "@/lib/api";
 import Link from "next/link";
-import { ArrowRight, CalendarDays, ChevronLeft, ClipboardList, Scissors, Search, User } from "lucide-react";
-import { GLASS_CARD, PRIMARY_BTN } from "@/lib/look";
-
-interface Booking {
-    id: string;
-    starts_at: string | null;
-    status: string;
-    studio_name: string;
-    studio_slug: string;
-    service_name: string | null;
-    artist_name: string | null;
-    notes: string | null;
-}
-
-const STATUS_LABEL: Record<string, { label: string; color: string }> = {
-    scheduled: { label: "מאושר",   color: "#4ade80" },
-    done:       { label: "הושלם",   color: "#cbd5e1" },
-    canceled:   { label: "בוטל",    color: "#f87171" },
-    no_show:    { label: "לא הגיע", color: "#f59e0b" },
-};
+import { ArrowRight, CalendarDays, ClipboardList, Search } from "lucide-react";
+import { PRIMARY_BTN } from "@/lib/look";
+import BookingCard, { type Booking, isUpcoming } from "@/components/BookingCard";
 
 export default function BookingsPage() {
     const [bookings, setBookings] = useState<Booking[]>([]);
@@ -40,8 +23,8 @@ export default function BookingsPage() {
             .finally(() => setLoading(false));
     }, []);
 
-    const upcoming = bookings.filter(b => b.status === "scheduled");
-    const past = bookings.filter(b => b.status !== "scheduled");
+    const upcoming = bookings.filter(isUpcoming).reverse();      // the nearest first
+    const past = bookings.filter(b => !isUpcoming(b));
 
     return (
         <div dir="rtl" style={{ minHeight: "100vh", background: "var(--bf-bg)", color: "var(--bf-text)", padding: "1.5rem 1rem 5rem" }}>
@@ -95,30 +78,3 @@ export default function BookingsPage() {
         </div>
     );
 }
-
-function BookingCard({ b }: { b: Booking }) {
-    const st = STATUS_LABEL[b.status] || { label: b.status, color: "#cbd5e1" };
-    const date = b.starts_at ? new Date(b.starts_at) : null;
-    return (
-        <div style={{ ...GLASS_CARD, borderRadius: 16, padding: "1rem 1.1rem" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.5rem" }}>
-                <div style={{ fontWeight: 700, fontSize: "0.95rem" }}>{b.studio_name}</div>
-                <span style={{ fontSize: "0.72rem", fontWeight: 700, color: st.color, background: `${st.color}22`, padding: "0.2rem 0.55rem", borderRadius: 8 }}>{st.label}</span>
-            </div>
-            {b.service_name && <div style={LINE}><Scissors size={13} aria-hidden /> {b.service_name}</div>}
-            {b.artist_name && <div style={LINE}><User size={13} aria-hidden /> {b.artist_name}</div>}
-            {date && (
-                <div style={{ ...LINE, color: "var(--bf-text)", marginTop: "0.4rem" }}>
-                    <CalendarDays size={13} aria-hidden /> {date.toLocaleDateString("he-IL", { weekday: "long", day: "numeric", month: "long" })}
-                    {" · "}
-                    {date.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })}
-                </div>
-            )}
-            <Link href={`/b/${b.studio_slug}`} style={{ display: "inline-flex", alignItems: "center", gap: "0.1rem", marginTop: "0.75rem", fontSize: "0.8rem", color: "var(--bf-text)", textDecoration: "none", fontWeight: 700 }}>
-                לדף העסק <ChevronLeft size={14} aria-hidden />
-            </Link>
-        </div>
-    );
-}
-
-const LINE: React.CSSProperties = { display: "flex", alignItems: "center", gap: "0.35rem", color: "var(--bf-muted)", fontSize: "0.82rem", marginBottom: "0.25rem" };

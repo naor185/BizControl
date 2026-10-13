@@ -344,6 +344,14 @@ def pos_checkout(
             import logging as _l
             _l.getLogger(__name__).exception("Failed to queue POS receipt message")
 
+    if client:                                    # the invitation to the BizFind app, after a first visit
+        try:
+            from app.services import app_invite
+            app_invite.maybe_enqueue(db, ctx.studio_id, client)
+        except Exception:
+            import logging as _l
+            _l.getLogger(__name__).exception("app invitation error after sale %s", txn.id)
+
     # Club invite for non-members
     if client and not client.is_club_member:
         try:

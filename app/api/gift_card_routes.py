@@ -371,7 +371,8 @@ def _create_gift_card_invoice(db: Session, studio_id, card_id: str, code: str, c
     db.commit()
     doc_number = result[0]
 
-    vat_rate = float(settings.get("vat_rate") or 18.0)
+    from app.services import vat
+    vat_rate = vat.rate_of(settings)            # 0 — a business in Eilat
     if biz_type == "osek_patur":
         subtotal_cents = paid_cents
         vat_amount_cents = 0

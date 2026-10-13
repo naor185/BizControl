@@ -1194,6 +1194,8 @@ class PlatformSettingsOut(BaseModel):
     theme_text_muted_color: str
     theme_heading_font: str | None
     theme_body_font: str | None
+    bizfind_ios_url: str | None = None        # BizFind in the App Store / Google Play — the app link leads there
+    bizfind_android_url: str | None = None
 
 
 class PlatformSettingsIn(BaseModel):
@@ -1209,6 +1211,8 @@ class PlatformSettingsIn(BaseModel):
     theme_text_muted_color: str | None = None
     theme_heading_font: str | None = None
     theme_body_font: str | None = None
+    bizfind_ios_url: str | None = None
+    bizfind_android_url: str | None = None
 
 
 def _platform_settings_out(settings: StudioSettings) -> "PlatformSettingsOut":
@@ -1225,6 +1229,8 @@ def _platform_settings_out(settings: StudioSettings) -> "PlatformSettingsOut":
         theme_text_muted_color=settings.theme_text_muted_color,
         theme_heading_font=settings.landing_page_title_font,
         theme_body_font=settings.landing_page_desc_font,
+        bizfind_ios_url=settings.bizfind_ios_url,
+        bizfind_android_url=settings.bizfind_android_url,
     )
 
 
@@ -1315,6 +1321,13 @@ def update_platform_settings(
         settings.whatsapp_phone_id = payload.whatsapp_phone_id or None
     if payload.whatsapp_api_key is not None:
         settings.whatsapp_api_key = payload.whatsapp_api_key or None
+    for store in ("bizfind_ios_url", "bizfind_android_url"):       # empty: not in that store (yet)
+        value = getattr(payload, store)
+        if value is not None:
+            value = value.strip()
+            if value and not value.startswith("https://"):
+                raise HTTPException(status_code=400, detail="קישור לחנות צריך להתחיל ב-https://")
+            setattr(settings, store, value or None)
     if payload.theme_primary_color is not None:
         settings.theme_primary_color = payload.theme_primary_color
     if payload.theme_secondary_color is not None:

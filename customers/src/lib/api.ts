@@ -32,6 +32,12 @@ export async function apiFetch<T>(path: string, opts?: RequestInit): Promise<T> 
     });
     if (!res.ok) {
         const err = await res.json().catch(() => ({}));
+        // A login that ended (it lasts 30 days): the saved login goes, so the screens ask to sign in again instead of
+        // "שגיאה בטעינת הנתונים" (owner, 2026-10-13). A wrong password at sign-in is no ended login.
+        if (res.status === 401 && token && !path.includes("/login")) {
+            localStorage.removeItem(TOKEN_KEY);
+            localStorage.removeItem("biz_customer");
+        }
         throw new Error(errorText(err.detail, `HTTP ${res.status}`));
     }
     // an empty answer (204 — e.g. deleting the account) is a success, not a failed JSON read

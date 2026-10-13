@@ -25,6 +25,7 @@ from app.core.deps import require_studio_ctx, AuthContext
 from app.core.permissions import require_permission
 from app.core.security import decode_token
 from app.models.user import User
+from app.services import vat
 
 router = APIRouter(prefix="/invoices", tags=["Invoices"])
 
@@ -165,6 +166,7 @@ def _invoice_to_dict(row, items=None) -> dict:
     d["subtotal_ils"] = round((d.get("subtotal_cents") or 0) / 100, 2)
     d["vat_amount_ils"] = round((d.get("vat_amount_cents") or 0) / 100, 2)
     d["tip_ils"] = round((d.get("tip_cents") or 0) / 100, 2)
+    d["shows_vat"], d["vat_note"] = vat.words(d.get("business_type"), d.get("vat_rate"))
     if items is not None:
         d["items"] = items
     return d
@@ -257,6 +259,7 @@ class CompleteSetupIn(BaseModel):
     business_phone: Optional[str] = None
     business_email: Optional[str] = None
     series: dict = {}  # {doc_type: next_number}
+    eilat: bool = False   # registered in Eilat — its deals there VAT-free: 0% (services/vat.py)
 
 
 @router.post("/settings/complete")
@@ -277,10 +280,11 @@ def complete_setup(
                  business_address, business_city, business_phone, business_email,
                  settings_completed, updated_at)
             VALUES
-                (:id, :sid, :bt, :bname, :bn, 18.00, :addr, :city, :phone, :email,
+                (:id, :sid, :bt, :bname, :bn, :vr, :addr, :city, :phone, :email,
                  TRUE, NOW())
             ON CONFLICT (studio_id) DO UPDATE SET
                 business_type=EXCLUDED.business_type,
+                vat_rate=EXCLUDED.vat_rate,
                 business_name=EXCLUDED.business_name,
                 business_number=EXCLUDED.business_number,
                 business_address=EXCLUDED.business_address,
@@ -296,6 +300,7 @@ def complete_setup(
             "bn": body.business_number, "addr": body.business_address,
             "city": body.business_city, "phone": body.business_phone,
             "email": body.business_email,
+            "vr": 0 if body.eilat and body.business_type != "osek_patur" else vat.DEFAULT_RATE,
         }
     )
 
@@ -736,7 +741,7 @@ def create_invoice(
             "service_id": item.service_id,
         })
 
-    vat_rate = float(settings.get("vat_rate") or 18.0)
+    vat_rate = vat.rate_of(settings)
     # The prices are what the client paid (the calendar's and the till's "issue a receipt" send the amount paid) — VAT
     # included, like an automatic receipt (crud/payment._auto_create_invoice): a client who paid ₪1,400 got a receipt
     # for ₪1,652 (2026-10-13). The lines keep the price before VAT, as an automatic receipt's do. osek_patur: no VAT.
@@ -1364,8 +1369,7 @@ def _build_pdf(inv: dict, items: list) -> bytes:
 
     is_credit = inv.get("doc_type") == "credit"
     doc_label = DOC_TYPES.get(inv["doc_type"], inv["doc_type"])
-    biz_type = inv.get("business_type", "osek_patur")
-    has_vat = biz_type != "osek_patur"
+    has_vat, vat_note = vat.words(inv.get("business_type"), inv.get("vat_rate"))
 
     # ── Header ────────────────────────────────────────────────
     header_color = colors.HexColor("#c0392b") if is_credit else colors.HexColor("#1a1a2e")
@@ -1521,7 +1525,7 @@ def _build_pdf(inv: dict, items: list) -> bytes:
     vat_amount = inv.get("vat_amount_cents", 0) or 0
     total = inv.get("total_cents", 0) or 0
     tip = inv.get("tip_cents", 0) or 0
-    vat_rate_val = float(inv.get("vat_rate") or 18)
+    vat_rate_val = vat.rate_of(inv)
 
     if has_vat:
         total_row("סכום לפני מע\"מ:", fmt_ils(subtotal))
@@ -1532,10 +1536,10 @@ def _build_pdf(inv: dict, items: list) -> bytes:
     total_color = colors.HexColor("#c0392b") if is_credit else colors.HexColor("#1a1a2e")
     total_row("סה\"כ לתשלום:", fmt_ils(total), bold=True, color=total_color)
 
-    if not has_vat:
+    if vat_note:
         c.setFont(F_REG, 8)
         c.setFillColor(colors.HexColor("#999999"))
-        c.drawRightString(W - 1.5*cm, y, h("* עוסק פטור, אינו חייב במע\"מ"))
+        c.drawRightString(W - 1.5*cm, y, h(f"* {vat_note}"))
         y -= 14
 
     y -= 8

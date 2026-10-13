@@ -2914,6 +2914,12 @@ def ensure_schema():
         cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS nfc_clock_code TEXT")
         # what a manager may do — the owner's switches (none set: the defaults)
         cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS manager_permissions TEXT")
+        # the invitation to the BizFind app (services/app_invite.py), and the store links on the platform's row
+        cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS app_invite_enabled BOOLEAN NOT NULL DEFAULT TRUE")
+        cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS app_invite_delay_minutes INTEGER NOT NULL DEFAULT 1440")
+        cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS app_invite_wa_template TEXT")
+        cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS bizfind_ios_url TEXT")
+        cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS bizfind_android_url TEXT")
         # one log of who did what: the platform's (the superadmin) and each business's own (services/activity_log.py)
         cur.execute("ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS kind VARCHAR(16) NOT NULL DEFAULT 'platform'")
         cur.execute("CREATE INDEX IF NOT EXISTS ix_audit_logs_business ON audit_logs (studio_id, kind, created_at)")

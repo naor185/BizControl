@@ -10,6 +10,7 @@ import {
 } from "recharts";
 import PasswordInput from "@/components/PasswordInput";
 import LandingPageTemplate from "@/components/LandingPageTemplate";
+import BizFindStoreLinks from "@/components/admin/BizFindStoreLinks";
 import { Flag, Inbox, Tags, Users } from "lucide-react";
 
 type Stats = {
@@ -1588,6 +1589,8 @@ export default function AdminPage() {
                             </div>
 
                         </div>
+
+                        <BizFindStoreLinks />
 
                         {/* Change Password Card */}
                         <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-4">

@@ -57,3 +57,22 @@ def test_an_authorized_business_includes_vat_in_the_price_paid(client, monkeypat
     assert inv["total_cents"] == 100000 and inv["subtotal_cents"] + inv["vat_amount_cents"] == 100000
     full = client.get(f"/api/invoices/{inv['id']}", headers=h).json()
     assert sum(i["total_price_cents"] for i in full["items"]) == inv["subtotal_cents"]
+
+
+def test_a_business_in_eilat_issues_tax_invoices_at_zero_vat(client, monkeypatch):
+    """Eilat is a free-trade zone — an authorized business registered there sets VAT 0% when it sets up its receipts:
+    the tax invoice/receipt shows VAT 0% and says why (services/vat.py)."""
+    h = register_and_login(client, "eilat-shop", "owner@eilat-shop.com")
+    r = client.post("/api/invoices/settings/complete", headers=h, json={
+        "business_type": "osek_murshe", "business_name": "סטודיו אילת", "business_number": "123456789", "eilat": True})
+    assert r.status_code == 200, r.text
+    assert client.get("/api/invoices/settings", headers=h).json()["vat_rate"] == 0
+    r = client.post("/api/invoices", headers=h, json={"doc_type": "invoice_tax_receipt", "payment_method": "cash",
+                                                       "items": [{"description": "קעקוע", "quantity": 1, "unit_price_cents": 140000}]})
+    assert r.status_code == 200, r.text
+    inv = r.json()
+    assert inv["doc_type"] == "invoice_tax_receipt"
+    assert inv["total_cents"] == 140000 and inv["vat_amount_cents"] == 0 and inv["subtotal_cents"] == 140000
+    assert inv["shows_vat"] is True and "אילת" in inv["vat_note"]
+    words = _pdf_words(monkeypatch, inv)
+    assert "אילת" in words and "עוסק פטור" not in words

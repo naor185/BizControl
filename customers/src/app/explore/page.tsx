@@ -107,7 +107,7 @@ function ExploreContent() {
         <div style={{ minHeight: "100vh", background: "var(--bf-bg)", color: "var(--bf-text)" }}>
 
             {/* Sticky search header */}
-            <div style={{ position: "sticky", top: 0, zIndex: 40, background: "rgba(0,0,0,.9)", backdropFilter: "blur(14px)", borderBottom: "1px solid var(--bf-line)", padding: "0.85rem 1.25rem" }}>
+            <div style={{ position: "sticky", top: "env(safe-area-inset-top, 0px)", zIndex: 40, background: "rgba(0,0,0,.9)", backdropFilter: "blur(14px)", borderBottom: "1px solid var(--bf-line)", padding: "0.85rem 1.25rem" }}>
                 <div style={{ maxWidth: 1100, margin: "0 auto" }}>
                     <div style={{ display: "flex", gap: "0.6rem", alignItems: "center", flexWrap: "wrap" }}>
                         {/* Back */}

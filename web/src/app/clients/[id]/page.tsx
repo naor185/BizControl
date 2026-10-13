@@ -7,6 +7,7 @@ import { useEffect, useState, useCallback } from "react";
 import RequireAuth from "@/components/RequireAuth";
 import AppShell from "@/components/AppShell";
 import HealthDeclarations from "@/components/health/HealthDeclarations";
+import { Smartphone } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { formatCurrency } from "@/lib/format";
 
@@ -301,6 +302,20 @@ export default function ClientProfilePage() {
     };
 
     const [sendingPointsBalance, setSendingPointsBalance] = useState(false);
+    const [sendingAppInvite, setSendingAppInvite] = useState(false);
+
+    // the invitation to the BizFind app, now (app/services/app_invite.py) — the server says why not, if it won't
+    const handleSendAppInvite = async () => {
+        setSendingAppInvite(true);
+        try {
+            await apiFetch(`/api/clients/${id}/app-invite`, { method: "POST" });
+            toast.success("ההזמנה לאפליקציה נשלחה");
+        } catch (e: any) {
+            toast.error(e?.message || "שגיאה בשליחה");
+        } finally {
+            setSendingAppInvite(false);
+        }
+    };
 
     const handleSendPointsBalance = async () => {
         setSendingPointsBalance(true);
@@ -608,6 +623,18 @@ export default function ClientProfilePage() {
                                 >
                                     <span>⭐</span>
                                     {sendingPointsBalance ? "שולח..." : "שלח יתרת נקודות בוואטסאפ"}
+                                </button>
+                            )}
+
+                            {profile.client.phone && (
+                                <button
+                                    type="button"
+                                    onClick={handleSendAppInvite}
+                                    disabled={sendingAppInvite}
+                                    className="w-full py-3 bg-white hover:bg-slate-50 disabled:opacity-50 text-slate-800 font-bold rounded-2xl border border-slate-200 transition-all flex items-center justify-center gap-2 text-sm"
+                                >
+                                    <Smartphone className="w-4 h-4" aria-hidden />
+                                    {sendingAppInvite ? "שולח..." : "שלח הזמנה לאפליקציה"}
                                 </button>
                             )}
                         </div>

@@ -29,13 +29,16 @@ const GLOBAL_CSS = `
                         --bf-faint: rgba(255,255,255,.42);
                     }
                     * { box-sizing: border-box; margin: 0; padding: 0; }
-                    body { font-family: var(--font-body), system-ui, -apple-system, sans-serif; background: var(--bf-bg); color: var(--bf-text); padding-bottom: 64px; }
+                    body { font-family: var(--font-body), system-ui, -apple-system, sans-serif; background: var(--bf-bg); color: var(--bf-text);
+                           padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) calc(64px + env(safe-area-inset-bottom, 0px)) env(safe-area-inset-left, 0px); }
+                    /* the strip under the clock stays the page's black — what scrolls passes under it, never over the clock */
+                    body::before { content: ""; position: fixed; top: 0; left: 0; right: 0; height: env(safe-area-inset-top, 0px); background: var(--bf-bg); z-index: 1000; }
                     h1, h2, h3, h4, h5, h6 { font-family: var(--font-heading), inherit; }
                     a { color: inherit; }
                     input, textarea, select, button { font-family: inherit; }
                     @keyframes spin { to { transform: rotate(360deg); } }
                     @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-                    .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; height: 60px; background: rgba(0,0,0,.92); backdrop-filter: blur(14px); border-top: 1px solid var(--bf-line); display: flex; z-index: 100; }
+                    .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; height: calc(60px + env(safe-area-inset-bottom, 0px)); padding-bottom: env(safe-area-inset-bottom, 0px); background: rgba(0,0,0,.92); backdrop-filter: blur(14px); border-top: 1px solid var(--bf-line); display: flex; z-index: 100; }
                     .bottom-nav a { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; text-decoration: none; color: var(--bf-faint); font-size: 0.65rem; font-weight: 600; transition: color .2s; }
                     .bottom-nav a:hover { color: var(--bf-text); }
 `;
@@ -49,7 +52,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                     own chrome, and it removes a real crash trigger (a resize mid-pinch
                     threw an unhandled client-side exception on BizControl's dashboard;
                     same risk applies here). */}
-                <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+                <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
                 {/* Same fixed 5-font set BizControl's ThemeProvider loads — one shared
                     platform font system across both apps. */}
                 <link

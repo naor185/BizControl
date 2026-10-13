@@ -67,6 +67,8 @@ interface Invoice {
     vat_amount_ils: number;
     tip_ils: number;
     vat_rate: number;
+    shows_vat?: boolean;            // what the receipt shows about its VAT (services/vat.py)
+    vat_note?: string | null;
     // Payment
     payment_method?: string;
     payment_reference?: string;
@@ -170,7 +172,7 @@ export default function InvoicesPage() {
 
     const printInvoiceHtml = (inv: Invoice) => {
         const isCredit = inv.doc_type === "credit";
-        const hasVat = inv.business_type !== "osek_patur" && inv.vat_amount_ils > 0;
+        const hasVat = inv.shows_vat ?? (inv.business_type !== "osek_patur" && inv.vat_amount_ils > 0); const vatNote = inv.vat_note ?? (hasVat ? null : 'עוסק פטור, אינו חייב במע"מ');
         const accentHex = isCredit ? "#c0392b" : "#1a1a2e";
         const fmt = (n: number) => `₪${Math.abs(n).toFixed(2)}`;
         const fmtDate = (s: string) => new Date(s).toLocaleDateString("he-IL", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit" });
@@ -276,7 +278,7 @@ export default function InvoicesPage() {
       <span>סה"כ לתשלום</span>
       <span>${isCredit ? "-" : ""}${fmt(Math.abs(inv.total_ils))}</span>
     </div>
-    ${!hasVat ? `<div style="font-size:11px;color:#94a3b8;margin-top:6px">* עוסק פטור, אינו חייב במע"מ</div>` : ""}
+    ${vatNote ? `<div style="font-size:11px;color:#94a3b8;margin-top:6px">* ${vatNote}</div>` : ""}
     ${inv.payment_method ? `<div style="font-size:12px;color:#64748b;margin-top:12px">אמצעי תשלום: ${methodLabels[inv.payment_method] || inv.payment_method}${inv.payment_reference ? " · אסמכתה: " + inv.payment_reference : ""}</div>` : ""}
     ${inv.notes ? `<div style="font-size:12px;color:#64748b;margin-top:8px;padding:10px;background:#fffbeb;border-right:3px solid #f59e0b;border-radius:4px">${inv.notes}</div>` : ""}
   </div>
@@ -697,7 +699,7 @@ function InvoiceDetailModal({ invoice, onClose, onDownload, getPdfUrl, onCredit 
 
                             {/* ── Totals ── */}
                             <div style={{ background: "#f8fafc", borderRadius: 10, padding: "0.75rem 1rem" }}>
-                                {invoice.vat_amount_ils > 0 && (
+                                {(invoice.shows_vat ?? invoice.vat_amount_ils > 0) && (
                                     <>
                                         <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem", marginBottom: "0.3rem", color: "#64748b" }}>
                                             <span>לפני מע"מ</span><span>₪{invoice.subtotal_ils.toFixed(2)}</span>
@@ -716,8 +718,8 @@ function InvoiceDetailModal({ invoice, onClose, onDownload, getPdfUrl, onCredit 
                                     <span>סה"כ לתשלום</span>
                                     <span>{isCredit ? "-" : ""}₪{Math.abs(invoice.total_ils).toFixed(2)}</span>
                                 </div>
-                                {invoice.business_type === "osek_patur" && (
-                                    <div style={{ fontSize: "0.72rem", color: "#94a3b8", marginTop: "0.3rem", textAlign: "right" }}>* עוסק פטור, אינו חייב במע"מ</div>
+                                {(invoice.vat_note ?? (invoice.business_type === "osek_patur" ? 'עוסק פטור, אינו חייב במע"מ' : null)) && (
+                                    <div style={{ fontSize: "0.72rem", color: "#94a3b8", marginTop: "0.3rem", textAlign: "right" }}>* {invoice.vat_note ?? 'עוסק פטור, אינו חייב במע"מ'}</div>
                                 )}
                             </div>
 
@@ -870,6 +872,8 @@ function InvoiceSetupWizard({ series, existing, onComplete }: { series: SeriesMa
 
     // Step 1 — business details (pre-filled from saved settings if exist)
     const [bizType, setBizType] = useState(existing.business_type || "osek_murshe");
+    // registered in Eilat — its deals there are VAT-free: tax invoice/receipts at 0% (services/vat.py)
+    const [eilat, setEilat] = useState(existing.vat_rate === 0);
     const [bizName, setBizName] = useState(existing.business_name || "");
     const [bizNum, setBizNum] = useState(existing.business_number || "");
     const [addr, setAddr] = useState(existing.business_address || "");
@@ -905,6 +909,7 @@ function InvoiceSetupWizard({ series, existing, onComplete }: { series: SeriesMa
                     business_phone: phone.trim() || null,
                     business_email: email.trim() || null,
                     series: nums,
+                    eilat: bizType !== "osek_patur" && eilat,
                 }),
             });
             await onComplete();
@@ -965,6 +970,15 @@ function InvoiceSetupWizard({ series, existing, onComplete }: { series: SeriesMa
                                         }}>{b.label}</button>
                                     ))}
                                 </div>
+                                {bizType !== "osek_patur" && (
+                                    <label style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem", marginTop: "0.7rem", fontSize: "0.82rem", color: "#334155", cursor: "pointer" }}>
+                                        <input type="checkbox" checked={eilat} onChange={e => setEilat(e.target.checked)} style={{ width: 18, height: 18, marginTop: 2, flexShrink: 0 }} />
+                                        <span>
+                                            <b>העסק רשום באילת</b> — עסקאות באילת פטורות ממע&quot;מ: החשבוניות יצאו עם מע&quot;מ 0%.
+                                            <span style={{ display: "block", color: "#94a3b8", fontSize: "0.75rem", marginTop: 2 }}>יש תנאים וחריגים בחוק — כדאי לוודא עם רואה החשבון.</span>
+                                        </span>
+                                    </label>
+                                )}
                             </div>
                             <div>
                                 <label style={labelStyle}>שם העסק על המסמכים *</label>

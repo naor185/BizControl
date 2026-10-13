@@ -32,6 +32,8 @@ type Receipt = {
   business_logo_url: string | null;
   subtotal_ils: number;
   vat_rate: number | null;
+  shows_vat?: boolean;            // what the receipt shows about its VAT (services/vat.py)
+  vat_note?: string | null;
   vat_amount_ils: number;
   total_ils: number;
   tip_ils: number;
@@ -86,7 +88,8 @@ export default function PublicReceiptPage() {
     );
   }
 
-  const hasVat = receipt.vat_amount_ils > 0;
+  const hasVat = receipt.shows_vat ?? receipt.vat_amount_ils > 0;          // the server's word (services/vat.py)
+  const vatNote = receipt.vat_note ?? (hasVat ? null : 'עוסק פטור, אינו חייב במע"מ');
 
   return (
     <>
@@ -195,8 +198,8 @@ export default function PublicReceiptPage() {
                 <span>סה&quot;כ לתשלום</span>
                 <span className="text-lg">{fmt(receipt.total_ils)}</span>
               </div>
-              {!hasVat && (
-                <p className="text-xs text-gray-400">* עוסק פטור, אינו חייב במע&quot;מ</p>
+              {vatNote && (
+                <p className="text-xs text-gray-400">* {vatNote}</p>
               )}
             </div>
 

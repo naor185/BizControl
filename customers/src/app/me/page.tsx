@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { API, apiFetch, imgUrl } from "@/lib/api";
+import { API, apiFetch, imgUrl, getToken } from "@/lib/api";
 import { getCustomer, saveCustomer, clearCustomer, type Customer } from "@/lib/auth";
 import { Bell, Building2, Camera, ChevronLeft, ClipboardList, Clock, Heart, Lock, MapPin, Star, Trash2, User, X } from "lucide-react";
 import AuthModal from "@/components/AuthModal";
@@ -48,7 +48,7 @@ export default function MePage() {
                 setCustomer(updated);
                 if (data.favorites.length > 0) loadFavoriteStudios(data.favorites);
             })
-            .catch(() => {})
+            .catch(() => { if (!getToken()) setCustomer(null); })     // the login ended — sign in again
             .finally(() => setLoadingFavs(false));
 
         setLoadingBusinesses(true);

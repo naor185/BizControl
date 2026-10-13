@@ -15,6 +15,7 @@ from app.core.sites import logo_address
 from app.core.studio_access import raise_if_archived
 from app.models.studio import Studio
 from app.models.user import User
+from app.services import vat as _vat
 from app.models.client import Client
 from app.models.appointment import Appointment
 from app.models.studio_settings import StudioSettings
@@ -760,6 +761,8 @@ def get_public_receipt(invoice_id: str, db: Session = Depends(get_db)):
         "subtotal_ils": round((inv.get("subtotal_cents") or 0) / 100, 2),
         "vat_rate": inv.get("vat_rate"),
         "vat_amount_ils": round((inv.get("vat_amount_cents") or 0) / 100, 2),
+        "shows_vat": _vat.words(inv.get("business_type"), inv.get("vat_rate"))[0],
+        "vat_note": _vat.words(inv.get("business_type"), inv.get("vat_rate"))[1],
         "total_ils": round((inv.get("total_cents") or 0) / 100, 2),
         "tip_ils": round((inv.get("tip_cents") or 0) / 100, 2),
         "payment_method": inv.get("payment_method"),
@@ -769,6 +772,16 @@ def get_public_receipt(invoice_id: str, db: Session = Depends(get_db)):
         "points_earned": points_earned,
         "loyalty_points_total": points_total,
     }
+
+
+# ── BizFind in the stores — where the app link (find.biz-control.com/app) leads (services/app_invite.py) ──────────
+
+@router.get("/bizfind-app")
+def bizfind_app_links(db: Session = Depends(get_db)):
+    """The store links the superadmin set (platform settings) — none yet: the link opens BizFind's website."""
+    from app.api.superadmin_routes import _get_platform_settings
+    settings = _get_platform_settings(db)
+    return {"ios": getattr(settings, "bizfind_ios_url", None), "android": getattr(settings, "bizfind_android_url", None)}
 
 
 # ── Public booking status (customer link from approval WhatsApp) ─────────────

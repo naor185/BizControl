@@ -149,6 +149,13 @@ class AutomationSettingsOut(BaseModel):
     same_day_reminder_hour: int = 8
     reminder_2_hours_enabled: bool = False
     reminder_2h_wa_template: str | None = None
+    # the club invitation's switch and time on the message templates page — they never saved (not in this schema)
+    club_invite_enabled: bool = True
+    club_invite_delay_minutes: int = 30
+    # the invitation to the BizFind app (services/app_invite.py)
+    app_invite_enabled: bool = True
+    app_invite_delay_minutes: int = 1440
+    app_invite_wa_template: str | None = None
     # the messages turned off on the message templates page (services/service_switches.py) — stored as a JSON list
     messages_off: list[str] = []
 
@@ -351,6 +358,11 @@ class AutomationSettingsUpdate(BaseModel):
     same_day_reminder_hour: int | None = Field(default=None, ge=6, le=12)
     reminder_2_hours_enabled: bool | None = None
     reminder_2h_wa_template: str | None = None
+    club_invite_enabled: bool | None = None
+    club_invite_delay_minutes: int | None = Field(default=None, ge=0, le=10080)
+    app_invite_enabled: bool | None = None
+    app_invite_delay_minutes: int | None = Field(default=None, ge=0, le=10080)
+    app_invite_wa_template: str | None = None
     messages_off: list[str] | None = None
     reminder_1_day_enabled: bool | None = None
     reminder_3_days_enabled: bool | None = None

@@ -390,6 +390,11 @@ def patch(appointment_id: UUID, payload: AppointmentUpdate, ctx: AuthContext = D
                 log.info("Queued non-member club invitation for client %s", existing_appt.client_id)
         except Exception as e:
             log.warning("Non-member invitation error: %s", e)
+        try:
+            from app.services import app_invite
+            app_invite.maybe_enqueue(db, ctx.studio_id, db.get(Client, existing_appt.client_id), appointment_id=existing_appt.id)
+        except Exception:
+            log.exception("app invitation error for client %s", existing_appt.client_id)
 
     # Sync to Google Calendar
     appt_obj = get_appointment(db, ctx.studio_id, appointment_id)

@@ -34,6 +34,8 @@ MARKETING_TYPES = frozenset({
     "broadcast",             # תפוצות (main.tick_broadcasts)
     "club_invite",           # הזמנה למועדון (crud/automation.maybe_enqueue_club_invite)
     "club_invite_email",
+    "app_invite",            # הזמנה לאפליקציית BizFind (services/app_invite.py)
+    "app_invite_email",
     "birthday_manual",       # קופון יום הולדת שנשלח ידנית — הודעות ישנות; היום "שלח עכשיו" כותב birthday-YYYY-MM
 })
 MARKETING_PREFIXES = (

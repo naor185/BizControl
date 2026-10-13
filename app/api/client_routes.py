@@ -492,6 +492,19 @@ def delete_photo(
     return {"ok": True}
 
 
+@router.post("/{client_id}/app-invite")
+def send_app_invite(client_id: UUID, ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+    """The invitation to the BizFind app, now — from the client's card (services/app_invite.py)."""
+    from app.services import app_invite
+    client = db.scalar(select(Client).where(Client.id == client_id, Client.studio_id == ctx.studio_id))
+    if not client:
+        raise HTTPException(status_code=404, detail="לקוח לא נמצא")
+    why_not = app_invite.maybe_enqueue(db, ctx.studio_id, client, by_hand=True)
+    if why_not:
+        raise HTTPException(status_code=400, detail=why_not)
+    return {"ok": True}
+
+
 @router.post("/{client_id}/send-points-balance")
 def send_points_balance(
     client_id: UUID,

@@ -178,6 +178,12 @@ def create_payment(db: Session, studio_id: UUID, data) -> Payment:
         except Exception:
             import logging as _l
             _l.getLogger(__name__).exception("club invite error after payment %s", obj.id)
+        try:
+            from app.services import app_invite
+            app_invite.maybe_enqueue(db, studio_id, client, appointment_id=appt.id)
+        except Exception:
+            import logging as _l
+            _l.getLogger(__name__).exception("app invitation error after payment %s", obj.id)
 
     # Send thank-you message after final payment (always — not just when content configured)
     if obj.status == "paid" and obj.type == "payment" and client.phone:
@@ -286,7 +292,8 @@ def _auto_create_invoice(db: Session, studio_id: UUID, payment: Payment, appt, c
     doc_number = result[0]
 
     # VAT calculation: payment amount is treated as total (VAT-inclusive for murshe)
-    vat_rate = float(settings.get("vat_rate") or 18.0)
+    from app.services import vat
+    vat_rate = vat.rate_of(settings)            # 0 — a business in Eilat
     if biz_type == "osek_patur":
         subtotal_cents = payment.amount_cents
         vat_amount_cents = 0

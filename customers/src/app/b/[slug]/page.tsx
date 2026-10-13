@@ -763,7 +763,7 @@ export default function BusinessPage() {
 
             {/* ── Floating bottom bar (mobile) ── */}
             {p!.self_booking_enabled && (
-                <div style={{ position: "fixed", bottom: 60, left: 0, right: 0, padding: "0.65rem 1.25rem", background: "rgba(0,0,0,.88)", backdropFilter: "blur(16px)", borderTop: "1px solid var(--bf-line)", display: "flex", gap: "0.6rem", zIndex: 50 }}>
+                <div style={{ position: "fixed", bottom: "calc(60px + env(safe-area-inset-bottom, 0px))", left: 0, right: 0, padding: "0.65rem 1.25rem", background: "rgba(0,0,0,.88)", backdropFilter: "blur(16px)", borderTop: "1px solid var(--bf-line)", display: "flex", gap: "0.6rem", zIndex: 50 }}>
                     <Link href={`/b/${slug}/book`} style={{ ...PRIMARY_BTN, flex: 1, justifyContent: "center", padding: "0.8rem" }}>
                         <CalendarDays size={17} aria-hidden /> קביעת תור
                     </Link>

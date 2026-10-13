@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useRef, useCallback } from "react";
-import { CalendarCheck, Bell, Receipt, Globe, Star, Pencil, RotateCcw, MessageCircle, Mail, Info, type LucideIcon } from "lucide-react";
+import { CalendarCheck, Bell, Receipt, Globe, Star, Pencil, RotateCcw, MessageCircle, Mail, Info, Smartphone, type LucideIcon } from "lucide-react";
 import AppShell from "@/components/AppShell";
 import RequireAuth from "@/components/RequireAuth";
 import BottomSheet from "@/components/ui/bottom-sheet";
@@ -45,6 +45,8 @@ const PLACEHOLDERS = [
     { key: "{coupon_code}",            label: "קוד קופון" },
     { key: "{benefit_percent}",        label: "% הנחה יום הולדת" },
     { key: "{join_link}",              label: "קישור הצטרפות" },
+    { key: "{app_link}",               label: "קישור לאפליקציה" },
+    { key: "{app_features}",           label: "מה אפשר באפליקציה" },
     { key: "{points_used}",            label: "נקודות שנוצלו" },
     { key: "{discount_amount}",        label: "סכום הנחה" },
     { key: "{receipt_link}",           label: "קישור קבלה" },
@@ -165,6 +167,15 @@ const GROUPS: Group[] = [
               templateKey: "points_balance_wa_template", hints: ["client_name","loyalty_points"] },
         ],
     },
+    {
+        id: "app", title: "האפליקציה", icon: Smartphone,
+        messages: [
+            // what it lists follows the business's plan and settings: booking, points, punch card, receipts (app_features)
+            { id: "app_invite", title: "הזמנה לאפליקציית BizFind", when: "ללקוח אחרי הביקור הראשון, פעם אחת — או ידנית מתיק הלקוח",
+              toggleKey: "app_invite_enabled", times: AFTER_VISIT("app_invite_delay_minutes", 1440),
+              templateKey: "app_invite_wa_template", hints: ["client_name","studio_name","app_features","app_link"] },
+        ],
+    },
 ];
 
 // Ready texts for each message, a tap away in the edit window (stage 3, the owner, 2026-10-13) — short, warm and
@@ -267,6 +278,11 @@ const READY: Record<string, { label: string; text: string }[]> = {
     points_redeem: [
         { label: "קצר", text: "היי {client_name}, מימשת {points_used} נקודות וחסכת ₪{discount_amount}! 🎁" },
         { label: "חם", text: "היי {client_name} 🎉\nמימשת {points_used} נקודות בשווי ₪{discount_amount}!\nנשארו לך {loyalty_points} נקודות. תודה שאת/ה חלק מהמועדון של {studio_name} ❤️" },
+    ],
+    app_invite: [
+        { label: "קצר", text: "היי {client_name}, את התורים, הקבלות והיתרה שלך ב{studio_name} אפשר לראות באפליקציית BizFind: {app_link}" },
+        { label: "חם", text: "היי {client_name} 👋\nתודה שביקרת ב{studio_name}!\nבאפליקציית BizFind אפשר:\n{app_features}\n\nלהורדה: {app_link}" },
+        { label: "רשמי", text: "שלום {client_name},\n{studio_name} מזמינים אותך להוריד את אפליקציית BizFind. באפליקציה אפשר:\n{app_features}\n\nלהורדה: {app_link}" },
     ],
     points_balance: [
         { label: "קצר", text: "היי {client_name}, יתרת הנקודות שלך: {loyalty_points} ⭐" },
