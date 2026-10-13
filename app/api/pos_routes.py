@@ -259,6 +259,11 @@ def pos_checkout(
                 return _build_transaction_out(db, existing)
         raise
     db.refresh(txn)
+    if discount > 0:
+        from app.services.activity_log import ils, record
+        record(db, ctx, "money", f"מכירה בקופה בהנחה של {ils(discount)}" + (" (קוד הנחה)" if body.coupon_code else "")
+                                 + f" · שולם {ils(total)}" + (f" · {client.full_name}" if client else ""))
+        db.refresh(txn)
 
     # Big redemption → festive shareable card + club-join invite (best-effort)
     if client and actual_redeem > 0:
@@ -518,6 +523,8 @@ def void_transaction(
     from app.services import coupons
     coupons.release(db, pos_transaction_id=txn.id)            # the coupon can be used again
     db.commit()
+    from app.services.activity_log import ils, record
+    record(db, ctx, "money", f"ביטול עסקה בקופה · {ils(txn.total_cents)}")
     return {"ok": True}
 
 

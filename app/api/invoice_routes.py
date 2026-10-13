@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.deps import require_studio_ctx, AuthContext
-from app.core.permissions import require_management
+from app.core.permissions import require_permission
 from app.core.security import decode_token
 from app.models.user import User
 
@@ -243,6 +243,8 @@ def upsert_settings(
         }
     )
     db.commit()
+    from app.services.activity_log import record
+    record(db, ctx, "receipts", "שינוי פרטי העסק בקבלות")
     return {"ok": True}
 
 
@@ -545,6 +547,7 @@ def create_invoice_from_payment(
         _logger.exception("[from-payment] _auto_create_invoice failed for payment %s", payment_id)
         raise HTTPException(500, "שגיאה ביצירת קבלה — בדוק לוגים")
 
+    _record_issued(db, ctx, db.execute(text("SELECT * FROM invoices WHERE id = :id"), {"id": invoice_id}).fetchone())
     return {"invoice_id": invoice_id, "already_existed": False}
 
 
@@ -734,13 +737,23 @@ def create_invoice(
         })
 
     vat_rate = float(settings.get("vat_rate") or 18.0)
-    # osek_patur has no VAT
-    if biz_type == "osek_patur":
+    # The prices are what the client paid (the calendar's and the till's "issue a receipt" send the amount paid) — VAT
+    # included, like an automatic receipt (crud/payment._auto_create_invoice): a client who paid ₪1,400 got a receipt
+    # for ₪1,652 (2026-10-13). The lines keep the price before VAT, as an automatic receipt's do. osek_patur: no VAT.
+    paid_cents = subtotal_cents
+    if biz_type == "osek_patur" or not paid_cents:
         vat_amount_cents = 0
     else:
-        vat_amount_cents = int(round(subtotal_cents * vat_rate / 100))
+        subtotal_cents = int(round(paid_cents / (1 + vat_rate / 100)))
+        vat_amount_cents = paid_cents - subtotal_cents
+        nets = [int(round(r["total_price_cents"] * subtotal_cents / paid_cents)) for r in item_rows]
+        biggest = max(range(len(item_rows)), key=lambda i: abs(item_rows[i]["total_price_cents"]))
+        nets[biggest] += subtotal_cents - sum(nets)              # the agorot of rounding to the biggest line
+        for r, net in zip(item_rows, nets):
+            r["total_price_cents"] = net
+            r["unit_price_cents"] = int(round(net / (r["quantity"] or 1)))
 
-    total_cents = subtotal_cents + vat_amount_cents + body.tip_cents
+    total_cents = paid_cents + body.tip_cents
 
     # Get next doc number (atomic)
     doc_number = _next_doc_number(ctx.studio_id, body.doc_type, db)
@@ -824,7 +837,16 @@ def create_invoice(
     db.commit()
 
     inv_row = db.execute(text("SELECT * FROM invoices WHERE id = :id"), {"id": invoice_id}).fetchone()
+    _record_issued(db, ctx, inv_row)
     return _invoice_to_dict(inv_row)
+
+
+def _record_issued(db: Session, ctx: AuthContext, row) -> None:
+    """The activity log: "הפקת קבלה 1151 · ₪1,400 · דנה כהן" """
+    from app.services.activity_log import ils, record
+    if row is not None:
+        who = f" · {row.client_name}" if row.client_name else ""
+        record(db, ctx, "receipts", f"הפקת {DOC_TYPES.get(row.doc_type, 'מסמך')} {row.doc_number} · {ils(row.total_cents)}{who}")
 
 
 @router.get("/report-summary")
@@ -1013,7 +1035,7 @@ class CreditNoteRequest(BaseModel):
 def create_credit_note(
     invoice_id: str,
     body: CreditNoteRequest = CreditNoteRequest(),
-    ctx: AuthContext = Depends(require_management("זיכוי")),     # the owner's decision (2026-09-26): management only
+    ctx: AuthContext = Depends(require_permission("receipts")),   # the owner, or a manager he allowed receipts (2026-10-13)
     db: Session = Depends(get_db),
 ):
     orig = db.execute(
@@ -1110,6 +1132,9 @@ def create_credit_note(
     db.commit()
 
     credit_row = db.execute(text("SELECT * FROM invoices WHERE id = :id"), {"id": credit_id}).fetchone()
+    from app.services.activity_log import ils, record
+    record(db, ctx, "receipts", f"הפקת זיכוי {credit_row.doc_number} על {DOC_TYPES.get(orig.doc_type, 'מסמך')} "
+                                f"{orig.doc_number} · {ils(orig.total_cents)}" + (f" · {orig.client_name}" if orig.client_name else ""))
     return _invoice_to_dict(credit_row)
 
 

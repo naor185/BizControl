@@ -791,8 +791,11 @@ def delete_expense(
     exp = repo.get_by_id(studio_id=ctx.studio_id, expense_id=expense_id)
     if not exp:
         raise HTTPException(status_code=404, detail="Expense not found")
+    from app.services.activity_log import ils, record
+    words = f"מחיקת הוצאה: {exp.title} · {ils(round(float(exp.amount or 0) * 100))}"
     _delete_receipt_file(exp.receipt_url, db=repo.session)
     repo.delete(studio_id=ctx.studio_id, expense_id=expense_id)
+    record(repo.session, ctx, "money", words)
     return None
 
 
@@ -817,6 +820,9 @@ def bulk_delete_expenses(
         db.delete(exp)
         deleted += 1
     db.commit()
+    if deleted:
+        from app.services.activity_log import record
+        record(db, ctx, "money", f"מחיקת {deleted} הוצאות" if deleted > 1 else "מחיקת הוצאה")
     return {"deleted": deleted}
 
 

@@ -428,6 +428,9 @@ def patch(appointment_id: UUID, payload: AppointmentUpdate, ctx: AuthContext = D
 def cancel(appointment_id: UUID, reason: str | None = Query(default=None), hard_delete: bool = Query(default=False), ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
     # Grab event before canceling to get google_event_id
     appt_obj = get_appointment(db, ctx.studio_id, appointment_id)
+    words = f"מחיקת תור{_whose(db, appt_obj)}" if hard_delete and appt_obj is not None else None   # read before it's gone
+    google_event_id = appt_obj.google_event_id if appt_obj else None   # a deleted appointment can't be read afterwards
+    service_id = appt_obj.service_id if appt_obj else None
 
     try:
         if hard_delete:
@@ -439,8 +442,11 @@ def cancel(appointment_id: UUID, reason: str | None = Query(default=None), hard_
 
     if not ok:
         raise HTTPException(status_code=404, detail="Appointment not found")
-        
-    if appt_obj and appt_obj.google_event_id:
+    if words:
+        from app.services.activity_log import record
+        record(db, ctx, "clients", words)
+
+    if google_event_id:
         settings = db.query(StudioSettings).filter(StudioSettings.studio_id == ctx.studio_id).first()
         if settings and settings.google_calendar_refresh_token and settings.google_calendar_client_id and settings.google_calendar_client_secret:
             try:
@@ -449,7 +455,7 @@ def cancel(appointment_id: UUID, reason: str | None = Query(default=None), hard_
                     settings.google_calendar_client_secret,
                     settings.google_calendar_refresh_token
                 )
-                delete_google_event(service, appt_obj.google_event_id)
+                delete_google_event(service, google_event_id)
             except Exception as e:
                 log.warning("Failed to delete Google event: %s", e)
 
@@ -457,7 +463,6 @@ def cancel(appointment_id: UUID, reason: str | None = Query(default=None), hard_
     if not hard_delete:
         try:
             from app.api.wait_list_routes import notify_wait_list_on_cancellation
-            service_id = getattr(appt_obj, "service_id", None) if appt_obj else None
             n = notify_wait_list_on_cancellation(db, ctx.studio_id, service_id)
             if n:
                 log.info("Notified %d wait list clients after cancellation", n)
@@ -465,6 +470,14 @@ def cancel(appointment_id: UUID, reason: str | None = Query(default=None), hard_
             log.exception("Wait list notification failed")
 
     return None
+
+def _whose(db: Session, appt) -> str:
+    """The activity log: " של דנה כהן · 14.10 11:00" """
+    from app.models.client import Client
+    from app.services.activity_log import at
+    client = db.get(Client, appt.client_id) if appt.client_id else None
+    return (f" של {client.full_name}" if client else "") + f" · {at(db, appt.studio_id, appt.starts_at)}"
+
 
 @router.post("/{appointment_id}/waive-deposit")
 def waive_deposit(appointment_id: UUID, ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
@@ -478,6 +491,8 @@ def waive_deposit(appointment_id: UUID, ctx: AuthContext = Depends(require_studi
     appt.payment_verified_at = func.now()
     appt.deposit_amount_cents = 0
     db.commit()
+    from app.services.activity_log import record
+    record(db, ctx, "money", f"אישור תור בלי מקדמה{_whose(db, appt)}")
     # Send confirmation with full appointment details (same as after deposit approved)
     try:
         from app.crud.automation import enqueue_deposit_approved_message

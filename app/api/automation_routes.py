@@ -50,8 +50,9 @@ def get_settings(ctx: AuthContext = Depends(require_studio_ctx), db: Session = D
 
 @router.patch("", response_model=AutomationSettingsOut)
 def patch_settings(payload: AutomationSettingsUpdate, ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
-    if ctx.role not in ("owner", "admin", "manager"):
-        raise HTTPException(status_code=403, detail="Forbidden")
+    from app.core.permissions import may_do
+    if not may_do(db, ctx.studio_id, ctx.role, "settings"):     # the owner, or a manager the owner allowed
+        raise HTTPException(status_code=403, detail="שינוי הגדרות העסק — בעל העסק לא אפשר את זה")
 
     settings = db.get(StudioSettings, ctx.studio_id)
     if not settings:
@@ -85,10 +86,14 @@ def patch_settings(payload: AutomationSettingsUpdate, ctx: AuthContext = Depends
         import json
         from app.services.service_switches import MESSAGE_IDS
         data["messages_off"] = json.dumps(sorted(set(data["messages_off"] or []) & MESSAGE_IDS))
+    changed = [k for k, v in data.items() if (getattr(settings, k, None) or None) != (v or None)]
     for k, v in data.items():
         setattr(settings, k, v)
 
     db.commit()
+    if changed:
+        from app.services.activity_log import record, settings_words
+        record(db, ctx, "settings", f"שינוי הגדרות: {settings_words(changed)}")
     db.refresh(settings)
     from app.models.studio import Studio
     studio = db.get(Studio, ctx.studio_id)

@@ -55,6 +55,69 @@ def workers_read_only():
     return dep
 
 
+# What a manager (admin) may do — the owner switches each on or off (the owner, 2026-10-13: "only the owner issues
+# receipts and changes settings"). The owner and the superadmin may always; a worker never. Kept per business in
+# studio_settings.manager_permissions (a JSON of the ones set; the rest are at their default).
+MANAGER_PERMISSIONS: dict[str, tuple[str, bool]] = {
+    "settings": ("שינוי הגדרות העסק", False),
+    "receipts": ("קבלות, חשבוניות וזיכויים", False),
+    "money": ("הוצאות, שכר ודוחות כספיים", False),
+    "team": ("ניהול הצוות", False),
+    "attendance": ("תיקון שעות נוכחות", True),
+}
+
+
+def manager_permissions(settings) -> dict[str, bool]:
+    import json
+    try:
+        saved = json.loads(getattr(settings, "manager_permissions", None) or "{}")
+    except (ValueError, TypeError):
+        saved = {}
+    return {k: bool(saved.get(k, default)) for k, (_, default) in MANAGER_PERMISSIONS.items()}
+
+
+def may_do(db, studio_id, role: str | None, perm: str) -> bool:
+    if role in ("owner", "superadmin"):
+        return True
+    if role != "admin":
+        return False
+    from app.models.studio_settings import StudioSettings
+    return manager_permissions(db.get(StudioSettings, studio_id))[perm]
+
+
+def _refuse(role: str | None, perm: str):
+    if role == "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail=f"{MANAGER_PERMISSIONS[perm][0]} — בעל העסק לא אפשר את זה לסגן המנהל")
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="האזור הזה של בעל העסק והמנהלים")
+
+
+def require_permission(perm: str):
+    """FastAPI dependency: the owner — or a manager the owner allowed `perm`."""
+    from app.core.deps import AuthContext, require_studio_ctx
+    from app.db.deps import get_db
+
+    def dep(ctx: AuthContext = Depends(require_studio_ctx), db=Depends(get_db)) -> AuthContext:
+        if not may_do(db, ctx.studio_id, ctx.role, perm):
+            _refuse(ctx.role, perm)
+        return ctx
+
+    return dep
+
+
+def writes_need(perm: str):
+    """FastAPI dependency: anyone reads (a worker's calendar too); a change needs `perm`."""
+    from app.core.deps import AuthContext, require_studio_ctx
+    from app.db.deps import get_db
+
+    def dep(request: Request, ctx: AuthContext = Depends(require_studio_ctx), db=Depends(get_db)) -> AuthContext:
+        if request.method not in ("GET", "HEAD", "OPTIONS") and not may_do(db, ctx.studio_id, ctx.role, perm):
+            _refuse(ctx.role, perm)
+        return ctx
+
+    return dep
+
+
 def require_management(what: str):
     """FastAPI dependency: only the business's management — `what` says, in the refusal, what is theirs."""
     from app.core.deps import AuthContext, require_studio_ctx

@@ -6,10 +6,11 @@ import { useTerms } from "@/lib/useTerms";
 import { useEffect, useState } from "react";
 import AppShell from "@/components/AppShell";
 import RequireAuth from "@/components/RequireAuth";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, getCurrentUserRole } from "@/lib/api";
 import { isNativeApp } from "@/lib/platform";
 import PasswordInput from "@/components/PasswordInput";
 import StaffSessionsModal from "@/components/StaffSessionsModal";
+import ManagerPermissions from "@/components/ManagerPermissions";
 
 type Artist = {
     id: string;
@@ -89,6 +90,7 @@ export default function TeamPage() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [role, setRole] = useState<"artist" | "admin" | "staff">("artist");
+    const [editingOwner, setEditingOwner] = useState(false);     // the owner's own row — his role doesn't change here
     const [calendarColor, setCalendarColor] = useState(COLOR_PRESETS[0]);
     const [isActive, setIsActive] = useState(true);
     const [payType, setPayType] = useState<"hourly" | "commission" | "none" | "global">("none");
@@ -130,6 +132,7 @@ export default function TeamPage() {
         setEmail("");
         setPassword("");
         setRole("artist");
+        setEditingOwner(false);
         setCalendarColor(COLOR_PRESETS[0]);
         setIsActive(true);
         setPayType("hourly");
@@ -146,6 +149,7 @@ export default function TeamPage() {
         setEmail(artist.email || "");
         setPassword("");
         setRole((artist.role === "admin" ? "admin" : artist.role === "staff" ? "staff" : "artist") as "artist" | "admin" | "staff");
+        setEditingOwner(artist.role === "owner");
         setCalendarColor(artist.calendar_color || COLOR_PRESETS[0]);
         setIsActive(artist.is_active);
         setPayType((artist.pay_type === "none" || !artist.pay_type) ? "hourly" : artist.pay_type);
@@ -382,6 +386,8 @@ export default function TeamPage() {
                             </div>
                         )}
                     </div>
+
+                    <ManagerPermissions />
                 </div>
 
                 {/* Create/Edit Modal */}
@@ -405,15 +411,15 @@ export default function TeamPage() {
                                     />
                                 </div>
 
-                                {/* Role selector */}
-                                <div>
+                                {/* Role selector — not on the owner's own row; only the owner makes someone a manager */}
+                                {!editingOwner && <div>
                                     <label className="block text-sm font-semibold text-slate-700 mb-2">תפקיד</label>
                                     <div className="grid grid-cols-2 gap-2">
                                         {([
                                             { value: "artist", icon: Briefcase, label: terms.staff, desc: "גישה ליומן שלהם בלבד" },
                                             { value: "staff",  icon: User,    label: "איש/אשת צוות", desc: "עובד/ת ללא ניהול" },
-                                            { value: "admin",  icon: Crown,   label: "סגן מנהל", desc: "גישה לכל הניהול" },
-                                        ] as const).map(opt => (
+                                            { value: "admin",  icon: Crown,   label: "סגן מנהל", desc: "ניהול — במה שבעל העסק מאפשר" },
+                                        ] as const).filter(opt => opt.value !== "admin" || getCurrentUserRole() === "owner").map(opt => (
                                             <button
                                                 key={opt.value}
                                                 type="button"
@@ -431,7 +437,7 @@ export default function TeamPage() {
                                             </button>
                                         ))}
                                     </div>
-                                </div>
+                                </div>}
 
                                 <div>
                                     <label className="block text-sm font-semibold text-slate-700 mb-1">צבע ביומן</label>

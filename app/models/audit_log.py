@@ -20,4 +20,6 @@ class AuditLog(Base):
     studio_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     studio_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     details: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    # "platform" — the superadmin's log; "business" — a business's own activity log (app/services/activity_log.py)
+    kind: Mapped[str] = mapped_column(String(16), nullable=False, default="platform", server_default="platform")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())

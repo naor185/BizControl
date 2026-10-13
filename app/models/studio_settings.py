@@ -210,6 +210,8 @@ class StudioSettings(Base):
     dismissed_setup_items: Mapped[str | None] = mapped_column(Text, nullable=True, default=None)
 
     # Reminder toggles — כל סטודיו שולט בנפרד
+    # what a manager (admin) may do — the owner's switches (core/permissions.MANAGER_PERMISSIONS); JSON
+    manager_permissions: Mapped[str | None] = mapped_column(Text, nullable=True)
     # the NFC attendance clock's code — on when set; only the superadmin issues it (services/nfc_clock.py)
     nfc_clock_code: Mapped[str | None] = mapped_column(Text, nullable=True)
     # the messages turned off on the message templates page — a JSON list of their ids (services/service_switches.py)

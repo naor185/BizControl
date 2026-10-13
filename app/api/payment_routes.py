@@ -9,7 +9,7 @@ import os
 
 from app.db.deps import get_db
 from app.core.deps import require_studio_ctx, AuthContext
-from app.core.permissions import require_management
+from app.core.permissions import require_permission
 from app.models.payment import Payment
 from app.models.appointment import Appointment
 from app.models.client import Client
@@ -114,7 +114,7 @@ def delete(
 @router.post("/{payment_id}/credit")
 def issue_credit_note(
     payment_id: UUID,
-    ctx: AuthContext = Depends(require_management("זיכוי")),     # the owner's decision (2026-09-26): management only
+    ctx: AuthContext = Depends(require_permission("receipts")),   # the owner, or a manager he allowed receipts (2026-10-13)
     db: Session = Depends(get_db),
 ):
     """Issue a credit note (זיכוי) for a payment. Creates the linked invoice first if it doesn't exist."""
@@ -255,6 +255,11 @@ def issue_credit_note(
     db.commit()
 
     credit_row = db.execute(text("SELECT * FROM invoices WHERE id = :id"), {"id": credit_id}).fetchone()
+    from app.api.invoice_routes import DOC_TYPES
+    from app.services.activity_log import ils, record
+    record(db, ctx, "receipts", f"הפקת זיכוי {credit_row.doc_number} על {DOC_TYPES.get(orig.get('doc_type'), 'מסמך')} "
+                                f"{orig.get('doc_number')} · {ils(orig.get('total_cents'))}"
+                                + (f" · {orig.get('client_name')}" if orig.get("client_name") else ""))
     result = dict(credit_row._mapping)
     result["doc_type_label"] = "זיכוי"
     result["total_ils"] = round((result.get("total_cents") or 0) / 100, 2)

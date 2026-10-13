@@ -62,17 +62,21 @@ function ReceiptModal({ txn, clientId, onClose }: { txn: TransactionOut; clientI
             const inv = await apiFetch<{ id: string }>("/api/invoices", {
                 method: "POST",
                 body: JSON.stringify({
-                    doc_type: "receipt",
+                    doc_type: "invoice_tax_receipt",   // the business's own: a VAT-exempt one gets a receipt
                     client_id: clientId || undefined,
                     client_name: txn.client_name || undefined,
                     payment_method: txn.method,
                     source: "pos",
                     source_id: txn.id,
-                    items: txn.items.map(i => ({
-                        description: i.description,
-                        quantity: i.quantity,
-                        unit_price_cents: i.unit_price_cents,
-                    })),
+                    items: [
+                        ...txn.items.map(i => ({
+                            description: i.description,
+                            quantity: i.quantity,
+                            unit_price_cents: i.unit_price_cents,
+                        })),
+                        // the receipt is what was paid — the discount too
+                        ...(txn.discount_cents > 0 ? [{ description: "הנחה", quantity: 1, unit_price_cents: -txn.discount_cents }] : []),
+                    ],
                 }),
             });
             setInvoiceId(inv.id);

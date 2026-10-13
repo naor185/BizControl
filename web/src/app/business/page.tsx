@@ -8,7 +8,7 @@ import {
     Briefcase, Lock, Unlock, KeyRound, Zap, BarChart3, ShieldCheck, ClipboardList, Timer,
     Wallet, Users, TrendingUp, Phone, Megaphone, Gift, Settings,
     CreditCard, Receipt, Banknote, UserCog, Target, Mail,
-    Send, Clock, Package, ConciergeBell, Smartphone, LifeBuoy, Crown, FileUp, CalendarRange, SlidersHorizontal, HeartPulse,
+    Send, Clock, Package, History, ConciergeBell, Smartphone, LifeBuoy, Crown, FileUp, CalendarRange, SlidersHorizontal, HeartPulse,
     type LucideIcon,
 } from "lucide-react";
 import AppShell from "@/components/AppShell";
@@ -19,16 +19,19 @@ import { apiFetch } from "@/lib/api";
 import { fillTerms, useTerms } from "@/lib/useTerms";
 
 type PinStatus = { has_pin: boolean; is_locked: boolean; locked_until: string | null };
+// what the signed-in user may do (/api/auth/me — core/permissions.MANAGER_PERMISSIONS): a manager sees only what the
+// owner allowed him (the owner, 2026-10-13)
+type Perm = "settings" | "receipts" | "money" | "team" | "attendance" | "owner";   // "owner": the owner only
 
-const SECTION_GROUPS: { groupLabel: string; icon: LucideIcon; items: { href: string; label: string; description: string; icon: LucideIcon; gradient: string; module?: string; feature?: string }[] }[] = [
+const SECTION_GROUPS: { groupLabel: string; icon: LucideIcon; items: { href: string; label: string; description: string; icon: LucideIcon; gradient: string; module?: string; feature?: string; perm?: Perm }[] }[] = [
     {
         groupLabel: "כספים",
         icon: Wallet,
         items: [
             { href: "/payments",    label: "תשלומים",         description: "היסטוריית תשלומים ואישורים",                   icon: CreditCard, gradient: "from-violet-500 to-violet-700" },
-            { href: "/invoices",    label: "חשבוניות",        description: "חשבוניות, קבלות ומסמכים כספיים",               icon: Receipt, gradient: "from-emerald-500 to-emerald-700" },
-            { href: "/expenses",    label: "הוצאות עסקיות",   description: "הוצאות, קטגוריות ודוחות",                      icon: BarChart3, gradient: "from-orange-500 to-orange-700" },
-            { href: "/obligations", label: "התחייבויות",      description: "התחייבויות ותשלומים עתידיים",                  icon: Banknote, gradient: "from-red-500 to-red-700", module: "obligations" },
+            { href: "/invoices",    label: "חשבוניות",        description: "חשבוניות, קבלות ומסמכים כספיים",               icon: Receipt, gradient: "from-emerald-500 to-emerald-700", perm: "receipts" },
+            { href: "/expenses",    label: "הוצאות עסקיות",   description: "הוצאות, קטגוריות ודוחות",                      icon: BarChart3, gradient: "from-orange-500 to-orange-700", perm: "money" },
+            { href: "/obligations", label: "התחייבויות",      description: "התחייבויות ותשלומים עתידיים",                  icon: Banknote, gradient: "from-red-500 to-red-700", module: "obligations", perm: "money" },
         ],
     },
     {
@@ -48,14 +51,15 @@ const SECTION_GROUPS: { groupLabel: string; icon: LucideIcon; items: { href: str
         icon: Users,
         items: [
             { href: "/team",         label: "ניהול צוות", description: "{staff_plural}, תפקידים ושיטת תשלום",                     icon: UserCog, gradient: "from-cyan-500 to-cyan-700" },
-            { href: "/team/payroll", label: "דוח שכר",     description: "מי, כמה ומתי — חישוב שכר חודשי לכל עובד/ת + PDF",   icon: Wallet, gradient: "from-blue-500 to-blue-700" },
+            { href: "/team/payroll", label: "דוח שכר",     description: "מי, כמה ומתי — חישוב שכר חודשי לכל עובד/ת + PDF",   icon: Wallet, gradient: "from-blue-500 to-blue-700", perm: "money" },
+            { href: "/activity",     label: "יומן פעילות", description: "מי עשה מה ומתי — קבלות, מחיקות, הנחות, הגדרות וצוות",   icon: History, gradient: "from-slate-600 to-slate-800", perm: "owner" },
         ],
     },
     {
         groupLabel: "אנליטיקה ותובנות",
         icon: TrendingUp,
         items: [
-            { href: "/analytics/business", label: "אנליטיקה עסקית", description: "הכנסות, תורים ושעות עמוסות", icon: BarChart3, gradient: "from-violet-600 to-fuchsia-700",   module: "analytics" },
+            { href: "/analytics/business", label: "אנליטיקה עסקית", description: "הכנסות, תורים ושעות עמוסות", icon: BarChart3, gradient: "from-violet-600 to-fuchsia-700",   module: "analytics", perm: "money" },
         ],
     },
     {
@@ -69,7 +73,7 @@ const SECTION_GROUPS: { groupLabel: string; icon: LucideIcon; items: { href: str
         groupLabel: "תקשורת",
         icon: Megaphone,
         items: [
-            { href: "/message-templates", label: "תבניות הודעות", description: "תבניות לוואטסאפ ומייל",                 icon: Mail, gradient: "from-pink-600 to-rose-700" },
+            { href: "/message-templates", label: "תבניות הודעות", description: "תבניות לוואטסאפ ומייל",                 icon: Mail, gradient: "from-pink-600 to-rose-700", perm: "settings" },
             { href: "/broadcasts",        label: "תפוצות",        description: "הודעות המוניות ומבצעים",                icon: Send, gradient: "from-amber-600 to-orange-700", module: "broadcasts" },
             { href: "/wait-list",         label: "רשימת המתנה",   description: "לקוחות הממתינים לתור פנוי",             icon: Clock, gradient: "from-rose-600 to-pink-700",    module: "wait_list" },
         ],
@@ -95,7 +99,7 @@ const SECTION_GROUPS: { groupLabel: string; icon: LucideIcon; items: { href: str
         groupLabel: "הגדרות מערכת",
         icon: Settings,
         items: [
-            { href: "/automation",     label: "הגדרות",          description: "מיתוג, אוטומציות, תשלומים, אינטגרציות והגדרות מייל", icon: Settings, gradient: "from-slate-500 to-slate-700" },
+            { href: "/automation",     label: "הגדרות",          description: "מיתוג, אוטומציות, תשלומים, אינטגרציות והגדרות מייל", icon: Settings, gradient: "from-slate-500 to-slate-700", perm: "settings" },
             { href: "/help",           label: "מרכז עזרה",       description: "מדריכים, תמיכה ויצירת קשר",                     icon: LifeBuoy, gradient: "from-gray-500 to-gray-700" },
         ],
     },
@@ -112,6 +116,7 @@ export default function BusinessPage() {
     const plan = usePlan();              // what the business's plan includes — and, for what it doesn't, the plan that does
     const [isNative] = useState(() => isNativeApp());
     const [enabledFeatures, setEnabledFeatures] = useState<Record<string, boolean> | null>(null);
+    const [perms, setPerms] = useState<Record<Perm, boolean> | null>(null);
 
     const checkSession = useCallback(() => {
         if (isBusinessSessionValid()) setUnlocked(true);
@@ -125,6 +130,9 @@ export default function BusinessPage() {
         apiFetch<Record<string, boolean>>("/api/studio/features/me")
             .then(setEnabledFeatures)
             .catch(() => setEnabledFeatures({}));
+        apiFetch<{ role?: string; permissions?: Record<Perm, boolean> }>("/api/auth/me")
+            .then(m => setPerms(m.permissions ? { ...m.permissions, owner: m.role === "owner" } : null))
+            .catch(() => setPerms(null));
     }, [checkSession]);
 
     const handleUnlockClick = () => {
@@ -244,7 +252,8 @@ export default function BusinessPage() {
                                     // not in the plan: shown locked on the website when a plan on sale has it; not in the apps
                                     const moduleOk = !item.module || plan.has(item.module) || (!isNative && !!plan.upgrade(item.module));
                                     const featureOk = !item.feature || !!enabledFeatures?.[item.feature];
-                                    return moduleOk && featureOk;
+                                    const permOk = !item.perm || (perms ? perms[item.perm] !== false : item.perm !== "owner");
+                                    return moduleOk && featureOk && permOk;
                                 });
                                 if (visibleItems.length === 0) return null;
                                 return (

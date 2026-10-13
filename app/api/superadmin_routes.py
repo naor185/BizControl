@@ -994,7 +994,8 @@ def get_audit_log(
     admin: User = Depends(require_superadmin),
     db: Session = Depends(get_db),
 ):
-    q = select(AuditLog).order_by(AuditLog.created_at.desc()).limit(limit).offset(offset)
+    q = (select(AuditLog).where(AuditLog.kind == "platform")         # a business's own log is the owner's (/api/activity)
+         .order_by(AuditLog.created_at.desc()).limit(limit).offset(offset))
     if studio_id:
         q = q.where(AuditLog.studio_id == studio_id)
     if action:

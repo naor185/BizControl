@@ -2115,7 +2115,7 @@ export default function CalendarPage() {
                                                         const inv = await apiFetch<any>("/api/invoices", {
                                                             method: "POST",
                                                             body: JSON.stringify({
-                                                                doc_type: "receipt",
+                                                                doc_type: "invoice_tax_receipt",   // the business's own: a VAT-exempt one gets a receipt
                                                                 client_id: appt.client_id || undefined,
                                                                 client_name: appt.client_name || undefined,
                                                                 source: "appointment",

@@ -11,7 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.deps import require_studio_ctx, AuthContext
-from app.core.permissions import MANAGEMENT as PAY_VIEWERS   # everyone's pay: the owner and the managers only
+from app.core.permissions import MANAGEMENT as PAY_VIEWERS, may_do   # everyone's pay: see may_do(…, "money")
 from app.db.deps import get_db
 from app.models.studio import Studio
 from app.models.studio_settings import StudioSettings
@@ -108,9 +108,17 @@ class ShiftIn(BaseModel):
     end_time: Optional[datetime] = None
 
 
-def _manager(ctx: AuthContext) -> None:
-    if ctx.role not in PAY_VIEWERS:
-        raise HTTPException(status_code=403, detail="רק בעל העסק או מנהל יכולים לתקן שעות")
+def _manager(ctx: AuthContext, db: Session, worker_id=None) -> None:
+    if not may_do(db, ctx.studio_id, ctx.role, "attendance"):
+        raise HTTPException(status_code=403, detail="תיקון שעות נוכחות — רק בעל העסק או מנהל שהורשה")
+    if ctx.role != "owner" and worker_id is not None and str(worker_id) == str(ctx.user_id):
+        raise HTTPException(status_code=403, detail="את המשמרות שלך מתקן בעל העסק")
+
+
+def _shift_words(db: Session, studio_id, s: WorkSession) -> str:
+    """13.10 09:00–17:00 · 13.10 09:00–פתוחה"""
+    from app.services.activity_log import at
+    return f"{at(db, studio_id, s.start_time)}–{at(db, studio_id, s.end_time)[-5:] if s.end_time else 'פתוחה'}"
 
 
 def _shift_out(s: WorkSession) -> dict:
@@ -136,7 +144,7 @@ def _times(db: Session, studio_id, start: datetime, end: datetime | None) -> tup
 def list_shifts(user_id: uuid.UUID, start_date: datetime = Query(...), end_date: datetime = Query(...),
                 ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
     """A worker's shifts in a period — the owner and the managers."""
-    _manager(ctx)
+    _manager(ctx, db)
     start, end = _localize_payroll_range(db, ctx.studio_id, start_date, end_date)
     rows = db.scalars(select(WorkSession).where(WorkSession.studio_id == ctx.studio_id, WorkSession.user_id == user_id,
                                                 WorkSession.start_time >= start, WorkSession.start_time <= end)
@@ -147,7 +155,7 @@ def list_shifts(user_id: uuid.UUID, start_date: datetime = Query(...), end_date:
 @router.post("/shifts", status_code=201)
 def add_shift(body: ShiftIn, ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
     """A shift the worker forgot to clock — from when to when (or still on)."""
-    _manager(ctx)
+    _manager(ctx, db, body.user_id)
     worker = db.get(User, body.user_id) if body.user_id else None
     if worker is None or worker.studio_id != ctx.studio_id or body.start_time is None:
         raise HTTPException(status_code=400, detail="חסר העובד או שעת הכניסה")
@@ -158,33 +166,44 @@ def add_shift(body: ShiftIn, ctx: AuthContext = Depends(require_studio_ctx), db:
     price_shift(s, worker)
     db.add(s)
     db.commit()
+    from app.services.activity_log import record
+    record(db, ctx, "attendance", f"הוספת משמרת ל{worker.display_name or worker.email}: {_shift_words(db, ctx.studio_id, s)}")
     return _shift_out(s)
 
 
 @router.patch("/shifts/{shift_id}")
 def fix_shift(shift_id: uuid.UUID, body: ShiftIn, ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
     """A wrong time, a forgotten clock-out — the pay follows."""
-    _manager(ctx)
+    _manager(ctx, db)
     s = db.get(WorkSession, shift_id)
     if s is None or s.studio_id != ctx.studio_id:
         raise HTTPException(status_code=404, detail="המשמרת לא נמצאה")
+    _manager(ctx, db, s.user_id)
+    was = _shift_words(db, ctx.studio_id, s)
     data = body.model_dump(exclude_unset=True)
     start, end = _times(db, ctx.studio_id, data.get("start_time") or s.start_time,
                         data["end_time"] if "end_time" in data else s.end_time)
     s.start_time, s.end_time, s.fixed_by = start, end, ctx.user_id
-    price_shift(s, db.get(User, s.user_id))
+    worker = db.get(User, s.user_id)
+    price_shift(s, worker)
     db.commit()
+    from app.services.activity_log import record
+    record(db, ctx, "attendance", f"תיקון משמרת של {worker.display_name or worker.email}: {was} ← {_shift_words(db, ctx.studio_id, s)}")
     return _shift_out(s)
 
 
 @router.delete("/shifts/{shift_id}", status_code=204)
 def remove_shift(shift_id: uuid.UUID, ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
-    _manager(ctx)
+    _manager(ctx, db)
     s = db.get(WorkSession, shift_id)
     if s is None or s.studio_id != ctx.studio_id:
         raise HTTPException(status_code=404, detail="המשמרת לא נמצאה")
+    _manager(ctx, db, s.user_id)
+    from app.services.activity_log import name_of, record
+    words = f"מחיקת משמרת של {name_of(db, s.user_id)}: {_shift_words(db, ctx.studio_id, s)}"
     db.delete(s)
     db.commit()
+    record(db, ctx, "attendance", words)
 
 
 @router.get("/payroll", response_model=StaffPayrollSummary)
@@ -196,7 +215,7 @@ def get_payroll(
     db: Session = Depends(get_db),
 ):
     """Calculate payroll for all staff in the studio for the given period."""
-    if ctx.role not in PAY_VIEWERS:
+    if not may_do(db, ctx.studio_id, ctx.role, "money"):      # pay — the owner, or a manager allowed money
         raise HTTPException(status_code=403, detail="Forbidden")
     start_date, end_date = _localize_payroll_range(db, ctx.studio_id, start_date, end_date)
     items = repo.get_user_payroll_summary(ctx.studio_id, start_date, end_date)
@@ -219,7 +238,7 @@ def download_payroll_pdf(
     repo: StaffRepository = Depends(get_staff_repo),
     db: Session = Depends(get_db),
 ):
-    if ctx.role not in PAY_VIEWERS:
+    if not may_do(db, ctx.studio_id, ctx.role, "money"):      # pay — the owner, or a manager allowed money
         raise HTTPException(status_code=403, detail="Forbidden")
 
     start_date, end_date = _localize_payroll_range(db, ctx.studio_id, start_date, end_date)
@@ -256,7 +275,7 @@ def download_staff_pay_summary_pdf(
     db: Session = Depends(get_db),
 ):
     """One worker's pay summary for the period — the same sums as the team's report, and every shift."""
-    if ctx.role not in PAY_VIEWERS:
+    if not may_do(db, ctx.studio_id, ctx.role, "money"):      # pay — the owner, or a manager allowed money
         raise HTTPException(status_code=403, detail="Forbidden")
     start_date, end_date = _localize_payroll_range(db, ctx.studio_id, start_date, end_date)
     item = next((i for i in repo.get_user_payroll_summary(ctx.studio_id, start_date, end_date) if i["user_id"] == user_id), None)

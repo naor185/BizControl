@@ -305,6 +305,8 @@ def delete(
     ok = soft_delete_client(db, ctx.studio_id, client_id)
     if not ok:
         raise HTTPException(status_code=404, detail="Client not found")
+    from app.services.activity_log import record
+    record(db, ctx, "clients", f"מחיקת הלקוח {db.get(Client, client_id).full_name}")
     return None
 
 @router.post("/{client_id}/reset-points", status_code=200)
@@ -317,8 +319,11 @@ def reset_points(
     client = db.scalar(select(Client).where(Client.id == client_id, Client.studio_id == ctx.studio_id))
     if not client:
         raise HTTPException(status_code=404, detail="Client not found")
+    had = client.loyalty_points or 0
     client.loyalty_points = 0
     db.commit()
+    from app.services.activity_log import record
+    record(db, ctx, "clients", f"איפוס נקודות של {client.full_name} ({had} נקודות)")
     return {"ok": True, "points": 0}
 
 

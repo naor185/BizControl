@@ -35,6 +35,7 @@ def get_current_user(
     user = db.query(User).filter(User.id == user_id, User.studio_id == studio_id, User.is_active == True).first()
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
+    user.impersonated_by = payload.get("impersonated_by")     # the superadmin, signed in as the business (support)
 
     # Plan enforcement — superadmin and platform studio are always exempt
     if user.role != "superadmin":

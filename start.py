@@ -2912,6 +2912,11 @@ def ensure_schema():
         cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS messages_off TEXT")
         # the NFC attendance clock's code (services/nfc_clock.py) — none: off
         cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS nfc_clock_code TEXT")
+        # what a manager may do — the owner's switches (none set: the defaults)
+        cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS manager_permissions TEXT")
+        # one log of who did what: the platform's (the superadmin) and each business's own (services/activity_log.py)
+        cur.execute("ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS kind VARCHAR(16) NOT NULL DEFAULT 'platform'")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_audit_logs_business ON audit_logs (studio_id, kind, created_at)")
         # a shift fixed by hand — by whom (the owner or a manager)
         cur.execute("ALTER TABLE work_sessions ADD COLUMN IF NOT EXISTS fixed_by UUID REFERENCES users(id) ON DELETE SET NULL")
         # ready times: the morning reminder's hour, a reminder about two hours before (off until turned on)
@@ -2958,6 +2963,18 @@ def ensure_schema():
             cur.execute("""
                 UPDATE notifications SET body = substring(body from '^ההודעה ל.+? לא נשלחה') || '.'
                 WHERE type = 'message_failed' AND body ~ '^ההודעה ל.+? לא נשלחה אחרי'
+            """)
+        if _once("nctattoo_naor_owner_v1"):
+            # Nctattoo had no owner — its founding account ("naor") was a manager since 2026-05; what a manager may do
+            # is now the owner's to decide (core/permissions.MANAGER_PERMISSIONS). The owner approved (2026-10-13).
+            cur.execute("""
+                UPDATE users SET role = 'owner'
+                WHERE id = (
+                    SELECT u.id FROM users u JOIN studios s ON s.id = u.studio_id
+                    WHERE s.name = 'Nctattoo' AND u.role = 'admin' AND u.is_active
+                      AND NOT EXISTS (SELECT 1 FROM users o WHERE o.studio_id = s.id AND o.role = 'owner' AND o.is_active)
+                    ORDER BY u.created_at LIMIT 1
+                )
             """)
 
         conn.commit()

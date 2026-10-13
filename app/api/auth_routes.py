@@ -18,7 +18,7 @@ from app.core.database import get_db
 from app.core.limiter import limiter
 from app.core.security import create_access_token, create_refresh_token, decode_token, create_set_password_token, validate_password_strength, JWT_SECRET, JWT_ALG
 from app.core.auth_deps import get_current_user
-from app.core.permissions import require_roles, Perms
+from app.core.permissions import require_roles, Perms, may_do, MANAGER_PERMISSIONS
 from app.models.studio import Studio
 from app.models.user import User
 from app.models.refresh_token import RefreshToken
@@ -650,6 +650,8 @@ def me(current_user: User = Depends(get_current_user), db: Session = Depends(get
         "studio_name": studio.name if studio else None,
         "totp_enabled": bool(current_user.totp_secret),
         "email_verified": bool(current_user.email_verified),
+        # what this user may do (core/permissions.MANAGER_PERMISSIONS) — the screens hide what the server refuses
+        "permissions": {k: may_do(db, current_user.studio_id, current_user.role, k) for k in MANAGER_PERMISSIONS},
     }
 
 
