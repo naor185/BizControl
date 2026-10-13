@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { apiFetch, getToken } from "@/lib/api";
+import { apiFetch, getToken, getCurrentUserRole } from "@/lib/api";
 
 // Number of leads nobody has opened yet (leads.seen_at IS NULL). Polled every 30s (same cadence and reason as
 // NotificationBell — a cheap count endpoint instead of SSE), refreshed when the tab
@@ -14,6 +14,8 @@ export function useNewLeadsCount(): number {
         let alive = true;
         const load = () => {
             if (!getToken() || document.visibilityState === "hidden") return;
+            const role = getCurrentUserRole();
+            if (role === "artist" || role === "staff") return;     // the leads are management's (the server refuses a worker)
             apiFetch<{ count: number }>("/api/leads/new-count")
                 .then(d => { if (alive) setCount(d.count); })
                 .catch(() => { /* badge is best-effort */ });

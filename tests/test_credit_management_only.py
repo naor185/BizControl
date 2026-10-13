@@ -17,9 +17,11 @@ def test_only_management_issues_a_credit_note(client, db_session, clock):
     me = db_session.scalar(select(User).where(User.studio_id == s.id, User.role == "owner"))
     me.role = "staff"
     db_session.commit()
-    for path in (f"/api/payments/{paid.id}/credit", f"/api/invoices/{invoice_id}/credit"):
-        r = client.post(path, headers=h, json={})
-        assert r.status_code == 403 and r.json()["detail"] == "זיכוי — רק לבעלים או למנהל", path
+    r = client.post(f"/api/payments/{paid.id}/credit", headers=h, json={})
+    assert r.status_code == 403 and r.json()["detail"] == "זיכוי — רק לבעלים או למנהל"
+    # the whole invoices area is management's for a worker (2026-10-13) — refused before the credit's own check
+    r = client.post(f"/api/invoices/{invoice_id}/credit", headers=h, json={})
+    assert r.status_code == 403 and r.json()["detail"] == "האזור הזה של בעל העסק והמנהלים"
     me.role = "admin"
     db_session.commit()
     assert client.post(f"/api/payments/{paid.id}/credit", headers=h).status_code == 200

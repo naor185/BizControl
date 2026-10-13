@@ -36,7 +36,17 @@ def get_settings(ctx: AuthContext = Depends(require_studio_ctx), db: Session = D
         db.commit()
         db.refresh(settings)
     studio = db.get(Studio, ctx.studio_id)
-    return _settings_to_out(settings, studio, db)
+    out = _settings_to_out(settings, studio, db)
+    from app.core.permissions import WORKERS
+    if ctx.role in WORKERS:
+        # a worker's calendar reads these settings — not the business's keys or its bank details (they were open to
+        # any worker: the WhatsApp key, the Google refresh token, the e-mail key, the bank account)
+        for secret in ("resend_api_key", "whatsapp_api_key", "whatsapp_phone_id", "whatsapp_instance_id",
+                       "google_calendar_client_id", "google_calendar_client_secret", "google_calendar_refresh_token",
+                       "bank_name", "bank_branch", "bank_account", "facebook_page_id", "instagram_account_id"):
+            if hasattr(out, secret):
+                setattr(out, secret, None)
+    return out
 
 @router.patch("", response_model=AutomationSettingsOut)
 def patch_settings(payload: AutomationSettingsUpdate, ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):

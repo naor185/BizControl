@@ -2074,7 +2074,8 @@ export default function CalendarPage() {
                                             לחייב לתשלום
                                         </button>
                                     )}
-                                    {selectedEventId && (() => {
+                                    {/* receipts are the owner's and the managers' — a worker's server refuses them (2026-10-13) */}
+                                    {selectedEventId && myRole !== "artist" && myRole !== "staff" && (() => {
                                         const appt = appointments.find(a => a.id === selectedEventId);
                                         const paidCents = appt?.paid_cents || 0;
                                         if (paidCents <= 0) return null;

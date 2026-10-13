@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 
 from app.core.auth_deps import get_current_user
 from app.models.user import User
@@ -21,6 +21,38 @@ class Perms:
 # The business's management — the owner and the managers (admin), and the platform's superadmin: everyone's pay
 # (the payroll, the team's rates) and giving money back (a credit note) are theirs only.
 MANAGEMENT = ("owner", "admin", "superadmin")
+
+
+# The people who give the service and the staff — their screens are the calendar, the health declarations and the
+# attendance clock (web RequireAuth). The server keeps them out of the rest too, not only the screens (the owner,
+# 2026-10-13: "permissions on the server, not just hidden buttons").
+WORKERS = ("artist", "staff")
+
+
+def no_workers():
+    """FastAPI dependency for a whole area that is the business's management's — money, reports, settings,
+    integrations."""
+    from app.core.deps import AuthContext, require_studio_ctx
+
+    def dep(ctx: AuthContext = Depends(require_studio_ctx)) -> AuthContext:
+        if ctx.role in WORKERS:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="האזור הזה של בעל העסק והמנהלים")
+        return ctx
+
+    return dep
+
+
+def workers_read_only():
+    """FastAPI dependency for an area the worker's calendar reads (the services, the calendar's hours…) but only
+    management changes."""
+    from app.core.deps import AuthContext, require_studio_ctx
+
+    def dep(request: Request, ctx: AuthContext = Depends(require_studio_ctx)) -> AuthContext:
+        if ctx.role in WORKERS and request.method not in ("GET", "HEAD", "OPTIONS"):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="רק בעל העסק או מנהל יכולים לשנות את זה")
+        return ctx
+
+    return dep
 
 
 def require_management(what: str):
