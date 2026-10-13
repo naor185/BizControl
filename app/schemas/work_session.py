@@ -31,6 +31,7 @@ class ClockStatusResponse(BaseModel):
     active_session: Optional[WorkSessionResponse] = None
     pay_type: str = "none"
     nfc: bool = False          # the business clocks in at the NFC sticker — no button (services/nfc_clock.py)
+    clock_in_needed: bool = False   # appointments today, not clocked in — "touch the sticker" (message_worker.clock_in_needed)
 
 
 class StaffPayrollItem(BaseModel):

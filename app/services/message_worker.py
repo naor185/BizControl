@@ -46,7 +46,7 @@ def _notify_message_failed(db: Session, job: MessageJob) -> None:
 _REMINDER_LABELS = {"1day": "מחר", "7day": "בעוד שבוע", "3day": "בעוד 3 ימים", "same_day": "היום", "2hours": "בעוד שעתיים"}
 # messages that belong before the appointment — not sent once it has begun (process_due_jobs)
 BEFORE_APPOINTMENT = frozenset({
-    "1day", "3day", "7day", "same_day", "2hours", "1day_email", "3day_email", "7day_email", "same_day_email",
+    "1day", "3day", "7day", "same_day", "2hours", "clock_in_nudge", "1day_email", "3day_email", "7day_email", "same_day_email",
     "new_appointment", "reschedule", "deposit_24h", "health_form",
 })
 from app.crud.automation import format_template
@@ -1168,6 +1168,60 @@ def _staff_reminder_already_sent(db: Session, rule_id, target_type: str, target_
             StaffReminderSentLog.occurrence_date == occurrence_date,
         )
     ))
+
+
+def clock_in_needed(db: Session, studio_id, user_id, role: str | None, now: datetime | None = None) -> bool:
+    """The NFC clock is on, the worker (not the owner) has appointments today and hasn't clocked in — the system asks
+    them to touch the sticker at the door (owner, 2026-10-13)."""
+    from app.models.work_session import WorkSession
+    from app.services import nfc_clock
+    if role == "owner" or not nfc_clock.on(db.get(StudioSettings, studio_id)):
+        return False
+    now = now or datetime.now(timezone.utc)
+    if db.scalar(select(WorkSession.id).where(WorkSession.studio_id == studio_id, WorkSession.user_id == user_id,
+                                              WorkSession.end_time.is_(None))):
+        return False
+    today = now.astimezone(_IL_TZ).date()
+    start = _IL_TZ.localize(datetime.combine(today, datetime.min.time())).astimezone(timezone.utc)
+    return bool(db.scalar(select(Appointment.id).where(
+        Appointment.studio_id == studio_id, Appointment.artist_id == user_id, Appointment.status == "scheduled",
+        Appointment.starts_at >= start, Appointment.starts_at < start + timedelta(days=1)).limit(1)))
+
+
+def sweep_clock_in_nudges(db: Session) -> int:
+    """With the NFC clock: a worker whose appointment starts within half an hour and who hasn't clocked in gets a push to
+    touch the sticker at the door — once a day. A worker without the app: nothing (that's no failure)."""
+    from app.models.user import User
+    now = datetime.now(timezone.utc)
+    rows = db.execute(
+        select(Appointment).join(StudioSettings, StudioSettings.studio_id == Appointment.studio_id)
+        .where(StudioSettings.nfc_clock_code.isnot(None), Appointment.status == "scheduled", Appointment.artist_id.isnot(None),
+               Appointment.starts_at > now, Appointment.starts_at <= now + timedelta(minutes=30))
+        .order_by(Appointment.starts_at)
+    ).scalars().all()
+    day_start = _IL_TZ.localize(datetime.combine(now.astimezone(_IL_TZ).date(), datetime.min.time())).astimezone(timezone.utc)
+    count, seen = 0, set()
+    for appt in rows:
+        if appt.artist_id in seen:
+            continue
+        seen.add(appt.artist_id)
+        worker = db.get(User, appt.artist_id)
+        if worker is None or not clock_in_needed(db, appt.studio_id, worker.id, worker.role, now):
+            continue
+        if db.scalar(select(MessageJob.id).where(MessageJob.recipient_user_id == worker.id,
+                                                 MessageJob.reminder_type == "clock_in_nudge",
+                                                 MessageJob.created_at >= day_start)):
+            continue
+        db.add(MessageJob(
+            studio_id=appt.studio_id, recipient_user_id=worker.id, appointment_id=appt.id, channel="push",
+            subject="עוד לא החתמת כניסה",
+            body=f"יש לך תור ב-{appt.starts_at.astimezone(_IL_TZ).strftime('%H:%M')} — הצמד/י את הטלפון למדבקה שבכניסה כדי להחתים כניסה.",
+            reminder_type="clock_in_nudge", scheduled_at=now, status="pending",
+        ))
+        count += 1
+    if count:
+        db.commit()
+    return count
 
 
 def sweep_staff_reminders(db: Session, window_minutes: int = 3) -> int:

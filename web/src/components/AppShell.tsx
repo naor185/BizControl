@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { ArrowLeft, ArrowRight, Calendar, ShoppingCart, LayoutDashboard, Users, Gauge, Building2, Lock, Mail, Eye, X, type LucideIcon } from "lucide-react";
+import { ArrowLeft, ArrowRight, Calendar, ShoppingCart, LayoutDashboard, Users, Gauge, Building2, Lock, Mail, Eye, X, Nfc, type LucideIcon } from "lucide-react";
 import { apiFetch, clearToken, getToken, setToken } from "@/lib/api";
 import ClockWidget from "./ClockWidget";
 import BottomNav from "./BottomNav";
@@ -72,6 +72,17 @@ export default function AppShell({
     const [enabledModules, setEnabledModules] = useState<Record<string, boolean> | null>(null);
     const [showWaModal, setShowWaModal] = useState(false);
     const [verifyState, setVerifyState] = useState<"idle" | "sending" | "sent" | "error">("idle");
+    // With the NFC clock: a worker with appointments today who hasn't clocked in is asked to touch the sticker
+    // (owner, 2026-10-13) — checked on opening and whenever the app comes back to the front (after touching it)
+    const [clockInNeeded, setClockInNeeded] = useState(false);
+    useEffect(() => {
+        const check = () => apiFetch<{ clock_in_needed?: boolean }>("/api/staff/clock-status")
+            .then(r => setClockInNeeded(!!r.clock_in_needed)).catch(() => {});
+        check();
+        const onShow = () => { if (document.visibilityState === "visible") check(); };
+        document.addEventListener("visibilitychange", onShow);
+        return () => document.removeEventListener("visibilitychange", onShow);
+    }, []);
     // The e-mail banner can be put away until the next visit — it sits in the header now, always on screen
     const [verifyHidden, setVerifyHidden] = useState(false);
     useEffect(() => {
@@ -183,7 +194,7 @@ export default function AppShell({
 
     const avatarLetter = (me?.display_name || me?.email || "?")[0].toUpperCase();
     const showVerifyBar = me?.email_verified === false && !verifyHidden;
-    const topBars = (showVerifyBar ? 1 : 0) + (isImpersonating ? 1 : 0);
+    const topBars = (showVerifyBar ? 1 : 0) + (isImpersonating ? 1 : 0) + (clockInNeeded ? 1 : 0);
 
     return (
         <div className="app-shell min-h-screen bg-slate-50" dir={dir}>
@@ -379,6 +390,15 @@ export default function AppShell({
                                     className="w-8 h-8 -me-1 flex items-center justify-center rounded-lg hover:bg-white/15 shrink-0">
                                     <X className="w-4 h-4" aria-hidden />
                                 </button>
+                            </div>
+                        )}
+                        {clockInNeeded && (
+                            <div role="alert" className="bg-sky-600 text-white text-xs sm:text-sm font-semibold px-3 sm:px-4 h-11 flex items-center gap-2">
+                                <Nfc className="w-4 h-4 shrink-0" aria-hidden />
+                                <span className="flex-1 min-w-0 truncate">
+                                    <span className="sm:hidden">יש לך תורים היום — החתם/י כניסה במדבקה</span>
+                                    <span className="hidden sm:inline">יש לך תורים היום ועוד לא החתמת כניסה — הצמד/י את הטלפון למדבקה שבכניסה.</span>
+                                </span>
                             </div>
                         )}
                         {isImpersonating && (

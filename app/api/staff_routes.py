@@ -55,6 +55,7 @@ def get_clock_status(
 ):
     """Check if the current user is currently clocked in."""
     from app.services import nfc_clock
+    from app.services.message_worker import clock_in_needed
     session = repo.get_active_session(ctx.studio_id, ctx.user_id)
     user = db.get(User, ctx.user_id)
     return ClockStatusResponse(
@@ -62,6 +63,7 @@ def get_clock_status(
         active_session=WorkSessionResponse.model_validate(session) if session else None,
         pay_type=user.pay_type if user else "none",
         nfc=nfc_clock.on(db.get(StudioSettings, ctx.studio_id)),
+        clock_in_needed=session is None and clock_in_needed(db, ctx.studio_id, ctx.user_id, ctx.role),
     )
 
 

@@ -78,3 +78,39 @@ def test_a_new_code_retires_the_old_sticker_and_a_mistake_is_undone(client, db_s
     client.post(f"/api/admin/studios/{sid}/nfc-clock", headers=sa, json={"on": False})
     assert client.get("/api/nfc/status", headers=owner).json() == {"on": False}
     assert client.post("/api/staff/clock-in", headers=w).status_code == 200            # off: the header button again
+
+
+def test_a_worker_with_appointments_today_is_asked_to_clock_in(client, db_session):
+    """Stage 3: with the clock on, a worker (not the owner) with an appointment today who hasn't clocked in is asked —
+    on the screen, and by a push half an hour before, once a day."""
+    import app.services.message_worker as mw
+    from app.models.appointment import Appointment
+    from app.models.client import Client
+    from app.models.message_job import MessageJob
+
+    sa = _superadmin(client, db_session)
+    owner = register_and_login(client, "nfc-ask", "owner@nfc-ask.com")
+    w = _worker(client, owner, "dana@nfc-ask.com")
+    sid = _studio_id(client, owner)
+    worker = db_session.scalar(select(User).where(User.email == "dana@nfc-ask.com"))
+    c = Client(studio_id=worker.studio_id, full_name="לקוחה", phone="0521234567")
+    db_session.add(c)
+    db_session.flush()
+    start = datetime.now(timezone.utc) + timedelta(minutes=20)
+    db_session.add(Appointment(studio_id=worker.studio_id, client_id=c.id, artist_id=worker.id, title="טיפול",
+                               starts_at=start, ends_at=start + timedelta(hours=1), status="scheduled"))
+    db_session.commit()
+
+    assert client.get("/api/staff/clock-status", headers=w).json()["clock_in_needed"] is False   # the clock is off
+    mw.sweep_clock_in_nudges(db_session)
+    assert db_session.scalars(select(MessageJob).where(MessageJob.reminder_type == "clock_in_nudge")).all() == []
+
+    code = client.post(f"/api/admin/studios/{sid}/nfc-clock", headers=sa, json={"on": True}).json()["link"].rsplit("/", 1)[1]
+    assert client.get("/api/staff/clock-status", headers=w).json()["clock_in_needed"] is True
+    mw.sweep_clock_in_nudges(db_session)
+    mw.sweep_clock_in_nudges(db_session)
+    nudges = db_session.scalars(select(MessageJob).where(MessageJob.reminder_type == "clock_in_nudge")).all()
+    assert len(nudges) == 1 and nudges[0].recipient_user_id == worker.id and nudges[0].channel == "push"
+
+    client.post("/api/nfc/tap", headers=w, json={"code": code})
+    assert client.get("/api/staff/clock-status", headers=w).json()["clock_in_needed"] is False   # clocked in

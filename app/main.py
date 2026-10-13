@@ -119,6 +119,8 @@ def start_scheduler():
         db = SessionLocal()
         try:
             sweep_staff_reminders(db)
+            from app.services.message_worker import sweep_clock_in_nudges
+            sweep_clock_in_nudges(db)
         except Exception:
             _scheduler_log.exception("sweep_staff_reminders tick failed")
         finally:
