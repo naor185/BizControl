@@ -20,9 +20,19 @@ def test_saving_changes_only_what_was_sent():
     saved = bizfind_theme.merged(None, {"background": "#ffffff", "text": "#111111"})
     again = json.loads(bizfind_theme.merged(saved, {"text": ""}))          # "" — back to BizFind's default
     assert again["background"] == "#ffffff" and again["text"] is None and again["buttons"] is None
-    assert bizfind_theme.read("not json") == {k: None for k in (*bizfind_theme.COLORS, *bizfind_theme.FONTS)}
+    assert bizfind_theme.read("not json") == {k: None for k in bizfind_theme.FIELDS}
 
 
 def test_bizfind_reads_its_part_of_the_public_theme(client):
     theme = client.get("/api/public/platform-theme").json()
     assert "bizfind" in theme and isinstance(theme["bizfind"], dict)
+
+
+def test_the_hero_words_are_the_superadmins_or_the_ones_it_always_had():
+    saved = bizfind_theme.merged(None, {"hero_title": "  הכי קרוב אליך  "})
+    shown = bizfind_theme.public(saved)
+    assert shown["hero_title"] == "הכי קרוב אליך"                                   # trimmed
+    assert shown["hero_subtitle"] == bizfind_theme.HERO_DEFAULTS["hero_subtitle"]     # empty — the old words
+    assert bizfind_theme.public(bizfind_theme.merged(saved, {"hero_title": ""}))["hero_title"] == "קרוב אליך."
+    with pytest.raises(ValueError):
+        bizfind_theme.clean({"hero_badge": "x" * 161})

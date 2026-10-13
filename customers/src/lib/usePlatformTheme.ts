@@ -11,6 +11,11 @@ export interface BizFindTheme {
     buttons: string | null;
     heading_font: string | null;
     body_font: string | null;
+    // the home page's HERO words — always filled by the server (its defaults when the superadmin left them empty)
+    hero_badge?: string;
+    hero_title_dim?: string;
+    hero_title?: string;
+    hero_subtitle?: string;
 }
 
 export interface PlatformTheme {

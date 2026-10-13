@@ -1197,7 +1197,8 @@ class PlatformSettingsOut(BaseModel):
     theme_body_font: str | None
     bizfind_ios_url: str | None = None        # BizFind in the App Store / Google Play — the app link leads there
     bizfind_android_url: str | None = None
-    bizfind_theme: dict = {}                  # BizFind's own look (services/bizfind_theme.py) — empty: its default
+    bizfind_theme: dict = {}                  # BizFind's own look and HERO words (services/bizfind_theme.py) — empty: its default
+    bizfind_hero_defaults: dict = {}          # the HERO's words when left empty
 
 
 class PlatformSettingsIn(BaseModel):
@@ -1235,6 +1236,7 @@ def _platform_settings_out(settings: StudioSettings) -> "PlatformSettingsOut":
         bizfind_ios_url=settings.bizfind_ios_url,
         bizfind_android_url=settings.bizfind_android_url,
         bizfind_theme=bizfind_theme.read(settings.bizfind_theme),
+        bizfind_hero_defaults=bizfind_theme.HERO_DEFAULTS,
     )
 
 

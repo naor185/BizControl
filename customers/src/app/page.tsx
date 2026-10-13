@@ -5,6 +5,7 @@ import { API, imgUrl } from "@/lib/api";
 import { CalendarDays, LoaderCircle, LocateFixed, MapPin, Search, Star, X } from "lucide-react";
 import BusinessTypeIcon from "@/components/BusinessTypeIcon";
 import { GLASS_BTN, GLASS_CARD, PRIMARY_BTN } from "@/lib/look";
+import { usePlatformTheme } from "@/lib/usePlatformTheme";
 
 const DEFAULT_SLIDES = [
     { url: "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=1400&q=85", label: "מסעדות ואוכל" },
@@ -27,6 +28,7 @@ interface HeroProps {
 function HeroSection({ q, city, setQ, setCity, locating, onLocate, searchRef }: HeroProps) {
     const [slides, setSlides] = useState(DEFAULT_SLIDES);
     const [current, setCurrent] = useState(0);
+    const words = usePlatformTheme().bizfind;          // the HERO's words — the superadmin's (הגדרות BizFind)
     const [paused, setPaused] = useState(false);
     const n = slides.length;
 
@@ -73,14 +75,14 @@ function HeroSection({ q, city, setQ, setCity, locating, onLocate, searchRef }: 
             {/* ── Text + Search overlay ── */}
             <div style={{ position: "absolute", inset: 0, zIndex: 2, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "2rem 1.25rem", textAlign: "center" }}>
                 <div style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem", background: "rgba(255,255,255,.12)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,.28)", color: "#fff", fontSize: "0.78rem", fontWeight: 700, padding: "0.3rem 0.85rem", borderRadius: 20, marginBottom: "1.1rem" }}>
-                    <MapPin size={14} aria-hidden /> גלה עסקים סביבך
+                    <MapPin size={14} aria-hidden /> {words?.hero_badge || "גלה עסקים סביבך"}
                 </div>
                 <h1 style={{ fontSize: "clamp(2rem,5.5vw,3.4rem)", fontWeight: 900, color: "#fff", lineHeight: 1.15, marginBottom: "0.6rem", textShadow: "0 2px 20px rgba(0,0,0,.4)" }}>
-                    <span style={{ color: "rgba(255,255,255,.72)" }}>כל מה שאתה מחפש,</span><br />
-                    קרוב אליך.
+                    <span style={{ color: "rgba(255,255,255,.72)" }}>{words?.hero_title_dim || "כל מה שאתה מחפש,"}</span><br />
+                    {words?.hero_title || "קרוב אליך."}
                 </h1>
                 <p style={{ color: "rgba(255,255,255,.85)", fontSize: "clamp(0.88rem,2vw,1.05rem)", lineHeight: 1.6, marginBottom: "2rem", maxWidth: 520, textShadow: "0 1px 8px rgba(0,0,0,.4)" }}>
-                    ספרים, סטודיואים, ציפורניים, ספא ועוד — מצא וקבע תור בשניות
+                    {words?.hero_subtitle || "ספרים, סטודיואים, ציפורניים, ספא ועוד — מצא וקבע תור בשניות"}
                 </p>
 
                 {/* Search box */}

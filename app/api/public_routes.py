@@ -144,7 +144,7 @@ def get_public_platform_theme(db: Session = Depends(get_db)):
         text_muted=settings.theme_text_muted_color,
         heading_font=settings.landing_page_title_font or "Heebo",
         body_font=settings.landing_page_desc_font or "Assistant",
-        bizfind=_bizfind_theme.read(getattr(settings, "bizfind_theme", None)),
+        bizfind=_bizfind_theme.public(getattr(settings, "bizfind_theme", None)),
     )
 
 

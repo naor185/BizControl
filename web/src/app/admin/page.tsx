@@ -12,7 +12,10 @@ import PasswordInput from "@/components/PasswordInput";
 import LandingPageTemplate from "@/components/LandingPageTemplate";
 import BizFindStoreLinks from "@/components/admin/BizFindStoreLinks";
 import BizFindDesign from "@/components/admin/BizFindDesign";
+import BizFindHero from "@/components/admin/BizFindHero";
 import { Flag, Inbox, Tags, Users } from "lucide-react";
+
+type Tab = "studios" | "audit" | "bizcontrol" | "bizfind" | "leads" | "contacts" | "health";
 
 type Stats = {
     total_studios: number;
@@ -169,7 +172,7 @@ export default function AdminPage() {
     const [deleteErr, setDeleteErr] = useState<string | null>(null);
     const [extendDays, setExtendDays] = useState(14);
     const [extending, setExtending] = useState(false);
-    const [tab, setTab] = useState<"studios" | "audit" | "platform" | "leads" | "contacts" | "health">("studios");
+    const [tab, setTab] = useState<Tab>("studios");
     const [healthData, setHealthData] = useState<{ studio_id: string; studio_name: string; wa_status: string; wa_instance_id: string | null; wa_provider: string | null; wa_phone_id: string | null; failed_jobs_24h: number; stuck_pending_jobs: number; has_alert: boolean }[] | null>(null);
     const [healthLoading, setHealthLoading] = useState(false);
     const [auditLog, setAuditLog] = useState<AuditEntry[] | null>(null);
@@ -566,7 +569,7 @@ export default function AdminPage() {
         } catch { } finally { setLeadsLoading(false); }
     };
 
-    const handleTabChange = (t: "studios" | "audit" | "platform" | "leads" | "contacts" | "health") => {
+    const handleTabChange = (t: Tab) => {
         if (t === "health" && !healthData) {
             setHealthLoading(true);
             apiFetch<typeof healthData>("/api/admin/health")
@@ -576,10 +579,17 @@ export default function AdminPage() {
         }
         setTab(t);
         if (t === "audit") loadAuditLog();
-        if (t === "platform") loadPlatformSettings();
+        if (t === "bizcontrol" || t === "bizfind") loadPlatformSettings();
         if (t === "leads") loadLeads();
         if (t === "contacts") { loadContacts(); loadAppts(); }
     };
+
+    // a tab from the address — /admin?tab=bizfind (the old HERO page leads there)
+    useEffect(() => {
+        const t = new URLSearchParams(window.location.search).get("tab");
+        if (t === "bizcontrol" || t === "bizfind") handleTabChange(t);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const openEditModal = (studio: Studio) => {
         setEditErr(null);
@@ -795,7 +805,7 @@ export default function AdminPage() {
 
                 {/* Tabs */}
                 <div className="flex flex-wrap gap-1 bg-white/5 border border-white/10 rounded-2xl p-1 w-fit">
-                    {(["studios", "contacts", "leads", "audit", "platform", "health"] as const).map(t => (
+                    {(["studios", "contacts", "leads", "audit", "bizcontrol", "bizfind", "health"] as const).map(t => (
                         <button
                             key={t}
                             onClick={() => handleTabChange(t)}
@@ -803,7 +813,7 @@ export default function AdminPage() {
                                 tab === t ? "bg-white text-slate-900" : "text-slate-400 hover:text-white"
                             }`}
                         >
-                            {t === "studios" ? "🏢 סטודיואים" : t === "contacts" ? "👥 אנשי קשר" : t === "leads" ? "📥 לידים" : t === "audit" ? "📋 לוג פעולות" : t === "platform" ? "⚙️ פלטפורמה" : "🚨 התראות"}
+                            {t === "studios" ? "🏢 סטודיואים" : t === "contacts" ? "👥 אנשי קשר" : t === "leads" ? "📥 לידים" : t === "audit" ? "📋 לוג פעולות" : t === "bizcontrol" ? "⚙️ הגדרות BizControl" : t === "bizfind" ? "🔎 הגדרות BizFind" : "🚨 התראות"}
                         </button>
                     ))}
                     <a
@@ -859,12 +869,6 @@ export default function AdminPage() {
                         className="px-4 py-2 rounded-xl text-sm font-semibold transition-colors text-slate-400 hover:text-white"
                     >
                         📊 Analytics
-                    </a>
-                    <a
-                        href="/admin/hero-slides"
-                        className="px-4 py-2 rounded-xl text-sm font-semibold transition-colors text-slate-400 hover:text-white"
-                    >
-                        🖼️ תמונות HERO
                     </a>
                     <a
                         href="/admin/migrations"
@@ -1225,17 +1229,16 @@ export default function AdminPage() {
                     </div>
                 )}
 
-                {/* Platform Settings Tab */}
-                {tab === "platform" && (
+                {/* BizControl's settings — the businesses' system (owner, 2026-10-13: two areas, BizControl and BizFind) */}
+                {tab === "bizcontrol" && (
                     <div className="max-w-2xl space-y-6">
-
                         {/* ══ GLOBAL DESIGN SYSTEM CARD ══ */}
                         <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-5">
                             <div className="flex items-center gap-3">
                                 <div className="w-12 h-12 rounded-2xl bg-violet-500/20 border border-violet-500/30 flex items-center justify-center text-2xl">🎨</div>
                                 <div>
                                     <h2 className="text-lg font-bold">עיצוב BizControl</h2>
-                                    <p className="text-slate-400 text-sm mt-0.5">חל רק על BizControl — המערכת של בעלי העסקים. הלוגו נשאר של כל עסק. ל-BizFind יש עיצוב משלו, בכרטיס הבא.</p>
+                                    <p className="text-slate-400 text-sm mt-0.5">חל רק על BizControl — המערכת של בעלי העסקים. הלוגו נשאר של כל עסק. ל-BizFind יש עיצוב משלו — בלשונית "הגדרות BizFind".</p>
                                 </div>
                             </div>
 
@@ -1390,8 +1393,6 @@ export default function AdminPage() {
                                 {platformSaving ? "שומר..." : "💾 שמירת העיצוב של BizControl"}
                             </button>
                         </div>
-
-                        <BizFindDesign />
 
                         {/* Webhook Config Card */}
                         {webhookConfig && (
@@ -1554,6 +1555,26 @@ export default function AdminPage() {
                             )}
                         </div>
 
+                        {/* Change Password Card */}
+                        <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-4">
+                            <div>
+                                <h2 className="text-lg font-bold">🔐 שינוי סיסמה</h2>
+                                <p className="text-slate-400 text-sm mt-1">שנה את סיסמת חשבון הסופר-אדמין שלך.</p>
+                            </div>
+                            <ChangePasswordForm />
+                        </div>
+                    </div>
+                )}
+
+                {/* BizFind's settings — the clients' site and app: its look, its home page, the stores, sign-in codes */}
+                {tab === "bizfind" && (
+                    <div className="max-w-2xl space-y-6">
+                        <BizFindDesign />
+
+                        <BizFindHero />
+
+                        <BizFindStoreLinks />
+
                         {/* BizFind OTP WhatsApp Card */}
                         <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-5">
                             <div className="flex items-center gap-3">
@@ -1583,17 +1604,15 @@ export default function AdminPage() {
 
                         </div>
 
-                        <BizFindStoreLinks />
-
-                        {/* Change Password Card */}
-                        <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-4">
-                            <div>
-                                <h2 className="text-lg font-bold">🔐 שינוי סיסמה</h2>
-                                <p className="text-slate-400 text-sm mt-1">שנה את סיסמת חשבון הסופר-אדמין שלך.</p>
+                        {/* The rest of BizFind's screens */}
+                        <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-3">
+                            <h2 className="text-lg font-bold">עוד ב-BizFind</h2>
+                            <div className="flex flex-wrap gap-2">
+                                {([["/admin/review-reports", "ביקורות שדווחו"], ["/admin/business-import", "ייבוא עסקים למדריך"], ["/admin/business-types", "תחומי עסק"]] as const).map(([href, label]) => (
+                                    <a key={href} href={href} className="px-4 py-2 rounded-xl text-sm font-semibold bg-white/10 hover:bg-white/15 text-slate-200">{label}</a>
+                                ))}
                             </div>
-                            <ChangePasswordForm />
                         </div>
-
                     </div>
                 )}
 
