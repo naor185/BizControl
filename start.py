@@ -2912,6 +2912,8 @@ def ensure_schema():
         cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS messages_off TEXT")
         # the NFC attendance clock's code (services/nfc_clock.py) — none: off
         cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS nfc_clock_code TEXT")
+        # a shift fixed by hand — by whom (the owner or a manager)
+        cur.execute("ALTER TABLE work_sessions ADD COLUMN IF NOT EXISTS fixed_by UUID REFERENCES users(id) ON DELETE SET NULL")
         # ready times: the morning reminder's hour, a reminder about two hours before (off until turned on)
         cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS same_day_reminder_hour INTEGER NOT NULL DEFAULT 8")
         cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS reminder_2_hours_enabled BOOLEAN NOT NULL DEFAULT FALSE")

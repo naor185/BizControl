@@ -11,6 +11,14 @@ from app.models.user import User
 from app.models.payment import Payment
 from app.models.appointment import Appointment
 
+def price_shift(shift: WorkSession, user: User | None) -> None:
+    """A shift's pay — its hours at the worker's hourly rate (hourly pay only; an open shift: 0)."""
+    shift.session_pay = Decimal("0.00")
+    if shift.end_time and user and user.pay_type == "hourly" and user.hourly_rate and user.hourly_rate > 0:
+        hours = Decimal((shift.end_time - shift.start_time).total_seconds()) / Decimal(3600)
+        shift.session_pay = (hours * user.hourly_rate).quantize(Decimal("0.01"))
+
+
 class StaffRepository:
     def __init__(self, session: Session):
         self.session = session
@@ -49,16 +57,8 @@ class StaffRepository:
         if not db_session:
             return None
 
-        # Fetch user's hourly rate
-        user = self.session.get(User, user_id)
-        
         db_session.end_time = datetime.now(timezone.utc)
-        
-        # Calculate hourly pay if applicable
-        if user and user.pay_type == "hourly" and user.hourly_rate > 0:
-            duration = db_session.end_time - db_session.start_time
-            hours = Decimal(duration.total_seconds()) / Decimal(3600)
-            db_session.session_pay = (hours * user.hourly_rate).quantize(Decimal("0.01"))
+        price_shift(db_session, self.session.get(User, user_id))
 
         self.session.commit()
         self.session.refresh(db_session)

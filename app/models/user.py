@@ -70,4 +70,5 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     studio: Mapped["Studio"] = relationship(back_populates="users")
-    work_sessions: Mapped[list["WorkSession"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    work_sessions: Mapped[list["WorkSession"]] = relationship(back_populates="user", cascade="all, delete-orphan",
+                                                              foreign_keys="WorkSession.user_id")

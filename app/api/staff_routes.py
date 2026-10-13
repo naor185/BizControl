@@ -1,11 +1,13 @@
 import io
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Optional
 
 import pytz
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.deps import require_studio_ctx, AuthContext
@@ -14,7 +16,8 @@ from app.db.deps import get_db
 from app.models.studio import Studio
 from app.models.studio_settings import StudioSettings
 from app.models.user import User
-from app.repositories.staff_repository import StaffRepository
+from app.models.work_session import WorkSession
+from app.repositories.staff_repository import StaffRepository, price_shift
 from app.schemas.work_session import ClockStatusResponse, WorkSessionResponse, StaffPayrollSummary
 from app.services.pdf_service import generate_payroll_pdf, generate_staff_pay_summary_pdf
 
@@ -93,6 +96,93 @@ def clock_out(
     if not session:
         raise HTTPException(status_code=400, detail="Not currently clocked in")
     return session
+
+
+# ── Shifts: the owner and the managers fix them (owner, 2026-10-13: "a worker forgot to clock in") ─────────────────────
+
+class ShiftIn(BaseModel):
+    user_id: Optional[uuid.UUID] = None       # adding: whose
+    start_time: Optional[datetime] = None     # the studio's wall clock ("2026-10-13T09:00") or with an offset
+    end_time: Optional[datetime] = None
+
+
+def _manager(ctx: AuthContext) -> None:
+    if ctx.role not in PAY_VIEWERS:
+        raise HTTPException(status_code=403, detail="רק בעל העסק או מנהל יכולים לתקן שעות")
+
+
+def _shift_out(s: WorkSession) -> dict:
+    hours = round((s.end_time - s.start_time).total_seconds() / 3600, 2) if s.end_time else None
+    return {"id": str(s.id), "start_time": s.start_time.isoformat(), "end_time": s.end_time.isoformat() if s.end_time else None,
+            "hours": hours, "pay": float(s.session_pay or 0), "fixed": s.fixed_by is not None}
+
+
+def _times(db: Session, studio_id, start: datetime, end: datetime | None) -> tuple[datetime, datetime | None]:
+    """The times as the studio's wall clock → checked: not in the future, the end after the start and within a day."""
+    settings = db.get(StudioSettings, studio_id)
+    tz = pytz.timezone(settings.timezone if settings and settings.timezone else "Asia/Jerusalem")
+    start = start if start.tzinfo else tz.localize(start)
+    end = None if end is None else (end if end.tzinfo else tz.localize(end))
+    if start > datetime.now(timezone.utc):
+        raise HTTPException(status_code=400, detail="שעת הכניסה עוד לא הגיעה")
+    if end is not None and not (start < end <= start + timedelta(hours=24)):
+        raise HTTPException(status_code=400, detail="שעת היציאה צריכה להיות אחרי הכניסה, ובתוך 24 שעות")
+    return start, end
+
+
+@router.get("/shifts")
+def list_shifts(user_id: uuid.UUID, start_date: datetime = Query(...), end_date: datetime = Query(...),
+                ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+    """A worker's shifts in a period — the owner and the managers."""
+    _manager(ctx)
+    start, end = _localize_payroll_range(db, ctx.studio_id, start_date, end_date)
+    rows = db.scalars(select(WorkSession).where(WorkSession.studio_id == ctx.studio_id, WorkSession.user_id == user_id,
+                                                WorkSession.start_time >= start, WorkSession.start_time <= end)
+                      .order_by(WorkSession.start_time.desc())).all()
+    return [_shift_out(s) for s in rows]
+
+
+@router.post("/shifts", status_code=201)
+def add_shift(body: ShiftIn, ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+    """A shift the worker forgot to clock — from when to when (or still on)."""
+    _manager(ctx)
+    worker = db.get(User, body.user_id) if body.user_id else None
+    if worker is None or worker.studio_id != ctx.studio_id or body.start_time is None:
+        raise HTTPException(status_code=400, detail="חסר העובד או שעת הכניסה")
+    start, end = _times(db, ctx.studio_id, body.start_time, body.end_time)
+    if end is None and StaffRepository(db).get_active_session(ctx.studio_id, worker.id):
+        raise HTTPException(status_code=400, detail="לעובד כבר יש משמרת פתוחה")
+    s = WorkSession(studio_id=ctx.studio_id, user_id=worker.id, start_time=start, end_time=end, fixed_by=ctx.user_id)
+    price_shift(s, worker)
+    db.add(s)
+    db.commit()
+    return _shift_out(s)
+
+
+@router.patch("/shifts/{shift_id}")
+def fix_shift(shift_id: uuid.UUID, body: ShiftIn, ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+    """A wrong time, a forgotten clock-out — the pay follows."""
+    _manager(ctx)
+    s = db.get(WorkSession, shift_id)
+    if s is None or s.studio_id != ctx.studio_id:
+        raise HTTPException(status_code=404, detail="המשמרת לא נמצאה")
+    data = body.model_dump(exclude_unset=True)
+    start, end = _times(db, ctx.studio_id, data.get("start_time") or s.start_time,
+                        data["end_time"] if "end_time" in data else s.end_time)
+    s.start_time, s.end_time, s.fixed_by = start, end, ctx.user_id
+    price_shift(s, db.get(User, s.user_id))
+    db.commit()
+    return _shift_out(s)
+
+
+@router.delete("/shifts/{shift_id}", status_code=204)
+def remove_shift(shift_id: uuid.UUID, ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+    _manager(ctx)
+    s = db.get(WorkSession, shift_id)
+    if s is None or s.studio_id != ctx.studio_id:
+        raise HTTPException(status_code=404, detail="המשמרת לא נמצאה")
+    db.delete(s)
+    db.commit()
 
 
 @router.get("/payroll", response_model=StaffPayrollSummary)
