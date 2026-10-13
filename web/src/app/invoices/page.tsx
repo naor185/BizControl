@@ -35,6 +35,8 @@ interface InvoiceItem {
     quantity: number;
     unit_price_cents: number;
     total_price_cents?: number;
+    unit_with_vat_ils?: number;    // the line as paid — with its share of the VAT (invoice_routes.add_prices_with_vat)
+    total_with_vat_ils?: number;
     product_id?: string;
     service_id?: string;
 }
@@ -182,8 +184,8 @@ export default function InvoicesPage() {
             <tr>
                 <td style="padding:8px 10px;text-align:right;border-bottom:1px solid #f0f0f0">${it.description}</td>
                 <td style="padding:8px 10px;text-align:center;border-bottom:1px solid #f0f0f0">${it.quantity}</td>
-                <td style="padding:8px 10px;text-align:center;border-bottom:1px solid #f0f0f0">${fmt(it.unit_price_cents / 100)}</td>
-                <td style="padding:8px 10px;text-align:left;border-bottom:1px solid #f0f0f0;font-weight:700">${fmt((it.total_price_cents || 0) / 100)}</td>
+                <td style="padding:8px 10px;text-align:center;border-bottom:1px solid #f0f0f0">${fmt(it.unit_with_vat_ils ?? it.unit_price_cents / 100)}</td>
+                <td style="padding:8px 10px;text-align:left;border-bottom:1px solid #f0f0f0;font-weight:700">${fmt(it.total_with_vat_ils ?? (it.total_price_cents || 0) / 100)}</td>
             </tr>`).join("");
 
         const html = `<!DOCTYPE html>
@@ -684,8 +686,8 @@ function InvoiceDetailModal({ invoice, onClose, onDownload, getPdfUrl, onCredit 
                                                 <tr key={i} style={{ background: i % 2 === 0 ? "#fff" : "#f8fafc" }}>
                                                     <td style={{ padding: "0.5rem 0.6rem", textAlign: "right" }}>{item.description}</td>
                                                     <td style={{ padding: "0.5rem 0.6rem", textAlign: "center", color: "#64748b" }}>{item.quantity}</td>
-                                                    <td style={{ padding: "0.5rem 0.6rem", textAlign: "center", color: "#64748b" }}>₪{(item.unit_price_cents / 100).toFixed(2)}</td>
-                                                    <td style={{ padding: "0.5rem 0.6rem", textAlign: "left", fontWeight: 700 }}>₪{((item.total_price_cents || 0) / 100).toFixed(2)}</td>
+                                                    <td style={{ padding: "0.5rem 0.6rem", textAlign: "center", color: "#64748b" }}>₪{(item.unit_with_vat_ils ?? item.unit_price_cents / 100).toFixed(2)}</td>
+                                                    <td style={{ padding: "0.5rem 0.6rem", textAlign: "left", fontWeight: 700 }}>₪{(item.total_with_vat_ils ?? (item.total_price_cents || 0) / 100).toFixed(2)}</td>
                                                 </tr>
                                             ))}
                                         </tbody>

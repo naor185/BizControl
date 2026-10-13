@@ -142,6 +142,22 @@ def _next_doc_number(studio_id: str, doc_type: str, db: Session) -> int:
     return result[0]
 
 
+def add_prices_with_vat(items: list[dict], vat_cents: int) -> None:
+    """Each line's price as the client paid it — its share of the VAT added (total_with_vat_ils, unit_with_vat_ils):
+    the receipt showed the tattoo at ₪1,186.44 though the client paid ₪1,400 (the owner, 2026-10-13). The shares add
+    up to the document's VAT exactly — the agorot of rounding go to the biggest line. No VAT: the price as is."""
+    net = sum(int(it.get("total_price_cents") or 0) for it in items)
+    shares = [round(vat_cents * int(it.get("total_price_cents") or 0) / net) if net else 0 for it in items]
+    if items and net:
+        biggest = max(range(len(items)), key=lambda i: abs(int(items[i].get("total_price_cents") or 0)))
+        shares[biggest] += vat_cents - sum(shares)
+    for it, share in zip(items, shares):
+        total = int(it.get("total_price_cents") or 0) + share
+        qty = float(it.get("quantity") or 1) or 1
+        it["total_with_vat_ils"] = round(total / 100, 2)
+        it["unit_with_vat_ils"] = round(total / qty / 100, 2)
+
+
 def _invoice_to_dict(row, items=None) -> dict:
     d = dict(row._mapping)
     d["doc_type_label"] = DOC_TYPES.get(d.get("doc_type", ""), d.get("doc_type", ""))
@@ -942,6 +958,7 @@ def get_invoice(
     for it in item_list:
         it["unit_price_ils"] = round(it["unit_price_cents"] / 100, 2)
         it["total_price_ils"] = round(it["total_price_cents"] / 100, 2)
+    add_prices_with_vat(item_list, int(row._mapping.get("vat_amount_cents") or 0))
 
     result = _invoice_to_dict(row, item_list)
 

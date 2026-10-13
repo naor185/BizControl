@@ -11,6 +11,7 @@ type ReceiptItem = {
   quantity: number;
   unit_price_ils: number;
   total_price_ils: number;
+  total_with_vat_ils?: number;   // the line as paid — with its share of the VAT
 };
 
 type Receipt = {
@@ -162,7 +163,7 @@ export default function PublicReceiptPage() {
                         {String(item.quantity).replace(/\.0+$/, "")}
                       </td>
                       <td className="py-2.5 px-2 text-left font-medium text-gray-800">
-                        {fmt(item.total_price_ils)}
+                        {fmt(item.total_with_vat_ils ?? item.total_price_ils)}
                       </td>
                     </tr>
                   ))}

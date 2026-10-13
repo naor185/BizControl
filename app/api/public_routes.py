@@ -695,6 +695,8 @@ def get_public_receipt(invoice_id: str, db: Session = Depends(get_db)):
         d["unit_price_ils"] = round(d["unit_price_cents"] / 100, 2)
         d["total_price_ils"] = round(d["total_price_cents"] / 100, 2)
         item_list.append(d)
+    from app.api.invoice_routes import add_prices_with_vat
+    add_prices_with_vat(item_list, int(inv.get("vat_amount_cents") or 0))
 
     doc_types = {
         "invoice_tax": "חשבונית מס",
