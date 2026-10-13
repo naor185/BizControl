@@ -12,7 +12,6 @@ from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 
 from app.core.deps import require_studio_ctx, AuthContext
-from app.core.auth_deps import get_current_user
 from app.core.features import require_module
 from app.db.deps import get_db
 from app.models.user import User
@@ -20,6 +19,16 @@ from app.models.studio import Studio
 from app.api.superadmin_routes import require_superadmin
 
 router = APIRouter(prefix="/locations", tags=["MultiLocation"])
+
+# The branches are the owner's: a manager (admin) or a worker belongs to their own branch and stays there — the switch
+# used to let any admin jump into any sibling branch with that branch's OWNER's sign-in (the owner, 2026-10-13: "lock
+# a deputy manager to his branch").
+BRANCH_ROLES = ("owner", "superadmin")
+
+
+def _branches_owner(ctx: AuthContext) -> None:
+    if ctx.role not in BRANCH_ROLES:
+        raise HTTPException(403, "רק בעל העסק עובר בין סניפים ורואה את כולם")
 
 
 def _studio_out(s: Studio) -> dict:
@@ -43,7 +52,8 @@ def get_my_locations(
     """Return all locations in the same organization as the current studio."""
     studio = db.get(Studio, ctx.studio_id)
     from app.core.features import has_module
-    if not studio or not studio.organization_id or not has_module(db, studio.id, "multi_location"):
+    if (not studio or not studio.organization_id or not has_module(db, studio.id, "multi_location")
+            or ctx.role not in BRANCH_ROLES):        # a manager or a worker sees their own branch only
         # Single location (or branches not in the plan — enterprise) — return just this studio
         return [_studio_out(studio)] if studio else []
 
@@ -60,7 +70,6 @@ def get_my_locations(
 def switch_location(
     target_studio_id: str,
     ctx: AuthContext = Depends(require_studio_ctx),
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
     _plan: None = Depends(require_module("multi_location")),      # branches — enterprise
 ):
@@ -78,18 +87,18 @@ def switch_location(
             current.organization_id != target.organization_id):
         raise HTTPException(403, "Not in the same organization")
 
-    # Check user is owner/admin of current studio
-    if ctx.role not in ("owner", "admin", "superadmin"):
-        raise HTTPException(403, "Only owners can switch locations")
+    _branches_owner(ctx)
 
-    # Find the user in the target studio (or use the same user if they exist there)
+    # the target branch's owner — the same business owner, signed in there (each branch has its own user row)
     target_user = db.scalar(
         select(User).where(
             User.studio_id == target.id,
-            User.role.in_(["owner", "admin"]),
+            User.role == "owner",
             User.is_active == True,  # noqa
         )
-    ) or current_user  # fallback to current user
+    )
+    if target_user is None:
+        raise HTTPException(400, "לסניף הזה אין בעלים פעיל")
 
     token = create_access_token({
         "user_id": str(target_user.id),
@@ -110,7 +119,8 @@ def unified_stats(
     db: Session = Depends(get_db),
     _plan: None = Depends(require_module("multi_location")),
 ):
-    """Aggregate stats across all locations in the organization."""
+    """Aggregate stats across all locations in the organization — the owner's."""
+    _branches_owner(ctx)
     from app.models.appointment import Appointment
     from app.models.payment import Payment
     from app.models.client import Client

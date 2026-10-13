@@ -79,3 +79,34 @@ def test_a_payment_event_stripe_did_not_sign_is_refused(client, db_session, monk
     assert client.post("/api/billing/webhook", json=made_up).status_code == 503
     monkeypatch.setattr(billing, "WEBHOOK_SECRET", "whsec_test")
     assert client.post("/api/billing/webhook", json=made_up, headers={"stripe-signature": "t=1,v1=bad"}).status_code == 400
+
+
+def test_a_branch_manager_stays_in_their_branch_the_owner_moves_between_them(client, db_session):
+    """The owner, 2026-10-13: a deputy manager is locked to their branch — the switch let any admin into any sibling
+    branch with its owner's sign-in."""
+    owner = register_and_login(client, slug="lock-main", email="owner@lock-main.com")
+    register_and_login(client, slug="lock-2", email="owner@lock-2.com")
+    ids = {s.slug: str(s.id) for s in db_session.scalars(select(Studio).where(Studio.slug.like("lock-%")))}
+    _on(db_session, "lock-main", "enterprise")
+    _on(db_session, "lock-2", "enterprise")
+    sa = register_and_login(client, slug="platform-sa", email="sa@platform.com")
+    db_session.scalar(select(User).where(User.email == "sa@platform.com")).role = "superadmin"
+    db_session.commit()
+    assert client.post("/api/locations/admin/link-organization", headers=sa,
+                       json={"studio_ids": [ids["lock-main"], ids["lock-2"]], "main_studio_id": ids["lock-main"]}).status_code == 200
+
+    r = client.post("/api/users/artists", headers=owner, json={"email": "deputy@lock-main.com", "password": "secret123",
+                                                                "display_name": "סגן", "role": "admin"})
+    assert r.status_code == 201, r.text
+    t = client.post("/api/auth/login-by-email", json={"email": "deputy@lock-main.com", "password": "secret123"}).json()["access_token"]
+    deputy = {"Authorization": f"Bearer {t}"}
+
+    assert [b["id"] for b in client.get("/api/locations", headers=deputy).json()] == [ids["lock-main"]]   # only theirs
+    assert client.post(f"/api/locations/switch/{ids['lock-2']}", headers=deputy).status_code == 403
+    assert client.get("/api/locations/unified-stats", headers=deputy).status_code == 403
+
+    assert len(client.get("/api/locations", headers=owner).json()) == 2
+    switched = client.post(f"/api/locations/switch/{ids['lock-2']}", headers=owner)
+    assert switched.status_code == 200
+    me = client.get("/api/auth/me", headers={"Authorization": f"Bearer {switched.json()['access_token']}"}).json()
+    assert me["studio_id"] == ids["lock-2"] and me["role"] == "owner"
