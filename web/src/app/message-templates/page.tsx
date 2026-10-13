@@ -21,6 +21,7 @@ const PLACEHOLDERS = [
     { key: "{service_name}",           label: "שם שירות" },
     { key: "{appointment_date}",       label: "תאריך תור" },
     { key: "{appointment_time}",       label: "שעת תור" },
+    { key: "{appointment_day}",        label: "יום בשבוע" },
     { key: "{date}",                   label: "תאריך תור" },
     { key: "{time}",                   label: "שעת תור" },
     { key: "{artist_name}",            label: "שם {staff}" },
@@ -37,6 +38,10 @@ const PLACEHOLDERS = [
     { key: "{deposit_lock_days}",      label: "ימי נעילת מקדמה" },
     { key: "{loyalty_points}",         label: "נקודות לקוח" },
     { key: "{points_earned}",          label: "נקודות שנצברו" },
+    { key: "{points_total}",           label: "יתרת נקודות" },
+    { key: "{points_added}",           label: "נקודות מתנה בהצטרפות" },
+    { key: "{points_on_signup}",       label: "נקודות מתנה בהצטרפות" },
+    { key: "{payment_amount}",         label: "סכום ששולם" },
     { key: "{coupon_code}",            label: "קוד קופון" },
     { key: "{benefit_percent}",        label: "% הנחה יום הולדת" },
     { key: "{join_link}",              label: "קישור הצטרפות" },
@@ -87,7 +92,7 @@ const GROUPS: Group[] = [
               hints: ["client_name","appointment_date","appointment_time","artist_name","studio_address","map_link","portfolio_link","cancellation_free_days","deposit_lock_days"] },
             { id: "reschedule", title: "שינוי מועד", when: "כשתור עובר לזמן אחר", autoDetails: true,
               templateKey: "reschedule_wa_template", emailKey: "reschedule_email_template",
-              hints: ["client_name","appointment_title","appointment_date","appointment_time","artist_name","studio_address","map_link"] },
+              hints: ["client_name","appointment_title","appointment_date","appointment_time","appointment_day"] },
             { id: "cancel", title: "ביטול תור", when: "כשהלקוח ביטל או לא הגיע", autoDetails: true,
               templateKey: "cancel_wa_template", emailKey: "cancel_email_template",
               hints: ["client_name","appointment_title","appointment_date","appointment_time"] },
@@ -118,21 +123,21 @@ const GROUPS: Group[] = [
         messages: [
             { id: "post_payment", title: "תודה על התשלום", when: "אחרי תשלום על תור", autoDetails: true,
               templateKey: "post_payment_wa_template", emailKey: "post_payment_email_template",
-              hints: ["client_name","appointment_title","appointment_date","loyalty_points"] },
+              hints: ["client_name","appointment_title","appointment_date","appointment_time","payment_amount","points_earned","points_total"] },
             { id: "receipt_link", title: "קישור לקבלה", when: "אחרי תשלום, עם הקבלה הדיגיטלית",
-              templateKey: "receipt_link_wa_template", hints: ["client_name","service_name","receipt_link"] },
+              templateKey: "receipt_link_wa_template", hints: ["client_name","service_name","appointment_title","receipt_link"] },
             { id: "pos_receipt", title: "תודה על הרכישה", when: "אחרי רכישה בקופה", templateKey: "pos_receipt_wa_template",
               hints: ["client_name","total_amount","points_earned","loyalty_points"] },
             { id: "aftercare", title: "הוראות אחרי הטיפול", when: "אחרי שהתור הסתיים", toggleKey: "aftercare_enabled",
               times: AFTER_VISIT("aftercare_delay_minutes", 30),
-              templateKey: "aftercare_message", hints: ["client_name","appointment_title","artist_name"] },
+              templateKey: "aftercare_message", hints: ["client_name"] },
         ],
     },
     {
         id: "online", title: "קביעת תורים אונליין", icon: Globe,
         messages: [
             { id: "booking_request_approved", title: "בקשת תור אושרה", when: "כשמאשרים בקשת תור מהאתר",
-              templateKey: "booking_request_approved_wa_template", hints: ["client_name","artist_name","appointment_date","service_note","booking_link"] },
+              templateKey: "booking_request_approved_wa_template", hints: ["client_name","artist_name","staff_title","appointment_date","service_note","booking_link"] },
             { id: "booking_request_rejected", title: "בקשת תור נדחתה", when: "כשדוחים בקשת תור מהאתר",
               templateKey: "booking_request_rejected_wa_template", hints: ["client_name","appointment_date","rejection_reason"] },
             { id: "waitlist_joined", title: "נרשמת לרשימת המתנה", when: "כשלקוח נרשם לרשימת ההמתנה",
@@ -145,7 +150,7 @@ const GROUPS: Group[] = [
         id: "club", title: "מועדון לקוחות", icon: Star,
         messages: [
             { id: "welcome", title: "ברוכים הבאים למועדון", when: "כשלקוח מצטרף למועדון",
-              templateKey: "welcome_wa_template", emailKey: "welcome_email_template", hints: ["client_name","loyalty_points","join_link"] },
+              templateKey: "welcome_wa_template", emailKey: "welcome_email_template", hints: ["client_name","points_added","points_total"] },
             { id: "birthday", title: "יום הולדת", when: "עם קופון הנחה", toggleKey: "birthday_automation_enabled",
               templateKey: "birthday_wa_template", emailKey: "birthday_email_template",
               times: { key: "birthday_send_timing", label: "מתי לשלוח", fallback: "month_start",
@@ -153,7 +158,7 @@ const GROUPS: Group[] = [
               hints: ["client_name","coupon_code","benefit_percent"] },
             { id: "non_member", title: "הזמנה להצטרף למועדון", when: "ללקוח שביקר ועוד לא במועדון", toggleKey: "club_invite_enabled",
               times: AFTER_VISIT("club_invite_delay_minutes", 30),
-              templateKey: "non_member_wa_template", hints: ["client_name","join_link","loyalty_points"] },
+              templateKey: "non_member_wa_template", hints: ["client_name","join_link","points_on_signup"] },
             { id: "points_redeem", title: "מימוש נקודות", when: "כשלקוח מממש נקודות", toggleKey: "points_celebration_enabled",
               templateKey: "points_redeem_wa_template", hints: ["client_name","points_used","discount_amount","loyalty_points","studio_name"] },
             { id: "points_balance", title: "יתרת נקודות", when: "נשלחת ידנית מתיק הלקוח", manual: true,
@@ -161,6 +166,113 @@ const GROUPS: Group[] = [
         ],
     },
 ];
+
+// Ready texts for each message, a tap away in the edit window (stage 3, the owner, 2026-10-13) — short, warm and
+// formal; each uses only the details its message's code fills (the hints above).
+const READY: Record<string, { label: string; text: string }[]> = {
+    confirm: [
+        { label: "קצר", text: "היי {client_name}, התור שלך נקבע ל-{appointment_date} בשעה {appointment_time}. מחכים לך!" },
+        { label: "חם", text: "היי {client_name} 😊\nאיזה כיף! קבענו לך תור ל{appointment_title} ב-{appointment_date} בשעה {appointment_time}.\n📍 {studio_address}\n{map_link}\n\nאם משהו משתנה, פשוט כתבו לנו כאן. מחכים לראות אותך!" },
+        { label: "רשמי", text: "שלום {client_name},\nתורך ל{appointment_title} נקבע ליום {appointment_date} בשעה {appointment_time}.\nכתובת: {studio_address}\nביטול ללא עלות עד {cancellation_free_days} ימים לפני התור." },
+    ],
+    deposit_request: [
+        { label: "קצר", text: "היי {client_name}, שריינו לך תור ל-{appointment_date} בשעה {appointment_time}.\nלאישור התור נשמח למקדמה של ₪{deposit_amount}: {payment_link}" },
+        { label: "חם", text: "היי {client_name} 😊\nשריינו לך תור ל{appointment_title} ב-{appointment_date} בשעה {appointment_time}.\nכדי לסגור את התור, נשמח למקדמה של ₪{deposit_amount} כאן: {payment_link}\nאחרי התשלום שלחו לנו אישור ונאשר. מחכים לך!" },
+        { label: "רשמי", text: "שלום {client_name},\nתורך ל{appointment_title} נקבע ליום {appointment_date} בשעה {appointment_time}.\nלאישור סופי נדרשת מקדמה בסך ₪{deposit_amount}: {payment_link}\nביטול ללא עלות עד {cancellation_free_days} ימים לפני התור." },
+    ],
+    deposit_approved: [
+        { label: "קצר", text: "היי {client_name}, המקדמה התקבלה והתור שלך ב-{appointment_date} בשעה {appointment_time} מאושר. מחכים לך!" },
+        { label: "חם", text: "היי {client_name} 🙌\nקיבלנו את המקדמה — התור שלך מאושר!\n📅 {appointment_date} בשעה {appointment_time}\n📍 {studio_address}\n{map_link}\nנתראה!" },
+        { label: "רשמי", text: "שלום {client_name},\nהמקדמה התקבלה ותורך ליום {appointment_date} בשעה {appointment_time} אושר.\nכתובת: {studio_address}\nביטול ללא עלות עד {cancellation_free_days} ימים לפני התור." },
+    ],
+    reschedule: [
+        { label: "קצר", text: "היי {client_name}, התור שלך עבר ליום {appointment_day}, {appointment_date} בשעה {appointment_time}." },
+        { label: "חם", text: "היי {client_name} 👋\nעדכנו את התור שלך ל{appointment_title}:\n📅 יום {appointment_day}, {appointment_date} בשעה {appointment_time}\nאם השעה לא מתאימה, כתבו לנו ונמצא יחד זמן אחר." },
+        { label: "רשמי", text: "שלום {client_name},\nמועד תורך ל{appointment_title} שונה ליום {appointment_day}, {appointment_date} בשעה {appointment_time}." },
+    ],
+    cancel: [
+        { label: "קצר", text: "היי {client_name}, התור שלך ב-{appointment_date} בשעה {appointment_time} בוטל." },
+        { label: "חם", text: "היי {client_name},\nהתור שלך ל{appointment_title} ב-{appointment_date} בוטל.\nנשמח לקבוע לך תור חדש מתי שנוח — פשוט כתבו לנו 😊" },
+        { label: "רשמי", text: "שלום {client_name},\nתורך ל{appointment_title} ביום {appointment_date} בשעה {appointment_time} בוטל.\nלתיאום מועד חדש ניתן לפנות אלינו." },
+    ],
+    reminder_7day: [
+        { label: "קצר", text: "היי {client_name}, מזכירים: בעוד שבוע, ב-{appointment_date} בשעה {appointment_time}, יש לך תור אצלנו." },
+        { label: "חם", text: "היי {client_name} 👋\nעוד שבוע נתראה! 📅 {appointment_date} בשעה {appointment_time} ל{appointment_title}.\nאם משהו משתנה, כתבו לנו." },
+    ],
+    reminder_3day: [
+        { label: "קצר", text: "היי {client_name}, מזכירים: ב-{appointment_date} בשעה {appointment_time} יש לך תור אצלנו." },
+        { label: "חם", text: "היי {client_name} 😊\nעוד 3 ימים נתראה ל{appointment_title}!\n📅 {appointment_date} בשעה {appointment_time}\n📍 {studio_address}\n{map_link}" },
+    ],
+    reminder_1day: [
+        { label: "קצר", text: "היי {client_name}, תזכורת: מחר בשעה {appointment_time} יש לך תור. מחכים לך!" },
+        { label: "חם", text: "היי {client_name} 👋\nמחר נתראה! 📅 {appointment_date} בשעה {appointment_time} ל{appointment_title}.\n📍 {studio_address}\n{map_link}\nמחכים לך!" },
+        { label: "רשמי", text: "שלום {client_name},\nתזכורת לתורך מחר, {appointment_date}, בשעה {appointment_time}.\nכתובת: {studio_address}" },
+    ],
+    reminder_sameday: [
+        { label: "קצר", text: "בוקר טוב {client_name}! היום בשעה {appointment_time} יש לך תור. מחכים לך ☀️" },
+        { label: "חם", text: "בוקר טוב {client_name} ☀️\nהיום נתראה ל{appointment_title} בשעה {appointment_time}.\n📍 {studio_address}\n{map_link}\nמחכים לך!" },
+    ],
+    reminder_2h: [
+        { label: "קצר", text: "היי {client_name}, נתראה בעוד כשעתיים — בשעה {appointment_time} 😊" },
+        { label: "חם", text: "היי {client_name} 👋\nעוד מעט נתראה! התור שלך היום בשעה {appointment_time}.\n📍 {studio_address}\n{map_link}" },
+    ],
+    deposit_reminder: [
+        { label: "קצר", text: "היי {client_name}, עוד לא קיבלנו את המקדמה של ₪{deposit_amount} לתור ב-{date} בשעה {time}. נשמח שתשלימו כדי לשמור את התור." },
+        { label: "רשמי", text: "שלום {client_name},\nטרם התקבלה המקדמה בסך ₪{deposit_amount} לתורך ביום {date} בשעה {time}.\nללא תשלום המקדמה התור אינו מאושר סופית." },
+    ],
+    post_payment: [
+        { label: "קצר", text: "תודה {client_name}! התשלום התקבל. שמחנו לראות אותך 🙏" },
+        { label: "חם", text: "תודה רבה {client_name} ❤️\nהתשלום של ₪{payment_amount} התקבל.\n⭐ יתרת הנקודות שלך: {points_total}\nנשמח לראות אותך שוב!" },
+    ],
+    receipt_link: [
+        { label: "קצר", text: "היי {client_name}, הקבלה שלך מחכה כאן: {receipt_link}" },
+        { label: "רשמי", text: "שלום {client_name},\nמצורף קישור לקבלה עבור {service_name}:\n{receipt_link}\nתודה!" },
+    ],
+    pos_receipt: [
+        { label: "קצר", text: "תודה על הרכישה, {client_name}! 🛍️" },
+        { label: "חם", text: "היי {client_name} 😊\nתודה על הרכישה בסך {total_amount}!\n⭐ צברת {points_earned} נקודות — היתרה שלך: {loyalty_points}." },
+    ],
+    aftercare: [
+        { label: "קצר", text: "היי {client_name}, תודה על הביקור! אם יש שאלה — אנחנו כאן 🙏" },
+        { label: "חם", text: "היי {client_name} ❤️\nתודה שבחרת בנו! איך ההרגשה?\nאם יש שאלה על ההחלמה או הטיפול — כתבו לנו בכל שעה." },
+    ],
+    booking_request_approved: [
+        { label: "קצר", text: "היי {client_name}, בקשת התור שלך אושרה! נתראה ב-{appointment_date}." },
+        { label: "חם", text: "היי {client_name} 🎉\nבקשת התור שלך אושרה! נתראה עם {artist_name} ב-{appointment_date}.\nלפרטי התור: {booking_link}" },
+    ],
+    booking_request_rejected: [
+        { label: "קצר", text: "היי {client_name}, לצערנו לא נוכל לקבל את התור ב-{appointment_date}. נשמח לקבוע מועד אחר." },
+        { label: "רשמי", text: "שלום {client_name},\nבקשת התור ל-{appointment_date} לא אושרה.\nסיבה: {rejection_reason}\nנשמח לתאם מועד אחר." },
+    ],
+    waitlist_joined: [
+        { label: "קצר", text: "היי {client_name}, נרשמת לרשימת ההמתנה של {studio_name}. נעדכן ברגע שיתפנה מקום!" },
+        { label: "חם", text: "היי {client_name} 😊\nאת/ה ברשימת ההמתנה של {studio_name}.\nברגע שמתפנה מקום — נשלח לך הודעה ראשונים!" },
+    ],
+    waitlist_notify: [
+        { label: "קצר", text: "היי {client_name}, התפנה מקום ב-{studio_name}! לקביעה: {booking_link}" },
+        { label: "חם", text: "היי {client_name} 🎉\nחדשות טובות — התפנה תור ב-{studio_name}!\nכדאי לקבוע מהר: {booking_link}" },
+    ],
+    welcome: [
+        { label: "קצר", text: "היי {client_name}, ברוך/ה הבא/ה למועדון שלנו! 🎉" },
+        { label: "חם", text: "היי {client_name} 🎉\nשמחים שהצטרפת למועדון!\n🎁 קיבלת {points_added} נקודות מתנה — היתרה שלך: {points_total}.\nנתראה בקרוב!" },
+    ],
+    birthday: [
+        { label: "קצר", text: "מזל טוב {client_name}! 🎂 מתנה מאיתנו: {benefit_percent}% הנחה עם הקוד {coupon_code}." },
+        { label: "חם", text: "יום הולדת שמח {client_name}! 🎂🎉\nהכנו לך מתנה: {benefit_percent}% הנחה לביקור הבא.\nקוד הקופון שלך: {coupon_code}\nמחכים לחגוג איתך!" },
+    ],
+    non_member: [
+        { label: "קצר", text: "היי {client_name}, שמחנו לראות אותך! הצטרפו למועדון וקבלו {points_on_signup} נקודות מתנה: {join_link}" },
+        { label: "חם", text: "היי {client_name} 👋\nתודה שביקרת אצלנו!\nבמועדון הלקוחות שלנו מחכות לך {points_on_signup} נקודות מתנה לביקור הבא 🎁\nלהצטרפות: {join_link}" },
+    ],
+    points_redeem: [
+        { label: "קצר", text: "היי {client_name}, מימשת {points_used} נקודות וחסכת ₪{discount_amount}! 🎁" },
+        { label: "חם", text: "היי {client_name} 🎉\nמימשת {points_used} נקודות בשווי ₪{discount_amount}!\nנשארו לך {loyalty_points} נקודות. תודה שאת/ה חלק מהמועדון של {studio_name} ❤️" },
+    ],
+    points_balance: [
+        { label: "קצר", text: "היי {client_name}, יתרת הנקודות שלך: {loyalty_points} ⭐" },
+        { label: "חם", text: "היי {client_name} 🌟\nיש לך {loyalty_points} נקודות במועדון — אפשר לממש בביקור הבא.\nמחכים לך!" },
+    ],
+};
 
 type Settings = Record<string, unknown> & { messages_off?: string[] };
 
@@ -170,11 +282,12 @@ function sample(settings: Settings, staff: string, service: string): Record<stri
     const date = `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
     return {
         client_name: "דנה", appointment_title: service, service_name: service, appointment_date: date, date, appointment_time: "10:00",
-        time: "10:00", artist_name: "נועה", staff_title: staff, studio_name: String(settings.studio_name || "העסק שלך"),
+        time: "10:00", appointment_day: "רביעי", artist_name: "נועה", staff_title: staff, studio_name: String(settings.studio_name || "העסק שלך"),
         studio_address: String(settings.studio_address || "רחוב הדוגמה 1"), map_link: "https://maps.google.com/…",
         portfolio_link: "https://instagram.com/…", bit_link: "https://bit.ly/…", paybox_link: "https://payboxapp.page.link/…",
         payment_link: "https://bit.ly/…", deposit_amount: "100", cancellation_free_days: String(settings.cancellation_free_days ?? 2),
-        deposit_lock_days: "2", loyalty_points: "120", points_earned: "25", coupon_code: "BDAY10", benefit_percent: "10",
+        deposit_lock_days: "2", loyalty_points: "120", points_earned: "25", points_total: "145", points_added: "20",
+        points_on_signup: "20", payment_amount: "250", coupon_code: "BDAY10", benefit_percent: "10",
         join_link: "https://…/join", points_used: "50", discount_amount: "50", receipt_link: "https://…/receipt",
         booking_link: "https://…/booking", total_amount: "₪250.00", rejection_reason: "השעה כבר תפוסה", service_note: "",
     };
@@ -431,6 +544,20 @@ function EditSheet({ m, text, values, terms, onClose, onSave }: {
                     הטקסט נשלח בוואטסאפ{m.emailKey ? " וגם במייל" : ""}. לחיצה על פרט מוסיפה אותו לטקסט — וכל לקוח יקבל את שלו.
                     {text ? "" : " השארת הטקסט ריק = הנוסח של המערכת."}
                 </p>
+                {(READY[m.id] ?? []).length > 0 && (
+                    <div>
+                        <div className="text-sm font-bold text-slate-700 mb-2">נוסחים מוכנים — נגיעה מכניסה, ואפשר לשנות</div>
+                        <div className="grid gap-2">
+                            {READY[m.id].map(r => (
+                                <button key={r.label} type="button" onClick={() => setDraft(toWords(r.text, terms))}
+                                    className="text-right rounded-xl border border-slate-200 bg-white hover:border-sky-300 hover:bg-sky-50 p-3">
+                                    <span className="inline-block text-xs font-bold text-sky-700 bg-sky-50 border border-sky-100 rounded-full px-2 py-0.5 mb-1">{r.label}</span>
+                                    <span className="block text-sm text-slate-700 whitespace-pre-line">{fill(r.text, values)}</span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
                 <textarea ref={box} value={draft} onChange={e => setDraft(e.target.value)} rows={7} dir="rtl"
                     placeholder="כתבו כאן את ההודעה, למשל: היי [שם לקוח], מחכים לך ב-[תאריך תור] 😊"
                     aria-label={`הנוסח של ${m.title}`}
