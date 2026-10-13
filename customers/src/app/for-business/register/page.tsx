@@ -27,7 +27,7 @@ function Steps({ current, total }: { current: number; total: number }) {
                     width: i < current ? 28 : 10,
                     height: 6,
                     borderRadius: 6,
-                    background: i < current ? "#fff" : "rgba(255,255,255,.15)",
+                    background: i < current ? "var(--bf-accent)" : "rgb(var(--bf-text-rgb) / .15)",
                     transition: "all .3s",
                 }} />
             ))}
@@ -111,10 +111,10 @@ function RegisterInner() {
     };
 
     const inputStyle = {
-        width: "100%", border: "1px solid rgba(255,255,255,.16)", borderRadius: 12,
+        width: "100%", border: "1px solid rgb(var(--bf-text-rgb) / .16)", borderRadius: 12,
         padding: "0.75rem 1rem", fontSize: "1rem", outline: "none",
-        color: "#fff", background: "rgba(255,255,255,.07)",
-        boxSizing: "border-box" as const, colorScheme: "dark" as const,
+        color: "var(--bf-text)", background: "rgb(var(--bf-text-rgb) / .07)",
+        boxSizing: "border-box" as const, colorScheme: "var(--bf-scheme)" as const,
     };
     const labelStyle = { display: "block", fontSize: "0.85rem", fontWeight: 700, color: "var(--bf-muted)", marginBottom: "0.45rem" };
 
@@ -134,8 +134,8 @@ function RegisterInner() {
                     </div>
                 </div>
                 <button type="button" onClick={() => goToBizControl("/onboarding")} style={{
-                    display: "block", width: "100%", background: "#fff",
-                    color: "#000", border: "none", textDecoration: "none", padding: "0.9rem",
+                    display: "block", width: "100%", background: "var(--bf-accent)",
+                    color: "var(--bf-on-accent)", border: "none", textDecoration: "none", padding: "0.9rem",
                     borderRadius: 14, fontWeight: 800, fontSize: "1rem", cursor: "pointer",
                 }}>
                     פתח BizControl ← הגדר את העסק שלי
@@ -187,8 +187,8 @@ function RegisterInner() {
                     )}
 
                     <button onClick={next} style={{
-                        width: "100%", background: "#fff",
-                        color: "#000", border: "none", borderRadius: 14, padding: "0.9rem",
+                        width: "100%", background: "var(--bf-accent)",
+                        color: "var(--bf-on-accent)", border: "none", borderRadius: 14, padding: "0.9rem",
                         fontWeight: 800, fontSize: "1rem", cursor: "pointer",
                     }}>
                         המשיכו ←
@@ -237,8 +237,8 @@ function RegisterInner() {
                             חזרה
                         </button>
                         <button onClick={next} disabled={!canStep2} style={{
-                            flex: 2, background: "#fff",
-                            color: "#000", border: "none", borderRadius: 14, padding: "0.85rem",
+                            flex: 2, background: "var(--bf-accent)",
+                            color: "var(--bf-on-accent)", border: "none", borderRadius: 14, padding: "0.85rem",
                             fontWeight: 800, fontSize: "1rem", cursor: "pointer", opacity: canStep2 ? 1 : 0.45,
                         }}>
                             המשיכו ←
@@ -299,8 +299,8 @@ function RegisterInner() {
                             חזרה
                         </button>
                         <button onClick={submit} disabled={!canStep3 || loading} style={{
-                            flex: 2, background: "#fff",
-                            color: "#000", border: "none", borderRadius: 14, padding: "0.85rem",
+                            flex: 2, background: "var(--bf-accent)",
+                            color: "var(--bf-on-accent)", border: "none", borderRadius: 14, padding: "0.85rem",
                             fontWeight: 800, fontSize: "1rem", cursor: "pointer", opacity: (canStep3 && !loading) ? 1 : 0.45,
                         }}>
                             {loading ? "יוצר חשבון..." : "הצטרפו עכשיו ←"}
@@ -318,7 +318,7 @@ function RegisterInner() {
 
 export default function RegisterPage() {
     return (
-        <div dir="rtl" style={{ minHeight: "100vh", background: "radial-gradient(ellipse at 50% 0%, #262626 0%, #000 65%)", color: "var(--bf-text)", display: "flex", alignItems: "center", justifyContent: "center", padding: "2rem 1rem" }}>
+        <div dir="rtl" style={{ minHeight: "100vh", background: "radial-gradient(ellipse at 50% 0%, var(--bf-glass-strong) 0%, var(--bf-bg) 65%)", color: "var(--bf-text)", display: "flex", alignItems: "center", justifyContent: "center", padding: "2rem 1rem" }}>
             <div style={{ width: "100%", maxWidth: 480 }}>
 
                 {/* Logo */}

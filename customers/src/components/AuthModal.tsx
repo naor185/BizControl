@@ -251,16 +251,16 @@ export default function AuthModal({ onClose, onSuccess }: Props) {
                         <button
                             onClick={() => { setMode("otp"); setErr(null); }}
                             style={{ flex: 1, padding: "0.55rem", borderRadius: 10, border: "none", fontWeight: 700, fontSize: "0.82rem", cursor: "pointer", transition: "all .2s",
-                                background: mode === "otp" ? "#fff" : "transparent",
-                                color: mode === "otp" ? "#000" : "var(--bf-muted)", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.35rem" }}
+                                background: mode === "otp" ? "var(--bf-accent)" : "transparent",
+                                color: mode === "otp" ? "var(--bf-on-accent)" : "var(--bf-muted)", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.35rem" }}
                         >
                             <MessageCircle size={15} aria-hidden /> קוד בוואטסאפ
                         </button>
                         <button
                             onClick={() => { setMode("email"); setEmailStep("login"); setErr(null); }}
                             style={{ flex: 1, padding: "0.55rem", borderRadius: 10, border: "none", fontWeight: 700, fontSize: "0.82rem", cursor: "pointer", transition: "all .2s",
-                                background: mode === "email" ? "#fff" : "transparent",
-                                color: mode === "email" ? "#000" : "var(--bf-muted)", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.35rem" }}
+                                background: mode === "email" ? "var(--bf-accent)" : "transparent",
+                                color: mode === "email" ? "var(--bf-on-accent)" : "var(--bf-muted)", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.35rem" }}
                         >
                             <Mail size={15} aria-hidden /> אימייל וסיסמה
                         </button>
@@ -293,7 +293,7 @@ export default function AuthModal({ onClose, onSuccess }: Props) {
                                     onChange={e => handleOtpInput(i, e.target.value)}
                                     onKeyDown={e => handleOtpKey(i, e)}
                                     maxLength={1}
-                                    style={{ width: 48, height: 56, textAlign: "center", fontSize: "1.5rem", fontWeight: 900, background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.25)", borderRadius: 12, color: "#fff", outline: "none", colorScheme: "dark" }}
+                                    style={{ width: 48, height: 56, textAlign: "center", fontSize: "1.5rem", fontWeight: 900, background: "rgb(var(--bf-text-rgb) / .07)", border: "1px solid rgb(var(--bf-text-rgb) / .25)", borderRadius: 12, color: "var(--bf-text)", outline: "none", colorScheme: "var(--bf-scheme)" }}
                                 />
                             ))}
                         </div>
@@ -383,17 +383,17 @@ const overlay: React.CSSProperties = {
     alignItems: "center", justifyContent: "center", zIndex: 9999, padding: "1rem",
 };
 const box: React.CSSProperties = {
-    background: "#0c0c0c", border: "1px solid var(--bf-line)", borderRadius: 24, color: "var(--bf-text)",
+    background: "var(--bf-surface)", border: "1px solid var(--bf-line)", borderRadius: 24, color: "var(--bf-text)",
     padding: "2rem 1.5rem", width: "100%", maxWidth: 380, maxHeight: "90vh", overflowY: "auto",
 };
 const inputStyle: React.CSSProperties = {
-    width: "100%", background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.16)",
-    borderRadius: 12, padding: "0.75rem 1rem", color: "#fff", fontSize: "1rem", outline: "none",
-    marginBottom: "0.75rem", boxSizing: "border-box", colorScheme: "dark",
+    width: "100%", background: "rgb(var(--bf-text-rgb) / .07)", border: "1px solid rgb(var(--bf-text-rgb) / .16)",
+    borderRadius: 12, padding: "0.75rem 1rem", color: "var(--bf-text)", fontSize: "1rem", outline: "none",
+    marginBottom: "0.75rem", boxSizing: "border-box", colorScheme: "var(--bf-scheme)",
 };
 const btnStyle: React.CSSProperties = {
-    width: "100%", background: "#fff", border: "none",
-    borderRadius: 12, color: "#000", padding: "0.85rem", fontWeight: 800, fontSize: "0.95rem",
+    width: "100%", background: "var(--bf-accent)", border: "none",
+    borderRadius: 12, color: "var(--bf-on-accent)", padding: "0.85rem", fontWeight: 800, fontSize: "0.95rem",
     cursor: "pointer",
 };
 const linkBtnStyle: React.CSSProperties = {

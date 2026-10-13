@@ -66,9 +66,9 @@ function isOpenNow(hours: Hours): { open: boolean; label: string } {
 type ClaimStep = "closed" | "otp_sent" | "otp_verified" | "done";
 
 const claimInputStyle: React.CSSProperties = {
-    width: "100%", border: "1px solid rgba(255,255,255,.16)", borderRadius: 10,
+    width: "100%", border: "1px solid rgb(var(--bf-text-rgb) / .16)", borderRadius: 10,
     padding: "0.6rem 0.85rem", fontSize: "0.9rem", outline: "none",
-    color: "#fff", background: "rgba(255,255,255,.07)", boxSizing: "border-box", colorScheme: "dark",
+    color: "var(--bf-text)", background: "rgb(var(--bf-text-rgb) / .07)", boxSizing: "border-box", colorScheme: "var(--bf-scheme)",
 };
 
 function ClaimBanner({ businessId, phone }: { businessId: string; phone?: string }) {
@@ -127,7 +127,7 @@ function ClaimBanner({ businessId, phone }: { businessId: string; phone?: string
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.75rem", flexWrap: "wrap", background: "var(--bf-glass)", border: "1px solid var(--bf-line)", borderRadius: 12, padding: "0.65rem 1rem", marginBottom: "1.25rem" }}>
                 <span style={{ fontSize: "0.82rem", color: "var(--bf-text)", fontWeight: 600 }}>זה העסק שלך? צור קשר לקבל גישה לניהול ושיווק העסק שלך</span>
                 <button type="button" onClick={startClaim} disabled={loading || !phone}
-                    style={{ background: "#fff", color: "#000", border: "none", borderRadius: 9, padding: "0.4rem 0.9rem", fontWeight: 700, fontSize: "0.78rem", cursor: phone ? "pointer" : "not-allowed", opacity: loading ? 0.7 : 1, whiteSpace: "nowrap" }}>
+                    style={{ background: "var(--bf-accent)", color: "var(--bf-on-accent)", border: "none", borderRadius: 9, padding: "0.4rem 0.9rem", fontWeight: 700, fontSize: "0.78rem", cursor: phone ? "pointer" : "not-allowed", opacity: loading ? 0.7 : 1, whiteSpace: "nowrap" }}>
                     {loading ? "..." : "צור קשר →"}
                 </button>
             </div>
@@ -135,7 +135,7 @@ function ClaimBanner({ businessId, phone }: { businessId: string; phone?: string
     }
 
     return (
-        <div style={{ background: "#0c0c0c", border: "1px solid var(--bf-line)", color: "var(--bf-text)", borderRadius: 14, padding: "1.1rem", marginBottom: "1.25rem" }}>
+        <div style={{ background: "var(--bf-surface)", border: "1px solid var(--bf-line)", color: "var(--bf-text)", borderRadius: 14, padding: "1.1rem", marginBottom: "1.25rem" }}>
             {step === "otp_sent" && (
                 <>
                     <div style={{ fontWeight: 800, fontSize: "0.95rem", marginBottom: "0.3rem" }}>הזן את הקוד שקיבלת</div>
@@ -143,7 +143,7 @@ function ClaimBanner({ businessId, phone }: { businessId: string; phone?: string
                     <div style={{ display: "flex", gap: "0.5rem" }}>
                         <input value={otpCode} onChange={e => setOtpCode(e.target.value)} maxLength={6} dir="ltr" style={{ ...claimInputStyle, textAlign: "center", letterSpacing: "0.25em" }} />
                         <button type="button" onClick={verifyOtp} disabled={loading || otpCode.trim().length < 4}
-                            style={{ background: "#fff", color: "#000", border: "none", borderRadius: 10, padding: "0 1.1rem", fontWeight: 700, fontSize: "0.85rem", cursor: "pointer", opacity: loading ? 0.7 : 1, whiteSpace: "nowrap" }}>
+                            style={{ background: "var(--bf-accent)", color: "var(--bf-on-accent)", border: "none", borderRadius: 10, padding: "0 1.1rem", fontWeight: 700, fontSize: "0.85rem", cursor: "pointer", opacity: loading ? 0.7 : 1, whiteSpace: "nowrap" }}>
                             {loading ? "מאמת..." : "אמת"}
                         </button>
                     </div>
@@ -159,7 +159,7 @@ function ClaimBanner({ businessId, phone }: { businessId: string; phone?: string
                     </div>
                     <button type="button" onClick={completeClaim}
                         disabled={loading || ownerName.trim().length < 2 || !email.trim() || password.length < 6}
-                        style={{ width: "100%", background: "#fff", color: "#000", border: "none", borderRadius: 10, padding: "0.65rem", fontWeight: 700, fontSize: "0.88rem", cursor: "pointer", opacity: loading ? 0.7 : 1 }}>
+                        style={{ width: "100%", background: "var(--bf-accent)", color: "var(--bf-on-accent)", border: "none", borderRadius: 10, padding: "0.65rem", fontWeight: 700, fontSize: "0.88rem", cursor: "pointer", opacity: loading ? 0.7 : 1 }}>
                         {loading ? "יוצר חשבון..." : "סיים והתחל לנהל"}
                     </button>
                 </>
@@ -169,7 +169,7 @@ function ClaimBanner({ businessId, phone }: { businessId: string; phone?: string
                     <PartyPopper size={34} strokeWidth={1.5} aria-hidden style={{ marginBottom: "0.3rem" }} />
                     <div style={{ fontWeight: 800, marginBottom: "0.75rem" }}>העסק שלך אומת!</div>
                     <button type="button" onClick={() => goToBizControl("/onboarding")}
-                        style={{ width: "100%", background: "#fff", color: "#000", border: "none", borderRadius: 10, padding: "0.65rem", fontWeight: 700, fontSize: "0.88rem", cursor: "pointer" }}>
+                        style={{ width: "100%", background: "var(--bf-accent)", color: "var(--bf-on-accent)", border: "none", borderRadius: 10, padding: "0.65rem", fontWeight: 700, fontSize: "0.88rem", cursor: "pointer" }}>
                         נהל את העסק שלך עכשיו →
                     </button>
                 </div>
@@ -277,7 +277,7 @@ export default function BusinessPage() {
 
     if (!p && !err) return (
         <div style={{ height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bf-bg)" }}>
-            <div style={{ width: 44, height: 44, border: "3px solid rgba(255,255,255,.18)", borderTopColor: "#fff", borderRadius: "50%", animation: "spin .8s linear infinite" }} />
+            <div style={{ width: 44, height: 44, border: "3px solid rgb(var(--bf-text-rgb) / .18)", borderTopColor: "var(--bf-text)", borderRadius: "50%", animation: "spin .8s linear infinite" }} />
         </div>
     );
     if (err) return (
@@ -318,10 +318,10 @@ export default function BusinessPage() {
                 {p!.cover_url ? (
                     <img src={imgUrl(p!.cover_url)} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
                 ) : (
-                    <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 70% 15%, #2b2b2b 0%, #0b0b0b 55%, #000 100%)" }} />
+                    <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 70% 15%, rgb(var(--bf-text-rgb) / .15) 0%, rgb(var(--bf-text-rgb) / .04) 55%, var(--bf-bg) 100%)" }} />
                 )}
-                {/* The cover fades into the black page — the logo and name sit on its lower edge */}
-                <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom,rgba(0,0,0,.05) 0%,rgba(0,0,0,.4) 50%,rgba(0,0,0,.88) 85%,#000 100%)" }} />
+                {/* The cover fades into the page's own background — the logo and name sit on its lower edge */}
+                <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom,rgb(var(--bf-bg-rgb) / .05) 0%,rgb(var(--bf-bg-rgb) / .4) 50%,rgb(var(--bf-bg-rgb) / .88) 85%,var(--bf-bg) 100%)" }} />
 
                 {/* Back */}
                 <Link href="/" style={{ ...HERO_BTN, right: 14 }}>
@@ -394,12 +394,12 @@ export default function BusinessPage() {
 
                 {/* ── The coupon the visitor came with ── */}
                 {coupon && (
-                    <div role="status" style={{ display: "flex", alignItems: "center", gap: "0.9rem", marginBottom: "1.25rem", padding: "1rem 1.1rem", borderRadius: 18, background: "var(--bf-glass-strong)", border: "1.5px dashed rgba(255,255,255,.55)" }}>
-                        <div style={{ width: 48, height: 48, borderRadius: 14, background: "#fff", color: "#000", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Ticket size={24} aria-hidden /></div>
+                    <div role="status" style={{ display: "flex", alignItems: "center", gap: "0.9rem", marginBottom: "1.25rem", padding: "1rem 1.1rem", borderRadius: 18, background: "var(--bf-glass-strong)", border: "1.5px dashed rgb(var(--bf-text-rgb) / .55)" }}>
+                        <div style={{ width: 48, height: 48, borderRadius: 14, background: "var(--bf-accent)", color: "var(--bf-on-accent)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Ticket size={24} aria-hidden /></div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontWeight: 800, fontSize: "1.05rem" }}>יש לך קופון: {coupon.discount_percent}% הנחה</div>
                             <div style={{ color: "var(--bf-muted)", fontSize: "0.84rem", marginTop: 2, lineHeight: 1.5 }}>
-                                הקוד <span dir="ltr" style={{ fontWeight: 800, color: "#fff", letterSpacing: "0.06em" }}>{coupon.code}</span> — מציגים בקופה או כותבים בבקשת התור
+                                הקוד <span dir="ltr" style={{ fontWeight: 800, color: "var(--bf-text)", letterSpacing: "0.06em" }}>{coupon.code}</span> — מציגים בקופה או כותבים בבקשת התור
                                 {coupon.expires_on ? ` · בתוקף עד ${new Date(coupon.expires_on).toLocaleDateString("he-IL")}` : ""}
                                 {coupon.once_per_client ? " · פעם אחת ללקוח" : ""}
                             </div>
@@ -459,7 +459,7 @@ export default function BusinessPage() {
                         ...(p!.is_claimed !== false ? [["reviews", `ביקורות${p!.review_count > 0 ? ` (${p!.review_count})` : ""}`]] as const : []),
                     ] as [string, string][]).map(([id, label]) => (
                         <button key={id} type="button" onClick={() => setActiveTab(id as any)}
-                            style={{ flex: "1 0 auto", padding: "0.55rem 1rem", borderRadius: 12, border: "none", cursor: "pointer", fontWeight: 700, fontSize: "0.84rem", whiteSpace: "nowrap", transition: "background .15s, color .15s", background: activeTab === id ? "#fff" : "transparent", color: activeTab === id ? "#000" : "var(--bf-muted)" }}>
+                            style={{ flex: "1 0 auto", padding: "0.55rem 1rem", borderRadius: 12, border: "none", cursor: "pointer", fontWeight: 700, fontSize: "0.84rem", whiteSpace: "nowrap", transition: "background .15s, color .15s", background: activeTab === id ? "var(--bf-accent)" : "transparent", color: activeTab === id ? "var(--bf-on-accent)" : "var(--bf-muted)" }}>
                             {label}
                         </button>
                     ))}
@@ -519,7 +519,7 @@ export default function BusinessPage() {
                                         const todayIdx = new Date().getDay();
                                         const isToday = DAYS[todayIdx] === day;
                                         return (
-                                            <div key={day} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.45rem 0.75rem", borderRadius: 10, background: isToday ? "var(--bf-glass-strong)" : "rgba(255,255,255,.025)", border: isToday ? "1px solid rgba(255,255,255,.3)" : "1px solid transparent" }}>
+                                            <div key={day} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.45rem 0.75rem", borderRadius: 10, background: isToday ? "var(--bf-glass-strong)" : "rgb(var(--bf-text-rgb) / .025)", border: isToday ? "1px solid rgb(var(--bf-text-rgb) / .3)" : "1px solid transparent" }}>
                                                 <span style={{ fontSize: "0.86rem", fontWeight: isToday ? 800 : 500, color: isToday ? "var(--bf-text)" : "var(--bf-muted)" }}>{DAY_LABELS[day]}{isToday ? " · היום" : ""}</span>
                                                 <span dir="ltr" style={{ fontSize: "0.84rem", fontWeight: 600, fontVariantNumeric: "tabular-nums", color: d.closed ? "#f87171" : "var(--bf-text)" }}>
                                                     {d.closed ? "סגור" : `${d.open} – ${d.close}`}
@@ -538,7 +538,7 @@ export default function BusinessPage() {
                                 <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
                                     {p!.artists.map(a => (
                                         <div key={a.id} style={{ display: "flex", alignItems: "center", gap: "0.5rem", background: "var(--bf-glass)", border: "1px solid var(--bf-line)", borderRadius: 12, padding: "0.4rem 0.8rem 0.4rem 0.4rem" }}>
-                                            <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.78rem", fontWeight: 800, color: "#000" }}>
+                                            <div style={{ width: 28, height: 28, borderRadius: "50%", background: "var(--bf-accent)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.78rem", fontWeight: 800, color: "var(--bf-on-accent)" }}>
                                                 {a.name.charAt(0)}
                                             </div>
                                             <span style={{ fontWeight: 600, fontSize: "0.88rem", color: "var(--bf-text)" }}>{a.name}</span>
@@ -558,7 +558,7 @@ export default function BusinessPage() {
                         ) : p!.services.map(s => (
                             <div key={s.id} style={{ background: "var(--bf-glass)", border: "1px solid var(--bf-line)", borderRadius: 18, padding: "1rem 1.1rem", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem", position: "relative", overflow: "hidden" }}>
                                 {/* Color stripe */}
-                                <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 4, background: s.color || "#fff", borderRadius: "0 18px 18px 0" }} />
+                                <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 4, background: s.color || "var(--bf-accent)", borderRadius: "0 18px 18px 0" }} />
                                 <div style={{ flex: 1, paddingRight: "0.5rem" }}>
                                     <div style={{ fontWeight: 700, fontSize: "0.96rem", color: "var(--bf-text)", marginBottom: "0.2rem" }}>{s.name}</div>
                                     {s.description && <div style={{ color: "var(--bf-muted)", fontSize: "0.8rem", lineHeight: 1.5 }}>{s.description}</div>}
@@ -592,7 +592,7 @@ export default function BusinessPage() {
                                         gridRow: i === 0 ? "1 / 3" : undefined,
                                         borderRadius: 14, overflow: "hidden",
                                         aspectRatio: i === 0 ? "1.2" : "1",
-                                        cursor: "zoom-in", background: "#111",
+                                        cursor: "zoom-in", background: "var(--bf-surface)",
                                     }}>
                                     <img src={imgUrl(url)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", transition: "transform .25s" }}
                                         onMouseEnter={e => (e.currentTarget.style.transform = "scale(1.04)")}
@@ -623,7 +623,7 @@ export default function BusinessPage() {
                                             return (
                                                 <div key={n} style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.2rem" }}>
                                                     <span style={{ fontSize: "0.72rem", color: "var(--bf-faint)", width: 8, flexShrink: 0 }}>{n}</span>
-                                                    <div style={{ flex: 1, height: 6, background: "rgba(255,255,255,.08)", borderRadius: 3, overflow: "hidden" }}>
+                                                    <div style={{ flex: 1, height: 6, background: "rgb(var(--bf-text-rgb) / .08)", borderRadius: 3, overflow: "hidden" }}>
                                                         <div style={{ height: "100%", width: `${pct}%`, background: "#fbbf24", borderRadius: 3, transition: "width .4s" }} />
                                                     </div>
                                                     <span style={{ fontSize: "0.68rem", color: "var(--bf-faint)", width: 20, textAlign: "left" }}>{cnt}</span>
@@ -661,8 +661,8 @@ export default function BusinessPage() {
                                     <label style={labelStyle}>השם שיופיע בביקורת</label>
                                     <input value={reviewForm.client_name} onChange={e => setReviewForm(f => ({ ...f, client_name: e.target.value }))}
                                         style={reviewInputStyle}
-                                        onFocus={e => e.target.style.borderColor = "#fff"}
-                                        onBlur={e => e.target.style.borderColor = "rgba(255,255,255,.12)"}
+                                        onFocus={e => e.target.style.borderColor = "var(--bf-text)"}
+                                        onBlur={e => e.target.style.borderColor = "rgb(var(--bf-text-rgb) / .12)"}
                                         placeholder="למשל: יעל כ." />
                                 </div>
                                 <div style={{ marginBottom: "0.75rem" }}>
@@ -670,7 +670,7 @@ export default function BusinessPage() {
                                     <div style={{ display: "flex", gap: "0.1rem" }}>
                                         {[1,2,3,4,5].map(n => (
                                             <button key={n} type="button" onClick={() => setReviewForm(f => ({ ...f, rating: n }))}
-                                                style={{ background: "none", border: "none", fontSize: "1.9rem", cursor: "pointer", color: n <= reviewForm.rating ? "#fbbf24" : "rgba(255,255,255,.2)", padding: "0 0.1rem", transition: "color .1s" }}>★</button>
+                                                style={{ background: "none", border: "none", fontSize: "1.9rem", cursor: "pointer", color: n <= reviewForm.rating ? "#fbbf24" : "rgb(var(--bf-text-rgb) / .2)", padding: "0 0.1rem", transition: "color .1s" }}>★</button>
                                         ))}
                                     </div>
                                 </div>
@@ -679,14 +679,14 @@ export default function BusinessPage() {
                                     <textarea value={reviewForm.comment} onChange={e => setReviewForm(f => ({ ...f, comment: e.target.value }))}
                                         rows={3} placeholder="שתפו את החוויה שלכם..."
                                         style={{ ...reviewInputStyle, resize: "vertical", lineHeight: 1.6 }}
-                                        onFocus={e => e.target.style.borderColor = "#fff"}
-                                        onBlur={e => e.target.style.borderColor = "rgba(255,255,255,.12)"}
+                                        onFocus={e => e.target.style.borderColor = "var(--bf-text)"}
+                                        onBlur={e => e.target.style.borderColor = "rgb(var(--bf-text-rgb) / .12)"}
                                     />
                                 </div>
                                 {needsRules && (
                                     <label style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem", color: "var(--bf-muted)", fontSize: "0.8rem", lineHeight: 1.6, marginBottom: "0.9rem", cursor: "pointer" }}>
                                         <input type="checkbox" checked={acceptRules} onChange={e => setAcceptRules(e.target.checked)}
-                                            style={{ marginTop: "0.3rem", accentColor: "#fff", flexShrink: 0 }} />
+                                            style={{ marginTop: "0.3rem", accentColor: "var(--bf-accent)", flexShrink: 0 }} />
                                         <span>
                                             אני מסכים/ה ל<a href="/terms#reviews" target="_blank" rel="noopener" style={{ color: "var(--bf-text)", textUnderlineOffset: 3 }}>כללי הביקורות</a>:
                                             {" "}בלי תוכן פוגעני, מעליב או שקרי. ביקורת כזו תימחק, ומי שכתב/ה אותה ייחסם/תיחסם.
@@ -711,7 +711,7 @@ export default function BusinessPage() {
                             <div key={r.id} style={{ background: "var(--bf-glass)", border: "1px solid var(--bf-line)", borderRadius: 16, padding: "1rem 1.1rem" }}>
                                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.4rem" }}>
                                     <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                                        <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.8rem", fontWeight: 800, color: "#000" }}>
+                                        <div style={{ width: 32, height: 32, borderRadius: "50%", background: "var(--bf-accent)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.8rem", fontWeight: 800, color: "var(--bf-on-accent)" }}>
                                             {r.client_name.charAt(0)}
                                         </div>
                                         <span style={{ fontWeight: 700, fontSize: "0.9rem" }}>{r.client_name}</span>
@@ -763,7 +763,7 @@ export default function BusinessPage() {
 
             {/* ── Floating bottom bar (mobile) ── */}
             {p!.self_booking_enabled && (
-                <div style={{ position: "fixed", bottom: "calc(60px + env(safe-area-inset-bottom, 0px))", left: 0, right: 0, padding: "0.65rem 1.25rem", background: "rgba(0,0,0,.88)", backdropFilter: "blur(16px)", borderTop: "1px solid var(--bf-line)", display: "flex", gap: "0.6rem", zIndex: 50 }}>
+                <div style={{ position: "fixed", bottom: "calc(60px + env(safe-area-inset-bottom, 0px))", left: 0, right: 0, padding: "0.65rem 1.25rem", background: "rgb(var(--bf-bg-rgb) / .88)", backdropFilter: "blur(16px)", borderTop: "1px solid var(--bf-line)", display: "flex", gap: "0.6rem", zIndex: 50 }}>
                     <Link href={`/b/${slug}/book`} style={{ ...PRIMARY_BTN, flex: 1, justifyContent: "center", padding: "0.8rem" }}>
                         <CalendarDays size={17} aria-hidden /> קביעת תור
                     </Link>
@@ -844,7 +844,7 @@ function RequestModal({ slug, studioName, services, startNotes, onClose }: {
     return (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.75)", zIndex: 9999, display: "flex", alignItems: "flex-end", justifyContent: "center" }}
             onClick={e => e.target === e.currentTarget && onClose()}>
-            <div style={{ background: "#0c0c0c", border: "1px solid var(--bf-line)", borderBottom: "none", borderRadius: "22px 22px 0 0", width: "100%", maxWidth: 480, padding: "1.5rem", color: "var(--bf-text)" }}>
+            <div style={{ background: "var(--bf-surface)", border: "1px solid var(--bf-line)", borderBottom: "none", borderRadius: "22px 22px 0 0", width: "100%", maxWidth: 480, padding: "1.5rem", color: "var(--bf-text)" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem" }}>
                     <div>
                         <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontWeight: 800, fontSize: "1.1rem" }}><ClipboardList size={19} aria-hidden /> בקשת תור</div>
@@ -855,7 +855,7 @@ function RequestModal({ slug, studioName, services, startNotes, onClose }: {
 
                 {done ? (
                     <div style={{ textAlign: "center", padding: "2rem 0" }}>
-                        <div style={{ width: 56, height: 56, margin: "0 auto 0.75rem", borderRadius: "50%", background: "#fff", color: "#000", display: "flex", alignItems: "center", justifyContent: "center" }}><Check size={28} aria-hidden /></div>
+                        <div style={{ width: 56, height: 56, margin: "0 auto 0.75rem", borderRadius: "50%", background: "var(--bf-accent)", color: "var(--bf-on-accent)", display: "flex", alignItems: "center", justifyContent: "center" }}><Check size={28} aria-hidden /></div>
                         <div style={{ fontWeight: 800, fontSize: "1.1rem", marginBottom: "0.5rem" }}>הבקשה נשלחה!</div>
                         <div style={{ color: "var(--bf-muted)", fontSize: "0.88rem", marginBottom: "1.5rem" }}>העסק יצור איתך קשר בקרוב</div>
                         <button type="button" onClick={onClose}
@@ -903,17 +903,17 @@ function RequestModal({ slug, studioName, services, startNotes, onClose }: {
 }
 
 const reqLabel: React.CSSProperties = { display: "block", color: "var(--bf-muted)", fontSize: "0.75rem", fontWeight: 600, marginBottom: "0.3rem" };
-// colorScheme: "dark" matters specifically for the <select> that reuses this
+// colorScheme: "var(--bf-scheme)" matters specifically for the <select> that reuses this
 // style — a <select>'s open dropdown/options list is rendered by the browser's
 // native form-control chrome, which ignores this object's own background/color
 // and defaults to a light popup (barely-visible text) unless told the
 // surrounding UI is dark.
-const reqInput: React.CSSProperties = { width: "100%", background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.12)", borderRadius: 10, padding: "0.65rem 0.85rem", color: "#fff", fontSize: "0.9rem", outline: "none", boxSizing: "border-box", colorScheme: "dark" };
+const reqInput: React.CSSProperties = { width: "100%", background: "rgb(var(--bf-text-rgb) / .07)", border: "1px solid rgb(var(--bf-text-rgb) / .12)", borderRadius: 10, padding: "0.65rem 0.85rem", color: "var(--bf-text)", fontSize: "0.9rem", outline: "none", boxSizing: "border-box", colorScheme: "var(--bf-scheme)" };
 // ── UI helpers ────────────────────────────────────────────────────────────────
 
 const reviewInputStyle: React.CSSProperties = {
-    width: "100%", background: "rgba(255,255,255,.06)", border: "1.5px solid rgba(255,255,255,.12)",
-    borderRadius: 12, padding: "0.65rem 0.85rem", color: "#fff", fontSize: "0.9rem",
+    width: "100%", background: "rgb(var(--bf-text-rgb) / .06)", border: "1.5px solid rgb(var(--bf-text-rgb) / .12)",
+    borderRadius: 12, padding: "0.65rem 0.85rem", color: "var(--bf-text)", fontSize: "0.9rem",
     outline: "none", boxSizing: "border-box", transition: "border-color .2s",
 };
 const labelStyle: React.CSSProperties = {
@@ -943,7 +943,7 @@ function Card({ children }: { children: React.ReactNode }) {
 function SectionTitle({ children, icon: Icon }: { children: React.ReactNode; icon?: LucideIcon }) {
     return (
         <div style={{ display: "flex", alignItems: "center", gap: "0.45rem", fontWeight: 800, fontSize: "0.98rem", color: "var(--bf-text)", marginBottom: "0.85rem" }}>
-            {Icon && <Icon size={17} color="rgba(255,255,255,.6)" aria-hidden />}{children}
+            {Icon && <Icon size={17} aria-hidden style={{ color: "rgb(var(--bf-text-rgb) / .6)" }} />}{children}
         </div>
     );
 }

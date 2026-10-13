@@ -40,12 +40,12 @@ function PlanCard({
             border: featured ? "1.5px solid #fff" : "1px solid var(--bf-line)",
             padding: "2rem 1.5rem",
             position: "relative",
-            boxShadow: featured ? "0 10px 40px rgba(255,255,255,.08)" : "none",
+            boxShadow: featured ? "0 10px 40px rgb(var(--bf-text-rgb) / .08)" : "none",
             display: "flex",
             flexDirection: "column" as const,
         }}>
             {tier.badge && (
-                <div style={{ position: "absolute", top: -13, left: "50%", transform: "translateX(-50%)", background: "#fff", color: "#000", fontWeight: 800, fontSize: "0.75rem", padding: "0.25rem 0.8rem", borderRadius: 20 }}>
+                <div style={{ position: "absolute", top: -13, left: "50%", transform: "translateX(-50%)", background: "var(--bf-accent)", color: "var(--bf-on-accent)", fontWeight: 800, fontSize: "0.75rem", padding: "0.25rem 0.8rem", borderRadius: 20 }}>
                     {tier.badge}
                 </div>
             )}
@@ -57,7 +57,7 @@ function PlanCard({
             <ul style={{ listStyle: "none", padding: 0, margin: "0 0 1.5rem", flex: 1 }}>
                 {tier.features.map(f => (
                     <li key={f} style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem", fontSize: "0.88rem", color: "var(--bf-muted)", marginBottom: "0.55rem" }}>
-                        <Check size={15} color="#fff" style={{ flexShrink: 0, marginTop: 2 }} aria-hidden /> {f}
+                        <Check size={15} style={{ color: "var(--bf-text)", flexShrink: 0, marginTop: 2 }} aria-hidden /> {f}
                     </li>
                 ))}
             </ul>
@@ -68,8 +68,8 @@ function PlanCard({
                     alignItems: "center",
                     justifyContent: "center",
                     gap: "0.2rem",
-                    background: featured ? "#fff" : "var(--bf-glass)",
-                    color: featured ? "#000" : "var(--bf-text)",
+                    background: featured ? "var(--bf-accent)" : "var(--bf-glass)",
+                    color: featured ? "var(--bf-on-accent)" : "var(--bf-text)",
                     border: featured ? "none" : "1px solid var(--bf-line)",
                     padding: "0.75rem",
                     borderRadius: 12,
@@ -114,7 +114,7 @@ export default function PricingPage() {
         <div dir="rtl" style={{ color: "var(--bf-text)", background: "var(--bf-bg)", minHeight: "100vh" }}>
 
             {/* Header */}
-            <header style={{ background: "rgba(0,0,0,.85)", backdropFilter: "blur(14px)", borderBottom: "1px solid var(--bf-line)", padding: "0 1.5rem", height: 64, display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 50 }}>
+            <header style={{ background: "rgb(var(--bf-bg-rgb) / .85)", backdropFilter: "blur(14px)", borderBottom: "1px solid var(--bf-line)", padding: "0 1.5rem", height: 64, display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 50 }}>
                 <Link href="/" style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: "0.5rem" }}>
                     <img src="/logo.png" alt="" style={{ width: 32, height: 32, objectFit: "contain" }} />
                     <span style={{ fontWeight: 800, fontSize: "1.1rem", color: "var(--bf-text)" }}>BizFind</span>

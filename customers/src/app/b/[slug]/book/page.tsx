@@ -119,7 +119,7 @@ export default function BookPage() {
 
     if (done) return (
         <div style={{ height: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "1.5rem", padding: "2rem", textAlign: "center", background: "var(--bf-bg)", color: "var(--bf-text)" }}>
-            <div style={{ width: 76, height: 76, borderRadius: "50%", background: "#fff", color: "#000", display: "flex", alignItems: "center", justifyContent: "center" }}><Check size={38} aria-hidden /></div>
+            <div style={{ width: 76, height: 76, borderRadius: "50%", background: "var(--bf-accent)", color: "var(--bf-on-accent)", display: "flex", alignItems: "center", justifyContent: "center" }}><Check size={38} aria-hidden /></div>
             <h2 style={{ fontSize: "1.6rem", fontWeight: 800 }}>הבקשה נשלחה!</h2>
             <p style={{ color: "var(--bf-muted)", lineHeight: 1.7 }}>
                 {service?.name} ב-{studioName}<br />
@@ -142,7 +142,7 @@ export default function BookPage() {
     return (
         <div style={{ minHeight: "100vh", paddingBottom: "4rem", background: "var(--bf-bg)", color: "var(--bf-text)" }}>
             {/* Header */}
-            <div style={{ background: "linear-gradient(180deg,#161616 0%,#000 100%)", borderBottom: "1px solid var(--bf-line)", padding: "1.5rem 1.25rem" }}>
+            <div style={{ background: "linear-gradient(180deg,var(--bf-glass-strong) 0%,var(--bf-bg) 100%)", borderBottom: "1px solid var(--bf-line)", padding: "1.5rem 1.25rem" }}>
                 <Link href={`/b/${slug}`} style={{ color: "var(--bf-muted)", textDecoration: "none", fontSize: "0.85rem", display: "inline-flex", alignItems: "center", gap: "0.25rem" }}><ArrowRight size={14} aria-hidden /> {studioName}</Link>
                 <h1 style={{ fontSize: "1.5rem", fontWeight: 800, marginTop: "0.5rem", display: "flex", alignItems: "center", gap: "0.5rem" }}><CalendarDays size={22} aria-hidden /> קביעת תור</h1>
             </div>
@@ -150,7 +150,7 @@ export default function BookPage() {
             {/* Progress bar */}
             <div style={{ display: "flex", padding: "1rem 1.25rem", gap: "0.3rem" }}>
                 {steps.map((s, i) => (
-                    <div key={s} style={{ flex: 1, height: 4, borderRadius: 4, background: stepIdx >= i ? "#fff" : "rgba(255,255,255,.12)", transition: "background .3s" }} />
+                    <div key={s} style={{ flex: 1, height: 4, borderRadius: 4, background: stepIdx >= i ? "var(--bf-accent)" : "rgb(var(--bf-text-rgb) / .12)", transition: "background .3s" }} />
                 ))}
             </div>
 
@@ -195,7 +195,7 @@ export default function BookPage() {
                             </div>
                         )}
                         <input type="date" value={date} onChange={e => setDate(e.target.value)} min={today}
-                            style={{ width: "100%", background: "rgba(255,255,255,.07)", border: "1px solid var(--bf-line)", borderRadius: 14, padding: "0.85rem 1rem", color: "#fff", fontSize: "1rem", outline: "none", colorScheme: "dark" }} />
+                            style={{ width: "100%", background: "rgb(var(--bf-text-rgb) / .07)", border: "1px solid var(--bf-line)", borderRadius: 14, padding: "0.85rem 1rem", color: "var(--bf-text)", fontSize: "1rem", outline: "none", colorScheme: "var(--bf-scheme)" }} />
                         <PrimaryBtn disabled={!date} onClick={() => setStep("time")} label={<>המשך <ChevronLeft size={18} aria-hidden /></>} />
                     </Card>
                 )}
@@ -278,7 +278,7 @@ export default function BookPage() {
                         <div style={{ marginBottom: "1.25rem" }}>
                             <div style={{ color: "var(--bf-muted)", fontSize: "0.78rem", marginBottom: "0.3rem" }}>הערות (אופציונלי)</div>
                             <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} placeholder="רצון מיוחד, סגנון..."
-                                style={{ width: "100%", background: "rgba(255,255,255,.07)", border: "1px solid var(--bf-line)", borderRadius: 12, padding: "0.7rem 0.9rem", color: "#fff", fontSize: "0.95rem", outline: "none", resize: "vertical", colorScheme: "dark" }} />
+                                style={{ width: "100%", background: "rgb(var(--bf-text-rgb) / .07)", border: "1px solid var(--bf-line)", borderRadius: 12, padding: "0.7rem 0.9rem", color: "var(--bf-text)", fontSize: "0.95rem", outline: "none", resize: "vertical", colorScheme: "var(--bf-scheme)" }} />
                         </div>
                         {customer ? (
                             <PrimaryBtn disabled={submitting} onClick={submit} label={submitting ? "שולח..." : <><Send size={17} aria-hidden /> שלח בקשת תור</>} />

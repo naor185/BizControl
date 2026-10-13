@@ -149,7 +149,7 @@ export default function MePage() {
                         <p dir="ltr" style={{ color: "var(--bf-muted)", fontSize: "0.85rem", marginTop: "0.25rem", textAlign: "right" }}>{customer.phone}</p>
                         {customer.city && <p style={{ color: "var(--bf-faint)", fontSize: "0.82rem", marginTop: "0.15rem", display: "flex", alignItems: "center", gap: "0.25rem" }}><MapPin size={13} aria-hidden /> {customer.city}</p>}
                     </div>
-                    <div style={{ width: 56, height: 56, borderRadius: "50%", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.5rem", fontWeight: 800, color: "#000" }}>
+                    <div style={{ width: 56, height: 56, borderRadius: "50%", background: "var(--bf-accent)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.5rem", fontWeight: 800, color: "var(--bf-on-accent)" }}>
                         {(customer.first_name?.[0] || customer.phone[0] || "?").toUpperCase()}
                     </div>
                 </div>
@@ -183,7 +183,7 @@ export default function MePage() {
                                         <div style={{ color: "var(--bf-muted)", fontSize: "0.78rem" }}>{s.city}</div>
                                     </div>
                                     <div style={{ display: "flex", gap: "0.4rem" }}>
-                                        <Link href={`/b/${s.slug}`} style={{ background: "#fff", borderRadius: 10, padding: "0.4rem 0.8rem", color: "#000", fontSize: "0.78rem", fontWeight: 700, textDecoration: "none" }}>
+                                        <Link href={`/b/${s.slug}`} style={{ background: "var(--bf-accent)", borderRadius: 10, padding: "0.4rem 0.8rem", color: "var(--bf-on-accent)", fontSize: "0.78rem", fontWeight: 700, textDecoration: "none" }}>
                                             פתח
                                         </Link>
                                         <button type="button" onClick={() => removeFav(s.slug)} aria-label="הסר ממועדפים" style={{ background: "var(--bf-glass)", border: "1px solid var(--bf-line)", borderRadius: 10, padding: "0.4rem 0.55rem", color: "var(--bf-muted)", cursor: "pointer", display: "flex" }}>
@@ -244,9 +244,9 @@ export default function MePage() {
                                         <div style={{ fontWeight: 700, fontSize: "0.88rem" }}>{w.studio_name}</div>
                                         <span style={{
                                             fontSize: "0.72rem", fontWeight: 700, borderRadius: 8, padding: "0.2rem 0.55rem", display: "inline-flex", alignItems: "center", gap: "0.25rem",
-                                            background: w.status === "notified" ? "#fff" : "var(--bf-glass)",
-                                            color: w.status === "notified" ? "#000" : "var(--bf-muted)",
-                                            border: `1px solid ${w.status === "notified" ? "#fff" : "var(--bf-line)"}`,
+                                            background: w.status === "notified" ? "var(--bf-accent)" : "var(--bf-glass)",
+                                            color: w.status === "notified" ? "var(--bf-on-accent)" : "var(--bf-muted)",
+                                            border: `1px solid ${w.status === "notified" ? "var(--bf-text)" : "var(--bf-line)"}`,
                                         }}>
                                             {w.status === "notified" ? <><Bell size={12} aria-hidden /> התפנה מקום!</> : <><Clock size={12} aria-hidden /> ממתין</>}
                                         </span>
@@ -325,7 +325,7 @@ interface WaitlistEntry {
 }
 
 const HEADER: React.CSSProperties = {
-    background: "linear-gradient(180deg,#161616 0%,#000 100%)", borderBottom: "1px solid var(--bf-line)", padding: "2rem 1.25rem 1.5rem",
+    background: "linear-gradient(180deg,var(--bf-glass-strong) 0%,var(--bf-bg) 100%)", borderBottom: "1px solid var(--bf-line)", padding: "2rem 1.25rem 1.5rem",
 };
 const SECTION_TITLE: React.CSSProperties = {
     display: "flex", alignItems: "center", gap: "0.45rem", fontWeight: 800, fontSize: "1rem", marginBottom: "0.75rem", color: "var(--bf-text)",

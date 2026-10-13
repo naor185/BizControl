@@ -68,7 +68,7 @@ function HeroSection({ q, city, setQ, setCity, locating, onLocate, searchRef }: 
             ))}
 
             {/* ── Gradient overlay ── */}
-            <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(0,0,0,.45) 0%, rgba(0,0,0,.55) 55%, #000 100%)", zIndex: 1 }} />
+            <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(0,0,0,.45) 0%, rgba(0,0,0,.55) 55%, var(--bf-bg) 100%)", zIndex: 1 }} />
 
             {/* ── Text + Search overlay ── */}
             <div style={{ position: "absolute", inset: 0, zIndex: 2, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "2rem 1.25rem", textAlign: "center" }}>
@@ -241,9 +241,9 @@ export default function HomePage() {
             {showLocationModal && (
                 <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", alignItems: "flex-end", justifyContent: "center", background: "rgba(0,0,0,.55)", backdropFilter: "blur(4px)", animation: "fadeIn .25s ease" }}
                     onClick={e => { if (e.target === e.currentTarget) dismissLocationModal(); }}>
-                    <div style={{ background: "#0c0c0c", border: "1px solid var(--bf-line)", borderBottom: "none", borderRadius: "28px 28px 0 0", padding: "2.25rem 2rem 2.5rem", width: "100%", maxWidth: 520, textAlign: "center", animation: "slideUp .3s ease" }}>
+                    <div style={{ background: "var(--bf-surface)", border: "1px solid var(--bf-line)", borderBottom: "none", borderRadius: "28px 28px 0 0", padding: "2.25rem 2rem 2.5rem", width: "100%", maxWidth: 520, textAlign: "center", animation: "slideUp .3s ease" }}>
                         <style>{`@keyframes slideUp { from { transform: translateY(100%); opacity: 0; } to { transform: none; opacity: 1; } }`}</style>
-                        <div style={{ width: 72, height: 72, borderRadius: "50%", background: "#fff", color: "#000", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 1.25rem" }}><MapPin size={32} aria-hidden /></div>
+                        <div style={{ width: 72, height: 72, borderRadius: "50%", background: "var(--bf-accent)", color: "var(--bf-on-accent)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 1.25rem" }}><MapPin size={32} aria-hidden /></div>
                         <div style={{ fontWeight: 800, fontSize: "1.25rem", color: "var(--bf-text)", marginBottom: "0.6rem" }}>BizFind רוצה לגשת למיקום שלך</div>
                         <div style={{ color: "var(--bf-muted)", fontSize: "0.92rem", lineHeight: 1.65, marginBottom: "2rem" }}>
                             כדי להציג עסקים, ספרים, סטודיואים וספא<br />
@@ -262,14 +262,14 @@ export default function HomePage() {
             )}
 
             {/* ── Header ── */}
-            <header style={{ background: "rgba(0,0,0,.85)", backdropFilter: "blur(14px)", borderBottom: "1px solid var(--bf-line)", padding: "0 1.25rem", height: 56, display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 40 }}>
+            <header style={{ background: "rgb(var(--bf-bg-rgb) / .85)", backdropFilter: "blur(14px)", borderBottom: "1px solid var(--bf-line)", padding: "0 1.25rem", height: 56, display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 40 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
                     <img src="/logo.png" alt="BizControl" style={{ width: 32, height: 32, objectFit: "contain" }} />
                     <span style={{ fontWeight: 800, fontSize: "1.05rem", color: "var(--bf-text)" }}>BizFind</span>
                 </div>
                 <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
                     <Link href="/explore" style={{ fontSize: "0.82rem", color: "var(--bf-muted)", textDecoration: "none", fontWeight: 600 }}>חיפוש מתקדם</Link>
-                    <Link href="/studio/login" style={{ fontSize: "0.82rem", background: "#fff", color: "#000", textDecoration: "none", fontWeight: 700, padding: "0.38rem 0.9rem", borderRadius: 10 }}>כניסה לעסקים</Link>
+                    <Link href="/studio/login" style={{ fontSize: "0.82rem", background: "var(--bf-accent)", color: "var(--bf-on-accent)", textDecoration: "none", fontWeight: 700, padding: "0.38rem 0.9rem", borderRadius: 10 }}>כניסה לעסקים</Link>
                 </div>
             </header>
 
@@ -318,9 +318,9 @@ export default function HomePage() {
                             {categories.slice(0, 8).map(cat => (
                                 <button key={cat.id} type="button" onClick={() => selectType(cat.id)}
                                     style={{ ...GLASS_CARD, borderRadius: 18, padding: "1.1rem 0.75rem", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: "0.4rem", transition: "transform .2s, border-color .2s" }}
-                                    onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-3px)"; e.currentTarget.style.borderColor = "rgba(255,255,255,.4)"; }}
+                                    onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-3px)"; e.currentTarget.style.borderColor = "rgb(var(--bf-text-rgb) / .4)"; }}
                                     onMouseLeave={e => { e.currentTarget.style.transform = ""; e.currentTarget.style.borderColor = "var(--bf-line)"; }}>
-                                    <BusinessTypeIcon name={cat.icon} size={28} color="#fff" strokeWidth={1.5} />
+                                    <BusinessTypeIcon name={cat.icon} size={28} strokeWidth={1.5} />
                                     <span style={{ color: "var(--bf-text)", fontWeight: 700, fontSize: "0.82rem" }}>{cat.label}</span>
                                     <span style={{ color: "var(--bf-faint)", fontSize: "0.7rem" }}>{cat.count} עסקים</span>
                                 </button>
@@ -337,7 +337,7 @@ export default function HomePage() {
                             <h2 style={{ fontWeight: 800, fontSize: "1.05rem", color: "var(--bf-text)" }}>
                                 {isSearching ? `${studios.length} תוצאות` : "עסקים מובילים"}
                             </h2>
-                            {loading && <div style={{ width: 18, height: 18, border: "2.5px solid rgba(255,255,255,.2)", borderTopColor: "#fff", borderRadius: "50%", animation: "spin .7s linear infinite" }} />}
+                            {loading && <div style={{ width: 18, height: 18, border: "2.5px solid rgb(var(--bf-text-rgb) / .2)", borderTopColor: "var(--bf-text)", borderRadius: "50%", animation: "spin .7s linear infinite" }} />}
                         </div>
                     )}
 
@@ -382,7 +382,7 @@ function StudioCard({ s }: { s: StudioCard }) {
                 onMouseLeave={() => setHovered(false)}
                 style={{
                     ...GLASS_CARD, overflow: "hidden",
-                    borderColor: hovered ? "rgba(255,255,255,.35)" : "var(--bf-line)",
+                    borderColor: hovered ? "rgb(var(--bf-text-rgb) / .35)" : "var(--bf-line)",
                     transform: hovered ? "translateY(-4px)" : "none",
                     transition: "transform .25s, border-color .25s",
                 }}
@@ -447,6 +447,6 @@ function pill(active: boolean): React.CSSProperties {
     return {
         padding: "0.45rem 1rem", borderRadius: 20, cursor: "pointer", fontWeight: 700, fontSize: "0.82rem", whiteSpace: "nowrap",
         display: "inline-flex", alignItems: "center", gap: "0.3rem", transition: "background .2s, color .2s",
-        border: `1px solid ${active ? "#fff" : "var(--bf-line)"}`, background: active ? "#fff" : "var(--bf-glass)", color: active ? "#000" : "var(--bf-muted)",
+        border: `1px solid ${active ? "var(--bf-text)" : "var(--bf-line)"}`, background: active ? "var(--bf-accent)" : "var(--bf-glass)", color: active ? "var(--bf-on-accent)" : "var(--bf-muted)",
     };
 }

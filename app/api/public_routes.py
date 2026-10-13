@@ -16,6 +16,7 @@ from app.core.studio_access import raise_if_archived
 from app.models.studio import Studio
 from app.models.user import User
 from app.services import vat as _vat
+from app.services import bizfind_theme as _bizfind_theme
 from app.models.client import Client
 from app.models.appointment import Appointment
 from app.models.studio_settings import StudioSettings
@@ -103,6 +104,7 @@ class PublicPlatformTheme(BaseModel):
     text_muted: str
     heading_font: str
     body_font: str
+    bizfind: dict = {}       # BizFind's own look (services/bizfind_theme.py) — an empty field keeps its default
 
 
 # Safe fallback if the platform studio row is ever missing/misconfigured in
@@ -142,6 +144,7 @@ def get_public_platform_theme(db: Session = Depends(get_db)):
         text_muted=settings.theme_text_muted_color,
         heading_font=settings.landing_page_title_font or "Heebo",
         body_font=settings.landing_page_desc_font or "Assistant",
+        bizfind=_bizfind_theme.read(getattr(settings, "bizfind_theme", None)),
     )
 
 

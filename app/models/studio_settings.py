@@ -219,6 +219,8 @@ class StudioSettings(Base):
     # the platform's row only: BizFind in the stores — the app link (find.biz-control.com/app) leads there once set
     bizfind_ios_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     bizfind_android_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # the platform's row only: BizFind's own look, apart from BizControl's (services/bizfind_theme.py) — JSON
+    bizfind_theme: Mapped[str | None] = mapped_column(Text, nullable=True)
     # the NFC attendance clock's code — on when set; only the superadmin issues it (services/nfc_clock.py)
     nfc_clock_code: Mapped[str | None] = mapped_column(Text, nullable=True)
     # the messages turned off on the message templates page — a JSON list of their ids (services/service_switches.py)

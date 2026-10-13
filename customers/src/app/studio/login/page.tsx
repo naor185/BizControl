@@ -62,7 +62,7 @@ export default function StudioLoginPage() {
     if (checkingSession) return null;
 
     return (
-        <div dir="rtl" style={{ minHeight: "100vh", background: "radial-gradient(ellipse at 50% 0%, #262626 0%, #000 65%)", color: "var(--bf-text)", display: "flex", alignItems: "center", justifyContent: "center", padding: "2rem 1rem" }}>
+        <div dir="rtl" style={{ minHeight: "100vh", background: "radial-gradient(ellipse at 50% 0%, var(--bf-glass-strong) 0%, var(--bf-bg) 65%)", color: "var(--bf-text)", display: "flex", alignItems: "center", justifyContent: "center", padding: "2rem 1rem" }}>
             <div style={{ width: "100%", maxWidth: 420 }}>
 
                 {/* Logo */}
@@ -87,9 +87,9 @@ export default function StudioLoginPage() {
                             <input
                                 type="email" value={email} onChange={e => setEmail(e.target.value)} required
                                 placeholder="you@example.com" dir="ltr"
-                                style={{ width: "100%", border: "1px solid rgba(255,255,255,.16)", borderRadius: 12, padding: "0.75rem 1rem", fontSize: "0.95rem", outline: "none", background: "rgba(255,255,255,.07)", color: "#fff", colorScheme: "dark", boxSizing: "border-box", transition: "border-color .2s" }}
-                                onFocus={e => (e.target.style.borderColor = "#fff")}
-                                onBlur={e => (e.target.style.borderColor = "rgba(255,255,255,.16)")}
+                                style={{ width: "100%", border: "1px solid rgb(var(--bf-text-rgb) / .16)", borderRadius: 12, padding: "0.75rem 1rem", fontSize: "0.95rem", outline: "none", background: "rgb(var(--bf-text-rgb) / .07)", color: "var(--bf-text)", colorScheme: "var(--bf-scheme)", boxSizing: "border-box", transition: "border-color .2s" }}
+                                onFocus={e => (e.target.style.borderColor = "var(--bf-text)")}
+                                onBlur={e => (e.target.style.borderColor = "rgb(var(--bf-text-rgb) / .16)")}
                             />
                         </div>
                         <div>
@@ -97,9 +97,9 @@ export default function StudioLoginPage() {
                             <PasswordInput
                                 value={password} onChange={e => setPassword(e.target.value)} required
                                 placeholder="••••••••"
-                                style={{ width: "100%", border: "1px solid rgba(255,255,255,.16)", borderRadius: 12, padding: "0.75rem 1rem", fontSize: "0.95rem", outline: "none", background: "rgba(255,255,255,.07)", color: "#fff", colorScheme: "dark", boxSizing: "border-box", transition: "border-color .2s" }}
-                                onFocus={e => (e.target.style.borderColor = "#fff")}
-                                onBlur={e => (e.target.style.borderColor = "rgba(255,255,255,.16)")}
+                                style={{ width: "100%", border: "1px solid rgb(var(--bf-text-rgb) / .16)", borderRadius: 12, padding: "0.75rem 1rem", fontSize: "0.95rem", outline: "none", background: "rgb(var(--bf-text-rgb) / .07)", color: "var(--bf-text)", colorScheme: "var(--bf-scheme)", boxSizing: "border-box", transition: "border-color .2s" }}
+                                onFocus={e => (e.target.style.borderColor = "var(--bf-text)")}
+                                onBlur={e => (e.target.style.borderColor = "rgb(var(--bf-text-rgb) / .16)")}
                             />
                             <a href="https://www.biz-control.com/forgot-password" target="_blank" rel="noopener"
                                 style={{ display: "inline-block", marginTop: "0.5rem", color: "var(--bf-muted)", fontSize: "0.82rem", fontWeight: 600, textDecoration: "underline", textUnderlineOffset: 3 }}>
@@ -114,7 +114,7 @@ export default function StudioLoginPage() {
                         )}
 
                         <button type="submit" disabled={loading}
-                            style={{ background: "#fff", color: "#000", border: "none", borderRadius: 12, padding: "0.85rem", fontWeight: 800, fontSize: "1rem", cursor: loading ? "default" : "pointer", opacity: loading ? 0.6 : 1, transition: "opacity .2s", marginTop: "0.25rem" }}>
+                            style={{ background: "var(--bf-accent)", color: "var(--bf-on-accent)", border: "none", borderRadius: 12, padding: "0.85rem", fontWeight: 800, fontSize: "1rem", cursor: loading ? "default" : "pointer", opacity: loading ? 0.6 : 1, transition: "opacity .2s", marginTop: "0.25rem" }}>
                             {loading ? "מתחבר..." : "כניסה לניהול העסק ←"}
                         </button>
                     </form>
@@ -123,7 +123,7 @@ export default function StudioLoginPage() {
                         <p style={{ color: "var(--bf-muted)", fontSize: "0.85rem", marginBottom: "0.75rem" }}>אין לכם חשבון BizControl?</p>
                         <div style={{ display: "flex", gap: "0.6rem", justifyContent: "center", flexWrap: "wrap" }}>
                             <Link href="/for-business/register?plan=trial"
-                                style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem", background: "#fff", color: "#000", padding: "0.55rem 1.1rem", borderRadius: 10, fontWeight: 700, fontSize: "0.82rem", textDecoration: "none" }}>
+                                style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem", background: "var(--bf-accent)", color: "var(--bf-on-accent)", padding: "0.55rem 1.1rem", borderRadius: 10, fontWeight: 700, fontSize: "0.82rem", textDecoration: "none" }}>
                                 <Rocket size={14} aria-hidden /> הצטרפו בחינם
                             </Link>
                             <Link href="/for-business"

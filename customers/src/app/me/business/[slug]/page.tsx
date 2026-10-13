@@ -111,7 +111,7 @@ export default function BusinessDetailPage() {
 
             {loading && (
                 <div style={{ textAlign: "center", padding: "3rem", color: "var(--bf-muted)" }}>
-                    <div style={{ width: 36, height: 36, border: "3px solid rgba(255,255,255,.18)", borderTopColor: "#fff", borderRadius: "50%", animation: "spin .8s linear infinite", margin: "0 auto 1rem" }} />
+                    <div style={{ width: 36, height: 36, border: "3px solid rgb(var(--bf-text-rgb) / .18)", borderTopColor: "var(--bf-text)", borderRadius: "50%", animation: "spin .8s linear infinite", margin: "0 auto 1rem" }} />
                     טוען...
                 </div>
             )}
@@ -144,8 +144,8 @@ export default function BusinessDetailPage() {
                             <div style={{ color: "var(--bf-muted)", fontSize: "0.8rem", marginTop: "0.2rem" }}>{business.visit_count} ביקורים</div>
                         </div>
                         {business.is_club_member && (
-                            <div style={{ textAlign: "center", background: "#fff", borderRadius: 12, padding: "0.4rem 0.7rem" }}>
-                                <div style={{ fontWeight: 800, fontSize: "1rem", color: "#000" }}>{business.loyalty_points}</div>
+                            <div style={{ textAlign: "center", background: "var(--bf-accent)", borderRadius: 12, padding: "0.4rem 0.7rem" }}>
+                                <div style={{ fontWeight: 800, fontSize: "1rem", color: "var(--bf-on-accent)" }}>{business.loyalty_points}</div>
                                 <div style={{ fontSize: "0.65rem", color: "#444" }}>נקודות</div>
                             </div>
                         )}
@@ -197,7 +197,7 @@ export default function BusinessDetailPage() {
                     {classes && classes.is_client && (
                         <Link href={`/b/${business.studio_slug}/classes`}
                             style={{ ...GLASS_CARD, borderRadius: 16, padding: "1rem", display: "flex", alignItems: "center", gap: "0.8rem", marginBottom: "2rem", color: "inherit", textDecoration: "none" }}>
-                            <CalendarDays size={24} color="#fff" style={{ flexShrink: 0 }} aria-hidden />
+                            <CalendarDays size={24} style={{ color: "var(--bf-text)", flexShrink: 0 }} aria-hidden />
                             <div style={{ flex: 1, minWidth: 0 }}>
                                 <div style={{ fontWeight: 800 }}>
                                     שיעורים{classes.memberships[0] ? ` · ${classes.memberships[0].name}` : ""}
@@ -252,7 +252,7 @@ export default function BusinessDetailPage() {
                         ) : (
                             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0.6rem" }}>
                                 {photos.map(p => (
-                                    <a key={p.id} href={imgUrl(p.photo_url)} target="_blank" rel="noopener noreferrer" style={{ aspectRatio: "1", borderRadius: 12, overflow: "hidden", background: "#111", display: "block" }}>
+                                    <a key={p.id} href={imgUrl(p.photo_url)} target="_blank" rel="noopener noreferrer" style={{ aspectRatio: "1", borderRadius: 12, overflow: "hidden", background: "var(--bf-surface)", display: "block" }}>
                                         <img src={imgUrl(p.photo_url)} alt={p.caption || ""} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                                     </a>
                                 ))}

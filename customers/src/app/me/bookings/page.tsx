@@ -36,7 +36,7 @@ export default function BookingsPage() {
 
             {loading && (
                 <div style={{ textAlign: "center", padding: "3rem", color: "var(--bf-muted)" }}>
-                    <div style={{ width: 36, height: 36, border: "3px solid rgba(255,255,255,.18)", borderTopColor: "#fff", borderRadius: "50%", animation: "spin .8s linear infinite", margin: "0 auto 1rem" }} />
+                    <div style={{ width: 36, height: 36, border: "3px solid rgb(var(--bf-text-rgb) / .18)", borderTopColor: "var(--bf-text)", borderRadius: "50%", animation: "spin .8s linear infinite", margin: "0 auto 1rem" }} />
                     טוען...
                 </div>
             )}

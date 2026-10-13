@@ -11,6 +11,7 @@ import {
 import PasswordInput from "@/components/PasswordInput";
 import LandingPageTemplate from "@/components/LandingPageTemplate";
 import BizFindStoreLinks from "@/components/admin/BizFindStoreLinks";
+import BizFindDesign from "@/components/admin/BizFindDesign";
 import { Flag, Inbox, Tags, Users } from "lucide-react";
 
 type Stats = {
@@ -1233,17 +1234,14 @@ export default function AdminPage() {
                             <div className="flex items-center gap-3">
                                 <div className="w-12 h-12 rounded-2xl bg-violet-500/20 border border-violet-500/30 flex items-center justify-center text-2xl">🎨</div>
                                 <div>
-                                    <h2 className="text-lg font-bold">עיצוב גלובלי</h2>
-                                    <p className="text-slate-400 text-sm mt-0.5">חל על כל סטודיו — הלוגו נשאר פר-סטודיו, השאר לא. לא כל שדה משפיע על שתי האפליקציות — ראה תגית ליד כל קבוצה.</p>
+                                    <h2 className="text-lg font-bold">עיצוב BizControl</h2>
+                                    <p className="text-slate-400 text-sm mt-0.5">חל רק על BizControl — המערכת של בעלי העסקים. הלוגו נשאר של כל עסק. ל-BizFind יש עיצוב משלו, בכרטיס הבא.</p>
                                 </div>
                             </div>
 
-                            {/* Brand colors — the only color group BizFind's ThemeProvider actually applies (see customers/src/components/ThemeProvider.tsx) */}
+                            {/* BizControl's own — BizFind has its look apart (components/admin/BizFindDesign.tsx) */}
                             <div className="space-y-2">
-                                <div className="flex items-center gap-2">
-                                    <span className="text-xs font-bold text-slate-300">צבעי מותג</span>
-                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">BizControl + BizFind</span>
-                                </div>
+                                <span className="text-xs font-bold text-slate-300">צבעי מותג</span>
                                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                                     {([
                                         ["theme_primary_color", "ראשי"],
@@ -1271,12 +1269,8 @@ export default function AdminPage() {
                                 </div>
                             </div>
 
-                            {/* Background/surface/text — deliberately NOT applied in BizFind (ThemeProvider.tsx there skips these on purpose: its existing components assume the current dark background, and swapping it without recoloring every component first would make large parts of the app unreadable — see that file's own comment) */}
                             <div className="space-y-2">
-                                <div className="flex items-center gap-2">
-                                    <span className="text-xs font-bold text-slate-300">רקע וטקסט</span>
-                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-400 border border-sky-500/30">BizControl בלבד</span>
-                                </div>
+                                <span className="text-xs font-bold text-slate-300">רקע וטקסט</span>
                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                                     {([
                                         ["theme_background_color", "רקע"],
@@ -1306,10 +1300,7 @@ export default function AdminPage() {
                             </div>
 
                             <div className="space-y-2">
-                                <div className="flex items-center gap-2">
-                                    <span className="text-xs font-bold text-slate-300">פונטים</span>
-                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">BizControl + BizFind</span>
-                                </div>
+                                <span className="text-xs font-bold text-slate-300">פונטים</span>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-1.5">
                                         <label className="text-xs text-slate-400 block">פונט כותרות</label>
@@ -1396,9 +1387,11 @@ export default function AdminPage() {
                                 className="w-full py-3 rounded-xl font-bold text-sm transition-all text-white disabled:opacity-60"
                                 style={{ background: platformForm.theme_primary_color }}
                             >
-                                {platformSaving ? "שומר..." : "💾 שמור עיצוב גלובלי"}
+                                {platformSaving ? "שומר..." : "💾 שמירת העיצוב של BizControl"}
                             </button>
                         </div>
+
+                        <BizFindDesign />
 
                         {/* Webhook Config Card */}
                         {webhookConfig && (

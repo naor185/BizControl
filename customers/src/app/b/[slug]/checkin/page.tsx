@@ -16,7 +16,7 @@ type Line = { session_id: string; name: string; starts_at: string; spots_left?: 
 type Result = { studio: string; checked_in: Line[]; already?: Line[]; options?: Line[] };
 
 const card = { background: "var(--bf-glass)", border: "1px solid var(--bf-line)", borderRadius: 18 } as const;
-const muted = "rgba(255,255,255,.68)";
+const muted = "rgb(var(--bf-text-rgb) / .68)";
 
 function Checkin() {
     const { slug } = useParams() as { slug: string };
@@ -52,7 +52,7 @@ function Checkin() {
         <Message icon={<AlertCircle size={40} color="#fca5a5" />} title="הקוד לא שלם" text="סרקו שוב את הקוד שבכניסה." />
     ) : loggedIn === null ? null : !loggedIn ? (
         <div style={{ ...card, padding: "1.5rem", textAlign: "center" }}>
-            <DoorOpen size={40} color="#fff" style={{ margin: "0 auto 0.75rem" }} />
+            <DoorOpen size={40} style={{ color: "var(--bf-text)", margin: "0 auto 0.75rem" }} />
             <p style={{ fontWeight: 800, fontSize: "1.1rem", margin: "0 0 0.4rem" }}>צ׳ק-אין לשיעור</p>
             <p style={{ color: muted, fontSize: "0.9rem", margin: "0 0 1.1rem" }}>התחברו עם מספר הטלפון שלכם — אותו מספר שרשום בעסק.</p>
             <LoginButton onDone={() => setLoggedIn(true)} />
@@ -60,7 +60,7 @@ function Checkin() {
     ) : error ? (
         <Message icon={<AlertCircle size={40} color="#fca5a5" />} title="לא הצלחנו לסמן הגעה" text={error} />
     ) : !result ? (
-        <div style={{ display: "flex", justifyContent: "center", padding: "3rem" }}><Loader2 className="spin" size={30} color="#fff" aria-label="בודקים" /></div>
+        <div style={{ display: "flex", justifyContent: "center", padding: "3rem" }}><Loader2 className="spin" size={30} aria-label="בודקים" style={{ color: "var(--bf-text)" }} /></div>
     ) : result.checked_in.length > 0 ? (
         <Message icon={<CheckCircle2 size={56} color="#4ade80" />} title="נרשמה הגעה!"
             text={result.checked_in.map(x => `${x.name} · ${ilTime(x.starts_at)}`).join("\n")} />
@@ -79,7 +79,7 @@ function Checkin() {
                             <span style={{ display: "block", fontWeight: 700 }}>{o.name}</span>
                             <span dir="ltr" style={{ display: "block", fontSize: "0.82rem", color: muted, textAlign: "right" }}>{ilTime(o.starts_at)}</span>
                         </span>
-                        <span style={{ background: "#fff", color: "#000", borderRadius: 10, padding: "0.45rem 0.8rem", fontWeight: 800, fontSize: "0.85rem", flexShrink: 0 }}>
+                        <span style={{ background: "var(--bf-accent)", color: "var(--bf-on-accent)", borderRadius: 10, padding: "0.45rem 0.8rem", fontWeight: 800, fontSize: "0.85rem", flexShrink: 0 }}>
                             {busy ? "רגע…" : "להירשם ולסמן הגעה"}
                         </span>
                     </button>

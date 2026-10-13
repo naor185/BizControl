@@ -32,6 +32,7 @@ from app.models.client import Client
 from app.models.message_job import MessageJob
 from app.models.studio_note import StudioNote
 from app.models.audit_log import AuditLog
+from app.services import bizfind_theme
 from app.models.studio_integration import StudioIntegration
 from app.models.lead import Lead
 
@@ -1196,6 +1197,7 @@ class PlatformSettingsOut(BaseModel):
     theme_body_font: str | None
     bizfind_ios_url: str | None = None        # BizFind in the App Store / Google Play — the app link leads there
     bizfind_android_url: str | None = None
+    bizfind_theme: dict = {}                  # BizFind's own look (services/bizfind_theme.py) — empty: its default
 
 
 class PlatformSettingsIn(BaseModel):
@@ -1213,6 +1215,7 @@ class PlatformSettingsIn(BaseModel):
     theme_body_font: str | None = None
     bizfind_ios_url: str | None = None
     bizfind_android_url: str | None = None
+    bizfind_theme: dict | None = None         # only the fields sent change; "" puts one back to BizFind's default
 
 
 def _platform_settings_out(settings: StudioSettings) -> "PlatformSettingsOut":
@@ -1231,6 +1234,7 @@ def _platform_settings_out(settings: StudioSettings) -> "PlatformSettingsOut":
         theme_body_font=settings.landing_page_desc_font,
         bizfind_ios_url=settings.bizfind_ios_url,
         bizfind_android_url=settings.bizfind_android_url,
+        bizfind_theme=bizfind_theme.read(settings.bizfind_theme),
     )
 
 
@@ -1321,6 +1325,11 @@ def update_platform_settings(
         settings.whatsapp_phone_id = payload.whatsapp_phone_id or None
     if payload.whatsapp_api_key is not None:
         settings.whatsapp_api_key = payload.whatsapp_api_key or None
+    if payload.bizfind_theme is not None:
+        try:
+            settings.bizfind_theme = bizfind_theme.merged(settings.bizfind_theme, payload.bizfind_theme)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
     for store in ("bizfind_ios_url", "bizfind_android_url"):       # empty: not in that store (yet)
         value = getattr(payload, store)
         if value is not None:

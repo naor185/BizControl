@@ -23,27 +23,27 @@ export default function ForBusinessPage() {
         <div dir="rtl" style={{ color: "var(--bf-text)", background: "var(--bf-bg)" }}>
 
             {/* Header */}
-            <header style={{ background: "rgba(0,0,0,.85)", backdropFilter: "blur(14px)", borderBottom: "1px solid var(--bf-line)", padding: "0 1.5rem", height: 64, display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 50 }}>
+            <header style={{ background: "rgb(var(--bf-bg-rgb) / .85)", backdropFilter: "blur(14px)", borderBottom: "1px solid var(--bf-line)", padding: "0 1.5rem", height: 64, display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 50 }}>
                 <Link href="/" style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: "0.5rem" }}>
                     <img src="/logo.png" alt="" style={{ width: 32, height: 32, objectFit: "contain" }} />
                     <span style={{ fontWeight: 800, fontSize: "1.1rem", color: "var(--bf-text)" }}>BizFind</span>
                 </Link>
                 <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
                     <Link href="/studio/login" style={{ color: "var(--bf-muted)", fontWeight: 600, fontSize: "0.9rem", textDecoration: "none" }}>כניסה לעסקים</Link>
-                    <Link href="/for-business/register?plan=trial" style={{ background: "#fff", color: "#000", padding: "0.5rem 1.1rem", borderRadius: 10, fontWeight: 700, fontSize: "0.88rem", textDecoration: "none" }}>
+                    <Link href="/for-business/register?plan=trial" style={{ background: "var(--bf-accent)", color: "var(--bf-on-accent)", padding: "0.5rem 1.1rem", borderRadius: 10, fontWeight: 700, fontSize: "0.88rem", textDecoration: "none" }}>
                         הצטרפו בחינם
                     </Link>
                 </div>
             </header>
 
             {/* Hero */}
-            <section style={{ background: "radial-gradient(ellipse at 50% 0%, #262626 0%, #000 70%)", padding: "5rem 1.5rem 4rem", textAlign: "center" }}>
+            <section style={{ background: "radial-gradient(ellipse at 50% 0%, var(--bf-glass-strong) 0%, var(--bf-bg) 70%)", padding: "5rem 1.5rem 4rem", textAlign: "center" }}>
                 <div style={{ maxWidth: 680, margin: "0 auto" }}>
                     <div style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem", background: "var(--bf-glass)", color: "var(--bf-text)", fontWeight: 700, fontSize: "0.82rem", padding: "0.35rem 0.9rem", borderRadius: 20, marginBottom: "1.25rem", border: "1px solid var(--bf-line)" }}>
                         <Rocket size={14} aria-hidden /> הפלטפורמה לעסקים של ישראל
                     </div>
                     <h1 style={{ fontSize: "clamp(2rem,5vw,3.2rem)", fontWeight: 900, lineHeight: 1.25, marginBottom: "1.25rem" }}>
-                        <span style={{ color: "rgba(255,255,255,.72)" }}>הגדילו את העסק שלכם.</span><br />
+                        <span style={{ color: "rgb(var(--bf-text-rgb) / .72)" }}>הגדילו את העסק שלכם.</span><br />
                         לקוחות חדשים כל יום.
                     </h1>
                     <p style={{ fontSize: "1.1rem", color: "var(--bf-muted)", lineHeight: 1.7, marginBottom: "2rem" }}>
@@ -94,7 +94,7 @@ export default function ForBusinessPage() {
                             const Icon = f.icon;
                             return (
                                 <div key={f.title} style={{ ...GLASS_CARD, padding: "1.5rem" }}>
-                                    <div style={{ width: 44, height: 44, borderRadius: 12, background: "#fff", color: "#000", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "0.9rem" }}><Icon size={22} aria-hidden /></div>
+                                    <div style={{ width: 44, height: 44, borderRadius: 12, background: "var(--bf-accent)", color: "var(--bf-on-accent)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "0.9rem" }}><Icon size={22} aria-hidden /></div>
                                     <div style={{ fontWeight: 800, fontSize: "1.05rem", marginBottom: "0.4rem" }}>{f.title}</div>
                                     <div style={{ color: "var(--bf-muted)", fontSize: "0.88rem", lineHeight: 1.6 }}>{f.desc}</div>
                                 </div>
@@ -114,7 +114,7 @@ export default function ForBusinessPage() {
                     <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
                         {STEPS.map(s => (
                             <div key={s.n} style={{ display: "flex", gap: "1.25rem", alignItems: "flex-start" }}>
-                                <div style={{ width: 48, height: 48, borderRadius: "50%", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", color: "#000", fontWeight: 900, fontSize: "1.1rem", flexShrink: 0 }}>
+                                <div style={{ width: 48, height: 48, borderRadius: "50%", background: "var(--bf-accent)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--bf-on-accent)", fontWeight: 900, fontSize: "1.1rem", flexShrink: 0 }}>
                                     {s.n}
                                 </div>
                                 <div style={{ paddingTop: "0.6rem" }}>
@@ -142,7 +142,7 @@ export default function ForBusinessPage() {
                         <a href="https://www.biz-control.com" target="_blank" rel="noopener" style={{ ...PRIMARY_BTN, padding: "0.85rem 2rem", fontSize: "0.95rem" }}>
                             גלה את BizControl <ChevronLeft size={17} aria-hidden />
                         </a>
-                        <Link href="/studio/login" style={{ display: "flex", alignItems: "center", background: "transparent", color: "var(--bf-text)", padding: "0.85rem 2rem", borderRadius: 14, fontWeight: 700, fontSize: "0.95rem", textDecoration: "none", border: "1px solid rgba(255,255,255,.3)" }}>
+                        <Link href="/studio/login" style={{ display: "flex", alignItems: "center", background: "transparent", color: "var(--bf-text)", padding: "0.85rem 2rem", borderRadius: 14, fontWeight: 700, fontSize: "0.95rem", textDecoration: "none", border: "1px solid rgb(var(--bf-text-rgb) / .3)" }}>
                             כניסה עם חשבון קיים
                         </Link>
                     </div>

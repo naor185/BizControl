@@ -107,7 +107,7 @@ function ExploreContent() {
         <div style={{ minHeight: "100vh", background: "var(--bf-bg)", color: "var(--bf-text)" }}>
 
             {/* Sticky search header */}
-            <div style={{ position: "sticky", top: "env(safe-area-inset-top, 0px)", zIndex: 40, background: "rgba(0,0,0,.9)", backdropFilter: "blur(14px)", borderBottom: "1px solid var(--bf-line)", padding: "0.85rem 1.25rem" }}>
+            <div style={{ position: "sticky", top: "env(safe-area-inset-top, 0px)", zIndex: 40, background: "rgb(var(--bf-bg-rgb) / .9)", backdropFilter: "blur(14px)", borderBottom: "1px solid var(--bf-line)", padding: "0.85rem 1.25rem" }}>
                 <div style={{ maxWidth: 1100, margin: "0 auto" }}>
                     <div style={{ display: "flex", gap: "0.6rem", alignItems: "center", flexWrap: "wrap" }}>
                         {/* Back */}
@@ -115,7 +115,7 @@ function ExploreContent() {
 
                         {/* Search */}
                         <div style={{ flex: "3 1 200px", position: "relative" }}>
-                            <Search size={16} color="rgba(255,255,255,.55)" aria-hidden style={{ position: "absolute", right: "0.75rem", top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
+                            <Search size={16} aria-hidden style={{ color: "rgb(var(--bf-text-rgb) / .55)", position: "absolute", right: "0.75rem", top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
                             <input ref={inputRef} value={q} onChange={e => setQ(e.target.value)}
                                 placeholder="חפש שירות או עסק..."
                                 style={{ ...FIELD, padding: "0.6rem 2.2rem 0.6rem 0.75rem" }} />
@@ -123,7 +123,7 @@ function ExploreContent() {
 
                         {/* City */}
                         <div style={{ flex: "1 1 110px", position: "relative" }}>
-                            <MapPin size={15} color="rgba(255,255,255,.55)" aria-hidden style={{ position: "absolute", right: "0.75rem", top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
+                            <MapPin size={15} aria-hidden style={{ color: "rgb(var(--bf-text-rgb) / .55)", position: "absolute", right: "0.75rem", top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
                             <input value={city}
                                 onChange={e => { setCity(e.target.value); setShowCitySuggestions(true); }}
                                 onFocus={() => setShowCitySuggestions(true)}
@@ -131,7 +131,7 @@ function ExploreContent() {
                                 placeholder="עיר"
                                 style={{ ...FIELD, padding: "0.6rem 2rem 0.6rem 0.75rem" }} />
                             {showCitySuggestions && citySuggestions.length > 0 && (
-                                <div style={{ position: "absolute", top: "calc(100% + 0.3rem)", right: 0, left: 0, background: "#111", border: "1px solid var(--bf-line)", borderRadius: 12, overflow: "hidden", zIndex: 20, boxShadow: "0 8px 24px rgba(0,0,0,.6)" }}>
+                                <div style={{ position: "absolute", top: "calc(100% + 0.3rem)", right: 0, left: 0, background: "var(--bf-surface)", border: "1px solid var(--bf-line)", borderRadius: 12, overflow: "hidden", zIndex: 20, boxShadow: "0 8px 24px rgba(0,0,0,.6)" }}>
                                     {citySuggestions.map(c => (
                                         <div key={c} onClick={() => { setCity(c); setShowCitySuggestions(false); }}
                                             style={{ padding: "0.55rem 0.85rem", fontSize: "0.85rem", color: "var(--bf-text)", cursor: "pointer" }}
@@ -145,13 +145,13 @@ function ExploreContent() {
 
                         {/* Near me */}
                         <button type="button" onClick={locateMe} title="קרוב אליי" aria-label="קרוב אליי"
-                            style={{ padding: "0.6rem 0.75rem", background: "#fff", border: "none", borderRadius: 12, cursor: "pointer", color: "#000", flexShrink: 0, display: "flex" }}>
+                            style={{ padding: "0.6rem 0.75rem", background: "var(--bf-accent)", border: "none", borderRadius: 12, cursor: "pointer", color: "var(--bf-on-accent)", flexShrink: 0, display: "flex" }}>
                             {locating ? <LoaderCircle size={18} style={{ animation: "spin .8s linear infinite" }} aria-hidden /> : <LocateFixed size={18} aria-hidden />}
                         </button>
 
                         {/* Filters toggle (mobile) */}
                         <button type="button" onClick={() => setFiltersOpen(v => !v)}
-                            style={{ padding: "0.6rem 0.85rem", background: filtersOpen ? "#fff" : "var(--bf-glass)", border: `1px solid ${filtersOpen ? "#fff" : "var(--bf-line)"}`, borderRadius: 12, cursor: "pointer", color: filtersOpen ? "#000" : "var(--bf-muted)", fontSize: "0.82rem", fontWeight: 700, flexShrink: 0, display: "flex", alignItems: "center", gap: "0.35rem" }}>
+                            style={{ padding: "0.6rem 0.85rem", background: filtersOpen ? "var(--bf-accent)" : "var(--bf-glass)", border: `1px solid ${filtersOpen ? "var(--bf-text)" : "var(--bf-line)"}`, borderRadius: 12, cursor: "pointer", color: filtersOpen ? "var(--bf-on-accent)" : "var(--bf-muted)", fontSize: "0.82rem", fontWeight: 700, flexShrink: 0, display: "flex", alignItems: "center", gap: "0.35rem" }}>
                             <SlidersHorizontal size={15} aria-hidden /> פילטרים {hasFilters && <span aria-label="יש סינון" style={{ background: "#ef4444", borderRadius: "50%", width: 8, height: 8 }} />}
                         </button>
                     </div>
@@ -177,8 +177,8 @@ function ExploreContent() {
                             {/* off: the circle at the start (right); on: it slides to the end (left) — like BizControl's switches */}
                             <button type="button" role="switch" aria-checked={bookingOnly} onClick={() => setBookingOnly(v => !v)}
                                 style={{ display: "flex", alignItems: "center", gap: "0.4rem", cursor: "pointer", whiteSpace: "nowrap", fontSize: "0.82rem", fontFamily: "inherit", color: "var(--bf-muted)", background: "none", border: "none", padding: 0, userSelect: "none" }}>
-                                <span aria-hidden style={{ width: 36, height: 20, borderRadius: 10, background: bookingOnly ? "#fff" : "rgba(255,255,255,.14)", position: "relative", flexShrink: 0, transition: "background .2s" }}>
-                                    <span style={{ position: "absolute", top: 2, right: bookingOnly ? 18 : 2, width: 16, height: 16, borderRadius: "50%", background: bookingOnly ? "#000" : "#fff", transition: "right .2s" }} />
+                                <span aria-hidden style={{ width: 36, height: 20, borderRadius: 10, background: bookingOnly ? "var(--bf-accent)" : "rgb(var(--bf-text-rgb) / .14)", position: "relative", flexShrink: 0, transition: "background .2s" }}>
+                                    <span style={{ position: "absolute", top: 2, right: bookingOnly ? 18 : 2, width: 16, height: 16, borderRadius: "50%", background: bookingOnly ? "var(--bf-bg)" : "var(--bf-accent)", transition: "right .2s" }} />
                                 </span>
                                 הזמנה אונליין בלבד
                             </button>
@@ -215,14 +215,14 @@ function ExploreContent() {
                 <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
                     {/* Sort */}
                     <select value={sort} onChange={e => setSort(e.target.value as SortKey)}
-                        style={{ background: "var(--bf-glass)", border: "1px solid var(--bf-line)", borderRadius: 10, padding: "0.4rem 0.7rem", color: "var(--bf-text)", fontSize: "0.8rem", cursor: "pointer", outline: "none", colorScheme: "dark" }}>
+                        style={{ background: "var(--bf-glass)", border: "1px solid var(--bf-line)", borderRadius: 10, padding: "0.4rem 0.7rem", color: "var(--bf-text)", fontSize: "0.8rem", cursor: "pointer", outline: "none", colorScheme: "var(--bf-scheme)" }}>
                         {SORT_OPTIONS.map(o => <option key={o.key} value={o.key} style={OPTION_STYLE}>{o.label}</option>)}
                     </select>
                     {/* View toggle */}
                     <div style={{ display: "flex", background: "var(--bf-glass)", border: "1px solid var(--bf-line)", borderRadius: 10, overflow: "hidden" }}>
                         {([["grid", LayoutGrid, "רשת"], ["list", List, "רשימה"]] as const).map(([v, Icon, label]) => (
                             <button key={v} type="button" onClick={() => setView(v)} aria-label={label}
-                                style={{ padding: "0.4rem 0.6rem", border: "none", cursor: "pointer", background: view === v ? "#fff" : "transparent", color: view === v ? "#000" : "var(--bf-muted)", display: "flex", transition: "background .2s" }}>
+                                style={{ padding: "0.4rem 0.6rem", border: "none", cursor: "pointer", background: view === v ? "var(--bf-accent)" : "transparent", color: view === v ? "var(--bf-on-accent)" : "var(--bf-muted)", display: "flex", transition: "background .2s" }}>
                                 <Icon size={16} />
                             </button>
                         ))}
@@ -234,7 +234,7 @@ function ExploreContent() {
             <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 1.25rem 5rem" }}>
                 {loading ? (
                     <div style={{ textAlign: "center", padding: "4rem" }}>
-                        <div style={{ width: 40, height: 40, border: "3px solid rgba(255,255,255,.18)", borderTopColor: "#fff", borderRadius: "50%", animation: "spin .8s linear infinite", margin: "0 auto 1rem" }} />
+                        <div style={{ width: 40, height: 40, border: "3px solid rgb(var(--bf-text-rgb) / .18)", borderTopColor: "var(--bf-text)", borderRadius: "50%", animation: "spin .8s linear infinite", margin: "0 auto 1rem" }} />
                         <div style={{ color: "var(--bf-muted)" }}>מחפש...</div>
                     </div>
                 ) : sorted.length === 0 ? (
@@ -267,7 +267,7 @@ function GridCard({ s }: { s: StudioCard }) {
     return (
         <Link href={`/b/${s.slug}`} style={{ textDecoration: "none", display: "block" }}>
             <div onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
-                style={{ ...GLASS_CARD, borderColor: hovered ? "rgba(255,255,255,.35)" : "var(--bf-line)", overflow: "hidden", transform: hovered ? "translateY(-3px)" : "none", transition: "transform .25s, border-color .25s" }}>
+                style={{ ...GLASS_CARD, borderColor: hovered ? "rgb(var(--bf-text-rgb) / .35)" : "var(--bf-line)", overflow: "hidden", transform: hovered ? "translateY(-3px)" : "none", transition: "transform .25s, border-color .25s" }}>
                 <div style={{ height: 140, position: "relative", background: showCover ? undefined : NO_COVER }}>
                     {showCover && <img src={imgUrl(s.cover_url)} alt="" onError={() => setImgFailed(true)} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", transform: hovered ? "scale(1.04)" : "scale(1)", transition: "transform .3s" }} />}
                     {!showCover && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "3rem" }}>{s.logo_url ? <img src={imgUrl(s.logo_url)} alt="" style={{ width: 68, height: 68, borderRadius: 14, objectFit: "contain", background: "#fff", padding: 5 }} /> : <BusinessTypeIcon name={s.business_type_icon} size={44} color="#ffffff" strokeWidth={1.5} />}</div>}
@@ -295,7 +295,7 @@ function ListCard({ s }: { s: StudioCard }) {
     return (
         <Link href={`/b/${s.slug}`} style={{ textDecoration: "none" }}>
             <div style={{ ...GLASS_CARD, borderRadius: 16, padding: "0.9rem 1rem", display: "flex", gap: "1rem", alignItems: "center", transition: "border-color .2s, background .2s" }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,.35)"; e.currentTarget.style.background = "var(--bf-glass-strong)"; }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = "rgb(var(--bf-text-rgb) / .35)"; e.currentTarget.style.background = "var(--bf-glass-strong)"; }}
                 onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--bf-line)"; e.currentTarget.style.background = "var(--bf-glass)"; }}>
                 {/* Thumbnail */}
                 <div style={{ width: 60, height: 60, borderRadius: 14, flexShrink: 0, overflow: "hidden", background: s.logo_url ? "#fff" : NO_COVER, border: "1px solid var(--bf-line)", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -317,7 +317,7 @@ function ListCard({ s }: { s: StudioCard }) {
                             <span style={{ color: "var(--bf-faint)" }}>({s.review_count})</span>
                         </div>
                     )}
-                    {s.self_booking_enabled && <span style={{ display: "inline-flex", alignItems: "center", gap: "0.2rem", background: "#fff", color: "#000", fontSize: "0.68rem", fontWeight: 700, padding: "0.18rem 0.5rem", borderRadius: 7 }}><CalendarDays size={11} aria-hidden /> אונליין</span>}
+                    {s.self_booking_enabled && <span style={{ display: "inline-flex", alignItems: "center", gap: "0.2rem", background: "var(--bf-accent)", color: "var(--bf-on-accent)", fontSize: "0.68rem", fontWeight: 700, padding: "0.18rem 0.5rem", borderRadius: 7 }}><CalendarDays size={11} aria-hidden /> אונליין</span>}
                     <span style={{ color: "var(--bf-text)", fontSize: "0.76rem", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: "0.1rem" }}>צפה <ChevronLeft size={14} aria-hidden /></span>
                 </div>
             </div>
@@ -334,8 +334,8 @@ export default function ExplorePage() {
 }
 
 const FIELD: React.CSSProperties = {
-    width: "100%", background: "rgba(255,255,255,.07)", border: "1px solid var(--bf-line)", borderRadius: 12, color: "#fff",
-    fontSize: "0.9rem", outline: "none", boxSizing: "border-box", colorScheme: "dark",
+    width: "100%", background: "rgb(var(--bf-text-rgb) / .07)", border: "1px solid var(--bf-line)", borderRadius: 12, color: "var(--bf-text)",
+    fontSize: "0.9rem", outline: "none", boxSizing: "border-box", colorScheme: "var(--bf-scheme)",
 };
 const NO_COVER = "radial-gradient(ellipse at 70% 20%, #2a2a2a 0%, #0b0b0b 70%)";
 
@@ -344,6 +344,6 @@ function chip(active: boolean): React.CSSProperties {
     return {
         padding: "0.35rem 0.8rem", borderRadius: 16, cursor: "pointer", fontWeight: 700, fontSize: "0.78rem", whiteSpace: "nowrap",
         display: "inline-flex", alignItems: "center", gap: "0.3rem", transition: "background .2s, color .2s",
-        border: `1px solid ${active ? "#fff" : "var(--bf-line)"}`, background: active ? "#fff" : "var(--bf-glass)", color: active ? "#000" : "var(--bf-muted)",
+        border: `1px solid ${active ? "var(--bf-text)" : "var(--bf-line)"}`, background: active ? "var(--bf-accent)" : "var(--bf-glass)", color: active ? "var(--bf-on-accent)" : "var(--bf-muted)",
     };
 }

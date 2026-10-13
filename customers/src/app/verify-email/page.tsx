@@ -48,13 +48,13 @@ function VerifyInner() {
         textAlign: "center", boxSizing: "border-box", color: "var(--bf-text)",
     };
     const btn: React.CSSProperties = {
-        display: "inline-flex", alignItems: "center", gap: "0.35rem", background: "#fff", color: "#000",
+        display: "inline-flex", alignItems: "center", gap: "0.35rem", background: "var(--bf-accent)", color: "var(--bf-on-accent)",
         border: "none", borderRadius: 14, padding: "0.85rem 2rem", fontWeight: 800, fontSize: "1rem",
         cursor: "pointer", marginTop: "1.5rem",
     };
 
     return (
-        <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "1.5rem", background: "radial-gradient(ellipse at 50% 0%, #262626 0%, #000 65%)", direction: "rtl" }}>
+        <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "1.5rem", background: "radial-gradient(ellipse at 50% 0%, var(--bf-glass-strong) 0%, var(--bf-bg) 65%)", direction: "rtl" }}>
             <div style={card}>
                 {status === "confirm" && (
                     <>

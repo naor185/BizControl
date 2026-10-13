@@ -62,7 +62,7 @@ export default function BackButtonHandler() {
             dir="rtl"
             style={{
                 position: "fixed", bottom: "calc(76px + env(safe-area-inset-bottom, 0px))", left: "50%", transform: "translateX(-50%)",
-                background: "#111", border: "1px solid rgba(255,255,255,.14)", color: "#fff", padding: "0.6rem 1.1rem", borderRadius: 12,
+                background: "var(--bf-surface)", border: "1px solid rgb(var(--bf-text-rgb) / .14)", color: "var(--bf-text)", padding: "0.6rem 1.1rem", borderRadius: 12,
                 fontSize: "0.85rem", fontWeight: 600, zIndex: 200, boxShadow: "0 4px 16px rgba(0,0,0,.3)",
             }}
         >

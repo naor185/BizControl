@@ -10,7 +10,7 @@ export default function LoginButton({ onDone }: { onDone: () => void }) {
     return (
         <>
             <button type="button" onClick={() => setOpen(true)}
-                style={{ minHeight: 46, padding: "0 1.4rem", borderRadius: 14, border: "none", background: "#fff", color: "#000", fontWeight: 800, cursor: "pointer" }}>
+                style={{ minHeight: 46, padding: "0 1.4rem", borderRadius: 14, border: "none", background: "var(--bf-accent)", color: "var(--bf-on-accent)", fontWeight: 800, cursor: "pointer" }}>
                 התחברות
             </button>
             {open && <AuthModal onClose={() => setOpen(false)} onSuccess={() => { setOpen(false); onDone(); }} />}

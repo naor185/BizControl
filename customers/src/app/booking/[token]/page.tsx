@@ -46,7 +46,7 @@ export default function BookingStatusPage() {
 
     if (loading) return (
         <div style={PAGE}>
-            <div style={{ width: 36, height: 36, border: "3px solid rgba(255,255,255,.18)", borderTopColor: "#fff", borderRadius: "50%", animation: "spin .8s linear infinite" }} />
+            <div style={{ width: 36, height: 36, border: "3px solid rgb(var(--bf-text-rgb) / .18)", borderTopColor: "var(--bf-text)", borderRadius: "50%", animation: "spin .8s linear infinite" }} />
         </div>
     );
 
@@ -65,7 +65,7 @@ export default function BookingStatusPage() {
         <div dir="rtl" style={PAGE}>
             <div style={{ ...GLASS_CARD, borderRadius: 24, maxWidth: 440, width: "100%", overflow: "hidden" }}>
                 {/* Header */}
-                <div style={{ padding: "1.5rem", textAlign: "center", borderBottom: "1px solid var(--bf-line)", background: "linear-gradient(180deg,rgba(255,255,255,.07),transparent)" }}>
+                <div style={{ padding: "1.5rem", textAlign: "center", borderBottom: "1px solid var(--bf-line)", background: "linear-gradient(180deg,rgb(var(--bf-text-rgb) / .07),transparent)" }}>
                     {data.studio_logo && (
                         <img src={imgUrl(data.studio_logo)} alt={data.studio_name || ""}
                             style={{ width: 64, height: 64, borderRadius: 16, objectFit: "contain", background: "#fff", padding: 4, margin: "0 auto 0.75rem", display: "block" }} />

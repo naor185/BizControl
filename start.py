@@ -2920,6 +2920,8 @@ def ensure_schema():
         cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS app_invite_wa_template TEXT")
         cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS bizfind_ios_url TEXT")
         cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS bizfind_android_url TEXT")
+        # BizFind's own look, apart from BizControl's (services/bizfind_theme.py)
+        cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS bizfind_theme TEXT")
         # one log of who did what: the platform's (the superadmin) and each business's own (services/activity_log.py)
         cur.execute("ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS kind VARCHAR(16) NOT NULL DEFAULT 'platform'")
         cur.execute("CREATE INDEX IF NOT EXISTS ix_audit_logs_business ON audit_logs (studio_id, kind, created_at)")
@@ -2969,6 +2971,15 @@ def ensure_schema():
             cur.execute("""
                 UPDATE notifications SET body = substring(body from '^ההודעה ל.+? לא נשלחה') || '.'
                 WHERE type = 'message_failed' AND body ~ '^ההודעה ל.+? לא נשלחה אחרי'
+            """)
+        if _once("bizfind_own_fonts_v1"):
+            # The two apps' looks part (owner, 2026-10-13): BizFind keeps the fonts it showed until now as its own —
+            # changing BizControl's fonts no longer changes BizFind's.
+            cur.execute("""
+                UPDATE studio_settings ss SET bizfind_theme = json_build_object(
+                    'heading_font', COALESCE(ss.landing_page_title_font, 'Heebo'),
+                    'body_font', COALESCE(ss.landing_page_desc_font, 'Assistant'))::text
+                FROM studios s WHERE s.id = ss.studio_id AND s.is_platform AND ss.bizfind_theme IS NULL
             """)
         if _once("nctattoo_naor_owner_v1"):
             # Nctattoo had no owner — its founding account ("naor") was a manager since 2026-05; what a manager may do

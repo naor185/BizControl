@@ -2,6 +2,17 @@
 import { useEffect, useState } from "react";
 import { publicFetch } from "@/lib/api";
 
+// BizFind's own look (app/services/bizfind_theme.py) — an empty field keeps BizFind's default black and white
+export interface BizFindTheme {
+    background: string | null;
+    cards: string | null;
+    text: string | null;
+    text_muted: string | null;
+    buttons: string | null;
+    heading_font: string | null;
+    body_font: string | null;
+}
+
 export interface PlatformTheme {
     primary: string;
     secondary: string;
@@ -12,12 +23,12 @@ export interface PlatformTheme {
     text_muted: string;
     heading_font: string;
     body_font: string;
+    bizfind?: BizFindTheme;
 }
 
 // Matches the seeded defaults in start.py / app/api/public_routes.py — the
 // SAME values web/ falls back to, since this is one shared platform theme.
-// (ThemeProvider.tsx here only actually applies primary/secondary/accent/
-// fonts to :root, not background/text — see its own comment for why.)
+// (BizFind applies only its own part, "bizfind" — see ThemeProvider.tsx.)
 export const FALLBACK_THEME: PlatformTheme = {
     primary: "#7c3aed", secondary: "#4c1d95", accent: "#f59e0b",
     background: "#f8fafc", surface: "#ffffff",
