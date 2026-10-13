@@ -695,6 +695,23 @@ def search_marketplace(
     return {"studios": result, "total": len(result), "offset": offset}
 
 
+@router.get("/sitemap")
+def sitemap_entries(db: Session = Depends(get_db)):
+    """Every business BizFind shows — for its sitemap.xml, so Google finds each business's page (owner, 2026-10-13:
+    "every business with its own page, found on Google through us"). The same rule as the search: active, shown on
+    BizFind, its site not archived; businesses that joined (not the directory's imports)."""
+    from app.models.studio import Studio
+    from app.models.studio_settings import StudioSettings
+    rows = db.execute(
+        select(Studio.slug, Studio.business_type, StudioSettings.marketplace_city)
+        .join(StudioSettings, StudioSettings.studio_id == Studio.id)
+        .where(Studio.is_active == True, Studio.is_platform == False,  # noqa: E712
+               StudioSettings.marketplace_visible == True, studio_site_live())  # noqa: E712
+        .order_by(Studio.slug)
+    ).all()
+    return [{"slug": slug, "business_type": bt or "other", "city": (city or "").strip() or None} for slug, bt, city in rows if slug]
+
+
 @router.get("/hero-slides")
 def get_hero_slides(db: Session = Depends(get_db)):
     """Return active hero carousel slides ordered by sort_order."""

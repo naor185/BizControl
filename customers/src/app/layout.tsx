@@ -1,12 +1,18 @@
 import type { ReactNode } from "react";
+import type { Metadata } from "next";
+import { SITE } from "@/lib/seo";
 import { Home, Search, ClipboardList, Building2 } from "lucide-react";
 import PushRegistrar from "@/components/PushRegistrar";
 import BackButtonHandler from "@/components/BackButtonHandler";
 import ThemeProvider from "@/components/ThemeProvider";
 
-export const metadata = {
+// The site's own details for Google and link previews; each business's page has its own (b/[slug]/layout.tsx).
+export const metadata: Metadata = {
+    metadataBase: new URL(SITE),
     title: "BizFind — מצא עסקים וקבע תור",
     description: "גלה ספרים, סטודיואים לקעקועים, ציפורניים, ספא ועוד — וקבע תור אונליין",
+    openGraph: { siteName: "BizFind", locale: "he_IL", type: "website", title: "BizFind — מצא עסקים וקבע תור",
+        description: "גלה ספרים, סטודיואים לקעקועים, ציפורניים, ספא ועוד — וקבע תור אונליין", url: SITE },
     icons: {
         icon: "/icon.png",
         apple: "/icon.png",
