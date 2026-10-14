@@ -1,8 +1,9 @@
 """
 Business PIN Security API
 
-GET  /api/security/pin/status   — is PIN set? is locked?
+GET  /api/security/pin/status   — is PIN set? is locked? is "ניהול עסק" behind it?
 POST /api/security/pin/set      — set or change PIN (requires current PIN if already set)
+POST /api/security/pin/business-lock — ask for the PIN on the way into "ניהול עסק", or not (off needs a fresh PIN)
 POST /api/security/pin/verify   — verify PIN → returns short-lived business_unlock token
 POST /api/security/pin/verify-owner — the business owner's PIN approves a discount at the till, whoever is there
 POST /api/security/pin/reset    — owner resets another user's PIN (owner/admin only)
@@ -23,6 +24,7 @@ from sqlalchemy import select
 from app.core.database import get_db
 from app.core.deps import require_studio_ctx, AuthContext
 from app.core.security import create_business_unlock_token, decode_token
+from jose import JWTError
 from app.models.user_pin_settings import UserPinSettings
 from app.models.pin_attempt_log import PinAttemptLog
 
@@ -111,7 +113,7 @@ class SetPinIn(BaseModel):
 def pin_status(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
     settings = _get_or_none(db, ctx.user_id)
     if not settings:
-        return {"has_pin": False, "is_locked": False, "locked_until": None}
+        return {"has_pin": False, "is_locked": False, "locked_until": None, "business_lock": False}
 
     now = datetime.now(timezone.utc)
     is_locked = bool(settings.locked_until and settings.locked_until > now)
@@ -119,7 +121,40 @@ def pin_status(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Dep
         "has_pin": True,
         "is_locked": is_locked,
         "locked_until": settings.locked_until.isoformat() if is_locked else None,
+        "business_lock": settings.business_lock,
     }
+
+
+class BusinessLockIn(BaseModel):
+    on: bool
+    business_token: Optional[str] = None   # switching it off: what /pin/verify gave, so the PIN was just typed
+
+
+def _fresh_pin(token: str | None, ctx: AuthContext) -> bool:
+    """Was this person's PIN typed in the last half hour — the token /pin/verify gave them."""
+    if not token:
+        return False
+    try:
+        claims = decode_token(token)
+    except JWTError:
+        return False
+    return (claims.get("type") == "business_unlock" and claims.get("user_id") == str(ctx.user_id)
+            and claims.get("studio_id") == str(ctx.studio_id))
+
+
+@router.post("/pin/business-lock")
+def set_business_lock(body: BusinessLockIn, ctx: AuthContext = Depends(require_studio_ctx),
+                      db: Session = Depends(get_db)):
+    """Ask for the PIN on the way into "ניהול עסק", or not — the person's own choice (the owner, 2026-10-14).
+    Switching it off needs the PIN, so whoever holds an unlocked phone can't take the lock away."""
+    settings = _get_or_none(db, ctx.user_id)
+    if not settings:
+        raise HTTPException(status_code=404, detail="קודם מגדירים קוד PIN")
+    if not body.on and not _fresh_pin(body.business_token, ctx):
+        raise HTTPException(status_code=403, detail="כדי לכבות את הנעילה צריך להקליד את הקוד")
+    settings.business_lock = body.on
+    db.commit()
+    return {"business_lock": settings.business_lock}
 
 
 @router.post("/pin/set")
@@ -198,7 +233,7 @@ def verify_owner_pin(
                                            User.is_active == True)).all()  # noqa: E712
     settings = next((st for st in (_get_or_none(db, o.id) for o in owners) if st), None)
     if not settings:
-        raise HTTPException(status_code=404, detail="בעל העסק עוד לא הגדיר קוד PIN — מגדירים אותו בכניסה ל'ניהול עסק'")
+        raise HTTPException(status_code=404, detail="בעל העסק עוד לא הגדיר קוד PIN — מגדירים אותו בהגדרות › החשבון שלי")
     _check_pin(db, settings, body.pin, ctx.studio_id, ctx.user_id, _get_ip(request))
     return {"ok": True}
 

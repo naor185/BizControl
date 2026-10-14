@@ -390,6 +390,7 @@ def run_migrations():
                 updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
             )
         """))
+        conn.execute(text("ALTER TABLE user_pin_settings ADD COLUMN IF NOT EXISTS business_lock BOOLEAN NOT NULL DEFAULT FALSE"))
         conn.execute(text("""
             CREATE TABLE IF NOT EXISTS pin_attempt_logs (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

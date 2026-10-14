@@ -18,7 +18,7 @@ import { isBusinessSessionValid, clearBusinessSession } from "@/lib/businessSess
 import { apiFetch } from "@/lib/api";
 import { fillTerms, useTerms } from "@/lib/useTerms";
 
-type PinStatus = { has_pin: boolean; is_locked: boolean; locked_until: string | null };
+type PinStatus = { has_pin: boolean; is_locked: boolean; locked_until: string | null; business_lock: boolean };
 // what the signed-in user may do (/api/auth/me — core/permissions.MANAGER_PERMISSIONS): a manager sees only what the
 // owner allowed him (the owner, 2026-10-13)
 type Perm = "settings" | "receipts" | "money" | "team" | "attendance" | "owner";   // "owner": the owner only
@@ -112,8 +112,6 @@ export default function BusinessPage() {
     const [unlocked, setUnlocked] = useState(false);
     const [pinStatus, setPinStatus] = useState<PinStatus | null>(null);
     const [showPinModal, setShowPinModal] = useState(false);
-    const [pinMode, setPinMode] = useState<"verify" | "set">("verify");
-    const [showSetPin, setShowSetPin] = useState(false);
     const plan = usePlan();              // what the business's plan includes — and, for what it doesn't, the plan that does
     const [isNative] = useState(() => isNativeApp());
     const [enabledFeatures, setEnabledFeatures] = useState<Record<string, boolean> | null>(null);
@@ -127,7 +125,7 @@ export default function BusinessPage() {
         checkSession();
         apiFetch<PinStatus>("/api/security/pin/status")
             .then(setPinStatus)
-            .catch(() => setPinStatus({ has_pin: false, is_locked: false, locked_until: null }));
+            .catch(() => setPinStatus({ has_pin: false, is_locked: false, locked_until: null, business_lock: false }));
         apiFetch<Record<string, boolean>>("/api/studio/features/me")
             .then(setEnabledFeatures)
             .catch(() => setEnabledFeatures({}));
@@ -136,18 +134,12 @@ export default function BusinessPage() {
             .catch(() => setPerms(null));
     }, [checkSession]);
 
-    const handleUnlockClick = () => {
-        setPinMode(pinStatus?.has_pin ? "verify" : "set");
-        setShowPinModal(true);
-    };
-
-    const handlePinSuccess = () => {
-        setShowPinModal(false);
-        if (pinMode === "set") { setPinMode("verify"); setShowPinModal(true); }
-        else { setUnlocked(true); setPinStatus(s => s ? { ...s, has_pin: true } : s); }
-    };
+    const handlePinSuccess = () => { setShowPinModal(false); setUnlocked(true); };
 
     const handleLock = () => { clearBusinessSession(); setUnlocked(false); };
+
+    // behind the PIN only when the person switched it on in "החשבון שלי" (the owner, 2026-10-14)
+    const locked = !!pinStatus?.business_lock && !unlocked;
 
     if (!pinStatus) {
         return (
@@ -184,7 +176,7 @@ export default function BusinessPage() {
                                     </div>
                                     <div className="flex gap-2 flex-wrap mt-4">
                                         {[
-                                            { icon: Lock, label: "מאובטח ב-PIN" },
+                                            ...(pinStatus.business_lock ? [{ icon: Lock, label: "מאובטח ב-PIN" }] : []),
                                             { icon: Zap, label: "גישה מהירה" },
                                             { icon: BarChart3, label: "כל הנתונים" },
                                         ].map(tag => (
@@ -195,7 +187,7 @@ export default function BusinessPage() {
                                         ))}
                                     </div>
                                 </div>
-                                {unlocked && (
+                                {pinStatus.business_lock && unlocked && (
                                     <button onClick={handleLock}
                                         className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-rose-500/30 border border-white/15 text-white text-sm font-semibold transition-all">
                                         <Lock className="w-4 h-4" /> נעל
@@ -206,7 +198,7 @@ export default function BusinessPage() {
                     </div>
 
                     {/* ── Locked state ── */}
-                    {!unlocked && (
+                    {locked && (
                         <div className="flex flex-col items-center justify-center py-20 px-6 text-center bg-gradient-to-b from-slate-50 to-white">
                             <div className="relative mb-8">
                                 <div className="w-24 h-24 bg-gradient-to-br from-violet-500 to-indigo-600 rounded-3xl flex items-center justify-center shadow-2xl shadow-violet-500/40">
@@ -219,15 +211,13 @@ export default function BusinessPage() {
 
                             <h2 className="text-2xl font-black text-slate-900 mb-2">אזור מאובטח</h2>
                             <p className="text-slate-500 text-base mb-8 max-w-sm leading-relaxed">
-                                {pinStatus.has_pin
-                                    ? "הזן את ה-PIN שלך כדי לגשת לכל הנתונים הפיננסיים"
-                                    : "הגדר PIN אישי כדי לאבטח את הנתונים הפיננסיים שלך"}
+                                הזן את ה-PIN שלך כדי לגשת לכל הנתונים הפיננסיים
                             </p>
 
-                            <button onClick={handleUnlockClick}
+                            <button onClick={() => setShowPinModal(true)}
                                 className="flex items-center gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-black px-10 py-4 rounded-2xl text-base shadow-xl shadow-violet-500/35 active:scale-95 transition-all">
-                                {pinStatus.has_pin ? <Unlock className="w-5 h-5" /> : <KeyRound className="w-5 h-5" />}
-                                {pinStatus.has_pin ? "הזן PIN לכניסה" : "הגדר PIN"}
+                                <Unlock className="w-5 h-5" />
+                                הזן PIN לכניסה
                             </button>
 
                             {pinStatus.is_locked && (
@@ -245,7 +235,7 @@ export default function BusinessPage() {
                     )}
 
                     {/* ── Unlocked — premium section grid ── */}
-                    {unlocked && (
+                    {!locked && (
                         <div className="bg-gradient-to-b from-slate-50 to-white min-h-screen p-6 space-y-8">
 
                             {SECTION_GROUPS.map(group => {
@@ -304,23 +294,19 @@ export default function BusinessPage() {
                                 );
                             })}
 
-                            {/* Change PIN footer */}
+                            {/* the PIN and whether this page asks for it — the person's own, in "החשבון שלי" */}
                             <div className="pt-2 border-t border-slate-100">
-                                <button onClick={() => { setPinMode("set"); setShowSetPin(true); }}
+                                <button onClick={() => router.push("/automation?tab=account")}
                                     className="flex items-center gap-2 text-sm text-slate-400 hover:text-violet-600 transition-colors font-medium">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                        <circle cx="12" cy="12" r="3" />
-                                        <path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83" />
-                                    </svg>
-                                    שנה PIN
+                                    <KeyRound className="w-3.5 h-3.5" />
+                                    קוד PIN ונעילת הדף — בהגדרות › החשבון שלי
                                 </button>
                             </div>
                         </div>
                     )}
                 </div>
 
-                {showPinModal && <PinModal key={pinMode} mode={pinMode} onSuccess={handlePinSuccess} onClose={() => setShowPinModal(false)} />}
-                {showSetPin && <PinModal mode="change" onSuccess={() => setShowSetPin(false)} onClose={() => setShowSetPin(false)} />}
+                {showPinModal && <PinModal mode="verify" onSuccess={handlePinSuccess} onClose={() => setShowPinModal(false)} />}
             </AppShell>
         </RequireAuth>
     );

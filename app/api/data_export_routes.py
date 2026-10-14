@@ -38,7 +38,7 @@ def export_business_data(body: ExportIn, request: Request, ctx: AuthContext = De
         raise HTTPException(status_code=403, detail="ייצוא הלקוחות פתוח לבעל העסק בלבד")
     pin = _get_or_none(db, ctx.user_id)
     if pin is None:
-        raise HTTPException(status_code=404, detail="קודם מגדירים קוד PIN — בכניסה ל'ניהול עסק'")
+        raise HTTPException(status_code=404, detail="קודם מגדירים קוד PIN — בהגדרות › החשבון שלי")
     _check_pin(db, pin, body.pin, ctx.studio_id, ctx.user_id, _get_ip(request))
 
     data, n_clients, n_appts = data_export.build(db, ctx.studio_id)

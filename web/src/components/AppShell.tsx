@@ -30,7 +30,7 @@ type Me = {
     email_verified?: boolean;
 };
 
-type PinStatus = { has_pin: boolean; is_locked: boolean };
+type PinStatus = { has_pin: boolean; is_locked: boolean; business_lock: boolean };
 
 const MAIN_NAV: { href: string; label: string; icon: LucideIcon; module?: string }[] = [
     { href: "/overview",  label: "דשבורד",       icon: Gauge },
@@ -66,7 +66,6 @@ export default function AppShell({
     const [businessUnlocked, setBusinessUnlocked] = useState(false);
     const [pinStatus, setPinStatus] = useState<PinStatus | null>(null);
     const [showPin, setShowPin] = useState(false);
-    const [pinMode, setPinMode] = useState<"verify" | "set">("verify");
     const [pendingDepositsCount, setPendingDepositsCount] = useState(0);
     const newLeadsCount = useNewLeadsCount();
     const [enabledModules, setEnabledModules] = useState<Record<string, boolean> | null>(null);
@@ -162,34 +161,22 @@ export default function AppShell({
         router.replace("/login");
     }
 
+    // the PIN on the way in only when the person switched it on in "החשבון שלי" (the owner, 2026-10-14);
+    // the superadmin in a business never types it
+    const businessLocked = !!pinStatus?.business_lock && !isImpersonating;
+
     const handleBusinessClick = () => {
-        // Superadmin impersonating: bypass PIN entirely
-        if (isImpersonating) {
+        if (!businessLocked || isBusinessSessionValid()) {
             router.push("/business");
             return;
         }
-        if (isBusinessSessionValid()) {
-            router.push("/business");
-            return;
-        }
-        if (!pinStatus) {
-            router.push("/business");
-            return;
-        }
-        setPinMode(pinStatus.has_pin ? "verify" : "set");
         setShowPin(true);
     };
 
     const handlePinSuccess = () => {
         setShowPin(false);
-        if (!pinStatus?.has_pin) {
-            setPinStatus(s => s ? { ...s, has_pin: true } : s);
-            setPinMode("verify");
-            setShowPin(true);
-        } else {
-            setBusinessUnlocked(true);
-            router.push("/business");
-        }
+        setBusinessUnlocked(true);
+        router.push("/business");
     };
 
     const avatarLetter = (me?.display_name || me?.email || "?")[0].toUpperCase();
@@ -244,7 +231,7 @@ export default function AppShell({
                             </div>
                         </div>
 
-                        {/* Business Management — PIN locked */}
+                        {/* Business Management — behind the PIN when the person chose so */}
                         <button
                             onClick={handleBusinessClick}
                             className={[
@@ -255,9 +242,9 @@ export default function AppShell({
                             ].join(" ")}
                             style={pathname.startsWith("/business") ? { background: "var(--secondary)" } : undefined}
                         >
-                            {businessUnlocked ? <Building2 className="h-5 w-5 shrink-0" /> : <Lock className="h-5 w-5 shrink-0" />}
+                            {businessLocked && !businessUnlocked ? <Lock className="h-5 w-5 shrink-0" /> : <Building2 className="h-5 w-5 shrink-0" />}
                             <span className="flex-1 text-right">ניהול עסק</span>
-                            {!businessUnlocked && (
+                            {businessLocked && !businessUnlocked && (
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="opacity-50">
                                     <rect x="5" y="11" width="14" height="10" rx="2" stroke="currentColor" strokeWidth="2.5" fill="none" />
                                     <path d="M8 11V7a4 4 0 0 1 8 0v4" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
@@ -482,8 +469,7 @@ export default function AppShell({
 
             {showPin && (
                 <PinModal
-                    key={pinMode}
-                    mode={pinMode}
+                    mode="verify"
                     onSuccess={handlePinSuccess}
                     onClose={() => setShowPin(false)}
                 />
