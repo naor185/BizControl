@@ -42,6 +42,7 @@ from app.api.booking_routes import router as booking_router
 from app.api.marketplace_routes import router as marketplace_router
 from app.api.location_routes import router as location_router
 from app.api.activity_routes import router as activity_router
+from app.api.data_export_routes import router as data_export_router
 from app.api.module_me_routes import router as module_me_router
 from app.api.invite_routes import router as invite_router
 from app.api.broadcast_routes import router as broadcast_router
@@ -110,6 +111,7 @@ api_router.include_router(booking_router)
 api_router.include_router(marketplace_router)
 api_router.include_router(location_router)
 api_router.include_router(activity_router)
+api_router.include_router(data_export_router)
 api_router.include_router(module_me_router)
 api_router.include_router(invite_router)
 api_router.include_router(broadcast_router, dependencies=[Depends(workers_read_only())])
