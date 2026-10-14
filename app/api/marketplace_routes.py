@@ -712,6 +712,23 @@ def sitemap_entries(db: Session = Depends(get_db)):
     return [{"slug": slug, "business_type": bt or "other", "city": (city or "").strip() or None} for slug, bt, city in rows if slug]
 
 
+@router.get("/areas")
+def area_list(db: Session = Depends(get_db)):
+    """Every "field + city" BizFind has businesses in — its pages (services/bizfind_areas.py)."""
+    from app.services.bizfind_areas import areas
+    return areas(db)
+
+
+@router.get("/areas/{business_type}/{city}")
+def area_detail(business_type: str, city: str, db: Session = Depends(get_db)):
+    """A "field + city" page — "ספרים בראשון לציון" (services/bizfind_areas.py)."""
+    from app.services.bizfind_areas import area_page
+    page = area_page(db, business_type, city)
+    if page is None:
+        raise HTTPException(404, "אין עסקים כאלה בעיר הזאת ב-BizFind")
+    return page
+
+
 @router.get("/hero-slides")
 def get_hero_slides(db: Session = Depends(get_db)):
     """Return active hero carousel slides ordered by sort_order."""

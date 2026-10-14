@@ -92,3 +92,26 @@ export function businessJsonLd(b: SeoBusiness): Record<string, unknown> {
 
 /** JSON for a <script> — never a "</script>" inside it */
 export const jsonForScript = (data: unknown) => JSON.stringify(data).replace(/</g, "\\u003c");
+
+// ── "field + city" pages (/c/<field>/<city>) — app/services/bizfind_areas.py ────────────────────────────────────────
+
+export interface Area { type: string; label: string; city: string; count: number; joined: number; indexed: boolean }
+
+/** A city in an address: spaces become hyphens — /c/barber/ראשון-לציון */
+export const citySlug = (city: string) => city.trim().replace(/\s+/g, "-");
+export const areaPath = (type: string, city: string) => `/c/${encodeURIComponent(type)}/${encodeURIComponent(citySlug(city))}`;
+
+export async function loadAreas(): Promise<Area[]> {
+    try {
+        const res = await fetch(`${API}/api/marketplace/areas`, { next: { revalidate: 600 } });
+        return res.ok ? await res.json() : [];
+    } catch {
+        return [];
+    }
+}
+
+/** The area an address points at — matched against the real list, so a city with a hyphen in its name works too. */
+export async function findArea(type: string, cityParam: string): Promise<Area | null> {
+    const wanted = (() => { try { return decodeURIComponent(cityParam); } catch { return cityParam; } })();
+    return (await loadAreas()).find(a => a.type === type && citySlug(a.city) === citySlug(wanted)) || null;
+}

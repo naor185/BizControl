@@ -7,6 +7,7 @@ import { getCustomer } from "@/lib/auth";
 import AuthModal from "@/components/AuthModal";
 import { setStudioToken, goToBizControl } from "@/lib/handoff";
 import BusinessTypeIcon from "@/components/BusinessTypeIcon";
+import { areaPath } from "@/lib/seo";
 import { GLASS_BTN, GLASS_CARD, OPTION_STYLE, PRIMARY_BTN } from "@/lib/look";
 import { type VisitCoupon, couponNote, openCouponLink } from "@/lib/coupon";
 import { ArrowRight, Ban, BookOpen, CalendarDays, Camera, Check, ClipboardList, Clock, Images, MapPin, MessageCircle,
@@ -15,7 +16,7 @@ import { ArrowRight, Ban, BookOpen, CalendarDays, Camera, Check, ClipboardList, 
 // ── Types ────────────────────────────────────────────────────────────────────
 
 interface Profile {
-    slug: string; name: string; business_type_label: string; business_type_icon: string;
+    slug: string; name: string; business_type?: string; business_type_label: string; business_type_icon: string;
     logo_url?: string; cover_url?: string; primary_color: string;
     description?: string; city?: string; address?: string; map_link?: string;
     phone?: string; whatsapp?: string; instagram?: string; hours?: string;
@@ -371,8 +372,13 @@ export default function BusinessPage() {
                     <div style={{ flex: 1, minWidth: 0, paddingBottom: 2 }}>
                         <h1 style={{ fontSize: "1.75rem", fontWeight: 800, color: "var(--bf-text)", margin: "0 0 0.35rem", lineHeight: 1.15, overflowWrap: "anywhere" }}>{p!.name}</h1>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: "0.45rem", alignItems: "center", fontSize: "0.82rem", color: "var(--bf-muted)" }}>
-                            <span style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem" }}><BusinessTypeIcon name={p!.business_type_icon} size={14} /> {p!.business_type_label}</span>
-                            {p!.city && <span style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem" }}><MapPin size={14} aria-hidden /> {p!.city}</span>}
+                            {/* the field and the city lead to their BizFind pages — "ספרים", "ספרים בראשון לציון" (app/c/) */}
+                            {p!.business_type && p!.business_type !== "other"
+                                ? <Link href={`/c/${encodeURIComponent(p!.business_type)}`} style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem", color: "inherit" }}><BusinessTypeIcon name={p!.business_type_icon} size={14} /> {p!.business_type_label}</Link>
+                                : <span style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem" }}><BusinessTypeIcon name={p!.business_type_icon} size={14} /> {p!.business_type_label}</span>}
+                            {p!.city && (p!.business_type && p!.business_type !== "other"
+                                ? <Link href={areaPath(p!.business_type, p!.city)} style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem", color: "inherit" }}><MapPin size={14} aria-hidden /> {p!.city}</Link>
+                                : <span style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem" }}><MapPin size={14} aria-hidden /> {p!.city}</span>)}
                             {openStatus && (
                                 <span style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem", fontSize: "0.74rem", fontWeight: 700, padding: "0.2rem 0.6rem", borderRadius: 20, background: "var(--bf-glass)", border: "1px solid var(--bf-line)", color: "var(--bf-text)" }}>
                                     <span aria-hidden style={{ width: 7, height: 7, borderRadius: "50%", background: openStatus.open ? "#4ade80" : "#f87171" }} />
