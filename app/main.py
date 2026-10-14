@@ -251,6 +251,9 @@ def start_scheduler():
                 _text("DELETE FROM auth_handoff_codes WHERE expires_at < NOW() - INTERVAL '1 hour'")
             )
             db.commit()
+            # logins long expired — "המכשירים שלי" showed 1,236 of them (services/login_sessions.py)
+            from app.services.login_sessions import purge_expired
+            purge_expired(db)
         except Exception:
             logging.getLogger("bizcontrol.handoffs").exception("handoff cleanup failed")
         finally:

@@ -16,8 +16,10 @@ import LandingPageTemplate from "@/components/LandingPageTemplate";
 import { HIDE_BOOKING_BANNER_KEY } from "@/lib/localPrefs";
 import StaffReminderRulesSettings from "@/components/StaffReminderRulesSettings";
 import MySessionsSettings from "@/components/MySessionsSettings";
+import ChangePasswordForm from "@/components/ChangePasswordForm";
+import PinModal from "@/components/PinModal";
 import DeleteAccountSettings from "@/components/DeleteAccountSettings";
-import { Flag, Palette, SlidersHorizontal, Wallet, Plug, Globe } from "lucide-react";
+import { Flag, Palette, SlidersHorizontal, Wallet, Plug, Globe, UserRound, KeyRound, LockKeyhole } from "lucide-react";
 import PlanLock from "@/components/PlanLock";
 import { usePlan } from "@/lib/usePlan";
 
@@ -606,11 +608,17 @@ export default function AutomationSettingsPage() {
     const [saving, setSaving] = useState(false);
     const [err, setErr] = useState<string | null>(null);
     const [msg, setMsg] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<"branding" | "policy" | "finance" | "integrations" | "public">("branding");
+    const [activeTab, setActiveTab] = useState<"branding" | "policy" | "finance" | "integrations" | "public" | "account">("branding");
+    // "החשבון שלי": the PIN's state, and its window when changing it
+    const [hasPin, setHasPin] = useState(false);
+    const [pinMode, setPinMode] = useState<"set" | "change" | null>(null);
+    useEffect(() => {
+        apiFetch<{ has_pin: boolean }>("/api/security/pin/status").then(s => setHasPin(s.has_pin)).catch(() => {});
+    }, []);
 
     useEffect(() => {
         const tab = new URLSearchParams(window.location.search).get("tab");
-        if (tab === "branding" || tab === "policy" || tab === "finance" || tab === "integrations" || tab === "public") {
+        if (tab === "branding" || tab === "policy" || tab === "finance" || tab === "integrations" || tab === "public" || tab === "account") {
             setActiveTab(tab);
         }
     }, []);
@@ -985,6 +993,7 @@ export default function AutomationSettingsPage() {
         { id: "finance", label: "פיננסים ותשלומים", icon: Wallet },
         { id: "integrations", label: "חיבורים", icon: Plug },
         { id: "public", label: "נוכחות ציבורית", icon: Globe },
+        { id: "account", label: "החשבון שלי", icon: UserRound },
     ] as const;
 
     return (
@@ -2090,7 +2099,7 @@ export default function AutomationSettingsPage() {
                         )}
 
                         {/* 6. INTEGRATIONS TAB */}
-                        {activeTab === "integrations" && (
+                        {activeTab === "integrations" && (<>
                             <div className="bg-white rounded-2xl border border-slate-100 shadow-xl shadow-slate-200/40 p-6 md:p-10">
                                 <div className="mb-8">
                                     <h3 className="text-2xl font-bold text-slate-800 mb-2">חיבורים חיצוניים</h3>
@@ -2151,208 +2160,247 @@ export default function AutomationSettingsPage() {
                                     ))}
                                 </div>
                             </div>
+
+                            {/* Email Settings — the business's e-mails to its clients (reply address, signature, which are sent): a business
+                                setting, so among the connections, not in "החשבון שלי" */}
+                            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 md:p-6 flex items-center justify-between gap-4 flex-wrap">
+                                <div className="flex items-center gap-3">
+                                    <span className="text-2xl">📧</span>
+                                    <div>
+                                        <h3 className="font-bold text-slate-800">הגדרות מייל</h3>
+                                        <p className="text-sm text-slate-500">כתובת מענה, חתימה, ואילו מיילים נשלחים ללקוחות</p>
+                                    </div>
+                                </div>
+                                <Link href="/settings/email" className="bg-black text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-gray-800 transition whitespace-nowrap">
+                                    פתח הגדרות מייל ←
+                                </Link>
+                            </div>
+                        </>)}
+
+                        {/* 6. MY ACCOUNT — the person's own, in one place (owner, 2026-10-14: it repeated under every tab):
+                            details, password, PIN, two-step sign-in, devices, deleting */}
+                        {activeTab === "account" && (
+                            <div className="space-y-6">
+                                {/* My Account Section */}
+                                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 md:p-6">
+                                    <div className="flex items-center gap-3 mb-4">
+                                        <span className="text-2xl">👤</span>
+                                        <div>
+                                            <h3 className="font-bold text-slate-800">הפרטים שלי</h3>
+                                            <p className="text-sm text-slate-500">מספר הטלפון שלך נדרש כדי שתוכל לשחזר סיסמה דרך וואטסאפ</p>
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
+                                        <div>
+                                            <label className="text-xs font-semibold text-slate-500 block mb-1.5">אימייל</label>
+                                            <input value={myEmail} disabled dir="ltr" className="w-full border rounded-xl px-4 py-2 bg-slate-50 text-slate-400 text-sm" />
+                                        </div>
+                                        <div>
+                                            <label className="text-xs font-semibold text-slate-500 block mb-1.5">טלפון</label>
+                                            <div className="flex gap-2">
+                                                <input
+                                                    value={myPhone}
+                                                    onChange={e => setMyPhone(e.target.value)}
+                                                    placeholder="050-1234567"
+                                                    dir="ltr"
+                                                    className="flex-1 border rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-black/20"
+                                                />
+                                                <button
+                                                    onClick={saveMyPhone}
+                                                    disabled={myPhoneSaving}
+                                                    className="bg-black text-white text-sm font-semibold px-4 py-2 rounded-xl hover:bg-gray-800 disabled:opacity-50 transition"
+                                                >
+                                                    {myPhoneSaving ? "שומר..." : "שמור"}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {myPhoneMsg && (
+                                        <div className={`text-sm rounded-xl px-4 py-3 mt-3 ${myPhoneMsg.startsWith("✓") ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"}`}>
+                                            {myPhoneMsg}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* the password — an owner could change it only through "forgot password" until 2026-10-14 */}
+                                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 md:p-6">
+                                    <div className="flex items-center gap-3 mb-4">
+                                        <KeyRound className="w-6 h-6 text-slate-500 shrink-0" aria-hidden />
+                                        <div>
+                                            <h3 className="font-bold text-slate-800">סיסמה</h3>
+                                            <p className="text-sm text-slate-500">הסיסמה שבה נכנסים למערכת</p>
+                                        </div>
+                                    </div>
+                                    <ChangePasswordForm />
+                                </div>
+
+                                {/* the PIN — the business area, a discount at the till, the export (security/pin) */}
+                                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 md:p-6 flex items-center justify-between gap-4 flex-wrap">
+                                    <div className="flex items-center gap-3">
+                                        <LockKeyhole className="w-6 h-6 text-slate-500 shrink-0" aria-hidden />
+                                        <div>
+                                            <h3 className="font-bold text-slate-800">קוד PIN</h3>
+                                            <p className="text-sm text-slate-500">4 ספרות — לכניסה ל"ניהול עסק", לאישור הנחה בקופה ולייצוא הלקוחות</p>
+                                        </div>
+                                    </div>
+                                    <button type="button" onClick={() => setPinMode(hasPin ? "change" : "set")}
+                                        className="bg-slate-900 text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-slate-700 transition whitespace-nowrap">
+                                        {hasPin ? "שינוי קוד PIN" : "הגדרת קוד PIN"}
+                                    </button>
+                                </div>
+
+                                {/* 2FA Section */}
+                                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 md:p-6">
+                                    <div className="flex items-center gap-3 mb-4">
+                                        <span className="text-2xl">🔐</span>
+                                        <div>
+                                            <h3 className="font-bold text-slate-800">אימות דו-שלבי (2FA)</h3>
+                                            <p className="text-sm text-slate-500">הגן על החשבון שלך עם קוד נוסף בכניסה</p>
+                                        </div>
+                                        <span className={`mr-auto text-xs font-semibold px-3 py-1 rounded-full ${totpEnabled ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                                            {totpEnabled ? "מופעל ✓" : "כבוי"}
+                                        </span>
+                                    </div>
+
+                                    {totpMsg && (
+                                        <div className={`text-sm rounded-xl px-4 py-3 mb-4 ${totpMsg.startsWith("✓") ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"}`}>
+                                            {totpMsg}
+                                        </div>
+                                    )}
+
+                                    {!totpEnabled && !totpSetupUri && (
+                                        <button
+                                            onClick={async () => {
+                                                setTotpLoading(true);
+                                                setTotpMsg(null);
+                                                try {
+                                                    const data = await apiFetch<{ secret: string; otpauth_uri: string }>("/api/auth/2fa/setup");
+                                                    setTotpSetupSecret(data.secret);
+                                                    setTotpSetupUri(data.otpauth_uri);
+                                                    const QRCode = (await import("qrcode")).default;
+                                                    setTotpQr(await QRCode.toDataURL(data.otpauth_uri));
+                                                } catch {
+                                                    setTotpMsg("שגיאה בטעינת ה-QR");
+                                                } finally {
+                                                    setTotpLoading(false);
+                                                }
+                                            }}
+                                            disabled={totpLoading}
+                                            className="bg-black text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-gray-800 disabled:opacity-50 transition"
+                                        >
+                                            {totpLoading ? "טוען..." : "הפעל אימות דו-שלבי"}
+                                        </button>
+                                    )}
+
+                                    {!totpEnabled && totpSetupUri && (
+                                        <div className="space-y-4">
+                                            <p className="text-sm text-slate-600">סרוק את ה-QR באפליקציית אימות (Google Authenticator / Authy):</p>
+                                            {totpQr && <img src={totpQr} alt="QR Code" className="w-44 h-44 rounded-xl border" />}
+                                            <p className="text-xs text-slate-400 font-mono break-all">או הכנס ידנית: <span className="font-bold text-slate-700">{totpSetupSecret}</span></p>
+                                            <div className="flex gap-3">
+                                                <input
+                                                    type="text"
+                                                    inputMode="numeric"
+                                                    maxLength={6}
+                                                    value={totpCode}
+                                                    onChange={e => setTotpCode(e.target.value.replace(/\D/g, ""))}
+                                                    placeholder="הכנס קוד 6 ספרות"
+                                                    dir="ltr"
+                                                    className="flex-1 border rounded-xl px-4 py-2 text-center font-mono text-lg tracking-widest outline-none focus:ring-2 focus:ring-black/20"
+                                                />
+                                                <button
+                                                    onClick={async () => {
+                                                        setTotpLoading(true);
+                                                        setTotpMsg(null);
+                                                        try {
+                                                            await apiFetch("/api/auth/2fa/enable", {
+                                                                method: "POST",
+                                                                body: JSON.stringify({ secret: totpSetupSecret, code: totpCode }),
+                                                            });
+                                                            setTotpEnabled(true);
+                                                            setTotpSetupUri(null);
+                                                            setTotpSetupSecret(null);
+                                                            setTotpQr(null);
+                                                            setTotpCode("");
+                                                            setTotpMsg(
+                                                                "✓ אימות דו-שלבי הופעל בהצלחה. החיבור הנוכחי שלך ימשיך כרגיל — " +
+                                                                "הקוד יידרש רק בפעם הבאה שתתחבר מחדש למערכת (אחרי יציאה, או באפליקציה אחרי כמה שבועות). " +
+                                                                "שמור על אפליקציית האימות שלך — בלעדיה לא תוכל להתחבר."
+                                                            );
+                                                        } catch (e: unknown) {
+                                                            setTotpMsg((e as Error)?.message || "קוד שגוי");
+                                                        } finally {
+                                                            setTotpLoading(false);
+                                                        }
+                                                    }}
+                                                    disabled={totpLoading || totpCode.length < 6}
+                                                    className="bg-black text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-gray-800 disabled:opacity-50 transition"
+                                                >
+                                                    {totpLoading ? "מאמת..." : "אמת והפעל"}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {totpEnabled && (
+                                        <div className="space-y-3">
+                                            <p className="text-sm text-slate-600">להשבתה, הכנס קוד מאפליקציית האימות:</p>
+                                            <div className="flex gap-3">
+                                                <input
+                                                    type="text"
+                                                    inputMode="numeric"
+                                                    maxLength={6}
+                                                    value={totpCode}
+                                                    onChange={e => setTotpCode(e.target.value.replace(/\D/g, ""))}
+                                                    placeholder="קוד 6 ספרות"
+                                                    dir="ltr"
+                                                    className="flex-1 border rounded-xl px-4 py-2 text-center font-mono text-lg tracking-widest outline-none focus:ring-2 focus:ring-black/20"
+                                                />
+                                                <button
+                                                    onClick={async () => {
+                                                        setTotpLoading(true);
+                                                        setTotpMsg(null);
+                                                        try {
+                                                            await apiFetch("/api/auth/2fa/disable", {
+                                                                method: "POST",
+                                                                body: JSON.stringify({ code: totpCode }),
+                                                            });
+                                                            setTotpEnabled(false);
+                                                            setTotpCode("");
+                                                            setTotpMsg("✓ אימות דו-שלבי הושבת");
+                                                        } catch (e: unknown) {
+                                                            setTotpMsg((e as Error)?.message || "קוד שגוי");
+                                                        } finally {
+                                                            setTotpLoading(false);
+                                                        }
+                                                    }}
+                                                    disabled={totpLoading || totpCode.length < 6}
+                                                    className="border border-red-200 text-red-600 text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-red-50 disabled:opacity-50 transition"
+                                                >
+                                                    {totpLoading ? "..." : "השבת"}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                </div>
+
+                                <MySessionsSettings />
+
+                                <DeleteAccountSettings />
+                            </div>
                         )}
 
                     </div>
                 </div>
 
-                {/* My Account Section */}
-                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 mt-6">
-                    <div className="flex items-center gap-3 mb-4">
-                        <span className="text-2xl">👤</span>
-                        <div>
-                            <h3 className="font-bold text-slate-800">הפרטים שלי</h3>
-                            <p className="text-sm text-slate-500">מספר הטלפון שלך נדרש כדי שתוכל לשחזר סיסמה דרך וואטסאפ</p>
-                        </div>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
-                        <div>
-                            <label className="text-xs font-semibold text-slate-500 block mb-1.5">אימייל</label>
-                            <input value={myEmail} disabled dir="ltr" className="w-full border rounded-xl px-4 py-2 bg-slate-50 text-slate-400 text-sm" />
-                        </div>
-                        <div>
-                            <label className="text-xs font-semibold text-slate-500 block mb-1.5">טלפון</label>
-                            <div className="flex gap-2">
-                                <input
-                                    value={myPhone}
-                                    onChange={e => setMyPhone(e.target.value)}
-                                    placeholder="050-1234567"
-                                    dir="ltr"
-                                    className="flex-1 border rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-black/20"
-                                />
-                                <button
-                                    onClick={saveMyPhone}
-                                    disabled={myPhoneSaving}
-                                    className="bg-black text-white text-sm font-semibold px-4 py-2 rounded-xl hover:bg-gray-800 disabled:opacity-50 transition"
-                                >
-                                    {myPhoneSaving ? "שומר..." : "שמור"}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                    {myPhoneMsg && (
-                        <div className={`text-sm rounded-xl px-4 py-3 mt-3 ${myPhoneMsg.startsWith("✓") ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"}`}>
-                            {myPhoneMsg}
-                        </div>
-                    )}
-                </div>
+                {pinMode && (
+                    <PinModal mode={pinMode} heading={pinMode === "change" ? "שינוי קוד PIN" : "הגדרת קוד PIN"}
+                        onClose={() => setPinMode(null)}
+                        onSuccess={() => { setPinMode(null); setHasPin(true); setMsg("קוד ה-PIN נשמר"); setTimeout(() => setMsg(null), 2500); }} />
+                )}
 
-                {/* Email Settings — moved here from its own top-level card
-                    in the business hub; it's a settings sub-page, not a
-                    separate area of the app. */}
-                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 mt-6 flex items-center justify-between gap-4 flex-wrap">
-                    <div className="flex items-center gap-3">
-                        <span className="text-2xl">📧</span>
-                        <div>
-                            <h3 className="font-bold text-slate-800">הגדרות מייל</h3>
-                            <p className="text-sm text-slate-500">כתובת מענה, חתימה, ואילו מיילים נשלחים ללקוחות</p>
-                        </div>
-                    </div>
-                    <Link href="/settings/email" className="bg-black text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-gray-800 transition whitespace-nowrap">
-                        פתח הגדרות מייל ←
-                    </Link>
-                </div>
-
-                {/* 2FA Section */}
-                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 mt-6">
-                    <div className="flex items-center gap-3 mb-4">
-                        <span className="text-2xl">🔐</span>
-                        <div>
-                            <h3 className="font-bold text-slate-800">אימות דו-שלבי (2FA)</h3>
-                            <p className="text-sm text-slate-500">הגן על החשבון שלך עם קוד נוסף בכניסה</p>
-                        </div>
-                        <span className={`mr-auto text-xs font-semibold px-3 py-1 rounded-full ${totpEnabled ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
-                            {totpEnabled ? "מופעל ✓" : "כבוי"}
-                        </span>
-                    </div>
-
-                    {totpMsg && (
-                        <div className={`text-sm rounded-xl px-4 py-3 mb-4 ${totpMsg.startsWith("✓") ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"}`}>
-                            {totpMsg}
-                        </div>
-                    )}
-
-                    {!totpEnabled && !totpSetupUri && (
-                        <button
-                            onClick={async () => {
-                                setTotpLoading(true);
-                                setTotpMsg(null);
-                                try {
-                                    const data = await apiFetch<{ secret: string; otpauth_uri: string }>("/api/auth/2fa/setup");
-                                    setTotpSetupSecret(data.secret);
-                                    setTotpSetupUri(data.otpauth_uri);
-                                    const QRCode = (await import("qrcode")).default;
-                                    setTotpQr(await QRCode.toDataURL(data.otpauth_uri));
-                                } catch {
-                                    setTotpMsg("שגיאה בטעינת ה-QR");
-                                } finally {
-                                    setTotpLoading(false);
-                                }
-                            }}
-                            disabled={totpLoading}
-                            className="bg-black text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-gray-800 disabled:opacity-50 transition"
-                        >
-                            {totpLoading ? "טוען..." : "הפעל אימות דו-שלבי"}
-                        </button>
-                    )}
-
-                    {!totpEnabled && totpSetupUri && (
-                        <div className="space-y-4">
-                            <p className="text-sm text-slate-600">סרוק את ה-QR באפליקציית אימות (Google Authenticator / Authy):</p>
-                            {totpQr && <img src={totpQr} alt="QR Code" className="w-44 h-44 rounded-xl border" />}
-                            <p className="text-xs text-slate-400 font-mono break-all">או הכנס ידנית: <span className="font-bold text-slate-700">{totpSetupSecret}</span></p>
-                            <div className="flex gap-3">
-                                <input
-                                    type="text"
-                                    inputMode="numeric"
-                                    maxLength={6}
-                                    value={totpCode}
-                                    onChange={e => setTotpCode(e.target.value.replace(/\D/g, ""))}
-                                    placeholder="הכנס קוד 6 ספרות"
-                                    dir="ltr"
-                                    className="flex-1 border rounded-xl px-4 py-2 text-center font-mono text-lg tracking-widest outline-none focus:ring-2 focus:ring-black/20"
-                                />
-                                <button
-                                    onClick={async () => {
-                                        setTotpLoading(true);
-                                        setTotpMsg(null);
-                                        try {
-                                            await apiFetch("/api/auth/2fa/enable", {
-                                                method: "POST",
-                                                body: JSON.stringify({ secret: totpSetupSecret, code: totpCode }),
-                                            });
-                                            setTotpEnabled(true);
-                                            setTotpSetupUri(null);
-                                            setTotpSetupSecret(null);
-                                            setTotpQr(null);
-                                            setTotpCode("");
-                                            setTotpMsg(
-                                                "✓ אימות דו-שלבי הופעל בהצלחה. החיבור הנוכחי שלך ימשיך כרגיל — " +
-                                                "הקוד יידרש רק בפעם הבאה שתתחבר מחדש למערכת (אחרי יציאה, או באפליקציה אחרי כמה שבועות). " +
-                                                "שמור על אפליקציית האימות שלך — בלעדיה לא תוכל להתחבר."
-                                            );
-                                        } catch (e: unknown) {
-                                            setTotpMsg((e as Error)?.message || "קוד שגוי");
-                                        } finally {
-                                            setTotpLoading(false);
-                                        }
-                                    }}
-                                    disabled={totpLoading || totpCode.length < 6}
-                                    className="bg-black text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-gray-800 disabled:opacity-50 transition"
-                                >
-                                    {totpLoading ? "מאמת..." : "אמת והפעל"}
-                                </button>
-                            </div>
-                        </div>
-                    )}
-
-                    {totpEnabled && (
-                        <div className="space-y-3">
-                            <p className="text-sm text-slate-600">להשבתה, הכנס קוד מאפליקציית האימות:</p>
-                            <div className="flex gap-3">
-                                <input
-                                    type="text"
-                                    inputMode="numeric"
-                                    maxLength={6}
-                                    value={totpCode}
-                                    onChange={e => setTotpCode(e.target.value.replace(/\D/g, ""))}
-                                    placeholder="קוד 6 ספרות"
-                                    dir="ltr"
-                                    className="flex-1 border rounded-xl px-4 py-2 text-center font-mono text-lg tracking-widest outline-none focus:ring-2 focus:ring-black/20"
-                                />
-                                <button
-                                    onClick={async () => {
-                                        setTotpLoading(true);
-                                        setTotpMsg(null);
-                                        try {
-                                            await apiFetch("/api/auth/2fa/disable", {
-                                                method: "POST",
-                                                body: JSON.stringify({ code: totpCode }),
-                                            });
-                                            setTotpEnabled(false);
-                                            setTotpCode("");
-                                            setTotpMsg("✓ אימות דו-שלבי הושבת");
-                                        } catch (e: unknown) {
-                                            setTotpMsg((e as Error)?.message || "קוד שגוי");
-                                        } finally {
-                                            setTotpLoading(false);
-                                        }
-                                    }}
-                                    disabled={totpLoading || totpCode.length < 6}
-                                    className="border border-red-200 text-red-600 text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-red-50 disabled:opacity-50 transition"
-                                >
-                                    {totpLoading ? "..." : "השבת"}
-                                </button>
-                            </div>
-                        </div>
-                    )}
-
-                </div>
-
-                <MySessionsSettings />
-
-                <DeleteAccountSettings />
-
+                {activeTab !== "account" && (<>
                 {/* room for the save bar, so it never covers the last section */}
                 <div aria-hidden className="h-28 md:h-24" />
 
@@ -2372,6 +2420,7 @@ export default function AutomationSettingsPage() {
                         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-shimmer"></div>
                     </button>
                 </div>
+                </>)}
 
             </AppShell>
         </RequireAuth>

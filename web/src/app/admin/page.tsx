@@ -9,6 +9,7 @@ import {
     XAxis, YAxis, Tooltip, ResponsiveContainer,
 } from "recharts";
 import PasswordInput from "@/components/PasswordInput";
+import ChangePasswordForm from "@/components/ChangePasswordForm";
 import LandingPageTemplate from "@/components/LandingPageTemplate";
 import BizFindStoreLinks from "@/components/admin/BizFindStoreLinks";
 import BizFindDesign from "@/components/admin/BizFindDesign";
@@ -113,47 +114,6 @@ const PLAN_LABELS: Record<string, { label: string; color: string }> = {
 };
 
 const OPTION_STYLE: React.CSSProperties = { background: "#1e1b4b", color: "#fff" };
-
-function ChangePasswordForm() {
-    const [cur, setCur] = useState("");
-    const [next, setNext] = useState("");
-    const [conf, setConf] = useState("");
-    const [saving, setSaving] = useState(false);
-    const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (next !== conf) { setMsg({ ok: false, text: "הסיסמאות החדשות לא תואמות" }); return; }
-        if (next.length < 6) { setMsg({ ok: false, text: "סיסמה חייבת להכיל לפחות 6 תווים" }); return; }
-        setSaving(true); setMsg(null);
-        try {
-            await apiFetch("/api/auth/change-password", { method: "POST", body: JSON.stringify({ current_password: cur, new_password: next }) });
-            setMsg({ ok: true, text: "✅ הסיסמה שונתה בהצלחה!" });
-            setCur(""); setNext(""); setConf("");
-        } catch (err: any) {
-            setMsg({ ok: false, text: err.message || "שגיאה בשינוי הסיסמה" });
-        } finally { setSaving(false); }
-    };
-
-    return (
-        <form onSubmit={handleSubmit} className="space-y-3">
-            <PasswordInput placeholder="סיסמה נוכחית" value={cur} onChange={e => setCur(e.target.value)} required
-                iconClassName="text-white/70 hover:text-white"
-                className="w-full bg-black/30 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500" />
-            <PasswordInput placeholder="סיסמה חדשה" value={next} onChange={e => setNext(e.target.value)} required
-                iconClassName="text-white/70 hover:text-white"
-                className="w-full bg-black/30 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500" />
-            <PasswordInput placeholder="אימות סיסמה חדשה" value={conf} onChange={e => setConf(e.target.value)} required
-                iconClassName="text-white/70 hover:text-white"
-                className="w-full bg-black/30 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500" />
-            {msg && <div className={`text-sm px-4 py-2.5 rounded-xl ${msg.ok ? "bg-green-900/40 text-green-300" : "bg-red-900/40 text-red-300"}`}>{msg.text}</div>}
-            <button type="submit" disabled={saving}
-                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold rounded-xl transition-colors disabled:opacity-40">
-                {saving ? "שומר..." : "שנה סיסמה"}
-            </button>
-        </form>
-    );
-}
 
 export default function AdminPage() {
     const router = useRouter();
@@ -1561,7 +1521,7 @@ export default function AdminPage() {
                                 <h2 className="text-lg font-bold">🔐 שינוי סיסמה</h2>
                                 <p className="text-slate-400 text-sm mt-1">שנה את סיסמת חשבון הסופר-אדמין שלך.</p>
                             </div>
-                            <ChangePasswordForm />
+                            <ChangePasswordForm tone="dark" />
                         </div>
                     </div>
                 )}

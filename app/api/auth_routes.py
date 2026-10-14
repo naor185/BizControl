@@ -353,12 +353,23 @@ def _session_out(row: RefreshToken) -> SessionOut:
 
 @router.get("/sessions", response_model=list[SessionOut])
 def list_my_sessions(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Self-service — 'which devices am I logged in on'."""
-    rows = db.query(RefreshToken).filter(
-        RefreshToken.user_id == current_user.id,
-        RefreshToken.is_revoked == False,  # noqa: E712
-    ).order_by(RefreshToken.created_at.desc()).all()
-    return [_session_out(r) for r in rows]
+    """Self-service — 'which devices am I logged in on': one line per login still alive (services/login_sessions.py)."""
+    from app.services import login_sessions
+    return [_session_out(r) for r in login_sessions.active(db, current_user.id)]
+
+
+class RevokeOthersIn(BaseModel):
+    refresh_token: str
+
+
+@router.post("/sessions/revoke-others")
+def revoke_my_other_sessions(body: RevokeOthersIn, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """'Sign out every other device' — all but the login of the refresh token this device holds."""
+    from app.services import login_sessions
+    n = login_sessions.revoke_others(db, current_user.id, body.refresh_token)
+    if n is None:
+        raise HTTPException(status_code=400, detail="לא הצלחנו לזהות את המכשיר הזה — התחברו מחדש ונסו שוב")
+    return {"signed_out": n}
 
 
 @router.delete("/sessions/{session_id}", status_code=204)
@@ -366,14 +377,9 @@ def revoke_my_session(session_id: str, current_user: User = Depends(get_current_
     """Self-service 'log out this device' — the next time that device tries
     to refresh, it's hard-rejected (nothing replaced this row, so the reuse-
     chase in /refresh has nowhere to go)."""
-    row = db.query(RefreshToken).filter(
-        RefreshToken.id == session_id, RefreshToken.user_id == current_user.id,
-    ).first()
-    if not row:
+    from app.services import login_sessions
+    if not login_sessions.revoke(db, current_user.id, session_id):         # the whole login, every row of it
         raise HTTPException(status_code=404, detail="Session not found")
-    row.is_revoked = True
-    row.revoked_at = datetime.now(timezone.utc)
-    db.commit()
 
 
 @router.get("/users/{user_id}/sessions", response_model=list[SessionOut])
@@ -386,11 +392,8 @@ def list_user_sessions(
     target = db.get(User, user_id)
     if not target or str(target.studio_id) != str(current_user.studio_id):
         raise HTTPException(status_code=404, detail="User not found")
-    rows = db.query(RefreshToken).filter(
-        RefreshToken.user_id == target.id,
-        RefreshToken.is_revoked == False,  # noqa: E712
-    ).order_by(RefreshToken.created_at.desc()).all()
-    return [_session_out(r) for r in rows]
+    from app.services import login_sessions
+    return [_session_out(r) for r in login_sessions.active(db, target.id)]
 
 
 @router.delete("/users/{user_id}/sessions/{session_id}", status_code=204)
@@ -405,14 +408,9 @@ def revoke_user_session(
     target = db.get(User, user_id)
     if not target or str(target.studio_id) != str(current_user.studio_id):
         raise HTTPException(status_code=404, detail="User not found")
-    row = db.query(RefreshToken).filter(
-        RefreshToken.id == session_id, RefreshToken.user_id == target.id,
-    ).first()
-    if not row:
+    from app.services import login_sessions
+    if not login_sessions.revoke(db, target.id, session_id):
         raise HTTPException(status_code=404, detail="Session not found")
-    row.is_revoked = True
-    row.revoked_at = datetime.now(timezone.utc)
-    db.commit()
 
 
 # ── Forgot Password ───────────────────────────────────────────────────────────
