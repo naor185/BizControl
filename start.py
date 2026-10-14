@@ -2981,6 +2981,16 @@ def ensure_schema():
                     'body_font', COALESCE(ss.landing_page_desc_font, 'Assistant'))::text
                 FROM studios s WHERE s.id = ss.studio_id AND s.is_platform AND ss.bizfind_theme IS NULL
             """)
+        if _once("nctattoo_test_reviews_gone_v1"):
+            # A security test of the site on 2026-07-19 left 60 "reviews" on Nctattoo's BizFind page — PENTEST, <script>,
+            # XXE, SSTI, CSRF and 30 rate-limit tests, none by a signed-in client; one ("Oracle Test", 5 stars) was
+            # approved and showed on the public page and in its Google business card. The owner approved deleting
+            # them (2026-10-14, "תמחק"). Read-only check before: 59 waiting + 1 approved, all that day, none signed in.
+            cur.execute("""
+                DELETE FROM studio_reviews r USING studios s
+                WHERE s.id = r.studio_id AND s.name = 'Nctattoo' AND r.customer_id IS NULL
+                  AND r.created_at >= '2026-07-19' AND r.created_at < '2026-07-20'
+            """)
         if _once("nctattoo_naor_owner_v1"):
             # Nctattoo had no owner — its founding account ("naor") was a manager since 2026-05; what a manager may do
             # is now the owner's to decide (core/permissions.MANAGER_PERMISSIONS). The owner approved (2026-10-13).
