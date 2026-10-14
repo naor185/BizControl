@@ -108,10 +108,11 @@ function ServiceModal({
                     {/* Price */}
                     <div>
                         <label style={lStyle}>מחיר (₪)</label>
-                        <input type="number" min={0} step={10}
-                            value={form.price_cents / 100}
+                        {/* empty, not a "0" that can't be erased (owner, 2026-10-14) — the 0 is only a hint */}
+                        <input type="number" inputMode="decimal" min={0} step={10} placeholder="0"
+                            value={form.price_cents ? form.price_cents / 100 : ""}
                             onChange={e => set("price_cents", Math.round(parseFloat(e.target.value || "0") * 100))}
-                            style={iStyle} placeholder="0" />
+                            style={iStyle} />
                     </div>
 
                     {/* Category */}
@@ -164,10 +165,10 @@ function ServiceModal({
                         {form.requires_deposit && (
                             <div style={{ maxWidth: 200 }}>
                                 <label style={lStyle}>סכום המקדמה (₪)</label>
-                                <input type="number" min={0} step={10}
-                                    value={form.deposit_amount_cents / 100}
+                                <input type="number" inputMode="decimal" min={0} step={10} placeholder="0"
+                                    value={form.deposit_amount_cents ? form.deposit_amount_cents / 100 : ""}
                                     onChange={e => set("deposit_amount_cents", Math.round(parseFloat(e.target.value || "0") * 100))}
-                                    style={iStyle} placeholder="0" />
+                                    style={iStyle} />
                             </div>
                         )}
                     </div>

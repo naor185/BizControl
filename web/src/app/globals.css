@@ -96,6 +96,13 @@ html {
    "nothing touching the phone's edges, on every phone"). The main layout (AppShell, .app-shell) does it in its own
    header and bottom bar; a page painted edge to edge (sign-in, .own-safe-area) does it itself; every other page — the
    client's pages, the superadmin's, onboarding — gets it here. */
+/* The browser's edges — the strip beside the clock, behind Safari's bars, the home bar — take the screen's own color.
+   The platform background (the superadmin's "רקע") showed only there, as stray blue strips around a gray screen
+   (owner, 2026-10-14: an iPhone 17 Pro Max, Safari). The screens themselves are bg-slate-50 (AppShell). */
+html:has(.app-shell), body:has(.app-shell) {
+  background: #f8fafc;
+}
+
 body:not(:has(.app-shell, .own-safe-area)) {
   padding-top: env(safe-area-inset-top, 0px);
   padding-bottom: env(safe-area-inset-bottom, 0px);

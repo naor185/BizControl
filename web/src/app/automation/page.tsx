@@ -17,7 +17,7 @@ import { HIDE_BOOKING_BANNER_KEY } from "@/lib/localPrefs";
 import StaffReminderRulesSettings from "@/components/StaffReminderRulesSettings";
 import MySessionsSettings from "@/components/MySessionsSettings";
 import DeleteAccountSettings from "@/components/DeleteAccountSettings";
-import { Flag } from "lucide-react";
+import { Flag, Palette, SlidersHorizontal, Wallet, Plug, Globe } from "lucide-react";
 import PlanLock from "@/components/PlanLock";
 import { usePlan } from "@/lib/usePlan";
 
@@ -980,11 +980,11 @@ export default function AutomationSettingsPage() {
     }
 
     const tabs = [
-        { id: "branding", label: "זהות ומיתוג", icon: "🎨" },
-        { id: "policy", label: "מדיניות ואוטומציה", icon: "⚙️" },
-        { id: "finance", label: "פיננסים ותשלומים", icon: "💰" },
-        { id: "integrations", label: "חיבורים", icon: "🔌" },
-        { id: "public", label: "נוכחות ציבורית", icon: "🌐" },
+        { id: "branding", label: "זהות ומיתוג", icon: Palette },
+        { id: "policy", label: "מדיניות ואוטומציה", icon: SlidersHorizontal },
+        { id: "finance", label: "פיננסים ותשלומים", icon: Wallet },
+        { id: "integrations", label: "חיבורים", icon: Plug },
+        { id: "public", label: "נוכחות ציבורית", icon: Globe },
     ] as const;
 
     return (
@@ -1001,7 +1001,7 @@ export default function AutomationSettingsPage() {
                     </div>
                 )}
 
-                <div className="max-w-5xl mx-auto pb-32">
+                <div className="max-w-5xl mx-auto pb-6">
 
                     {/* Header describing the section */}
                     <div className="mb-8">
@@ -1010,17 +1010,19 @@ export default function AutomationSettingsPage() {
                     </div>
 
                     {/* Navigation Tabs */}
-                    <div className="flex overflow-x-auto gap-2 bg-slate-200/50 p-1.5 rounded-xl mb-8">
+                    <div role="tablist" aria-label="אזורי ההגדרות" className="flex overflow-x-auto gap-1.5 bg-slate-200/50 p-1.5 rounded-xl mb-8 -mx-1 [scrollbar-width:none]">
                         {tabs.map((tab) => (
                             <button
                                 key={tab.id}
+                                role="tab"
+                                aria-selected={activeTab === tab.id}
                                 onClick={() => setActiveTab(tab.id)}
-                                className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all duration-300 text-sm md:text-base ${activeTab === tab.id
+                                className={`shrink-0 whitespace-nowrap flex items-center gap-2 px-4 md:px-6 py-2.5 md:py-3 rounded-lg font-semibold transition-all duration-300 text-sm md:text-base ${activeTab === tab.id
                                     ? "bg-white text-slate-900 shadow-sm ring-1 ring-slate-900/5"
                                     : "text-slate-600 hover:text-slate-900 hover:bg-slate-200"
                                     }`}
                             >
-                                <span>{tab.icon}</span>
+                                <tab.icon className="w-4 h-4 shrink-0" aria-hidden />
                                 {tab.label}
                             </button>
                         ))}
@@ -1216,10 +1218,10 @@ export default function AutomationSettingsPage() {
 
                                         {/* AI Generator Box - MOVED TO TOP */}
                                         <div className="p-6 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl border border-indigo-100 shadow-inner">
-                                            <div className="flex items-center justify-between gap-2 mb-3">
+                                            <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
                                                 <div className="flex items-center gap-2">
                                                     <span className="text-xl">✨</span>
-                                                    <h4 className="font-bold text-indigo-900">מחולל עיצוב ב-AI</h4>
+                                                    <h4 className="font-bold text-indigo-900 whitespace-nowrap">מחולל עיצוב ב-AI</h4>
                                                 </div>
                                                 <div className={`text-xs font-bold px-2.5 py-1 rounded-full ${settings.ai_generations_count >= 3 ? 'bg-red-100 text-red-700' : 'bg-indigo-100 text-indigo-700'}`}>
                                                     נסיונות החודש: {Math.max(0, 3 - settings.ai_generations_count)}/3 נותרו
@@ -1510,7 +1512,7 @@ export default function AutomationSettingsPage() {
                                                     value={settings.deposit_min_duration_minutes ?? ""}
                                                     onChange={e => handleChange("deposit_min_duration_minutes", e.target.value === "" ? null : parseInt(e.target.value) || 0)}
                                                     placeholder="ללא הגבלה"
-                                                    className="w-24 text-center bg-white border border-slate-200 rounded-xl px-4 py-3 font-bold text-xl outline-none focus:ring-2 focus:ring-blue-500" />
+                                                    className="w-32 placeholder:text-sm placeholder:font-normal text-center bg-white border border-slate-200 rounded-xl px-4 py-3 font-bold text-xl outline-none focus:ring-2 focus:ring-blue-500" />
                                                 <span className="text-slate-600 font-medium">דקות</span>
                                             </div>
                                         </div>
@@ -1765,7 +1767,7 @@ export default function AutomationSettingsPage() {
                                                             value={settings.gift_card_max_amount_cents ? settings.gift_card_max_amount_cents / 100 : ""}
                                                             placeholder="ללא הגבלה"
                                                             onChange={e => handleChange("gift_card_max_amount_cents", e.target.value === "" ? 0 : Math.round((parseFloat(e.target.value) || 0) * 100))}
-                                                            className="w-28 text-center bg-white border border-violet-200 rounded-xl px-4 py-3 font-semibold text-lg outline-none focus:ring-2 focus:ring-violet-500"
+                                                            className="w-32 placeholder:text-sm placeholder:font-normal text-center bg-white border border-violet-200 rounded-xl px-4 py-3 font-semibold text-lg outline-none focus:ring-2 focus:ring-violet-500"
                                                             min="0"
                                                         />
                                                     </div>
@@ -2125,12 +2127,13 @@ export default function AutomationSettingsPage() {
                                             logo: null,
                                         },
                                     ].map(item => (
-                                        <div key={item.href} className="flex items-center gap-5 p-5 rounded-2xl border-2 border-slate-100 hover:border-slate-200 bg-slate-50/50 transition-all">
-                                            <div className={`w-14 h-14 rounded-2xl ${item.color} flex items-center justify-center text-3xl flex-shrink-0`}>
+                                        <div key={item.href} className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-5 p-4 sm:p-5 rounded-2xl border-2 border-slate-100 hover:border-slate-200 bg-slate-50/50 transition-all">
+                                            <div className="flex items-start gap-4 flex-1 min-w-0">
+                                            <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-2xl ${item.color} flex items-center justify-center text-2xl sm:text-3xl flex-shrink-0`}>
                                                 {item.icon}
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <div className="flex items-center gap-3 mb-1">
+                                                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-1">
                                                     <h4 className="font-bold text-slate-800 text-lg">{item.title}</h4>
                                                     {item.connected ? (
                                                         <span className="text-xs font-bold px-3 py-1 rounded-full bg-emerald-100 text-emerald-700">מחובר ✓</span>
@@ -2140,7 +2143,8 @@ export default function AutomationSettingsPage() {
                                                 </div>
                                                 <p className="text-sm text-slate-500">{item.desc}</p>
                                             </div>
-                                            <Link href={item.href} className="flex-shrink-0 bg-slate-900 hover:bg-slate-700 text-white px-6 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center gap-2 whitespace-nowrap">
+                                            </div>
+                                            <Link href={item.href} className="flex-shrink-0 w-full sm:w-auto justify-center bg-slate-900 hover:bg-slate-700 text-white px-6 py-3 sm:py-2.5 rounded-xl font-bold text-sm transition-all flex items-center gap-2 whitespace-nowrap">
                                                 {item.connected ? "ערוך הגדרות" : "הגדר עכשיו"} <span>←</span>
                                             </Link>
                                         </div>
@@ -2349,12 +2353,15 @@ export default function AutomationSettingsPage() {
 
                 <DeleteAccountSettings />
 
-                {/* Floating Save Button */}
-                <div className="fixed bottom-10 left-1/2 transform -translate-x-1/2 z-40">
+                {/* room for the save bar, so it never covers the last section */}
+                <div aria-hidden className="h-28 md:h-24" />
+
+                {/* Save — a full-width bar above the bottom bar on a phone, a floating button on a computer */}
+                <div className="fixed inset-x-0 z-40 px-4 bottom-[calc(72px+env(safe-area-inset-bottom,0px))] md:inset-x-auto md:px-0 md:bottom-10 md:left-1/2 md:-translate-x-1/2">
                     <button
                         onClick={handleSave}
                         disabled={saving}
-                        className={`group relative overflow-hidden px-10 py-4 rounded-2xl font-bold text-white shadow-2xl transition-all duration-300 flex items-center gap-3 ${saving ? 'bg-slate-400 scale-95' : 'bg-slate-900 hover:bg-sky-700 hover:-translate-y-1 active:scale-95'
+                        className={`group relative overflow-hidden w-full md:w-auto justify-center whitespace-nowrap px-6 md:px-10 py-3.5 md:py-4 rounded-2xl font-bold text-white shadow-2xl transition-all duration-300 flex items-center gap-3 ${saving ? 'bg-slate-400 scale-95' : 'bg-slate-900 hover:bg-sky-700 md:hover:-translate-y-1 active:scale-95'
                             }`}
                     >
                         {saving && (
