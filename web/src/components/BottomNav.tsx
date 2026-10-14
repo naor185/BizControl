@@ -3,31 +3,40 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { clearToken, getCurrentUserRole } from "@/lib/api";
+import {
+    BarChart3, Building2, CalendarDays, Compass, CreditCard, LifeBuoy, LogOut, Mail, Menu, Package, Receipt,
+    Settings, ShoppingCart, UserCog, Users, Wallet, X, type LucideIcon,
+} from "lucide-react";
+import { apiFetch, clearToken, getCurrentUserRole } from "@/lib/api";
 import { useLang } from "./LanguageProvider";
 import { TranslationKey } from "@/lib/i18n";
 import { useBackButtonClose } from "@/lib/backButtonStack";
 import { useNewLeadsCount } from "@/lib/useNewLeadsCount";
 
-const PRIMARY_NAV: { href: string; labelKey: TranslationKey; icon: string }[] = [
-    { href: "/calendar",  labelKey: "nav_calendar",  icon: "📅" },
-    { href: "/pos",       labelKey: "nav_pos",       icon: "🛒" },
-    { href: "/clients",   labelKey: "nav_clients",   icon: "👥" },
+const PRIMARY_NAV: { href: string; labelKey: TranslationKey; icon: LucideIcon }[] = [
+    { href: "/calendar",  labelKey: "nav_calendar",  icon: CalendarDays },
+    { href: "/pos",       labelKey: "nav_pos",       icon: ShoppingCart },
+    { href: "/clients",   labelKey: "nav_clients",   icon: Users },
 ];
 
-const MORE_NAV: { href: string; labelKey: TranslationKey; icon: string }[] = [
-    { href: "/overview",     labelKey: "nav_overview",  icon: "🧭" },
-    { href: "/business",     labelKey: "nav_business",  icon: "🏢" },
-    { href: "/dashboard",    labelKey: "nav_dashboard", icon: "📊" },
-    { href: "/payments",     labelKey: "nav_payments",  icon: "💳" },
-    { href: "/expenses",     labelKey: "nav_expenses",  icon: "💼" },
-    { href: "/products",     labelKey: "nav_products",  icon: "📦" },
-    { href: "/team",         labelKey: "nav_team",      icon: "🎨" },
-    { href: "/team/payroll", labelKey: "nav_payroll",   icon: "💰" },
-    { href: "/message-templates", labelKey: "nav_msg_templates", icon: "✉️" },
-    { href: "/automation",        labelKey: "nav_settings",      icon: "⚙️" },
-    { href: "/help",         labelKey: "nav_help",      icon: "🆘" },
+// perm: what a manager needs the owner to have allowed (core/permissions.MANAGER_PERMISSIONS) — like the business hub
+type Perm = "settings" | "money";
+const MORE_NAV: { href: string; labelKey: TranslationKey; icon: LucideIcon; perm?: Perm }[] = [
+    { href: "/overview",     labelKey: "nav_overview",  icon: Compass },
+    { href: "/business",     labelKey: "nav_business",  icon: Building2 },
+    { href: "/dashboard",    labelKey: "nav_dashboard", icon: BarChart3 },
+    { href: "/payments",     labelKey: "nav_payments",  icon: CreditCard },
+    { href: "/expenses",     labelKey: "nav_expenses",  icon: Receipt, perm: "money" },
+    { href: "/products",     labelKey: "nav_products",  icon: Package },
+    { href: "/team",         labelKey: "nav_team",      icon: UserCog },
+    { href: "/team/payroll", labelKey: "nav_payroll",   icon: Wallet, perm: "money" },
+    { href: "/message-templates", labelKey: "nav_msg_templates", icon: Mail, perm: "settings" },
+    { href: "/automation",        labelKey: "nav_settings",      icon: Settings, perm: "settings" },
+    { href: "/help",         labelKey: "nav_help",      icon: LifeBuoy },
 ];
+
+// a manager's permissions, asked once per visit (the menu is drawn on every page)
+let managerPerms: Promise<Record<Perm, boolean> | null> | null = null;
 
 export default function BottomNav() {
     const pathname = usePathname();
@@ -42,6 +51,13 @@ export default function BottomNav() {
         pathname === href || pathname?.startsWith(href + "/");
 
     const moreActive = MORE_NAV.some(n => isActive(n.href));
+    const [perms, setPerms] = useState<Record<Perm, boolean> | null>(null);
+    useEffect(() => {
+        if (userRole !== "admin") return;
+        managerPerms ??= apiFetch<{ permissions?: Record<Perm, boolean> }>("/api/auth/me").then(m => m.permissions ?? null).catch(() => null);
+        managerPerms.then(setPerms);
+    }, [userRole]);
+    const moreItems = MORE_NAV.filter(n => !n.perm || userRole !== "admin" || perms?.[n.perm] === true);
 
     // Close sheet on navigation
     useEffect(() => { setSheetOpen(false); }, [pathname]);
@@ -72,10 +88,10 @@ export default function BottomNav() {
                 id="mobile-more-navigation"
                 dir="rtl"
                 className={[
-                    "fixed right-0 left-0 z-50 md:hidden max-h-[calc(100vh-4rem-env(safe-area-inset-bottom,0px))] overflow-y-auto bg-white rounded-t-3xl shadow-2xl transition-all duration-300 ease-out",
+                    "fixed right-0 left-0 z-50 md:hidden max-h-[calc(100dvh-4rem-env(safe-area-inset-bottom,0px)-env(safe-area-inset-top,0px))] overflow-y-auto bg-white rounded-t-3xl shadow-2xl transition-all duration-300 ease-out",
                     sheetOpen ? "translate-y-0 opacity-100" : "translate-y-full opacity-0 pointer-events-none",
                 ].join(" ")}
-                style={{ bottom: "64px" }}
+                style={{ bottom: "calc(64px + env(safe-area-inset-bottom, 0px))" }}
             >
                 {/* Handle */}
                 <div className="flex justify-center pt-3 pb-1">
@@ -83,7 +99,7 @@ export default function BottomNav() {
                 </div>
 
                 <div className="px-4 pt-2 pb-5 grid grid-cols-3 gap-2.5">
-                    {MORE_NAV.map(item => {
+                    {moreItems.map(item => {
                         const active = isActive(item.href);
                         return (
                             <Link
@@ -96,8 +112,8 @@ export default function BottomNav() {
                                         : "bg-gray-50 text-gray-700 hover:bg-sky-50",
                                 ].join(" ")}
                             >
-                                <span className="relative text-2xl leading-none">
-                                    {item.icon}
+                                <span className="relative leading-none">
+                                    <item.icon className="w-6 h-6" aria-hidden />
                                     {item.href === "/overview" && newLeadsCount > 0 && (
                                         <span className="absolute -top-1.5 -left-2.5 bg-rose-500 text-white text-[9px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-1 shadow-sm">
                                             {newLeadsCount > 99 ? "99+" : newLeadsCount}
@@ -114,7 +130,7 @@ export default function BottomNav() {
                         onClick={logout}
                         className="flex flex-col items-center gap-1.5 py-3 rounded-2xl bg-red-50 text-red-600 active:scale-95 transition-all"
                     >
-                        <span className="text-2xl leading-none">🚪</span>
+                        <LogOut className="w-6 h-6" aria-hidden />
                         <span className="text-[11px] font-semibold">{t("logout")}</span>
                     </button>
                 </div>
@@ -140,12 +156,10 @@ export default function BottomNav() {
                                 )}
 
                                 <div className="relative z-10">
-                                    <span className={[
-                                        "text-[22px] leading-none transition-transform duration-200",
-                                        active ? "scale-110 block" : "block",
-                                    ].join(" ")}>
-                                        {item.icon}
-                                    </span>
+                                    <item.icon aria-hidden className={[
+                                        "w-[22px] h-[22px] transition-transform duration-200",
+                                        active ? "scale-110 text-sky-600" : "text-gray-500",
+                                    ].join(" ")} />
                                 </div>
 
                                 <span className={[
@@ -189,12 +203,9 @@ export default function BottomNav() {
                                 <span className="absolute top-1.5 inset-x-1.5 h-9 bg-sky-500/10 rounded-2xl" />
                             )}
 
-                            <span className={[
-                                "text-[22px] leading-none z-10 transition-all duration-200",
-                                sheetOpen ? "rotate-45 scale-110" : "",
-                            ].join(" ")}>
-                                {sheetOpen ? "✕" : "☰"}
-                            </span>
+                            {sheetOpen
+                                ? <X aria-hidden className="w-[22px] h-[22px] z-10 text-sky-600" />
+                                : <Menu aria-hidden className={`w-[22px] h-[22px] z-10 ${moreActive ? "text-sky-600" : "text-gray-500"}`} />}
                             {!sheetOpen && newLeadsCount > 0 && (
                                 <span className="absolute top-2.5 right-[calc(50%-18px)] w-2.5 h-2.5 rounded-full bg-rose-500 ring-2 ring-white z-10" />
                             )}

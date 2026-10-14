@@ -988,7 +988,7 @@ export default function ExpensesPage() {
 
     return (
         <RequireAuth>
-            <AppShell title="ניהול עסק">
+            <AppShell title="הוצאות">
                 <div dir="rtl" style={{ minHeight: "100vh", background: "#f8f9fa", fontFamily: "'Segoe UI', Arial, sans-serif" }}>
 
                     {/* Modal CSS */}

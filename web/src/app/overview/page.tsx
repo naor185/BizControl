@@ -54,7 +54,7 @@ export default function OverviewPage() {
 
     return (
         <RequireAuth>
-            <AppShell title="דשבורד">
+            <AppShell title="סקירה">
                 <div className="space-y-5 animate-page-in pb-10">
                     <SetupChecklist />
 
