@@ -4,10 +4,9 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
-    BarChart3, Building2, CalendarDays, Compass, CreditCard, LifeBuoy, LogOut, Mail, Menu, Package, Receipt,
-    Settings, ShoppingCart, UserCog, Users, Wallet, X, type LucideIcon,
+    BarChart3, Building2, CalendarDays, ChevronLeft, Compass, LogOut, Menu, ShoppingCart, Users, X, type LucideIcon,
 } from "lucide-react";
-import { apiFetch, clearToken, getCurrentUserRole } from "@/lib/api";
+import { clearToken, getCurrentUserRole } from "@/lib/api";
 import { useLang } from "./LanguageProvider";
 import { TranslationKey } from "@/lib/i18n";
 import { useBackButtonClose } from "@/lib/backButtonStack";
@@ -19,24 +18,13 @@ const PRIMARY_NAV: { href: string; labelKey: TranslationKey; icon: LucideIcon }[
     { href: "/clients",   labelKey: "nav_clients",   icon: Users },
 ];
 
-// perm: what a manager needs the owner to have allowed (core/permissions.MANAGER_PERMISSIONS) — like the business hub
-type Perm = "settings" | "money";
-const MORE_NAV: { href: string; labelKey: TranslationKey; icon: LucideIcon; perm?: Perm }[] = [
+// "עוד" — like the computer's side menu: the two overview pages and "ניהול עסק", where everything else lives once
+// (payments, expenses, team, settings… — each with its plan and a manager's permissions). Until 2026-10-15 the sheet
+// repeated eight of the hub's pages beside the hub itself (the owner: "why are there two ניהול עסק?").
+const MORE_NAV: { href: string; labelKey: TranslationKey; icon: LucideIcon }[] = [
     { href: "/overview",     labelKey: "nav_overview",  icon: Compass },
-    { href: "/business",     labelKey: "nav_business",  icon: Building2 },
     { href: "/dashboard",    labelKey: "nav_dashboard", icon: BarChart3 },
-    { href: "/payments",     labelKey: "nav_payments",  icon: CreditCard },
-    { href: "/expenses",     labelKey: "nav_expenses",  icon: Receipt, perm: "money" },
-    { href: "/products",     labelKey: "nav_products",  icon: Package },
-    { href: "/team",         labelKey: "nav_team",      icon: UserCog },
-    { href: "/team/payroll", labelKey: "nav_payroll",   icon: Wallet, perm: "money" },
-    { href: "/message-templates", labelKey: "nav_msg_templates", icon: Mail, perm: "settings" },
-    { href: "/automation",        labelKey: "nav_settings",      icon: Settings, perm: "settings" },
-    { href: "/help",         labelKey: "nav_help",      icon: LifeBuoy },
 ];
-
-// a manager's permissions, asked once per visit (the menu is drawn on every page)
-let managerPerms: Promise<Record<Perm, boolean> | null> | null = null;
 
 export default function BottomNav() {
     const pathname = usePathname();
@@ -50,14 +38,8 @@ export default function BottomNav() {
     const isActive = (href: string) =>
         pathname === href || pathname?.startsWith(href + "/");
 
-    const moreActive = MORE_NAV.some(n => isActive(n.href));
-    const [perms, setPerms] = useState<Record<Perm, boolean> | null>(null);
-    useEffect(() => {
-        if (userRole !== "admin") return;
-        managerPerms ??= apiFetch<{ permissions?: Record<Perm, boolean> }>("/api/auth/me").then(m => m.permissions ?? null).catch(() => null);
-        managerPerms.then(setPerms);
-    }, [userRole]);
-    const moreItems = MORE_NAV.filter(n => !n.perm || userRole !== "admin" || perms?.[n.perm] === true);
+    // every page that isn't on the bar itself is reached through "עוד"
+    const moreActive = !PRIMARY_NAV.some(n => isActive(n.href));
 
     // Close sheet on navigation
     useEffect(() => { setSheetOpen(false); }, [pathname]);
@@ -99,7 +81,23 @@ export default function BottomNav() {
                 </div>
 
                 <div className="px-4 pt-2 pb-5 grid grid-cols-3 gap-2.5">
-                    {moreItems.map(item => {
+                    {/* the business's tools — all of them, in one place */}
+                    <Link
+                        href="/business"
+                        className={[
+                            "col-span-3 flex items-center gap-3 px-4 py-3.5 rounded-2xl text-right transition-all active:scale-[0.98]",
+                            isActive("/business") ? "bg-sky-600 text-white shadow-md" : "bg-sky-50 text-gray-800 hover:bg-sky-100",
+                        ].join(" ")}
+                    >
+                        <Building2 className="w-7 h-7 shrink-0" aria-hidden />
+                        <span className="flex-1 min-w-0">
+                            <span className="block text-sm font-bold leading-tight">{t("nav_business")}</span>
+                            <span className={`block text-[11px] mt-0.5 ${isActive("/business") ? "text-white/80" : "text-gray-500"}`}>{t("nav_business_hint")}</span>
+                        </span>
+                        <ChevronLeft className="w-5 h-5 shrink-0 opacity-60" aria-hidden />
+                    </Link>
+
+                    {MORE_NAV.map(item => {
                         const active = isActive(item.href);
                         return (
                             <Link
