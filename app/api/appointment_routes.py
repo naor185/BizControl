@@ -515,10 +515,14 @@ def verify_sent_payment(
     appointment_id: UUID,
     method: str = "bit",
     send_receipt: bool = True,
+    amount_cents: int | None = Query(default=None, gt=0),
     ctx: AuthContext = Depends(require_studio_ctx),
     db: Session = Depends(get_db),
 ):
-    """Studio confirms they received the deposit — opens cashier, records payment, creates receipt."""
+    """Studio confirms they received the deposit — opens cashier, records payment, creates receipt.
+    amount_cents: what the client really paid, when it isn't the deposit asked (owner, 2026-10-14: "asked 200, paid
+    400") — the payment, the receipt, the balance, the client's message and the points follow it; the activity log
+    says so."""
     from app.models.payment import Payment
     from app.models.appointment import Appointment
     from app.models.client import Client
@@ -532,6 +536,9 @@ def verify_sent_payment(
 
     # Mark as verified
     appt.payment_verified_at = func.now()
+    asked_cents = appt.deposit_amount_cents or 0
+    if amount_cents and amount_cents != asked_cents:
+        appt.deposit_amount_cents = amount_cents          # the deposit is what was paid — the message says it
 
     invoice_id = None
     # Create payment record and auto-generate receipt
@@ -544,7 +551,7 @@ def verify_sent_payment(
             method=method,
             status="paid",
             type="deposit",
-            notes=f"מקדמה אושרה — {method}",
+            notes=f"מקדמה אושרה — {method}" + (f" (התבקשו ₪{asked_cents / 100:g})" if appt.deposit_amount_cents != asked_cents else ""),
         )
         db.add(new_payment)
         db.flush()  # get new_payment.id before commit
@@ -558,6 +565,9 @@ def verify_sent_payment(
             log.exception("[verify-payment] auto-invoice failed")
 
     db.commit()
+    if asked_cents and appt.deposit_amount_cents != asked_cents:
+        from app.services.activity_log import ils, record
+        record(db, ctx, "money", f"אישור מקדמה{_whose(db, appt)}: התבקשו {ils(asked_cents)}, התקבלו {ils(appt.deposit_amount_cents)}")
 
     # ── Loyalty points for deposit (same logic as create_payment) ──────────────
     if appt.deposit_amount_cents > 0:

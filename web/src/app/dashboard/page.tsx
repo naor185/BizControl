@@ -82,6 +82,8 @@ export default function Page() {
     const [depositCashier, setDepositCashier] = useState<{ id: string; amount: number; clientName: string } | null>(null);
     const [depositMethod, setDepositMethod] = useState("bit");
     const [depositSendReceipt, setDepositSendReceipt] = useState(true);
+    // the client paid another amount than the deposit asked (owner, 2026-10-14: "asked 200, paid 400") — null: as asked
+    const [depositPaid, setDepositPaid] = useState<string | null>(null);
     const [depositReceipt, setDepositReceipt] = useState<{ invoiceId: string; docNum?: number } | null>(null);
     type OccupancyPeriod = { booked_minutes: number; total_minutes: number; percent: number; count: number };
     type OccupancyData = { this_week: OccupancyPeriod; last_week: OccupancyPeriod; this_month: OccupancyPeriod; last_month: OccupancyPeriod; work_hours_per_day: number };
@@ -159,14 +161,18 @@ export default function Page() {
     const openDepositCashier = (d: any) => {
         setDepositMethod("bit");
         setDepositSendReceipt(true);
+        setDepositPaid(null);
         setDepositCashier({ id: d.appointment_id, amount: d.deposit_amount_cents, clientName: d.client_name });
     };
 
     const confirmDeposit = async () => {
         if (!depositCashier) return;
+        const paidCents = depositPaid === null ? depositCashier.amount : Math.round(Number(depositPaid) * 100);
+        if (!(paidCents > 0)) { alert("הקלידו את הסכום שהתקבל"); return; }
         setConfirmingDeposit(depositCashier.id);
         try {
-            const res = await apiFetch<{ invoice_id: string | null }>(`/api/appointments/${depositCashier.id}/verify-payment?method=${depositMethod}&send_receipt=${depositSendReceipt}`, { method: "POST" });
+            const other = paidCents !== depositCashier.amount ? `&amount_cents=${paidCents}` : "";
+            const res = await apiFetch<{ invoice_id: string | null }>(`/api/appointments/${depositCashier.id}/verify-payment?method=${depositMethod}&send_receipt=${depositSendReceipt}${other}`, { method: "POST" });
             setPendingDeposits(prev => prev.filter(d => d.appointment_id !== depositCashier.id));
             setDepositCashier(null);
             if (res.invoice_id) setDepositReceipt({ invoiceId: res.invoice_id });
@@ -678,9 +684,30 @@ export default function Page() {
                             <div className="text-center mb-5">
                                 <div className="text-lg font-black text-slate-800">אישור קבלת מקדמה</div>
                                 <div className="text-sm text-slate-500 mt-0.5">{depositCashier.clientName}</div>
-                                <div className="text-3xl font-black text-emerald-600 mt-2">
-                                    ₪{(depositCashier.amount / 100).toLocaleString()}
-                                </div>
+                                {depositPaid === null ? (
+                                    <>
+                                        <div className="text-3xl font-black text-emerald-600 mt-2">
+                                            ₪{(depositCashier.amount / 100).toLocaleString()}
+                                        </div>
+                                        <button type="button" onClick={() => setDepositPaid(String(depositCashier.amount / 100))}
+                                            className="mt-1.5 text-sm font-bold text-sky-700 underline underline-offset-2">
+                                            הלקוח שילם סכום אחר?
+                                        </button>
+                                    </>
+                                ) : (
+                                    <label className="block mt-3">
+                                        <span className="block text-xs font-bold text-slate-500 mb-1">כמה התקבל בפועל?</span>
+                                        <span className="inline-flex items-center gap-1 text-3xl font-black text-emerald-600">
+                                            ₪<input type="number" inputMode="decimal" min={1} autoFocus value={depositPaid}
+                                                onChange={e => setDepositPaid(e.target.value)}
+                                                className="w-36 text-center bg-emerald-50 border-2 border-emerald-200 rounded-xl py-1 outline-none focus:border-emerald-500" />
+                                        </span>
+                                        <span className="block text-xs text-slate-500 mt-1.5">
+                                            המקדמה שנדרשה: ₪{(depositCashier.amount / 100).toLocaleString()} · התשלום, הקבלה והיתרה יהיו לפי הסכום שהתקבל
+                                        </span>
+                                        <button type="button" onClick={() => setDepositPaid(null)} className="mt-1 text-xs font-bold text-slate-500 underline">חזרה לסכום שנדרש</button>
+                                    </label>
+                                )}
                             </div>
 
                             <div className="mb-5">
