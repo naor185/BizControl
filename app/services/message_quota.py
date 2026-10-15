@@ -68,7 +68,7 @@ def _tell_owner(db: Session, studio_id, share: int, limit: int, month: str) -> N
         title = f"נוצלו {share}% מהודעות ה-WhatsApp של החודש"
         body = f"נשלחו {math.ceil(limit * share / 100)} מתוך {limit} הודעות במסלול החודש."
     db.add(Notification(studio_id=studio_id, type="whatsapp_quota", title=title, body=body,
-                        action_url="/overview?billing=plans", dedup_key=key))
+                        action_url="/billing", dedup_key=key))
 
 
 def out_of_messages(db: Session, job) -> None:

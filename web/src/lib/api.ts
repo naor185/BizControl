@@ -660,7 +660,6 @@ export function downloadPayrollPdf(startDate: string, endDate: string) {
 export interface DashboardStats {
     appointments_today: number;
     total_clients: number;
-    total_club_members: number;
     total_revenue_cents: number;
     pending_messages: number;
     pending_payment_verifications: number;

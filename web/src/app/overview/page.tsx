@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ChevronDown, Landmark, Target } from "lucide-react";
+import { ChevronDown, Target } from "lucide-react";
+import { useRouter } from "next/navigation";
 import RequireAuth from "@/components/RequireAuth";
 import AppShell from "@/components/AppShell";
 import SetupChecklist from "@/components/SetupChecklist";
 import LeadsContent from "@/components/LeadsContent";
 import BizFindExposureCard from "@/components/BizFindExposureCard";
-import BillingContent from "@/components/BillingContent";
 import { useNewLeadsCount } from "@/lib/useNewLeadsCount";
 
 const LEADS_OPEN_KEY = "bizcontrol_overview_leads_open";
@@ -20,31 +20,20 @@ function readLeadsOpen(): boolean {
     }
 }
 
-// Lowest row of the דשבורד page. Scrolls itself into view when the page is opened for billing
-// (?billing=… from the plan bar, or when Stripe sends the customer back).
-function BillingSection() {
+// The subscription moved to its own screen, /billing (the owner, 2026-10-15) — a link from before (a notice, an e-mail,
+// a payment's way back) still lands there.
+function useOldBillingLink() {
+    const router = useRouter();
     useEffect(() => {
-        if (!new URLSearchParams(window.location.search).has("billing")) return;
-        const t = setTimeout(() => document.getElementById("billing")?.scrollIntoView({ behavior: "smooth", block: "start" }), 500);
-        return () => clearTimeout(t);
-    }, []);
-
-    return (
-        <section id="billing" className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden scroll-mt-4">
-            <div className="px-5 py-3 border-b border-slate-100 flex items-center gap-3">
-                <Landmark className="h-5 w-5 text-slate-500" />
-                <h3 className="font-bold text-slate-800 text-sm">מנוי וחיוב</h3>
-            </div>
-            <div className="p-5">
-                <BillingContent />
-            </div>
-        </section>
-    );
+        const asked = new URLSearchParams(window.location.search).get("billing");
+        if (asked) router.replace(asked === "plans" ? "/billing" : `/billing?billing=${encodeURIComponent(asked)}`);
+    }, [router]);
 }
 
 export default function OverviewPage() {
     const [leadsOpen, setLeadsOpen] = useState(readLeadsOpen);
     const newLeads = useNewLeadsCount();
+    useOldBillingLink();
 
     const toggleLeads = () => {
         const next = !leadsOpen;
@@ -81,8 +70,6 @@ export default function OverviewPage() {
                     </section>
 
                     <BizFindExposureCard />
-
-                    <BillingSection />
                 </div>
             </AppShell>
         </RequireAuth>

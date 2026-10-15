@@ -13,32 +13,23 @@ export type PlanInfo = {
 // Height of the bar — AppShell reserves the same amount of room so it never covers page content.
 export const PLAN_BAR_HEIGHT = "2.25rem";
 
-function fmtDate(iso: string) {
-    return new Date(iso).toLocaleDateString("he-IL");
-}
+export const isTrialPlan = (info: PlanInfo | null) => info?.subscription_plan === "trial";
 
-// Strip at the bottom of the screen: the studio's plan and how much time is left on it. AppShell shows it
-// only on the דשבורד page (/overview). During a trial it also offers buying a full plan and shows what
-// each plan includes (the billing section of that page). Orange with white text; red when 7 days or
-// fewer remain.
+// Strip at the bottom of the overview (/overview) — for a business on the free trial only (the owner, 2026-10-15: a paid
+// plan's "בתוקף עד" doesn't belong there): how many days are left, and renewing now, before it ends, on the
+// subscription's screen (/billing). Orange with white text; red when 7 days or fewer remain. Not a buying link inside
+// the apps (Apple: no buying outside the app from it).
 export default function PlanBar({ info }: { info: PlanInfo }) {
     const [now] = useState(() => Date.now());
     const [isNative] = useState(() => isNativeApp());
 
-    const isTrial = info.subscription_plan === "trial";
     const days = info.plan_expires_at ? Math.ceil((new Date(info.plan_expires_at).getTime() - now) / 86_400_000) : null;
     const urgent = days !== null && days <= 7;
-
-    let text: string;
-    if (days === null) {
-        text = info.plan_label;
-    } else if (days < 0) {
-        text = `${info.plan_label} · פג תוקף ב-${fmtDate(info.plan_expires_at as string)}`;
-    } else if (isTrial) {
-        text = `${info.plan_label} · ${days === 0 ? "מסתיימת היום" : `נשארו ${days} ימים`}`;
-    } else {
-        text = `${info.plan_label} · בתוקף עד ${fmtDate(info.plan_expires_at as string)} (${days === 0 ? "היום" : `${days} ימים`})`;
-    }
+    const text = days === null ? info.plan_label
+        : days < 0 ? "תקופת הניסיון הסתיימה"
+        : days === 0 ? "תקופת הניסיון מסתיימת היום"
+        : days === 1 ? "תקופת הניסיון · נשאר יום אחד"
+        : `תקופת הניסיון · נשארו ${days} ימים`;
 
     return (
         <div
@@ -50,19 +41,13 @@ export default function PlanBar({ info }: { info: PlanInfo }) {
             <span aria-hidden className="hidden md:block" />
             <span className="flex-1 md:flex-none min-w-0 text-center font-semibold truncate">{text}</span>
             <span className="flex items-center gap-3 shrink-0 md:justify-self-end">
-                {isTrial && (isNative ? null : (
-                    <>
-                        <Link
-                            href="/overview?billing=plans"
-                            className={`px-3 py-1 rounded-lg bg-white font-bold no-underline hover:bg-orange-50 ${urgent ? "text-rose-700" : "text-orange-700"}`}
-                        >
-                            רכישת מנוי מלא
-                        </Link>
-                        <Link href="/overview?billing=plans" className="text-white/90 hover:text-white underline">מה כלול בכל מנוי</Link>
-                    </>
-                ))}
-                {!isTrial && (
-                    <Link href="/overview?billing=plans" className="text-white/90 hover:text-white underline">פרטי מנוי</Link>
+                {!isNative && (
+                    <Link
+                        href="/billing"
+                        className={`px-3 py-1 rounded-lg bg-white font-bold no-underline hover:bg-orange-50 ${urgent ? "text-rose-700" : "text-orange-700"}`}
+                    >
+                        חידוש מנוי
+                    </Link>
                 )}
             </span>
         </div>

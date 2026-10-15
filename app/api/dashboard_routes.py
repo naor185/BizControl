@@ -53,15 +53,10 @@ def get_dashboard_stats(
         )
     ) or 0
 
-    # 2. Total Clients and Club Members
+    # 2. Total Clients
     total_clients = db.scalar(
         select(func.count(Client.id))
         .where(Client.studio_id == ctx.studio_id, Client.is_active == True)
-    ) or 0
-
-    total_club_members = db.scalar(
-        select(func.count(Client.id))
-        .where(Client.studio_id == ctx.studio_id, Client.is_club_member == True, Client.is_active == True)
     ) or 0
 
     # 3. Revenue from paid payments + POS transactions (filtered by month/year if provided). A refund is its own
@@ -132,7 +127,6 @@ def get_dashboard_stats(
     return {
         "appointments_today": appointments_today,
         "total_clients": total_clients,
-        "total_club_members": total_club_members,
         "total_revenue_cents": total_revenue_cents,
         "pending_messages": pending_messages,
         "pending_payment_verifications": pending_payment_verifications,
@@ -782,7 +776,9 @@ def get_calendar_occupancy(
     ctx: AuthContext = Depends(require_studio_ctx),
     db: Session = Depends(get_db),
 ):
-    """Calendar occupancy %: booked hours vs total working hours per period."""
+    """Calendar fill %: the appointments' time vs the working time — the calendar's hours on the business's working
+    days (settings: work_days, 0 = Sunday), so a day off doesn't count as empty time (the owner, 2026-10-15: "98 hours"
+    made no sense)."""
     tz = pytz.timezone("Asia/Jerusalem")
     now = datetime.now(tz)
     today = now.date()
@@ -800,8 +796,12 @@ def get_calendar_occupancy(
         # Fallback: 08:00–23:00 = 15 hours
         work_min_per_day = 15 * 60
 
+    saved_days = getattr(settings, "work_days", None)
+    work_days = set(saved_days if saved_days is not None else [0, 1, 2, 3, 4, 5])
+
     def period_data(p_start, p_end):
-        days = max(1, (p_end - p_start).days)
+        days = sum(1 for i in range((p_end - p_start).days)
+                   if ((p_start + timedelta(days=i)).weekday() + 1) % 7 in work_days)
         total_min = days * work_min_per_day
 
         utc_start = tz.localize(datetime(p_start.year, p_start.month, p_start.day)).astimezone(pytz.utc).replace(tzinfo=None)
@@ -821,8 +821,8 @@ def get_calendar_occupancy(
             max(0, int((a.ends_at - a.starts_at).total_seconds() / 60))
             for a in appts
         )
-        pct = min(100, round(booked_min / total_min * 100))
-        return {"booked_minutes": booked_min, "total_minutes": total_min, "percent": pct, "count": len(appts)}
+        pct = min(100, round(booked_min / total_min * 100)) if total_min else 0
+        return {"percent": pct, "count": len(appts)}
 
     # Week: Sunday–Saturday (Israel week)
     days_since_sun = (today.weekday() + 1) % 7
@@ -841,14 +841,11 @@ def get_calendar_occupancy(
         last_month_start = month_start.replace(month=month_start.month - 1)
     last_month_end = month_start
 
-    work_hours = round(work_min_per_day / 60, 1)
-
     return {
         "this_week":   period_data(week_start,       week_end),
         "last_week":   period_data(last_week_start,  last_week_end),
         "this_month":  period_data(month_start,      next_month),
         "last_month":  period_data(last_month_start, last_month_end),
-        "work_hours_per_day": work_hours,
     }
 
 

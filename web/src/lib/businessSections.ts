@@ -5,7 +5,7 @@
 // sale has it, hidden in the apps), by the platform's features, and for a manager by what the owner allowed him.
 import { useEffect, useState } from "react";
 import {
-    Banknote, CalendarRange, ChartLine, ChartPie, Clock, Compass, ConciergeBell, CreditCard, Crown, FileDown, FileUp, Gift,
+    BadgeCheck, Banknote, CalendarRange, ChartLine, ChartPie, Clock, Compass, ConciergeBell, CreditCard, Crown, FileDown, FileUp, Gift,
     HandCoins, HeartPulse, History, LayoutDashboard, LifeBuoy, Mail, Package, Phone, Receipt, Send, Settings,
     SlidersHorizontal, Smartphone, UserCog, Users, Wallet, type LucideIcon,
 } from "lucide-react";
@@ -30,7 +30,7 @@ export const SECTION_GROUPS: { groupLabel: string; icon: LucideIcon; items: Busi
         icon: LayoutDashboard,
         items: [
             { href: "/overview",           label: "סקירה",          description: "מה קורה היום — תורים, לידים ומשימות",            icon: Compass, phoneOnly: true },
-            { href: "/analytics/business", label: "אנליטיקה עסקית", description: "הכנסות, תורים ושעות עמוסות",                     icon: ChartLine, module: "analytics", perm: "money" },
+            { href: "/analytics/business", label: "אנליטיקה עסקית", description: "הכנסות ותורים לפי חודש, ימים ושעות עמוסים, שירותים וצוות", icon: ChartLine, module: "analytics", perm: "money" },
             { href: "/clients/analytics",  label: "אנליטיקת לקוחות", description: "שימור, ערך לקוח, לקוחות שנעלמו ואחוזי המרה",      icon: ChartPie },
         ],
     },
@@ -88,6 +88,7 @@ export const SECTION_GROUPS: { groupLabel: string; icon: LucideIcon; items: Busi
         icon: Settings,
         items: [
             { href: "/automation",           label: "הגדרות",        description: "מיתוג, אוטומציות, תשלומים, אינטגרציות והגדרות מייל", icon: Settings, perm: "settings" },
+            { href: "/billing",              label: "מנוי וחיוב",     description: "המנוי שלך, ניצול החודש (הודעות, תפוצות) וחידוש",   icon: BadgeCheck },
             { href: "/settings/health-form", label: "הצהרת בריאות",  description: "הטופס שהלקוח ממלא וחותם לפני הטיפול",             icon: HeartPulse },
             { href: "/migration",            label: "ייבוא נתונים",   description: "העברת לקוחות ושירותים ממערכת אחרת או מקובץ Excel", icon: FileUp, module: "migration" },
             { href: "/export",               label: "ייצוא לאקסל",    description: "הלקוחות והתורים שלך בקובץ אחד — לשמירה או למעבר",  icon: FileDown, perm: "owner" },

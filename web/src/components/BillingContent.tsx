@@ -86,6 +86,8 @@ export default function BillingContent() {
 
     const isTrial = status?.plan === "trial";
     const days = status?.plan_expires_at ? Math.ceil((new Date(status.plan_expires_at).getTime() - now) / 86_400_000) : null;
+    // close to the end and not renewing by itself — the box below says what happens, and how to renew
+    const warning = !!status && !status.has_active_subscription && days !== null && days >= 0 && days <= EXPIRY_WARNING_DAYS;
 
     return (
         <div className="space-y-5" dir="rtl">
@@ -127,14 +129,17 @@ export default function BillingContent() {
 
             <UsageThisMonth />
 
+            {/* the trial: renewing is open now, before it ends (the owner, 2026-10-15) */}
             {isTrial && !isNative && (
                 <p className="text-sm text-slate-600">
-                    אתה בתקופת ניסיון. כדי להמשיך להשתמש במערכת אחריה, בחר מנוי מהרשימה למטה.
+                    אתה בתקופת ניסיון. אפשר לחדש כבר עכשיו, גם לפני שהיא נגמרת
+                    {plans.some(p => p.purchasable_now) ? " — בחר מנוי מהרשימה למטה."
+                        : warning ? "." : ": WhatsApp 052-8518805 או ncbilutattoo@gmail.com"}
                 </p>
             )}
 
             {/* Close to the end and not renewing by itself: say plainly what happens if it lapses */}
-            {status && !status.has_active_subscription && days !== null && days >= 0 && days <= EXPIRY_WARNING_DAYS && (
+            {warning && status && (
                 <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
                     <div className="flex items-center gap-2 font-bold text-amber-900 text-sm mb-2">
                         <TriangleAlert className="h-4 w-4 shrink-0" />

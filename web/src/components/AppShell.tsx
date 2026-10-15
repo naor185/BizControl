@@ -16,7 +16,7 @@ import QuickWhatsAppModal from "./QuickWhatsAppModal";
 import { useLang } from "./LanguageProvider";
 import { LOCALES } from "@/lib/i18n";
 import { useNewLeadsCount } from "@/lib/useNewLeadsCount";
-import PlanBar, { PLAN_BAR_HEIGHT, type PlanInfo } from "./PlanBar";
+import PlanBar, { PLAN_BAR_HEIGHT, isTrialPlan, type PlanInfo } from "./PlanBar";
 import { registerForPushNotifications } from "@/lib/push";
 import { recordVisit } from "@/lib/navHistory";
 
@@ -107,7 +107,7 @@ export default function AppShell({
 
     // The plan bar appears only on the "דשבורד" page (/overview), whatever the plan — nowhere else.
     // The room it takes at the bottom is reserved only while it is shown.
-    const showPlanBar = !!planInfo && pathname === "/overview";
+    const showPlanBar = !!planInfo && pathname === "/overview" && isTrialPlan(planInfo);   // the free trial only
 
     // "Back" appears on every screen that was reached from another screen of the app (desktop and
     // phone), and takes you to exactly where you were. It is hidden on the first screen of a session.

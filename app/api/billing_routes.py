@@ -171,14 +171,14 @@ def create_checkout(
 
     # If already has a subscription → send to the portal instead of a second checkout
     if studio.stripe_subscription_id:
-        url = provider.create_portal_session(studio, return_url=f"{base}/overview?billing=portal")
+        url = provider.create_portal_session(studio, return_url=f"{base}/billing?billing=portal")
         return {"url": url, "mode": "portal"}
 
     try:
         url = provider.create_checkout(
             studio, plan,
-            success_url=f"{base}/overview?billing=success&plan={payload.plan}",
-            cancel_url=f"{base}/overview?billing=canceled",
+            success_url=f"{base}/billing?billing=success&plan={payload.plan}",
+            cancel_url=f"{base}/billing?billing=canceled",
         )
     finally:
         db.commit()  # provider.create_checkout may have set studio.stripe_customer_id
@@ -196,7 +196,7 @@ def customer_portal(request: Request, ctx: AuthContext = Depends(require_studio_
     if not studio or not studio.stripe_customer_id:
         raise HTTPException(status_code=400, detail="No billing account found")
 
-    url = get_payment_provider().create_portal_session(studio, return_url=f"{_return_base(request)}/overview?billing=portal")
+    url = get_payment_provider().create_portal_session(studio, return_url=f"{_return_base(request)}/billing?billing=portal")
     return {"url": url}
 
 

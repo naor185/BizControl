@@ -185,7 +185,7 @@ def _studio_email_html(studio_name: str, plan_label: str, headline: str, stage: 
             אימייל: <a href="mailto:{RENEWAL_EMAIL}" style="color: #111;">{RENEWAL_EMAIL}</a>
           </div>
         </div>
-        <a href="{FRONTEND_URL}/overview?billing=plans"
+        <a href="{FRONTEND_URL}/billing"
            style="display: inline-block; background: #111; color: #fff; padding: 12px 24px;
                   border-radius: 8px; text-decoration: none; font-weight: bold;">
           לצפייה במסלולים ובמנוי שלכם
@@ -243,7 +243,7 @@ def _notify_studio(
         try:
             db.add(Notification(
                 studio_id=studio.id, type=f"plan_{stage}", title=headline, body=short,
-                action_url="/overview?billing=plans",
+                action_url="/billing",
             ))
             db.commit()
         except Exception as e:
@@ -254,7 +254,7 @@ def _notify_studio(
     try:
         enqueue_push_to_studio_admins(
             db, studio.id, title=headline, body=short,
-            deep_link="/suspended?reason=expired" if stage == "ended" else "/overview?billing=plans",
+            deep_link="/suspended?reason=expired" if stage == "ended" else "/billing",
             reminder_type=f"plan_{stage}",
         )
     except Exception as e:
