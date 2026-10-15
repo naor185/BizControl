@@ -687,6 +687,9 @@ function Calendar() {
         }
     }
 
+    // a business with one person on its team — they're the one; "איש צוות" left empty failed the save (2026-10-15)
+    const soleArtist = artists.length === 1 ? artists[0].id : "";
+
     const openAppointmentModal = (selectInfo: any) => {
         const localStart = new Date(selectInfo.startStr);
         const localEnd = new Date(selectInfo.endStr);
@@ -698,7 +701,7 @@ function Calendar() {
         setEndAt(formatForInput(localEnd));
         setDepositAmount(autoDeposit(localStart.toISOString(), localEnd.toISOString()));
         setClientId(""); setClientSearch(""); setIsWalkIn(false);
-        setArtistId(""); setStatus("scheduled"); setNotes(""); setPickedServiceIds([]);
+        setArtistId(soleArtist); setStatus("scheduled"); setNotes(""); setPickedServiceIds([]);
         setShowNewClientForm(false);
         setNewClientName(""); setNewClientPhone(""); setNewClientClub(false); setNewClientErr(null);
         setIsModalOpen(true);
@@ -2570,7 +2573,11 @@ function Calendar() {
                     data-tour="appointment-new"
                     className="fixed bottom-28 left-4 z-40 sm:hidden w-14 h-14 bg-sky-600 text-white rounded-full shadow-2xl shadow-slate-900/40 flex items-center justify-center text-3xl font-light active:scale-95 transition-transform"
                     onClick={() => {
+                        // the next round half hour — "now" to the minute was already past by the save, and asked
+                        // "a date in the past?" every time (2026-10-15)
                         const now = new Date();
+                        now.setSeconds(0, 0);
+                        now.setMinutes(Math.ceil((now.getMinutes() + 1) / 30) * 30);
                         const later = new Date(now.getTime() + 2 * 60 * 60 * 1000);
                         const pad = (n: number) => String(n).padStart(2, "0");
                         const fmt = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
@@ -2580,7 +2587,7 @@ function Calendar() {
                         setEndAt(fmt(later));
                         setDepositAmount(autoDeposit(now.toISOString(), later.toISOString()));
                         setClientId(""); setClientSearch(""); setIsWalkIn(false);
-                        setArtistId(""); setStatus("scheduled"); setNotes("");
+                        setArtistId(soleArtist); setStatus("scheduled"); setNotes("");
                         setShowNewClientForm(false);
                         setNewClientName(""); setNewClientPhone(""); setNewClientClub(false); setNewClientErr(null);
                         setIsModalOpen(true);

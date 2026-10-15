@@ -19,9 +19,11 @@ export type TourStep = {
     intro: string;              // what it is and why
     moves: TourMove[];
     done: string;               // the praise
+    video: string;              // a short recording of the step on a phone — web/public/guide (its cover: the same, .jpg)
 };
 
 export const OWNER_START_ID = "owner_start";
+export const posterOf = (video: string) => video.replace(/\.mp4$/, ".jpg");
 
 export const OWNER_START: TourStep[] = [
     {
@@ -35,6 +37,7 @@ export const OWNER_START: TourStep[] = [
             { target: "business-address", unless: "business_details", say: "כתבו את כתובת העסק, ואז לחצו למטה על \"שמור הגדרות העסק\"." },
         ],
         done: "פרטי העסק והלוגו נשמרו.",
+        video: "/guide/guide-business.mp4",
     },
     {
         id: "service",
@@ -47,6 +50,7 @@ export const OWNER_START: TourStep[] = [
             { target: "service-new", say: "לחצו על \"שירות חדש\"." },
         ],
         done: "השירות הראשון שלך נשמר.",
+        video: "/guide/guide-service.mp4",
     },
     {
         id: "client",
@@ -59,6 +63,7 @@ export const OWNER_START: TourStep[] = [
             { target: "client-new", say: "לחצו על \"לקוח חדש\"." },
         ],
         done: "הלקוח הראשון נוסף.",
+        video: "/guide/guide-client.mp4",
     },
     {
         id: "appointment",
@@ -73,6 +78,7 @@ export const OWNER_START: TourStep[] = [
             { target: "calendar-grid", say: "לחצו על שעה פנויה ביומן." },
         ],
         done: "התור הראשון נקבע ביומן.",
+        video: "/guide/guide-appointment.mp4",
     },
     {
         id: "payment",
@@ -84,5 +90,6 @@ export const OWNER_START: TourStep[] = [
             { target: "pay-bit", say: "הדביקו את קישור הביט שלכם (או פייבוקס, או פרטי בנק למטה), ולחצו \"שמור הגדרות העסק\"." },
         ],
         done: "אמצעי התשלום נשמר — מעכשיו הוא מופיע בדף התשלום של הלקוחות.",
+        video: "/guide/guide-payment.mp4",
     },
 ];

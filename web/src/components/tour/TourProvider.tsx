@@ -8,10 +8,11 @@
 // every click through. Stage 1: the owner's first path.
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { ChevronDown, CircleHelp, GraduationCap, X } from "lucide-react";
+import { ChevronDown, CircleHelp, GraduationCap, PlayCircle, X } from "lucide-react";
 import { apiFetch, getCurrentUserRole, type SetupProgress } from "@/lib/api";
 import { toast } from "@/lib/toast";
-import { OWNER_START, OWNER_START_ID, type TourMove, type TourStep } from "@/lib/tours";
+import { OWNER_START, OWNER_START_ID, posterOf, type TourMove, type TourStep } from "@/lib/tours";
+import VideoModal from "./VideoModal";
 
 type TourState = { state: "active" | "dismissed" | "done"; skipped: string[] };
 type TourApi = { available: boolean; open: () => void; startAt: (stepId: string) => void; stepFor: (itemId: string) => string | null };
@@ -62,6 +63,7 @@ export default function TourProvider({ children }: { children: React.ReactNode }
     const [shown, setShown] = useState<{ move: TourMove; rect: DOMRect } | null>(null);
     const [panelOnTop, setPanelOnTop] = useState(false);      // the thing to press is low on the screen
     const [barBelow, setBarBelow] = useState(false);          // a bar at the bottom the guide would cover
+    const [watching, setWatching] = useState<TourStep | null>(null);   // a step's video, open
     const doneBefore = useRef<Set<string> | null>(null);
     const scrolledTo = useRef("");
 
@@ -190,11 +192,11 @@ export default function TourProvider({ children }: { children: React.ReactNode }
     }), [isOwner, tour, go, save]);
 
     useEffect(() => {
-        if (!active || minimized) return;
+        if (!active || minimized || watching) return;          // Esc over a video closes the video only
         const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setMinimized(true); };
         window.addEventListener("keydown", onKey);
         return () => window.removeEventListener("keydown", onKey);
-    }, [active, minimized]);
+    }, [active, minimized, watching]);
 
     const close = () => {
         save({ state: "dismissed" });
@@ -241,6 +243,10 @@ export default function TourProvider({ children }: { children: React.ReactNode }
         body = <>
             <p className="font-bold text-slate-900">{current.title}</p>
             <p className="mt-1">{say ?? current.intro}</p>
+            <button type="button" onClick={() => setWatching(current)}
+                className="mt-2 inline-flex items-center gap-1.5 text-sm font-bold text-sky-700 hover:text-sky-900">
+                <PlayCircle className="w-4 h-4" aria-hidden /> צפו בסרטון קצר
+            </button>
         </>;
         buttons = <>
             {!say && <button type="button" className={primary} onClick={() => go(current)}>קחו אותי לשם</button>}
@@ -295,6 +301,9 @@ export default function TourProvider({ children }: { children: React.ReactNode }
                         ))}
                     </div>
                 </div>
+            )}
+            {watching && (
+                <VideoModal src={watching.video} poster={posterOf(watching.video)} title={watching.title} onClose={() => setWatching(null)} />
             )}
         </TourContext.Provider>
     );

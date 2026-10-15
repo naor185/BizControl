@@ -1,10 +1,41 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { GraduationCap } from "lucide-react";
+import { GraduationCap, PlayCircle } from "lucide-react";
 import AppShell from "@/components/AppShell";
 import RequireAuth from "@/components/RequireAuth";
 import { useTour } from "@/components/tour/TourProvider";
+import VideoModal from "@/components/tour/VideoModal";
+import { OWNER_START, posterOf, type TourStep } from "@/lib/tours";
+
+// The guide's videos, in the order of its steps — short recordings of the real screens on a phone
+function GuideVideos() {
+    const [open, setOpen] = useState<TourStep | null>(null);
+    return (
+        <section className="mb-8">
+            <h2 className="text-lg font-bold text-slate-800 mb-3">סרטוני הדרכה — הצעדים הראשונים</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                {OWNER_START.map((step, i) => (
+                    <button key={step.id} type="button" onClick={() => setOpen(step)}
+                        className="group text-right bg-white border border-slate-200 rounded-2xl overflow-hidden hover:shadow-md transition">
+                        <span className="relative block aspect-[9/14] bg-sky-800">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={posterOf(step.video)} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+                            <span className="absolute inset-0 flex items-center justify-center">
+                                <PlayCircle className="w-12 h-12 text-white drop-shadow-lg group-hover:scale-110 transition-transform" aria-hidden />
+                            </span>
+                        </span>
+                        <span className="block px-3 py-2">
+                            <span className="block text-[11px] font-bold text-sky-700">שלב {i + 1}</span>
+                            <span className="block text-sm font-bold text-slate-800">{step.title}</span>
+                        </span>
+                    </button>
+                ))}
+            </div>
+            {open && <VideoModal src={open.video} poster={posterOf(open.video)} title={open.title} onClose={() => setOpen(null)} />}
+        </section>
+    );
+}
 
 // The guide, from here too (components/tour) — rendered inside AppShell, where the guide lives
 function StartTourCard() {
@@ -887,6 +918,7 @@ export default function HelpPage() {
                     </div>
 
                     <StartTourCard />
+                    <GuideVideos />
 
                     {/* Search */}
                     <div className="relative mb-6">
