@@ -4,7 +4,7 @@
 // tool once (the owner, 2026-10-15). What shows: by the plan (not in it — shown locked on the website when a plan on
 // sale has it, hidden in the apps), by the platform's features, and for a manager by what the owner allowed him.
 import { useEffect, useState } from "react";
-import { Banknote, BarChart3, CalendarRange, Clock, ConciergeBell, CreditCard, Crown, FileDown, FileUp, Gift, HeartPulse, History, LifeBuoy, Mail, Megaphone, Package, Phone, Receipt, Send, Settings, SlidersHorizontal, Smartphone, TrendingUp, UserCog, Users, Wallet, type LucideIcon } from "lucide-react";
+import { Banknote, CalendarRange, ChartLine, ChartPie, Clock, ConciergeBell, CreditCard, Crown, FileDown, FileUp, Gift, HandCoins, HeartPulse, History, LifeBuoy, Mail, Megaphone, Package, Phone, Receipt, Send, Settings, SlidersHorizontal, Smartphone, TrendingUp, UserCog, Users, Wallet, type LucideIcon } from "lucide-react";
 import { apiFetch, getToken } from "@/lib/api";
 import { isNativeApp } from "@/lib/platform";
 import { usePlan } from "@/lib/usePlan";
@@ -22,7 +22,7 @@ export const SECTION_GROUPS: { groupLabel: string; icon: LucideIcon; items: Busi
         items: [
             { href: "/payments",    label: "תשלומים",         description: "היסטוריית תשלומים ואישורים",                   icon: CreditCard },
             { href: "/invoices",    label: "חשבוניות",        description: "חשבוניות, קבלות ומסמכים כספיים",               icon: Receipt, perm: "receipts" },
-            { href: "/expenses",    label: "הוצאות עסקיות",   description: "הוצאות, קטגוריות ודוחות",                      icon: BarChart3, perm: "money" },
+            { href: "/expenses",    label: "הוצאות עסקיות",   description: "הוצאות, קטגוריות ודוחות",                      icon: HandCoins, perm: "money" },
             { href: "/obligations", label: "התחייבויות",      description: "התחייבויות ותשלומים עתידיים",                  icon: Banknote, module: "obligations", perm: "money" },
         ],
     },
@@ -33,7 +33,7 @@ export const SECTION_GROUPS: { groupLabel: string; icon: LucideIcon; items: Busi
             { href: "/clients",           label: "לקוחות",          description: "רשימה, כרטיס לקוח והיסטוריה",                   icon: Users, module: "crm" },
             { href: "/clients?tab=club",  label: "מועדון לקוחות",   description: "חברים, נקודות, לוח אלופים וימי הולדת",           icon: Crown, module: "customer_club" },
             { href: "/settings/health-form", label: "הצהרת בריאות",  description: "הטופס שהלקוח ממלא וחותם לפני הטיפול",           icon: HeartPulse },
-            { href: "/clients/analytics", label: "אנליטיקת לקוחות", description: "שימור, ערך לקוח, לקוחות שנעלמו ואחוזי המרה",      icon: BarChart3 },
+            { href: "/clients/analytics", label: "אנליטיקת לקוחות", description: "שימור, ערך לקוח, לקוחות שנעלמו ואחוזי המרה",      icon: ChartPie },
             { href: "/wallet",            label: "כרטיס דיגיטלי",    description: "עיצוב כרטיס מועדון ל-Apple/Google Wallet",       icon: Smartphone, module: "wallet" },
             { href: "/migration",         label: "ייבוא נתונים",     description: "העברת לקוחות ושירותים ממערכת אחרת או מקובץ Excel", icon: FileUp, module: "migration" },
             { href: "/export",            label: "ייצוא לאקסל",      description: "הלקוחות והתורים שלך בקובץ אחד — לשמירה או למעבר",  icon: FileDown, perm: "owner" },
@@ -52,7 +52,7 @@ export const SECTION_GROUPS: { groupLabel: string; icon: LucideIcon; items: Busi
         groupLabel: "אנליטיקה ותובנות",
         icon: TrendingUp,
         items: [
-            { href: "/analytics/business", label: "אנליטיקה עסקית", description: "הכנסות, תורים ושעות עמוסות", icon: BarChart3,   module: "analytics", perm: "money" },
+            { href: "/analytics/business", label: "אנליטיקה עסקית", description: "הכנסות, תורים ושעות עמוסות", icon: ChartLine,   module: "analytics", perm: "money" },
         ],
     },
     {

@@ -5,7 +5,7 @@
 // buttons, not the long list"). The bar's sheet (BottomNav) and the /business page on a phone both show it.
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { BarChart3, Compass, Lock, LogOut, type LucideIcon } from "lucide-react";
+import { Compass, LayoutDashboard, Lock, LogOut, type LucideIcon } from "lucide-react";
 import { clearToken } from "@/lib/api";
 import { useBusinessSections } from "@/lib/businessSections";
 import { useNewLeadsCount } from "@/lib/useNewLeadsCount";
@@ -40,7 +40,7 @@ export default function BusinessTiles({ active = true, onNavigate }: { active?: 
         <div className="space-y-4" dir="rtl">
             <div className="grid grid-cols-3 gap-2.5">
                 <Tile href="/overview" label="סקירה" icon={Compass} badge={newLeadsCount} onNavigate={onNavigate} />
-                <Tile href="/dashboard" label="לוח בקרה" icon={BarChart3} onNavigate={onNavigate} />
+                <Tile href="/dashboard" label="לוח בקרה" icon={LayoutDashboard} onNavigate={onNavigate} />
                 {groups.flatMap(group => group.items).map(item => (
                     <Tile key={item.href} href={item.href} label={item.label} icon={item.icon}
                         locked={!!item.module && !plan.has(item.module)} onNavigate={onNavigate} />
