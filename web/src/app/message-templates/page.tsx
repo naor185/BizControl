@@ -170,8 +170,9 @@ const GROUPS: Group[] = [
     {
         id: "app", title: "האפליקציה", icon: Smartphone,
         messages: [
-            // what it lists follows the business's plan and settings: booking, points, punch card, receipts (app_features)
-            { id: "app_invite", title: "הזמנה לאפליקציית BizFind", when: "ללקוח אחרי הביקור הראשון, פעם אחת — או ידנית מתיק הלקוח",
+            // {app_features}: one or two short lines — self-booking, a club member's points, appointments and receipts — by
+            // the business's plan and settings; sent only once BizFind is in the App Store (app/services/app_invite.py)
+            { id: "app_invite", title: "הזמנה לאפליקציית BizFind", when: "ללקוח אחרי הביקור הראשון, פעם אחת, או ידנית מתיק הלקוח — רק אחרי שאפליקציית BizFind ב-App Store",
               toggleKey: "app_invite_enabled", times: AFTER_VISIT("app_invite_delay_minutes", 1440),
               templateKey: "app_invite_wa_template", hints: ["client_name","studio_name","app_features","app_link"] },
         ],
@@ -280,9 +281,9 @@ const READY: Record<string, { label: string; text: string }[]> = {
         { label: "חם", text: "היי {client_name} 🎉\nמימשת {points_used} נקודות בשווי ₪{discount_amount}!\nנשארו לך {loyalty_points} נקודות. תודה שאת/ה חלק מהמועדון של {studio_name} ❤️" },
     ],
     app_invite: [
-        { label: "קצר", text: "היי {client_name}, את התורים, הקבלות והיתרה שלך ב{studio_name} אפשר לראות באפליקציית BizFind: {app_link}" },
-        { label: "חם", text: "היי {client_name} 👋\nתודה שביקרת ב{studio_name}!\nבאפליקציית BizFind אפשר:\n{app_features}\n\nלהורדה: {app_link}" },
-        { label: "רשמי", text: "שלום {client_name},\n{studio_name} מזמינים אותך להוריד את אפליקציית BizFind. באפליקציה אפשר:\n{app_features}\n\nלהורדה: {app_link}" },
+        { label: "קצר", text: "היי {client_name} 👋\n{app_features}\nלהורדה: {app_link}" },
+        { label: "חם", text: "היי {client_name} 👋\nתודה שביקרת ב{studio_name}!\n{app_features}\nלהורדה: {app_link}" },
+        { label: "רשמי", text: "שלום {client_name},\n{app_features}\nלהורדה: {app_link}" },
     ],
     points_balance: [
         { label: "קצר", text: "היי {client_name}, יתרת הנקודות שלך: {loyalty_points} ⭐" },

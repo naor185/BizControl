@@ -1,12 +1,15 @@
 """The invitation to the BizFind app — a client hears they can book, see their balance and their purchases in the app
 (owner, 2026-10-13).
 
+- Only once the app is in the App Store — the superadmin set its link (platform settings, "BizFind בחנויות"); until
+  then nothing is sent, automatically or by hand, and an invitation already queued is dropped when its time comes
+  (the owner, 2026-10-15: "an invitation went out and there's no app yet").
 - One link for every phone (find.biz-control.com/app?b=<business>): an iPhone opens the App Store, an Android
-  Google Play, a computer the website. Until the superadmin sets the store links (platform settings), the link opens
-  the business's page on BizFind's website — the invitations already sent start leading to the stores the day they do.
-- The text says only what this client can really do at this business, by its plan and its settings: book by
-  themselves (self-booking on), their points (the club in the plan), their punch card or membership and the classes
-  (classes in the plan) — and always their appointments, receipts and photos ({app_features}).
+  Google Play, a computer the website.
+- Very short, and only what this client can really do at this business ({app_features}): book by themselves next time
+  and see when there's room (self-booking on) or join classes (classes in the plan); a club member at a business whose
+  plan has the club and turned it on — their points, appointments and receipts; otherwise their appointments and
+  receipts.
 - Sent once per client, after their first visit (the club invitation's moments: an appointment done, a payment, a
   sale at the till), at the owner's time (app_invite_delay_minutes, a day by default) — or by hand from the client's
   card. Not to a client who is already on BizFind.
@@ -29,31 +32,40 @@ BIZFIND_URL = os.getenv("BIZFIND_URL", "https://find.biz-control.com").rstrip("/
 
 DEFAULT_TEXT = (
     "היי {client_name} 👋\n"
-    "תודה שביקרת ב{studio_name}!\n"
-    "באפליקציית BizFind אפשר:\n"
-    "{app_features}\n\n"
+    "{app_features}\n"
     "להורדה: {app_link}"
 )
+NOT_YET = "אפליקציית BizFind עוד לא ב-App Store — ההזמנה תישלח רק אחרי שהיא תעלה"
 
 
 def app_link(slug: str | None) -> str:
     return f"{BIZFIND_URL}/app" + (f"?b={slug}" if slug else "")
 
 
-def features(db: Session, studio_id, settings: StudioSettings | None) -> list[str]:
-    """What this business's clients can do in the app — by its plan and its settings."""
+def app_live(db: Session) -> bool:
+    """BizFind is in the App Store — the superadmin set its link."""
+    from app.api.superadmin_routes import _get_platform_settings
+    platform = _get_platform_settings(db)
+    return bool(platform is not None and (platform.bizfind_ios_url or "").strip())
+
+
+def features(db: Session, studio_id, settings: StudioSettings | None, client) -> str:
+    """What this client can do in the app at this business — one or two short lines, by its plan, its settings and
+    whether the client is in its club."""
     from app.core.features import has_module
     from app.services.club import club_on
-    out = []
+    lines = []
     if settings is not None and settings.self_booking_enabled:
-        out.append("לקבוע תור בעצמך ולראות מתי יש מקום")
-    if club_on(db, studio_id):
-        out.append("לראות כמה נקודות יש לך במועדון")
-    if has_module(db, studio_id, "classes"):
-        out.append("להירשם לשיעורים" + (" ולראות את הכרטיסייה או המנוי שלך ומה נשאר בהם"
-                                       if has_module(db, studio_id, "memberships") else ""))
-    out.append("לראות את התורים, הקבלות והתמונות שלך")
-    return out
+        lines.append("בפעם הבאה אפשר לקבוע תור בעצמך ולראות מתי יש תור פנוי — באפליקציית BizFind.")
+    elif has_module(db, studio_id, "classes"):
+        lines.append("באפליקציית BizFind אפשר להירשם לשיעורים ולראות מתי יש מקום.")
+    member = client is not None and client.is_club_member and club_on(db, studio_id)
+    if member:
+        lines.append("כחבר/ת מועדון אפשר לראות שם גם כמה נקודות יש לך, את התורים והקבלות." if lines
+                     else "באפליקציית BizFind אפשר לראות כמה נקודות יש לך במועדון, את התורים והקבלות.")
+    if not lines:
+        lines.append("באפליקציית BizFind אפשר לראות את התורים והקבלות שלך.")
+    return "\n".join(lines)
 
 
 def _on_bizfind(db: Session, phone: str) -> bool:
@@ -67,6 +79,8 @@ def maybe_enqueue(db: Session, studio_id, client, appointment_id=None, *, by_han
     from app.services.email_center import studio_email_allowed
     from app.services.marketing import refusal_reason, unsubscribe_link
 
+    if not app_live(db):
+        return NOT_YET
     if client is not None and not client.phone:
         return "ללקוח אין מספר טלפון"
     refused = refusal_reason(client)                     # off the list, no consent, not active
@@ -92,7 +106,7 @@ def maybe_enqueue(db: Session, studio_id, client, appointment_id=None, *, by_han
         "client_name": client.full_name or "",
         "studio_name": studio.name if studio else "",
         "app_link": app_link(studio.slug if studio else None),
-        "app_features": "\n".join(f"• {f}" for f in features(db, studio_id, settings)),
+        "app_features": features(db, studio_id, settings, client),
         "optout_link": optout,
     })
     if "{optout_link}" not in template:                   # marketing always carries the way off the list

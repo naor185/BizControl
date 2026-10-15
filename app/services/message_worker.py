@@ -450,6 +450,15 @@ def process_due_jobs(db: Session, limit: int = 20) -> int:
                     continue
                 ensure_unsubscribe_option(db, job)   # every marketing message lets the client opt out
 
+            # the invitation to the BizFind app goes out only once the app is in the App Store (services/app_invite)
+            if getattr(job, "reminder_type", None) in ("app_invite", "app_invite_email"):
+                from app.services import app_invite
+                if not app_invite.app_live(db):
+                    job.status = "canceled"
+                    job.last_error = app_invite.NOT_YET
+                    count += 1
+                    continue
+
             # a message from the company to a business owner (the superadmin's CRM): BizControl's own name and number
             from app.services import platform_outreach
             from_company = getattr(job, "reminder_type", None) == platform_outreach.KIND

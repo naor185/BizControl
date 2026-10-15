@@ -5,8 +5,8 @@ import { Smartphone } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { toast } from "@/lib/toast";
 
-// BizFind in the App Store and Google Play — the invitation to the app (app/services/app_invite.py) sends one link,
-// find.biz-control.com/app, that leads to the phone's store once its link is set here; until then, to the website.
+// BizFind in the App Store and Google Play — the invitation to the app (app/services/app_invite.py) goes out only once
+// the App Store link is set here, with one link, find.biz-control.com/app, that leads to the phone's store.
 
 type Links = { bizfind_ios_url: string | null; bizfind_android_url: string | null };
 
@@ -45,8 +45,8 @@ export default function BizFindStoreLinks() {
                 <div>
                     <h2 className="text-lg font-bold">BizFind בחנויות</h2>
                     <p className="text-slate-400 text-sm mt-0.5">
-                        ההזמנה לאפליקציה שולחת קישור אחד: find.biz-control.com/app. מאייפון הוא פותח את ה-App Store, מאנדרואיד את Google Play —
-                        ברגע שהקישור שלהם כאן. כל עוד שדה ריק, הקישור פותח את דף העסק באתר של BizFind.
+                        ההזמנה לאפליקציה יוצאת ללקוחות רק אחרי שקישור ה-App Store כאן — עד אז היא לא נשלחת בכלל.
+                        היא שולחת קישור אחד, find.biz-control.com/app: מאייפון הוא פותח את ה-App Store, מאנדרואיד את Google Play.
                     </p>
                 </div>
             </div>
