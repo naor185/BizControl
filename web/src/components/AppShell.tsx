@@ -434,7 +434,7 @@ export default function AppShell({
             </div>
 
             {planInfo && showPlanBar && <PlanBar info={planInfo} />}
-            <BottomNav />
+            <BottomNav pendingDeposits={pendingDepositsCount} />
             <PullToRefresh />
             <ToastContainer />
             <GlobalToast />

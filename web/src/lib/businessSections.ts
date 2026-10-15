@@ -30,7 +30,6 @@ export const SECTION_GROUPS: { groupLabel: string; icon: LucideIcon; items: Busi
         icon: LayoutDashboard,
         items: [
             { href: "/overview",           label: "סקירה",          description: "מה קורה היום — תורים, לידים ומשימות",            icon: Compass, phoneOnly: true },
-            { href: "/dashboard",          label: "לוח בקרה",       description: "מקדמות, תשלומים והכנסות",                       icon: LayoutDashboard, phoneOnly: true },
             { href: "/analytics/business", label: "אנליטיקה עסקית", description: "הכנסות, תורים ושעות עמוסות",                     icon: ChartLine, module: "analytics", perm: "money" },
             { href: "/clients/analytics",  label: "אנליטיקת לקוחות", description: "שימור, ערך לקוח, לקוחות שנעלמו ואחוזי המרה",      icon: ChartPie },
         ],

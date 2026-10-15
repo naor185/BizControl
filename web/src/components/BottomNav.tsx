@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { Building2, CalendarDays, ShoppingCart, Users, X, type LucideIcon } from "lucide-react";
+import { Building2, CalendarDays, LayoutDashboard, ShoppingCart, Users, X, type LucideIcon } from "lucide-react";
 import { getCurrentUserRole } from "@/lib/api";
 import { useLang } from "./LanguageProvider";
 import { TranslationKey } from "@/lib/i18n";
@@ -11,13 +11,16 @@ import { useBackButtonClose } from "@/lib/backButtonStack";
 import { useNewLeadsCount } from "@/lib/useNewLeadsCount";
 import BusinessTiles from "./BusinessTiles";
 
+// לוח בקרה took the "+" 's place (the owner, 2026-10-15) — a new appointment is the calendar's own +
 const PRIMARY_NAV: { href: string; labelKey: TranslationKey; icon: LucideIcon }[] = [
     { href: "/calendar",  labelKey: "nav_calendar",  icon: CalendarDays },
     { href: "/pos",       labelKey: "nav_pos",       icon: ShoppingCart },
     { href: "/clients",   labelKey: "nav_clients",   icon: Users },
+    { href: "/dashboard", labelKey: "nav_dashboard", icon: LayoutDashboard },
 ];
 
-export default function BottomNav() {
+/** pendingDeposits: deposits waiting to be approved — לוח בקרה's number, as on the computer's side menu */
+export default function BottomNav({ pendingDeposits = 0 }: { pendingDeposits?: number }) {
     const pathname = usePathname();
     const [userRole] = useState(() => getCurrentUserRole());
     const isArtist = userRole === "artist" || userRole === "staff";
@@ -92,6 +95,12 @@ export default function BottomNav() {
                                         "w-[22px] h-[22px] transition-transform duration-200",
                                         active ? "scale-110 text-sky-600" : "text-gray-500",
                                     ].join(" ")} />
+                                    {item.href === "/dashboard" && pendingDeposits > 0 && (
+                                        <span className="absolute -top-1.5 -left-2.5 bg-amber-500 text-white text-[9px] font-bold rounded-full min-w-4 h-4 flex items-center justify-center px-1 ring-2 ring-white"
+                                            aria-label={`${pendingDeposits} מקדמות ממתינות לאישור`}>
+                                            {pendingDeposits > 99 ? "99+" : pendingDeposits}
+                                        </span>
+                                    )}
                                 </div>
 
                                 <span className={[
@@ -107,21 +116,6 @@ export default function BottomNav() {
                             </Link>
                         );
                     })}
-
-                    {/* Center "+" quick-create — calendar only, hidden for artists */}
-                    {!isArtist && (
-                        <Link
-                            href="/calendar"
-                            className="flex-none w-14 flex items-center justify-center self-center mx-1"
-                            aria-label="קבע תור חדש"
-                        >
-                            <span className="w-11 h-11 bg-sky-600 rounded-full flex items-center justify-center shadow-lg shadow-sky-500/30 active:scale-90 transition-transform">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round">
-                                    <path d="M12 5v14M5 12h14" />
-                                </svg>
-                            </span>
-                        </Link>
-                    )}
 
                     {/* ניהול עסק — the owner's and the managers' */}
                     {!isArtist && (
