@@ -37,3 +37,21 @@ def test_the_fill_counts_working_days_only_and_says_it_simply(client, db_session
     assert client.get("/api/dashboard/occupancy", headers=h).json()["this_week"]["percent"] == 0
 
     assert "total_club_members" not in client.get("/api/dashboard/stats", headers=h).json()
+
+
+def test_a_new_leads_notice_opens_the_dashboard_and_older_ones_still_clear(client, db_session):
+    """"דשבורד" became part of לוח בקרה (the owner, 2026-10-15): a new lead's bell entry opens it; opening the lead
+    clears its entries — one sent before the change (to /overview) too."""
+    from app.models.notification import Notification
+
+    h = register_and_login(client, "lead-shop", "owner@lead-shop.com")
+    lead = client.post("/api/leads", headers=h, json={"name": "רון כהן"}).json()
+    [new] = db_session.scalars(select(Notification).where(Notification.type == "new_lead")).all()
+    assert new.action_url == f"/dashboard?lead={lead['id']}"
+    db_session.add(Notification(studio_id=new.studio_id, type="new_lead", title="ליד חדש", body="רון כהן",
+                                action_url=f"/overview?lead={lead['id']}"))
+    db_session.commit()
+
+    assert client.post(f"/api/leads/{lead['id']}/seen", headers=h).status_code == 204
+    db_session.expire_all()
+    assert all(n.is_read for n in db_session.scalars(select(Notification).where(Notification.type == "new_lead")))

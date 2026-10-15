@@ -20,13 +20,13 @@ def notify_new_lead(db: Session, studio_id, lead_id, name: str, detail: str | No
     sid = studio_id if isinstance(studio_id, UUID) else UUID(str(studio_id))
     body = name + (f" — {detail}" if detail else "")
     try:
-        db.add(Notification(studio_id=sid, type="new_lead", title="ליד חדש", body=body, action_url=f"/overview?lead={lead_id}"))
+        db.add(Notification(studio_id=sid, type="new_lead", title="ליד חדש", body=body, action_url=f"/dashboard?lead={lead_id}"))
         db.commit()
     except Exception as e:
         db.rollback()
         log.warning("new-lead notification failed for lead %s: %s", lead_id, e)
     try:
-        enqueue_push_to_studio_admins(db, sid, title="ליד חדש", body=body, deep_link="/overview", reminder_type="new_lead")
+        enqueue_push_to_studio_admins(db, sid, title="ליד חדש", body=body, deep_link="/dashboard", reminder_type="new_lead")
     except Exception as e:
         log.warning("new-lead push failed for lead %s: %s", lead_id, e)
 

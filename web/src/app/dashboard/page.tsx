@@ -1,12 +1,19 @@
 "use client";
 
-import { BellRing } from "lucide-react";
+// לוח בקרה — the one home screen (the owner, 2026-10-15: "דשבורד" and לוח בקרה became one). Top to bottom: today's
+// appointments, what waits for approval, the setup checklist (until it's done), the calendar's fill, the daily
+// collection report, the leads, BizFind's exposure; the free trial's bar under it (AppShell).
+import { BellRing, ChevronDown, Target } from "lucide-react";
 import { useEffect, useState } from "react";
 import RequireAuth from "@/components/RequireAuth";
 import AppShell from "@/components/AppShell";
 import { apiFetch, DashboardStats, imgUrl } from "@/lib/api";
 import PaymentModal from "@/components/PaymentModal";
 import DepositConfirmModal, { type DepositToConfirm } from "@/components/DepositConfirmModal";
+import SetupChecklist from "@/components/SetupChecklist";
+import LeadsContent from "@/components/LeadsContent";
+import BizFindExposureCard from "@/components/BizFindExposureCard";
+import { useNewLeadsCount } from "@/lib/useNewLeadsCount";
 
 type PendingGiftCard = {
     id: string;
@@ -47,12 +54,24 @@ type DailyPayment = {
     payment_verified_at: string | null;
 };
 
+const LEADS_OPEN_KEY = "bizcontrol_overview_leads_open";   // the leads open or closed — the viewer's choice
+
+function readLeadsOpen(): boolean {
+    try {
+        return localStorage.getItem(LEADS_OPEN_KEY) !== "0";
+    } catch {
+        return true;
+    }
+}
+
 const fmt = (n: number) =>
     n.toLocaleString("he-IL", { style: "currency", currency: "ILS", maximumFractionDigits: 0 });
 
 
 export default function Page() {
     const [stats, setStats] = useState<DashboardStats | null>(null);
+    const [leadsOpen, setLeadsOpen] = useState(readLeadsOpen);
+    const newLeads = useNewLeadsCount();
     const [dailyPayments, setDailyPayments] = useState<DailyPayment[]>([]);
     const [pendingPayments, setPendingPayments] = useState<PendingPayment[]>([]);
     const [pendingExpanded, setPendingExpanded] = useState(false);
@@ -147,6 +166,12 @@ export default function Page() {
 
     useEffect(() => { fetchData(); }, []);
 
+    const toggleLeads = () => {
+        const next = !leadsOpen;
+        setLeadsOpen(next);
+        try { localStorage.setItem(LEADS_OPEN_KEY, next ? "1" : "0"); } catch { /* per-viewer convenience only */ }
+    };
+
     const handlePaymentSuccess = () => { setIsPaymentModalOpen(false); fetchData(); };
 
     if (loading) return (
@@ -175,39 +200,6 @@ export default function Page() {
                             <div className="text-4xl font-black text-slate-900 tabular-nums">{stats.appointments_today}</div>
                         </div>
                     )}
-
-                    {/* ── Calendar fill: how much of the working time is already booked ── */}
-                    {occupancy && (() => {
-                        const Row = ({ label, now, before, beforeLabel }: { label: string; now: OccupancyPeriod; before: OccupancyPeriod; beforeLabel: string }) => {
-                            const tone = now.percent >= 75 ? "bg-emerald-500" : now.percent >= 40 ? "bg-sky-500" : "bg-slate-400";
-                            return (
-                                <div>
-                                    <div className="flex items-baseline justify-between gap-3">
-                                        <span className="font-semibold text-slate-700">{label}</span>
-                                        <span className="text-2xl font-black text-slate-900 tabular-nums">{now.percent}%</span>
-                                    </div>
-                                    <div className="mt-1.5 h-2.5 rounded-full bg-slate-100 overflow-hidden" role="progressbar"
-                                        aria-valuenow={now.percent} aria-valuemin={0} aria-valuemax={100} aria-label={`מילוי היומן ${label}`}>
-                                        <div className={`h-full rounded-full ${tone}`} style={{ width: `${now.percent}%`, transition: "width 0.8s ease" }} />
-                                    </div>
-                                    <div className="mt-1 text-xs text-slate-500">
-                                        {now.count === 1 ? "תור אחד" : `${now.count} תורים`} · {beforeLabel}: {before.percent}%
-                                    </div>
-                                </div>
-                            );
-                        };
-                        return (
-                            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5" dir="rtl">
-                                <h3 className="font-bold text-slate-800">מילוי היומן</h3>
-                                <p className="text-xs text-slate-500 mt-0.5">כמה מזמן העבודה שלך כבר תפוס בתורים</p>
-                                <div className="mt-4 grid gap-5 sm:grid-cols-2">
-                                    <Row label="השבוע" now={occupancy.this_week} before={occupancy.last_week} beforeLabel="בשבוע שעבר" />
-                                    <Row label="החודש" now={occupancy.this_month} before={occupancy.last_month} beforeLabel="בחודש שעבר" />
-                                </div>
-                                <p className="mt-4 text-[11px] text-slate-400">לפי ימי העבודה ושעות היומן שבהגדרות</p>
-                            </div>
-                        );
-                    })()}
 
                     {/* ── Payment reports waiting for approval ── */}
                     {pendingPayments.length > 0 && (
@@ -383,6 +375,42 @@ export default function Page() {
                         </div>
                     )}
 
+                    {/* ── Setting the business up — until it's done ── */}
+                    <SetupChecklist />
+
+                    {/* ── Calendar fill: how much of the working time is already booked ── */}
+                    {occupancy && (() => {
+                        const Row = ({ label, now, before, beforeLabel }: { label: string; now: OccupancyPeriod; before: OccupancyPeriod; beforeLabel: string }) => {
+                            const tone = now.percent >= 75 ? "bg-emerald-500" : now.percent >= 40 ? "bg-sky-500" : "bg-slate-400";
+                            return (
+                                <div>
+                                    <div className="flex items-baseline justify-between gap-3">
+                                        <span className="font-semibold text-slate-700">{label}</span>
+                                        <span className="text-2xl font-black text-slate-900 tabular-nums">{now.percent}%</span>
+                                    </div>
+                                    <div className="mt-1.5 h-2.5 rounded-full bg-slate-100 overflow-hidden" role="progressbar"
+                                        aria-valuenow={now.percent} aria-valuemin={0} aria-valuemax={100} aria-label={`מילוי היומן ${label}`}>
+                                        <div className={`h-full rounded-full ${tone}`} style={{ width: `${now.percent}%`, transition: "width 0.8s ease" }} />
+                                    </div>
+                                    <div className="mt-1 text-xs text-slate-500">
+                                        {now.count === 1 ? "תור אחד" : `${now.count} תורים`} · {beforeLabel}: {before.percent}%
+                                    </div>
+                                </div>
+                            );
+                        };
+                        return (
+                            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5" dir="rtl">
+                                <h3 className="font-bold text-slate-800">מילוי היומן</h3>
+                                <p className="text-xs text-slate-500 mt-0.5">כמה מזמן העבודה שלך כבר תפוס בתורים</p>
+                                <div className="mt-4 grid gap-5 sm:grid-cols-2">
+                                    <Row label="השבוע" now={occupancy.this_week} before={occupancy.last_week} beforeLabel="בשבוע שעבר" />
+                                    <Row label="החודש" now={occupancy.this_month} before={occupancy.last_month} beforeLabel="בחודש שעבר" />
+                                </div>
+                                <p className="mt-4 text-[11px] text-slate-400">לפי ימי העבודה ושעות היומן שבהגדרות</p>
+                            </div>
+                        );
+                    })()}
+
                     {/* ── The daily collection report ── */}
                     <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
                         <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
@@ -489,6 +517,32 @@ export default function Page() {
                             </table>
                         </div>
                     </div>
+
+                    {/* ── The leads ── */}
+                    <section className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                        <button
+                            type="button"
+                            onClick={toggleLeads}
+                            aria-expanded={leadsOpen}
+                            className={`w-full px-5 py-3 flex items-center gap-3 hover:bg-slate-50 transition-colors ${leadsOpen ? "border-b border-slate-100" : ""}`}
+                        >
+                            <Target className="h-5 w-5 text-slate-500" />
+                            <h3 className="font-bold text-slate-800 text-sm">לידים</h3>
+                            {newLeads > 0 && (
+                                <span className="text-white text-xs font-bold rounded-full px-2 h-5 flex items-center" style={{ background: "var(--accent)" }}>
+                                    {newLeads} {newLeads === 1 ? "חדש" : "חדשים"}
+                                </span>
+                            )}
+                            <span className="mr-auto flex items-center gap-1.5 text-xs font-semibold text-slate-400">
+                                {leadsOpen ? "סגור" : "פתח"}
+                                <ChevronDown className={`h-4 w-4 transition-transform ${leadsOpen ? "rotate-180" : ""}`} />
+                            </span>
+                        </button>
+                        {leadsOpen && <LeadsContent heightClass="h-[560px]" />}
+                    </section>
+
+                    {/* ── BizFind: how the business is seen ── */}
+                    <BizFindExposureCard />
 
                 </div>
 

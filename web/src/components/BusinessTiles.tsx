@@ -10,10 +10,9 @@ import { usePathname, useRouter } from "next/navigation";
 import { ChevronRight, Lock, LogOut, Search, X, type LucideIcon } from "lucide-react";
 import { clearToken } from "@/lib/api";
 import { useBusinessSections, type BusinessItem } from "@/lib/businessSections";
-import { useNewLeadsCount } from "@/lib/useNewLeadsCount";
 
-function Tile({ item, badge = 0, locked = false, onNavigate }: {
-    item: BusinessItem; badge?: number; locked?: boolean; onNavigate?: () => void;
+function Tile({ item, locked = false, onNavigate }: {
+    item: BusinessItem; locked?: boolean; onNavigate?: () => void;
 }) {
     const pathname = usePathname();
     const path = item.href.split("?")[0];
@@ -24,18 +23,13 @@ function Tile({ item, badge = 0, locked = false, onNavigate }: {
                 active ? "bg-sky-600 text-white shadow-md" : "bg-gray-50 text-gray-700 hover:bg-sky-50"}`}>
             <item.icon className="w-6 h-6" aria-hidden />
             <span className="text-[11px] font-semibold leading-tight">{item.label}</span>
-            {badge > 0 && (
-                <span className="absolute top-1.5 left-1.5 bg-rose-500 text-white text-[9px] font-bold rounded-full min-w-4 h-4 flex items-center justify-center px-1">
-                    {badge > 99 ? "99+" : badge}
-                </span>
-            )}
             {locked && <Lock className="absolute top-1.5 left-1.5 w-3 h-3 text-gray-400" aria-label="לא במסלול" />}
         </Link>
     );
 }
 
-function CategoryTile({ label, icon: Icon, count, badge, onOpen }: {
-    label: string; icon: LucideIcon; count: number; badge: number; onOpen: () => void;
+function CategoryTile({ label, icon: Icon, count, onOpen }: {
+    label: string; icon: LucideIcon; count: number; onOpen: () => void;
 }) {
     return (
         <button type="button" onClick={onOpen}
@@ -43,19 +37,16 @@ function CategoryTile({ label, icon: Icon, count, badge, onOpen }: {
             <Icon className="w-6 h-6 text-sky-600" aria-hidden />
             <span className="text-sm font-bold text-gray-800 leading-tight">{label}</span>
             <span className="text-[11px] text-gray-500">{count === 1 ? "מסך אחד" : `${count} מסכים`}</span>
-            {badge > 0 && <span className="absolute top-3 left-3 w-2.5 h-2.5 rounded-full bg-rose-500" aria-label="יש חדש" />}
         </button>
     );
 }
 
 export default function BusinessTiles({ active = true, onNavigate }: { active?: boolean; onNavigate?: () => void }) {
     const { groups, plan } = useBusinessSections(active);
-    const newLeadsCount = useNewLeadsCount();
     const router = useRouter();
     const [open, setOpen] = useState<string | null>(null);      // the category shown
     const [query, setQuery] = useState("");
 
-    const badgeOf = (item: BusinessItem) => (item.href === "/overview" ? newLeadsCount : 0);
     const lockedOf = (item: BusinessItem) => !!item.module && !plan.has(item.module);
     const go = (item: BusinessItem) => { onNavigate?.(); router.push(item.href); };
 
@@ -79,7 +70,7 @@ export default function BusinessTiles({ active = true, onNavigate }: { active?: 
             {q ? (
                 found.length ? (
                     <div className="grid grid-cols-3 gap-2.5">
-                        {found.map(item => <Tile key={item.href} item={item} badge={badgeOf(item)} locked={lockedOf(item)} onNavigate={onNavigate} />)}
+                        {found.map(item => <Tile key={item.href} item={item} locked={lockedOf(item)} onNavigate={onNavigate} />)}
                     </div>
                 ) : (
                     <p className="text-center text-sm text-gray-500 py-6">לא נמצא מסך בשם הזה</p>
@@ -95,14 +86,13 @@ export default function BusinessTiles({ active = true, onNavigate }: { active?: 
                         <span className="text-base font-black text-gray-800">{category.groupLabel}</span>
                     </div>
                     <div className="grid grid-cols-3 gap-2.5">
-                        {category.items.map(item => <Tile key={item.href} item={item} badge={badgeOf(item)} locked={lockedOf(item)} onNavigate={onNavigate} />)}
+                        {category.items.map(item => <Tile key={item.href} item={item} locked={lockedOf(item)} onNavigate={onNavigate} />)}
                     </div>
                 </div>
             ) : (
                 <div className="grid grid-cols-2 gap-2.5">
                     {groups.map(g => (
                         <CategoryTile key={g.groupLabel} label={g.groupLabel} icon={g.icon} count={g.items.length}
-                            badge={g.items.reduce((n, i) => n + badgeOf(i), 0)}
                             onOpen={() => (g.items.length === 1 ? go(g.items[0]) : setOpen(g.groupLabel))} />
                     ))}
                 </div>

@@ -101,6 +101,9 @@ export default function BottomNav({ pendingDeposits = 0 }: { pendingDeposits?: n
                                             {pendingDeposits > 99 ? "99+" : pendingDeposits}
                                         </span>
                                     )}
+                                    {item.href === "/dashboard" && newLeadsCount > 0 && (
+                                        <span className="absolute -top-1 -right-1.5 w-2.5 h-2.5 rounded-full bg-rose-500 ring-2 ring-white" aria-label="לידים חדשים" />
+                                    )}
                                 </div>
 
                                 <span className={[
@@ -133,9 +136,6 @@ export default function BottomNav({ pendingDeposits = 0 }: { pendingDeposits?: n
                             {sheetOpen
                                 ? <X aria-hidden className="w-[22px] h-[22px] z-10 text-sky-600" />
                                 : <Building2 aria-hidden className={`w-[22px] h-[22px] z-10 ${businessActive ? "scale-110 text-sky-600" : "text-gray-500"}`} />}
-                            {!sheetOpen && newLeadsCount > 0 && (
-                                <span className="absolute top-2.5 right-[calc(50%-18px)] w-2.5 h-2.5 rounded-full bg-rose-500 ring-2 ring-white z-10" />
-                            )}
 
                             <span className={[
                                 "text-[10px] font-semibold z-10",

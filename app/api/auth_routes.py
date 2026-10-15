@@ -723,7 +723,7 @@ def resend_verification(request: Request, current_user: User = Depends(get_curre
 
 @router.get("/studio-info")
 def studio_info(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Lightweight endpoint — studio plan + expiry, drives the plan bar on the דשבורד page."""
+    """Lightweight endpoint — studio plan + expiry, drives the plan bar on לוח בקרה."""
     from app.models.studio import Studio
     from app.models.module import Plan
     studio = db.get(Studio, current_user.studio_id)

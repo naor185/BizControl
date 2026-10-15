@@ -2036,7 +2036,7 @@ export default function AutomationSettingsPage() {
                                 <div className="grid md:grid-cols-2 gap-8">
                                     <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 md:col-span-2">
                                         <label className="block text-base font-bold text-slate-800 mb-2">הגדרות מיסוי 💰</label>
-                                        <p className="text-sm text-slate-500 mb-4">הכנס את אחוזי המס שלך כדי שהדשבורד יציג לך כמה כסף באמת נשאר לך בכיס (נטו) אחרי הכל.</p>
+                                        <p className="text-sm text-slate-500 mb-4">הכנס את אחוזי המס שלך כדי שהמערכת תציג לך כמה כסף באמת נשאר לך בכיס (נטו) אחרי הכל.</p>
                                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                                             <div className="space-y-2">
                                                 <span className="text-sm font-semibold text-slate-700">מע״מ (%)</span>

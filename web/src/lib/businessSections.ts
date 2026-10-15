@@ -5,7 +5,7 @@
 // sale has it, hidden in the apps), by the platform's features, and for a manager by what the owner allowed him.
 import { useEffect, useState } from "react";
 import {
-    BadgeCheck, Banknote, CalendarRange, ChartLine, ChartPie, Clock, Compass, ConciergeBell, CreditCard, Crown, FileDown, FileUp, Gift,
+    BadgeCheck, Banknote, CalendarRange, ChartLine, ChartPie, Clock, ConciergeBell, CreditCard, Crown, FileDown, FileUp, Gift,
     HandCoins, HeartPulse, History, LayoutDashboard, LifeBuoy, Mail, Package, Phone, Receipt, Send, Settings,
     SlidersHorizontal, Smartphone, UserCog, Users, Wallet, type LucideIcon,
 } from "lucide-react";
@@ -19,7 +19,6 @@ export type Perm = "settings" | "receipts" | "money" | "team" | "attendance" | "
 
 export type BusinessItem = {
     href: string; label: string; description: string; icon: LucideIcon; module?: string; feature?: string; perm?: Perm;
-    phoneOnly?: boolean;      // on the computer it's in the side menu already
 };
 
 // The categories (the owner, 2026-10-15: "a clean menu — eight tiles, each opens its screens") — only screens that
@@ -29,7 +28,6 @@ export const SECTION_GROUPS: { groupLabel: string; icon: LucideIcon; items: Busi
         groupLabel: "סקירה ודוחות",
         icon: LayoutDashboard,
         items: [
-            { href: "/overview",           label: "סקירה",          description: "מה קורה היום — תורים, לידים ומשימות",            icon: Compass, phoneOnly: true },
             { href: "/analytics/business", label: "אנליטיקה עסקית", description: "הכנסות ותורים לפי חודש, ימים ושעות עמוסים, שירותים וצוות", icon: ChartLine, module: "analytics", perm: "money" },
             { href: "/clients/analytics",  label: "אנליטיקת לקוחות", description: "שימור, ערך לקוח, לקוחות שנעלמו ואחוזי המרה",      icon: ChartPie },
         ],

@@ -108,7 +108,7 @@ export default function OnboardingPage() {
 
     const finish = async () => {
         await saveProfile();
-        router.replace("/overview");          // the guide opens there, with the first steps (components/tour)
+        router.replace("/dashboard");         // the guide opens there, with the first steps (components/tour)
     };
 
     const trialDaysLeft = (() => {

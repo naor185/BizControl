@@ -15,7 +15,7 @@ export const PLAN_BAR_HEIGHT = "2.25rem";
 
 export const isTrialPlan = (info: PlanInfo | null) => info?.subscription_plan === "trial";
 
-// Strip at the bottom of the overview (/overview) — for a business on the free trial only (the owner, 2026-10-15: a paid
+// Strip at the bottom of לוח בקרה (/dashboard) — for a business on the free trial only (the owner, 2026-10-15: a paid
 // plan's "בתוקף עד" doesn't belong there): how many days are left, and renewing now, before it ends, on the
 // subscription's screen (/billing). Orange with white text; red when 7 days or fewer remain. Not a buying link inside
 // the apps (Apple: no buying outside the app from it).

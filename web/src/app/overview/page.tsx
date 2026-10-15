@@ -1,77 +1,13 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import { useEffect, useState } from "react";
-import { ChevronDown, Target } from "lucide-react";
-import { useRouter } from "next/navigation";
-import RequireAuth from "@/components/RequireAuth";
-import AppShell from "@/components/AppShell";
-import SetupChecklist from "@/components/SetupChecklist";
-import LeadsContent from "@/components/LeadsContent";
-import BizFindExposureCard from "@/components/BizFindExposureCard";
-import { useNewLeadsCount } from "@/lib/useNewLeadsCount";
-
-const LEADS_OPEN_KEY = "bizcontrol_overview_leads_open";
-
-function readLeadsOpen(): boolean {
-    try {
-        return localStorage.getItem(LEADS_OPEN_KEY) !== "0";
-    } catch {
-        return true;
-    }
-}
-
-// The subscription moved to its own screen, /billing (the owner, 2026-10-15) — a link from before (a notice, an e-mail,
-// a payment's way back) still lands there.
-function useOldBillingLink() {
-    const router = useRouter();
-    useEffect(() => {
-        const asked = new URLSearchParams(window.location.search).get("billing");
-        if (asked) router.replace(asked === "plans" ? "/billing" : `/billing?billing=${encodeURIComponent(asked)}`);
-    }, [router]);
-}
-
-export default function OverviewPage() {
-    const [leadsOpen, setLeadsOpen] = useState(readLeadsOpen);
-    const newLeads = useNewLeadsCount();
-    useOldBillingLink();
-
-    const toggleLeads = () => {
-        const next = !leadsOpen;
-        setLeadsOpen(next);
-        try { localStorage.setItem(LEADS_OPEN_KEY, next ? "1" : "0"); } catch { /* per-viewer convenience only */ }
-    };
-
-    return (
-        <RequireAuth>
-            <AppShell title="סקירה">
-                <div className="space-y-5 animate-page-in pb-10">
-                    <SetupChecklist />
-
-                    <section className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-                        <button
-                            type="button"
-                            onClick={toggleLeads}
-                            aria-expanded={leadsOpen}
-                            className={`w-full px-5 py-3 flex items-center gap-3 hover:bg-slate-50 transition-colors ${leadsOpen ? "border-b border-slate-100" : ""}`}
-                        >
-                            <Target className="h-5 w-5 text-slate-500" />
-                            <h3 className="font-bold text-slate-800 text-sm">לידים</h3>
-                            {newLeads > 0 && (
-                                <span className="text-white text-xs font-bold rounded-full px-2 h-5 flex items-center" style={{ background: "var(--accent)" }}>
-                                    {newLeads} {newLeads === 1 ? "חדש" : "חדשים"}
-                                </span>
-                            )}
-                            <span className="mr-auto flex items-center gap-1.5 text-xs font-semibold text-slate-400">
-                                {leadsOpen ? "סגור" : "פתח"}
-                                <ChevronDown className={`h-4 w-4 transition-transform ${leadsOpen ? "rotate-180" : ""}`} />
-                            </span>
-                        </button>
-                        {leadsOpen && <LeadsContent heightClass="h-[560px]" />}
-                    </section>
-
-                    <BizFindExposureCard />
-                </div>
-            </AppShell>
-        </RequireAuth>
-    );
+// "דשבורד" (/overview) became part of לוח בקרה (the owner, 2026-10-15: one home screen) — what it held (the setup
+// checklist, the leads, BizFind's exposure) is there now. A link from before still lands in the right place: a lead's
+// notice on לוח בקרה, the subscription's (?billing=…) on its own screen.
+export default async function OverviewPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+    const q = await searchParams;
+    const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
+    const billing = one(q.billing);
+    if (billing) redirect(billing === "plans" ? "/billing" : `/billing?billing=${encodeURIComponent(billing)}`);
+    const lead = one(q.lead);
+    redirect(lead ? `/dashboard?lead=${encodeURIComponent(lead)}` : "/dashboard");
 }

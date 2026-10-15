@@ -64,7 +64,7 @@ export default function BusinessPage() {
 
                             {groups.map(group => {
                                 // סקירה and לוח בקרה are in the computer's side menu already
-                                const visibleItems = group.items.filter(item => !item.phoneOnly);
+                                const visibleItems = group.items;
                                 if (visibleItems.length === 0) return null;
                                 return (
                                 <div key={group.groupLabel} className="hidden md:block">

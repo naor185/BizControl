@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { ArrowLeft, ArrowRight, Calendar, ShoppingCart, LayoutDashboard, Users, Gauge, Building2, Mail, Eye, X, Nfc, type LucideIcon } from "lucide-react";
+import { ArrowLeft, ArrowRight, Calendar, ShoppingCart, LayoutDashboard, Users, Building2, Mail, Eye, X, Nfc, type LucideIcon } from "lucide-react";
 import { apiFetch, clearToken, getCurrentUserRole, getToken, setToken } from "@/lib/api";
 import ClockWidget from "./ClockWidget";
 import BottomNav from "./BottomNav";
@@ -30,10 +30,9 @@ type Me = {
 };
 
 const MAIN_NAV: { href: string; label: string; icon: LucideIcon; module?: string }[] = [
-    { href: "/overview",  label: "דשבורד",       icon: Gauge },
+    { href: "/dashboard", label: "לוח בקרה",    icon: LayoutDashboard },   // the home screen (with what was "דשבורד")
     { href: "/calendar",  label: "יומן תורים",  icon: Calendar, module: "calendar" },
     { href: "/pos",       label: "קופה",         icon: ShoppingCart, module: "pos" },
-    { href: "/dashboard", label: "לוח בקרה",    icon: LayoutDashboard },
     { href: "/clients",   label: "לקוחות",       icon: Users, module: "crm" },
 ];
 
@@ -105,9 +104,9 @@ export default function AppShell({
         }
     }, []);
 
-    // The plan bar appears only on the "דשבורד" page (/overview), whatever the plan — nowhere else.
+    // The plan bar appears only on לוח בקרה, and only on the free trial — nowhere else.
     // The room it takes at the bottom is reserved only while it is shown.
-    const showPlanBar = !!planInfo && pathname === "/overview" && isTrialPlan(planInfo);   // the free trial only
+    const showPlanBar = !!planInfo && pathname === "/dashboard" && isTrialPlan(planInfo);
 
     // "Back" appears on every screen that was reached from another screen of the app (desktop and
     // phone), and takes you to exactly where you were. It is hidden on the first screen of a session.
@@ -173,9 +172,7 @@ export default function AppShell({
                             && (!item.module || !enabledModules || enabledModules[item.module] !== false)).map(item => {
                             const active = pathname === item.href || pathname.startsWith(item.href + "/")
                                 || (item.href === "/clients" && pathname === "/wallet");
-                            const badge = item.href === "/dashboard" ? pendingDepositsCount
-                                : item.href === "/overview" ? newLeadsCount
-                                : 0;
+                            const badge = item.href === "/dashboard" ? pendingDepositsCount + newLeadsCount : 0;
                             const Icon = item.icon;
                             return (
                                 <Link

@@ -166,7 +166,7 @@ def mark_lead_seen(
     for n in db.scalars(select(Notification).where(
         Notification.studio_id == user.studio_id,
         Notification.type == "new_lead",
-        Notification.action_url == f"/overview?lead={lead.id}",
+        Notification.action_url.in_((f"/dashboard?lead={lead.id}", f"/overview?lead={lead.id}")),   # /overview: before 2026-10-15
         Notification.is_read.is_(False),
     )).all():
         n.is_read = True
