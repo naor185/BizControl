@@ -23,8 +23,8 @@ export default function BottomNav() {
     const isArtist = userRole === "artist" || userRole === "staff";
     const { t } = useLang();
     const newLeadsCount = useNewLeadsCount();
-    // "ניהול עסק" — the owner's and the managers' (a worker's bar is the calendar only). It opens the small buttons
-    // of every tool, each once (components/BusinessTiles) — not a long page (the owner, 2026-10-15).
+    // "ניהול עסק" — the owner's and the managers' (a worker's bar is the calendar only). It opens the categories, a
+    // search and each category's screens (components/BusinessTiles) — not a long page (the owner, 2026-10-15).
     // the page the sheet was opened on — moving to another page closes it
     const [openOn, setOpenOn] = useState<string | null>(null);
     const sheetOpen = openOn !== null && openOn === pathname;
@@ -64,7 +64,7 @@ export default function BottomNav() {
                         <div className="w-10 h-1 bg-gray-200 rounded-full" />
                     </div>
                     <div className="px-4 pt-2 pb-5">
-                        <BusinessTiles active={asked} onNavigate={close} />
+                        <BusinessTiles key={openOn ?? "closed"} active={asked} onNavigate={close} />
                     </div>
                 </div>
             )}
