@@ -42,6 +42,10 @@ class AppointmentOut(BaseModel):
     paid_cents: int = 0
     remaining_cents: int = 0
     client_loyalty_points: int = 0
+    # the deposit: the client said they paid (and the picture they attached), the business approved it
+    payment_sent_at: datetime | None = None
+    payment_verified_at: datetime | None = None
+    payment_proof_url: str | None = None
 
     # calendar extras (ALWAYS)
     client_name: str

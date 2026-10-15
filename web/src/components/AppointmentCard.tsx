@@ -1,3 +1,4 @@
+import { BellRing, Hourglass } from "lucide-react";
 import { statusMeta } from "@/lib/appointment-status";
 
 // Compact, info-first calendar-event card: client, time, service, staff,
@@ -11,6 +12,8 @@ interface AppointmentCardProps {
     status: string;
     paidCents?: number;
     remainingCents?: number | null;
+    /** a deposit still to approve: "waiting" — not paid yet; "reported" — the client says they paid (the payment page) */
+    deposit?: "waiting" | "reported" | null;
     isWalkIn?: boolean;
     isExternalGoogle?: boolean;
 }
@@ -22,7 +25,7 @@ export function startOfTimeText(timeText: string): string {
 
 export default function AppointmentCard({
     timeText, title, clientName, artistName, status,
-    paidCents = 0, remainingCents = null, isWalkIn, isExternalGoogle,
+    paidCents = 0, remainingCents = null, deposit = null, isWalkIn, isExternalGoogle,
 }: AppointmentCardProps) {
     if (isExternalGoogle) {
         return <div className="px-1 py-0.5 text-[11px] font-medium text-white truncate">📅 {title}</div>;
@@ -56,6 +59,14 @@ export default function AppointmentCard({
                 </div>
             )}
             <span className="mt-auto text-[10px] leading-none flex items-center gap-1" title={meta.label}>
+                {deposit === "reported" && (
+                    <span title="הלקוח דיווח ששילם מקדמה — לאישור" className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-white text-sky-700">
+                        <BellRing className="w-2.5 h-2.5" aria-hidden />
+                    </span>
+                )}
+                {deposit === "waiting" && (
+                    <span title="ממתין למקדמה"><Hourglass className="w-3 h-3 opacity-90" aria-hidden /></span>
+                )}
                 {paymentIcon}
                 {status !== "scheduled" && <span>{meta.icon}</span>}
             </span>

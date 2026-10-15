@@ -2,7 +2,7 @@ import logging
 import os
 import uuid
 from uuid import UUID as PyUUID
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlalchemy.orm import Session
 
 log = logging.getLogger(__name__)
@@ -78,6 +78,9 @@ class PublicPaymentInfo(BaseModel):
     theme_primary_color: str
     theme_secondary_color: str
     logo_filename: str | None
+    payment_sent: bool = False        # the client already tapped "שילמתי"
+    payment_verified: bool = False    # the business approved the deposit
+    has_proof: bool = False           # a picture of the payment is attached
 
 class PaymentConfirmRequest(BaseModel):
     notes: str | None = None
@@ -339,7 +342,7 @@ def _maybe_create_lead(db: Session, studio_id: str, name: str, phone: str | None
     notify_new_lead(db, studio_id, lead.id, name, lead.service_interest)
 
 @router.get("/payment/{appointment_id}", response_model=PublicPaymentInfo)
-def get_public_payment_info(appointment_id: str, db: Session = Depends(get_db)):
+def get_public_payment_info(appointment_id: PyUUID, db: Session = Depends(get_db)):
     from app.models.appointment import Appointment
 
     row = db.execute(
@@ -367,24 +370,31 @@ def get_public_payment_info(appointment_id: str, db: Session = Depends(get_db)):
         bank_account=settings.bank_account,
         theme_primary_color=settings.theme_primary_color or "#000000",
         theme_secondary_color=settings.theme_secondary_color or "#ffffff",
-        logo_filename=settings.logo_filename
+        logo_filename=settings.logo_filename,
+        payment_sent=appt.payment_sent_at is not None,
+        payment_verified=appt.payment_verified_at is not None,
+        has_proof=bool(appt.payment_proof_url),
     )
 
+
+@router.post("/payment/{appointment_id}/proof")
+async def upload_payment_proof(appointment_id: PyUUID, file: UploadFile = File(...), db: Session = Depends(get_db)):
+    """The client attaches a picture of the payment (a Bit screenshot…) — services/deposit_report."""
+    from app.services import deposit_report
+    appt = deposit_report.open_for_report(db, appointment_id)
+    data = await file.read(deposit_report.MAX_BYTES + 1)
+    deposit_report.save_proof(db, appt, data)
+    return {"ok": True}
+
+
 @router.post("/payment/{appointment_id}/confirm")
-def confirm_payment_sent(appointment_id: str, payload: PaymentConfirmRequest, db: Session = Depends(get_db)):
-    appt = db.get(Appointment, appointment_id)
-    if not appt:
-        raise HTTPException(status_code=404, detail="Appointment not found")
-
-    if appt.payment_sent_at:
-        return {"message": "Payment already reported as sent"}
-
-    appt.payment_sent_at = func.now()
-    if payload.notes:
-        appt.notes = (appt.notes or "") + f"\n[הודעת לקוח לגבי תשלום]: {payload.notes}"
-
-    db.commit()
-    return {"message": "Payment confirmation received"}
+def confirm_payment_sent(appointment_id: PyUUID, payload: PaymentConfirmRequest, db: Session = Depends(get_db)):
+    """The client tapped "שילמתי" — the business is told at once (the bell and a push) and approves it from the
+    calendar (services/deposit_report)."""
+    from app.services import deposit_report
+    appt = deposit_report.open_for_report(db, appointment_id)
+    deposit_report.report(db, appt, payload.notes)
+    return {"ok": True}
 
 
 # ── Self-Booking ──────────────────────────────────────────────────────────────

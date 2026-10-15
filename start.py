@@ -2941,6 +2941,8 @@ def ensure_schema():
         cur.execute("ALTER TABLE health_forms DROP COLUMN IF EXISTS ask_id_number")
         cur.execute("ALTER TABLE health_declarations ADD COLUMN IF NOT EXISTS ask_age BOOLEAN NOT NULL DEFAULT TRUE")
         cur.execute("ALTER TABLE health_declarations ADD COLUMN IF NOT EXISTS age INTEGER")
+        # the picture of the deposit's payment the client attaches on the payment page (2026-10-15)
+        cur.execute("ALTER TABLE appointments ADD COLUMN IF NOT EXISTS payment_proof_url TEXT")
         cur.execute("ALTER TABLE health_declarations DROP COLUMN IF EXISTS ask_id_number")
         cur.execute("ALTER TABLE health_declarations DROP COLUMN IF EXISTS id_number")
 

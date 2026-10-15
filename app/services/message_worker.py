@@ -49,7 +49,7 @@ BEFORE_APPOINTMENT = frozenset({
     "1day", "3day", "7day", "same_day", "2hours", "clock_in_nudge", "1day_email", "3day_email", "7day_email", "same_day_email",
     "new_appointment", "reschedule", "deposit_24h", "health_form",
 })
-from app.crud.automation import format_template
+from app.crud.automation import format_template, pay_link
 from app.utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -527,12 +527,36 @@ def process_due_jobs(db: Session, limit: int = 20) -> int:
     return count
 
 
+DEPOSIT_REMINDER_DEFAULT = (
+    "היי {client_name} 👋\n\n"
+    "תזכורת: התור שלך בתאריך {date} בשעה {time} עדיין ממתין לאישור מקדמה.\n\n"
+    "💰 סכום המקדמה: ₪{deposit_amount}\n"
+    "לתשלום — ואחרי התשלום לחצו שם על \"שילמתי\": {payment_link}\n\n"
+    "ללא תשלום המקדמה התור אינו מאושר סופית."
+)
+
+
+def deposit_reminder_body(settings: StudioSettings, client: Client, appt: Appointment) -> str:
+    """The deposit reminder — the automatic one (sweep_deposit_reminders) and the one sent by hand
+    (appointment_routes) — the business's own text, or the default. {payment_link}: the payment page."""
+    il_dt = appt.starts_at.astimezone(_IL_TZ)
+    deposit_ils = appt.deposit_amount_cents / 100
+    template = getattr(settings, "deposit_reminder_wa_template", None) or DEPOSIT_REMINDER_DEFAULT
+    return format_template(template, {
+        "client_name": client.full_name or "",
+        "date": il_dt.strftime("%d/%m/%Y"),
+        "time": il_dt.strftime("%H:%M"),
+        "deposit_amount": f"{deposit_ils:.0f}" if deposit_ils == int(deposit_ils) else f"{deposit_ils:.2f}",
+        "payment_link": pay_link(appt),
+    })
+
+
 def _build_reminder_context(appt: Appointment, client: Client, settings: StudioSettings) -> dict:
     tz = pytz.timezone(settings.timezone or "Asia/Jerusalem")
     local_dt = appt.starts_at.astimezone(tz)
     has_deposit = bool(appt.deposit_amount_cents and appt.deposit_amount_cents > 0)
     deposit_paid = appt.payment_verified_at is not None
-    payment_link = settings.bit_link or settings.paybox_link or ""
+    payment_link = pay_link(appt) if has_deposit else ""
     return {
         "client_name": client.full_name,
         "appointment_title": appt.title,
@@ -1106,25 +1130,7 @@ def sweep_deposit_reminders(db: Session) -> int:
         if not settings or not message_on(settings, "deposit_reminder"):
             continue
 
-        il_dt = appt.starts_at.astimezone(_IL_TZ)
-        date_str = il_dt.strftime("%d/%m/%Y")
-        time_str = il_dt.strftime("%H:%M")
-        deposit_ils = appt.deposit_amount_cents / 100
-
-        template = getattr(settings, "deposit_reminder_wa_template", None) or (
-            "היי {client_name} 👋\n\n"
-            "תזכורת: התור שלך בתאריך {date} בשעה {time} עדיין ממתין לאישור מקדמה.\n\n"
-            "💰 סכום המקדמה: ₪{deposit_amount}\n\n"
-            "לשריון התור יש לשלוח את המקדמה. ללא תשלום המקדמה התור אינו מאושר סופית.\n\n"
-            "לפרטים נוספים צור/י קשר ישירות."
-        )
-
-        body = format_template(template, {
-            "client_name": client.full_name or "",
-            "date": date_str,
-            "time": time_str,
-            "deposit_amount": f"{deposit_ils:.0f}" if deposit_ils == int(deposit_ils) else f"{deposit_ils:.2f}",
-        })
+        body = deposit_reminder_body(settings, client, appt)
 
         db.add(MessageJob(
             studio_id=appt.studio_id,

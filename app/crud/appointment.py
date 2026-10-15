@@ -78,6 +78,9 @@ def _appt_to_out_dict(db: Session, appt: Appointment, client: Client, artist: Us
         "client_loyalty_points": client.loyalty_points or 0,
         "service_id": appt.service_id,
         "service_name": service_name,
+        "payment_sent_at": appt.payment_sent_at,
+        "payment_verified_at": appt.payment_verified_at,
+        "payment_proof_url": appt.payment_proof_url,
     }
 
 def create_appointment(db: Session, studio_id: UUID, data) -> dict:

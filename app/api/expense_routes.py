@@ -31,26 +31,8 @@ router = APIRouter(prefix="/expenses", tags=["Expenses"])
 
 def _save_receipt_image(image_bytes: bytes, content_type: str, studio_id: str, db=None) -> str | None:
     """Save receipt image — Cloudinary if configured, otherwise local uploads/."""
-    ext = (content_type or "image/jpeg").split("/")[-1].replace("jpeg", "jpg")
-    public_id = f"receipt_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
-    try:
-        from app.api.upload_routes import _cloudinary_upload
-        cloud_url = _cloudinary_upload(image_bytes, folder=f"receipts/{studio_id}", public_id=public_id, db=db)
-        if cloud_url:
-            return cloud_url
-    except Exception as e:
-        _log.debug("Cloudinary not available: %s", e)
-    # Fall back to local filesystem
-    try:
-        upload_dir = os.path.join("uploads", "receipts", studio_id)
-        os.makedirs(upload_dir, exist_ok=True)
-        fname = f"{public_id}.{ext}"
-        with open(os.path.join(upload_dir, fname), "wb") as fh:
-            fh.write(image_bytes)
-        return f"/uploads/receipts/{studio_id}/{fname}"
-    except Exception as e:
-        _log.warning("Could not save receipt image: %s", e)
-        return None
+    from app.services.image_store import save_image
+    return save_image(image_bytes, content_type, folder=f"receipts/{studio_id}", prefix="receipt", db=db)
 
 
 def _delete_receipt_file(url: str | None, db=None) -> None:

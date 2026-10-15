@@ -1,13 +1,14 @@
 "use client";
 
 import { Switch } from "@/components/ui/switch";
-import { useEffect, useState, useMemo, useRef, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState, useMemo, useRef, useCallback } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import AppShell from "@/components/AppShell";
 import RequireAuth from "@/components/RequireAuth";
-import { apiFetch, getCurrentUserId, getCurrentUserRole } from "@/lib/api";
+import { apiFetch, getCurrentUserId, getCurrentUserRole, imgUrl } from "@/lib/api";
 import { toLocalDateStr } from "@/lib/format";
 import PaymentModal from "@/components/PaymentModal";
+import DepositConfirmModal, { type DepositToConfirm } from "@/components/DepositConfirmModal";
 import { statusMeta } from "@/lib/appointment-status";
 import AppointmentCard, { startOfTimeText } from "@/components/AppointmentCard";
 import HealthDeclarations from "@/components/health/HealthDeclarations";
@@ -15,7 +16,7 @@ import PickerBox from "@/components/ui/picker-box";
 import BottomSheet from "@/components/ui/bottom-sheet";
 import { HIDE_BOOKING_BANNER_KEY } from "@/lib/localPrefs";
 import StaffReminderRulesSettings from "@/components/StaffReminderRulesSettings";
-import { Users, UsersRound, CalendarPlus, Pin, X, Clock, Repeat, TriangleAlert } from "lucide-react";
+import { Users, UsersRound, CalendarPlus, Pin, X, Clock, Repeat, TriangleAlert, BellRing, CircleCheck, Hourglass } from "lucide-react";
 import type { ClassSession, Room } from "@/lib/classes";
 import { SessionSheet } from "@/components/classes/ClassSchedule";
 import { TemplateSheet, type TemplatePreset } from "@/components/classes/ClassTemplates";
@@ -99,6 +100,10 @@ type Appointment = {
     paid_cents?: number;
     remaining_cents?: number;
     client_loyalty_points?: number;
+    deposit_amount_cents?: number;
+    payment_sent_at?: string | null;       // the client tapped "שילמתי" on the payment page
+    payment_verified_at?: string | null;   // the business approved the deposit
+    payment_proof_url?: string | null;     // the picture of the payment the client attached
 };
 
 type TaskInstance = {
@@ -114,8 +119,16 @@ type TaskInstance = {
 };
 
 export default function CalendarPage() {
+    return <Suspense fallback={null}><Calendar /></Suspense>;
+}
+
+function Calendar() {
     const router = useRouter();
     const calendarRef = useRef<FullCalendar>(null);
+    // ?appt=<id> — opens that appointment (the notification "the client says they paid the deposit", 2026-10-15)
+    const linkedApptId = useSearchParams().get("appt");
+    // approving a deposit — the same window as לוח בקרה's (components/DepositConfirmModal)
+    const [depositToConfirm, setDepositToConfirm] = useState<DepositToConfirm | null>(null);
     const touchStartX = useRef<number | null>(null);
     const touchStartY = useRef<number | null>(null);
     const isDraggingEvent = useRef(false);
@@ -379,6 +392,19 @@ export default function CalendarPage() {
     // showing when it closes, instead of resetting to the top of the day —
     // startAt already holds that time for both the "edit existing" and
     // "create from a clicked slot" paths.
+    useEffect(() => {
+        if (!linkedApptId) return;
+        apiFetch<Appointment & { client_id: string }>(`/api/appointments/${linkedApptId}`)
+            .then(a => {
+                setViewSheetAppt({ ...a, isWalkIn: false, isExternalGoogle: false });
+                // the calendar may still be drawing — go to the appointment's day once it is
+                setTimeout(() => calendarRef.current?.getApi().gotoDate(a.starts_at), 300);
+            })
+            .catch(() => showToast("התור לא נמצא", "error"))
+            .finally(() => router.replace("/calendar"));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [linkedApptId]);
+
     const wasModalOpenRef = useRef(false);
     useEffect(() => {
         if (wasModalOpenRef.current && !isModalOpen && startAt) {
@@ -1659,6 +1685,8 @@ export default function CalendarPage() {
                                         status={p.status}
                                         paidCents={p.paid_cents}
                                         remainingCents={p.remaining_cents}
+                                        deposit={p.deposit_amount_cents > 0 && !p.payment_verified_at && p.status === "scheduled"
+                                            ? (p.payment_sent_at ? "reported" : "waiting") : null}
                                         isWalkIn={p.isWalkIn}
                                         isExternalGoogle={p.isExternalGoogle}
                                     />
@@ -1678,7 +1706,10 @@ export default function CalendarPage() {
                     const timeStr = (iso: string) => new Date(iso).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
                     const dateStr = (iso: string) => new Date(iso).toLocaleDateString("he-IL", { weekday: "long", day: "numeric", month: "long" });
                     const depositCents = app.deposit_amount_cents || 0;
-                    const depositPaid = depositCents > 0 && (app.paid_cents || 0) >= depositCents;
+                    const depositApproved = !!app.payment_verified_at;
+                    const depositReported = !depositApproved && !!app.payment_sent_at;
+                    const depositILS = `₪${(depositCents / 100).toLocaleString("he-IL")}`;
+                    const mayApprove = myRole !== "artist" && myRole !== "staff";   // money — the owner's and the managers'
                     return (
                         <BottomSheet open={true} onClose={() => setViewSheetAppt(null)} title={app.client_name || "ללא לקוח"}>
                             <div className="space-y-1 mb-4 text-sm text-slate-600">
@@ -1690,14 +1721,44 @@ export default function CalendarPage() {
                                     <span style={{ color: meta.color }}>{meta.icon}</span>
                                     <span>{meta.label}</span>
                                 </div>
-                                {depositCents > 0 && (
-                                    <div className={`flex items-center gap-2 font-semibold ${depositPaid ? "text-emerald-600" : "text-amber-600"}`}>
-                                        {depositPaid
-                                            ? <>✅ מקדמה שולמה (₪{(depositCents / 100).toLocaleString("he-IL")})</>
-                                            : <>⚠️ מקדמה טרם שולמה (₪{(depositCents / 100).toLocaleString("he-IL")})</>}
-                                    </div>
-                                )}
                             </div>
+
+                            {depositCents > 0 && (
+                                <div className={`mb-4 rounded-2xl border p-3 ${depositApproved ? "bg-emerald-50 border-emerald-200" : depositReported ? "bg-sky-50 border-sky-200" : "bg-amber-50 border-amber-200"}`}>
+                                    <div className={`flex items-center gap-2 text-sm font-bold ${depositApproved ? "text-emerald-700" : depositReported ? "text-sky-800" : "text-amber-800"}`}>
+                                        {depositApproved ? <CircleCheck className="w-4 h-4 shrink-0" aria-hidden />
+                                            : depositReported ? <BellRing className="w-4 h-4 shrink-0" aria-hidden />
+                                            : <Hourglass className="w-4 h-4 shrink-0" aria-hidden />}
+                                        {depositApproved ? `המקדמה אושרה (${depositILS})`
+                                            : depositReported ? `הלקוח דיווח ששילם מקדמה של ${depositILS}`
+                                            : `ממתין למקדמה של ${depositILS}`}
+                                    </div>
+                                    {depositReported && (
+                                        <div className="text-xs text-sky-700 mt-0.5 mr-6">
+                                            {new Date(app.payment_sent_at).toLocaleString("he-IL", { weekday: "short", day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" })}
+                                        </div>
+                                    )}
+                                    {!depositApproved && app.payment_proof_url && (
+                                        <a href={imgUrl(app.payment_proof_url)} target="_blank" rel="noopener noreferrer"
+                                            className="mt-2 flex items-center gap-3 rounded-xl bg-white border border-slate-200 p-2 hover:bg-slate-50 transition">
+                                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                                            <img src={imgUrl(app.payment_proof_url)} alt="צילום התשלום ששלח הלקוח" className="w-12 h-16 object-cover rounded-lg border border-slate-200" />
+                                            <span className="text-sm font-semibold text-slate-700">הצילום ששלח הלקוח — לחיצה פותחת בגודל מלא</span>
+                                        </a>
+                                    )}
+                                    {!depositApproved && mayApprove && (
+                                        <button type="button"
+                                            onClick={() => {
+                                                setDepositToConfirm({ appointmentId: app.id, amountCents: depositCents, clientName: app.client_name || "",
+                                                                      proofUrl: app.payment_proof_url, reportedAt: app.payment_sent_at });
+                                                setViewSheetAppt(null);
+                                            }}
+                                            className="mt-2 w-full min-h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-black transition">
+                                            אישור המקדמה
+                                        </button>
+                                    )}
+                                </div>
+                            )}
 
                             <div className="grid grid-cols-2 gap-2 mb-4">
                                 <a
@@ -2455,6 +2516,11 @@ export default function CalendarPage() {
                     onSuccess={handlePaymentSuccess}
                     appointment={paymentAppt}
                 />
+
+                {depositToConfirm && (
+                    <DepositConfirmModal deposit={depositToConfirm} onClose={() => setDepositToConfirm(null)}
+                        onConfirmed={() => { loadData(); showToast("המקדמה אושרה"); }} />
+                )}
 
                 {/* Past-date confirmation dialog */}
                 {dragConfirm && (

@@ -10,7 +10,7 @@ log = get_logger(__name__)
 
 from app.db.deps import get_db
 from app.core.deps import require_studio_ctx, AuthContext
-from app.core.permissions import require_roles, Perms
+from app.core.permissions import no_workers, require_roles, Perms
 from app.schemas.appointment import AppointmentCreate, AppointmentUpdate, AppointmentOut
 from app.crud.appointment import (
     create_appointment, list_appointments, get_appointment, get_appointment_out, update_appointment, cancel_appointment, hard_delete_appointment
@@ -205,6 +205,7 @@ def list_pending_deposits(ctx: AuthContext = Depends(require_studio_ctx), db: Se
             "starts_at": appt.starts_at.isoformat() if appt.starts_at else None,
             "deposit_amount_cents": appt.deposit_amount_cents,
             "payment_sent_at": appt.payment_sent_at.isoformat() if appt.payment_sent_at else None,
+            "payment_proof_url": appt.payment_proof_url,
             "deposit_reminder_sent": reminder_job is not None,
             "deposit_reminder_sent_at": reminder_job.sent_at.isoformat() if reminder_job and reminder_job.sent_at else None,
         })
@@ -222,11 +223,9 @@ def send_deposit_reminder_now(
     from app.models.client import Client
     from app.models.message_job import MessageJob
     from app.models.studio_settings import StudioSettings
-    from app.crud.automation import format_template
-    from app.services.message_worker import _IL_TZ
+    from app.services.message_worker import deposit_reminder_body
     from datetime import datetime, timezone
     from sqlalchemy import select as _sel
-    import pytz as _pytz
 
     appt = db.scalar(
         _sel(Appointment).where(Appointment.id == appointment_id, Appointment.studio_id == ctx.studio_id)
@@ -242,26 +241,7 @@ def send_deposit_reminder_now(
 
     settings = db.get(StudioSettings, ctx.studio_id)
     now = datetime.now(timezone.utc)
-
-    il_dt = appt.starts_at.astimezone(_pytz.timezone("Asia/Jerusalem"))
-    date_str = il_dt.strftime("%d/%m/%Y")
-    time_str = il_dt.strftime("%H:%M")
-    deposit_ils = appt.deposit_amount_cents / 100
-
-    template = getattr(settings, "deposit_reminder_wa_template", None) or (
-        "היי {client_name} 👋\n\n"
-        "תזכורת: התור שלך בתאריך {date} בשעה {time} עדיין ממתין לאישור מקדמה.\n\n"
-        "💰 סכום המקדמה: ₪{deposit_amount}\n\n"
-        "לשריון התור יש לשלוח את המקדמה. ללא תשלום המקדמה התור אינו מאושר סופית.\n\n"
-        "לפרטים נוספים צור/י קשר ישירות."
-    )
-
-    body = format_template(template, {
-        "client_name": client.full_name or "",
-        "date": date_str,
-        "time": time_str,
-        "deposit_amount": f"{deposit_ils:.0f}" if deposit_ils == int(deposit_ils) else f"{deposit_ils:.2f}",
-    })
+    body = deposit_reminder_body(settings, client, appt)
 
     # Remove any previous pending deposit_24h job (avoid double send)
     old_job = db.scalar(
@@ -516,7 +496,7 @@ def verify_sent_payment(
     method: str = "bit",
     send_receipt: bool = True,
     amount_cents: int | None = Query(default=None, gt=0),
-    ctx: AuthContext = Depends(require_studio_ctx),
+    ctx: AuthContext = Depends(no_workers()),   # money — the owner's and the managers' (2026-10-15)
     db: Session = Depends(get_db),
 ):
     """Studio confirms they received the deposit — opens cashier, records payment, creates receipt.

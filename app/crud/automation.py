@@ -59,8 +59,18 @@ def smart_format(template: str, context: dict) -> str:
     return format_template(template, context)
 
 
+def _site() -> str:
+    return os.getenv("FRONTEND_URL", "https://bizcontrol-seven.vercel.app")
+
+
+def pay_link(appt: Appointment) -> str:
+    """The appointment's payment page — the business's ways to pay, and "שילמתי" with a picture of the payment, which
+    tells the business at once (services/deposit_report). A reply on WhatsApp may reach nobody: most businesses send
+    through the platform's number (the owner, 2026-10-15)."""
+    return f"{_site()}/pay/{appt.id}"
+
+
 def _build_context(settings: StudioSettings, client: Client, appt: Appointment, artist_name: str = "", db: Session | None = None) -> dict:
-    base_url = os.getenv("FRONTEND_URL", "https://bizcontrol-seven.vercel.app")
     deposit_amount = appt.deposit_amount_cents / 100 if appt.deposit_amount_cents else 0
     bank_details = ""
     if settings.bank_name or settings.bank_branch or settings.bank_account:
@@ -70,7 +80,7 @@ def _build_context(settings: StudioSettings, client: Client, appt: Appointment, 
         "appointment_title": appt.title or "",
         "appointment_date": appt.starts_at.astimezone(pytz.timezone(settings.timezone or "Asia/Jerusalem")).strftime("%d/%m/%Y"),
         "appointment_time": appt.starts_at.astimezone(pytz.timezone(settings.timezone or "Asia/Jerusalem")).strftime("%H:%M"),
-        "payment_link": f"{base_url}/pay/{appt.id}",
+        "payment_link": pay_link(appt),
         "deposit_amount": f"{deposit_amount:.0f}" if deposit_amount == int(deposit_amount) else f"{deposit_amount:.2f}",
         "artist_name": artist_name,
         # the business's word for the one giving the service (אמן/ית, מניקוריסטית, מטפל/ת…) — {staff_title}
@@ -84,7 +94,7 @@ def _build_context(settings: StudioSettings, client: Client, appt: Appointment, 
         "cancellation_free_days": str(settings.cancellation_free_days or 7),
         "deposit_lock_days": str(settings.deposit_lock_days or 7),
         "loyalty_points": str(client.loyalty_points or 0),
-        "join_link": f"{base_url}/join/{appt.studio_id}",
+        "join_link": f"{_site()}/join/{appt.studio_id}",
         "contact_phone": "",
     }
 
@@ -138,7 +148,7 @@ def enqueue_confirmation_message(db: Session, appt: Appointment, artist_name: st
                     "",
                     f"💳 לאישור התור נדרשת מקדמה של ₪{context.get('deposit_amount', '')}",
                     f"לתשלום: {context['payment_link']}",
-                    "אחרי התשלום שלח אסמכתא ונאשר את התור ✅",
+                    "אחרי התשלום לחצו שם על \"שילמתי\" וצרפו צילום של התשלום — ונאשר את התור ✅",
                 ]
             cancellation_days = context.get("cancellation_free_days")
             if cancellation_days:
@@ -180,7 +190,7 @@ def enqueue_confirmation_message(db: Session, appt: Appointment, artist_name: st
             deposit_block = f"""
             <p style="background:#fef3c7;border-radius:8px;padding:12px 16px;">
                 💳 לאישור התור נדרשת מקדמה של ₪{context.get('deposit_amount', '')}<br>
-                <a href="{context['payment_link']}">לתשלום לחצו כאן</a> — לאחר התשלום שלחו אסמכתא ונאשר את התור.
+                <a href="{context['payment_link']}">לתשלום לחצו כאן</a> — אחרי התשלום לחצו שם על "שילמתי" וצרפו צילום של התשלום, ונאשר את התור.
             </p>
             """
         address_block = f"<p>📍 {context['studio_address']}</p>" if context.get("studio_address") else ""

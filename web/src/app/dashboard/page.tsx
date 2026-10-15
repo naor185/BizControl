@@ -1,11 +1,12 @@
 "use client";
 
-import { Switch } from "@/components/ui/switch";
+import { BellRing } from "lucide-react";
 import { useEffect, useState } from "react";
 import RequireAuth from "@/components/RequireAuth";
 import AppShell from "@/components/AppShell";
-import { apiFetch, DashboardStats } from "@/lib/api";
+import { apiFetch, DashboardStats, imgUrl } from "@/lib/api";
 import PaymentModal from "@/components/PaymentModal";
+import DepositConfirmModal, { type DepositToConfirm } from "@/components/DepositConfirmModal";
 import { useTerms } from "@/lib/useTerms";
 import {
     BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip,
@@ -77,14 +78,9 @@ export default function Page() {
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
     const [selectedAppt, setSelectedAppt] = useState<DailyPayment | null>(null);
     const [pendingDeposits, setPendingDeposits] = useState<any[]>([]);
-    const [confirmingDeposit, setConfirmingDeposit] = useState<string | null>(null);
     const [waivingDeposit, setWaivingDeposit] = useState<string | null>(null);
-    const [depositCashier, setDepositCashier] = useState<{ id: string; amount: number; clientName: string } | null>(null);
-    const [depositMethod, setDepositMethod] = useState("bit");
-    const [depositSendReceipt, setDepositSendReceipt] = useState(true);
-    // the client paid another amount than the deposit asked (owner, 2026-10-14: "asked 200, paid 400") — null: as asked
-    const [depositPaid, setDepositPaid] = useState<string | null>(null);
-    const [depositReceipt, setDepositReceipt] = useState<{ invoiceId: string; docNum?: number } | null>(null);
+    // approving a deposit — the same window as the calendar's (components/DepositConfirmModal)
+    const [depositCashier, setDepositCashier] = useState<DepositToConfirm | null>(null);
     type OccupancyPeriod = { booked_minutes: number; total_minutes: number; percent: number; count: number };
     type OccupancyData = { this_week: OccupancyPeriod; last_week: OccupancyPeriod; this_month: OccupancyPeriod; last_month: OccupancyPeriod; work_hours_per_day: number };
     const [occupancy, setOccupancy] = useState<OccupancyData | null>(null);
@@ -158,29 +154,10 @@ export default function Page() {
         }
     };
 
-    const openDepositCashier = (d: any) => {
-        setDepositMethod("bit");
-        setDepositSendReceipt(true);
-        setDepositPaid(null);
-        setDepositCashier({ id: d.appointment_id, amount: d.deposit_amount_cents, clientName: d.client_name });
-    };
-
-    const confirmDeposit = async () => {
-        if (!depositCashier) return;
-        const paidCents = depositPaid === null ? depositCashier.amount : Math.round(Number(depositPaid) * 100);
-        if (!(paidCents > 0)) { alert("הקלידו את הסכום שהתקבל"); return; }
-        setConfirmingDeposit(depositCashier.id);
-        try {
-            const other = paidCents !== depositCashier.amount ? `&amount_cents=${paidCents}` : "";
-            const res = await apiFetch<{ invoice_id: string | null }>(`/api/appointments/${depositCashier.id}/verify-payment?method=${depositMethod}&send_receipt=${depositSendReceipt}${other}`, { method: "POST" });
-            setPendingDeposits(prev => prev.filter(d => d.appointment_id !== depositCashier.id));
-            setDepositCashier(null);
-            if (res.invoice_id) setDepositReceipt({ invoiceId: res.invoice_id });
-        } catch (e: any) {
-            alert(e?.message || "שגיאה באישור");
-        } finally {
-            setConfirmingDeposit(null);
-        }
+    const openDepositCashier = (d: { appointment_id: string; deposit_amount_cents: number; client_name: string;
+                                    payment_proof_url?: string | null; payment_sent_at?: string | null }) => {
+        setDepositCashier({ appointmentId: d.appointment_id, amountCents: d.deposit_amount_cents, clientName: d.client_name,
+                            proofUrl: d.payment_proof_url, reportedAt: d.payment_sent_at });
     };
 
     const fetchAnalytics = async () => {
@@ -398,7 +375,7 @@ export default function Page() {
                                 <span className="text-xl">💰</span>
                                 <div className="flex-1">
                                     <div className="font-bold text-amber-900">ממתינים לאישור מקדמה</div>
-                                    <div className="text-xs text-amber-700">{pendingDeposits.length} תורים — ראית אסמכתא בוואטסאפ? לחץ אשר</div>
+                                    <div className="text-xs text-amber-700">{pendingDeposits.length} תורים — לקוח שלחץ &quot;שילמתי&quot; בדף התשלום מסומן כאן, עם הצילום ששלח</div>
                                 </div>
                             </div>
                             <div className="divide-y divide-slate-100">
@@ -412,6 +389,19 @@ export default function Page() {
                                             <div className="text-xs font-bold text-amber-600 mt-0.5">
                                                 מקדמה: ₪{(d.deposit_amount_cents / 100).toLocaleString()}
                                             </div>
+                                            {d.payment_sent_at && (
+                                                <div className="mt-1 flex items-center gap-2">
+                                                    <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5">
+                                                        <BellRing className="w-3 h-3" aria-hidden /> הלקוח דיווח ששילם · {new Date(d.payment_sent_at).toLocaleString("he-IL", { day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" })}
+                                                    </span>
+                                                    {d.payment_proof_url && (
+                                                        <a href={imgUrl(d.payment_proof_url)} target="_blank" rel="noopener noreferrer" className="shrink-0" title="הצילום ששלח הלקוח">
+                                                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                            <img src={imgUrl(d.payment_proof_url)} alt="צילום התשלום" className="w-8 h-10 object-cover rounded border border-slate-200" />
+                                                        </a>
+                                                    )}
+                                                </div>
+                                            )}
                                             {/* Reminder status */}
                                             <div className="mt-1">
                                                 {d.deposit_reminder_sent ? (
@@ -568,12 +558,8 @@ export default function Page() {
                                                             הקלט תשלום 💳
                                                         </button>
                                                         {p.payment_sent_at && !p.payment_verified_at && (
-                                                            <button onClick={async () => {
-                                                                if (confirm("לאשר קבלת תשלום?")) {
-                                                                    await apiFetch(`/api/appointments/${p.appointment_id}/verify-payment`, { method: "POST" });
-                                                                    fetchData();
-                                                                }
-                                                            }} className="px-3 py-1.5 bg-emerald-600 text-white text-xs font-semibold rounded-lg hover:bg-emerald-700 transition animate-pulse">
+                                                            <button onClick={() => openDepositCashier(p)}
+                                                                className="px-3 py-1.5 bg-emerald-600 text-white text-xs font-semibold rounded-lg hover:bg-emerald-700 transition animate-pulse">
                                                                 אשר קבלתי ✅
                                                             </button>
                                                         )}
@@ -676,115 +662,13 @@ export default function Page() {
                     appointment={selectedAppt}
                 />
 
-                {/* ── Deposit Cashier Modal ── */}
+                {/* ── Approving a deposit ── */}
                 {depositCashier && (
-                    <div className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center" onClick={() => setDepositCashier(null)}>
-                        <div className="bg-white rounded-t-3xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
-                            <div className="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-5" />
-                            <div className="text-center mb-5">
-                                <div className="text-lg font-black text-slate-800">אישור קבלת מקדמה</div>
-                                <div className="text-sm text-slate-500 mt-0.5">{depositCashier.clientName}</div>
-                                {depositPaid === null ? (
-                                    <>
-                                        <div className="text-3xl font-black text-emerald-600 mt-2">
-                                            ₪{(depositCashier.amount / 100).toLocaleString()}
-                                        </div>
-                                        <button type="button" onClick={() => setDepositPaid(String(depositCashier.amount / 100))}
-                                            className="mt-1.5 text-sm font-bold text-sky-700 underline underline-offset-2">
-                                            הלקוח שילם סכום אחר?
-                                        </button>
-                                    </>
-                                ) : (
-                                    <label className="block mt-3">
-                                        <span className="block text-xs font-bold text-slate-500 mb-1">כמה התקבל בפועל?</span>
-                                        <span className="inline-flex items-center gap-1 text-3xl font-black text-emerald-600">
-                                            ₪<input type="number" inputMode="decimal" min={1} autoFocus value={depositPaid}
-                                                onChange={e => setDepositPaid(e.target.value)}
-                                                className="w-36 text-center bg-emerald-50 border-2 border-emerald-200 rounded-xl py-1 outline-none focus:border-emerald-500" />
-                                        </span>
-                                        <span className="block text-xs text-slate-500 mt-1.5">
-                                            המקדמה שנדרשה: ₪{(depositCashier.amount / 100).toLocaleString()} · התשלום, הקבלה והיתרה יהיו לפי הסכום שהתקבל
-                                        </span>
-                                        <button type="button" onClick={() => setDepositPaid(null)} className="mt-1 text-xs font-bold text-slate-500 underline">חזרה לסכום שנדרש</button>
-                                    </label>
-                                )}
-                            </div>
-
-                            <div className="mb-5">
-                                <div className="text-xs font-bold text-slate-500 mb-2 text-right">באיזה אמצעי קיבלת?</div>
-                                <div className="grid grid-cols-3 gap-2">
-                                    {[
-                                        { value: "bit", label: "Bit", icon: "💙" },
-                                        { value: "paybox", label: "PayBox", icon: "💜" },
-                                        { value: "cash", label: "מזומן", icon: "💵" },
-                                        { value: "credit_card", label: "כרטיס", icon: "💳" },
-                                        { value: "bank_transfer", label: "העברה", icon: "🏦" },
-                                        { value: "check", label: "צ'ק", icon: "📄" },
-                                    ].map(m => (
-                                        <button
-                                            key={m.value}
-                                            type="button"
-                                            onClick={() => setDepositMethod(m.value)}
-                                            className={`flex flex-col items-center gap-1 py-3 rounded-xl border-2 text-xs font-bold transition-all ${
-                                                depositMethod === m.value
-                                                    ? "border-emerald-500 bg-emerald-50 text-emerald-700"
-                                                    : "border-slate-200 text-slate-600 hover:border-slate-300"
-                                            }`}
-                                        >
-                                            <span className="text-lg">{m.icon}</span>
-                                            {m.label}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Send receipt toggle */}
-                            <button
-                                type="button"
-                                onClick={() => setDepositSendReceipt(v => !v)}
-                                className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl border-2 transition-all mb-4 ${depositSendReceipt ? "bg-sky-50 border-sky-300" : "bg-slate-50 border-slate-200"}`}
-                            >
-                                <Switch as="span" checked={depositSendReceipt} onColor="bg-sky-500" />
-                                <span className={`text-sm font-bold ${depositSendReceipt ? "text-sky-700" : "text-slate-500"}`}>
-                                    {depositSendReceipt ? "📨 שלח קישור קבלה ללקוח" : "🔕 אל תשלח קישור קבלה"}
-                                </span>
-                            </button>
-
-                            <div className="flex gap-3">
-                                <button type="button" onClick={() => setDepositCashier(null)}
-                                    className="flex-1 py-3 rounded-2xl border border-slate-200 text-slate-600 font-semibold text-sm">
-                                    ביטול
-                                </button>
-                                <button type="button" onClick={confirmDeposit} disabled={!!confirmingDeposit}
-                                    className="flex-[2] py-3 rounded-2xl bg-emerald-600 text-white font-black text-sm disabled:opacity-60 hover:bg-emerald-700 transition">
-                                    {confirmingDeposit ? "מאשר..." : "✅ אשר וצור קבלה"}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* ── Receipt Created Modal ── */}
-                {depositReceipt && (
-                    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setDepositReceipt(null)}>
-                        <div className="bg-white rounded-3xl w-full max-w-sm p-8 text-center shadow-2xl" onClick={e => e.stopPropagation()}>
-                            <div className="text-5xl mb-3">🧾</div>
-                            <div className="text-xl font-black text-slate-800 mb-1">קבלה נוצרה!</div>
-                            <div className="text-sm text-slate-500 mb-6">המקדמה אושרה והקבלה הופקה בהצלחה</div>
-                            <div className="flex gap-3">
-                                <button type="button" onClick={() => setDepositReceipt(null)}
-                                    className="flex-1 py-3 rounded-2xl border border-slate-200 text-slate-600 font-semibold text-sm">
-                                    סגור
-                                </button>
-                                <button type="button" onClick={() => {
-                                    window.open(`/receipt/${depositReceipt.invoiceId}`, "_blank");
-                                }}
-                                    className="flex-[2] py-3 rounded-2xl bg-slate-900 text-white font-black text-sm hover:bg-slate-700 transition">
-                                    🧾 צפה בקבלה
-                                </button>
-                            </div>
-                        </div>
-                    </div>
+                    <DepositConfirmModal deposit={depositCashier} onClose={() => setDepositCashier(null)}
+                        onConfirmed={() => {
+                            setPendingDeposits(prev => prev.filter(x => x.appointment_id !== depositCashier.appointmentId));
+                            fetchData();
+                        }} />
                 )}
             </AppShell>
         </RequireAuth>

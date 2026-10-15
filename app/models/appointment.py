@@ -45,6 +45,8 @@ class Appointment(Base):
 
     payment_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     payment_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # the picture of the payment the client attached on the payment page (services/deposit_report)
+    payment_proof_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     
     google_event_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
     service_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("services.id", ondelete="SET NULL"), nullable=True, index=True)
