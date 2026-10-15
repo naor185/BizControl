@@ -1,11 +1,12 @@
 """
 Business PIN Security API
 
-GET  /api/security/pin/status   — is PIN set? is locked? is "ניהול עסק" behind it?
+GET  /api/security/pin/status   — is PIN set? is locked?
 POST /api/security/pin/set      — set or change PIN (requires current PIN if already set)
-POST /api/security/pin/business-lock — ask for the PIN on the way into "ניהול עסק", or not (off needs a fresh PIN)
-POST /api/security/pin/verify   — verify PIN → returns short-lived business_unlock token
 POST /api/security/pin/verify-owner — the business owner's PIN approves a discount at the till, whoever is there
+
+The PIN approves a discount at the till and the export of the clients (data_export_routes). "ניהול עסק" doesn't ask
+for it — only the owner and the managers reach it (the owner, 2026-10-15).
 POST /api/security/pin/reset    — owner resets another user's PIN (owner/admin only)
 """
 from __future__ import annotations
@@ -23,8 +24,6 @@ from sqlalchemy import select
 
 from app.core.database import get_db
 from app.core.deps import require_studio_ctx, AuthContext
-from app.core.security import create_business_unlock_token, decode_token
-from jose import JWTError
 from app.models.user_pin_settings import UserPinSettings
 from app.models.pin_attempt_log import PinAttemptLog
 
@@ -113,7 +112,7 @@ class SetPinIn(BaseModel):
 def pin_status(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
     settings = _get_or_none(db, ctx.user_id)
     if not settings:
-        return {"has_pin": False, "is_locked": False, "locked_until": None, "business_lock": False}
+        return {"has_pin": False, "is_locked": False, "locked_until": None}
 
     now = datetime.now(timezone.utc)
     is_locked = bool(settings.locked_until and settings.locked_until > now)
@@ -121,40 +120,7 @@ def pin_status(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Dep
         "has_pin": True,
         "is_locked": is_locked,
         "locked_until": settings.locked_until.isoformat() if is_locked else None,
-        "business_lock": settings.business_lock,
     }
-
-
-class BusinessLockIn(BaseModel):
-    on: bool
-    business_token: Optional[str] = None   # switching it off: what /pin/verify gave, so the PIN was just typed
-
-
-def _fresh_pin(token: str | None, ctx: AuthContext) -> bool:
-    """Was this person's PIN typed in the last half hour — the token /pin/verify gave them."""
-    if not token:
-        return False
-    try:
-        claims = decode_token(token)
-    except JWTError:
-        return False
-    return (claims.get("type") == "business_unlock" and claims.get("user_id") == str(ctx.user_id)
-            and claims.get("studio_id") == str(ctx.studio_id))
-
-
-@router.post("/pin/business-lock")
-def set_business_lock(body: BusinessLockIn, ctx: AuthContext = Depends(require_studio_ctx),
-                      db: Session = Depends(get_db)):
-    """Ask for the PIN on the way into "ניהול עסק", or not — the person's own choice (the owner, 2026-10-14).
-    Switching it off needs the PIN, so whoever holds an unlocked phone can't take the lock away."""
-    settings = _get_or_none(db, ctx.user_id)
-    if not settings:
-        raise HTTPException(status_code=404, detail="קודם מגדירים קוד PIN")
-    if not body.on and not _fresh_pin(body.business_token, ctx):
-        raise HTTPException(status_code=403, detail="כדי לכבות את הנעילה צריך להקליד את הקוד")
-    settings.business_lock = body.on
-    db.commit()
-    return {"business_lock": settings.business_lock}
 
 
 @router.post("/pin/set")
@@ -202,22 +168,6 @@ def set_pin(
     _log_attempt(db, ctx.studio_id, ctx.user_id, True, _get_ip(request))
     db.commit()
     return {"ok": True, "message": "PIN הוגדר בהצלחה"}
-
-
-@router.post("/pin/verify")
-def verify_pin(
-    body: PinIn,
-    request: Request,
-    ctx: AuthContext = Depends(require_studio_ctx),
-    db: Session = Depends(get_db),
-):
-    settings = _get_or_none(db, ctx.user_id)
-    if not settings:
-        raise HTTPException(status_code=404, detail="PIN לא הוגדר עדיין. הגדר PIN בהגדרות חשבון")
-    _check_pin(db, settings, body.pin, ctx.studio_id, ctx.user_id, _get_ip(request))
-
-    token = create_business_unlock_token(str(ctx.user_id), str(ctx.studio_id))
-    return {"business_token": token, "expires_in_minutes": 30}
 
 
 @router.post("/pin/verify-owner")

@@ -9,7 +9,7 @@ import os
 
 from app.db.deps import get_db
 from app.core.deps import require_studio_ctx, AuthContext
-from app.core.permissions import require_permission
+from app.core.permissions import no_workers, require_permission
 from app.models.payment import Payment
 from app.models.appointment import Appointment
 from app.models.client import Client
@@ -56,7 +56,7 @@ def create(payload: PaymentCreate, ctx: AuthContext = Depends(require_studio_ctx
 def list_(
     appointment_id: UUID | None = Query(default=None),
     client_id: UUID | None = Query(default=None),
-    ctx: AuthContext = Depends(require_studio_ctx),
+    ctx: AuthContext = Depends(no_workers()),   # the business's payments — not a worker's (the owner, 2026-10-15)
     db: Session = Depends(get_db),
 ):
     from sqlalchemy import text as _t

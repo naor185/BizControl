@@ -18,7 +18,6 @@ import StaffReminderRulesSettings from "@/components/StaffReminderRulesSettings"
 import MySessionsSettings from "@/components/MySessionsSettings";
 import ChangePasswordForm from "@/components/ChangePasswordForm";
 import PinModal from "@/components/PinModal";
-import { getBusinessToken, isBusinessSessionValid } from "@/lib/businessSession";
 import DeleteAccountSettings from "@/components/DeleteAccountSettings";
 import { Flag, Palette, SlidersHorizontal, Wallet, Plug, Globe, UserRound, KeyRound, LockKeyhole } from "lucide-react";
 import PlanLock from "@/components/PlanLock";
@@ -613,29 +612,9 @@ export default function AutomationSettingsPage() {
     // "החשבון שלי": the PIN's state, and its window when changing it
     const [hasPin, setHasPin] = useState(false);
     const [pinMode, setPinMode] = useState<"set" | "change" | null>(null);
-    // whether "ניהול עסק" asks for the PIN — the person's own choice (the owner, 2026-10-14); switching it off asks the PIN
-    const [businessLock, setBusinessLock] = useState(false);
-    const [lockOffPin, setLockOffPin] = useState(false);
     useEffect(() => {
-        apiFetch<{ has_pin: boolean; business_lock: boolean }>("/api/security/pin/status")
-            .then(s => { setHasPin(s.has_pin); setBusinessLock(s.business_lock); }).catch(() => {});
+        apiFetch<{ has_pin: boolean }>("/api/security/pin/status").then(s => setHasPin(s.has_pin)).catch(() => {});
     }, []);
-    const saveBusinessLock = async (on: boolean) => {
-        try {
-            const r = await apiFetch<{ business_lock: boolean }>("/api/security/pin/business-lock", {
-                method: "POST", body: JSON.stringify({ on, business_token: on ? undefined : getBusinessToken() }),
-            });
-            setBusinessLock(r.business_lock);
-            setMsg(r.business_lock ? "מעכשיו \"ניהול עסק\" יבקש את הקוד" : "\"ניהול עסק\" ייפתח בלי קוד");
-            setTimeout(() => setMsg(null), 2500);
-        } catch (e: unknown) {
-            toast.error((e as { message?: string }).message || "השינוי לא נשמר");
-        }
-    };
-    const switchBusinessLock = (on: boolean) => {
-        if (on || isBusinessSessionValid()) saveBusinessLock(on);
-        else setLockOffPin(true);
-    };
 
     useEffect(() => {
         const tab = new URLSearchParams(window.location.search).get("tab");
@@ -2255,30 +2234,19 @@ export default function AutomationSettingsPage() {
                                     <ChangePasswordForm />
                                 </div>
 
-                                {/* the PIN — a discount at the till, the export, and the business area if the person chose so (security/pin) */}
-                                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 md:p-6">
-                                    <div className="flex items-center justify-between gap-4 flex-wrap">
-                                        <div className="flex items-center gap-3">
-                                            <LockKeyhole className="w-6 h-6 text-slate-500 shrink-0" aria-hidden />
-                                            <div>
-                                                <h3 className="font-bold text-slate-800">קוד PIN</h3>
-                                                <p className="text-sm text-slate-500">4 ספרות — לאישור הנחה בקופה ולייצוא הלקוחות</p>
-                                            </div>
+                                {/* the PIN — a discount at the till and the export (security/pin) */}
+                                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 md:p-6 flex items-center justify-between gap-4 flex-wrap">
+                                    <div className="flex items-center gap-3">
+                                        <LockKeyhole className="w-6 h-6 text-slate-500 shrink-0" aria-hidden />
+                                        <div>
+                                            <h3 className="font-bold text-slate-800">קוד PIN</h3>
+                                            <p className="text-sm text-slate-500">4 ספרות — לאישור הנחה בקופה ולייצוא הלקוחות</p>
                                         </div>
-                                        <button type="button" onClick={() => setPinMode(hasPin ? "change" : "set")}
-                                            className="bg-slate-900 text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-slate-700 transition whitespace-nowrap">
-                                            {hasPin ? "שינוי קוד PIN" : "הגדרת קוד PIN"}
-                                        </button>
                                     </div>
-                                    {hasPin && (
-                                        <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between gap-4">
-                                            <div>
-                                                <p id="business-lock-label" className="text-sm font-semibold text-slate-800">{'לבקש את הקוד בכניסה ל"ניהול עסק"'}</p>
-                                                <p className="text-xs text-slate-500 mt-0.5">{'כשזה כבוי, "ניהול עסק" נפתח ישר'}</p>
-                                            </div>
-                                            <Switch checked={businessLock} onChange={switchBusinessLock} onColor="bg-violet-600" labelledBy="business-lock-label" />
-                                        </div>
-                                    )}
+                                    <button type="button" onClick={() => setPinMode(hasPin ? "change" : "set")}
+                                        className="bg-slate-900 text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-slate-700 transition whitespace-nowrap">
+                                        {hasPin ? "שינוי קוד PIN" : "הגדרת קוד PIN"}
+                                    </button>
                                 </div>
 
                                 {/* 2FA Section */}
@@ -2430,11 +2398,6 @@ export default function AutomationSettingsPage() {
                     <PinModal mode={pinMode} heading={pinMode === "change" ? "שינוי קוד PIN" : "הגדרת קוד PIN"}
                         onClose={() => setPinMode(null)}
                         onSuccess={() => { setPinMode(null); setHasPin(true); setMsg("קוד ה-PIN נשמר"); setTimeout(() => setMsg(null), 2500); }} />
-                )}
-                {lockOffPin && (
-                    <PinModal mode="verify" heading="כיבוי הנעילה של ניהול עסק" hint="הקלד את קוד ה-PIN"
-                        onClose={() => setLockOffPin(false)}
-                        onSuccess={() => { setLockOffPin(false); saveBusinessLock(false); }} />
                 )}
 
                 {activeTab !== "account" && (<>

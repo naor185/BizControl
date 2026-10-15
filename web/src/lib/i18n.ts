@@ -11,7 +11,6 @@ export const translations = {
         // Nav
         nav_calendar:   "יומן תורים",
         nav_business:   "ניהול עסק",
-        nav_business_hint: "תשלומים, הוצאות, צוות, הגדרות וכל השאר",
         nav_expenses:   "הוצאות",
         nav_products:   "מוצרים ומלאי",
         nav_overview:   "סקירה",
@@ -85,7 +84,6 @@ export const translations = {
         // Nav
         nav_calendar:   "Appointments",
         nav_business:   "Business Management",
-        nav_business_hint: "Payments, expenses, team, settings and everything else",
         nav_expenses:   "Expenses",
         nav_products:   "Products",
         nav_overview:   "Overview",
@@ -159,7 +157,6 @@ export const translations = {
         // Nav
         nav_calendar:   "المواعيد",
         nav_business:   "إدارة الأعمال",
-        nav_business_hint: "المدفوعات، المصاريف، الفريق، الإعدادات وكل الباقي",
         nav_expenses:   "المصروفات",
         nav_products:   "المنتجات",
         nav_overview:   "نظرة عامة",

@@ -2,17 +2,15 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { apiFetch } from "@/lib/api";
-import { setBusinessSession } from "@/lib/businessSession";
 import { useBackButtonClose } from "@/lib/backButtonStack";
 
 type Mode = "verify" | "set" | "change";
 
 type Props = {
+    /** verify: the business owner's PIN, whoever types it — a discount at the till; set/change: one's own PIN */
     mode: Mode;
     onSuccess: () => void;
     onClose?: () => void;
-    /** verify against the business owner's PIN instead of the user's own — a discount at the till */
-    owner?: boolean;
     heading?: string;
     hint?: string;
 };
@@ -21,10 +19,10 @@ const DIGITS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "⌫"];
 
 type ApiError = { message?: string };
 
-export default function PinModal({ mode, onSuccess, onClose, owner, heading, hint }: Props) {
+export default function PinModal({ mode, onSuccess, onClose, heading, hint }: Props) {
     const [pin, setPin] = useState("");
     const [currentPin, setCurrentPin] = useState("");
-    const [step, setStep] = useState<"current" | "new" | "confirm">(
+    const [step, setStep] = useState<"verify" | "current" | "new" | "confirm">(
         mode === "change" ? "current" : mode === "set" ? "new" : "verify"
     );
     const [confirmPin, setConfirmPin] = useState("");
@@ -115,15 +113,8 @@ export default function PinModal({ mode, onSuccess, onClose, owner, heading, hin
         setError("");
 
         try {
-            if (mode === "verify" && owner) {
+            if (mode === "verify") {
                 await apiFetch("/api/security/pin/verify-owner", { method: "POST", body: JSON.stringify({ pin: target }) });
-                onSuccess();
-            } else if (mode === "verify") {
-                const res = await apiFetch<{ business_token: string }>("/api/security/pin/verify", {
-                    method: "POST",
-                    body: JSON.stringify({ pin: target }),
-                });
-                setBusinessSession(res.business_token);
                 onSuccess();
             } else {
                 await apiFetch("/api/security/pin/set", {
@@ -159,7 +150,7 @@ export default function PinModal({ mode, onSuccess, onClose, owner, heading, hin
     }[step];
 
     const stepHint = {
-        verify: hint ?? "הזן את ה-PIN שלך כדי לגשת לניהול עסק",
+        verify: hint ?? "הזן את ה-PIN של בעל העסק",
         current: "הזן את ה-PIN הנוכחי שלך",
         new: "בחר PIN חדש (4 ספרות)",
         confirm: "הזן שוב את ה-PIN החדש לאישור",
@@ -191,7 +182,7 @@ export default function PinModal({ mode, onSuccess, onClose, owner, heading, hin
                             <circle cx="12" cy="16" r="1.5" fill="currentColor" />
                         </svg>
                     </div>
-                    <h2 className="text-lg font-bold text-slate-900">{heading ?? "ניהול עסק"}</h2>
+                    <h2 className="text-lg font-bold text-slate-900">{heading ?? "קוד PIN"}</h2>
                     <p className="text-sm text-slate-500 mt-1">{stepHint}</p>
 
                     {/* Step indicator for set/change */}

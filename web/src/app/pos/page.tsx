@@ -755,7 +755,7 @@ export default function PosPage() {
             </div>
         )}
         {askOwnerPin && (
-            <PinModal mode="verify" owner heading="אישור הנחה" hint="הזן את ה-PIN של בעל העסק כדי לתת הנחה"
+            <PinModal mode="verify" heading="אישור הנחה" hint="הזן את ה-PIN של בעל העסק כדי לתת הנחה"
                 onSuccess={() => { setAskOwnerPin(false); setDiscountUnlocked(true); setShowDiscountPicker(true); }}
                 onClose={() => setAskOwnerPin(false)} />
         )}

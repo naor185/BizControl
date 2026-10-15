@@ -3,19 +3,17 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { ArrowLeft, ArrowRight, Calendar, ShoppingCart, LayoutDashboard, Users, Gauge, Building2, Lock, Mail, Eye, X, Nfc, type LucideIcon } from "lucide-react";
-import { apiFetch, clearToken, getToken, setToken } from "@/lib/api";
+import { ArrowLeft, ArrowRight, Calendar, ShoppingCart, LayoutDashboard, Users, Gauge, Building2, Mail, Eye, X, Nfc, type LucideIcon } from "lucide-react";
+import { apiFetch, clearToken, getCurrentUserRole, getToken, setToken } from "@/lib/api";
 import ClockWidget from "./ClockWidget";
 import BottomNav from "./BottomNav";
 import NotificationBell from "./NotificationBell";
 import ToastContainer from "./ToastContainer";
 import GlobalToast from "./GlobalToast";
-import PinModal from "./PinModal";
 import PullToRefresh from "./PullToRefresh";
 import QuickWhatsAppModal from "./QuickWhatsAppModal";
 import { useLang } from "./LanguageProvider";
 import { LOCALES } from "@/lib/i18n";
-import { isBusinessSessionValid } from "@/lib/businessSession";
 import { useNewLeadsCount } from "@/lib/useNewLeadsCount";
 import PlanBar, { PLAN_BAR_HEIGHT, type PlanInfo } from "./PlanBar";
 import { registerForPushNotifications } from "@/lib/push";
@@ -29,8 +27,6 @@ type Me = {
     display_name?: string | null;
     email_verified?: boolean;
 };
-
-type PinStatus = { has_pin: boolean; is_locked: boolean; business_lock: boolean };
 
 const MAIN_NAV: { href: string; label: string; icon: LucideIcon; module?: string }[] = [
     { href: "/overview",  label: "דשבורד",       icon: Gauge },
@@ -63,9 +59,9 @@ export default function AppShell({
     const [locations, setLocations] = useState<{ id: string; name: string; location_name: string; logo_url?: string; primary_color: string }[]>([]);
     const [switchingLocation, setSwitchingLocation] = useState(false);
     const [isImpersonating, setIsImpersonating] = useState(false);
-    const [businessUnlocked, setBusinessUnlocked] = useState(false);
-    const [pinStatus, setPinStatus] = useState<PinStatus | null>(null);
-    const [showPin, setShowPin] = useState(false);
+    // a worker (artist/staff) reaches the calendar only (RequireAuth, and the server) — the menu shows them just that;
+    // "ניהול עסק" is the owner's and the managers' (the owner, 2026-10-15)
+    const [isWorker] = useState(() => ["artist", "staff"].includes(getCurrentUserRole() ?? ""));
     const [pendingDepositsCount, setPendingDepositsCount] = useState(0);
     const newLeadsCount = useNewLeadsCount();
     const [enabledModules, setEnabledModules] = useState<Record<string, boolean> | null>(null);
@@ -108,10 +104,6 @@ export default function AppShell({
         }
     }, []);
 
-    useEffect(() => {
-        setBusinessUnlocked(isBusinessSessionValid());
-    }, [pathname]);
-
     // The plan bar appears only on the "דשבורד" page (/overview), whatever the plan — nowhere else.
     // The room it takes at the bottom is reserved only while it is shown.
     const showPlanBar = !!planInfo && pathname === "/overview";
@@ -137,16 +129,14 @@ export default function AppShell({
                 const token = getToken();
                 if (!token) return;
                 registerForPushNotifications(router);
-                const [data, pin, deposits, locs, mods, studioInfo] = await Promise.all([
+                const [data, deposits, locs, mods, studioInfo] = await Promise.all([
                     apiFetch<Me>("/api/auth/me"),
-                    apiFetch<PinStatus>("/api/security/pin/status"),
                     apiFetch<any[]>("/api/appointments/pending-deposits").catch(() => []),
                     apiFetch<any[]>("/api/locations").catch(() => []),
                     apiFetch<Record<string, boolean>>("/api/modules/me").catch(() => null),
                     apiFetch<PlanInfo>("/api/auth/studio-info").catch(() => null),
                 ]);
                 setMe(data);
-                setPinStatus(pin);
                 setPendingDepositsCount(deposits.length);
                 if (locs.length > 1) setLocations(locs);
                 setEnabledModules(mods);
@@ -160,24 +150,6 @@ export default function AppShell({
         clearToken();
         router.replace("/login");
     }
-
-    // the PIN on the way in only when the person switched it on in "החשבון שלי" (the owner, 2026-10-14);
-    // the superadmin in a business never types it
-    const businessLocked = !!pinStatus?.business_lock && !isImpersonating;
-
-    const handleBusinessClick = () => {
-        if (!businessLocked || isBusinessSessionValid()) {
-            router.push("/business");
-            return;
-        }
-        setShowPin(true);
-    };
-
-    const handlePinSuccess = () => {
-        setShowPin(false);
-        setBusinessUnlocked(true);
-        router.push("/business");
-    };
 
     const avatarLetter = (me?.display_name || me?.email || "?")[0].toUpperCase();
     const showVerifyBar = me?.email_verified === false && !verifyHidden;
@@ -195,7 +167,8 @@ export default function AppShell({
 
                     {/* Nav */}
                     <nav className="flex-1 p-2.5 space-y-0.5 overflow-y-auto">
-                        {MAIN_NAV.filter(item => !item.module || !enabledModules || enabledModules[item.module] !== false).map(item => {
+                        {MAIN_NAV.filter(item => (!isWorker || item.href === "/calendar")
+                            && (!item.module || !enabledModules || enabledModules[item.module] !== false)).map(item => {
                             const active = pathname === item.href || pathname.startsWith(item.href + "/")
                                 || (item.href === "/clients" && pathname === "/wallet");
                             const badge = item.href === "/dashboard" ? pendingDepositsCount
@@ -225,32 +198,27 @@ export default function AppShell({
                             );
                         })}
 
-                        <div className="pt-2 pb-1">
-                            <div className="px-3 pb-1">
-                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">עסק</span>
+                        {/* Business Management — the owner's and the managers' tools, all in one place */}
+                        {!isWorker && (<>
+                            <div className="pt-2 pb-1">
+                                <div className="px-3 pb-1">
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">עסק</span>
+                                </div>
                             </div>
-                        </div>
-
-                        {/* Business Management — behind the PIN when the person chose so */}
-                        <button
-                            onClick={handleBusinessClick}
-                            className={[
-                                "w-full flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-base font-medium transition-all",
-                                pathname.startsWith("/business")
-                                    ? "text-white shadow-sm"
-                                    : "text-slate-600 hover:bg-slate-100",
-                            ].join(" ")}
-                            style={pathname.startsWith("/business") ? { background: "var(--secondary)" } : undefined}
-                        >
-                            {businessLocked && !businessUnlocked ? <Lock className="h-5 w-5 shrink-0" /> : <Building2 className="h-5 w-5 shrink-0" />}
-                            <span className="flex-1 text-right">ניהול עסק</span>
-                            {businessLocked && !businessUnlocked && (
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="opacity-50">
-                                    <rect x="5" y="11" width="14" height="10" rx="2" stroke="currentColor" strokeWidth="2.5" fill="none" />
-                                    <path d="M8 11V7a4 4 0 0 1 8 0v4" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
-                                </svg>
-                            )}
-                        </button>
+                            <Link
+                                href="/business"
+                                className={[
+                                    "w-full flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-base font-medium transition-all",
+                                    pathname.startsWith("/business")
+                                        ? "text-white shadow-sm"
+                                        : "text-slate-600 hover:bg-slate-100",
+                                ].join(" ")}
+                                style={pathname.startsWith("/business") ? { background: "var(--secondary)" } : undefined}
+                            >
+                                <Building2 className="h-5 w-5 shrink-0" />
+                                <span className="flex-1 text-right">ניהול עסק</span>
+                            </Link>
+                        </>)}
                     </nav>
 
                     {/* Bottom: lang + user + logout */}
@@ -466,14 +434,6 @@ export default function AppShell({
             <PullToRefresh />
             <ToastContainer />
             <GlobalToast />
-
-            {showPin && (
-                <PinModal
-                    mode="verify"
-                    onSuccess={handlePinSuccess}
-                    onClose={() => setShowPin(false)}
-                />
-            )}
 
             {showWaModal && (
                 <QuickWhatsAppModal onClose={() => setShowWaModal(false)} />

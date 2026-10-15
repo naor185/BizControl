@@ -2,10 +2,11 @@
 
 import { isNativeApp } from "@/lib/platform";
 import { usePlan } from "@/lib/usePlan";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-    Briefcase, Lock, Unlock, KeyRound, Zap, BarChart3, ShieldCheck, ClipboardList, Timer,
+    Briefcase, Lock, Zap, BarChart3, Compass, LogOut,
     Wallet, Users, TrendingUp, Phone, Megaphone, Gift, Settings,
     CreditCard, Receipt, Banknote, UserCog, Target, Mail,
     Send, Clock, Package, History, FileDown, ConciergeBell, Smartphone, LifeBuoy, Crown, FileUp, CalendarRange, SlidersHorizontal, HeartPulse,
@@ -13,12 +14,10 @@ import {
 } from "lucide-react";
 import AppShell from "@/components/AppShell";
 import RequireAuth from "@/components/RequireAuth";
-import PinModal from "@/components/PinModal";
-import { isBusinessSessionValid, clearBusinessSession } from "@/lib/businessSession";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, clearToken } from "@/lib/api";
 import { fillTerms, useTerms } from "@/lib/useTerms";
+import { useNewLeadsCount } from "@/lib/useNewLeadsCount";
 
-type PinStatus = { has_pin: boolean; is_locked: boolean; locked_until: string | null; business_lock: boolean };
 // what the signed-in user may do (/api/auth/me — core/permissions.MANAGER_PERMISSIONS): a manager sees only what the
 // owner allowed him (the owner, 2026-10-13)
 type Perm = "settings" | "receipts" | "money" | "team" | "attendance" | "owner";   // "owner": the owner only
@@ -109,46 +108,26 @@ const SECTION_GROUPS: { groupLabel: string; icon: LucideIcon; items: { href: str
 export default function BusinessPage() {
     const terms = useTerms();   // the business's words in the descriptions
     const router = useRouter();
-    const [unlocked, setUnlocked] = useState(false);
-    const [pinStatus, setPinStatus] = useState<PinStatus | null>(null);
-    const [showPinModal, setShowPinModal] = useState(false);
+    const newLeadsCount = useNewLeadsCount();
     const plan = usePlan();              // what the business's plan includes — and, for what it doesn't, the plan that does
     const [isNative] = useState(() => isNativeApp());
     const [enabledFeatures, setEnabledFeatures] = useState<Record<string, boolean> | null>(null);
     const [perms, setPerms] = useState<Record<Perm, boolean> | null>(null);
 
-    const checkSession = useCallback(() => {
-        if (isBusinessSessionValid()) setUnlocked(true);
-    }, []);
-
+    // No PIN on the way in: only the owner and the managers reach this page (RequireAuth, and the server keeps the
+    // workers out of what's behind it) — the owner, 2026-10-15. On the phone it is the bar's "ניהול עסק" itself.
     useEffect(() => {
-        checkSession();
-        apiFetch<PinStatus>("/api/security/pin/status")
-            .then(setPinStatus)
-            .catch(() => setPinStatus({ has_pin: false, is_locked: false, locked_until: null, business_lock: false }));
         apiFetch<Record<string, boolean>>("/api/studio/features/me")
             .then(setEnabledFeatures)
             .catch(() => setEnabledFeatures({}));
         apiFetch<{ role?: string; permissions?: Record<Perm, boolean> }>("/api/auth/me")
             .then(m => setPerms(m.permissions ? { ...m.permissions, owner: m.role === "owner" } : null))
             .catch(() => setPerms(null));
-    }, [checkSession]);
+    }, []);
 
-    const handlePinSuccess = () => { setShowPinModal(false); setUnlocked(true); };
-
-    const handleLock = () => { clearBusinessSession(); setUnlocked(false); };
-
-    // behind the PIN only when the person switched it on in "החשבון שלי" (the owner, 2026-10-14)
-    const locked = !!pinStatus?.business_lock && !unlocked;
-
-    if (!pinStatus) {
-        return (
-            <RequireAuth><AppShell>
-                <div className="flex items-center justify-center h-full">
-                    <div className="w-8 h-8 border-4 border-violet-200 border-t-violet-600 rounded-full animate-spin" />
-                </div>
-            </AppShell></RequireAuth>
-        );
+    function logout() {
+        clearToken();
+        router.replace("/login");
     }
 
     return (
@@ -176,7 +155,6 @@ export default function BusinessPage() {
                                     </div>
                                     <div className="flex gap-2 flex-wrap mt-4">
                                         {[
-                                            ...(pinStatus.business_lock ? [{ icon: Lock, label: "מאובטח ב-PIN" }] : []),
                                             { icon: Zap, label: "גישה מהירה" },
                                             { icon: BarChart3, label: "כל הנתונים" },
                                         ].map(tag => (
@@ -187,56 +165,32 @@ export default function BusinessPage() {
                                         ))}
                                     </div>
                                 </div>
-                                {pinStatus.business_lock && unlocked && (
-                                    <button onClick={handleLock}
-                                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-rose-500/30 border border-white/15 text-white text-sm font-semibold transition-all">
-                                        <Lock className="w-4 h-4" /> נעל
-                                    </button>
-                                )}
                             </div>
                         </div>
                     </div>
 
-                    {/* ── Locked state ── */}
-                    {locked && (
-                        <div className="flex flex-col items-center justify-center py-20 px-6 text-center bg-gradient-to-b from-slate-50 to-white">
-                            <div className="relative mb-8">
-                                <div className="w-24 h-24 bg-gradient-to-br from-violet-500 to-indigo-600 rounded-3xl flex items-center justify-center shadow-2xl shadow-violet-500/40">
-                                    <Lock className="w-10 h-10 text-white" />
-                                </div>
-                                <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-violet-100 rounded-xl flex items-center justify-center shadow">
-                                    <ShieldCheck className="w-4 h-4 text-violet-600" />
-                                </div>
+                    {/* ── The section grid ── */}
+                    <div className="bg-gradient-to-b from-slate-50 to-white min-h-screen p-6 space-y-8">
+
+                            {/* on the phone this page is the bar's "ניהול עסק" — the two overview pages the computer's
+                                side menu has, here */}
+                            <div className="md:hidden grid grid-cols-2 gap-3">
+                                {[
+                                    { href: "/overview", label: "סקירה", icon: Compass, badge: newLeadsCount },
+                                    { href: "/dashboard", label: "לוח בקרה", icon: BarChart3, badge: 0 },
+                                ].map(item => (
+                                    <Link key={item.href} href={item.href}
+                                        className="relative flex items-center gap-3 bg-white rounded-2xl border border-slate-100 px-4 py-3.5 active:scale-[0.98] transition-transform">
+                                        <item.icon className="w-6 h-6 shrink-0" style={{ color: "var(--foreground)" }} aria-hidden />
+                                        <span className="font-bold text-slate-900">{item.label}</span>
+                                        {item.badge > 0 && (
+                                            <span className="mr-auto bg-rose-500 text-white text-[11px] font-bold rounded-full min-w-5 h-5 flex items-center justify-center px-1">
+                                                {item.badge > 99 ? "99+" : item.badge}
+                                            </span>
+                                        )}
+                                    </Link>
+                                ))}
                             </div>
-
-                            <h2 className="text-2xl font-black text-slate-900 mb-2">אזור מאובטח</h2>
-                            <p className="text-slate-500 text-base mb-8 max-w-sm leading-relaxed">
-                                הזן את ה-PIN שלך כדי לגשת לכל הנתונים הפיננסיים
-                            </p>
-
-                            <button onClick={() => setShowPinModal(true)}
-                                className="flex items-center gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-black px-10 py-4 rounded-2xl text-base shadow-xl shadow-violet-500/35 active:scale-95 transition-all">
-                                <Unlock className="w-5 h-5" />
-                                הזן PIN לכניסה
-                            </button>
-
-                            {pinStatus.is_locked && (
-                                <div className="flex items-center gap-2 mt-4 bg-orange-50 border border-orange-200 rounded-xl px-5 py-3 text-orange-700 text-sm font-medium">
-                                    <Lock className="w-4 h-4 shrink-0" /> חשבון נעול זמנית בשל ניסיונות כושלים
-                                </div>
-                            )}
-
-                            <div className="flex gap-6 mt-12 text-xs text-slate-400">
-                                <span className="flex items-center gap-1.5"><Lock className="w-3.5 h-3.5" /> PIN מוצפן</span>
-                                <span className="flex items-center gap-1.5"><Timer className="w-3.5 h-3.5" /> נעילה אוטומטית</span>
-                                <span className="flex items-center gap-1.5"><ClipboardList className="w-3.5 h-3.5" /> לוג אבטחה</span>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* ── Unlocked — premium section grid ── */}
-                    {!locked && (
-                        <div className="bg-gradient-to-b from-slate-50 to-white min-h-screen p-6 space-y-8">
 
                             {SECTION_GROUPS.map(group => {
                                 const visibleItems = group.items.filter(item => {
@@ -294,19 +248,13 @@ export default function BusinessPage() {
                                 );
                             })}
 
-                            {/* the PIN and whether this page asks for it — the person's own, in "החשבון שלי" */}
-                            <div className="pt-2 border-t border-slate-100">
-                                <button onClick={() => router.push("/automation?tab=account")}
-                                    className="flex items-center gap-2 text-sm text-slate-400 hover:text-violet-600 transition-colors font-medium">
-                                    <KeyRound className="w-3.5 h-3.5" />
-                                    קוד PIN ונעילת הדף — בהגדרות › החשבון שלי
-                                </button>
-                            </div>
-                        </div>
-                    )}
+                            {/* logging out — on the computer it's at the bottom of the side menu */}
+                            <button onClick={logout}
+                                className="md:hidden w-full flex items-center justify-center gap-2 rounded-2xl bg-red-50 text-red-600 font-semibold py-3.5 active:scale-[0.98] transition-transform">
+                                <LogOut className="w-5 h-5" aria-hidden /> התנתקות
+                            </button>
+                    </div>
                 </div>
-
-                {showPinModal && <PinModal mode="verify" onSuccess={handlePinSuccess} onClose={() => setShowPinModal(false)} />}
             </AppShell>
         </RequireAuth>
     );

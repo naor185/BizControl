@@ -2981,6 +2981,10 @@ def ensure_schema():
                     'body_font', COALESCE(ss.landing_page_desc_font, 'Assistant'))::text
                 FROM studios s WHERE s.id = ss.studio_id AND s.is_platform AND ss.bizfind_theme IS NULL
             """)
+        if _once("pin_business_lock_gone_v1"):
+            # "ניהול עסק" asked for the PIN behind a switch (2026-10-14, a day) — the owner cancelled it: only the owner
+            # and the managers reach the hub (2026-10-15). Read-only check before: nobody had switched it on.
+            cur.execute("ALTER TABLE IF EXISTS user_pin_settings DROP COLUMN IF EXISTS business_lock")
         if _once("nctattoo_test_reviews_gone_v1"):
             # A security test of the site on 2026-07-19 left 60 "reviews" on Nctattoo's BizFind page — PENTEST, <script>,
             # XXE, SSTI, CSRF and 30 rate-limit tests, none by a signed-in client; one ("Oracle Test", 5 stars) was
