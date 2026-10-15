@@ -26,6 +26,7 @@ from app.api.billing_routes import router as billing_router
 from app.api.booking_request_routes import router as booking_request_router
 from app.api.notification_routes import router as notification_router
 from app.api.task_routes import router as task_router
+from app.api.tutorial_routes import router as tutorial_router
 from app.api.coupon_routes import router as coupon_router, public_router as coupon_public_router
 from app.api.account_routes import router as account_router
 from app.api.review_report_routes import router as review_report_router
@@ -93,6 +94,7 @@ api_router.include_router(billing_router)
 api_router.include_router(booking_request_router, dependencies=[Depends(workers_read_only())])
 api_router.include_router(notification_router)
 api_router.include_router(task_router)
+api_router.include_router(tutorial_router)          # the guided tours' state (2026-10-15)
 api_router.include_router(coupon_router)
 api_router.include_router(coupon_public_router)
 api_router.include_router(account_router)

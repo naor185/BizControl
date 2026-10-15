@@ -8,6 +8,7 @@ import { apiFetch, clearToken, getCurrentUserRole, getToken, setToken } from "@/
 import ClockWidget from "./ClockWidget";
 import BottomNav from "./BottomNav";
 import NotificationBell from "./NotificationBell";
+import TourProvider, { TourButton } from "./tour/TourProvider";
 import ToastContainer from "./ToastContainer";
 import GlobalToast from "./GlobalToast";
 import PullToRefresh from "./PullToRefresh";
@@ -156,6 +157,7 @@ export default function AppShell({
     const topBars = (showVerifyBar ? 1 : 0) + (isImpersonating ? 1 : 0) + (clockInNeeded ? 1 : 0);
 
     return (
+        <TourProvider>
         <div className="app-shell min-h-screen bg-slate-50" dir={dir}>
             <div className="flex">
                 {/* Sidebar */}
@@ -398,6 +400,7 @@ export default function AppShell({
                                 <ClockWidget />
                                 {/* the business's bell — the owner's and the managers' (api/notification_routes) */}
                                 {!isWorker && <NotificationBell />}
+                                <TourButton />
                                 <div className="hidden sm:flex items-center gap-2.5">
                                     <div className="w-7 h-7 rounded-full bg-sky-600 text-white flex items-center justify-center text-xs font-bold">
                                         {avatarLetter}
@@ -440,5 +443,6 @@ export default function AppShell({
                 <QuickWhatsAppModal onClose={() => setShowWaModal(false)} />
             )}
         </div>
+        </TourProvider>
     );
 }

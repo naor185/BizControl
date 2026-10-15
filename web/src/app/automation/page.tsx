@@ -1089,7 +1089,7 @@ export default function AutomationSettingsPage() {
                                                 <p className="text-sm font-semibold text-slate-700">הלוגו של העסק שלך</p>
                                                 <p className="text-xs text-slate-500 leading-relaxed">הלוגו מופיע בדפי הנחיתה, בממשק הכניסה ובהודעות ללקוחות. מומלץ תמונה מרובעת (PNG/JPG) ברזולוציה 400×400 לפחות.</p>
 
-                                                <label className="cursor-pointer flex items-center justify-center gap-2 w-full py-3 rounded-xl border-2 border-dashed border-slate-300 hover:border-sky-400 hover:bg-sky-50 text-slate-600 hover:text-sky-600 font-medium text-sm transition-all">
+                                                <label data-tour="logo-upload" className="cursor-pointer flex items-center justify-center gap-2 w-full py-3 rounded-xl border-2 border-dashed border-slate-300 hover:border-sky-400 hover:bg-sky-50 text-slate-600 hover:text-sky-600 font-medium text-sm transition-all">
                                                     <span className="text-lg">📤</span>
                                                     <span>{settings.logo_filename ? "החלף תמונה" : "בחר תמונה"}</span>
                                                     <input type="file" className="hidden" accept="image/*" onChange={handleLogoUpload} />
@@ -1118,7 +1118,7 @@ export default function AutomationSettingsPage() {
                                 <div className="space-y-5">
                                     <div>
                                         <label className="block text-sm font-semibold text-slate-700 mb-1">כתובת העסק</label>
-                                        <input type="text" value={settings.studio_address || ""} onChange={e => handleChange("studio_address", e.target.value)}
+                                        <input data-tour="business-address" type="text" value={settings.studio_address || ""} onChange={e => handleChange("studio_address", e.target.value)}
                                             placeholder="לדוג׳: רחוב הרצל 12, תל אביב"
                                             className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-orange-500 text-sm" />
                                     </div>
@@ -2074,7 +2074,7 @@ export default function AutomationSettingsPage() {
                                         <div className="space-y-4">
                                             <div className="space-y-1">
                                                 <span className="text-xs font-bold text-slate-500 uppercase">לינק Bit</span>
-                                                <input type="url" dir="ltr" value={settings.bit_link || ""} onChange={e => handleChange("bit_link", e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
+                                                <input data-tour="pay-bit" type="url" dir="ltr" value={settings.bit_link || ""} onChange={e => handleChange("bit_link", e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
                                             </div>
                                             <div className="space-y-1">
                                                 <span className="text-xs font-bold text-slate-500 uppercase">לינק Paybox</span>
@@ -2405,7 +2405,7 @@ export default function AutomationSettingsPage() {
                 <div aria-hidden className="h-28 md:h-24" />
 
                 {/* Save — a full-width bar above the bottom bar on a phone, a floating button on a computer */}
-                <div className="fixed inset-x-0 z-40 px-4 bottom-[calc(72px+env(safe-area-inset-bottom,0px))] md:inset-x-auto md:px-0 md:bottom-10 md:left-1/2 md:-translate-x-1/2">
+                <div data-tour="settings-save" className="fixed inset-x-0 z-40 px-4 bottom-[calc(72px+env(safe-area-inset-bottom,0px))] md:inset-x-auto md:px-0 md:bottom-10 md:left-1/2 md:-translate-x-1/2">
                     <button
                         onClick={handleSave}
                         disabled={saving}

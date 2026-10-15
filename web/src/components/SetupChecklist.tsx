@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { CheckCircle2, ChevronDown, Circle, RotateCcw, X } from "lucide-react";
+import { CheckCircle2, ChevronDown, Circle, GraduationCap, RotateCcw, X } from "lucide-react";
 import { apiFetch, dismissSetupItem, restoreSetupItem, SetupProgress } from "@/lib/api";
 import { toast } from "@/lib/toast";
+import { useTour } from "@/components/tour/TourProvider";
 
 function Ring({ pct, size = 64 }: { pct: number; size?: number }) {
     const r = (size - 10) / 2;
@@ -27,6 +28,7 @@ export default function SetupChecklist() {
     const [loading, setLoading] = useState(true);
     const [busyId, setBusyId] = useState<string | null>(null);
     const [showDone, setShowDone] = useState(false);
+    const tour = useTour();
 
     useEffect(() => {
         apiFetch<SetupProgress>("/api/dashboard/setup-progress")
@@ -72,6 +74,12 @@ export default function SetupChecklist() {
                     <div key={item.id} className="flex items-center gap-3 py-2.5">
                         <Circle className="h-4 w-4 text-slate-300 shrink-0" />
                         <Link href={item.href} className="flex-1 min-w-0 text-sm font-semibold text-slate-800 hover:underline truncate">{item.label}</Link>
+                        {tour.stepFor(item.id) && (
+                            <button type="button" onClick={() => tour.startAt(tour.stepFor(item.id)!)}
+                                className="flex items-center gap-1 text-[11px] font-bold text-sky-700 bg-sky-50 hover:bg-sky-100 px-2 py-0.5 rounded-full shrink-0">
+                                <GraduationCap className="h-3.5 w-3.5" aria-hidden /> הראו לי
+                            </button>
+                        )}
                         <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${item.tier === "required" ? "bg-rose-50 text-rose-600" : "bg-slate-100 text-slate-500"}`}>
                             {item.tier === "required" ? "חובה" : "מומלץ"}
                         </span>

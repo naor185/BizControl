@@ -1,8 +1,28 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { GraduationCap } from "lucide-react";
 import AppShell from "@/components/AppShell";
 import RequireAuth from "@/components/RequireAuth";
+import { useTour } from "@/components/tour/TourProvider";
+
+// The guide, from here too (components/tour) — rendered inside AppShell, where the guide lives
+function StartTourCard() {
+    const tour = useTour();
+    if (!tour.available) return null;
+    return (
+        <div className="mb-6 flex flex-wrap items-center gap-3 bg-sky-50 border border-sky-200 rounded-2xl p-4">
+            <GraduationCap className="w-7 h-7 text-sky-600 shrink-0" aria-hidden />
+            <div className="flex-1 min-w-48">
+                <div className="font-bold text-slate-800">הדרכה צעד אחר צעד</div>
+                <div className="text-sm text-slate-600">המדריך יוביל אתכם בצעדים הראשונים בתוך המערכת, ויבדוק שכל צעד הצליח.</div>
+            </div>
+            <button type="button" onClick={tour.open} className="bg-sky-600 hover:bg-sky-700 text-white text-sm font-bold px-4 py-2.5 rounded-xl transition">
+                התחלת ההדרכה
+            </button>
+        </div>
+    );
+}
 
 type Article = {
     id: string;
@@ -865,6 +885,8 @@ export default function HelpPage() {
                         <h1 className="text-3xl font-bold text-slate-800">מרכז עזרה</h1>
                         <p className="text-slate-500 mt-2">מדריך מלא לכל פיצ'ר, חיבור וקיצור דרך במערכת</p>
                     </div>
+
+                    <StartTourCard />
 
                     {/* Search */}
                     <div className="relative mb-6">

@@ -91,6 +91,8 @@ function daysToBirthday(birthDate: string | null): number | null {
 function PageInner() {
     const searchParams = useSearchParams();
     const tab: "all" | "club" = searchParams.get("tab") === "club" ? "club" : "all";
+    // "לקוח חדש" from the calendar (/clients?create=1) opens the form straight away
+    const [isModalOpen, setIsModalOpen] = useState(() => searchParams.get("create") === "1");
 
     // ── All clients state ──
     const [items, setItems] = useState<Client[]>([]);
@@ -101,7 +103,6 @@ function PageInner() {
     const [birthdayMonth, setBirthdayMonth] = useState<number | "all">("all");
     const [search, setSearch] = useState("");
     const [deletingClientId, setDeletingClientId] = useState<string | null>(null);
-    const [isModalOpen, setIsModalOpen] = useState(false);
     const [newName, setNewName] = useState("");
     const [newPhone, setNewPhone] = useState("");
     const [newEmail, setNewEmail] = useState("");
@@ -294,7 +295,7 @@ function PageInner() {
                                 </p>
                             )}
                         </div>
-                        <button onClick={() => setIsModalOpen(true)}
+                        <button data-tour="client-new" onClick={() => setIsModalOpen(true)}
                             className="flex items-center gap-2 bg-black hover:bg-slate-800 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors shadow-sm shrink-0">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
                             לקוח חדש
@@ -776,7 +777,7 @@ function PageInner() {
                 {/* Add client modal */}
                 {isModalOpen && (
                     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-                        <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden">
+                        <div data-tour="client-form" className="bg-white rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden">
                             <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
                                 <h3 className="text-base font-bold text-slate-800">לקוח חדש</h3>
                                 <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 transition">✕</button>

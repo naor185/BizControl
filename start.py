@@ -2941,6 +2941,21 @@ def ensure_schema():
         cur.execute("ALTER TABLE health_forms DROP COLUMN IF EXISTS ask_id_number")
         cur.execute("ALTER TABLE health_declarations ADD COLUMN IF NOT EXISTS ask_age BOOLEAN NOT NULL DEFAULT TRUE")
         cur.execute("ALTER TABLE health_declarations ADD COLUMN IF NOT EXISTS age INTEGER")
+        # the guided tours' state per user (api/tutorial_routes, 2026-10-15)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS tutorial_progress (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                tour_id VARCHAR(40) NOT NULL,
+                state VARCHAR(16) NOT NULL DEFAULT 'active',
+                skipped TEXT NOT NULL DEFAULT '[]',
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                CONSTRAINT uq_tutorial_progress_user_tour UNIQUE (user_id, tour_id)
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_tutorial_progress_studio_id ON tutorial_progress (studio_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_tutorial_progress_user_id ON tutorial_progress (user_id)")
         # the picture of the deposit's payment the client attaches on the payment page (2026-10-15)
         cur.execute("ALTER TABLE appointments ADD COLUMN IF NOT EXISTS payment_proof_url TEXT")
         cur.execute("ALTER TABLE health_declarations DROP COLUMN IF EXISTS ask_id_number")

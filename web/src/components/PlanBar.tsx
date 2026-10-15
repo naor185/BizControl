@@ -42,6 +42,7 @@ export default function PlanBar({ info }: { info: PlanInfo }) {
 
     return (
         <div
+            data-tour="plan-bar"
             className={`fixed inset-x-0 z-30 bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] md:bottom-0 md:right-60 border-t text-white flex md:grid md:grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 pl-24 text-xs ${urgent ? "bg-rose-600 border-rose-700" : "bg-orange-600 border-orange-700"}`}
             style={{ height: PLAN_BAR_HEIGHT }}
             dir="rtl"

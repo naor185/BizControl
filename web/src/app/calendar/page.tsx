@@ -1594,6 +1594,7 @@ function Calendar() {
 
                     {/* Calendar Container */}
                     <div
+                        data-tour="calendar-grid"
                         className="flex-1 bg-white rounded-xl shadow-lg p-1 sm:p-2 border border-slate-100 overflow-hidden relative"
                         onTouchStart={handleTouchStart}
                         onTouchEnd={handleTouchEnd}
@@ -1884,7 +1885,7 @@ function Calendar() {
                 {/* Appointment Modal */}
                 {isModalOpen && (
                     <div className={`fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm animate-in fade-in duration-200 ${isMobile ? "flex items-end justify-center" : "flex items-center justify-center p-3 sm:p-4"}`}>
-                        <div className={`bg-white w-full shadow-2xl overflow-hidden flex flex-col ${isMobile ? "rounded-t-3xl max-h-[92dvh] animate-in slide-in-from-bottom duration-300" : "rounded-3xl max-w-lg max-h-[calc(100dvh-5rem)] animate-in zoom-in-95 duration-300"}`} dir="rtl">
+                        <div data-tour="appointment-form" className={`bg-white w-full shadow-2xl overflow-hidden flex flex-col ${isMobile ? "rounded-t-3xl max-h-[92dvh] animate-in slide-in-from-bottom duration-300" : "rounded-3xl max-w-lg max-h-[calc(100dvh-5rem)] animate-in zoom-in-95 duration-300"}`} dir="rtl">
                             {isMobile && <div className="flex justify-center pt-3 pb-1 flex-shrink-0"><div className="w-10 h-1 rounded-full bg-slate-300" /></div>}
                             {/* The close button on the right, the title in the middle (the owner, 2026-10-11) */}
                             <div className="bg-slate-50 border-b border-slate-100 px-4 py-3 grid grid-cols-[2.75rem_1fr_2.75rem] items-center flex-shrink-0">
@@ -2300,6 +2301,7 @@ function Calendar() {
                             <p className="text-xs text-slate-400 text-center mb-5">בחר סוג האירוע ביומן</p>
                             <div className="flex gap-3">
                                 <button
+                                    data-tour="type-appointment"
                                     onClick={() => { setShowTypeChooser(false); openAppointmentModal(pendingSelectInfo); }}
                                     className="flex-1 flex flex-col items-center gap-2 p-4 rounded-2xl border-2 border-sky-200 bg-sky-50 hover:bg-sky-100 transition-colors"
                                 >
@@ -2565,6 +2567,7 @@ function Calendar() {
 
                 {/* Mobile FAB */}
                 <button
+                    data-tour="appointment-new"
                     className="fixed bottom-28 left-4 z-40 sm:hidden w-14 h-14 bg-sky-600 text-white rounded-full shadow-2xl shadow-slate-900/40 flex items-center justify-center text-3xl font-light active:scale-95 transition-transform"
                     onClick={() => {
                         const now = new Date();
