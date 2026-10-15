@@ -26,8 +26,16 @@ class NotificationOut(BaseModel):
         from_attributes = True
 
 
+# The bell is the business's — new leads, deposits reported, a worker's task done, the WhatsApp quota… — the owner's
+# and the managers'. A worker (artist/staff) has none of it, and can't mark it read for them; a worker hears of their
+# own things by push (the owner, 2026-10-15: the owner's "task done" showed on the worker's screen).
+WORKERS = ("artist", "staff")
+
+
 @router.get("", response_model=list[NotificationOut])
 def list_notifications(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    if current_user.role in WORKERS:
+        return []
     rows = db.scalars(
         select(Notification)
         .where(Notification.studio_id == current_user.studio_id)
@@ -47,6 +55,8 @@ def list_notifications(db: Session = Depends(get_db), current_user=Depends(get_c
 
 @router.get("/unread-count")
 def unread_count(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    if current_user.role in WORKERS:
+        return {"count": 0}
     count = db.scalar(
         select(func.count()).where(
             Notification.studio_id == current_user.studio_id,
@@ -59,7 +69,7 @@ def unread_count(db: Session = Depends(get_db), current_user=Depends(get_current
 @router.post("/{notification_id}/read")
 def mark_read(notification_id: str, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
     n = db.get(Notification, UUID(notification_id))
-    if not n or n.studio_id != current_user.studio_id:
+    if not n or n.studio_id != current_user.studio_id or current_user.role in WORKERS:
         raise HTTPException(status_code=404)
     n.is_read = True
     db.commit()
@@ -68,6 +78,8 @@ def mark_read(notification_id: str, db: Session = Depends(get_db), current_user=
 
 @router.post("/read-all")
 def mark_all_read(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    if current_user.role in WORKERS:
+        return {"ok": True, "marked": 0}
     rows = db.scalars(
         select(Notification).where(
             Notification.studio_id == current_user.studio_id,
@@ -83,7 +95,7 @@ def mark_all_read(db: Session = Depends(get_db), current_user=Depends(get_curren
 @router.delete("/{notification_id}")
 def delete_notification(notification_id: str, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
     n = db.get(Notification, UUID(notification_id))
-    if not n or n.studio_id != current_user.studio_id:
+    if not n or n.studio_id != current_user.studio_id or current_user.role in WORKERS:
         raise HTTPException(status_code=404)
     db.delete(n)
     db.commit()

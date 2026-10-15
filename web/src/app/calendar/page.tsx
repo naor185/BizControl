@@ -116,6 +116,11 @@ type TaskInstance = {
     color: string;
     recurrence_type: string;
     is_recurring: boolean;
+    // a task for a worker (app/services/team_tasks): who, and this occurrence's state
+    assignee_id?: string | null;
+    assignee_name?: string | null;
+    done?: boolean;
+    overdue?: boolean;
 };
 
 export default function CalendarPage() {
@@ -164,6 +169,8 @@ function Calendar() {
     const [artists, setArtists] = useState<Artist[]>([]);
     const [appointments, setAppointments] = useState<Appointment[]>([]);
     const myRole = getCurrentUserRole();
+    // tasks are set by the owner and the managers; a worker sees the team's and their own and marks them done
+    const canSetTasks = myRole !== "artist" && myRole !== "staff";
     const [tasks, setTasks] = useState<TaskInstance[]>([]);
     const [loading, setLoading] = useState(false);
     const [err, setErr] = useState<string | null>(null);
@@ -221,6 +228,9 @@ function Calendar() {
     const [taskRecurrenceMonth, setTaskRecurrenceMonth] = useState<number|"">("");
     const [taskRecurrenceDaysOfWeek, setTaskRecurrenceDaysOfWeek] = useState<number[]>([]);
     const [taskRecurrenceEndDate, setTaskRecurrenceEndDate] = useState("");
+    // the worker it's for ("" — the whole team), and the occurrence clicked — done, or late (the owner, 2026-10-15)
+    const [taskAssigneeId, setTaskAssigneeId] = useState("");
+    const [taskOccurrence, setTaskOccurrence] = useState<{ date: string; done: boolean; overdue: boolean; assigneeName: string | null } | null>(null);
     const [toast, setToast] = useState<{message: string; type: "success"|"error"} | null>(null);
     const [todayBroadcasts, setTodayBroadcasts] = useState<{id: string; title: string; scheduled_at: string}[]>([]);
     // Deliberately starts false — matching what the server always renders (no
@@ -769,6 +779,8 @@ function Calendar() {
             setTaskNotes(app.notes || "");
             setTaskColor(app.color || "#8b5cf6");
             setTaskRecurrence((app.recurrence_type || "none") as "none"|"weekly"|"monthly"|"yearly");
+            setTaskAssigneeId(app.assignee_id || "");
+            setTaskOccurrence({ date: app.date, done: !!app.done, overdue: !!app.overdue, assigneeName: app.assignee_name || null });
             // Load full task to get recurrence details
             apiFetch<any>(`/api/tasks/${app.taskId}`).then(full => {
                 setTaskRecurrenceDay(full.recurrence_day ?? "");
@@ -1038,17 +1050,19 @@ function Calendar() {
 
     // Task events for FullCalendar
     const taskEvents = useMemo(() => tasks.map(t => ({
-        id: `task-${t.id}`,
+        id: `task-${t.id}-${t.date}`,
         title: `${t.is_recurring ? "🔁 " : "📌 "}${t.title}`,
         start: t.start_time ? `${t.date}T${t.start_time}` : t.date,
         end: t.end_time ? `${t.date}T${t.end_time}` : undefined,
         allDay: !t.start_time,
-        backgroundColor: t.color,
-        borderColor: t.color,
+        backgroundColor: t.overdue ? "#dc2626" : t.color,
+        borderColor: t.overdue ? "#dc2626" : t.color,
         textColor: "#ffffff",
+        classNames: t.done ? ["opacity-55"] : [],
+        editable: canSetTasks,
 
         extendedProps: { isTask: true, taskId: t.id, ...t },
-    })), [tasks]);
+    })), [tasks, canSetTasks]);
 
     const openNewTaskModal = (dateStr: string, startTime: string = "", endTime: string = "") => {
         setSelectedTaskId(null);
@@ -1063,7 +1077,26 @@ function Calendar() {
         setTaskRecurrenceMonth("");
         setTaskRecurrenceDaysOfWeek([]);
         setTaskRecurrenceEndDate("");
+        setTaskAssigneeId("");
+        setTaskOccurrence(null);
         setIsTaskModalOpen(true);
+    };
+
+    // done — this occurrence (a recurring task is done one by one); a worker's tells the owner and the managers
+    const toggleTaskDone = async () => {
+        if (!selectedTaskId || !taskOccurrence) return;
+        try {
+            if (taskOccurrence.done) {
+                await apiFetch(`/api/tasks/${selectedTaskId}/done?date=${taskOccurrence.date}`, { method: "DELETE" });
+            } else {
+                await apiFetch(`/api/tasks/${selectedTaskId}/done`, { method: "POST", body: JSON.stringify({ date: taskOccurrence.date }) });
+            }
+            setIsTaskModalOpen(false);
+            loadData();
+            showToast(taskOccurrence.done ? "הסימון בוטל" : "✅ המשימה סומנה כבוצעה");
+        } catch (e: unknown) {
+            showToast((e as { message?: string })?.message || "הסימון לא נשמר", "error");
+        }
     };
 
     const handleSaveTask = async () => {
@@ -1085,6 +1118,7 @@ function Calendar() {
             recurrence_month: taskRecurrenceMonth !== "" ? Number(taskRecurrenceMonth) : null,
             recurrence_days_of_week: taskRecurrence === "weekly" ? taskRecurrenceDaysOfWeek.slice().sort().join(",") : null,
             recurrence_end_date: taskRecurrenceEndDate || null,
+            assignee_id: taskAssigneeId || null,
         };
 
         try {
@@ -1658,7 +1692,7 @@ function Calendar() {
                                     );
                                 }
                                 if (p.isTask) {
-                                    const TaskIcon = p.is_recurring ? Repeat : Pin;
+                                    const TaskIcon = p.done ? CircleCheck : p.overdue ? TriangleAlert : p.is_recurring ? Repeat : Pin;
                                     return (
                                         <div className="@container h-full w-full overflow-hidden">
                                         <div className="px-1 md:px-1.5 py-0.5 h-full w-full text-[11px] @max-[3.5rem]:text-[9.5px] font-semibold leading-tight whitespace-normal break-words @max-[1.75rem]:[writing-mode:vertical-rl] @max-[1.75rem]:rotate-180 @max-[1.75rem]:px-0">
@@ -1670,7 +1704,7 @@ function Calendar() {
                                             )}
                                             <div className="flex items-start gap-0.5">
                                                 <TaskIcon className="w-3 h-3 shrink-0 mt-px" aria-hidden />
-                                                <span className="min-w-0">{p.title}</span>
+                                                <span className={`min-w-0 ${p.done ? "line-through" : ""}`}>{p.title}{p.assignee_name ? ` · ${p.assignee_name}` : ""}</span>
                                             </div>
                                         </div>
                                         </div>
@@ -2272,7 +2306,7 @@ function Calendar() {
                                     <CalendarPlus className="w-7 h-7 text-sky-600" aria-hidden />
                                     <span className="text-sm font-bold text-sky-700">קביעת תור</span>
                                 </button>
-                                <button
+                                {canSetTasks && (<button
                                     onClick={() => {
                                         setShowTypeChooser(false);
                                         // Preserve the specific slot the user selected on the time grid
@@ -2287,7 +2321,7 @@ function Calendar() {
                                 >
                                     <Pin className="w-7 h-7 text-violet-600" aria-hidden />
                                     <span className="text-sm font-bold text-violet-700">משימה / תזכורת</span>
-                                </button>
+                                </button>)}
                                 {classesOn && canSetUpClasses && (
                                     <button
                                         onClick={() => { setShowTypeChooser(false); openNewClass(pendingSelectInfo); }}
@@ -2318,17 +2352,58 @@ function Calendar() {
                     <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm sm:p-4 animate-in fade-in duration-200">
                         <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full sm:max-w-md shadow-2xl overflow-hidden max-h-[85dvh] flex flex-col animate-in slide-in-from-bottom sm:zoom-in-95 duration-300" dir="rtl">
                             <div className="bg-violet-50 border-b border-violet-100 p-5 flex items-center justify-between flex-shrink-0">
-                                <h3 className="text-xl font-bold text-violet-900">{selectedTaskId ? "עריכת משימה" : "משימה / תזכורת חדשה"}</h3>
+                                <h3 className="text-xl font-bold text-violet-900">{!canSetTasks ? "משימה" : selectedTaskId ? "עריכת משימה" : "משימה / תזכורת חדשה"}</h3>
                                 <button onClick={() => setIsTaskModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-2 bg-white rounded-full shadow-sm">✕</button>
                             </div>
 
                             <div className="p-5 space-y-4 overflow-y-auto flex-1 min-h-0">
+                                {/* this occurrence: whose, done or late — and marking it */}
+                                {selectedTaskId && taskOccurrence && (
+                                    <div className={`rounded-2xl border p-3 ${taskOccurrence.done ? "bg-emerald-50 border-emerald-200" : taskOccurrence.overdue ? "bg-red-50 border-red-200" : "bg-slate-50 border-slate-200"}`}>
+                                        <div className={`flex items-center gap-2 text-sm font-bold ${taskOccurrence.done ? "text-emerald-700" : taskOccurrence.overdue ? "text-red-700" : "text-slate-700"}`}>
+                                            {taskOccurrence.done ? <CircleCheck className="w-4 h-4 shrink-0" aria-hidden />
+                                                : taskOccurrence.overdue ? <TriangleAlert className="w-4 h-4 shrink-0" aria-hidden />
+                                                : <Clock className="w-4 h-4 shrink-0" aria-hidden />}
+                                            {taskOccurrence.done ? "בוצע" : taskOccurrence.overdue ? "עבר הזמן — עוד לא בוצע" : "עוד לא בוצע"}
+                                            <span className="mr-auto text-xs font-semibold text-slate-500">
+                                                {taskOccurrence.assigneeName ? `ל${taskOccurrence.assigneeName}` : "לכל הצוות"} · {new Date(taskOccurrence.date).toLocaleDateString("he-IL", { day: "numeric", month: "numeric" })}
+                                            </span>
+                                        </div>
+                                        <button type="button" onClick={toggleTaskDone}
+                                            className={`mt-2 w-full min-h-11 rounded-xl text-sm font-black transition ${taskOccurrence.done ? "bg-white border border-slate-200 text-slate-600 hover:bg-slate-100" : "bg-emerald-600 hover:bg-emerald-700 text-white"}`}>
+                                            {taskOccurrence.done ? "ביטול הסימון" : "בוצע"}
+                                        </button>
+                                    </div>
+                                )}
+
+                                {!canSetTasks ? (
+                                    <div className="space-y-2 text-sm text-slate-700">
+                                        <div className="text-lg font-bold text-slate-900">{taskTitle}</div>
+                                        {(taskStartTime || taskEndTime) && (
+                                            <div className="flex items-center gap-2"><Clock className="w-4 h-4 text-slate-400" aria-hidden />{taskStartTime}{taskEndTime ? `–${taskEndTime}` : ""}</div>
+                                        )}
+                                        {taskNotes && <p className="whitespace-pre-line bg-slate-50 rounded-xl p-3">{taskNotes}</p>}
+                                    </div>
+                                ) : (<>
                                 {/* Title */}
                                 <div>
                                     <label className="block text-sm font-semibold text-slate-700 mb-1">כותרת *</label>
                                     <input value={taskTitle} onChange={e => setTaskTitle(e.target.value)}
                                         placeholder="לדוגמה: ארנונה, מרפאה, חופשה..."
                                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-violet-400 text-sm" />
+                                </div>
+
+                                {/* For whom — a worker hears at once, and is reminded until it's marked done */}
+                                <div>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-1">למי המשימה</label>
+                                    <select value={taskAssigneeId} onChange={e => setTaskAssigneeId(e.target.value)}
+                                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-violet-400 text-sm">
+                                        <option value="">כל הצוות</option>
+                                        {artists.map(a => <option key={a.id} value={a.id}>{a.display_name || a.email}</option>)}
+                                    </select>
+                                    {taskAssigneeId && (
+                                        <p className="text-xs text-slate-500 mt-1">העובד מקבל הודעה כשהמשימה נמסרת לו, ותזכורת כל עוד היא לא סומנה כבוצעה</p>
+                                    )}
                                 </div>
 
                                 {/* Recurrence */}
@@ -2441,11 +2516,12 @@ function Calendar() {
                                     <textarea value={taskNotes} onChange={e => setTaskNotes(e.target.value)} rows={2}
                                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-violet-400 text-sm" />
                                 </div>
+                                </>)}
                             </div>
 
                             <div className="bg-slate-50 px-4 py-3 flex justify-between items-center border-t border-slate-100 flex-shrink-0">
                                 <div>
-                                    {selectedTaskId && (
+                                    {selectedTaskId && canSetTasks && (
                                         <button onClick={handleDeleteTask} className="px-4 py-2 text-sm font-bold text-red-600 hover:bg-red-50 rounded-xl transition-colors">
                                             🗑️ מחק
                                         </button>
@@ -2453,9 +2529,9 @@ function Calendar() {
                                 </div>
                                 <div className="flex gap-3">
                                     <button onClick={() => setIsTaskModalOpen(false)} className="px-5 py-2 text-sm font-bold text-slate-600 hover:bg-slate-200 rounded-xl transition-colors">סגור</button>
-                                    <button onClick={handleSaveTask} className="px-6 py-2 text-sm font-bold text-white bg-violet-600 shadow-lg shadow-violet-600/20 hover:bg-violet-700 hover:-translate-y-0.5 rounded-xl transition-all">
+                                    {canSetTasks && <button onClick={handleSaveTask} className="px-6 py-2 text-sm font-bold text-white bg-violet-600 shadow-lg shadow-violet-600/20 hover:bg-violet-700 hover:-translate-y-0.5 rounded-xl transition-all">
                                         {selectedTaskId ? "שמור שינויים" : "הוסף משימה"}
-                                    </button>
+                                    </button>}
                                 </div>
                             </div>
                         </div>

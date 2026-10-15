@@ -121,6 +121,8 @@ def start_scheduler():
             sweep_staff_reminders(db)
             from app.services.message_worker import sweep_clock_in_nudges
             sweep_clock_in_nudges(db)
+            from app.services.team_tasks import sweep_task_followups   # a worker's task not marked done
+            sweep_task_followups(db)
         except Exception:
             _scheduler_log.exception("sweep_staff_reminders tick failed")
         finally:
@@ -417,6 +419,22 @@ def run_migrations():
                 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
             )
         """))
+        # a task for a worker, done occurrence by occurrence (services/team_tasks, 2026-10-15)
+        conn.execute(text("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS assignee_id UUID REFERENCES users(id) ON DELETE SET NULL"))
+        conn.execute(text("CREATE INDEX IF NOT EXISTS ix_tasks_assignee_id ON tasks (assignee_id)"))
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS task_completions (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                task_id UUID NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+                occurrence_date DATE NOT NULL,
+                done_by UUID REFERENCES users(id) ON DELETE SET NULL,
+                done_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                CONSTRAINT uq_task_completions_occurrence UNIQUE (task_id, occurrence_date)
+            )
+        """))
+        conn.execute(text("CREATE INDEX IF NOT EXISTS ix_task_completions_studio_id ON task_completions (studio_id)"))
+        conn.execute(text("CREATE INDEX IF NOT EXISTS ix_task_completions_task_id ON task_completions (task_id)"))
         conn.execute(text("""
             CREATE TABLE IF NOT EXISTS customer_club_cards (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

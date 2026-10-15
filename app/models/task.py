@@ -32,4 +32,7 @@ class Task(Base):
     recurrence_days_of_week: Mapped[str | None] = mapped_column(String(20), nullable=True)
     recurrence_end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
 
+    # the worker it's for (services/team_tasks); None — the whole team, as tasks always were
+    assignee_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())

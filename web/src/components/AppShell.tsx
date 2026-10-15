@@ -396,7 +396,8 @@ export default function AppShell({
                                     <span className="text-base leading-none">📱</span>
                                 </button>
                                 <ClockWidget />
-                                <NotificationBell />
+                                {/* the business's bell — the owner's and the managers' (api/notification_routes) */}
+                                {!isWorker && <NotificationBell />}
                                 <div className="hidden sm:flex items-center gap-2.5">
                                     <div className="w-7 h-7 rounded-full bg-sky-600 text-white flex items-center justify-center text-xs font-bold">
                                         {avatarLetter}

@@ -61,6 +61,7 @@ SERVICE_TYPES = frozenset({
     # to the studio's staff, not to clients
     "new_lead", "manual",
     "deposit_reported",      # a client says they paid the deposit (services/deposit_report)
+    "task_assigned", "task_overdue", "task_done",   # a worker's task (services/team_tasks)
     "crm",                   # from BizControl to a business's owner (the superadmin's CRM — services/platform_outreach)
 })
 SERVICE_PREFIXES = (

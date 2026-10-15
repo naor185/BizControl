@@ -16,6 +16,7 @@ class TaskCreate(BaseModel):
     recurrence_month: int | None = Field(default=None, ge=1, le=12)
     recurrence_days_of_week: str | None = None  # weekly only — "0,3" (Sun,Wed), 0=Sunday
     recurrence_end_date: date | None = None
+    assignee_id: UUID | None = None             # the worker it's for; None — the whole team
 
 
 class TaskUpdate(BaseModel):
@@ -30,6 +31,7 @@ class TaskUpdate(BaseModel):
     recurrence_month: int | None = Field(default=None, ge=1, le=12)
     recurrence_days_of_week: str | None = None
     recurrence_end_date: date | None = None
+    assignee_id: UUID | None = None
 
 
 class TaskOut(BaseModel):
@@ -45,6 +47,7 @@ class TaskOut(BaseModel):
     recurrence_month: int | None
     recurrence_days_of_week: str | None
     recurrence_end_date: date | None
+    assignee_id: UUID | None = None
 
     @field_validator("id", mode="before")
     @classmethod
@@ -71,3 +74,12 @@ class TaskInstance(BaseModel):
     color: str
     recurrence_type: str
     is_recurring: bool
+    # for a worker (services/team_tasks): who, and this occurrence's state
+    assignee_id: str | None = None
+    assignee_name: str | None = None
+    done: bool = False
+    overdue: bool = False
+
+
+class TaskDoneIn(BaseModel):
+    date: date        # the occurrence — a recurring task is done one by one
