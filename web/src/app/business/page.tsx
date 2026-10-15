@@ -1,134 +1,19 @@
 "use client";
 
-import { isNativeApp } from "@/lib/platform";
-import { usePlan } from "@/lib/usePlan";
-import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-    Briefcase, Lock, Zap, BarChart3, Compass, LogOut,
-    Wallet, Users, TrendingUp, Phone, Megaphone, Gift, Settings,
-    CreditCard, Receipt, Banknote, UserCog, Target, Mail,
-    Send, Clock, Package, History, FileDown, ConciergeBell, Smartphone, LifeBuoy, Crown, FileUp, CalendarRange, SlidersHorizontal, HeartPulse,
-    type LucideIcon,
-} from "lucide-react";
+import { Briefcase, Lock, Zap, BarChart3 } from "lucide-react";
 import AppShell from "@/components/AppShell";
 import RequireAuth from "@/components/RequireAuth";
-import { apiFetch, clearToken } from "@/lib/api";
+import BusinessTiles from "@/components/BusinessTiles";
+import { useBusinessSections } from "@/lib/businessSections";
 import { fillTerms, useTerms } from "@/lib/useTerms";
-import { useNewLeadsCount } from "@/lib/useNewLeadsCount";
 
-// what the signed-in user may do (/api/auth/me — core/permissions.MANAGER_PERMISSIONS): a manager sees only what the
-// owner allowed him (the owner, 2026-10-13)
-type Perm = "settings" | "receipts" | "money" | "team" | "attendance" | "owner";   // "owner": the owner only
-
-const SECTION_GROUPS: { groupLabel: string; icon: LucideIcon; items: { href: string; label: string; description: string; icon: LucideIcon; gradient: string; module?: string; feature?: string; perm?: Perm }[] }[] = [
-    {
-        groupLabel: "כספים",
-        icon: Wallet,
-        items: [
-            { href: "/payments",    label: "תשלומים",         description: "היסטוריית תשלומים ואישורים",                   icon: CreditCard, gradient: "from-violet-500 to-violet-700" },
-            { href: "/invoices",    label: "חשבוניות",        description: "חשבוניות, קבלות ומסמכים כספיים",               icon: Receipt, gradient: "from-emerald-500 to-emerald-700", perm: "receipts" },
-            { href: "/expenses",    label: "הוצאות עסקיות",   description: "הוצאות, קטגוריות ודוחות",                      icon: BarChart3, gradient: "from-orange-500 to-orange-700", perm: "money" },
-            { href: "/obligations", label: "התחייבויות",      description: "התחייבויות ותשלומים עתידיים",                  icon: Banknote, gradient: "from-red-500 to-red-700", module: "obligations", perm: "money" },
-        ],
-    },
-    {
-        groupLabel: "לקוחות",
-        icon: Users,
-        items: [
-            { href: "/clients",           label: "לקוחות",          description: "רשימה, כרטיס לקוח והיסטוריה",                   icon: Users, gradient: "from-sky-500 to-sky-700", module: "crm" },
-            { href: "/clients?tab=club",  label: "מועדון לקוחות",   description: "חברים, נקודות, לוח אלופים וימי הולדת",           icon: Crown, gradient: "from-amber-500 to-amber-700", module: "customer_club" },
-            { href: "/settings/health-form", label: "הצהרת בריאות",  description: "הטופס שהלקוח ממלא וחותם לפני הטיפול",           icon: HeartPulse, gradient: "from-rose-500 to-rose-700" },
-            { href: "/clients/analytics", label: "אנליטיקת לקוחות", description: "שימור, ערך לקוח, לקוחות שנעלמו ואחוזי המרה",      icon: BarChart3, gradient: "from-violet-500 to-violet-700" },
-            { href: "/wallet",            label: "כרטיס דיגיטלי",    description: "עיצוב כרטיס מועדון ל-Apple/Google Wallet",       icon: Smartphone, gradient: "from-teal-500 to-teal-700", module: "wallet" },
-            { href: "/migration",         label: "ייבוא נתונים",     description: "העברת לקוחות ושירותים ממערכת אחרת או מקובץ Excel", icon: FileUp, gradient: "from-emerald-500 to-emerald-700", module: "migration" },
-            { href: "/export",            label: "ייצוא לאקסל",      description: "הלקוחות והתורים שלך בקובץ אחד — לשמירה או למעבר",  icon: FileDown, gradient: "from-emerald-600 to-teal-700", perm: "owner" },
-        ],
-    },
-    {
-        groupLabel: "צוות ושכר",
-        icon: Users,
-        items: [
-            { href: "/team",         label: "ניהול צוות", description: "{staff_plural}, תפקידים ושיטת תשלום",                     icon: UserCog, gradient: "from-cyan-500 to-cyan-700" },
-            { href: "/team/payroll", label: "דוח שכר",     description: "מי, כמה ומתי — חישוב שכר חודשי לכל עובד/ת + PDF",   icon: Wallet, gradient: "from-blue-500 to-blue-700", perm: "money" },
-            { href: "/activity",     label: "יומן פעילות", description: "מי עשה מה ומתי — קבלות, מחיקות, הנחות, הגדרות וצוות",   icon: History, gradient: "from-slate-600 to-slate-800", perm: "owner" },
-        ],
-    },
-    {
-        groupLabel: "אנליטיקה ותובנות",
-        icon: TrendingUp,
-        items: [
-            { href: "/analytics/business", label: "אנליטיקה עסקית", description: "הכנסות, תורים ושעות עמוסות", icon: BarChart3, gradient: "from-violet-600 to-fuchsia-700",   module: "analytics", perm: "money" },
-        ],
-    },
-    {
-        groupLabel: "שירות לקוחות",
-        icon: Phone,
-        items: [
-            { href: "/calls", label: "שיחות", description: "לוג שיחות, שיוך ללקוחות ויצירת תורים", icon: Phone, gradient: "from-teal-600 to-cyan-700", feature: "voice" },
-        ],
-    },
-    {
-        groupLabel: "תקשורת",
-        icon: Megaphone,
-        items: [
-            { href: "/message-templates", label: "תבניות הודעות", description: "תבניות לוואטסאפ ומייל",                 icon: Mail, gradient: "from-pink-600 to-rose-700", perm: "settings" },
-            { href: "/broadcasts",        label: "תפוצות",        description: "הודעות המוניות ומבצעים",                icon: Send, gradient: "from-amber-600 to-orange-700", module: "broadcasts" },
-            { href: "/wait-list",         label: "רשימת המתנה",   description: "לקוחות הממתינים לתור פנוי",             icon: Clock, gradient: "from-rose-600 to-pink-700",    module: "wait_list" },
-        ],
-    },
-    {
-        groupLabel: "שיעורים ומנויים",
-        icon: CalendarRange,
-        items: [
-            { href: "/classes", label: "שיעורים", description: "לוח השיעורים, שיעורים קבועים, קורסים וחדרים", icon: CalendarRange, gradient: "from-indigo-500 to-violet-700", module: "classes" },
-            { href: "/classes/settings", label: "הגדרות שיעורים ומנויים", description: "הרשמה, ביטולים, רשימת המתנה והודעות ל{client_plural}", icon: SlidersHorizontal, gradient: "from-indigo-500 to-indigo-700", module: "classes" },
-        ],
-    },
-    {
-        groupLabel: "מוצרים ושירותים",
-        icon: Gift,
-        items: [
-            { href: "/products",   label: "מוצרים ומלאי",     description: "קטלוג מוצרים, מחירים ומלאי",             icon: Package, gradient: "from-sky-500 to-sky-700", module: "products" },
-            { href: "/services",   label: "שירותים",          description: "סוגי טיפול, מחירים ומשך זמן",            icon: ConciergeBell, gradient: "from-sky-600 to-cyan-700", module: "services" },
-            { href: "/gift-cards", label: "גיפט קארד וקופונים", description: "קישור למכירת גיפט קארד, קופונים ומעקב",                icon: Gift, gradient: "from-purple-600 to-fuchsia-700", module: "gift_cards" },
-        ],
-    },
-    {
-        groupLabel: "הגדרות מערכת",
-        icon: Settings,
-        items: [
-            { href: "/automation",     label: "הגדרות",          description: "מיתוג, אוטומציות, תשלומים, אינטגרציות והגדרות מייל", icon: Settings, gradient: "from-slate-500 to-slate-700", perm: "settings" },
-            { href: "/help",           label: "מרכז עזרה",       description: "מדריכים, תמיכה ויצירת קשר",                     icon: LifeBuoy, gradient: "from-gray-500 to-gray-700" },
-        ],
-    },
-];
-
+// No PIN on the way in: only the owner and the managers reach this page (RequireAuth, and the server keeps the workers
+// out of what's behind it) — the owner, 2026-10-15. On a phone it shows the small buttons, as the bar's "ניהול עסק" does.
 export default function BusinessPage() {
     const terms = useTerms();   // the business's words in the descriptions
     const router = useRouter();
-    const newLeadsCount = useNewLeadsCount();
-    const plan = usePlan();              // what the business's plan includes — and, for what it doesn't, the plan that does
-    const [isNative] = useState(() => isNativeApp());
-    const [enabledFeatures, setEnabledFeatures] = useState<Record<string, boolean> | null>(null);
-    const [perms, setPerms] = useState<Record<Perm, boolean> | null>(null);
-
-    // No PIN on the way in: only the owner and the managers reach this page (RequireAuth, and the server keeps the
-    // workers out of what's behind it) — the owner, 2026-10-15. On the phone it is the bar's "ניהול עסק" itself.
-    useEffect(() => {
-        apiFetch<Record<string, boolean>>("/api/studio/features/me")
-            .then(setEnabledFeatures)
-            .catch(() => setEnabledFeatures({}));
-        apiFetch<{ role?: string; permissions?: Record<Perm, boolean> }>("/api/auth/me")
-            .then(m => setPerms(m.permissions ? { ...m.permissions, owner: m.role === "owner" } : null))
-            .catch(() => setPerms(null));
-    }, []);
-
-    function logout() {
-        clearToken();
-        router.replace("/login");
-    }
+    const { groups, plan } = useBusinessSections();
 
     return (
         <RequireAuth>
@@ -172,37 +57,15 @@ export default function BusinessPage() {
                     {/* ── The section grid ── */}
                     <div className="bg-gradient-to-b from-slate-50 to-white min-h-screen p-6 space-y-8">
 
-                            {/* on the phone this page is the bar's "ניהול עסק" — the two overview pages the computer's
-                                side menu has, here */}
-                            <div className="md:hidden grid grid-cols-2 gap-3">
-                                {[
-                                    { href: "/overview", label: "סקירה", icon: Compass, badge: newLeadsCount },
-                                    { href: "/dashboard", label: "לוח בקרה", icon: BarChart3, badge: 0 },
-                                ].map(item => (
-                                    <Link key={item.href} href={item.href}
-                                        className="relative flex items-center gap-3 bg-white rounded-2xl border border-slate-100 px-4 py-3.5 active:scale-[0.98] transition-transform">
-                                        <item.icon className="w-6 h-6 shrink-0" style={{ color: "var(--foreground)" }} aria-hidden />
-                                        <span className="font-bold text-slate-900">{item.label}</span>
-                                        {item.badge > 0 && (
-                                            <span className="mr-auto bg-rose-500 text-white text-[11px] font-bold rounded-full min-w-5 h-5 flex items-center justify-center px-1">
-                                                {item.badge > 99 ? "99+" : item.badge}
-                                            </span>
-                                        )}
-                                    </Link>
-                                ))}
+                            {/* on the phone — the small buttons (components/BusinessTiles) */}
+                            <div className="md:hidden bg-white rounded-3xl border border-slate-100 shadow-sm p-4">
+                                <BusinessTiles />
                             </div>
 
-                            {SECTION_GROUPS.map(group => {
-                                const visibleItems = group.items.filter(item => {
-                                    // not in the plan: shown locked on the website when a plan on sale has it; not in the apps
-                                    const moduleOk = !item.module || plan.has(item.module) || (!isNative && !!plan.upgrade(item.module));
-                                    const featureOk = !item.feature || !!enabledFeatures?.[item.feature];
-                                    const permOk = !item.perm || (perms ? perms[item.perm] !== false : item.perm !== "owner");
-                                    return moduleOk && featureOk && permOk;
-                                });
-                                if (visibleItems.length === 0) return null;
+                            {groups.map(group => {
+                                const visibleItems = group.items;
                                 return (
-                                <div key={group.groupLabel}>
+                                <div key={group.groupLabel} className="hidden md:block">
                                     {/* Group header */}
                                     <div className="flex items-center gap-2 mb-4">
                                         <group.icon className="w-5 h-5 text-slate-400" />
@@ -248,11 +111,6 @@ export default function BusinessPage() {
                                 );
                             })}
 
-                            {/* logging out — on the computer it's at the bottom of the side menu */}
-                            <button onClick={logout}
-                                className="md:hidden w-full flex items-center justify-center gap-2 rounded-2xl bg-red-50 text-red-600 font-semibold py-3.5 active:scale-[0.98] transition-transform">
-                                <LogOut className="w-5 h-5" aria-hidden /> התנתקות
-                            </button>
                     </div>
                 </div>
             </AppShell>
