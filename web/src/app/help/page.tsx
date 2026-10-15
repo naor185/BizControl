@@ -6,34 +6,44 @@ import AppShell from "@/components/AppShell";
 import RequireAuth from "@/components/RequireAuth";
 import { useTour } from "@/components/tour/TourProvider";
 import VideoModal from "@/components/tour/VideoModal";
-import { OWNER_START, posterOf, type TourStep } from "@/lib/tours";
+import { TOURS, posterOf, type TourStep } from "@/lib/tours";
 
-// The guide's videos, in the order of its steps — short recordings of the real screens on a phone
+// The guide's videos, path by path in the order of their steps — short recordings of the real screens on a phone.
+// The owner's paths: the help center is the owner's and the managers' (a worker's screens are the calendar — their
+// videos open from the guide's steps).
 function GuideVideos() {
     const [open, setOpen] = useState<TourStep | null>(null);
     return (
-        <section className="mb-8">
-            <h2 className="text-lg font-bold text-slate-800 mb-3">סרטוני הדרכה — הצעדים הראשונים</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                {OWNER_START.map((step, i) => (
-                    <button key={step.id} type="button" onClick={() => setOpen(step)}
-                        className="group text-right bg-white border border-slate-200 rounded-2xl overflow-hidden hover:shadow-md transition">
-                        <span className="relative block aspect-[9/14] bg-sky-800">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={posterOf(step.video)} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
-                            <span className="absolute inset-0 flex items-center justify-center">
-                                <PlayCircle className="w-12 h-12 text-white drop-shadow-lg group-hover:scale-110 transition-transform" aria-hidden />
-                            </span>
-                        </span>
-                        <span className="block px-3 py-2">
-                            <span className="block text-[11px] font-bold text-sky-700">שלב {i + 1}</span>
-                            <span className="block text-sm font-bold text-slate-800">{step.title}</span>
-                        </span>
-                    </button>
-                ))}
-            </div>
-            {open && <VideoModal src={open.video} poster={posterOf(open.video)} title={open.title} onClose={() => setOpen(null)} />}
-        </section>
+        <>
+            {TOURS.filter(t => t.who === "owner").map(t => {
+                const steps = t.steps.filter(s => s.video);
+                if (steps.length === 0) return null;
+                return (
+                    <section key={t.id} className="mb-8">
+                        <h2 className="text-lg font-bold text-slate-800 mb-3">סרטוני הדרכה — {t.title}</h2>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                            {steps.map((step, i) => (
+                                <button key={step.id} type="button" onClick={() => setOpen(step)}
+                                    className="group text-right bg-white border border-slate-200 rounded-2xl overflow-hidden hover:shadow-md transition">
+                                    <span className="relative block aspect-[9/14] bg-sky-800">
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img src={posterOf(step.video!)} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+                                        <span className="absolute inset-0 flex items-center justify-center">
+                                            <PlayCircle className="w-12 h-12 text-white drop-shadow-lg group-hover:scale-110 transition-transform" aria-hidden />
+                                        </span>
+                                    </span>
+                                    <span className="block px-3 py-2">
+                                        <span className="block text-[11px] font-bold text-sky-700">שלב {i + 1}</span>
+                                        <span className="block text-sm font-bold text-slate-800">{step.title}</span>
+                                    </span>
+                                </button>
+                            ))}
+                        </div>
+                    </section>
+                );
+            })}
+            {open?.video && <VideoModal src={open.video} poster={posterOf(open.video)} title={open.title} onClose={() => setOpen(null)} />}
+        </>
     );
 }
 
@@ -46,7 +56,7 @@ function StartTourCard() {
             <GraduationCap className="w-7 h-7 text-sky-600 shrink-0" aria-hidden />
             <div className="flex-1 min-w-48">
                 <div className="font-bold text-slate-800">הדרכה צעד אחר צעד</div>
-                <div className="text-sm text-slate-600">המדריך יוביל אתכם בצעדים הראשונים בתוך המערכת, ויבדוק שכל צעד הצליח.</div>
+                <div className="text-sm text-slate-600">המדריך יוביל אתכם צעד אחר צעד בתוך המערכת, ויבדוק שכל צעד הצליח.</div>
             </div>
             <button type="button" onClick={tour.open} className="bg-sky-600 hover:bg-sky-700 text-white text-sm font-bold px-4 py-2.5 rounded-xl transition">
                 התחלת ההדרכה

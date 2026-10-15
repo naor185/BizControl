@@ -1,20 +1,22 @@
 "use client";
 
-// The guide — "המדריך שלך" (the owner, 2026-10-15): a new business owner learns the first steps inside the system.
-// One step at a time (lib/tours): it says what to do, takes you to the screen, highlights the thing to press there, and
-// moves on only when the server confirms the step really happened (the setup checklist) — with praise. It can be
-// shrunk, skipped step by step, closed, and opened again from the "?" button; its state is kept per user on the server
-// (api/tutorial_routes), so the phone, the computer and the app agree. It never blocks the screen: the highlight lets
-// every click through. Stage 1: the owner's first path.
+// The guide — "המדריך שלך" (the owner, 2026-10-15): a new business owner learns the system inside it, one step at a time
+// (lib/tours): it says what to do, takes you to the screen, highlights the thing to press there, and moves on only when
+// the server confirms the step really happened (api/tutorial_routes /checks) — with praise. Three paths: the owner's
+// first steps (opens by itself once), the owner's working day (offered when the first steps are done), and a worker's
+// first steps (opens by itself once). It can be shrunk, skipped step by step, closed, and opened again from the "?"
+// button; its state is kept per user on the server, so the phone, the computer and the app agree. It never blocks the
+// screen: the highlight lets every click through.
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { ChevronDown, CircleHelp, GraduationCap, PlayCircle, X } from "lucide-react";
-import { apiFetch, getCurrentUserRole, type SetupProgress } from "@/lib/api";
+import { ChevronDown, ChevronLeft, CircleHelp, GraduationCap, PlayCircle, X } from "lucide-react";
+import { apiFetch, getCurrentUserRole } from "@/lib/api";
 import { toast } from "@/lib/toast";
-import { OWNER_START, OWNER_START_ID, posterOf, type TourMove, type TourStep } from "@/lib/tours";
+import { OWNER_START, TOURS, posterOf, type TourDef, type TourMove, type TourStep } from "@/lib/tours";
 import VideoModal from "./VideoModal";
 
 type TourState = { state: "active" | "dismissed" | "done"; skipped: string[] };
+type Checks = Record<string, { applies: boolean; done: boolean }>;
 type TourApi = { available: boolean; open: () => void; startAt: (stepId: string) => void; stepFor: (itemId: string) => string | null };
 
 const TourContext = createContext<TourApi>({ available: false, open: () => {}, startAt: () => {}, stepFor: () => null });
@@ -22,14 +24,16 @@ export const useTour = () => useContext(TourContext);
 
 const MIN_KEY = "bc_tour_minimized";
 const AVOID = ["settings-save", "plan-bar"];   // fixed bars at the bottom the guide mustn't cover
+const WORKERS = ["artist", "staff"];
 const pathOf = (href: string) => href.split("?")[0];
 const hasTab = (href: string) => href.includes("tab=");
 const reducedMotion = () => typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
-function onScreen(name: string): HTMLElement | null {
+// the marked element on the screen (and, for `enabled`, one that can be pressed now)
+function onScreen(name: string, enabled = false): HTMLElement | null {
     for (const el of Array.from(document.querySelectorAll<HTMLElement>(`[data-tour="${name}"]`))) {
         const r = el.getBoundingClientRect();
-        if (r.width > 0 && r.height > 0) return el;
+        if (r.width > 0 && r.height > 0 && !(enabled && el.matches(":disabled"))) return el;
     }
     return null;
 }
@@ -53,10 +57,16 @@ export function TourButton() {
 export default function TourProvider({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
     const router = useRouter();
-    const [isOwner] = useState(() => getCurrentUserRole() === "owner");
-    const [tour, setTour] = useState<TourState | null | undefined>(undefined);   // undefined: not known; null: never started
-    const [progress, setProgress] = useState<SetupProgress | null>(null);
+    const [who] = useState<"owner" | "worker" | null>(() => {
+        const role = getCurrentUserRole();
+        return role === "owner" ? "owner" : role && WORKERS.includes(role) ? "worker" : null;
+    });
+    const mine = useMemo(() => TOURS.filter(t => t.who === who), [who]);
+    const [tours, setTours] = useState<Record<string, TourState> | null>(null);
+    const [checks, setChecks] = useState<Checks | null>(null);
+    const [name, setName] = useState<string | null>(null);
     const [intro, setIntro] = useState(false);
+    const [picking, setPicking] = useState(false);            // "?" with more than one path — which one
     const [focus, setFocus] = useState<string | null>(null);
     const [praise, setPraise] = useState<TourStep | null>(null);
     const [minimized, setMinimizedState] = useState(() => { try { return localStorage.getItem(MIN_KEY) === "1"; } catch { return false; } });
@@ -64,53 +74,72 @@ export default function TourProvider({ children }: { children: React.ReactNode }
     const [panelOnTop, setPanelOnTop] = useState(false);      // the thing to press is low on the screen
     const [barBelow, setBarBelow] = useState(false);          // a bar at the bottom the guide would cover
     const [watching, setWatching] = useState<TourStep | null>(null);   // a step's video, open
-    const doneBefore = useRef<Set<string> | null>(null);
+    const doneBefore = useRef<{ tour: string; ids: Set<string> } | null>(null);
     const scrolledTo = useRef("");
 
     const setMinimized = (v: boolean) => { setMinimizedState(v); try { localStorage.setItem(MIN_KEY, v ? "1" : "0"); } catch { /* fine */ } };
-    const save = useCallback((patch: Partial<TourState>) => {
-        setTour(t => ({ state: "active", skipped: [], ...(t ?? {}), ...patch }));
-        apiFetch(`/api/tutorial/${OWNER_START_ID}`, { method: "PUT", body: JSON.stringify(patch) }).catch(() => { /* next time */ });
+    const save = useCallback((tourId: string, patch: Partial<TourState>) => {
+        setTours(all => ({ ...(all ?? {}), [tourId]: { state: "active", skipped: [], ...(all?.[tourId] ?? {}), ...patch } }));
+        apiFetch(`/api/tutorial/${tourId}`, { method: "PUT", body: JSON.stringify(patch) }).catch(() => { /* next time */ });
     }, []);
-    const loadProgress = useCallback(() => {
-        apiFetch<SetupProgress>("/api/dashboard/setup-progress").then(setProgress).catch(() => { /* next time */ });
+    const loadChecks = useCallback(() => {
+        apiFetch<{ name: string | null; checks: Checks }>("/api/tutorial/checks")
+            .then(r => { setChecks(r.checks); setName(r.name); }).catch(() => { /* next time */ });
     }, []);
 
     useEffect(() => {
-        if (!isOwner) return;
-        apiFetch<Record<string, TourState>>("/api/tutorial").then(all => setTour(all[OWNER_START_ID] ?? null)).catch(() => { /* off */ });
-        loadProgress();
-    }, [isOwner, loadProgress]);
+        if (!who) return;
+        apiFetch<Record<string, TourState>>("/api/tutorial").then(setTours).catch(() => { /* off */ });
+        loadChecks();
+    }, [who, loadChecks]);
 
-    const items = useMemo(() => new Map((progress?.items ?? []).map(i => [i.id, i])), [progress]);
-    // a step is in the path only when its items are in the checklist (in the plan, not marked "not relevant")
-    const steps = useMemo(() => OWNER_START.filter(s => s.confirms.every(id => items.has(id))), [items]);
-    const isDone = useCallback((s: TourStep) => s.confirms.every(id => items.get(id)?.done), [items]);
-    const skipped = tour?.skipped ?? [];
-    const pending = steps.filter(s => !isDone(s) && !skipped.includes(s.id));
+    // a path's steps: those whose checks apply (in the plan, not "not relevant", someone to give a task to…);
+    // a step that only shows something is done once seen
+    const stepsOf = useCallback((t: TourDef) => t.steps.filter(s => s.confirms.every(id => checks?.[id]?.applies)), [checks]);
+    const isDone = useCallback((t: TourDef, s: TourStep) => (s.manual
+        ? !!tours?.[t.id]?.skipped.includes(s.id)
+        : s.confirms.every(id => checks?.[id]?.done)), [checks, tours]);
+    const left = useCallback((t: TourDef) => stepsOf(t).filter(s => !isDone(t, s)), [stepsOf, isDone]);
+
+    const tour = mine.find(t => tours?.[t.id]?.state === "active") ?? null;
+    const state = tour ? tours?.[tour.id] : undefined;
+    const skipped = state?.skipped ?? [];
+    const steps = tour ? stepsOf(tour) : [];
+    const pending = tour ? steps.filter(s => !isDone(tour, s) && !skipped.includes(s.id)) : [];
     const current = (focus ? pending.find(s => s.id === focus) : undefined) ?? pending[0] ?? null;
-    const active = tour?.state === "active";
     const onStepPage = !!current && pathname === pathOf(current.href);
+    const next = tour?.next ? mine.find(t => t.id === tour.next && tours?.[t.id]?.state !== "done") : undefined;
+    const offerNext = next && left(next).length > 0 ? next : undefined;
 
-    // a new owner with steps to do — the guide opens by itself, once (not for the superadmin inside a business)
+    // one path open at a time — the one open before is put aside (or, moving on from a finished one, done)
+    const start = useCallback((t: TourDef, before: "dismissed" | "done" = "dismissed") => {
+        setPicking(false);
+        setPraise(null);
+        setFocus(null);
+        setMinimized(false);
+        mine.forEach(o => { if (o.id !== t.id && tours?.[o.id]?.state === "active") save(o.id, { state: before }); });
+        save(t.id, { state: "active", skipped: [] });
+        setIntro(true);
+    }, [mine, tours, save]);
+
+    // a path that opens by itself — once, for someone with its steps to do (not for the superadmin inside a business)
     useEffect(() => {
-        if (tour !== null || !progress || !isOwner) return;
+        if (!tours || !checks || tour) return;
         let impersonating = false;
         try { impersonating = !!sessionStorage.getItem("admin_return"); } catch { /* fine */ }
-        if (impersonating || !steps.some(s => !isDone(s))) return;
-        setIntro(true);
-        setMinimized(false);
-        save({ state: "active" });
+        if (impersonating) return;
+        const fresh = mine.find(t => t.auto && !tours[t.id] && left(t).length > 0);
+        if (fresh) start(fresh);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [tour, progress]);
+    }, [tours, checks]);
 
     // a step that just became done — praise
     useEffect(() => {
-        if (!progress) return;
-        const nowDone = new Set(steps.filter(isDone).map(s => s.id));
-        const before = doneBefore.current;
-        doneBefore.current = nowDone;
-        if (!before || !active) return;
+        if (!tour || !checks) { doneBefore.current = null; return; }
+        const nowDone = new Set(steps.filter(s => !s.manual && isDone(tour, s)).map(s => s.id));
+        const before = doneBefore.current?.tour === tour.id ? doneBefore.current.ids : null;
+        doneBefore.current = { tour: tour.id, ids: nowDone };
+        if (!before) return;
         const fresh = steps.find(s => nowDone.has(s.id) && !before.has(s.id));
         if (fresh) {
             setPraise(fresh);
@@ -118,28 +147,28 @@ export default function TourProvider({ children }: { children: React.ReactNode }
             celebrate();
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [progress]);
+    }, [checks, tour?.id]);
 
     // checking: on moving between screens, and every few seconds on the step's own screen
     useEffect(() => {
-        if (!active || !current) return;
-        loadProgress();
+        if (!tour || !current || current.manual) return;
+        loadChecks();
         if (!onStepPage) return;
-        const t = setInterval(loadProgress, 3000);
+        const t = setInterval(loadChecks, 3000);
         return () => clearInterval(t);
-    }, [active, current, onStepPage, pathname, loadProgress]);
+    }, [tour, current, onStepPage, pathname, loadChecks]);
 
     // the thing to press now — the first move that applies and is on the screen
     useEffect(() => {
         scrolledTo.current = "";
     }, [current]);
     useEffect(() => {
-        if (!active || !current || !onStepPage || minimized || praise || intro) { setShown(null); setPanelOnTop(false); return; }
+        if (!tour || !current || !onStepPage || minimized || praise || intro) { setShown(null); setPanelOnTop(false); return; }
         const tick = () => {
             let found: { move: TourMove; el: HTMLElement } | null = null;
             for (const move of current.moves) {
-                if (move.unless && items.get(move.unless)?.done) continue;
-                const el = onScreen(move.target);
+                if (move.unless && checks?.[move.unless]?.done) continue;
+                const el = onScreen(move.target, move.enabled);
                 if (el) { found = { move, el }; break; }
             }
             if (!found) { setShown(null); setPanelOnTop(false); return; }
@@ -155,75 +184,113 @@ export default function TourProvider({ children }: { children: React.ReactNode }
         tick();
         const t = setInterval(tick, 300);
         return () => clearInterval(t);
-    }, [active, current, onStepPage, minimized, praise, intro, items]);
+    }, [tour, current, onStepPage, minimized, praise, intro, checks]);
 
     // the bars at the bottom — on every screen the guide is open on
     useEffect(() => {
-        if (!active || minimized) { setBarBelow(false); return; }
+        if (!tour || minimized) { setBarBelow(false); return; }
         const check = () => setBarBelow(AVOID.some(name => !!onScreen(name)));
         check();
         const t = setInterval(check, 800);
         return () => clearInterval(t);
-    }, [active, minimized, pathname]);
+    }, [tour, minimized, pathname]);
 
     const go = useCallback((step: TourStep) => {
         setIntro(false);
         setFocus(step.id);
-        // a settings tab — the page reads it when it opens
-        if (pathname === pathOf(step.href) && hasTab(step.href)) window.location.assign(step.href);
-        else router.push(step.href);
+        if (pathname === pathOf(step.href)) {
+            // a settings tab — the page reads it when it opens
+            if (hasTab(step.href)) window.location.assign(step.href);
+        } else router.push(step.href);
     }, [pathname, router]);
 
     const api: TourApi = useMemo(() => ({
-        available: isOwner,
+        available: !!who && mine.length > 0,
         open: () => {
             setMinimized(false);
-            if (tour?.state !== "active") { save({ state: "active", skipped: [] }); setIntro(true); }
+            if (tour) return;
+            if (mine.length === 1) start(mine[0]);
+            else setPicking(true);
         },
         startAt: (stepId: string) => {
-            const step = OWNER_START.find(s => s.id === stepId);
-            if (!step) return;
+            const t = mine.find(o => o.steps.some(s => s.id === stepId));
+            const step = t?.steps.find(s => s.id === stepId);
+            if (!t || !step) return;
             setMinimized(false);
             setPraise(null);
-            save({ state: "active", skipped: (tour?.skipped ?? []).filter(s => s !== stepId) });
+            setPicking(false);
+            mine.forEach(o => { if (o.id !== t.id && tours?.[o.id]?.state === "active") save(o.id, { state: "dismissed" }); });
+            save(t.id, { state: "active", skipped: (tours?.[t.id]?.skipped ?? []).filter(s => s !== stepId) });
             go(step);
         },
-        stepFor: (itemId: string) => (isOwner ? OWNER_START.find(s => s.confirms.includes(itemId))?.id ?? null : null),
-    }), [isOwner, tour, go, save]);
+        stepFor: (itemId: string) => (who === "owner" ? OWNER_START.steps.find(s => s.confirms.includes(itemId))?.id ?? null : null),
+    }), [who, mine, tour, tours, go, save, start]);
 
     useEffect(() => {
-        if (!active || minimized || watching) return;          // Esc over a video closes the video only
-        const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setMinimized(true); };
+        if (!(tour || picking) || minimized || watching) return;          // Esc over a video closes the video only
+        const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") { if (picking) setPicking(false); else setMinimized(true); } };
         window.addEventListener("keydown", onKey);
         return () => window.removeEventListener("keydown", onKey);
-    }, [active, minimized, watching]);
+    }, [tour, picking, minimized, watching]);
 
     const close = () => {
-        save({ state: "dismissed" });
+        if (picking) { setPicking(false); return; }
+        if (tour) save(tour.id, { state: "dismissed" });
         toast.info("אפשר לפתוח את המדריך שוב בכל רגע מהכפתור ? למעלה");
     };
-    const skip = (step: TourStep) => { setFocus(null); save({ skipped: [...skipped, step.id] }); };
+    const skip = (step: TourStep) => { if (!tour) return; setFocus(null); save(tour.id, { skipped: [...skipped, step.id] }); };
+    const seen = (step: TourStep) => {                       // a step that only shows something — on to the next
+        if (!tour) return;
+        skip(step);
+        const after = pending.find(s => s.id !== step.id);
+        if (after) go(after);
+    };
     const afterPraise = () => {
         setPraise(null);
         setFocus(null);
-        const next = pending[0];
-        if (next) go(next);
+        if (pending[0]) go(pending[0]);
     };
 
-    const showGuide = isOwner && active && !!progress && steps.length > 0;
-    const finished = showGuide && !praise && !intro && pending.length === 0;
-    const doneCount = steps.filter(isDone).length;
+    const showGuide = !!who && !!checks && ((!!tour && steps.length > 0) || picking);
+    const finished = !!tour && !picking && !praise && !intro && pending.length === 0;
+    const doneCount = tour ? steps.filter(s => isDone(tour, s)).length : 0;
     const index = current ? steps.indexOf(current) : -1;
-    const name = progress?.owner_first_name;
 
     let body: React.ReactNode = null;
     let buttons: React.ReactNode = null;
     const primary = "flex-1 min-h-11 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-sm font-bold transition";
     const secondary = "min-h-11 px-4 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-100 transition";
-    if (intro) {
+    if (picking) {
         body = <>
-            <p className="font-bold text-slate-900">היי{name ? ` ${name}` : ""}! אני המדריך שלך ב-BizControl.</p>
-            <p className="mt-1">נעבור יחד על הצעדים הראשונים: {steps.map(s => s.title).join(", ")}. כל צעד לוקח דקה או שתיים, ואני בודק שהוא באמת הצליח.</p>
+            <p className="font-bold text-slate-900">במה נתחיל?</p>
+            <div className="mt-2 space-y-2">
+                {mine.map(t => {
+                    const all = stepsOf(t);
+                    if (all.length === 0) return null;
+                    const did = all.filter(s => isDone(t, s)).length;
+                    return (
+                        <button key={t.id} type="button" onClick={() => start(t)}
+                            className="w-full min-h-12 flex items-center gap-3 rounded-2xl border border-slate-200 px-3 py-2 text-right hover:border-sky-300 hover:bg-sky-50 transition">
+                            <span className="flex-1 min-w-0">
+                                <span className="block font-bold text-slate-800">{t.title}</span>
+                                <span className="block text-xs text-slate-500">{all.map(s => s.title).join(" · ")}</span>
+                            </span>
+                            <span className={`shrink-0 text-xs font-bold tabular-nums ${did === all.length ? "text-emerald-700" : "text-slate-500"}`}>{did}/{all.length}</span>
+                            <ChevronLeft className="w-4 h-4 shrink-0 text-slate-400" aria-hidden />
+                        </button>
+                    );
+                })}
+            </div>
+        </>;
+    } else if (intro && tour) {
+        const withMoney = steps.some(s => s.later);
+        body = <>
+            <p className="font-bold text-slate-900">היי{name ? ` ${name}` : ""}!</p>
+            <p className="mt-1">
+                {tour.welcome}: {steps.map(s => s.title).join(", ")}. {withMoney
+                    ? "צעד עם כסף — מכירה או מקדמה — לא עושים בשביל התרגול: אני מראה איך, ובודק אותו במכירה האמיתית הבאה. "
+                    : ""}כל צעד לוקח דקה או שתיים, ואני בודק שהוא באמת הצליח.
+            </p>
         </>;
         buttons = <>
             <button type="button" className={primary} onClick={() => (pending[0] ? go(pending[0]) : setIntro(false))}>בואו נתחיל</button>
@@ -232,25 +299,36 @@ export default function TourProvider({ children }: { children: React.ReactNode }
     } else if (praise) {
         body = <p><span className="font-black text-emerald-700">מעולה!</span> {praise.done}</p>;
         buttons = <button type="button" className={primary} onClick={afterPraise}>{pending.length ? "לשלב הבא" : "סיום"}</button>;
-    } else if (finished) {
+    } else if (finished && tour) {
         body = <>
-            <p className="font-black text-emerald-700">כל הכבוד, סיימת את הצעדים הראשונים!</p>
-            <p className="mt-1">עוד צעדים מומלצים מחכים ברשימת &quot;הקמת העסק&quot; במסך הסקירה, ובמרכז העזרה יש מדריך לכל מסך.</p>
+            <p className="font-black text-emerald-700">כל הכבוד, סיימת את &quot;{tour.title}&quot;!</p>
+            <p className="mt-1">{offerNext ? `הצעד הבא: "${offerNext.title}" — ${offerNext.steps.map(s => s.title).join(", ")}.` : tour.finish}</p>
         </>;
-        buttons = <button type="button" className={primary} onClick={() => save({ state: "done" })}>סגירה</button>;
+        buttons = offerNext ? <>
+            <button type="button" className={primary} onClick={() => start(offerNext, "done")}>ממשיכים</button>
+            <button type="button" className={secondary} onClick={() => save(tour.id, { state: "done" })}>בפעם אחרת</button>
+        </> : <button type="button" className={primary} onClick={() => save(tour.id, { state: "done" })}>סגירה</button>;
     } else if (current) {
         const say = onStepPage && shown ? shown.move.say : null;
         body = <>
             <p className="font-bold text-slate-900">{current.title}</p>
             <p className="mt-1">{say ?? current.intro}</p>
-            <button type="button" onClick={() => setWatching(current)}
-                className="mt-2 inline-flex items-center gap-1.5 text-sm font-bold text-sky-700 hover:text-sky-900">
-                <PlayCircle className="w-4 h-4" aria-hidden /> צפו בסרטון קצר
-            </button>
+            {current.video && (
+                <button type="button" onClick={() => setWatching(current)}
+                    className="mt-2 inline-flex items-center gap-1.5 text-sm font-bold text-sky-700 hover:text-sky-900">
+                    <PlayCircle className="w-4 h-4" aria-hidden /> צפו בסרטון קצר
+                </button>
+            )}
         </>;
-        buttons = <>
-            {!say && <button type="button" className={primary} onClick={() => go(current)}>קחו אותי לשם</button>}
-            <button type="button" className={say ? `${secondary} mr-auto` : secondary} onClick={() => skip(current)}>דילוג על השלב</button>
+        buttons = current.manual ? <>
+            {onStepPage
+                ? <button type="button" className={primary} onClick={() => seen(current)}>הבנתי</button>
+                : <button type="button" className={primary} onClick={() => go(current)}>קחו אותי לשם</button>}
+        </> : <>
+            {!say && <button type="button" className={primary} onClick={() => go(current)}>{current.later ? "הראו לי איפה" : "קחו אותי לשם"}</button>}
+            <button type="button" className={say ? `${secondary} mr-auto` : secondary} onClick={() => skip(current)}>
+                {current.later ? "אעשה את זה בפעם הבאה" : "דילוג על השלב"}
+            </button>
         </>;
     }
 
@@ -258,12 +336,12 @@ export default function TourProvider({ children }: { children: React.ReactNode }
     return (
         <TourContext.Provider value={api}>
             {children}
-            {showGuide && r && !minimized && (
+            {showGuide && tour && r && !minimized && (
                 <div aria-hidden className="fixed z-[1090] pointer-events-none rounded-xl"
                     style={{ top: r.top - 6, left: r.left - 6, width: r.width + 12, height: r.height + 12,
                              boxShadow: "0 0 0 3px #38bdf8, 0 0 0 9999px rgba(15, 23, 42, 0.38)" }} />
             )}
-            {showGuide && minimized && (
+            {showGuide && tour && minimized && (
                 <button type="button" onClick={() => setMinimized(false)} aria-label="פתיחת המדריך"
                     className="fixed z-[1100] right-4 bottom-[calc(140px+env(safe-area-inset-bottom,0px))] md:right-auto md:left-6 md:bottom-6 w-14 h-14 rounded-full bg-sky-600 text-white shadow-xl flex items-center justify-center">
                     <GraduationCap className="w-6 h-6" aria-hidden />
@@ -283,26 +361,33 @@ export default function TourProvider({ children }: { children: React.ReactNode }
                         <div className="flex-1 min-w-0">
                             <div className="text-sm font-black text-slate-800">המדריך שלך</div>
                             <div className="text-[11px] text-slate-500">
-                                {finished ? "הכול הושלם" : index >= 0 && !intro ? `שלב ${index + 1} מתוך ${steps.length}` : `${steps.length} צעדים ראשונים`}
+                                {picking || !tour ? "הדרכה צעד אחר צעד"
+                                    : finished ? `${tour.title} · הכול הושלם`
+                                    : index >= 0 && !intro ? `${tour.title} · שלב ${index + 1} מתוך ${steps.length}`
+                                    : `${tour.title} · ${steps.length} צעדים`}
                             </div>
                         </div>
-                        <button type="button" onClick={() => setMinimized(true)} aria-label="הקטנת המדריך" className="w-9 h-9 flex items-center justify-center rounded-full text-slate-400 hover:bg-slate-100">
-                            <ChevronDown className="w-5 h-5" aria-hidden />
-                        </button>
+                        {tour && !picking && (
+                            <button type="button" onClick={() => setMinimized(true)} aria-label="הקטנת המדריך" className="w-9 h-9 flex items-center justify-center rounded-full text-slate-400 hover:bg-slate-100">
+                                <ChevronDown className="w-5 h-5" aria-hidden />
+                            </button>
+                        )}
                         <button type="button" onClick={close} aria-label="סגירת ההדרכה" className="w-9 h-9 flex items-center justify-center rounded-full text-slate-400 hover:bg-slate-100">
                             <X className="w-5 h-5" aria-hidden />
                         </button>
                     </div>
                     <div aria-live="polite" className="mt-3 text-sm text-slate-700 leading-relaxed">{body}</div>
-                    <div className="mt-3 flex items-center gap-2">{buttons}</div>
-                    <div className="mt-3 flex items-center justify-center gap-1.5" aria-label={`הושלמו ${doneCount} מתוך ${steps.length}`}>
-                        {steps.map(s => (
-                            <span key={s.id} className={`h-1.5 rounded-full transition-all ${isDone(s) ? "w-6 bg-emerald-500" : s === current ? "w-6 bg-sky-500" : "w-3 bg-slate-200"}`} />
-                        ))}
-                    </div>
+                    {buttons && <div className="mt-3 flex items-center gap-2">{buttons}</div>}
+                    {tour && !picking && (
+                        <div className="mt-3 flex items-center justify-center gap-1.5" aria-label={`הושלמו ${doneCount} מתוך ${steps.length}`}>
+                            {steps.map(s => (
+                                <span key={s.id} className={`h-1.5 rounded-full transition-all ${isDone(tour, s) ? "w-6 bg-emerald-500" : s === current ? "w-6 bg-sky-500" : "w-3 bg-slate-200"}`} />
+                            ))}
+                        </div>
+                    )}
                 </div>
             )}
-            {watching && (
+            {watching?.video && (
                 <VideoModal src={watching.video} poster={posterOf(watching.video)} title={watching.title} onClose={() => setWatching(null)} />
             )}
         </TourContext.Provider>

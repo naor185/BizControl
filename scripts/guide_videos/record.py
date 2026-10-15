@@ -1,6 +1,9 @@
-"""The guide's videos (web/public/guide) — screen recordings of its five steps at a phone's size, in order: a title
-card, a Hebrew caption for every action, a circle where the finger taps, and "מעולה!" only after the save really
-succeeded. LOCAL ONLY: the dev database, a new demo business with sample details (no real people); nothing is sent.
+"""The guide's videos (web/public/guide) — screen recordings of its steps at a phone's size, in order: a title card, a
+Hebrew caption for every action, a circle where the finger taps, and "מעולה!" only after the save really succeeded.
+The paths (web/src/lib/tours.ts): the owner's first steps (business service client appointment payment), the owner's
+working day (pos_sale deposit worker_task — 2026-10-15) and a worker's first steps (clock task_done).
+LOCAL ONLY: the dev database, a new demo business with sample details (no real people); the API runs without its
+scheduler, so nothing is sent — and the messages a step queued are deleted at the end.
 
 Run again when a recorded screen changes (2026-10-15):
   1. docker compose up -d db
@@ -8,10 +11,11 @@ Run again when a recorded screen changes (2026-10-15):
        openssl req -x509 -newkey rsa:2048 -nodes -keyout key.pem -out cert.pem -days 7 -subj "/CN=localhost"
          -addext "subjectAltName=DNS:localhost,IP:127.0.0.1"
   3. the API:  ALLOWED_ORIGINS=http://localhost:3005 DATABASE_URL=postgresql://bizcontrol:bizcontrol@localhost:5433/bizcontrol_dev
-               JWT_SECRET=local-dev-only-secret DISABLE_SCHEDULER=1
+               JWT_SECRET=local-dev-only-secret DISABLE_SCHEDULER=1 ACCESS_TOKEN_MINUTES=1440
+               (a day's sign-in: the working day's videos run on tomorrow morning's clock)
                python -m uvicorn app.main:app --host 127.0.0.1 --port 8001 --ssl-keyfile key.pem --ssl-certfile cert.pem
      the web:  (in web/) NEXT_PUBLIC_API_BASE=https://localhost:8001 npx next dev -p 3005
-  4. python scripts/guide_videos/record.py <work dir> [business service client appointment payment]
+  4. python scripts/guide_videos/record.py <work dir> [step names — all when none]
   5. python scripts/guide_videos/edit.py <work dir> web/public/guide      (needs: pip install imageio-ffmpeg)
 Frames come from the browser's own screencast at twice the phone's pixels; the edit makes H.264 .mp4 + a cover .jpg."""
 import json, random, sys, time, pathlib, warnings
@@ -90,9 +94,10 @@ OVERLAY = r"""
 STEPS_TOTAL = 5
 
 
-def record(name, start_path, script):
+def record(name, start_path, script, as_token=None, morning=False):
     """The page at a phone's full resolution, frame by frame (the browser's own screencast) — each frame with its time,
-    from the first card to the last; the edit makes the video from them."""
+    from the first card to the last; the edit makes the video from them. `as_token`: whose screen (the owner's when
+    none); `morning`: the browser's clock at 10:00 the next day, where the working day's demo items wait."""
     import base64, shutil
     frames_dir = OUT / f"frames_{name}"
     shutil.rmtree(frames_dir, ignore_errors=True)
@@ -104,7 +109,9 @@ def record(name, start_path, script):
                             timezone_id="Asia/Jerusalem", ignore_https_errors=True)
         ctx.set_default_timeout(60000)
         ctx.add_init_script(OVERLAY)
-        ctx.add_init_script(f"try {{ localStorage.setItem('bizcontrol_token', '{token}'); localStorage.setItem('biz_hide_selfbooking_banner', '1'); localStorage.setItem('bc_tour_minimized', '1'); }} catch (e) {{}}")
+        if morning:
+            ctx.clock.set_fixed_time(MORNING)
+        ctx.add_init_script(f"try {{ localStorage.setItem('bizcontrol_token', '{as_token or token}'); localStorage.setItem('biz_hide_selfbooking_banner', '1'); localStorage.setItem('bc_tour_minimized', '1'); }} catch (e) {{}}")
         pg = ctx.new_page()
         pg.goto(f"{WEB}{start_path}", wait_until="commit")
         pg.wait_for_selector("nav.fixed", timeout=120000)
@@ -271,9 +278,174 @@ def step_payment(pg):
     card(pg, "", "מעולה!", "אמצעי התשלום נשמר ומופיע בדף התשלום של הלקוחות", ok=True)
 
 
-STEPS = [("business", "/calendar", step_business), ("service", "/calendar", step_service), ("client", "/calendar", step_client),
-         ("appointment", "/calendar", step_appointment), ("payment", "/calendar", step_payment)]
-for name, start, script in STEPS:
-    if ONLY and name not in ONLY:
-        continue
-    record(name, start, script)
+# ── the owner's working day and a worker's first steps (2026-10-15) ──
+# Their demo items wait at 10:00–13:00 the next day, and the browser's clock says it's 10:00 then — a calm morning in
+# the calendar, nothing overdue (the server's clock is the real one, and to it they are in the future).
+import base64
+import datetime as _dt
+import pytz
+IL = pytz.timezone("Asia/Jerusalem")
+DAY = (_dt.datetime.now(IL) + _dt.timedelta(days=1)).date()
+MORNING = IL.localize(_dt.datetime.combine(DAY, _dt.time(10, 0)))
+WORKER = {}
+
+
+def api(method, path, h=None, **kw):
+    r = requests.request(method, f"{API}{path}", headers=h or H, verify=False, **kw)
+    assert r.status_code < 300, (path, r.status_code, r.text[:300])
+    return r.json() if r.text else None
+
+
+def working_day():
+    """The demo business's working day: a service and a client, a worker paid by the hour, an appointment whose client
+    said they paid the deposit (with the picture they sent), a task for the worker. Once per run."""
+    if WORKER:
+        return
+    claims = json.loads(base64.urlsafe_b64decode(token.split(".")[1] + "=="))
+    if claims["exp"] < MORNING.timestamp() + 3600:
+        sys.exit("The API's sign-in ends before tomorrow morning — run it with ACCESS_TOKEN_MINUTES=1440 (see the top)")
+    api("PUT", "/api/tutorial/owner_workday", json={"state": "done"})                 # no guide over the video
+    api("POST", "/api/services", json={"name": "קעקוע קטן", "price_cents": 30000, "duration_minutes": 60})
+    client = api("POST", "/api/clients", json={"full_name": "דנה לוי", "phone": "0501234567"})
+    me = api("GET", "/api/auth/me")
+
+    def at(hh, mm):
+        return IL.localize(_dt.datetime.combine(DAY, _dt.time(hh, mm))).astimezone(_dt.timezone.utc).isoformat()
+    appt = api("POST", "/api/appointments", json={"client_id": client["id"], "artist_id": me["id"], "title": "קעקוע קטן",
+                                                   "starts_at": at(11, 0), "ends_at": at(12, 0), "deposit_amount_cents": 10000})
+    w_email = f"yossi{n}@example.com"
+    worker = api("POST", "/api/users/artists", json={"email": w_email, "password": "password123", "display_name": "יוסי", "role": "artist"})
+    con = psycopg2.connect("postgresql://bizcontrol:bizcontrol@localhost:5433/bizcontrol_dev")
+    with con, con.cursor() as cur:
+        cur.execute("UPDATE users SET email_verified = true, pay_type = 'hourly' WHERE email = %s", (w_email,))
+        cur.execute("UPDATE appointments SET payment_sent_at = now() - interval '20 minutes' WHERE id = %s", (appt["id"],))
+    con.close()
+    w_token = requests.post(f"{API}/api/auth/login-by-email", json={"email": w_email, "password": "password123"}, verify=False).json()["access_token"]
+    wh = {"Authorization": f"Bearer {w_token}"}
+    api("PUT", "/api/tutorial/worker_start", h=wh, json={"state": "done"})
+    api("POST", "/api/tasks", json={"title": "להזמין דיו שחור", "task_date": DAY.isoformat(), "start_time": "10:30",
+                                     "end_time": "11:00", "assignee_id": worker["id"]})
+    WORKER.update(token=w_token, appt=appt["id"])
+
+
+def press_long(pg, hour, day):
+    """A long press on the calendar at an hour of a day (a phone's way to pick an empty hour) — the mouse, held, with the
+    tap circle drawn."""
+    row = pg.locator(f".fc-timegrid-slot-lane[data-time='{hour}:00']").first
+    row.scroll_into_view_if_needed()
+    pg.wait_for_timeout(500)
+    rb = row.bounding_box()
+    cb = pg.locator(f".fc-timegrid-col[data-date='{day.isoformat()}']").first.bounding_box()
+    x, y = cb["x"] + cb["width"] / 2, rb["y"] + rb["height"] / 2
+    pg.evaluate("([x, y]) => { const t = document.createElement('div'); t.className = 'rec-tap'; t.style.left = x + 'px';"
+                " t.style.top = y + 'px'; document.body.appendChild(t); setTimeout(() => t.remove(), 700); }", [x, y])
+    pg.mouse.move(x, y)
+    pg.mouse.down()
+    pg.wait_for_timeout(450)
+    pg.mouse.up()
+    pg.wait_for_timeout(1200)
+
+
+def step_pos_sale(pg):
+    tag = "יום עבודה · שלב 1 מתוך 3 · מכירה בקופה"
+    card(pg, "יום עבודה · שלב 1 מתוך 3", "מכירה בקופה", "הקופה רושמת את התשלום ומפיקה קבלה ללקוח")
+    cap(pg, tag, "לוחצים על \"קופה\" בשורה התחתונה", 1200)
+    tap(pg, pg.locator("nav.fixed a[href='/pos']"), after=2500)
+    cap(pg, tag, "בוחרים את השירות שנמכר — המחיר מתמלא לבד", 900)
+    tap(pg, pg.locator("[data-tour=pos-services]:visible button:has-text('קעקוע קטן')"), after=1200)
+    cap(pg, tag, "(אפשר גם להקליד מחיר במקלדת)", 1500)
+    cap(pg, tag, "לוחצים על \"+ הוסף לעגלה\"", 900)
+    tap(pg, pg.locator("[data-tour=pos-add]:visible"), after=1800)
+    cap(pg, tag, "בוחרים איך הלקוח שילם", 900)
+    tap(pg, pg.locator("button:visible:has-text('מזומן')").last, after=900)
+    cap(pg, tag, "ולוחצים על \"גבה\"", 900)
+    tap(pg, pg.locator("[data-tour=pos-checkout]:visible"), after=400)
+    pg.get_by_text("תשלום בוצע!").first.wait_for()            # really sold — or the recording stops here
+    pg.wait_for_timeout(2000)
+    cap(pg, tag, "")
+    card(pg, "", "מעולה!", "המכירה נרשמה והקבלה הופקה", ok=True)
+
+
+def step_deposit(pg):
+    tag = "יום עבודה · שלב 2 מתוך 3 · אישור מקדמה"
+    card(pg, "יום עבודה · שלב 2 מתוך 3", "אישור מקדמה", "לקוח שילם מקדמה ולחץ \"שילמתי\" — מאשרים, וזה מפיק קבלה")
+    cap(pg, tag, "ביומן, תור שהלקוח דיווח ששילם מסומן בפעמון — לוחצים עליו", 1600)
+    tap(pg, pg.locator(".fc-event:has-text('דנה לוי')"), after=1600)
+    cap(pg, tag, "כאן רואים שהלקוח דיווח ששילם", 1800)
+    cap(pg, tag, "לוחצים על \"אישור המקדמה\"", 900)
+    tap(pg, pg.locator("[data-tour=deposit-approve]"), after=1500)
+    cap(pg, tag, "בוחרים באיזה אמצעי התקבלה המקדמה", 900)
+    tap(pg, pg.locator("[data-tour=deposit-confirm] button:has-text('Bit')"), after=900)
+    cap(pg, tag, "ולוחצים על \"אשר וצור קבלה\"", 900)
+    tap(pg, pg.locator("button:has-text('אשר וצור קבלה')"), after=400)
+    pg.get_by_text("קבלה נוצרה!").first.wait_for()
+    pg.wait_for_timeout(2000)
+    cap(pg, tag, "")
+    card(pg, "", "מעולה!", "המקדמה אושרה והקבלה הופקה", ok=True)
+
+
+def step_worker_task(pg):
+    tag = "יום עבודה · שלב 3 מתוך 3 · משימה לעובד"
+    card(pg, "יום עבודה · שלב 3 מתוך 3", "משימה לעובד", "העובד מקבל הודעה, ותזכורת כל עוד לא סימן \"בוצע\"")
+    cap(pg, tag, "ביומן לוחצים לחיצה ארוכה על שעה פנויה", 1400)
+    press_long(pg, "13:00", DAY)
+    cap(pg, tag, "בוחרים \"משימה / תזכורת\"", 900)
+    tap(pg, pg.locator("[data-tour=type-task]"), after=1500)
+    cap(pg, tag, "כותבים מה צריך לעשות", 500)
+    type_in(pg, pg.locator("input[placeholder^='לדוגמה: ארנונה']"), "לנקות את חדר הטיפולים")
+    cap(pg, tag, "ובוחרים ב\"למי המשימה\" את העובד", 1000)
+    pg.locator("[data-tour=task-assignee] select").select_option(label="יוסי")
+    pg.wait_for_timeout(1500)
+    cap(pg, tag, "ולוחצים על \"הוסף משימה\"", 900)
+    tap(pg, pg.locator("button:has-text('הוסף משימה')"), after=400)
+    pg.locator("[data-tour=task-assignee]").wait_for(state="hidden")
+    pg.wait_for_timeout(2000)
+    cap(pg, tag, "")
+    card(pg, "", "מעולה!", "המשימה נמסרה — יוסי קיבל הודעה", ok=True)
+
+
+def step_clock(pg):
+    tag = "לעובדים · החתמת כניסה"
+    card(pg, "לעובדים", "החתמת כניסה", "בתחילת יום עבודה מחתימים כניסה, ובסופו יציאה — השעות נכנסות לשכר")
+    pg.evaluate("() => { const c = document.getElementById('rec-cap'); c.style.top = 'auto';"     # the button is up there
+                " c.style.bottom = 'calc(96px + env(safe-area-inset-bottom, 0px))'; }")
+    cap(pg, tag, "מגיעים לעבודה? לוחצים למעלה על \"כניסה\"", 1500)
+    tap(pg, pg.locator("[data-tour=clock]"), after=400)
+    pg.get_by_text("כניסה נרשמה בהצלחה").first.wait_for()
+    pg.wait_for_timeout(1500)
+    cap(pg, tag, "בסוף היום לוחצים באותו מקום על \"יציאה\"", 2200)
+    cap(pg, tag, "")
+    card(pg, "", "מעולה!", "הכניסה נרשמה", ok=True)
+
+
+def step_task_done(pg):
+    tag = "לעובדים · סימון משימה"
+    card(pg, "לעובדים", "סימון משימה", "משימה שקיבלתם מופיעה ביומן — כשמסיימים, מסמנים \"בוצע\"")
+    cap(pg, tag, "לוחצים על המשימה ביומן", 1300)
+    tap(pg, pg.locator("[data-tour=task-item]"), after=1600)
+    cap(pg, tag, "סיימתם? לוחצים על \"בוצע\"", 1000)
+    tap(pg, pg.locator("[data-tour=task-done]"), after=400)
+    pg.get_by_text("המשימה סומנה כבוצעה").first.wait_for()      # really marked — the calendar says so
+    pg.wait_for_timeout(1800)
+    cap(pg, tag, "")
+    card(pg, "", "מעולה!", "המשימה סומנה — בעל העסק קיבל עדכון", ok=True)
+
+
+STEPS = [("business", step_business, {}), ("service", step_service, {}), ("client", step_client, {}),
+         ("appointment", step_appointment, {}), ("payment", step_payment, {}),
+         ("pos_sale", step_pos_sale, {"day": True}), ("deposit", step_deposit, {"day": True}),
+         ("worker_task", step_worker_task, {"day": True}),
+         ("clock", step_clock, {"day": True, "worker": True}), ("task_done", step_task_done, {"day": True, "worker": True})]
+try:
+    for name, script, how in STEPS:
+        if ONLY and name not in ONLY:
+            continue
+        if how.get("day"):
+            working_day()
+        record(name, "/calendar", script, as_token=WORKER["token"] if how.get("worker") else None, morning=bool(how.get("day")))
+finally:
+    con = psycopg2.connect("postgresql://bizcontrol:bizcontrol@localhost:5433/bizcontrol_dev")
+    with con, con.cursor() as cur:                       # what the demo queued — never sent (no scheduler), now gone
+        cur.execute("DELETE FROM message_jobs WHERE studio_id = (SELECT studio_id FROM users WHERE email = %s)", (email,))
+        print("demo messages removed:", cur.rowcount)
+    con.close()

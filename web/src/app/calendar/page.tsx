@@ -1698,7 +1698,7 @@ function Calendar() {
                                 if (p.isTask) {
                                     const TaskIcon = p.done ? CircleCheck : p.overdue ? TriangleAlert : p.is_recurring ? Repeat : Pin;
                                     return (
-                                        <div className="@container h-full w-full overflow-hidden">
+                                        <div className="@container h-full w-full overflow-hidden" data-tour={p.done ? undefined : "task-item"}>
                                         <div className="px-1 md:px-1.5 py-0.5 h-full w-full text-[11px] @max-[3.5rem]:text-[9.5px] font-semibold leading-tight whitespace-normal break-words @max-[1.75rem]:[writing-mode:vertical-rl] @max-[1.75rem]:rotate-180 @max-[1.75rem]:px-0">
                                             {!arg.event.allDay && (
                                                 <div className="tabular-nums whitespace-nowrap @max-[1.75rem]:hidden">
@@ -1785,7 +1785,7 @@ function Calendar() {
                                         </a>
                                     )}
                                     {!depositApproved && mayApprove && (
-                                        <button type="button"
+                                        <button type="button" data-tour="deposit-approve"
                                             onClick={() => {
                                                 setDepositToConfirm({ appointmentId: app.id, amountCents: depositCents, clientName: app.client_name || "",
                                                                       proofUrl: app.payment_proof_url, reportedAt: app.payment_sent_at });
@@ -2312,6 +2312,7 @@ function Calendar() {
                                     <span className="text-sm font-bold text-sky-700">קביעת תור</span>
                                 </button>
                                 {canSetTasks && (<button
+                                    data-tour="type-task"
                                     onClick={() => {
                                         setShowTypeChooser(false);
                                         // Preserve the specific slot the user selected on the time grid
@@ -2374,7 +2375,7 @@ function Calendar() {
                                                 {taskOccurrence.assigneeName ? `ל${taskOccurrence.assigneeName}` : "לכל הצוות"} · {new Date(taskOccurrence.date).toLocaleDateString("he-IL", { day: "numeric", month: "numeric" })}
                                             </span>
                                         </div>
-                                        <button type="button" onClick={toggleTaskDone}
+                                        <button type="button" onClick={toggleTaskDone} data-tour={taskOccurrence.done ? undefined : "task-done"}
                                             className={`mt-2 w-full min-h-11 rounded-xl text-sm font-black transition ${taskOccurrence.done ? "bg-white border border-slate-200 text-slate-600 hover:bg-slate-100" : "bg-emerald-600 hover:bg-emerald-700 text-white"}`}>
                                             {taskOccurrence.done ? "ביטול הסימון" : "בוצע"}
                                         </button>
@@ -2399,7 +2400,7 @@ function Calendar() {
                                 </div>
 
                                 {/* For whom — a worker hears at once, and is reminded until it's marked done */}
-                                <div>
+                                <div data-tour="task-assignee">
                                     <label className="block text-sm font-semibold text-slate-700 mb-1">למי המשימה</label>
                                     <select value={taskAssigneeId} onChange={e => setTaskAssigneeId(e.target.value)}
                                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-violet-400 text-sm">

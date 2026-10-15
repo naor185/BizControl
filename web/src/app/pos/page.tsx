@@ -410,7 +410,7 @@ export default function PosPage() {
                     onKeyDown={e => e.key === "Enter" && handleAddItem()} />
             </div>
             {services.length > 0 && (
-                <div className="flex md:flex-wrap gap-1.5 px-4 md:px-3 pt-2 overflow-x-auto md:overflow-visible shrink-0" role="group" aria-label="טיפולים מוכנים">
+                <div data-tour="pos-services" className="flex md:flex-wrap gap-1.5 px-4 md:px-3 pt-2 overflow-x-auto md:overflow-visible shrink-0" role="group" aria-label="טיפולים מוכנים">
                     {services.map(svc => {
                         const on = pickedNames.includes(svc.name);
                         return (
@@ -424,7 +424,7 @@ export default function PosPage() {
             )}
             {/* Numpad */}
             {/* the keys: big enough for a thumb, not huge (the owner, 2026-10-12) */}
-            <div className="grid grid-cols-3 gap-2 px-4 md:px-3 pt-2 shrink-0">
+            <div data-tour="pos-pad" className="grid grid-cols-3 gap-2 px-4 md:px-3 pt-2 shrink-0">
                 {[["7","8","9"],["4","5","6"],["1","2","3"],[".", "0","⌫"]].flat().map(k => (
                     <button key={k} type="button" onClick={() => handleNumKey(k)}
                         className={`h-12 md:h-14 rounded-xl font-bold text-xl transition-all active:scale-95 ${k === "⌫" ? "bg-rose-50 text-rose-500 border border-rose-200 hover:bg-rose-100" : "bg-slate-50 border border-slate-200 text-slate-800 hover:bg-emerald-50 hover:border-emerald-300"}`}>
@@ -434,7 +434,7 @@ export default function PosPage() {
             </div>
             {/* Add button */}
             <div className="px-4 md:px-2 pt-2 shrink-0">
-                <button type="button" onClick={handleAddItem} disabled={calcDisplay === "0" || parseFloat(calcDisplay) <= 0}
+                <button type="button" data-tour="pos-add" onClick={handleAddItem} disabled={calcDisplay === "0" || parseFloat(calcDisplay) <= 0}
                     className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white font-bold py-2.5 rounded-xl text-sm transition-all active:scale-95 shadow-sm">
                     + הוסף לעגלה
                 </button>
@@ -685,7 +685,7 @@ export default function PosPage() {
                 )}
 
                 {/* Checkout */}
-                <button type="button" onClick={handleCheckout} disabled={loading || cart.length === 0}
+                <button type="button" data-tour="pos-checkout" onClick={handleCheckout} disabled={loading || cart.length === 0}
                     className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold py-3 rounded-2xl text-sm transition-all shadow-md active:scale-95">
                     {loading ? "מעבד..." : `💳 גבה ₪${(total/100).toFixed(2)}`}
                 </button>

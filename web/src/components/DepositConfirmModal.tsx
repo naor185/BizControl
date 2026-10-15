@@ -124,7 +124,7 @@ export default function DepositConfirmModal({ deposit, onClose, onConfirmed }: {
                     </a>
                 )}
 
-                <div className="mb-5">
+                <div data-tour="deposit-confirm" className="mb-5">
                     <div className="text-xs font-bold text-slate-500 mb-2 text-right">באיזה אמצעי קיבלת?</div>
                     <div className="grid grid-cols-3 gap-2">
                         {METHODS.map(m => (

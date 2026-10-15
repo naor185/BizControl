@@ -2,6 +2,7 @@
 
 import { toast } from "@/lib/toast";
 import { useState, useEffect, useCallback } from "react";
+import { Timer } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
 type PresenceEntry = {
@@ -92,7 +93,7 @@ export default function ClockWidget() {
 
             {/* With the NFC clock: where they stand, not a button — clocking is a touch on the sticker at the door */}
             {showClock && myStatus.nfc && (
-                <span className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-bold ${isClockedIn ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-slate-100 text-slate-500"}`}
+                <span data-tour="clock" className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-bold ${isClockedIn ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-slate-100 text-slate-500"}`}
                     title="כניסה ויציאה — בנגיעה בטלפון במדבקת ה-NFC שבכניסה">
                     {isClockedIn && myStatus.active_session
                         ? `בעבודה מ-${new Date(myStatus.active_session.start_time).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })}`
@@ -103,6 +104,7 @@ export default function ClockWidget() {
             {/* Clock-in / Clock-out button — only for hourly/global employees */}
             {showClock && !myStatus.nfc && (
                 <button
+                    data-tour="clock"
                     onClick={handleClockToggle}
                     disabled={loading}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-sm transition-all active:scale-95 disabled:opacity-50 ${
@@ -111,7 +113,8 @@ export default function ClockWidget() {
                             : "bg-emerald-600 text-white hover:bg-emerald-700"
                     }`}
                 >
-                    {loading ? "..." : isClockedIn ? "⏱ יציאה" : "⏱ כניסה"}
+                    <Timer className="w-4 h-4" aria-hidden />
+                    {loading ? "..." : isClockedIn ? "יציאה" : "כניסה"}
                 </button>
             )}
 
