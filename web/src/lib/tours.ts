@@ -47,7 +47,7 @@ export const OWNER_START: TourDef = {
     auto: true,
     welcome: "אני ויקי, העוזרת האישית שלך ב-BizControl. נעבור יחד על הצעדים הראשונים",
     finish: "עוד צעדים מומלצים מחכים ברשימת \"הקמת העסק\" בלוח הבקרה, ובמרכז העזרה יש מדריך לכל מסך.",
-    next: "owner_workday",
+    next: "owner_messages",          // the owner, 2026-10-17: the messages before the working day
     steps: [
         {
             id: "business",
@@ -124,7 +124,6 @@ export const OWNER_WORKDAY: TourDef = {
     title: "יום עבודה",
     auto: false,
     welcome: "עכשיו נלמד את העבודה היומיומית",
-    next: "owner_messages",
     finish: "הסרטונים של כל הצעדים נמצאים במרכז העזרה, ושם יש גם מדריך לכל מסך.",
     steps: [
         {
@@ -184,6 +183,7 @@ export const OWNER_MESSAGES: TourDef = {
     title: "ההודעות ללקוחות",
     auto: false,
     welcome: "עכשיו נראה את ההודעות שיוצאות ללקוחות שלך",
+    next: "owner_workday",
     finish: "עכשיו אתם יודעים בדיוק מה יוצא ללקוחות ומתי. ההודעות תמיד כאן: ניהול עסק ← לקוחות ושיווק ← תבניות הודעות.",
     steps: [
         {
@@ -281,4 +281,4 @@ export const WORKER_START: TourDef = {
     ],
 };
 
-export const TOURS: TourDef[] = [OWNER_START, OWNER_WORKDAY, OWNER_MESSAGES, WORKER_START];
+export const TOURS: TourDef[] = [OWNER_START, OWNER_MESSAGES, OWNER_WORKDAY, WORKER_START];

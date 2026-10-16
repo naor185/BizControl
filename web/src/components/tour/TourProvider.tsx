@@ -3,9 +3,9 @@
 // The guide — ויקי, everyone's personal assistant (the owner, 2026-10-15/16): a new business owner learns the system inside
 // it, one step at a time
 // (lib/tours): it says what to do, takes you to the screen, highlights the thing to press there, and moves on only when
-// the server confirms the step really happened (api/tutorial_routes /checks) — with praise. Three paths: the owner's
-// first steps (opens by itself once), the owner's working day (offered when the first steps are done), and a worker's
-// first steps (opens by itself once). It can be shrunk, skipped step by step, closed, and opened again from the "?"
+// the server confirms the step really happened (api/tutorial_routes /checks) — with praise. The owner's paths, each
+// offered when the one before is done: the first steps (opens by itself once) → the messages to the clients → the
+// working day; and a worker's first steps (opens by itself once). It can be shrunk, skipped step by step, closed, and opened again from the "?"
 // button; its state is kept per user on the server, so the phone, the computer and the app agree. It never blocks the
 // screen: the highlight lets every click through. Where the owner recorded ויקי's voice (lib/vikiVoice) she also says
 // it — once each, a step's opening before what to do on its screen; the speaker button turns her off or on.

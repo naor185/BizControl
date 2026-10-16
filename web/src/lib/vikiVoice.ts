@@ -29,7 +29,7 @@ export const VOICE: Record<string, string> = {
     "payment:pay-bit": "21",
     "payment:done": "22",
     "owner_start:finish": "23",
-    "owner_start:next": "23",          // "כל הכבוד, סיימת…" — then 24, the offer of "יום עבודה", once it's recorded
+    "owner_start:next": "23",          // "כל הכבוד, סיימת…" — then 24, the offer of "ההודעות ללקוחות", once it's recorded
 };
 
 const clipsOf = (key: string): string[] => (VOICE[key] ? VOICE[key].split(" ").map(n => `/viki-voice/${n}.mp3`) : []);
