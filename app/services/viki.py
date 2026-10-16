@@ -1,0 +1,174 @@
+"""ויקי — the business's personal assistant (the owner, 2026-10-10/16: "learns the business and suggests what to improve —
+the goal not reached: how to fix it; reached: how to keep it"). Stage 1: her suggestions, worked out from the system's
+own numbers (the same ones לוח בקרה, the goals and the analytics show) and said in fixed plain Hebrew — nothing is made
+up, nothing is sent to a client; each comes with the button to act on it. And her "moments": what just happened (a new
+lead, a client who reported paying a deposit) — for her to pop in with (web: components/viki/VikiPopper).
+
+A suggestion's key carries its period — "lapsed:2026-10" — so "עשיתי" / "לא רלוונטי" hides it until it's true again
+in the next period (models/viki_dismissal)."""
+from __future__ import annotations
+
+import math
+import time as _time
+from datetime import datetime, timedelta, timezone
+
+import pytz
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
+
+IL = pytz.timezone("Asia/Jerusalem")
+SHOWN = 3                           # suggestions on the card at once
+_CACHE: dict = {}                   # studio → (when, suggestions) — worked out at most every few minutes
+CACHE_SECONDS = 300
+
+
+def _ils(amount: float) -> str:
+    return f"₪{round(amount):,}"
+
+
+def _count(db: Session, q) -> int:
+    return db.scalar(select(func.count()).select_from(q.subquery())) or 0
+
+
+def _avg_appointment_ils(db: Session, studio_id, now: datetime) -> float:
+    """The average price of an appointment in the last 90 days (those with a price)."""
+    from app.models.appointment import Appointment
+    avg = db.scalar(select(func.avg(Appointment.total_price_cents)).where(
+        Appointment.studio_id == studio_id, Appointment.status.in_(("scheduled", "done")),
+        Appointment.total_price_cents > 0, Appointment.starts_at >= now - timedelta(days=90)))
+    return float(avg or 0) / 100
+
+
+def suggestions(db: Session, studio_id, now: datetime | None = None) -> list[dict]:
+    """Every suggestion that's true for the business now, the most important first:
+    {key, tone: warn|tip|good, text, action: {label, href} | None}."""
+    from app.api.dashboard_routes import calendar_fill
+    from app.core.features import has_module
+    from app.models.appointment import Appointment
+    from app.models.client import Client
+    from app.models.lead import Lead
+    from app.models.studio_settings import StudioSettings
+    from app.repositories.goal_repository import GoalRepository
+    from app.services.marketing import broadcast_recipients_query
+
+    now = now or datetime.now(timezone.utc)
+    today = now.astimezone(IL).date()
+    ym = f"{today:%Y-%m}"
+    settings = db.get(StudioSettings, studio_id)
+    can_broadcast = has_module(db, studio_id, "broadcasts")
+    out: list[tuple[int, dict]] = []
+
+    def add(prio: int, key: str, tone: str, text: str, label: str | None = None, href: str | None = None):
+        out.append((prio, {"key": key, "tone": tone, "text": text, "action": {"label": label, "href": href} if label else None}))
+
+    # ── the month's goal ──
+    prog = GoalRepository(db).get_progress(studio_id, today.year, today.month)
+    target, current = float(prog["target_amount"]), float(prog["current_revenue"])
+    if target <= 0:
+        add(45, f"goal_none:{ym}", "tip", "עוד לא הגדרת יעד הכנסות לחודש הזה. עם יעד אני יכולה להגיד לך כל יום אם אתה בקצב — ומה לעשות אם לא.",
+            "להגדיר יעד", "/expenses")
+    elif current >= target:
+        add(50, f"goal_hit:{ym}", "good", f"כל הכבוד! עברת את יעד החודש — {_ils(current)} מתוך {_ils(target)}. עכשיו העיקר לשמור על הקצב עד סוף החודש.",
+            "לראות את החודש", "/analytics/business")
+    elif prog["days_elapsed"] >= 3:
+        projected = float(prog["current_daily_avg"]) * prog["days_in_month"]
+        pct = round(projected / target * 100)
+        if projected < target * 0.95:
+            missing, days_left = target - current, prog["days_remaining"]
+            avg = _avg_appointment_ils(db, studio_id, now)
+            appts = math.ceil(missing / avg) if avg > 0 else 0
+            more = f" — בערך {appts} תורים ב-{days_left} ימי העבודה שנשארו." if appts and days_left else "."
+            add(90, f"goal_behind:{ym}", "warn",
+                f"בקצב הנוכחי החודש ייסגר בערך ב-{_ils(projected)} — {pct}% מהיעד ({_ils(target)}). כדי להגיע ליעד חסרים {_ils(missing)}{more}",
+                "לפתוח את היומן", "/calendar")
+        else:
+            add(35, f"goal_pace:{ym}", "good", f"אתה בקצב טוב: בקצב הזה החודש ייסגר בערך ב-{_ils(projected)} — {pct}% מהיעד.")
+
+    # ── leads waiting for an answer ──
+    waiting = _count(db, select(Lead.id).where(Lead.studio_id == studio_id, Lead.status == "new",
+                                               Lead.created_at < now - timedelta(hours=24)))
+    if waiting:
+        add(85, f"leads:{today.isoformat()}", "warn",
+            ("ליד אחד מחכה" if waiting == 1 else f"{waiting} לידים מחכים") + " לתשובה כבר יותר מיום. ליד שעונים לו מהר — נסגר הרבה יותר.",
+            "ללידים", "/dashboard#leads")
+
+    # ── clients who haven't come back ──
+    lapsed = _count(db, broadcast_recipients_query(studio_id, "lapsed"))
+    if lapsed >= 3:
+        add(75, f"lapsed:{ym}", "tip",
+            f"{lapsed} לקוחות לא הגיעו כבר יותר מחודשיים ואין להם תור. הודעה אישית קצרה מחזירה חלק מהם.",
+            *(("לשלוח להם הודעה", "/broadcasts?audience=lapsed") if can_broadcast else ("לראות", "/clients/analytics")))
+
+    # ── next week's calendar ──
+    week_start = today - timedelta(days=(today.weekday() + 1) % 7)
+    next_week = calendar_fill(db, studio_id, week_start + timedelta(days=7), week_start + timedelta(days=14))
+    work_days = getattr(settings, "work_days", None)
+    if next_week["percent"] < 40 and (work_days is None or len(work_days) > 0):
+        add(70, f"fill_next:{(week_start + timedelta(days=7)).isoformat()}", "warn",
+            f"השבוע הבא מלא רק ב-{next_week['percent']}%. זה זמן טוב להזכיר ללקוחות שאפשר לקבוע — הודעה קצרה ללקוחות קבועים עושה פלאים.",
+            *(("לשלוח הודעה ללקוחות", "/broadcasts") if can_broadcast else ("לפתוח את היומן", "/calendar")))
+
+    # ── no-shows, while the reminder two hours before is off ──
+    if settings is not None and not settings.reminder_2_hours_enabled:
+        no_shows = _count(db, select(Appointment.id).where(Appointment.studio_id == studio_id, Appointment.status == "no_show",
+                                                          Appointment.starts_at >= now - timedelta(days=30)))
+        if no_shows >= 3:
+            add(60, f"noshow:{ym}", "tip",
+                f"{no_shows} לקוחות לא הגיעו לתור ב-30 הימים האחרונים. תזכורת נוספת כשעתיים לפני התור מורידה את זה.",
+                "להפעיל את התזכורת", "/message-templates")
+
+    # ── birthdays, while the birthday message is off ──
+    if settings is not None and not settings.birthday_automation_enabled:
+        born = _count(db, select(Client.id).where(Client.studio_id == studio_id, Client.is_active.is_(True),
+                                                  func.extract("month", Client.birth_date) == today.month))
+        if born:
+            add(40, f"birthdays:{ym}", "tip",
+                f"{born} לקוחות חוגגים יום הולדת החודש, וההודעה ליום הולדת כבויה. ברכה עם הטבה קטנה מחזירה לקוחות.",
+                "להפעיל ברכות", "/automation")
+
+    return [s for _, s in sorted(out, key=lambda x: -x[0])]
+
+
+def suggestions_cached(db: Session, studio_id) -> list[dict]:
+    hit = _CACHE.get(studio_id)
+    if hit and _time.monotonic() - hit[0] < CACHE_SECONDS:
+        return hit[1]
+    fresh = suggestions(db, studio_id)
+    _CACHE[studio_id] = (_time.monotonic(), fresh)
+    return fresh
+
+
+def forget(studio_id) -> None:
+    _CACHE.pop(studio_id, None)
+
+
+def for_user(db: Session, studio_id, user_id) -> list[dict]:
+    """The suggestions this user hasn't answered."""
+    from app.models.viki_dismissal import VikiDismissal
+    answered = set(db.scalars(select(VikiDismissal.key).where(VikiDismissal.user_id == user_id)).all())
+    return [s for s in suggestions_cached(db, studio_id) if s["key"] not in answered]
+
+
+def moments(db: Session, studio_id, since: datetime, now: datetime | None = None) -> list[dict]:
+    """What happened since `since` that ויקי pops in for: a new lead, a client who reported paying a deposit.
+    {key, text, action}."""
+    from app.models.appointment import Appointment
+    from app.models.client import Client
+    from app.models.lead import Lead
+    now = now or datetime.now(timezone.utc)
+    since = max(since, now - timedelta(hours=2))          # never a backlog of old news
+    out: list[dict] = []
+    for lead in db.scalars(select(Lead).where(Lead.studio_id == studio_id, Lead.created_at > since)
+                           .order_by(Lead.created_at.desc()).limit(3)).all():
+        what = f" — {lead.service_interest}" if lead.service_interest else ""
+        out.append({"key": f"lead:{lead.id}", "text": f"נכנס ליד חדש: {lead.name}{what}. ליד שעונים לו מהר — נסגר הרבה יותר!",
+                    "action": {"label": "ללידים", "href": "/dashboard#leads"}})
+    rows = db.execute(select(Appointment, Client.full_name).join(Client, Client.id == Appointment.client_id, isouter=True)
+                      .where(Appointment.studio_id == studio_id, Appointment.payment_sent_at > since,
+                             Appointment.payment_verified_at.is_(None), Appointment.deposit_amount_cents > 0)
+                      .order_by(Appointment.payment_sent_at.desc()).limit(3)).all()
+    for appt, name in rows:
+        out.append({"key": f"deposit:{appt.id}",
+                    "text": f"{name or 'לקוח'} דיווח ששילם מקדמה של {_ils(appt.deposit_amount_cents / 100)}. לאשר?",
+                    "action": {"label": "לאשר", "href": f"/calendar?appt={appt.id}"}})
+    return out

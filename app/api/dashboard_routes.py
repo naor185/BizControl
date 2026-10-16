@@ -771,19 +771,12 @@ def advanced_analytics(ctx: AuthContext = Depends(require_studio_ctx), db: Sessi
     }
 
 
-@router.get("/occupancy")
-def get_calendar_occupancy(
-    ctx: AuthContext = Depends(require_studio_ctx),
-    db: Session = Depends(get_db),
-):
-    """Calendar fill %: the appointments' time vs the working time — the calendar's hours on the business's working
-    days (settings: work_days, 0 = Sunday), so a day off doesn't count as empty time (the owner, 2026-10-15: "98 hours"
-    made no sense)."""
+def calendar_fill(db: Session, studio_id, p_start, p_end) -> dict:
+    """How full the calendar is from p_start up to (not including) p_end: the appointments' time vs the working time —
+    the calendar's hours on the business's working days (settings: work_days, 0 = Sunday), so a day off doesn't count
+    as empty time (the owner, 2026-10-15: "98 hours" made no sense). {percent, count}. לוח בקרה and ויקי."""
     tz = pytz.timezone("Asia/Jerusalem")
-    now = datetime.now(tz)
-    today = now.date()
-
-    settings = db.get(StudioSettings, ctx.studio_id)
+    settings = db.get(StudioSettings, studio_id)
     start_str = getattr(settings, "calendar_start_hour", None) or "08:00"
     end_str   = getattr(settings, "calendar_end_hour",   None) or "23:00"
     try:
@@ -799,30 +792,42 @@ def get_calendar_occupancy(
     saved_days = getattr(settings, "work_days", None)
     work_days = set(saved_days if saved_days is not None else [0, 1, 2, 3, 4, 5])
 
-    def period_data(p_start, p_end):
-        days = sum(1 for i in range((p_end - p_start).days)
-                   if ((p_start + timedelta(days=i)).weekday() + 1) % 7 in work_days)
-        total_min = days * work_min_per_day
+    days = sum(1 for i in range((p_end - p_start).days)
+               if ((p_start + timedelta(days=i)).weekday() + 1) % 7 in work_days)
+    total_min = days * work_min_per_day
 
-        utc_start = tz.localize(datetime(p_start.year, p_start.month, p_start.day)).astimezone(pytz.utc).replace(tzinfo=None)
-        utc_end   = tz.localize(datetime(p_end.year,   p_end.month,   p_end.day)).astimezone(pytz.utc).replace(tzinfo=None)
+    utc_start = tz.localize(datetime(p_start.year, p_start.month, p_start.day)).astimezone(pytz.utc).replace(tzinfo=None)
+    utc_end   = tz.localize(datetime(p_end.year,   p_end.month,   p_end.day)).astimezone(pytz.utc).replace(tzinfo=None)
 
-        appts = db.scalars(
-            select(Appointment).where(
-                Appointment.studio_id == ctx.studio_id,
-                Appointment.status.notin_(["canceled", "no_show"]),
-                Appointment.starts_at >= utc_start,
-                Appointment.starts_at <  utc_end,
-                Appointment.ends_at.isnot(None),
-            )
-        ).all()
-
-        booked_min = sum(
-            max(0, int((a.ends_at - a.starts_at).total_seconds() / 60))
-            for a in appts
+    appts = db.scalars(
+        select(Appointment).where(
+            Appointment.studio_id == studio_id,
+            Appointment.status.notin_(["canceled", "no_show"]),
+            Appointment.starts_at >= utc_start,
+            Appointment.starts_at <  utc_end,
+            Appointment.ends_at.isnot(None),
         )
-        pct = min(100, round(booked_min / total_min * 100)) if total_min else 0
-        return {"percent": pct, "count": len(appts)}
+    ).all()
+
+    booked_min = sum(
+        max(0, int((a.ends_at - a.starts_at).total_seconds() / 60))
+        for a in appts
+    )
+    pct = min(100, round(booked_min / total_min * 100)) if total_min else 0
+    return {"percent": pct, "count": len(appts)}
+
+
+@router.get("/occupancy")
+def get_calendar_occupancy(
+    ctx: AuthContext = Depends(require_studio_ctx),
+    db: Session = Depends(get_db),
+):
+    """Calendar fill (calendar_fill) — today, this week and the last, this month and the last."""
+    tz = pytz.timezone("Asia/Jerusalem")
+    today = datetime.now(tz).date()
+
+    def period_data(p_start, p_end):
+        return calendar_fill(db, ctx.studio_id, p_start, p_end)
 
     # Week: Sunday–Saturday (Israel week)
     days_since_sun = (today.weekday() + 1) % 7
@@ -832,7 +837,6 @@ def get_calendar_occupancy(
     last_week_end   = week_start
 
     # Month
-    from datetime import date as _date
     month_start      = today.replace(day=1)
     next_month       = (month_start.replace(day=28) + timedelta(days=4)).replace(day=1)
     if month_start.month == 1:

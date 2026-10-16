@@ -344,7 +344,7 @@ export default function TourProvider({ children }: { children: React.ReactNode }
                              boxShadow: "0 0 0 3px #38bdf8, 0 0 0 9999px rgba(15, 23, 42, 0.38)" }} />
             )}
             {showGuide && tour && minimized && (
-                <button type="button" onClick={() => setMinimized(false)} aria-label="ויקי — המשך ההדרכה"
+                <button type="button" data-viki-guide onClick={() => setMinimized(false)} aria-label="ויקי — המשך ההדרכה"
                     className="fixed z-[1100] right-4 bottom-[calc(140px+env(safe-area-inset-bottom,0px))] md:right-auto md:left-6 md:bottom-6 w-14 h-14 rounded-full shadow-xl ring-2 ring-white flex items-center justify-center">
                     <VikiAvatar size={56} />
                     <span className="absolute -top-1 -left-1 min-w-6 h-6 px-1 rounded-full bg-white text-sky-700 text-[11px] font-black flex items-center justify-center border border-sky-200">
@@ -353,7 +353,7 @@ export default function TourProvider({ children }: { children: React.ReactNode }
                 </button>
             )}
             {showGuide && !minimized && body && (
-                <div role="dialog" aria-label="ויקי" dir="rtl"
+                <div role="dialog" aria-label="ויקי" dir="rtl" data-viki-guide
                     className={`fixed z-[1100] inset-x-3 md:inset-x-auto md:left-6 md:w-[380px] bg-white rounded-3xl shadow-2xl border border-slate-200 p-4 ${
                         panelOnTop || barBelow ? "top-[calc(12px+env(safe-area-inset-top,0px))] md:top-6" : "bottom-[calc(76px+env(safe-area-inset-bottom,0px))] md:bottom-6"}`}>
                     <div className="flex items-center gap-3">

@@ -148,3 +148,33 @@ button:focus-visible {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--primary-200); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--primary-100); }
+
+/* ── ויקי — the moving figure (components/viki/Viki.tsx) ───────────────────── */
+.viki-body { animation: viki-bob 3.4s ease-in-out infinite; transform-box: view-box; transform-origin: 60px 160px; }
+.viki-head { animation: viki-tilt 6s ease-in-out infinite; transform-box: view-box; transform-origin: 60px 62px; }
+.viki-eyes { animation: viki-blink 4.6s infinite; transform-box: fill-box; transform-origin: center; }
+.viki-arm-l, .viki-arm-r { transform-box: view-box; }
+.viki-arm-l { transform-origin: 40px 69px; animation: viki-sway 3.4s ease-in-out infinite; }
+.viki-arm-r { transform-origin: 80px 69px; }
+.viki--wave .viki-arm-r { animation: viki-wave 2.4s ease-in-out 1; }
+.viki-mouth-open { opacity: 0; transform-box: fill-box; transform-origin: center; }
+.viki--talk .viki-smile { opacity: 0; }
+.viki--talk .viki-mouth-open { opacity: 1; animation: viki-talk .28s ease-in-out infinite alternate; }
+.viki--still .viki-body, .viki--still .viki-head, .viki--still .viki-arm-l { animation: none; }
+.viki-pop-in { animation: viki-in .75s cubic-bezier(.2, .8, .3, 1.15) both; }
+@keyframes viki-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2.5px); } }
+@keyframes viki-tilt { 0%, 100% { transform: rotate(0); } 30% { transform: rotate(-3deg); } 60% { transform: rotate(2.5deg); } }
+@keyframes viki-blink { 0%, 92%, 100% { transform: scaleY(1); } 95% { transform: scaleY(.1); } }
+@keyframes viki-sway { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(4deg); } }
+@keyframes viki-wave {
+    0% { transform: rotate(0); } 15% { transform: rotate(-145deg); } 30% { transform: rotate(-118deg); }
+    45% { transform: rotate(-150deg); } 60% { transform: rotate(-118deg); } 78% { transform: rotate(-145deg); } 100% { transform: rotate(0); }
+}
+@keyframes viki-talk { from { transform: scaleY(.3); } to { transform: scaleY(1); } }
+@keyframes viki-in {
+    0% { transform: translateX(-130%) rotate(-10deg); opacity: 0; } 55% { transform: translateX(8%) rotate(4deg); opacity: 1; }
+    78% { transform: translateX(-3%) rotate(-1.5deg); } 100% { transform: translateX(0) rotate(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .viki *, .viki-pop-in { animation: none !important; }
+}

@@ -2956,6 +2956,20 @@ def ensure_schema():
         """)
         cur.execute("CREATE INDEX IF NOT EXISTS ix_tutorial_progress_studio_id ON tutorial_progress (studio_id)")
         cur.execute("CREATE INDEX IF NOT EXISTS ix_tutorial_progress_user_id ON tutorial_progress (user_id)")
+        # ויקי's suggestions a user answered — "עשיתי" / "לא רלוונטי" (services/viki, 2026-10-16)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS viki_dismissals (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                key VARCHAR(80) NOT NULL,
+                kind VARCHAR(16) NOT NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                CONSTRAINT uq_viki_dismissals_user_key UNIQUE (user_id, key)
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_viki_dismissals_studio_id ON viki_dismissals (studio_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_viki_dismissals_user_id ON viki_dismissals (user_id)")
         # the picture of the deposit's payment the client attaches on the payment page (2026-10-15)
         cur.execute("ALTER TABLE appointments ADD COLUMN IF NOT EXISTS payment_proof_url TEXT")
         cur.execute("ALTER TABLE health_declarations DROP COLUMN IF EXISTS ask_id_number")

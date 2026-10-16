@@ -26,7 +26,7 @@ _UPLOAD_DIR = "uploads/broadcasts"
 class BroadcastCreate(BaseModel):
     title: str
     body: str
-    audience: str = "all"   # all | club | non_club
+    audience: str = "all"   # all | club | non_club | lapsed (no appointment 60 days — services/marketing)
     scheduled_at: datetime
     media_url: Optional[str] = None
 
@@ -95,8 +95,8 @@ def create_broadcast(
     ctx: AuthContext = Depends(require_studio_ctx),
     db: Session = Depends(get_db),
 ):
-    if payload.audience not in ("all", "club", "non_club"):
-        raise HTTPException(400, "audience חייב להיות all / club / non_club")
+    if payload.audience not in ("all", "club", "non_club", "lapsed"):
+        raise HTTPException(400, "audience חייב להיות all / club / non_club / lapsed")
 
     # The same query the scheduler sends to (main.tick_broadcasts): only clients who may receive marketing.
     from app.services.marketing import broadcast_recipients_query

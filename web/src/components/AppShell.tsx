@@ -17,6 +17,7 @@ import { useLang } from "./LanguageProvider";
 import { LOCALES } from "@/lib/i18n";
 import { useNewLeadsCount } from "@/lib/useNewLeadsCount";
 import PlanBar, { PLAN_BAR_HEIGHT, isTrialPlan, type PlanInfo } from "./PlanBar";
+import VikiPopper from "./viki/VikiPopper";
 import { registerForPushNotifications } from "@/lib/push";
 import { recordVisit } from "@/lib/navHistory";
 
@@ -431,6 +432,8 @@ export default function AppShell({
             </div>
 
             {planInfo && showPlanBar && <PlanBar info={planInfo} />}
+            {/* ויקי pops in from the side when something happens — the owner's and the managers' who see the money */}
+            {!isWorker && <VikiPopper />}
             <BottomNav pendingDeposits={pendingDepositsCount} />
             <PullToRefresh />
             <ToastContainer />

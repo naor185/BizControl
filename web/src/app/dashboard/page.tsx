@@ -1,9 +1,9 @@
 "use client";
 
 // לוח בקרה — the one home screen (the owner, 2026-10-15: "דשבורד" and לוח בקרה became one). Top to bottom: the
-// calendar — today, this week, this month (appointments and how full) — then what waits for approval, the setup
-// checklist (until it's done), the daily collection report, the leads, BizFind's exposure; the free trial's bar under
-// it (AppShell).
+// calendar — today, this week, this month (appointments and how full) — then what waits for approval, ויקי's
+// suggestions, the setup checklist (until it's done), the daily collection report, the leads, BizFind's exposure; the
+// free trial's bar under it (AppShell).
 import { BellRing, ChevronDown, Target } from "lucide-react";
 import { useEffect, useState } from "react";
 import RequireAuth from "@/components/RequireAuth";
@@ -14,6 +14,7 @@ import DepositConfirmModal, { type DepositToConfirm } from "@/components/Deposit
 import SetupChecklist from "@/components/SetupChecklist";
 import LeadsContent from "@/components/LeadsContent";
 import BizFindExposureCard from "@/components/BizFindExposureCard";
+import VikiCard from "@/components/viki/VikiCard";
 import { useNewLeadsCount } from "@/lib/useNewLeadsCount";
 
 type PendingGiftCard = {
@@ -400,6 +401,9 @@ export default function Page() {
                         </div>
                     )}
 
+                    {/* ── ויקי: what to do now ── */}
+                    <VikiCard />
+
                     {/* ── Setting the business up — until it's done ── */}
                     <SetupChecklist />
 
@@ -511,7 +515,7 @@ export default function Page() {
                     </div>
 
                     {/* ── The leads ── */}
-                    <section className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                    <section id="leads" className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden scroll-mt-4">
                         <button
                             type="button"
                             onClick={toggleLeads}

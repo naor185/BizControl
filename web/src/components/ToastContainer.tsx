@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { apiFetch } from "@/lib/api";
+import { VIKI_TELLS, speaking } from "@/components/viki/vikiPrefs";
 
 type Notif = {
     id: string;
@@ -93,11 +94,17 @@ export default function ToastContainer() {
             if (!initializedRef.current) return;
             try {
                 const data = await apiFetch<Notif[]>("/api/notifications?limit=20");
-                const fresh = data.filter(n => !n.is_read && !seenRef.current.has(n.id));
+                // a new lead, a deposit report: ויקי tells those herself when she speaks here (components/viki); until she
+                // has looked, they wait for the next round
+                const viki = speaking();
+                const fresh = data.filter(n => !n.is_read && !seenRef.current.has(n.id)
+                    && !(VIKI_TELLS.includes(n.type) && viki === null));
+                fresh.filter(n => VIKI_TELLS.includes(n.type) && viki === "on").forEach(n => seenRef.current.add(n.id));
+                const shown = fresh.filter(n => !(VIKI_TELLS.includes(n.type) && viki === "on"));
                 if (fresh.length > 0) {
                     fresh.forEach(n => seenRef.current.add(n.id));
                     saveSeen(seenRef.current);
-                    setToasts(prev => [...prev, ...fresh].slice(-5));
+                    if (shown.length) setToasts(prev => [...prev, ...shown].slice(-5));
                 }
             } catch {}
         }

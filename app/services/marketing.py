@@ -24,9 +24,9 @@ from __future__ import annotations
 
 import os
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import Select, select
+from sqlalchemy import Select, func, select
 
 from app.models.client import Client
 
@@ -217,4 +217,22 @@ def broadcast_recipients_query(studio_id, audience: str) -> Select:
         q = q.where(Client.is_club_member.is_(True))
     elif audience == "non_club":
         q = q.where(Client.is_club_member.is_(False))
+    elif audience == "lapsed":
+        q = q.where(Client.id.in_(lapsed_client_ids(studio_id)))
     return q
+
+
+LAPSED_DAYS = 60
+
+
+def lapsed_client_ids(studio_id) -> Select:
+    """The clients who haven't come back: their last real appointment (not canceled, not a no-show) was more than
+    LAPSED_DAYS ago, and none is ahead — the clients' analytics' rule ("churn"); ויקי suggests a message to them
+    (services/viki, 2026-10-16)."""
+    from app.models.appointment import Appointment
+    cutoff = datetime.now(timezone.utc) - timedelta(days=LAPSED_DAYS)
+    return (select(Appointment.client_id)
+            .where(Appointment.studio_id == studio_id, Appointment.client_id.isnot(None),
+                   Appointment.status.notin_(("canceled", "no_show")))
+            .group_by(Appointment.client_id)
+            .having(func.max(Appointment.starts_at) < cutoff))

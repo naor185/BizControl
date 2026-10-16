@@ -34,6 +34,7 @@ const AUDIENCE_LABELS: Record<string, string> = {
     all: "כל הלקוחות",
     club: "חברי מועדון בלבד",
     non_club: "לא חברי מועדון",
+    lapsed: "לקוחות שלא חזרו חודשיים",
 };
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
@@ -94,6 +95,12 @@ export default function BroadcastsPage() {
         } catch { /* silent */ }
         finally { setLoading(false); }
     };
+
+    // from ויקי's suggestion ("לשלוח להם הודעה"): the form open, to the audience she meant (services/viki)
+    useEffect(() => {
+        const asked = new URLSearchParams(window.location.search).get("audience");
+        if (asked && asked in AUDIENCE_LABELS) { setAudience(asked); setShowForm(true); }
+    }, []);
 
     useEffect(() => {
         load();
@@ -542,6 +549,7 @@ export default function BroadcastsPage() {
                                         <option value="all">כל הלקוחות</option>
                                         <option value="club">חברי מועדון בלבד</option>
                                         <option value="non_club">לא חברי מועדון</option>
+                                        <option value="lapsed">לקוחות שלא חזרו חודשיים (ואין להם תור)</option>
                                     </select>
                                 </div>
                                 <div>
