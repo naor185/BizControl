@@ -25,10 +25,12 @@ from app.models.tutorial_progress import TutorialProgress
 
 router = APIRouter(prefix="/tutorial", tags=["Tutorial"])
 
-# web/src/lib/tours.ts — the owner's first steps, the owner's working day (2026-10-15), a worker's first steps
+# web/src/lib/tours.ts — the owner's first steps, the owner's working day (2026-10-15), the messages to clients
+# (2026-10-16), a worker's first steps
 STEPS = {
     "owner_start": ("business", "service", "client", "appointment", "payment"),
     "owner_workday": ("pos_sale", "deposit", "worker_task"),
+    "owner_messages": ("messages_where", "messages_off", "messages_text", "messages_optout"),   # 2026-10-16
     "worker_start": ("calendar", "clock", "task_done"),
 }
 TOURS = tuple(STEPS)

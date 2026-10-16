@@ -124,6 +124,7 @@ export const OWNER_WORKDAY: TourDef = {
     title: "יום עבודה",
     auto: false,
     welcome: "עכשיו נלמד את העבודה היומיומית",
+    next: "owner_messages",
     finish: "הסרטונים של כל הצעדים נמצאים במרכז העזרה, ושם יש גם מדריך לכל מסך.",
     steps: [
         {
@@ -174,6 +175,68 @@ export const OWNER_WORKDAY: TourDef = {
     ],
 };
 
+// The messages that go out to clients (the owner, 2026-10-16): where they are and when each goes out, turning one off
+// (for everyone), changing its words and seeing it as the client will, and a client's removal from marketing — all
+// shown, nothing changed for the owner ("הבנתי").
+export const OWNER_MESSAGES: TourDef = {
+    id: "owner_messages",
+    who: "owner",
+    title: "ההודעות ללקוחות",
+    auto: false,
+    welcome: "עכשיו נראה את ההודעות שיוצאות ללקוחות שלך",
+    finish: "עכשיו אתם יודעים בדיוק מה יוצא ללקוחות ומתי. ההודעות תמיד כאן: ניהול עסק ← לקוחות ושיווק ← תבניות הודעות.",
+    steps: [
+        {
+            id: "messages_where",
+            confirms: [],
+            manual: true,
+            href: "/message-templates",
+            title: "כל ההודעות במקום אחד",
+            intro: "כאן כל ההודעות שהמערכת שולחת ללקוחות בשבילך — אישור תור, תזכורות, תשלומים ומועדון. ליד כל הודעה כתוב מתי היא יוצאת.",
+            moves: [{ target: "msg-card", say: "כל כרטיס הוא הודעה אחת: מה היא, ומתי היא יוצאת. ההודעות יוצאות לבד — לא צריך לעשות כלום." }],
+            done: "",
+            video: "/guide/guide-messages_where.mp4",
+        },
+        {
+            id: "messages_off",
+            confirms: [],
+            manual: true,
+            href: "/message-templates",
+            title: "לכבות הודעה",
+            intro: "לא רוצים שהודעה מסוימת תצא? מכבים אותה במתג — והיא לא תצא לאף לקוח.",
+            moves: [{ target: "msg-switch", say: "זה המתג של ההודעה. כבוי — היא לא יוצאת לאף לקוח. תזכורות ואישורים לתורים יוצאים תמיד, אלא אם כיביתם אותם כאן." }],
+            done: "",
+            video: "/guide/guide-messages_off.mp4",
+        },
+        {
+            id: "messages_text",
+            confirms: [],
+            manual: true,
+            href: "/message-templates",
+            title: "לשנות את הנוסח",
+            intro: "אפשר לכתוב לכל הודעה נוסח משלכם, ולראות בדיוק איך הלקוח יראה אותה לפני ששומרים.",
+            moves: [
+                { target: "msg-preview", say: "כאן רואים איך ההודעה תיראה ללקוח, עם הפרטים שלו. מרוצים? לחצו \"שמירה\"." },
+                { target: "msg-editor", say: "כתבו כאן את הנוסח, או בחרו נוסח מוכן. הכפתורים למטה מוסיפים פרטים — שם הלקוח, תאריך, שעה." },
+                { target: "msg-edit", say: "לחצו \"עריכת הנוסח\"." },
+            ],
+            done: "",
+            video: "/guide/guide-messages_text.mp4",
+        },
+        {
+            id: "messages_optout",
+            confirms: [],
+            manual: true,
+            href: "/message-templates",
+            title: "הסרה מהודעות שיווקיות",
+            intro: "לקוח שלא רוצה הודעות שיווקיות — תפוצות, הזמנה למועדון, ברכת יום הולדת — יכול להסיר את עצמו.",
+            moves: [{ target: "msg-marketing", say: "הלקוח מסיר את עצמו בקישור שבהודעה, או בתשובה \"הסר\" בוואטסאפ — ואפשר גם לכבות לו את זה בכרטיס הלקוח. תזכורות ואישורים לתורים ימשיכו לצאת אליו." }],
+            done: "",
+            video: "/guide/guide-messages_optout.mp4",
+        },
+    ],
+};
+
 export const WORKER_START: TourDef = {
     id: "worker_start",
     who: "worker",
@@ -218,4 +281,4 @@ export const WORKER_START: TourDef = {
     ],
 };
 
-export const TOURS: TourDef[] = [OWNER_START, OWNER_WORKDAY, WORKER_START];
+export const TOURS: TourDef[] = [OWNER_START, OWNER_WORKDAY, OWNER_MESSAGES, WORKER_START];

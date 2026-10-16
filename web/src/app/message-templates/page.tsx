@@ -387,12 +387,13 @@ export default function MessageTemplatesPage() {
                         <div className="space-y-8">
                             {GROUPS.map(g => (
                                 <section key={g.id} aria-labelledby={`g-${g.id}`}>
-                                    <h2 id={`g-${g.id}`} className="flex items-center gap-2 text-base font-black text-slate-800 mb-3">
+                                    <h2 id={`g-${g.id}`} data-tour={g.id === "club" ? "msg-marketing" : undefined} className="flex items-center gap-2 text-base font-black text-slate-800 mb-3">
                                         <g.icon className="w-5 h-5 text-sky-600" aria-hidden /> {g.title}
                                     </h2>
                                     <div className="space-y-3">
                                         {g.messages.map(m => (
                                             <MessageCard key={m.id} m={m} on={isOn(m)} text={(settings[m.templateKey] as string) || ""}
+                                                tour={g === GROUPS[0] && m === g.messages[0]}
                                                 values={values} settings={settings} terms={terms}
                                                 onSwitch={v => setOn(m, v)} onEdit={() => setEditing(m)}
                                                 onReset={() => save({ [m.templateKey]: null, ...(m.emailKey ? { [m.emailKey]: null } : {}) }, "חזר לנוסח של המערכת")}
@@ -421,14 +422,15 @@ export default function MessageTemplatesPage() {
 }
 
 // ── One message ───────────────────────────────────────────────────────────────────────────────────────────────────────
-function MessageCard({ m, on, text, values, settings, terms, onSwitch, onEdit, onReset, onSetting }: {
+function MessageCard({ m, on, text, values, settings, terms, onSwitch, onEdit, onReset, onSetting, tour = false }: {
     m: Message; on: boolean; text: string; values: Record<string, string>; settings: Settings; terms: ReturnType<typeof useTerms>;
+    tour?: boolean;      // the first message — what ויקי points at in "ההודעות ללקוחות" (lib/tours)
     onSwitch: (on: boolean) => void; onEdit: () => void; onReset: () => void;
     onSetting: (key: string, value: unknown, done: string) => void;
 }) {
     const own = !!text.trim();
     return (
-        <article className={`rounded-2xl border bg-white p-4 shadow-sm transition-opacity ${on ? "border-slate-200" : "border-slate-200 opacity-70"}`}>
+        <article data-tour={tour ? "msg-card" : undefined} className={`rounded-2xl border bg-white p-4 shadow-sm transition-opacity ${on ? "border-slate-200" : "border-slate-200 opacity-70"}`}>
             <div className="flex items-start gap-3">
                 <div className="flex-1 min-w-0">
                     <h3 id={`m-${m.id}`} className="font-bold text-slate-900">{m.title}</h3>
@@ -437,7 +439,7 @@ function MessageCard({ m, on, text, values, settings, terms, onSwitch, onEdit, o
                 {m.manual ? (
                     <span className="shrink-0 text-xs font-semibold text-slate-500 bg-slate-100 rounded-full px-2.5 py-1">ידנית</span>
                 ) : (
-                    <div className="shrink-0 flex items-center gap-2">
+                    <div data-tour={tour ? "msg-switch" : undefined} className="shrink-0 flex items-center gap-2">
                         <span className={`text-xs font-bold ${on ? "text-emerald-700" : "text-slate-500"}`}>{on ? "פעילה" : "כבויה"}</span>
                         <Switch checked={on} onChange={onSwitch} labelledBy={`m-${m.id}`} />
                     </div>
@@ -483,7 +485,7 @@ function MessageCard({ m, on, text, values, settings, terms, onSwitch, onEdit, o
                     </div>
 
                     <div className="mt-3 flex flex-wrap items-center gap-2">
-                        <button type="button" onClick={onEdit}
+                        <button type="button" onClick={onEdit} data-tour={tour ? "msg-edit" : undefined}
                             className="inline-flex items-center gap-1.5 min-h-10 px-4 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-sm font-bold">
                             <Pencil className="w-4 h-4" aria-hidden /> עריכת הנוסח
                         </button>
@@ -575,7 +577,7 @@ function EditSheet({ m, text, values, terms, onClose, onSave }: {
                         </div>
                     </div>
                 )}
-                <textarea ref={box} value={draft} onChange={e => setDraft(e.target.value)} rows={7} dir="rtl"
+                <textarea ref={box} value={draft} onChange={e => setDraft(e.target.value)} rows={7} dir="rtl" data-tour="msg-editor"
                     placeholder="כתבו כאן את ההודעה, למשל: היי [שם לקוח], מחכים לך ב-[תאריך תור] 😊"
                     aria-label={`הנוסח של ${m.title}`}
                     className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-base leading-relaxed focus:outline-none focus:ring-2 focus:ring-sky-500" />
@@ -590,7 +592,7 @@ function EditSheet({ m, text, values, terms, onClose, onSave }: {
                     </div>
                 </div>
                 {draft.trim() && (
-                    <div>
+                    <div data-tour="msg-preview">
                         <div className="text-sm font-bold text-slate-700 mb-2">כך הלקוח יראה את זה</div>
                         <Bubble text={fill(stored, values)} autoDetails={m.autoDetails && !stored.includes("{")} />
                     </div>

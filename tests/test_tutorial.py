@@ -109,3 +109,10 @@ def test_a_workers_steps_clock_and_task_done(client, db_session):
 
     r = client.put("/api/tutorial/worker_start", headers=dana, json={"state": "active", "skipped": ["calendar", "pos_sale"]})
     assert r.json() == {"state": "active", "skipped": ["calendar"]}                   # only this path's steps
+
+
+def test_the_messages_path_takes_its_own_steps(client):
+    owner = register_and_login(client, "msg-tour", "owner@msg-tour.com")
+    r = client.put("/api/tutorial/owner_messages", headers=owner,
+                   json={"state": "active", "skipped": ["messages_where", "messages_off", "pos_sale"]})
+    assert r.status_code == 200 and r.json() == {"state": "active", "skipped": ["messages_where", "messages_off"]}

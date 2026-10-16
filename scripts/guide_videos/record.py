@@ -1,7 +1,8 @@
 """The guide's videos (web/public/guide) — screen recordings of its steps at a phone's size, in order: a title card, a
 Hebrew caption for every action, a circle where the finger taps, and "מעולה!" only after the save really succeeded.
 The paths (web/src/lib/tours.ts): the owner's first steps (business service client appointment payment), the owner's
-working day (pos_sale deposit worker_task — 2026-10-15) and a worker's first steps (clock task_done).
+working day (pos_sale deposit worker_task — 2026-10-15), the messages to clients (messages_where messages_off
+messages_text messages_optout — 2026-10-16) and a worker's first steps (clock task_done).
 LOCAL ONLY: the dev database, a new demo business with sample details (no real people); the API runs without its
 scheduler, so nothing is sent — and the messages a step queued are deleted at the end.
 
@@ -111,7 +112,7 @@ def record(name, start_path, script, as_token=None, morning=False):
         ctx.add_init_script(OVERLAY)
         if morning:
             ctx.clock.set_fixed_time(MORNING)
-        ctx.add_init_script(f"try {{ localStorage.setItem('bizcontrol_token', '{as_token or token}'); localStorage.setItem('biz_hide_selfbooking_banner', '1'); localStorage.setItem('bc_tour_minimized', '1'); }} catch (e) {{}}")
+        ctx.add_init_script(f"try {{ localStorage.setItem('bizcontrol_token', '{as_token or token}'); localStorage.setItem('biz_hide_selfbooking_banner', '1'); localStorage.setItem('bc_tour_minimized', '1'); localStorage.setItem('viki_popups', '0'); }} catch (e) {{}}")   # no ויקי popping in over a video
         pg = ctx.new_page()
         pg.goto(f"{WEB}{start_path}", wait_until="commit")
         pg.wait_for_selector("nav.fixed", timeout=120000)
@@ -431,18 +432,119 @@ def step_task_done(pg):
     card(pg, "", "מעולה!", "המשימה סומנה — בעל העסק קיבל עדכון", ok=True)
 
 
+# ── the messages to clients (2026-10-16) — the owner's own demo business, nothing sent ──
+def _messages_card(pg, n, title, small):
+    card(pg, f"ההודעות ללקוחות · שלב {n} מתוך 4", title, small)
+
+
+def step_messages_where(pg):
+    tag = "ההודעות ללקוחות · שלב 1 מתוך 4 · כל ההודעות במקום אחד"
+    _messages_card(pg, 1, "כל ההודעות במקום אחד", "כל מה שהמערכת שולחת ללקוחות בשבילך — ומתי")
+    cap(pg, tag, "\"ניהול עסק\" ← \"לקוחות ושיווק\" ← \"תבניות הודעות\"", 1400)
+    open_business(pg, "לקוחות ושיווק", "תבניות הודעות")
+    pg.locator("[data-tour=msg-card]").first.wait_for()
+    cap(pg, tag, "כל כרטיס הוא הודעה אחת — ומתחת לשם כתוב מתי היא יוצאת", 2200)
+    for y in (420, 840, 1260):
+        pg.mouse.wheel(0, 420)
+        pg.wait_for_timeout(900)
+    cap(pg, tag, "תורים, תזכורות, תשלומים, מועדון — הכול לפי נושא", 2200)
+    cap(pg, tag, "")
+    card(pg, "", "זה הכול!", "ההודעות יוצאות לבד — לא צריך לעשות כלום", ok=True)
+
+
+def step_messages_off(pg):
+    tag = "ההודעות ללקוחות · שלב 2 מתוך 4 · לכבות הודעה"
+    _messages_card(pg, 2, "לכבות הודעה", "הודעה כבויה לא יוצאת לאף לקוח")
+    pg.locator("[data-tour=msg-switch]").first.wait_for()
+    cap(pg, tag, "לכל הודעה יש מתג", 1300)
+    switch = pg.locator("[data-tour=msg-switch] button, [data-tour=msg-switch] [role=switch]").first
+    tap(pg, switch, after=1600)
+    cap(pg, tag, "כבויה — היא לא תצא לאף לקוח", 2000)
+    cap(pg, tag, "רוצים שתחזור? מדליקים באותו מתג", 900)
+    tap(pg, switch, after=1600)
+    cap(pg, tag, "תזכורות ואישורים לתורים יוצאים תמיד — אלא אם כיביתם אותם כאן", 2600)
+    cap(pg, tag, "")
+    card(pg, "", "זה הכול!", "מתג אחד — לכל הלקוחות", ok=True)
+
+
+def step_messages_text(pg):
+    tag = "ההודעות ללקוחות · שלב 3 מתוך 4 · לשנות את הנוסח"
+    _messages_card(pg, 3, "לשנות את הנוסח", "נוסח משלכם — ורואים איך הלקוח יראה אותו")
+    pg.locator("[data-tour=msg-edit]").first.wait_for()
+    cap(pg, tag, "לחצו \"עריכת הנוסח\"", 1000)
+    tap(pg, pg.locator("[data-tour=msg-edit]"), after=1500)
+    editor = pg.locator("[data-tour=msg-editor]")
+    cap(pg, tag, "כותבים את ההודעה במילים שלכם", 700)
+    editor.first.fill("")
+    type_in(pg, editor, "היי ", after=300)
+    cap(pg, tag, "הכפתורים מוסיפים פרטים — שם הלקוח, תאריך, שעה", 900)
+    tap(pg, pg.locator("button:has-text('+ שם לקוח')"), after=600)
+    pg.keyboard.type(", התור שלך ב-", delay=75)            # on from where the detail went in — no tap in the box
+    tap(pg, pg.locator("button:has-text('+ תאריך תור')"), after=600)
+    pg.keyboard.type(" אושר. מחכים לך!", delay=75)
+    pg.wait_for_timeout(600)
+    pg.locator("[data-tour=msg-preview]").first.scroll_into_view_if_needed()
+    cap(pg, tag, "וכאן רואים בדיוק איך הלקוח יראה את זה", 2400)
+    cap(pg, tag, "מרוצים? לחצו \"שמירה\"", 900)
+    tap(pg, pg.locator("button:has-text('שמירה')").last, after=400)
+    pg.get_by_text("הנוסח נשמר").first.wait_for()
+    pg.wait_for_timeout(1400)
+    cap(pg, tag, "רוצים לחזור? \"חזרה לנוסח של המערכת\"", 2000)
+    cap(pg, tag, "")
+    card(pg, "", "מעולה!", "הנוסח שלכם נשמר", ok=True)
+
+
+def step_messages_optout(pg):
+    tag = "ההודעות ללקוחות · שלב 4 מתוך 4 · הסרה מהודעות שיווקיות"
+    _messages_card(pg, 4, "הסרה מהודעות שיווקיות", "תפוצות, הזמנה למועדון, ברכת יום הולדת")
+    marketing = pg.locator("[data-tour=msg-marketing]").first
+    marketing.wait_for()
+    marketing.scroll_into_view_if_needed()
+    pg.wait_for_timeout(600)
+    cap(pg, tag, "לקוח שלא רוצה הודעות שיווקיות יכול להסיר את עצמו", 1800)
+    cap(pg, tag, "בקישור שבהודעה, או בתשובה \"הסר\" בוואטסאפ", 2200)
+    cap(pg, tag, "ואפשר גם לכבות לו את זה בכרטיס הלקוח:", 900)
+    pg.goto(f"{WEB}/clients/{MESSAGES['client']}", wait_until="commit")
+    pg.wait_for_function("() => [...document.querySelectorAll('nav.fixed')].some(e => e.getBoundingClientRect().width > 0)", timeout=120000)
+    block = pg.locator("h3:has-text('הודעות שיווקיות')").first
+    block.wait_for()
+    block.scroll_into_view_if_needed()
+    pg.wait_for_timeout(900)
+    cap(pg, tag, "כאן, ב\"הודעות שיווקיות\"", 2000)
+    cap(pg, tag, "תזכורות ואישורים לתורים ימשיכו לצאת אליו", 2400)
+    cap(pg, tag, "")
+    card(pg, "", "זה הכול!", "הלקוח מחליט — והתורים שלו ממשיכים כרגיל", ok=True)
+
+
+MESSAGES = {}
+
+
+def messages_setup():
+    if MESSAGES:
+        return
+    api("PUT", "/api/tutorial/owner_messages", json={"state": "done"})
+    c = api("POST", "/api/clients", json={"full_name": "דנה לוי", "phone": "0501234567"})
+    MESSAGES["client"] = c["id"]
+
+
 STEPS = [("business", step_business, {}), ("service", step_service, {}), ("client", step_client, {}),
          ("appointment", step_appointment, {}), ("payment", step_payment, {}),
          ("pos_sale", step_pos_sale, {"day": True}), ("deposit", step_deposit, {"day": True}),
          ("worker_task", step_worker_task, {"day": True}),
-         ("clock", step_clock, {"day": True, "worker": True}), ("task_done", step_task_done, {"day": True, "worker": True})]
+         ("clock", step_clock, {"day": True, "worker": True}), ("task_done", step_task_done, {"day": True, "worker": True}),
+         ("messages_where", step_messages_where, {"messages": True}), ("messages_off", step_messages_off, {"messages": True, "start": "/message-templates"}),
+         ("messages_text", step_messages_text, {"messages": True, "start": "/message-templates"}),
+         ("messages_optout", step_messages_optout, {"messages": True, "start": "/message-templates"})]
 try:
     for name, script, how in STEPS:
         if ONLY and name not in ONLY:
             continue
         if how.get("day"):
             working_day()
-        record(name, "/calendar", script, as_token=WORKER["token"] if how.get("worker") else None, morning=bool(how.get("day")))
+        if how.get("messages"):
+            messages_setup()
+        record(name, how.get("start", "/calendar"), script, as_token=WORKER["token"] if how.get("worker") else None,
+               morning=bool(how.get("day")))
 finally:
     con = psycopg2.connect("postgresql://bizcontrol:bizcontrol@localhost:5433/bizcontrol_dev")
     with con, con.cursor() as cur:                       # what the demo queued — never sent (no scheduler), now gone

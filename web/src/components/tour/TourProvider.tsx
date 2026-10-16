@@ -291,7 +291,8 @@ export default function TourProvider({ children }: { children: React.ReactNode }
             <p className="mt-1">
                 {tour.welcome}: {steps.map(s => s.title).join(", ")}. {withMoney
                     ? "צעד עם כסף — מכירה או מקדמה — לא עושים בשביל התרגול: אני מראה איך, ובודקת אותו במכירה האמיתית הבאה. "
-                    : ""}כל צעד לוקח דקה או שתיים, ואני בודקת שהוא באמת הצליח.
+                    : ""}{steps.every(s => s.manual) ? "כל צעד לוקח דקה — אני מראה, ואתם לוחצים \"הבנתי\"."
+                        : "כל צעד לוקח דקה או שתיים, ואני בודקת שהוא באמת הצליח."}
             </p>
         </>;
         buttons = <>
