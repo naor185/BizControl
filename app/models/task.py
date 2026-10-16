@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, date
 
-from sqlalchemy import DateTime, Date, ForeignKey, String, Text, Integer, func
+from sqlalchemy import Boolean, DateTime, Date, ForeignKey, String, Text, Integer, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -34,5 +34,10 @@ class Task(Base):
 
     # the worker it's for (services/team_tasks); None — the whole team, as tasks always were
     assignee_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    # with hours, it locks the calendar of whom it's for — no appointment on it (services/calendar_blocks, 2026-10-15)
+    blocks_booking: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+    # "task" — a to-do (done, reminders until it is); "break" — a break or a meeting: a time in the calendar that always
+    # locks it, nothing to mark (the owner, 2026-10-15)
+    kind: Mapped[str] = mapped_column(String(10), nullable=False, default="task", server_default="task")
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())

@@ -30,6 +30,7 @@ ALLOWED_ARTIST_FIELDS = {"status", "notes"}
     dependencies=[Depends(require_roles(Perms.OWNER, Perms.ADMIN, Perms.RECEPTIONIST, Perms.MANAGER))]
 )
 def create(payload: AppointmentCreate, ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+    _not_on_a_lock(db, ctx.studio_id, payload.artist_id, payload.starts_at, payload.ends_at, getattr(payload, "status", None))
     try:
         created = create_appointment(db, ctx.studio_id, payload)
         
@@ -71,6 +72,16 @@ def create(payload: AppointmentCreate, ctx: AuthContext = Depends(require_studio
 
 from app.utils.google_calendar import get_google_calendar_service, create_google_event, update_google_event, delete_google_event, list_google_events
 import pytz
+
+
+def _not_on_a_lock(db: Session, studio_id, artist_id, starts_at, ends_at, appt_status) -> None:
+    """A task with hours locks the calendar (services/calendar_blocks) — no appointment set or moved onto it."""
+    if not starts_at or not ends_at or (appt_status and appt_status != "scheduled"):
+        return
+    from app.services import calendar_blocks
+    hit = calendar_blocks.conflict(db, studio_id, artist_id, starts_at, ends_at)
+    if hit:
+        raise HTTPException(status_code=409, detail=calendar_blocks.explain(db, studio_id, hit))
 
 @router.get("", response_model=list[AppointmentOut])
 def list_(
@@ -298,6 +309,12 @@ def patch(appointment_id: UUID, payload: AppointmentUpdate, ctx: AuthContext = D
     existing_appt = get_appointment(db, ctx.studio_id, appointment_id)
     prev_status = existing_appt.status if existing_appt else None
     prev_starts_at = existing_appt.starts_at if existing_appt else None
+    # moved onto a locked time (another hour, or another staff member's calendar) — not allowed; other edits are
+    changes = payload.model_dump(exclude_unset=True)
+    if existing_appt and {"starts_at", "ends_at", "artist_id"} & changes.keys():
+        _not_on_a_lock(db, ctx.studio_id, changes.get("artist_id", existing_appt.artist_id),
+                       changes.get("starts_at") or existing_appt.starts_at, changes.get("ends_at") or existing_appt.ends_at,
+                       changes.get("status", existing_appt.status))
 
     try:
         obj = update_appointment(db, ctx.studio_id, appointment_id, payload)

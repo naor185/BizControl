@@ -16,7 +16,7 @@ import PickerBox from "@/components/ui/picker-box";
 import BottomSheet from "@/components/ui/bottom-sheet";
 import { HIDE_BOOKING_BANNER_KEY } from "@/lib/localPrefs";
 import StaffReminderRulesSettings from "@/components/StaffReminderRulesSettings";
-import { Users, UsersRound, CalendarPlus, Pin, X, Clock, Repeat, TriangleAlert, BellRing, CircleCheck, Hourglass } from "lucide-react";
+import { Users, UsersRound, CalendarPlus, Pin, X, Clock, Repeat, TriangleAlert, BellRing, CircleCheck, Hourglass, Coffee, Lock } from "lucide-react";
 import type { ClassSession, Room } from "@/lib/classes";
 import { SessionSheet } from "@/components/classes/ClassSchedule";
 import { TemplateSheet, type TemplatePreset } from "@/components/classes/ClassTemplates";
@@ -121,6 +121,8 @@ type TaskInstance = {
     assignee_name?: string | null;
     done?: boolean;
     overdue?: boolean;
+    locks?: boolean;            // it has hours and locks the calendar (app/services/calendar_blocks)
+    kind?: string;              // "break": a break or a meeting — nothing to mark
 };
 
 export default function CalendarPage() {
@@ -230,6 +232,10 @@ function Calendar() {
     const [taskRecurrenceEndDate, setTaskRecurrenceEndDate] = useState("");
     // the worker it's for ("" — the whole team), and the occurrence clicked — done, or late (the owner, 2026-10-15)
     const [taskAssigneeId, setTaskAssigneeId] = useState("");
+    // a break or a meeting — a time that locks the calendar, nothing to mark; a task with hours locks it unless switched
+    // off (the owner, 2026-10-15: "anything that isn't an appointment — no appointment on it")
+    const [taskKind, setTaskKind] = useState<"task" | "break">("task");
+    const [taskLocks, setTaskLocks] = useState(true);
     const [taskOccurrence, setTaskOccurrence] = useState<{ date: string; done: boolean; overdue: boolean; assigneeName: string | null } | null>(null);
     const [toast, setToast] = useState<{message: string; type: "success"|"error"} | null>(null);
     const [todayBroadcasts, setTodayBroadcasts] = useState<{id: string; title: string; scheduled_at: string}[]>([]);
@@ -783,6 +789,8 @@ function Calendar() {
             setTaskColor(app.color || "#8b5cf6");
             setTaskRecurrence((app.recurrence_type || "none") as "none"|"weekly"|"monthly"|"yearly");
             setTaskAssigneeId(app.assignee_id || "");
+            setTaskKind(app.kind === "break" ? "break" : "task");
+            setTaskLocks(true);
             setTaskOccurrence({ date: app.date, done: !!app.done, overdue: !!app.overdue, assigneeName: app.assignee_name || null });
             // Load full task to get recurrence details
             apiFetch<any>(`/api/tasks/${app.taskId}`).then(full => {
@@ -794,6 +802,7 @@ function Calendar() {
                         : []
                 );
                 setTaskRecurrenceEndDate(full.recurrence_end_date || "");
+                setTaskLocks(full.blocks_booking ?? true);
             }).catch(() => {});
             setIsTaskModalOpen(true);
             return;
@@ -1067,14 +1076,16 @@ function Calendar() {
         extendedProps: { isTask: true, taskId: t.id, ...t },
     })), [tasks, canSetTasks]);
 
-    const openNewTaskModal = (dateStr: string, startTime: string = "", endTime: string = "") => {
+    const openNewTaskModal = (dateStr: string, startTime: string = "", endTime: string = "", kind: "task" | "break" = "task") => {
         setSelectedTaskId(null);
+        setTaskKind(kind);
+        setTaskLocks(true);
         setTaskTitle("");
         setTaskDate(dateStr);
         setTaskStartTime(startTime);
         setTaskEndTime(endTime);
         setTaskNotes("");
-        setTaskColor("#8b5cf6");
+        setTaskColor(kind === "break" ? "#64748b" : "#8b5cf6");
         setTaskRecurrence("none");
         setTaskRecurrenceDay("");
         setTaskRecurrenceMonth("");
@@ -1104,6 +1115,7 @@ function Calendar() {
 
     const handleSaveTask = async () => {
         if (!taskTitle.trim()) { showToast("יש להזין כותרת למשימה", "error"); return; }
+        if (taskKind === "break" && (!taskStartTime || !taskEndTime)) { showToast("להפסקה או לפגישה צריך שעת התחלה ושעת סיום", "error"); return; }
         if (taskRecurrence === "none" && !taskDate) { showToast("יש לבחור תאריך", "error"); return; }
         if (taskRecurrence === "weekly" && taskRecurrenceDaysOfWeek.length === 0) { showToast("יש לבחור לפחות יום אחד בשבוע", "error"); return; }
         if (taskRecurrence === "monthly" && !taskRecurrenceDay) { showToast("יש לבחור יום בחודש", "error"); return; }
@@ -1122,6 +1134,8 @@ function Calendar() {
             recurrence_days_of_week: taskRecurrence === "weekly" ? taskRecurrenceDaysOfWeek.slice().sort().join(",") : null,
             recurrence_end_date: taskRecurrenceEndDate || null,
             assignee_id: taskAssigneeId || null,
+            kind: taskKind,
+            blocks_booking: taskKind === "break" ? true : taskLocks,
         };
 
         try {
@@ -1132,7 +1146,7 @@ function Calendar() {
             }
             setIsTaskModalOpen(false);
             loadData();
-            showToast(selectedTaskId ? "✅ המשימה עודכנה" : "✅ המשימה נוספה");
+            showToast(taskKind === "break" ? "✅ נשמר ביומן — השעות האלה נעולות לתורים" : selectedTaskId ? "✅ המשימה עודכנה" : "✅ המשימה נוספה");
         } catch (e: any) {
             showToast(e?.message || "שגיאה בשמירת המשימה", "error");
         }
@@ -1696,9 +1710,10 @@ function Calendar() {
                                     );
                                 }
                                 if (p.isTask) {
-                                    const TaskIcon = p.done ? CircleCheck : p.overdue ? TriangleAlert : p.is_recurring ? Repeat : Pin;
+                                    const TaskIcon = p.done ? CircleCheck : p.overdue ? TriangleAlert : p.kind === "break" ? Coffee
+                                        : p.locks ? Lock : p.is_recurring ? Repeat : Pin;
                                     return (
-                                        <div className="@container h-full w-full overflow-hidden" data-tour={p.done ? undefined : "task-item"}>
+                                        <div className="@container h-full w-full overflow-hidden" data-tour={p.done || p.kind === "break" ? undefined : "task-item"}>
                                         <div className="px-1 md:px-1.5 py-0.5 h-full w-full text-[11px] @max-[3.5rem]:text-[9.5px] font-semibold leading-tight whitespace-normal break-words @max-[1.75rem]:[writing-mode:vertical-rl] @max-[1.75rem]:rotate-180 @max-[1.75rem]:px-0">
                                             {!arg.event.allDay && (
                                                 <div className="tabular-nums whitespace-nowrap @max-[1.75rem]:hidden">
@@ -2298,7 +2313,7 @@ function Calendar() {
                 {showTypeChooser && (
                     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-150"
                         onClick={() => setShowTypeChooser(false)}>
-                        <div className={`bg-white rounded-3xl shadow-2xl p-6 w-full ${classesOn && canSetUpClasses ? "max-w-sm" : "max-w-xs"} animate-in zoom-in-95 duration-200`}
+                        <div className={`bg-white rounded-3xl shadow-2xl p-6 w-full ${canSetTasks || (classesOn && canSetUpClasses) ? "max-w-sm" : "max-w-xs"} animate-in zoom-in-95 duration-200`}
                             onClick={e => e.stopPropagation()} dir="rtl">
                             <h3 className="text-lg font-bold text-slate-800 mb-1 text-center">מה תרצה להוסיף?</h3>
                             <p className="text-xs text-slate-400 text-center mb-5">בחר סוג האירוע ביומן</p>
@@ -2327,6 +2342,19 @@ function Calendar() {
                                 >
                                     <Pin className="w-7 h-7 text-violet-600" aria-hidden />
                                     <span className="text-sm font-bold text-violet-700">משימה / תזכורת</span>
+                                </button>)}
+                                {canSetTasks && (<button
+                                    onClick={() => {
+                                        setShowTypeChooser(false);
+                                        const dateStr = pendingSelectInfo?.startStr?.split("T")[0] || toLocalDateStr(new Date());
+                                        const startMatch = pendingSelectInfo?.startStr?.match(/T(\d{2}:\d{2})/);
+                                        const endMatch = pendingSelectInfo?.endStr?.match(/T(\d{2}:\d{2})/);
+                                        openNewTaskModal(dateStr, startMatch?.[1] || "", endMatch?.[1] || "", "break");
+                                    }}
+                                    className="flex-1 flex flex-col items-center gap-2 p-4 rounded-2xl border-2 border-slate-200 bg-slate-50 hover:bg-slate-100 transition-colors"
+                                >
+                                    <Coffee className="w-7 h-7 text-slate-600" aria-hidden />
+                                    <span className="text-sm font-bold text-slate-700">הפסקה / פגישה</span>
                                 </button>)}
                                 {classesOn && canSetUpClasses && (
                                     <button
@@ -2358,13 +2386,14 @@ function Calendar() {
                     <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm sm:p-4 animate-in fade-in duration-200">
                         <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full sm:max-w-md shadow-2xl overflow-hidden max-h-[85dvh] flex flex-col animate-in slide-in-from-bottom sm:zoom-in-95 duration-300" dir="rtl">
                             <div className="bg-violet-50 border-b border-violet-100 p-5 flex items-center justify-between flex-shrink-0">
-                                <h3 className="text-xl font-bold text-violet-900">{!canSetTasks ? "משימה" : selectedTaskId ? "עריכת משימה" : "משימה / תזכורת חדשה"}</h3>
+                                <h3 className="text-xl font-bold text-violet-900">{taskKind === "break" ? (selectedTaskId && canSetTasks ? "עריכת הפסקה / פגישה" : "הפסקה / פגישה")
+                                    : !canSetTasks ? "משימה" : selectedTaskId ? "עריכת משימה" : "משימה / תזכורת חדשה"}</h3>
                                 <button onClick={() => setIsTaskModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-2 bg-white rounded-full shadow-sm">✕</button>
                             </div>
 
                             <div className="p-5 space-y-4 overflow-y-auto flex-1 min-h-0">
                                 {/* this occurrence: whose, done or late — and marking it */}
-                                {selectedTaskId && taskOccurrence && (
+                                {selectedTaskId && taskOccurrence && taskKind === "task" && (
                                     <div className={`rounded-2xl border p-3 ${taskOccurrence.done ? "bg-emerald-50 border-emerald-200" : taskOccurrence.overdue ? "bg-red-50 border-red-200" : "bg-slate-50 border-slate-200"}`}>
                                         <div className={`flex items-center gap-2 text-sm font-bold ${taskOccurrence.done ? "text-emerald-700" : taskOccurrence.overdue ? "text-red-700" : "text-slate-700"}`}>
                                             {taskOccurrence.done ? <CircleCheck className="w-4 h-4 shrink-0" aria-hidden />
@@ -2395,20 +2424,22 @@ function Calendar() {
                                 <div>
                                     <label className="block text-sm font-semibold text-slate-700 mb-1">כותרת *</label>
                                     <input value={taskTitle} onChange={e => setTaskTitle(e.target.value)}
-                                        placeholder="לדוגמה: ארנונה, מרפאה, חופשה..."
+                                        placeholder={taskKind === "break" ? "לדוגמה: הפסקת צהריים, פגישה עם ספק..." : "לדוגמה: ארנונה, מרפאה, חופשה..."}
                                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-violet-400 text-sm" />
                                 </div>
 
                                 {/* For whom — a worker hears at once, and is reminded until it's marked done */}
                                 <div data-tour="task-assignee">
-                                    <label className="block text-sm font-semibold text-slate-700 mb-1">למי המשימה</label>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-1">{taskKind === "break" ? "למי" : "למי המשימה"}</label>
                                     <select value={taskAssigneeId} onChange={e => setTaskAssigneeId(e.target.value)}
                                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-violet-400 text-sm">
                                         <option value="">כל הצוות</option>
                                         {artists.map(a => <option key={a.id} value={a.id}>{a.display_name || a.email}</option>)}
                                     </select>
                                     {taskAssigneeId && (
-                                        <p className="text-xs text-slate-500 mt-1">העובד מקבל הודעה כשהמשימה נמסרת לו, ותזכורת כל עוד היא לא סומנה כבוצעה</p>
+                                        <p className="text-xs text-slate-500 mt-1">{taskKind === "break"
+                                            ? "היומן שלו נעול בשעות האלה — לא ייקבעו לו תורים"
+                                            : "העובד מקבל הודעה כשהמשימה נמסרת לו, ותזכורת כל עוד היא לא סומנה כבוצעה"}</p>
                                     )}
                                 </div>
 
@@ -2504,6 +2535,25 @@ function Calendar() {
                                     </div>
                                 </div>
 
+                                {/* Locking the calendar — a break always; a task with hours unless switched off */}
+                                {taskKind === "break" ? (
+                                    <div className="flex items-start gap-2 rounded-xl bg-slate-50 border border-slate-200 p-3 text-xs text-slate-600">
+                                        <Lock className="w-4 h-4 shrink-0 text-slate-500" aria-hidden />
+                                        <span>נועל את היומן {taskAssigneeId ? `של ${artists.find(a => a.id === taskAssigneeId)?.display_name || "העובד"}` : "של כל הצוות"} בשעות האלה — לא ייקבעו תורים, גם לא בקביעה עצמית של לקוחות.</span>
+                                    </div>
+                                ) : taskStartTime && taskEndTime ? (
+                                    <div className="flex items-start gap-3 rounded-xl bg-slate-50 border border-slate-200 p-3">
+                                        <Switch size="sm" checked={taskLocks} onChange={setTaskLocks} onColor="bg-violet-600"
+                                            title={taskLocks ? "לבטל את נעילת היומן" : "לנעול את היומן"} />
+                                        <span className="text-xs text-slate-600">
+                                            <span className="block font-semibold text-slate-700">נועל את היומן בשעות האלה</span>
+                                            {taskLocks
+                                                ? `לא ייקבעו תורים ${taskAssigneeId ? `ל${artists.find(a => a.id === taskAssigneeId)?.display_name || "עובד"}` : "לאף אחד בצוות"} בשעות האלה, גם לא בקביעה עצמית של לקוחות.`
+                                                : "אפשר לקבוע תורים בשעות האלה."}
+                                        </span>
+                                    </div>
+                                ) : null}
+
                                 {/* Color */}
                                 <div>
                                     <label className="block text-sm font-semibold text-slate-700 mb-2">צבע</label>
@@ -2536,7 +2586,7 @@ function Calendar() {
                                 <div className="flex gap-3">
                                     <button onClick={() => setIsTaskModalOpen(false)} className="px-5 py-2 text-sm font-bold text-slate-600 hover:bg-slate-200 rounded-xl transition-colors">סגור</button>
                                     {canSetTasks && <button onClick={handleSaveTask} className="px-6 py-2 text-sm font-bold text-white bg-violet-600 shadow-lg shadow-violet-600/20 hover:bg-violet-700 hover:-translate-y-0.5 rounded-xl transition-all">
-                                        {selectedTaskId ? "שמור שינויים" : "הוסף משימה"}
+                                        {selectedTaskId ? "שמור שינויים" : taskKind === "break" ? "הוסף ליומן" : "הוסף משימה"}
                                     </button>}
                                 </div>
                             </div>

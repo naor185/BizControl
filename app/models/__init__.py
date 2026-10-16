@@ -35,6 +35,9 @@ from app.models.policy_setting import PolicySetting
 from app.models.classes import Room, ClassTemplate, ClassSession, ClassBooking
 from app.models.memberships import MembershipType, Membership, MembershipEntry, MembershipEvent, PenaltyRule, ClassFee
 from app.models.health_form import HealthForm, HealthFormFile, HealthDeclaration
+from app.models.task import Task
+from app.models.task_completion import TaskCompletion
+from app.models.tutorial_progress import TutorialProgress
 
 __all__ = [
     "Base", "Studio", "User", "StudioSettings", "RefreshToken",
@@ -47,4 +50,5 @@ __all__ = [
     "StaffReminderRule", "StaffReminderSentLog",
     "Migration", "MigrationRow", "ExternalRecord", "MigrationEvent",
     "HealthForm", "HealthFormFile", "HealthDeclaration",
+    "Task", "TaskCompletion", "TutorialProgress",
 ]

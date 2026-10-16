@@ -17,6 +17,8 @@ class TaskCreate(BaseModel):
     recurrence_days_of_week: str | None = None  # weekly only — "0,3" (Sun,Wed), 0=Sunday
     recurrence_end_date: date | None = None
     assignee_id: UUID | None = None             # the worker it's for; None — the whole team
+    blocks_booking: bool = True                 # with hours: no appointment on it (services/calendar_blocks)
+    kind: Literal["task", "break"] = "task"     # "break": a break or a meeting — always locks, nothing to mark
 
 
 class TaskUpdate(BaseModel):
@@ -32,6 +34,8 @@ class TaskUpdate(BaseModel):
     recurrence_days_of_week: str | None = None
     recurrence_end_date: date | None = None
     assignee_id: UUID | None = None
+    blocks_booking: bool | None = None
+    kind: Literal["task", "break"] | None = None
 
 
 class TaskOut(BaseModel):
@@ -48,6 +52,8 @@ class TaskOut(BaseModel):
     recurrence_days_of_week: str | None
     recurrence_end_date: date | None
     assignee_id: UUID | None = None
+    blocks_booking: bool = True
+    kind: str = "task"
 
     @field_validator("id", mode="before")
     @classmethod
@@ -79,6 +85,8 @@ class TaskInstance(BaseModel):
     assignee_name: str | None = None
     done: bool = False
     overdue: bool = False
+    locks: bool = False      # it has hours and locks the calendar (services/calendar_blocks)
+    kind: str = "task"       # "break": a break or a meeting — nothing to mark
 
 
 class TaskDoneIn(BaseModel):

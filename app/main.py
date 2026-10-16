@@ -422,6 +422,10 @@ def run_migrations():
         # a task for a worker, done occurrence by occurrence (services/team_tasks, 2026-10-15)
         conn.execute(text("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS assignee_id UUID REFERENCES users(id) ON DELETE SET NULL"))
         conn.execute(text("CREATE INDEX IF NOT EXISTS ix_tasks_assignee_id ON tasks (assignee_id)"))
+        # a task with hours locks the calendar — no appointment on it (services/calendar_blocks, 2026-10-15)
+        conn.execute(text("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS blocks_booking BOOLEAN NOT NULL DEFAULT true"))
+        # a break or a meeting — a time in the calendar, not a to-do (2026-10-15)
+        conn.execute(text("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS kind VARCHAR(10) NOT NULL DEFAULT 'task'"))
         conn.execute(text("""
             CREATE TABLE IF NOT EXISTS task_completions (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

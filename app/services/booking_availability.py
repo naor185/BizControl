@@ -64,6 +64,9 @@ def compute_available_slots(
     ]
     from app.services.google_busy import busy_times
     busy += busy_times(db, studio_id, day_start.astimezone(timezone.utc), day_end.astimezone(timezone.utc), artist_id)
+    from app.services import calendar_blocks      # a task with hours locks the calendar — a break, a meeting
+    busy += calendar_blocks.busy_times(db, studio_id, day_start.astimezone(timezone.utc), day_end.astimezone(timezone.utc),
+                                       artist_id, tz_str)
 
     slots: list[tuple[str, datetime, datetime]] = []
     current = datetime(target_date.year, target_date.month, target_date.day,

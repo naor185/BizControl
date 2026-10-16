@@ -128,10 +128,12 @@ def list_tasks(
         task = by_id[inst.id]
         occurrence = date.fromisoformat(inst.date)
         inst.done = (inst.id, occurrence) in done
+        inst.locks = bool(task.blocks_booking and inst.start_time and inst.end_time)
+        inst.kind = task.kind
         if task.assignee_id:
             inst.assignee_id = str(task.assignee_id)
             inst.assignee_name = names.get(task.assignee_id)
-            inst.overdue = not inst.done and now >= due_at(occurrence, inst.start_time, inst.end_time)
+            inst.overdue = task.kind == "task" and not inst.done and now >= due_at(occurrence, inst.start_time, inst.end_time)
     return instances
 
 
@@ -160,13 +162,23 @@ def create_task(
 ):
     _check_assignee(db, ctx, payload.assignee_id)
     task = Task(studio_id=ctx.studio_id, **payload.model_dump())
+    _a_break_has_hours(task)
     db.add(task)
     db.commit()
     db.refresh(task)
-    if task.assignee_id:
+    if task.assignee_id and task.kind == "task":
         from app.services.team_tasks import notify_assigned
         notify_assigned(db, task)
     return task
+
+
+def _a_break_has_hours(task: Task) -> None:
+    """A break or a meeting is a time in the calendar: it has hours, and it always locks it."""
+    if task.kind != "break":
+        return
+    if not (task.start_time and task.end_time):
+        raise HTTPException(status_code=400, detail="להפסקה או לפגישה צריך שעת התחלה ושעת סיום")
+    task.blocks_booking = True
 
 
 def _check_assignee(db: Session, ctx: AuthContext, assignee_id) -> None:
@@ -202,10 +214,11 @@ def update_task(
     given_to_someone_new = changes.get("assignee_id") is not None and changes["assignee_id"] != task.assignee_id
     for k, v in changes.items():
         setattr(task, k, v)
+    _a_break_has_hours(task)
 
     db.commit()
     db.refresh(task)
-    if given_to_someone_new:
+    if given_to_someone_new and task.kind == "task":
         from app.services.team_tasks import notify_assigned
         notify_assigned(db, task)
     return task
@@ -238,6 +251,8 @@ def _task_for_marking(db: Session, ctx: AuthContext, task_id) -> Task:
         raise HTTPException(status_code=404, detail="המשימה לא נמצאה")
     if ctx.role in WORKERS and task.assignee_id not in (None, ctx.user_id):
         raise HTTPException(status_code=403, detail="המשימה הזו של עובד אחר")
+    if task.kind != "task":
+        raise HTTPException(status_code=400, detail="הפסקה או פגישה לא מסמנים כבוצעה")
     return task
 
 

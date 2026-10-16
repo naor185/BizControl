@@ -64,7 +64,7 @@ def get_checks(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Dep
     me = db.get(User, ctx.user_id)
     name = ((me.display_name or "").strip().split(" ")[0] or None) if me else None
     if ctx.role in WORKERS:
-        has_task = exists(select(Task.id).where(Task.studio_id == ctx.studio_id,
+        has_task = exists(select(Task.id).where(Task.studio_id == ctx.studio_id, Task.kind == "task",
                                                 (Task.assignee_id.is_(None)) | (Task.assignee_id == ctx.user_id)))
         return {"name": name, "checks": {
             # the clock is a worker's paid by the hour or a global salary (components/ClockWidget)
@@ -88,7 +88,7 @@ def get_checks(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Dep
         Appointment.studio_id == ctx.studio_id, Appointment.deposit_amount_cents > 0,
         Appointment.payment_verified_at.isnot(None)))}
     out["task_assigned"] = {"applies": has_worker, "done": exists(select(Task.id).where(
-        Task.studio_id == ctx.studio_id, Task.assignee_id.isnot(None)))}
+        Task.studio_id == ctx.studio_id, Task.kind == "task", Task.assignee_id.isnot(None)))}
     return {"name": name, "checks": out}
 
 

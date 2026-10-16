@@ -130,7 +130,8 @@ def sweep_task_followups(db: Session, now: datetime | None = None) -> int:
     now = now or datetime.now(timezone.utc)
     today = now.astimezone(IL).date()
     morning = now.astimezone(IL).hour >= MORNING_HOUR
-    tasks = {str(t.id): t for t in db.scalars(select(Task).where(Task.assignee_id.isnot(None))).all()}
+    tasks = {str(t.id): t for t in db.scalars(select(Task).where(Task.assignee_id.isnot(None),
+                                                                 Task.kind == "task")).all()}   # a break: nothing to remind
     if not tasks:
         return 0
     done = {(str(c.task_id), c.occurrence_date) for c in db.scalars(
