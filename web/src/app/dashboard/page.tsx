@@ -5,7 +5,7 @@
 // suggestions, the setup checklist (until it's done), the daily collection report, the leads, BizFind's exposure; the
 // free trial's bar under it (AppShell).
 import { BellRing, ChevronDown, Target } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import RequireAuth from "@/components/RequireAuth";
 import AppShell from "@/components/AppShell";
 import { apiFetch, imgUrl } from "@/lib/api";
@@ -16,6 +16,7 @@ import LeadsContent from "@/components/LeadsContent";
 import BizFindExposureCard from "@/components/BizFindExposureCard";
 import VikiCard from "@/components/viki/VikiCard";
 import { useNewLeadsCount } from "@/lib/useNewLeadsCount";
+import { SECTION_EVENT } from "@/lib/sectionLinks";
 
 type PendingGiftCard = {
     id: string;
@@ -164,6 +165,25 @@ export default function Page() {
     };
 
     useEffect(() => { fetchData(); }, []);
+
+    // a link to a part of this screen — "#leads", "#viki" (ויקי's buttons, her notices; lib/sectionLinks): open it and
+    // scroll to it — when the screen opens with it, and when it's followed here
+    const hashDone = useRef(false);
+    const openSection = useCallback((id: string) => {
+        if (id === "leads") {
+            setLeadsOpen(true);
+            try { localStorage.setItem(LEADS_OPEN_KEY, "1"); } catch { /* per-viewer convenience only */ }
+        }
+        setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" }), 150);
+    }, []);
+    useEffect(() => {
+        if (loading) return;
+        const id = window.location.hash.slice(1);
+        if (id && !hashDone.current) { hashDone.current = true; setTimeout(() => openSection(id), 0); }
+        const follow = (e: Event) => openSection((e as CustomEvent<string>).detail);
+        window.addEventListener(SECTION_EVENT, follow);
+        return () => window.removeEventListener(SECTION_EVENT, follow);
+    }, [loading, openSection]);
 
     const toggleLeads = () => {
         const next = !leadsOpen;

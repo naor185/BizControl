@@ -106,7 +106,7 @@ def suggestions(db: Session, studio_id, now: datetime | None = None) -> list[dic
     if next_week["percent"] < 40 and (work_days is None or len(work_days) > 0):
         add(70, f"fill_next:{(week_start + timedelta(days=7)).isoformat()}", "warn",
             f"השבוע הבא מלא רק ב-{next_week['percent']}%. זה זמן טוב להזכיר ללקוחות שאפשר לקבוע — הודעה קצרה ללקוחות קבועים עושה פלאים.",
-            *(("לשלוח הודעה ללקוחות", "/broadcasts") if can_broadcast else ("לפתוח את היומן", "/calendar")))
+            *(("לשלוח הודעה ללקוחות", "/broadcasts?audience=all") if can_broadcast else ("לפתוח את היומן", "/calendar")))
 
     # ── no-shows, while the reminder two hours before is off ──
     if settings is not None and not settings.reminder_2_hours_enabled:

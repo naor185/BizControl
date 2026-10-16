@@ -7,6 +7,8 @@
 // on לוח בקרה ("ויקי קופצת כשקורה משהו") is on. The owner's and the managers' who see the money (else: 403, she rests).
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { followSection } from "@/lib/sectionLinks";
 import { X } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import Viki, { type VikiPose } from "./Viki";
@@ -25,7 +27,8 @@ export default function VikiPopper() {
     const [on, setOn] = useState(popupsOn);
     const [shown, setShown] = useState<Moment | null>(null);
     const [pose, setPose] = useState<VikiPose>("wave");
-    const [lift, setLift] = useState(false);          // the trial's bar is at the bottom — she stands above it
+    const [lift, setLift] = useState(false);
+    const pathname = usePathname();          // the trial's bar is at the bottom — she stands above it
     const queue = useRef<Moment[]>([]);
     const since = useRef<string>("");               // the server's "now" from the last look
     const stopped = useRef(false);
@@ -102,7 +105,7 @@ export default function VikiPopper() {
                 <p className="text-sm text-slate-700 leading-relaxed pl-5">{shown.text}</p>
                 <div className="mt-2.5 flex items-center gap-2">
                     {shown.action && (
-                        <Link href={shown.action.href} onClick={() => setShown(null)}
+                        <Link href={shown.action.href} onClick={e => { followSection(e, shown.action!.href, pathname); setShown(null); }}
                             className="min-h-9 inline-flex items-center px-3 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold transition">
                             {shown.action.label}
                         </Link>

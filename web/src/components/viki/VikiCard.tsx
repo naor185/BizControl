@@ -6,6 +6,8 @@
 // see the money.
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { followSection } from "@/lib/sectionLinks";
 import { CircleCheck, Lightbulb, Target, TriangleAlert } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { Switch } from "@/components/ui/switch";
@@ -29,6 +31,7 @@ export default function VikiCard() {
     const [hidden, setHidden] = useState(false);
     const [pops, setPops] = useState(popupsOn);
     const [busy, setBusy] = useState<string | null>(null);
+    const pathname = usePathname();
 
     const load = () => apiFetch<{ suggestions: Suggestion[]; more: number; summary: Summary | null }>("/api/viki")
         .then(r => { setItems(r.suggestions); setMore(r.more); setSummary(r.summary); })
@@ -102,7 +105,7 @@ export default function VikiCard() {
                                 </div>
                                 <div className="mt-2.5 flex flex-wrap items-center gap-2 mr-7">
                                     {s.action && (
-                                        <Link href={s.action.href} className="min-h-9 inline-flex items-center px-3 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold transition">
+                                        <Link href={s.action.href} onClick={e => followSection(e, s.action!.href, pathname)} className="min-h-9 inline-flex items-center px-3 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold transition">
                                             {s.action.label}
                                         </Link>
                                     )}
