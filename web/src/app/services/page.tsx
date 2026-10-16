@@ -107,12 +107,16 @@ function ServiceModal({
 
                     {/* Price */}
                     <div>
-                        <label style={lStyle}>מחיר (₪)</label>
-                        {/* empty, not a "0" that can't be erased (owner, 2026-10-14) — the 0 is only a hint */}
-                        <input type="number" inputMode="decimal" min={0} step={10} placeholder="0"
+                        <label style={lStyle}>מחיר (₪) <span style={{ fontWeight: 400, opacity: .7 }}>— לא חובה</span></label>
+                        {/* not required (owner, 2026-10-16: "the price changes from service to service — not locked"): empty
+                            means "משתנה" — clients see no price, and the amount is written in the payment */}
+                        <input type="number" inputMode="decimal" min={0} step={10} placeholder="משתנה"
                             value={form.price_cents ? form.price_cents / 100 : ""}
                             onChange={e => set("price_cents", Math.round(parseFloat(e.target.value || "0") * 100))}
                             style={iStyle} />
+                        <div style={{ fontSize: "0.75rem", color: "#94a3b8", marginTop: "0.3rem" }}>
+                            המחיר משתנה מלקוח ללקוח? השאירו ריק — הלקוחות לא יראו מחיר, ואת הסכום רושמים בתשלום.
+                        </div>
                     </div>
 
                     {/* Category */}
@@ -304,7 +308,7 @@ export default function ServicesPage() {
                                             </div>
                                             <div style={{ display: "flex", gap: "1rem", fontSize: "0.85rem", color: "#94a3b8", marginBottom: "0.75rem" }}>
                                                 <span>⏱️ {durLabel(svc.duration_minutes)}</span>
-                                                <span>₪{fmt(svc.price_ils)}</span>
+                                                <span>{svc.price_cents > 0 ? `₪${fmt(svc.price_ils)}` : "מחיר משתנה"}</span>
                                             </div>
                                             {svc.description && <div style={{ color: "#64748b", fontSize: "0.8rem", marginBottom: "0.5rem" }}>{svc.description}</div>}
                                             <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", marginBottom: "0.75rem" }}>
