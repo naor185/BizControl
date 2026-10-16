@@ -8,6 +8,7 @@ export const VOICE: Record<string, string> = {
     owner_start: "01",
     business: "02",
     "business:logo-upload": "03",
+    "business:business-address": "04",
     "business:done": "05",
 };
 
