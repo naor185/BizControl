@@ -1,13 +1,14 @@
 "use client";
 
-// לוח בקרה — the one home screen (the owner, 2026-10-15: "דשבורד" and לוח בקרה became one). Top to bottom: today's
-// appointments, what waits for approval, the setup checklist (until it's done), the calendar's fill, the daily
-// collection report, the leads, BizFind's exposure; the free trial's bar under it (AppShell).
+// לוח בקרה — the one home screen (the owner, 2026-10-15: "דשבורד" and לוח בקרה became one). Top to bottom: the
+// calendar — today, this week, this month (appointments and how full) — then what waits for approval, the setup
+// checklist (until it's done), the daily collection report, the leads, BizFind's exposure; the free trial's bar under
+// it (AppShell).
 import { BellRing, ChevronDown, Target } from "lucide-react";
 import { useEffect, useState } from "react";
 import RequireAuth from "@/components/RequireAuth";
 import AppShell from "@/components/AppShell";
-import { apiFetch, DashboardStats, imgUrl } from "@/lib/api";
+import { apiFetch, imgUrl } from "@/lib/api";
 import PaymentModal from "@/components/PaymentModal";
 import DepositConfirmModal, { type DepositToConfirm } from "@/components/DepositConfirmModal";
 import SetupChecklist from "@/components/SetupChecklist";
@@ -69,7 +70,6 @@ const fmt = (n: number) =>
 
 
 export default function Page() {
-    const [stats, setStats] = useState<DashboardStats | null>(null);
     const [leadsOpen, setLeadsOpen] = useState(readLeadsOpen);
     const newLeads = useNewLeadsCount();
     const [dailyPayments, setDailyPayments] = useState<DailyPayment[]>([]);
@@ -86,7 +86,7 @@ export default function Page() {
     // approving a deposit — the same window as the calendar's (components/DepositConfirmModal)
     const [depositCashier, setDepositCashier] = useState<DepositToConfirm | null>(null);
     type OccupancyPeriod = { percent: number; count: number };
-    type OccupancyData = { this_week: OccupancyPeriod; last_week: OccupancyPeriod; this_month: OccupancyPeriod; last_month: OccupancyPeriod };
+    type OccupancyData = { today: OccupancyPeriod; this_week: OccupancyPeriod; last_week: OccupancyPeriod; this_month: OccupancyPeriod; last_month: OccupancyPeriod };
     const [occupancy, setOccupancy] = useState<OccupancyData | null>(null);
 
     // the parts add up to total_today_cents (refunds taken off)
@@ -105,8 +105,7 @@ export default function Page() {
     const fetchData = async () => {
         try {
             setLoading(true);
-            const [statsData, paymentsData, pendingData, depositsData, occData, todayRevData, pendingGiftCardsData] = await Promise.all([
-                apiFetch<DashboardStats>("/api/dashboard/stats"),
+            const [paymentsData, pendingData, depositsData, occData, todayRevData, pendingGiftCardsData] = await Promise.all([
                 apiFetch<DailyPayment[]>("/api/dashboard/daily-payments"),
                 apiFetch<PendingPayment[]>("/api/dashboard/pending-payments"),
                 apiFetch<any[]>("/api/appointments/pending-deposits").catch(() => []),
@@ -114,7 +113,6 @@ export default function Page() {
                 apiFetch<any>("/api/dashboard/today-revenue").catch(() => null),
                 apiFetch<PendingGiftCard[]>("/api/dashboard/pending-gift-cards").catch(() => []),
             ]);
-            setStats(statsData);
             setDailyPayments(paymentsData);
             setPendingPayments(pendingData);
             setPendingDeposits(depositsData);
@@ -193,13 +191,40 @@ export default function Page() {
             <AppShell title="לוח בקרה">
                 <div className="space-y-6 animate-in fade-in duration-300">
 
-                    {/* ── Today's appointments ── */}
-                    {stats && (
-                        <div className="rounded-2xl bg-white border border-slate-100 p-5 shadow-sm flex items-center justify-between gap-4">
-                            <div className="font-bold text-slate-800">תורים היום</div>
-                            <div className="text-4xl font-black text-slate-900 tabular-nums">{stats.appointments_today}</div>
-                        </div>
-                    )}
+                    {/* ── The calendar: today, this week, this month — how much is booked, and how many appointments ── */}
+                    {occupancy && (() => {
+                        const Row = ({ label, now, before, beforeLabel }: { label: string; now: OccupancyPeriod; before?: OccupancyPeriod; beforeLabel?: string }) => {
+                            const tone = now.percent >= 75 ? "bg-emerald-500" : now.percent >= 40 ? "bg-sky-500" : "bg-slate-400";
+                            return (
+                                <div>
+                                    <div className="flex items-baseline justify-between gap-3">
+                                        <span className="font-semibold text-slate-700">{label}</span>
+                                        <span className="text-2xl font-black text-slate-900 tabular-nums">{now.percent}%</span>
+                                    </div>
+                                    <div className="mt-1.5 h-2.5 rounded-full bg-slate-100 overflow-hidden" role="progressbar"
+                                        aria-valuenow={now.percent} aria-valuemin={0} aria-valuemax={100} aria-label={`מילוי היומן ${label}`}>
+                                        <div className={`h-full rounded-full ${tone}`} style={{ width: `${now.percent}%`, transition: "width 0.8s ease" }} />
+                                    </div>
+                                    <div className="mt-1 text-xs text-slate-500">
+                                        <span className="font-bold text-slate-700">{now.count === 1 ? "תור אחד" : `${now.count} תורים`}</span>
+                                        {before && ` · ${beforeLabel}: ${before.percent}%`}
+                                    </div>
+                                </div>
+                            );
+                        };
+                        return (
+                            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5" dir="rtl">
+                                <h3 className="font-bold text-slate-800">מילוי היומן</h3>
+                                <p className="text-xs text-slate-500 mt-0.5">כמה תורים יש, וכמה מזמן העבודה שלך כבר תפוס בהם</p>
+                                <div className="mt-4 grid gap-5 sm:grid-cols-3">
+                                    <Row label="היום" now={occupancy.today} />
+                                    <Row label="השבוע" now={occupancy.this_week} before={occupancy.last_week} beforeLabel="בשבוע שעבר" />
+                                    <Row label="החודש" now={occupancy.this_month} before={occupancy.last_month} beforeLabel="בחודש שעבר" />
+                                </div>
+                                <p className="mt-4 text-[11px] text-slate-400">לפי ימי העבודה ושעות היומן שבהגדרות</p>
+                            </div>
+                        );
+                    })()}
 
                     {/* ── Payment reports waiting for approval ── */}
                     {pendingPayments.length > 0 && (
@@ -377,39 +402,6 @@ export default function Page() {
 
                     {/* ── Setting the business up — until it's done ── */}
                     <SetupChecklist />
-
-                    {/* ── Calendar fill: how much of the working time is already booked ── */}
-                    {occupancy && (() => {
-                        const Row = ({ label, now, before, beforeLabel }: { label: string; now: OccupancyPeriod; before: OccupancyPeriod; beforeLabel: string }) => {
-                            const tone = now.percent >= 75 ? "bg-emerald-500" : now.percent >= 40 ? "bg-sky-500" : "bg-slate-400";
-                            return (
-                                <div>
-                                    <div className="flex items-baseline justify-between gap-3">
-                                        <span className="font-semibold text-slate-700">{label}</span>
-                                        <span className="text-2xl font-black text-slate-900 tabular-nums">{now.percent}%</span>
-                                    </div>
-                                    <div className="mt-1.5 h-2.5 rounded-full bg-slate-100 overflow-hidden" role="progressbar"
-                                        aria-valuenow={now.percent} aria-valuemin={0} aria-valuemax={100} aria-label={`מילוי היומן ${label}`}>
-                                        <div className={`h-full rounded-full ${tone}`} style={{ width: `${now.percent}%`, transition: "width 0.8s ease" }} />
-                                    </div>
-                                    <div className="mt-1 text-xs text-slate-500">
-                                        {now.count === 1 ? "תור אחד" : `${now.count} תורים`} · {beforeLabel}: {before.percent}%
-                                    </div>
-                                </div>
-                            );
-                        };
-                        return (
-                            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5" dir="rtl">
-                                <h3 className="font-bold text-slate-800">מילוי היומן</h3>
-                                <p className="text-xs text-slate-500 mt-0.5">כמה מזמן העבודה שלך כבר תפוס בתורים</p>
-                                <div className="mt-4 grid gap-5 sm:grid-cols-2">
-                                    <Row label="השבוע" now={occupancy.this_week} before={occupancy.last_week} beforeLabel="בשבוע שעבר" />
-                                    <Row label="החודש" now={occupancy.this_month} before={occupancy.last_month} beforeLabel="בחודש שעבר" />
-                                </div>
-                                <p className="mt-4 text-[11px] text-slate-400">לפי ימי העבודה ושעות היומן שבהגדרות</p>
-                            </div>
-                        );
-                    })()}
 
                     {/* ── The daily collection report ── */}
                     <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">

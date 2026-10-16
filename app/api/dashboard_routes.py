@@ -842,6 +842,7 @@ def get_calendar_occupancy(
     last_month_end = month_start
 
     return {
+        "today":       period_data(today,            today + timedelta(days=1)),
         "this_week":   period_data(week_start,       week_end),
         "last_week":   period_data(last_week_start,  last_week_end),
         "this_month":  period_data(month_start,      next_month),
