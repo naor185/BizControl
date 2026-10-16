@@ -273,10 +273,15 @@ export default function TourProvider({ children }: { children: React.ReactNode }
     useEffect(() => {
         if (!voiceKey) { stopVoice(); return; }
         if (!voice || alreadySaid(voiceKey)) return;
-        // what to do on a step's screen — with the step's opening first, when she hasn't said it yet
-        const [head, part] = voiceKey.split(":");
-        const opening = part && part !== "done" && !alreadySaid(head) && !!tour?.steps.some(s => s.id === head);
-        say(opening ? [head, voiceKey] : [voiceKey], setBlocked);
+        // once the bubble settles — a step just done is "finished" for a moment before its praise shows
+        const t = setTimeout(() => {
+            if (alreadySaid(voiceKey)) return;
+            // what to do on a step's screen — with the step's opening first, when she hasn't said it yet
+            const [head, part] = voiceKey.split(":");
+            const opening = part && part !== "done" && !alreadySaid(head) && !!tour?.steps.some(s => s.id === head);
+            say(opening ? [head, voiceKey] : [voiceKey], setBlocked);
+        }, 400);
+        return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [voiceKey, voice]);
     const toggleVoice = () => {

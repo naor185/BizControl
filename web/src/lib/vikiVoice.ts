@@ -2,7 +2,8 @@
 // (on the owner's Desktop: "ויקי - טקסטים להקלטה.txt", clips 01–68) and the files go to web/public/viki-voice/NN.mp3 (mono,
 // 96k). A clip belongs to one thing the guide says: a path's welcome (the path's id), a step's opening (the step's id),
 // what to do on its screen (step:target), the praise (step:done), a path's end (path:finish) and the offer of the
-// next path (path:next). Only recorded clips are listed — the rest stay text only.
+// next path (path:next) — one clip, or a few said one after the other ("23 24"). Only recorded clips are listed — the
+// rest stay text only.
 
 export const VOICE: Record<string, string> = {
     owner_start: "01",
@@ -24,9 +25,14 @@ export const VOICE: Record<string, string> = {
     "appointment:type-appointment": "17",
     "appointment:appointment-form": "18",
     "appointment:done": "19",
+    payment: "20",
+    "payment:pay-bit": "21",
+    "payment:done": "22",
+    "owner_start:finish": "23",
+    "owner_start:next": "23",          // "כל הכבוד, סיימת…" — then 24, the offer of "יום עבודה", once it's recorded
 };
 
-export const voiceSrc = (key: string | null): string | null => (key && VOICE[key] ? `/viki-voice/${VOICE[key]}.mp3` : null);
+const clipsOf = (key: string): string[] => (VOICE[key] ? VOICE[key].split(" ").map(n => `/viki-voice/${n}.mp3`) : []);
 
 /** Whether a path has any recorded clip — its welcome, its end, or one of its steps. */
 export const hasVoice = (tourId: string, stepIds: string[]): boolean =>
@@ -49,14 +55,14 @@ export const stopVoice = (): void => { playing?.pause(); };
 /** Says the clips one after the other (what isn't recorded is skipped); `held` — the browser held the sound back
  *  until a tap. */
 export function say(keys: string[], held: (yes: boolean) => void): void {
-    const queue = keys.filter(k => voiceSrc(k));
-    last = [...queue];
+    last = keys.filter(k => VOICE[k]);
+    const queue = last.flatMap(k => clipsOf(k).map(src => ({ k, src })));
     playing?.pause();
     const next = () => {
-        const k = queue.shift();
-        if (!k) return;
-        said.add(k);
-        const a = new Audio(voiceSrc(k)!);
+        const clip = queue.shift();
+        if (!clip) return;
+        said.add(clip.k);
+        const a = new Audio(clip.src);
         playing = a;
         a.onended = next;
         a.play().then(() => held(false)).catch(() => held(true));
