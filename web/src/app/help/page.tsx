@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { GraduationCap, PlayCircle } from "lucide-react";
+import { PlayCircle } from "lucide-react";
 import AppShell from "@/components/AppShell";
 import RequireAuth from "@/components/RequireAuth";
 import { useTour } from "@/components/tour/TourProvider";
 import VideoModal from "@/components/tour/VideoModal";
+import VikiAvatar from "@/components/tour/VikiAvatar";
 import { TOURS, posterOf, type TourStep } from "@/lib/tours";
 
 // The guide's videos, path by path in the order of their steps — short recordings of the real screens on a phone.
@@ -53,10 +54,10 @@ function StartTourCard() {
     if (!tour.available) return null;
     return (
         <div className="mb-6 flex flex-wrap items-center gap-3 bg-sky-50 border border-sky-200 rounded-2xl p-4">
-            <GraduationCap className="w-7 h-7 text-sky-600 shrink-0" aria-hidden />
+            <VikiAvatar size={48} className="shrink-0 rounded-full" />
             <div className="flex-1 min-w-48">
-                <div className="font-bold text-slate-800">הדרכה צעד אחר צעד</div>
-                <div className="text-sm text-slate-600">המדריך יוביל אתכם צעד אחר צעד בתוך המערכת, ויבדוק שכל צעד הצליח.</div>
+                <div className="font-bold text-slate-800">ויקי — הדרכה צעד אחר צעד</div>
+                <div className="text-sm text-slate-600">ויקי, העוזרת האישית שלך, תוביל אותך צעד אחר צעד בתוך המערכת, ותבדוק שכל צעד הצליח.</div>
             </div>
             <button type="button" onClick={tour.open} className="bg-sky-600 hover:bg-sky-700 text-white text-sm font-bold px-4 py-2.5 rounded-xl transition">
                 התחלת ההדרכה

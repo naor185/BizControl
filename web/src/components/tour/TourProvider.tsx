@@ -1,6 +1,7 @@
 "use client";
 
-// The guide — "המדריך שלך" (the owner, 2026-10-15): a new business owner learns the system inside it, one step at a time
+// The guide — ויקי, everyone's personal assistant (the owner, 2026-10-15/16): a new business owner learns the system inside
+// it, one step at a time
 // (lib/tours): it says what to do, takes you to the screen, highlights the thing to press there, and moves on only when
 // the server confirms the step really happened (api/tutorial_routes /checks) — with praise. Three paths: the owner's
 // first steps (opens by itself once), the owner's working day (offered when the first steps are done), and a worker's
@@ -9,11 +10,12 @@
 // screen: the highlight lets every click through.
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { ChevronDown, ChevronLeft, CircleHelp, GraduationCap, PlayCircle, X } from "lucide-react";
+import { ChevronDown, ChevronLeft, PlayCircle, X } from "lucide-react";
 import { apiFetch, getCurrentUserRole } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import { OWNER_START, TOURS, posterOf, type TourDef, type TourMove, type TourStep } from "@/lib/tours";
 import VideoModal from "./VideoModal";
+import VikiAvatar from "./VikiAvatar";
 
 type TourState = { state: "active" | "dismissed" | "done"; skipped: string[] };
 type Checks = Record<string, { applies: boolean; done: boolean }>;
@@ -47,9 +49,9 @@ export function TourButton() {
     const tour = useTour();
     if (!tour.available) return null;
     return (
-        <button type="button" onClick={tour.open} title="הדרכה צעד אחר צעד" aria-label="פתיחת המדריך — הדרכה צעד אחר צעד"
-            className="w-9 h-9 flex items-center justify-center rounded-full text-slate-500 hover:text-sky-600 hover:bg-sky-50 transition">
-            <CircleHelp className="w-5 h-5" aria-hidden />
+        <button type="button" onClick={tour.open} title="ויקי — העוזרת האישית שלך" aria-label="ויקי — הדרכה צעד אחר צעד"
+            className="w-9 h-9 flex items-center justify-center rounded-full ring-2 ring-sky-200 hover:ring-sky-400 hover:scale-105 transition">
+            <VikiAvatar size={36} />
         </button>
     );
 }
@@ -236,7 +238,7 @@ export default function TourProvider({ children }: { children: React.ReactNode }
     const close = () => {
         if (picking) { setPicking(false); return; }
         if (tour) save(tour.id, { state: "dismissed" });
-        toast.info("אפשר לפתוח את המדריך שוב בכל רגע מהכפתור ? למעלה");
+        toast.info("אפשר לקרוא לי שוב בכל רגע — לחצו על התמונה שלי למעלה");
     };
     const skip = (step: TourStep) => { if (!tour) return; setFocus(null); save(tour.id, { skipped: [...skipped, step.id] }); };
     const seen = (step: TourStep) => {                       // a step that only shows something — on to the next
@@ -288,8 +290,8 @@ export default function TourProvider({ children }: { children: React.ReactNode }
             <p className="font-bold text-slate-900">היי{name ? ` ${name}` : ""}!</p>
             <p className="mt-1">
                 {tour.welcome}: {steps.map(s => s.title).join(", ")}. {withMoney
-                    ? "צעד עם כסף — מכירה או מקדמה — לא עושים בשביל התרגול: אני מראה איך, ובודק אותו במכירה האמיתית הבאה. "
-                    : ""}כל צעד לוקח דקה או שתיים, ואני בודק שהוא באמת הצליח.
+                    ? "צעד עם כסף — מכירה או מקדמה — לא עושים בשביל התרגול: אני מראה איך, ובודקת אותו במכירה האמיתית הבאה. "
+                    : ""}כל צעד לוקח דקה או שתיים, ואני בודקת שהוא באמת הצליח.
             </p>
         </>;
         buttons = <>
@@ -342,24 +344,22 @@ export default function TourProvider({ children }: { children: React.ReactNode }
                              boxShadow: "0 0 0 3px #38bdf8, 0 0 0 9999px rgba(15, 23, 42, 0.38)" }} />
             )}
             {showGuide && tour && minimized && (
-                <button type="button" onClick={() => setMinimized(false)} aria-label="פתיחת המדריך"
-                    className="fixed z-[1100] right-4 bottom-[calc(140px+env(safe-area-inset-bottom,0px))] md:right-auto md:left-6 md:bottom-6 w-14 h-14 rounded-full bg-sky-600 text-white shadow-xl flex items-center justify-center">
-                    <GraduationCap className="w-6 h-6" aria-hidden />
+                <button type="button" onClick={() => setMinimized(false)} aria-label="ויקי — המשך ההדרכה"
+                    className="fixed z-[1100] right-4 bottom-[calc(140px+env(safe-area-inset-bottom,0px))] md:right-auto md:left-6 md:bottom-6 w-14 h-14 rounded-full shadow-xl ring-2 ring-white flex items-center justify-center">
+                    <VikiAvatar size={56} />
                     <span className="absolute -top-1 -left-1 min-w-6 h-6 px-1 rounded-full bg-white text-sky-700 text-[11px] font-black flex items-center justify-center border border-sky-200">
                         {doneCount}/{steps.length}
                     </span>
                 </button>
             )}
             {showGuide && !minimized && body && (
-                <div role="dialog" aria-label="המדריך" dir="rtl"
+                <div role="dialog" aria-label="ויקי" dir="rtl"
                     className={`fixed z-[1100] inset-x-3 md:inset-x-auto md:left-6 md:w-[380px] bg-white rounded-3xl shadow-2xl border border-slate-200 p-4 ${
                         panelOnTop || barBelow ? "top-[calc(12px+env(safe-area-inset-top,0px))] md:top-6" : "bottom-[calc(76px+env(safe-area-inset-bottom,0px))] md:bottom-6"}`}>
                     <div className="flex items-center gap-3">
-                        <span className="w-10 h-10 shrink-0 rounded-full bg-sky-600 text-white flex items-center justify-center">
-                            <GraduationCap className="w-5 h-5" aria-hidden />
-                        </span>
+                        <VikiAvatar size={44} className="shrink-0 rounded-full" />
                         <div className="flex-1 min-w-0">
-                            <div className="text-sm font-black text-slate-800">המדריך שלך</div>
+                            <div className="text-sm font-black text-slate-800">ויקי <span className="font-semibold text-slate-400">· העוזרת האישית שלך</span></div>
                             <div className="text-[11px] text-slate-500">
                                 {picking || !tour ? "הדרכה צעד אחר צעד"
                                     : finished ? `${tour.title} · הכול הושלם`

@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { CheckCircle2, ChevronDown, Circle, GraduationCap, RotateCcw, X } from "lucide-react";
+import { CheckCircle2, ChevronDown, Circle, RotateCcw, X } from "lucide-react";
 import { apiFetch, dismissSetupItem, restoreSetupItem, SetupProgress } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import { useTour } from "@/components/tour/TourProvider";
+import VikiAvatar from "@/components/tour/VikiAvatar";
 
 function Ring({ pct, size = 64 }: { pct: number; size?: number }) {
     const r = (size - 10) / 2;
@@ -77,7 +78,7 @@ export default function SetupChecklist() {
                         {tour.stepFor(item.id) && (
                             <button type="button" onClick={() => tour.startAt(tour.stepFor(item.id)!)}
                                 className="flex items-center gap-1 text-[11px] font-bold text-sky-700 bg-sky-50 hover:bg-sky-100 px-2 py-0.5 rounded-full shrink-0">
-                                <GraduationCap className="h-3.5 w-3.5" aria-hidden /> הראו לי
+                                <VikiAvatar size={16} className="rounded-full" /> הראו לי
                             </button>
                         )}
                         <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${item.tier === "required" ? "bg-rose-50 text-rose-600" : "bg-slate-100 text-slate-500"}`}>

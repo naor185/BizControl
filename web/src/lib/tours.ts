@@ -45,7 +45,7 @@ export const OWNER_START: TourDef = {
     who: "owner",
     title: "הצעדים הראשונים",
     auto: true,
-    welcome: "אני המדריך שלך ב-BizControl. נעבור יחד על הצעדים הראשונים",
+    welcome: "אני ויקי, העוזרת האישית שלך ב-BizControl. נעבור יחד על הצעדים הראשונים",
     finish: "עוד צעדים מומלצים מחכים ברשימת \"הקמת העסק\" במסך הסקירה, ובמרכז העזרה יש מדריך לכל מסך.",
     next: "owner_workday",
     steps: [
@@ -179,8 +179,8 @@ export const WORKER_START: TourDef = {
     who: "worker",
     title: "הצעדים הראשונים",
     auto: true,
-    welcome: "אני המדריך שלך. נעבור יחד על מה שחשוב לך ביומן",
-    finish: "אפשר לפתוח את המדריך שוב בכל רגע מהכפתור ? למעלה.",
+    welcome: "אני ויקי, העוזרת האישית שלך. נעבור יחד על מה שחשוב לך ביומן",
+    finish: "אפשר לקרוא לי שוב בכל רגע — לחצו על התמונה שלי למעלה.",
     steps: [
         {
             id: "calendar",
