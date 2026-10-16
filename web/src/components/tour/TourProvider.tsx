@@ -7,13 +7,15 @@
 // first steps (opens by itself once), the owner's working day (offered when the first steps are done), and a worker's
 // first steps (opens by itself once). It can be shrunk, skipped step by step, closed, and opened again from the "?"
 // button; its state is kept per user on the server, so the phone, the computer and the app agree. It never blocks the
-// screen: the highlight lets every click through.
+// screen: the highlight lets every click through. Where the owner recorded ויקי's voice (lib/vikiVoice) she also says
+// it — once each, a step's opening before what to do on its screen; the speaker button turns her off or on.
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { ChevronDown, ChevronLeft, PlayCircle, X } from "lucide-react";
+import { ChevronDown, ChevronLeft, PlayCircle, Volume2, VolumeX, X } from "lucide-react";
 import { apiFetch, getCurrentUserRole } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import { OWNER_START, TOURS, posterOf, type TourDef, type TourMove, type TourStep } from "@/lib/tours";
+import { alreadySaid, forgetSaid, hasVoice, saveVoiceOn, say, sayAgain, stopVoice, voiceOn } from "@/lib/vikiVoice";
 import VideoModal from "./VideoModal";
 import VikiAvatar from "./VikiAvatar";
 
@@ -78,6 +80,8 @@ export default function TourProvider({ children }: { children: React.ReactNode }
     const [watching, setWatching] = useState<TourStep | null>(null);   // a step's video, open
     const doneBefore = useRef<{ tour: string; ids: Set<string> } | null>(null);
     const scrolledTo = useRef("");
+    const [voice, setVoice] = useState(voiceOn);
+    const [blocked, setBlocked] = useState(false);            // the browser held the sound back until a tap
 
     const setMinimized = (v: boolean) => { setMinimizedState(v); try { localStorage.setItem(MIN_KEY, v ? "1" : "0"); } catch { /* fine */ } };
     const save = useCallback((tourId: string, patch: Partial<TourState>) => {
@@ -123,6 +127,9 @@ export default function TourProvider({ children }: { children: React.ReactNode }
         save(t.id, { state: "active", skipped: [] });
         setIntro(true);
     }, [mine, tours, save]);
+    // a path the user opened — ויקי says it from the start again (one that opens by itself doesn't: the guide is mounted
+    // again on every screen, and she'd say the welcome twice)
+    const begin = useCallback((t: TourDef, before?: "dismissed" | "done") => { forgetSaid(); start(t, before); }, [start]);
 
     // a path that opens by itself — once, for someone with its steps to do (not for the superadmin inside a business)
     useEffect(() => {
@@ -211,7 +218,7 @@ export default function TourProvider({ children }: { children: React.ReactNode }
         open: () => {
             setMinimized(false);
             if (tour) return;
-            if (mine.length === 1) start(mine[0]);
+            if (mine.length === 1) begin(mine[0]);
             else setPicking(true);
         },
         startAt: (stepId: string) => {
@@ -226,7 +233,7 @@ export default function TourProvider({ children }: { children: React.ReactNode }
             go(step);
         },
         stepFor: (itemId: string) => (who === "owner" ? OWNER_START.steps.find(s => s.confirms.includes(itemId))?.id ?? null : null),
-    }), [who, mine, tour, tours, go, save, start]);
+    }), [who, mine, tour, tours, go, save, begin]);
 
     useEffect(() => {
         if (!(tour || picking) || minimized || watching) return;          // Esc over a video closes the video only
@@ -255,6 +262,36 @@ export default function TourProvider({ children }: { children: React.ReactNode }
 
     const showGuide = !!who && !!checks && ((!!tour && steps.length > 0) || picking);
     const finished = !!tour && !picking && !praise && !intro && pending.length === 0;
+
+    // ויקי's voice — what the bubble says now (lib/vikiVoice)
+    const voiceKey = !showGuide || !tour || minimized || picking || watching ? null
+        : intro ? tour.id
+        : praise ? `${praise.id}:done`
+        : finished ? `${tour.id}:${offerNext ? "next" : "finish"}`
+        : current ? (onStepPage && shown ? `${current.id}:${shown.move.target}` : current.id)
+        : null;
+    useEffect(() => {
+        if (!voiceKey) { stopVoice(); return; }
+        if (!voice || alreadySaid(voiceKey)) return;
+        // what to do on a step's screen — with the step's opening first, when she hasn't said it yet
+        const [head, part] = voiceKey.split(":");
+        const opening = part && part !== "done" && !alreadySaid(head) && !!tour?.steps.some(s => s.id === head);
+        say(opening ? [head, voiceKey] : [voiceKey], setBlocked);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [voiceKey, voice]);
+    const toggleVoice = () => {
+        if (voice && !blocked) {
+            setVoice(false);
+            saveVoiceOn(false);
+            stopVoice();
+            return;
+        }
+        setVoice(true);
+        saveVoiceOn(true);
+        if (blocked) sayAgain(setBlocked);              // held back by the browser — now, on the tap
+        else if (voiceKey) say([voiceKey], setBlocked);
+    };
+    const speaker = !!tour && !picking && hasVoice(tour.id, tour.steps.map(s => s.id));
     const doneCount = tour ? steps.filter(s => isDone(tour, s)).length : 0;
     const index = current ? steps.indexOf(current) : -1;
 
@@ -271,7 +308,7 @@ export default function TourProvider({ children }: { children: React.ReactNode }
                     if (all.length === 0) return null;
                     const did = all.filter(s => isDone(t, s)).length;
                     return (
-                        <button key={t.id} type="button" onClick={() => start(t)}
+                        <button key={t.id} type="button" onClick={() => begin(t)}
                             className="w-full min-h-12 flex items-center gap-3 rounded-2xl border border-slate-200 px-3 py-2 text-right hover:border-sky-300 hover:bg-sky-50 transition">
                             <span className="flex-1 min-w-0">
                                 <span className="block font-bold text-slate-800">{t.title}</span>
@@ -308,7 +345,7 @@ export default function TourProvider({ children }: { children: React.ReactNode }
             <p className="mt-1">{offerNext ? `הצעד הבא: "${offerNext.title}" — ${offerNext.steps.map(s => s.title).join(", ")}.` : tour.finish}</p>
         </>;
         buttons = offerNext ? <>
-            <button type="button" className={primary} onClick={() => start(offerNext, "done")}>ממשיכים</button>
+            <button type="button" className={primary} onClick={() => begin(offerNext, "done")}>ממשיכים</button>
             <button type="button" className={secondary} onClick={() => save(tour.id, { state: "done" })}>בפעם אחרת</button>
         </> : <button type="button" className={primary} onClick={() => save(tour.id, { state: "done" })}>סגירה</button>;
     } else if (current) {
@@ -368,6 +405,18 @@ export default function TourProvider({ children }: { children: React.ReactNode }
                                     : `${tour.title} · ${steps.length} צעדים`}
                             </div>
                         </div>
+                        {speaker && (voice && blocked ? (
+                            <button type="button" onClick={toggleVoice}
+                                className="inline-flex items-center gap-1 min-h-9 px-3 rounded-full bg-sky-50 text-sky-700 text-xs font-bold hover:bg-sky-100">
+                                <Volume2 className="w-4 h-4" aria-hidden /> להשמיע
+                            </button>
+                        ) : (
+                            <button type="button" onClick={toggleVoice} aria-pressed={voice}
+                                aria-label={voice ? "השתקת הקול של ויקי" : "השמעת הקול של ויקי"} title={voice ? "השתקה" : "השמעה"}
+                                className="w-9 h-9 flex items-center justify-center rounded-full text-slate-400 hover:bg-slate-100">
+                                {voice ? <Volume2 className="w-5 h-5" aria-hidden /> : <VolumeX className="w-5 h-5" aria-hidden />}
+                            </button>
+                        ))}
                         {tour && !picking && (
                             <button type="button" onClick={() => setMinimized(true)} aria-label="הקטנת המדריך" className="w-9 h-9 flex items-center justify-center rounded-full text-slate-400 hover:bg-slate-100">
                                 <ChevronDown className="w-5 h-5" aria-hidden />
