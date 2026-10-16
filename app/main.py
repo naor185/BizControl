@@ -160,6 +160,18 @@ def start_scheduler():
     # one generic batch at the start of the birthday month.
     scheduler.add_job(tick_birthday_messages, "cron", hour=10, minute=0, timezone="Asia/Jerusalem", misfire_grace_time=86400, id="birthday_messages_tick", replace_existing=True)
     scheduler.add_job(tick_deposit_reminders, "interval", hours=1, id="deposit_reminders_tick", replace_existing=True)
+
+    def tick_viki_summaries():
+        """ויקי's summaries — the week on Sunday, the month on the 1st, from 9:00 (services/viki_summary)."""
+        from app.services.viki_summary import sweep
+        db = SessionLocal()
+        try:
+            sweep(db)
+        except Exception as e:
+            _scheduler_log.exception("viki summaries sweep failed: %s", e)
+        finally:
+            db.close()
+    scheduler.add_job(tick_viki_summaries, "cron", minute=20, id="viki_summaries_tick", replace_existing=True)
     scheduler.add_job(tick_staff_reminders, "interval", minutes=2, id="staff_reminders_tick", replace_existing=True)
 
     def tick_waitlist_expiry():

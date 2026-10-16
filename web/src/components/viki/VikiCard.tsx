@@ -1,18 +1,20 @@
 "use client";
 
-// "ויקי ממליצה" on לוח בקרה (the owner, 2026-10-16): her suggestions for now, worked out from the business's own numbers
+// "ויקי ממליצה" on לוח בקרה (the owner, 2026-10-16): her summary of the week / the month, her suggestions for now, worked out from the business's own numbers
 // (api/viki_routes, services/viki) — each with its button, and "עשיתי" / "לא רלוונטי" to put it away. Here too the
 // switch that lets her pop in when something happens (components/viki/VikiPopper). Not shown to someone who may not
 // see the money.
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { CircleCheck, Lightbulb, TriangleAlert } from "lucide-react";
+import { CircleCheck, Lightbulb, Target, TriangleAlert } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { Switch } from "@/components/ui/switch";
 import Viki from "./Viki";
 import { popupsOn, setPopupsOn } from "./vikiPrefs";
 
 type Suggestion = { key: string; tone: "warn" | "tip" | "good"; text: string; action: { label: string; href: string } | null };
+// the week's (Sunday) or the month's (the 1st) — services/viki_summary
+type Summary = { kind: "weekly" | "monthly"; title: string; good: string[]; improve: string[]; focus: string };
 
 const TONE = {
     warn: { icon: TriangleAlert, ring: "border-amber-200 bg-amber-50/60", fg: "text-amber-600" },
@@ -23,12 +25,13 @@ const TONE = {
 export default function VikiCard() {
     const [items, setItems] = useState<Suggestion[] | null>(null);
     const [more, setMore] = useState(0);
+    const [summary, setSummary] = useState<Summary | null>(null);
     const [hidden, setHidden] = useState(false);
     const [pops, setPops] = useState(popupsOn);
     const [busy, setBusy] = useState<string | null>(null);
 
-    const load = () => apiFetch<{ suggestions: Suggestion[]; more: number }>("/api/viki")
-        .then(r => { setItems(r.suggestions); setMore(r.more); })
+    const load = () => apiFetch<{ suggestions: Suggestion[]; more: number; summary: Summary | null }>("/api/viki")
+        .then(r => { setItems(r.suggestions); setMore(r.more); setSummary(r.summary); })
         .catch(() => setHidden(true));
 
     useEffect(() => { load(); }, []);
@@ -57,6 +60,34 @@ export default function VikiCard() {
                         onChange={(v: boolean) => { setPops(v); setPopupsOn(v); }} />
                 </label>
             </div>
+            {summary && (
+                <div className="px-5 pt-4">
+                    <div className="rounded-xl border border-slate-200 p-4">
+                        <div className="text-sm font-black text-slate-800">{summary.title}</div>
+                        {summary.good.length > 0 && (
+                            <ul className="mt-2 space-y-1">
+                                {summary.good.map(line => (
+                                    <li key={line} className="flex items-start gap-2 text-sm text-slate-700">
+                                        <CircleCheck className="w-4 h-4 shrink-0 mt-0.5 text-emerald-600" aria-hidden />{line}
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                        {summary.improve.length > 0 && (
+                            <ul className="mt-2 space-y-1">
+                                {summary.improve.map(line => (
+                                    <li key={line} className="flex items-start gap-2 text-sm text-slate-700">
+                                        <TriangleAlert className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" aria-hidden />{line}
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                        <p className="mt-3 flex items-start gap-2 text-sm font-bold text-sky-800">
+                            <Target className="w-4 h-4 shrink-0 mt-0.5" aria-hidden />{summary.focus}
+                        </p>
+                    </div>
+                </div>
+            )}
             {items.length === 0 ? (
                 <p className="px-5 py-4 text-sm text-slate-600">הכול נראה טוב — אין לי כרגע המלצות. אני ממשיכה לעקוב.</p>
             ) : (

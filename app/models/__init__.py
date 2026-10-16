@@ -39,6 +39,7 @@ from app.models.task import Task
 from app.models.task_completion import TaskCompletion
 from app.models.tutorial_progress import TutorialProgress
 from app.models.viki_dismissal import VikiDismissal
+from app.models.viki_summary import VikiSummary
 
 __all__ = [
     "Base", "Studio", "User", "StudioSettings", "RefreshToken",
@@ -51,5 +52,5 @@ __all__ = [
     "StaffReminderRule", "StaffReminderSentLog",
     "Migration", "MigrationRow", "ExternalRecord", "MigrationEvent",
     "HealthForm", "HealthFormFile", "HealthDeclaration",
-    "Task", "TaskCompletion", "TutorialProgress", "VikiDismissal",
+    "Task", "TaskCompletion", "TutorialProgress", "VikiDismissal", "VikiSummary",
 ]

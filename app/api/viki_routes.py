@@ -1,6 +1,7 @@
 """ויקי — the business's personal assistant (services/viki). The owner's, and a manager's the owner let see the money.
 
-GET  /api/viki                 — {suggestions: the first few not answered, more: how many else}
+GET  /api/viki                 — {suggestions: the first few not answered, more: how many else, summary: the week's or
+                                  the month's (services/viki_summary) | null}
 POST /api/viki/answer          — {key, kind: done|not_relevant} — it won't come back to this user
 GET  /api/viki/moments?since=  — what just happened, for her to pop in with
 """
@@ -30,8 +31,9 @@ class AnswerIn(BaseModel):
 
 @router.get("")
 def get_suggestions(ctx: AuthContext = Depends(require_permission("money")), db: Session = Depends(get_db)):
+    from app.services.viki_summary import latest
     left = viki.for_user(db, ctx.studio_id, ctx.user_id)
-    return {"suggestions": left[:viki.SHOWN], "more": max(0, len(left) - viki.SHOWN)}
+    return {"suggestions": left[:viki.SHOWN], "more": max(0, len(left) - viki.SHOWN), "summary": latest(db, ctx.studio_id)}
 
 
 @router.post("/answer", status_code=204)

@@ -2970,6 +2970,23 @@ def ensure_schema():
         """)
         cur.execute("CREATE INDEX IF NOT EXISTS ix_viki_dismissals_studio_id ON viki_dismissals (studio_id)")
         cur.execute("CREATE INDEX IF NOT EXISTS ix_viki_dismissals_user_id ON viki_dismissals (user_id)")
+        # ויקי's summaries — the week on Sunday, the month on the 1st (services/viki_summary, 2026-10-16)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS viki_summaries (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                kind VARCHAR(10) NOT NULL,
+                period VARCHAR(16) NOT NULL,
+                good TEXT NOT NULL DEFAULT '[]',
+                improve TEXT NOT NULL DEFAULT '[]',
+                focus TEXT NOT NULL DEFAULT '',
+                facts TEXT NOT NULL DEFAULT '{}',
+                by_ai BOOLEAN NOT NULL DEFAULT false,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                CONSTRAINT uq_viki_summaries_period UNIQUE (studio_id, kind, period)
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_viki_summaries_studio_id ON viki_summaries (studio_id)")
         # the picture of the deposit's payment the client attaches on the payment page (2026-10-15)
         cur.execute("ALTER TABLE appointments ADD COLUMN IF NOT EXISTS payment_proof_url TEXT")
         cur.execute("ALTER TABLE health_declarations DROP COLUMN IF EXISTS ask_id_number")
