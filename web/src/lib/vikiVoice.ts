@@ -10,6 +10,10 @@ export const VOICE: Record<string, string> = {
     "business:logo-upload": "03",
     "business:business-address": "04",
     "business:done": "05",
+    service: "06",
+    "service:service-new": "07",
+    "service:service-form": "08",
+    "service:done": "09",
 };
 
 export const voiceSrc = (key: string | null): string | null => (key && VOICE[key] ? `/viki-voice/${VOICE[key]}.mp3` : null);
