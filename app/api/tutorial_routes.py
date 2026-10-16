@@ -59,6 +59,7 @@ def get_checks(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Dep
     from app.models.task_completion import TaskCompletion
     from app.models.user import User
     from app.models.work_session import WorkSession
+    from app.services import nfc_clock
 
     def exists(q) -> bool:
         return db.scalar(q.limit(1)) is not None
@@ -69,8 +70,8 @@ def get_checks(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Dep
         has_task = exists(select(Task.id).where(Task.studio_id == ctx.studio_id, Task.kind == "task",
                                                 (Task.assignee_id.is_(None)) | (Task.assignee_id == ctx.user_id)))
         return {"name": name, "checks": {
-            # the clock is a worker's paid by the hour or a global salary (components/ClockWidget)
-            "clock_in": {"applies": bool(me and me.pay_type in ("hourly", "global")),
+            # every worker clocks, whatever their pay, where the plan has the clock (services/nfc_clock.clocks)
+            "clock_in": {"applies": nfc_clock.clocks(db, ctx.studio_id, ctx.role),
                          "done": exists(select(WorkSession.id).where(WorkSession.user_id == ctx.user_id))},
             "task_done": {"applies": has_task,
                           "done": exists(select(TaskCompletion.id).where(TaskCompletion.done_by == ctx.user_id))},

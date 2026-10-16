@@ -1,8 +1,10 @@
 """
 The NFC attendance clock (app/services/nfc_clock.py) — a worker's own phone touching the sticker at the door.
 
-GET  /api/nfc/status    — is the clock on for this business (no code: only the superadmin sees it)
-POST /api/nfc/tap       — the sticker's code → clock the signed-in worker in, or out
+GET  /api/nfc/status    — does the plan have the clock, is the barcode on; the owner (and a manager allowed the team)
+                          also gets its link
+POST /api/nfc/new-code  — the owner (or that manager) replaces the barcode — the old one stops working
+POST /api/nfc/tap       — the barcode's code → clock the signed-in worker in, or out (the owner: "it works")
 POST /api/nfc/undo      — a touch by mistake, taken back within two minutes
 GET  /api/nfc/presence  — who is clocked in right now
 
@@ -21,6 +23,8 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.deps import require_studio_ctx, AuthContext
+from app.core.permissions import may_do, require_permission
+from app.models.studio import Studio
 from app.models.studio_settings import StudioSettings
 from app.models.user import User
 from app.models.work_session import WorkSession
@@ -48,9 +52,32 @@ class PresenceOut(BaseModel):
     duration_minutes: int
 
 
+def _status(db: Session, ctx: AuthContext) -> dict:
+    """A worker never gets the link: the barcode at the door is the proof they're there."""
+    settings = db.get(StudioSettings, ctx.studio_id)
+    included = nfc_clock.included(db, ctx.studio_id)
+    out = {"included": included, "on": included and nfc_clock.on(settings)}
+    if out["on"] and may_do(db, ctx.studio_id, ctx.role, "team"):
+        out |= {"link": nfc_clock.link(settings), "name": db.get(Studio, ctx.studio_id).name}
+    return out
+
+
 @router.get("/status")
 def nfc_status(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
-    return {"on": nfc_clock.on(db.get(StudioSettings, ctx.studio_id))}
+    return _status(db, ctx)
+
+
+@router.post("/new-code")
+def nfc_new_code(ctx: AuthContext = Depends(require_permission("team")), db: Session = Depends(get_db)):
+    """The barcode got out (photographed, sent around) — a new one; the printed one and the sticker stop working."""
+    from app.services import activity_log
+    settings = db.get(StudioSettings, ctx.studio_id)
+    if not nfc_clock.included(db, ctx.studio_id) or not nfc_clock.on(settings):
+        raise HTTPException(status_code=400, detail="שעון הנוכחות בברקוד לא פעיל בעסק")
+    nfc_clock.issue(settings)
+    db.commit()
+    activity_log.record(db, ctx, "attendance", "ברקוד חדש לשעון הנוכחות — הקודם הפסיק לעבוד")
+    return _status(db, ctx)
 
 
 def _answer(session: WorkSession, user: User, repeat: bool) -> dict:
@@ -61,12 +88,18 @@ def _answer(session: WorkSession, user: User, repeat: bool) -> dict:
 
 @router.post("/tap")
 def nfc_tap(body: TapIn, ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
-    """The signed-in worker touched the sticker: clocked in if out, out if in."""
+    """The signed-in worker scanned the barcode (or touched the sticker): clocked in if out, out if in. The owner
+    scanning it — to check it works — clocks nothing."""
     settings = db.get(StudioSettings, ctx.studio_id)
     if not nfc_clock.matches(settings, body.code):
-        raise HTTPException(status_code=404, detail="המדבקה הזו לא שייכת לעסק שלך — ודא/י שנכנסת לחשבון שלך בעסק הזה")
+        raise HTTPException(status_code=404, detail="הברקוד הזה לא שייך לעסק שלך — ודא/י שנכנסת לחשבון שלך בעסק הזה")
+    if not nfc_clock.included(db, ctx.studio_id):
+        raise HTTPException(status_code=403, detail="שעון הנוכחות לא כלול במסלול של העסק")
     user = db.get(User, ctx.user_id)
     now = datetime.now(timezone.utc)
+    if not nfc_clock.clocks(db, ctx.studio_id, ctx.role):
+        return {"action": "check", "at": now.isoformat(), "name": user.display_name or user.email, "session_id": "",
+                "repeat": False}
     last = db.scalar(select(WorkSession).where(WorkSession.studio_id == ctx.studio_id, WorkSession.user_id == ctx.user_id)
                      .order_by(WorkSession.start_time.desc()).limit(1))
     if last is not None and now - (last.end_time or last.start_time) < REPEAT_WINDOW:

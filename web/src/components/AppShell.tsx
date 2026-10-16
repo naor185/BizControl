@@ -68,7 +68,7 @@ export default function AppShell({
     const [enabledModules, setEnabledModules] = useState<Record<string, boolean> | null>(null);
     const [showWaModal, setShowWaModal] = useState(false);
     const [verifyState, setVerifyState] = useState<"idle" | "sending" | "sent" | "error">("idle");
-    // With the NFC clock: a worker with appointments today who hasn't clocked in is asked to touch the sticker
+    // With the barcode clock: a worker with appointments today who hasn't clocked in is asked to scan it at the door
     // (owner, 2026-10-13) — checked on opening and whenever the app comes back to the front (after touching it)
     const [clockInNeeded, setClockInNeeded] = useState(false);
     useEffect(() => {
@@ -351,8 +351,8 @@ export default function AppShell({
                             <div role="alert" className="bg-sky-600 text-white text-xs sm:text-sm font-semibold px-3 sm:px-4 h-11 flex items-center gap-2">
                                 <Nfc className="w-4 h-4 shrink-0" aria-hidden />
                                 <span className="flex-1 min-w-0 truncate">
-                                    <span className="sm:hidden">יש לך תורים היום — החתם/י כניסה במדבקה</span>
-                                    <span className="hidden sm:inline">יש לך תורים היום ועוד לא החתמת כניסה — הצמד/י את הטלפון למדבקה שבכניסה.</span>
+                                    <span className="sm:hidden">יש לך תורים היום — סרוק/י את הברקוד שבכניסה</span>
+                                    <span className="hidden sm:inline">יש לך תורים היום ועוד לא החתמת כניסה — סרוק/י את הברקוד שבכניסה (או הצמד/י את הטלפון למדבקה).</span>
                                 </span>
                             </div>
                         )}

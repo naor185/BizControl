@@ -71,13 +71,13 @@ def test_the_working_day_steps_are_done_only_when_they_really_happened(client, d
 
 
 def test_a_workers_steps_clock_and_task_done(client, db_session):
-    """A worker's first steps (2026-10-15): the clock only for one paid by the hour or a global salary, marking a task
-    only when there is a task — each checked against the real data; their own, not the team's."""
+    """A worker's first steps (2026-10-15): the clock where the plan has it (2026-10-16 — whatever their pay), marking a
+    task only when there is a task — each checked against the real data; their own, not the team's."""
     from datetime import datetime, timezone
 
     from sqlalchemy import select
 
-    from app.models.user import User
+    from app.models.studio import Studio
     owner = register_and_login(client, "worker-tour", "owner@worker-tour.com")
     for email in ("dana@worker-tour.com", "ron@worker-tour.com"):
         assert client.post("/api/users/artists", headers=owner, json={"email": email, "password": "secret123",
@@ -92,7 +92,7 @@ def test_a_workers_steps_clock_and_task_done(client, db_session):
     assert r["name"] == "dana"
     assert r["checks"] == {"clock_in": {"applies": False, "done": False}, "task_done": {"applies": False, "done": False}}
 
-    db_session.scalar(select(User).where(User.email == "dana@worker-tour.com")).pay_type = "hourly"
+    db_session.scalar(select(Studio).where(Studio.slug == "worker-tour")).subscription_plan = "pro"
     db_session.commit()
     today = datetime.now(timezone.utc).date().isoformat()
     task = client.post("/api/tasks", headers=owner, json={"title": "ניקיון כללי", "task_date": today}).json()

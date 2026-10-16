@@ -21,6 +21,7 @@ type StudioDetail = {
     created_at: string;
     owner_email: string | null;
     owner_display_name: string | null;
+    owner_phone?: string | null;
     user_count: number;
     client_count: number;
     appointment_count_total: number;
@@ -495,7 +496,8 @@ export default function StudioDetailPage() {
                     </div>
                 </div>
 
-                <NfcClockAdmin studioId={studioId} />
+                <NfcClockAdmin studioId={studioId} studioName={detail?.name ?? ""} ownerName={detail?.owner_display_name ?? null}
+                    ownerPhone={detail?.owner_phone ?? null} />
 
                 {/* Platform Settings */}
                 {settings && (

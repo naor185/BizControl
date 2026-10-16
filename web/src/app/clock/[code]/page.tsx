@@ -3,15 +3,16 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { LogIn, LogOut, CircleAlert, Undo2 } from "lucide-react";
+import { LogIn, LogOut, CircleAlert, CircleCheck, Undo2 } from "lucide-react";
 import RequireAuth from "@/components/RequireAuth";
 import { apiFetch } from "@/lib/api";
 
-// The page the NFC sticker at the business's door opens (app/services/nfc_clock.py): the worker's own phone, signed in
-// to their own account, touched it — they're clocked in, or out, at once. A touch by mistake is taken back here within
+// The page the barcode (or the NFC sticker) at the business's door opens (app/services/nfc_clock.py): the worker's own
+// phone, signed in to their own account, scanned or touched it — they're clocked in, or out, at once. A touch by mistake is taken back here within
 // two minutes; later, the owner or a manager fixes it.
 
-type Tap = { action: "in" | "out"; at: string; name: string; session_id: string; repeat: boolean };
+// "check": the owner scanned it — the barcode works; the owner doesn't clock
+type Tap = { action: "in" | "out" | "check"; at: string; name: string; session_id: string; repeat: boolean };
 
 function ClockTap() {
     const { code } = useParams<{ code: string }>();
@@ -26,11 +27,11 @@ function ClockTap() {
         sent.current = true;
         apiFetch<Tap>("/api/nfc/tap", { method: "POST", body: JSON.stringify({ code }) })
             .then(setTap)
-            .catch(e => setErr((e as Error)?.message || "משהו השתבש — נסו לגעת במדבקה שוב"));
+            .catch(e => setErr((e as Error)?.message || "משהו השתבש — נסו לסרוק שוב"));
     }, [code]);
 
     useEffect(() => {
-        if (!tap) return;
+        if (!tap || tap.action === "check") return;
         const t = setTimeout(() => setCanUndo(false), 110_000);
         return () => clearTimeout(t);
     }, [tap]);
@@ -59,6 +60,12 @@ function ClockTap() {
                     </>
                 ) : !tap ? (
                     <p className="text-slate-500 py-10">רושם…</p>
+                ) : tap.action === "check" ? (
+                    <>
+                        <CircleCheck className="w-14 h-14 mx-auto text-emerald-600" aria-hidden />
+                        <p className="mt-4 text-xl font-black text-slate-900">הברקוד עובד</p>
+                        <p className="mt-2 text-slate-600 leading-relaxed">כשעובד או מנהל סורקים אותו מהטלפון שלהם, נרשמת להם כניסה — ובסריקה הבאה יציאה. בעל העסק לא מחתים שעון.</p>
+                    </>
                 ) : undone ? (
                     <>
                         <Undo2 className="w-14 h-14 mx-auto text-slate-400" aria-hidden />

@@ -489,9 +489,10 @@ class NfcClockIn(BaseModel):
     on: bool
 
 
-def _nfc_clock_out(settings) -> dict:
+def _nfc_clock_out(db: Session, studio_id, settings) -> dict:
+    """included: the business's plan has the attendance clock — without it nobody clocks, even with the barcode on."""
     from app.services import nfc_clock
-    return {"on": nfc_clock.on(settings), "link": nfc_clock.link(settings)}
+    return {"on": nfc_clock.on(settings), "link": nfc_clock.link(settings), "included": nfc_clock.included(db, studio_id)}
 
 
 @router.get("/studios/{studio_id}/nfc-clock")
@@ -499,7 +500,7 @@ def nfc_clock_get(studio_id: uuid.UUID, admin: User = Depends(require_superadmin
     """The business's NFC attendance clock — on or off, and the link to write on its sticker."""
     if not db.get(Studio, studio_id):
         raise HTTPException(404, "Studio not found")
-    return _nfc_clock_out(db.get(StudioSettings, studio_id))
+    return _nfc_clock_out(db, studio_id, db.get(StudioSettings, studio_id))
 
 
 @router.post("/studios/{studio_id}/nfc-clock")
@@ -516,7 +517,7 @@ def nfc_clock_set(studio_id: uuid.UUID, payload: NfcClockIn, admin: User = Depen
         settings.nfc_clock_code = None
     _audit(db, admin, "nfc_clock_on" if payload.on else "nfc_clock_off", studio)
     db.commit()
-    return _nfc_clock_out(settings)
+    return _nfc_clock_out(db, studio_id, settings)
 
 
 @router.post("/studios/{studio_id}/nfc-clock/new-code")
@@ -530,7 +531,7 @@ def nfc_clock_new_code(studio_id: uuid.UUID, admin: User = Depends(require_super
     nfc_clock.issue(settings)
     _audit(db, admin, "nfc_clock_new_code", studio)
     db.commit()
-    return _nfc_clock_out(settings)
+    return _nfc_clock_out(db, studio_id, settings)
 
 
 @router.get("/studios/{studio_id}/users")
@@ -697,6 +698,7 @@ class StudioDetailOut(BaseModel):
     created_at: datetime
     owner_email: Optional[str]
     owner_display_name: Optional[str]
+    owner_phone: Optional[str] = None      # to send the owner the clock's barcode (components/admin/NfcClockAdmin)
     user_count: int
     client_count: int
     appointment_count_total: int
@@ -732,6 +734,7 @@ def studio_detail(studio_id: uuid.UUID, admin: User = Depends(require_superadmin
         created_at=studio.created_at,
         owner_email=owner.email if owner else None,
         owner_display_name=owner.display_name if owner else None,
+        owner_phone=owner.phone if owner else None,
         user_count=len(users),
         client_count=client_count,
         appointment_count_total=appt_total,

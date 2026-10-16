@@ -16,7 +16,8 @@ type ClockStatus = {
     is_clocked_in: boolean;
     pay_type?: string;
     active_session?: { start_time: string } | null;
-    nfc?: boolean;              // the business clocks in at the NFC sticker at the door — no button here
+    nfc?: boolean;              // the business clocks in at the barcode (or NFC sticker) at the door — no button here
+    available?: boolean;        // the plan has the attendance clock, and this is a worker or a manager (not the owner)
 };
 
 function fmtDuration(minutes: number): string {
@@ -71,7 +72,8 @@ export default function ClockWidget() {
 
     if (!myStatus) return null;
 
-    const showClock = myStatus.pay_type === "hourly" || myStatus.pay_type === "global";
+    // every worker and manager, whatever their pay — the hours are kept (owner, 2026-10-16); the owner doesn't clock
+    const showClock = !!myStatus.available;
     const activeCount = presence.length;
 
     if (!showClock && activeCount === 0) return null;
@@ -91,17 +93,17 @@ export default function ClockWidget() {
                 </button>
             )}
 
-            {/* With the NFC clock: where they stand, not a button — clocking is a touch on the sticker at the door */}
+            {/* With the barcode clock: where they stand, not a button — clocking is a scan at the door */}
             {showClock && myStatus.nfc && (
                 <span data-tour="clock" className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-bold ${isClockedIn ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-slate-100 text-slate-500"}`}
-                    title="כניסה ויציאה — בנגיעה בטלפון במדבקת ה-NFC שבכניסה">
+                    title="כניסה ויציאה — סורקים את הברקוד שבכניסה (או נוגעים בטלפון במדבקה)">
                     {isClockedIn && myStatus.active_session
                         ? `בעבודה מ-${new Date(myStatus.active_session.start_time).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })}`
-                        : "החתמה במדבקה"}
+                        : "החתמה בכניסה"}
                 </span>
             )}
 
-            {/* Clock-in / Clock-out button — only for hourly/global employees */}
+            {/* Clock-in / Clock-out button */}
             {showClock && !myStatus.nfc && (
                 <button
                     data-tour="clock"

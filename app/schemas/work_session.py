@@ -30,7 +30,8 @@ class ClockStatusResponse(BaseModel):
     is_clocked_in: bool
     active_session: Optional[WorkSessionResponse] = None
     pay_type: str = "none"
-    nfc: bool = False          # the business clocks in at the NFC sticker — no button (services/nfc_clock.py)
+    nfc: bool = False          # the business clocks in at the barcode at the door — no button (services/nfc_clock.py)
+    available: bool = False    # this person clocks: a worker or a manager, in a plan with the clock (nfc_clock.clocks)
     clock_in_needed: bool = False   # appointments today, not clocked in — "touch the sticker" (message_worker.clock_in_needed)
 
 

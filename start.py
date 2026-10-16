@@ -2792,6 +2792,20 @@ def ensure_schema():
                 ON CONFLICT (studio_id, quota_key, period_key) DO NOTHING
             """)
 
+        # ── The attendance clock is part of the plan (owner, 2026-10-16: "every plan but עסק קטן") ─────────
+        # app/services/nfc_clock.clocks(): without it there's no clock button, and the server refuses clocking. Read-only
+        # check before (2026-10-16): no business is on עסק קטן, and none has the barcode clock on — nobody loses it.
+        cur.execute("""
+            INSERT INTO modules (id, name, category, sort_order) VALUES ('attendance', 'שעון נוכחות', 'core', 17)
+            ON CONFLICT (id) DO NOTHING
+        """)
+        if _once("attendance_module_v1"):
+            for _plan in ("pro", "enterprise", "trial"):
+                cur.execute("""
+                    INSERT INTO plan_modules (plan, module_id, period_type, on_exceed_action)
+                    VALUES (%s, 'attendance', 'unlimited', 'block') ON CONFLICT DO NOTHING
+                """, (_plan,))
+
         # ── The superadmin's CRM: messages from the company to the owners (app/services/platform_outreach.py) ──
         cur.execute("""
             CREATE TABLE IF NOT EXISTS platform_message_templates (

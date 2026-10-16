@@ -63,16 +63,22 @@ def get_clock_status(
         active_session=WorkSessionResponse.model_validate(session) if session else None,
         pay_type=user.pay_type if user else "none",
         nfc=nfc_clock.on(db.get(StudioSettings, ctx.studio_id)),
+        available=nfc_clock.clocks(db, ctx.studio_id, ctx.role),
         clock_in_needed=session is None and clock_in_needed(db, ctx.studio_id, ctx.user_id, ctx.role),
     )
 
 
-def _not_while_nfc(db: Session, studio_id) -> None:
-    """While the business has the NFC clock, its people clock in and out at the sticker — that's the proof they're
-    there; the owner and the managers fix a time by hand."""
+def _may_clock_here(db: Session, ctx: AuthContext) -> None:
+    """The header button: a worker or a manager, in a plan with the clock (services/nfc_clock.clocks). While the
+    business has the barcode, its people clock in and out at the door — that's the proof they're there; the owner and
+    the managers fix a time by hand."""
     from app.services import nfc_clock
-    if nfc_clock.on(db.get(StudioSettings, studio_id)):
-        raise HTTPException(status_code=403, detail="בעסק הזה מחתימים כניסה ויציאה בנגיעה במדבקת ה-NFC שבכניסה")
+    if ctx.role in ("owner", "superadmin"):
+        raise HTTPException(status_code=403, detail="בעל העסק לא מחתים שעון נוכחות")
+    if not nfc_clock.included(db, ctx.studio_id):
+        raise HTTPException(status_code=403, detail="שעון הנוכחות לא כלול במסלול של העסק")
+    if nfc_clock.on(db.get(StudioSettings, ctx.studio_id)):
+        raise HTTPException(status_code=403, detail="בעסק הזה מחתימים כניסה ויציאה בסריקת הברקוד שבכניסה")
 
 
 @router.post("/clock-in", response_model=WorkSessionResponse)
@@ -82,7 +88,7 @@ def clock_in(
     db: Session = Depends(get_db),
 ):
     """Clock in the current user."""
-    _not_while_nfc(db, ctx.studio_id)
+    _may_clock_here(db, ctx)
     return repo.clock_in(ctx.studio_id, ctx.user_id)
 
 
@@ -93,7 +99,7 @@ def clock_out(
     db: Session = Depends(get_db),
 ):
     """Clock out the current user."""
-    _not_while_nfc(db, ctx.studio_id)
+    _may_clock_here(db, ctx)
     session = repo.clock_out(ctx.studio_id, ctx.user_id)
     if not session:
         raise HTTPException(status_code=400, detail="Not currently clocked in")

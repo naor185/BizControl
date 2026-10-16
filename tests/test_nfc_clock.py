@@ -1,9 +1,11 @@
-"""The NFC attendance clock (owner, 2026-10-13): only the superadmin turns it on and issues the sticker's code; a worker
-touching it with their own phone is clocked in, then out; while it's on, the header button can't clock."""
+"""The attendance clock's barcode / NFC sticker (owner, 2026-10-13): only the superadmin turns it on and issues the code; a
+worker scanning or touching it with their own phone is clocked in, then out; while it's on, the header button can't
+clock. The businesses here are on pro — the plan has the clock (test_attendance_clock.py)."""
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
 
+from app.models.studio import Studio
 from app.models.user import User
 from app.models.work_session import WorkSession
 from tests.conftest import register_and_login
@@ -12,6 +14,13 @@ from tests.conftest import register_and_login
 def _superadmin(client, db):
     h = register_and_login(client, "nfc-platform", "sa@nfc-platform.com")
     db.scalar(select(User).where(User.email == "sa@nfc-platform.com")).role = "superadmin"
+    db.commit()
+    return h
+
+
+def _business(client, db, slug):
+    h = register_and_login(client, slug, f"owner@{slug}.com")
+    db.scalar(select(Studio).where(Studio.slug == slug)).subscription_plan = "pro"
     db.commit()
     return h
 
@@ -30,7 +39,7 @@ def _studio_id(client, h):
 
 def test_only_the_superadmin_turns_it_on_and_a_touch_clocks_in_then_out(client, db_session):
     sa = _superadmin(client, db_session)
-    owner = register_and_login(client, "nfc-shop", "owner@nfc-shop.com")
+    owner = _business(client, db_session, "nfc-shop")
     w = _worker(client, owner, "dana@nfc-shop.com")
     sid = _studio_id(client, owner)
 
@@ -39,7 +48,7 @@ def test_only_the_superadmin_turns_it_on_and_a_touch_clocks_in_then_out(client, 
     assert r.status_code == 200 and r.json()["on"] is True
     link = r.json()["link"]
     code = link.rsplit("/", 1)[1]
-    assert "/clock/" in link and client.get("/api/nfc/status", headers=owner).json() == {"on": True}
+    assert "/clock/" in link and client.get("/api/nfc/status", headers=owner).json()["on"] is True
 
     # the header button can't clock while the sticker is the way in
     assert client.post("/api/staff/clock-in", headers=w).status_code == 403
@@ -63,7 +72,7 @@ def test_only_the_superadmin_turns_it_on_and_a_touch_clocks_in_then_out(client, 
 
 def test_a_new_code_retires_the_old_sticker_and_a_mistake_is_undone(client, db_session):
     sa = _superadmin(client, db_session)
-    owner = register_and_login(client, "nfc-new", "owner@nfc-new.com")
+    owner = _business(client, db_session, "nfc-new")
     w = _worker(client, owner, "dana@nfc-new.com")
     sid = _studio_id(client, owner)
     old = client.post(f"/api/admin/studios/{sid}/nfc-clock", headers=sa, json={"on": True}).json()["link"].rsplit("/", 1)[1]
@@ -76,7 +85,7 @@ def test_a_new_code_retires_the_old_sticker_and_a_mistake_is_undone(client, db_s
     assert db_session.get(WorkSession, tap["session_id"]) is None
 
     client.post(f"/api/admin/studios/{sid}/nfc-clock", headers=sa, json={"on": False})
-    assert client.get("/api/nfc/status", headers=owner).json() == {"on": False}
+    assert client.get("/api/nfc/status", headers=owner).json() == {"included": True, "on": False}
     assert client.post("/api/staff/clock-in", headers=w).status_code == 200            # off: the header button again
 
 
@@ -89,7 +98,7 @@ def test_a_worker_with_appointments_today_is_asked_to_clock_in(client, db_sessio
     from app.models.message_job import MessageJob
 
     sa = _superadmin(client, db_session)
-    owner = register_and_login(client, "nfc-ask", "owner@nfc-ask.com")
+    owner = _business(client, db_session, "nfc-ask")
     w = _worker(client, owner, "dana@nfc-ask.com")
     sid = _studio_id(client, owner)
     worker = db_session.scalar(select(User).where(User.email == "dana@nfc-ask.com"))

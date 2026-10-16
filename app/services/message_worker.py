@@ -1186,11 +1186,11 @@ def _staff_reminder_already_sent(db: Session, rule_id, target_type: str, target_
 
 
 def clock_in_needed(db: Session, studio_id, user_id, role: str | None, now: datetime | None = None) -> bool:
-    """The NFC clock is on, the worker (not the owner) has appointments today and hasn't clocked in — the system asks
-    them to touch the sticker at the door (owner, 2026-10-13)."""
+    """The barcode clock is on, the worker (not the owner) has appointments today and hasn't clocked in — the system
+    asks them to scan it at the door (owner, 2026-10-13)."""
     from app.models.work_session import WorkSession
     from app.services import nfc_clock
-    if role == "owner" or not nfc_clock.on(db.get(StudioSettings, studio_id)):
+    if not nfc_clock.on(db.get(StudioSettings, studio_id)) or not nfc_clock.clocks(db, studio_id, role):
         return False
     now = now or datetime.now(timezone.utc)
     if db.scalar(select(WorkSession.id).where(WorkSession.studio_id == studio_id, WorkSession.user_id == user_id,
@@ -1230,7 +1230,7 @@ def sweep_clock_in_nudges(db: Session) -> int:
         db.add(MessageJob(
             studio_id=appt.studio_id, recipient_user_id=worker.id, appointment_id=appt.id, channel="push",
             subject="עוד לא החתמת כניסה",
-            body=f"יש לך תור ב-{appt.starts_at.astimezone(_IL_TZ).strftime('%H:%M')} — הצמד/י את הטלפון למדבקה שבכניסה כדי להחתים כניסה.",
+            body=f"יש לך תור ב-{appt.starts_at.astimezone(_IL_TZ).strftime('%H:%M')} — סרוק/י את הברקוד שבכניסה כדי להחתים כניסה.",
             reminder_type="clock_in_nudge", scheduled_at=now, status="pending",
         ))
         count += 1
