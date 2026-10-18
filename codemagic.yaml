@@ -103,14 +103,9 @@ workflows:
       app_store_connect:
         auth: integration
         submit_to_testflight: true
-        # Targets the existing Internal Testing group only — internal testers
-        # get the build instantly with no Apple review and no Beta App
-        # Description requirement (that's only needed for External Testing
-        # groups). "NAOR" is the group already set up in App Store Connect >
-        # TestFlight > Internal Testing for this app (its badge shows as the
-        # 2-letter initials "NA", but the actual group name is "NAOR").
-        beta_groups:
-          - NAOR
+        # No beta_groups: the internal group "NAOR" (App Store Connect > TestFlight > Internal Testing) gets every new
+        # build by itself, and Apple refuses to add a build to it by hand — naming it here failed the 1.0.1 build's
+        # last step (2026-10-19, "Cannot add internal group to a build") although the upload had succeeded.
         # Flip to true once you're ready for an actual App Store review —
         # leave false while you're still just getting TestFlight builds out:
         submit_to_app_store: false
