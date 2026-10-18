@@ -4,13 +4,7 @@ import { toast } from "@/lib/toast";
 import { useState, useEffect, useCallback } from "react";
 import { Timer } from "lucide-react";
 import { apiFetch } from "@/lib/api";
-
-type PresenceEntry = {
-    user_id: string;
-    user_name: string;
-    clocked_in_at: string;
-    duration_minutes: number;
-};
+import { PresenceList, type PresenceEntry } from "@/components/team/PresenceNow";
 
 type ClockStatus = {
     is_clocked_in: boolean;
@@ -19,13 +13,6 @@ type ClockStatus = {
     nfc?: boolean;              // the business clocks in at the barcode (or NFC sticker) at the door — no button here
     available?: boolean;        // the plan has the attendance clock, and this is a worker or a manager (not the owner)
 };
-
-function fmtDuration(minutes: number): string {
-    const h = Math.floor(minutes / 60);
-    const m = minutes % 60;
-    if (h === 0) return `${m}ד׳`;
-    return `${h}ש׳ ${m}ד׳`;
-}
 
 export default function ClockWidget() {
     const [presence, setPresence] = useState<PresenceEntry[]>([]);
@@ -123,22 +110,11 @@ export default function ClockWidget() {
             {expanded && activeCount > 0 && (
                 <>
                     <div className="fixed inset-0 z-30" onClick={() => setExpanded(false)} />
-                    <div className="absolute top-full end-0 mt-2 bg-white rounded-2xl shadow-2xl border border-slate-100 min-w-52 z-40 overflow-hidden">
+                    <div className="absolute top-full end-0 mt-2 bg-white rounded-2xl shadow-2xl border border-slate-100 min-w-64 z-40 overflow-hidden">
                         <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-100">
-                            <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">עובדים פעילים</div>
+                            <div className="text-xs font-bold text-slate-500">בעבודה עכשיו</div>
                         </div>
-                        {presence.map(p => (
-                            <div key={p.user_id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50">
-                                <div className="w-7 h-7 rounded-full bg-emerald-100 flex items-center justify-center text-xs font-bold text-emerald-700 shrink-0">
-                                    {p.user_name.charAt(0)}
-                                </div>
-                                <div className="flex-1">
-                                    <div className="text-sm font-semibold text-slate-800">{p.user_name}</div>
-                                    <div className="text-xs text-slate-400">{fmtDuration(p.duration_minutes)}</div>
-                                </div>
-                                <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
-                            </div>
-                        ))}
+                        <PresenceList entries={presence} />
                     </div>
                 </>
             )}

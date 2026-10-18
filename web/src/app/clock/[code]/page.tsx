@@ -6,12 +6,14 @@ import { useParams } from "next/navigation";
 import { LogIn, LogOut, CircleAlert, CircleCheck, Undo2 } from "lucide-react";
 import RequireAuth from "@/components/RequireAuth";
 import { apiFetch } from "@/lib/api";
+import { PresenceList, usePresence } from "@/components/team/PresenceNow";
 
 // The page the barcode (or the NFC sticker) at the business's door opens (app/services/nfc_clock.py): the worker's own
 // phone, signed in to their own account, scanned or touched it — they're clocked in, or out, at once. A touch by mistake is taken back here within
 // two minutes; later, the owner or a manager fixes it.
 
-// "check": the owner scanned it — the barcode works; the owner doesn't clock
+// "check": the owner scanned it — the barcode works; the owner doesn't clock, and sees who is on shift now and for how
+// long (the owner, 2026-10-18: "it opens the clock — I want to see the workers' clock")
 type Tap = { action: "in" | "out" | "check"; at: string; name: string; session_id: string; repeat: boolean };
 
 function ClockTap() {
@@ -61,11 +63,7 @@ function ClockTap() {
                 ) : !tap ? (
                     <p className="text-slate-500 py-10">רושם…</p>
                 ) : tap.action === "check" ? (
-                    <>
-                        <CircleCheck className="w-14 h-14 mx-auto text-emerald-600" aria-hidden />
-                        <p className="mt-4 text-xl font-black text-slate-900">הברקוד עובד</p>
-                        <p className="mt-2 text-slate-600 leading-relaxed">כשעובד או מנהל סורקים אותו מהטלפון שלהם, נרשמת להם כניסה — ובסריקה הבאה יציאה. בעל העסק לא מחתים שעון.</p>
-                    </>
+                    <OwnerView />
                 ) : undone ? (
                     <>
                         <Undo2 className="w-14 h-14 mx-auto text-slate-400" aria-hidden />
@@ -93,6 +91,23 @@ function ClockTap() {
                 <Link href="/calendar" className="mt-6 block text-sm font-semibold text-sky-700 hover:underline">ליומן</Link>
             </div>
         </main>
+    );
+}
+
+// the owner at the door: who is on shift now and for how long — the barcode itself works
+function OwnerView() {
+    const presence = usePresence();
+    return (
+        <>
+            <p className="text-xl font-black text-slate-900">בעבודה עכשיו</p>
+            <div className="mt-3 -mx-4 text-right rounded-2xl border border-slate-100 overflow-hidden">
+                {presence ? <PresenceList entries={presence} /> : <p className="px-4 py-3 text-sm text-slate-500">טוען…</p>}
+            </div>
+            <p className="mt-4 flex items-start gap-1.5 text-right text-xs text-slate-500 leading-relaxed">
+                <CircleCheck className="w-4 h-4 shrink-0 text-emerald-600" aria-hidden />
+                הברקוד עובד: עובד או מנהל שסורקים אותו מהטלפון שלהם נרשמים לכניסה, ובסריקה הבאה ליציאה. בעל העסק לא מחתים שעון.
+            </p>
+        </>
     );
 }
 
