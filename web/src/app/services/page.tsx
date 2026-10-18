@@ -1,10 +1,15 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
+import { ClipboardList, Clock, ConciergeBell, CreditCard, Globe, HeartPulse, Pencil, Plus, Save, Trash2, X, Zap } from "lucide-react";
 import AppShell from "@/components/AppShell";
 import RequireAuth from "@/components/RequireAuth";
 import { apiFetch } from "@/lib/api";
 import { useTerms } from "@/lib/useTerms";
 import { toast } from "@/lib/toast";
+
+// The business's services — name, length, price (optional), color in the calendar, deposit, who gives it. In the
+// look of the rest of the system: white cards on the background the superadmin chose (the owner, 2026-10-19 — it had
+// its own fixed dark purple look). data-tour="service-new" / "service-form": ויקי's guide (lib/tours) and its video.
 
 interface Service {
     id: string;
@@ -34,6 +39,11 @@ const DURATION_OPTIONS = [15,20,30,45,60,75,90,120,150,180,240,300,360];
 
 function fmt(n: number) { return n.toLocaleString("he-IL", { minimumFractionDigits: 0 }); }
 function durLabel(m: number) { return m < 60 ? `${m} דק'` : m % 60 === 0 ? `${m/60} שע'` : `${Math.floor(m/60)}:${String(m%60).padStart(2,"0")} שע'`; }
+
+const LABEL = "block text-xs font-semibold text-slate-600 mb-1.5";
+const INPUT = "w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100";
+
+type Flag = "is_active" | "is_bookable_online" | "requires_consultation" | "send_aftercare";
 
 function ServiceModal({
     service, staff, onClose, onSaved,
@@ -71,7 +81,7 @@ function ServiceModal({
             }
             onSaved();
             onClose();
-        } catch (e: any) { toast.error(e.message); }
+        } catch (e) { toast.error(e instanceof Error ? e.message : "השמירה נכשלה"); }
         finally { setSaving(false); }
     };
 
@@ -80,79 +90,79 @@ function ServiceModal({
             ? form.staff_ids.filter(x => x !== id)
             : [...form.staff_ids, id]);
 
+    const flags: { key: Flag; label: string }[] = [
+        { key: "is_active", label: "פעיל" },
+        { key: "is_bookable_online", label: "ניתן לקביעה אונליין" },
+        { key: "requires_consultation", label: "דורש ייעוץ קודם" },
+        { key: "send_aftercare", label: "שלח הוראות טיפול אחרי סיום" },
+    ];
+
     return (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.7)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: "1rem" }}>
-            <div data-tour="service-form" style={{ background: "linear-gradient(145deg,#1e1b4b,#312e81)", border: "1px solid rgba(167,139,250,.3)", borderRadius: 20, width: "100%", maxWidth: 560, padding: "2rem", maxHeight: "90dvh", overflowY: "auto" }} dir="rtl">
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
-                    <h2 style={{ color: "#a78bfa", fontWeight: 700, fontSize: "1.2rem", margin: 0 }}>
-                        {isEdit ? "✏️ עריכת שירות" : "➕ שירות חדש"}
-                    </h2>
-                    <button onClick={onClose} style={{ background: "rgba(255,255,255,.1)", border: "none", color: "#fff", width: 32, height: 32, borderRadius: 8, cursor: "pointer" }}>✕</button>
+        // z 1000: the guide (ויקי) stays above it
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+            <div data-tour="service-form" dir="rtl" role="dialog" aria-labelledby="service-form-title"
+                className="w-full max-w-xl max-h-[90dvh] overflow-y-auto rounded-3xl bg-white shadow-2xl border border-slate-100 p-6">
+                <div className="flex items-center justify-between mb-5">
+                    <h2 id="service-form-title" className="text-lg font-bold text-slate-900">{isEdit ? "עריכת שירות" : "שירות חדש"}</h2>
+                    <button type="button" onClick={onClose} aria-label="סגירה"
+                        className="w-9 h-9 flex items-center justify-center rounded-full text-slate-400 hover:bg-slate-100">
+                        <X className="w-5 h-5" aria-hidden />
+                    </button>
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
-                    {/* Name */}
-                    <div style={{ gridColumn: "1/-1" }}>
-                        <label style={lStyle}>שם השירות *</label>
-                        <input value={form.name} onChange={e => set("name", e.target.value)} style={iStyle} placeholder={terms.example_service ? `לדוגמה: ${terms.example_service}` : "שם השירות"} />
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="col-span-2">
+                        <label className={LABEL}>שם השירות *</label>
+                        <input value={form.name} onChange={e => set("name", e.target.value)} className={INPUT}
+                            placeholder={terms.example_service ? `לדוגמה: ${terms.example_service}` : "שם השירות"} />
                     </div>
 
-                    {/* Duration */}
                     <div>
-                        <label style={lStyle}>משך זמן</label>
-                        <select value={form.duration_minutes} onChange={e => set("duration_minutes", Number(e.target.value))} style={iStyle}>
-                            {DURATION_OPTIONS.map(d => <option key={d} value={d} style={OPTION_STYLE}>{durLabel(d)}</option>)}
+                        <label className={LABEL}>משך זמן</label>
+                        <select value={form.duration_minutes} onChange={e => set("duration_minutes", Number(e.target.value))} className={INPUT}>
+                            {DURATION_OPTIONS.map(d => <option key={d} value={d}>{durLabel(d)}</option>)}
                         </select>
                     </div>
 
-                    {/* Price */}
                     <div>
-                        <label style={lStyle}>מחיר (₪) <span style={{ fontWeight: 400, opacity: .7 }}>— לא חובה</span></label>
+                        <label className={LABEL}>מחיר (₪) <span className="font-normal text-slate-400">— לא חובה</span></label>
                         {/* not required (owner, 2026-10-16: "the price changes from service to service — not locked"): empty
                             means "משתנה" — clients see no price, and the amount is written in the payment */}
                         <input type="number" inputMode="decimal" min={0} step={10} placeholder="משתנה"
                             value={form.price_cents ? form.price_cents / 100 : ""}
                             onChange={e => set("price_cents", Math.round(parseFloat(e.target.value || "0") * 100))}
-                            style={iStyle} />
-                        <div style={{ fontSize: "0.75rem", color: "#94a3b8", marginTop: "0.3rem" }}>
-                            המחיר משתנה מלקוח ללקוח? השאירו ריק — הלקוחות לא יראו מחיר, ואת הסכום רושמים בתשלום.
-                        </div>
+                            className={INPUT} />
+                    </div>
+                    <p className="col-span-2 -mt-2 text-xs text-slate-500">
+                        המחיר משתנה מלקוח ללקוח? השאירו ריק — הלקוחות לא יראו מחיר, ואת הסכום רושמים בתשלום.
+                    </p>
+
+                    <div>
+                        <label className={LABEL}>קטגוריה</label>
+                        <input value={form.category} onChange={e => set("category", e.target.value)} className={INPUT} placeholder="לדוגמה: צבע" />
                     </div>
 
-                    {/* Category */}
                     <div>
-                        <label style={lStyle}>קטגוריה</label>
-                        <input value={form.category} onChange={e => set("category", e.target.value)} style={iStyle} placeholder="לדוגמה: צבע" />
-                    </div>
-
-                    {/* Color */}
-                    <div>
-                        <label style={lStyle}>צבע ביומן</label>
-                        <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", marginTop: "0.4rem" }}>
+                        <span className={LABEL}>צבע ביומן</span>
+                        <div className="flex flex-wrap gap-2 pt-1">
                             {COLORS.map(c => (
-                                <button key={c} onClick={() => set("color", c)} style={{
-                                    width: 28, height: 28, borderRadius: "50%", background: c, border: form.color === c ? "3px solid #fff" : "2px solid transparent", cursor: "pointer",
-                                }} />
+                                <button key={c} type="button" onClick={() => set("color", c)} aria-label={`צבע ${c}`} aria-pressed={form.color === c}
+                                    className={`w-7 h-7 rounded-full transition ${form.color === c ? "ring-2 ring-offset-2 ring-slate-800" : ""}`}
+                                    style={{ background: c }} />
                             ))}
                         </div>
                     </div>
 
-                    {/* Description */}
-                    <div style={{ gridColumn: "1/-1" }}>
-                        <label style={lStyle}>תיאור (אופציונלי)</label>
-                        <textarea value={form.description} onChange={e => set("description", e.target.value)} style={{ ...iStyle, minHeight: 70, resize: "vertical" }} placeholder="תיאור קצר של השירות..." />
+                    <div className="col-span-2">
+                        <label className={LABEL}>תיאור (אופציונלי)</label>
+                        <textarea value={form.description} onChange={e => set("description", e.target.value)}
+                            className={`${INPUT} min-h-[70px] resize-y`} placeholder="תיאור קצר של השירות..." />
                     </div>
 
-                    {/* Toggles */}
-                    <div style={{ gridColumn: "1/-1", display: "flex", gap: "1rem", flexWrap: "wrap" }}>
-                        {[
-                            { key: "is_active", label: "פעיל" },
-                            { key: "is_bookable_online", label: "ניתן לקביעה אונליין" },
-                            { key: "requires_consultation", label: "דורש ייעוץ קודם" },
-                            { key: "send_aftercare", label: "שלח הוראות טיפול אחרי סיום" },
-                        ].map(({ key, label }) => (
-                            <label key={key} style={{ display: "flex", alignItems: "center", gap: "0.4rem", cursor: "pointer", color: "#94a3b8", fontSize: "0.85rem" }}>
-                                <input type="checkbox" checked={(form as any)[key]} onChange={e => set(key, e.target.checked)} />
+                    <div className="col-span-2 flex flex-wrap gap-x-5 gap-y-2">
+                        {flags.map(({ key, label }) => (
+                            <label key={key} className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                                <input type="checkbox" checked={form[key]} onChange={e => set(key, e.target.checked)} className="w-4 h-4 accent-sky-600" />
                                 {label}
                             </label>
                         ))}
@@ -161,57 +171,52 @@ function ServiceModal({
                     {/* Deposit — was previously only configurable in a separate,
                         disconnected "treatment types" settings section that had
                         no relation to the actual service being booked. */}
-                    <div style={{ gridColumn: "1/-1", background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.1)", borderRadius: 12, padding: "0.9rem 1rem" }}>
-                        <label style={{ display: "flex", alignItems: "center", gap: "0.4rem", cursor: "pointer", color: "#e2e8f0", fontSize: "0.88rem", fontWeight: 600, marginBottom: form.requires_deposit ? "0.75rem" : 0 }}>
-                            <input type="checkbox" checked={form.requires_deposit} onChange={e => set("requires_deposit", e.target.checked)} />
-                            💳 דורש מקדמה לקביעת תור
+                    <div className="col-span-2 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                        <label className="flex items-center gap-2 text-sm font-semibold text-slate-800 cursor-pointer">
+                            <input type="checkbox" checked={form.requires_deposit} onChange={e => set("requires_deposit", e.target.checked)} className="w-4 h-4 accent-sky-600" />
+                            <CreditCard className="w-4 h-4 text-slate-500" aria-hidden /> דורש מקדמה לקביעת תור
                         </label>
                         {form.requires_deposit && (
-                            <div style={{ maxWidth: 200 }}>
-                                <label style={lStyle}>סכום המקדמה (₪)</label>
+                            <div className="mt-3 max-w-[200px]">
+                                <label className={LABEL}>סכום המקדמה (₪)</label>
                                 <input type="number" inputMode="decimal" min={0} step={10} placeholder="0"
                                     value={form.deposit_amount_cents ? form.deposit_amount_cents / 100 : ""}
                                     onChange={e => set("deposit_amount_cents", Math.round(parseFloat(e.target.value || "0") * 100))}
-                                    style={iStyle} />
+                                    className={INPUT} />
                             </div>
                         )}
                     </div>
 
-                    {/* Staff */}
                     {staff.length > 0 && (
-                        <div style={{ gridColumn: "1/-1" }}>
-                            <label style={lStyle}>עובדים שמבצעים שירות זה</label>
-                            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginTop: "0.4rem" }}>
-                                {staff.map(m => (
-                                    <button key={m.id} onClick={() => toggleStaff(m.id)} style={{
-                                        padding: "0.3rem 0.8rem", borderRadius: 20, border: "1px solid",
-                                        borderColor: form.staff_ids.includes(m.id) ? "#a78bfa" : "rgba(255,255,255,.15)",
-                                        background: form.staff_ids.includes(m.id) ? "rgba(167,139,250,.2)" : "transparent",
-                                        color: form.staff_ids.includes(m.id) ? "#a78bfa" : "#94a3b8",
-                                        cursor: "pointer", fontSize: "0.8rem",
-                                    }}>
-                                        {m.display_name}
-                                    </button>
-                                ))}
+                        <div className="col-span-2">
+                            <span className={LABEL}>עובדים שמבצעים שירות זה</span>
+                            <div className="flex flex-wrap gap-2">
+                                {staff.map(m => {
+                                    const on = form.staff_ids.includes(m.id);
+                                    return (
+                                        <button key={m.id} type="button" onClick={() => toggleStaff(m.id)} aria-pressed={on}
+                                            className={`min-h-9 px-3 rounded-full border text-sm transition ${on ? "border-sky-300 bg-sky-50 text-sky-800 font-semibold" : "border-slate-200 text-slate-600 hover:border-slate-300"}`}>
+                                            {m.display_name || "ללא שם"}
+                                        </button>
+                                    );
+                                })}
                             </div>
                         </div>
                     )}
                 </div>
 
-                <div style={{ display: "flex", gap: "1rem", justifyContent: "flex-end", marginTop: "1.5rem" }}>
-                    <button onClick={onClose} style={{ background: "rgba(255,255,255,.1)", border: "1px solid rgba(255,255,255,.2)", borderRadius: 12, color: "#fff", padding: "0.65rem 1.2rem", cursor: "pointer" }}>ביטול</button>
-                    <button onClick={save} disabled={saving} style={{ background: "linear-gradient(135deg,#7c3aed,#4c1d95)", border: "none", borderRadius: 12, color: "#fff", padding: "0.65rem 1.4rem", fontWeight: 600, cursor: "pointer", opacity: saving ? .6 : 1 }}>
-                        {saving ? "שומר..." : isEdit ? "💾 שמור שינויים" : "➕ צור שירות"}
+                <div className="flex justify-end gap-3 mt-6">
+                    <button type="button" onClick={onClose} className="min-h-11 px-4 rounded-xl border border-slate-200 text-sm font-semibold text-slate-700 hover:bg-slate-50">ביטול</button>
+                    <button type="button" onClick={save} disabled={saving}
+                        className="inline-flex items-center gap-1.5 min-h-11 px-5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-sm font-bold disabled:opacity-60">
+                        {isEdit ? <Save className="w-4 h-4" aria-hidden /> : <Plus className="w-4 h-4" aria-hidden />}
+                        {saving ? "שומר..." : isEdit ? "שמור שינויים" : "צור שירות"}
                     </button>
                 </div>
             </div>
         </div>
     );
 }
-
-const lStyle: React.CSSProperties = { color: "#94a3b8", fontSize: "0.82rem", fontWeight: 600, display: "block", marginBottom: "0.35rem" };
-const iStyle: React.CSSProperties = { background: "rgba(255,255,255,.08)", border: "1px solid rgba(255,255,255,.15)", borderRadius: 10, padding: "0.6rem 0.9rem", color: "#fff", fontSize: "0.9rem", width: "100%", boxSizing: "border-box", colorScheme: "dark" };
-const OPTION_STYLE: React.CSSProperties = { background: "#1e1b4b", color: "#fff" };
 
 export default function ServicesPage() {
     const [services, setServices] = useState<Service[]>([]);
@@ -225,11 +230,11 @@ export default function ServicesPage() {
         try {
             const svcs = await apiFetch<Service[]>("/api/services?active_only=false");
             setServices(svcs);
-        } catch (e: any) { toast.error(e.message || "שגיאה בטעינת השירותים"); }
+        } catch (e) { toast.error(e instanceof Error ? e.message : "שגיאה בטעינת השירותים"); }
         try {
             const staffData = await apiFetch<StaffMember[]>("/api/users/artists");
             setStaff(staffData);
-        } catch { }
+        } catch { /* no team list — the form just doesn't offer it */ }
         setLoading(false);
     }, []);
 
@@ -248,7 +253,7 @@ export default function ServicesPage() {
             const res = await apiFetch<{ created: string[] }>("/api/services/seed-from-template", { method: "POST" });
             toast.success(`נוצרו ${res.created.length} שירותים`);
             load();
-        } catch (e: any) { toast.error(e.message); }
+        } catch (e) { toast.error(e instanceof Error ? e.message : "הטעינה נכשלה"); }
         finally { setSeeding(false); }
     };
 
@@ -261,70 +266,73 @@ export default function ServicesPage() {
     return (
         <RequireAuth>
             <AppShell title="שירותים">
-                <div dir="rtl" style={{ minHeight: "100vh", background: "linear-gradient(135deg,#0f0c29,#302b63,#24243e)", padding: "2rem", color: "#fff", fontFamily: "sans-serif" }}>
-                    {/* Header */}
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "2rem", flexWrap: "wrap", gap: "1rem" }}>
+                <div dir="rtl" className="p-4 md:p-8 space-y-6">
+                    <div className="flex flex-wrap items-start justify-between gap-4">
                         <div>
-                            <h1 style={{ fontSize: "1.8rem", fontWeight: 800, background: "linear-gradient(135deg,#a78bfa,#60a5fa)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", margin: 0 }}>
-                                🛎️ קטלוג שירותים
+                            <h1 className="flex items-center gap-2 text-2xl font-black text-slate-900">
+                                <ConciergeBell className="w-6 h-6 text-sky-600" aria-hidden /> קטלוג שירותים
                             </h1>
-                            <p style={{ color: "#94a3b8", fontSize: "0.9rem", marginTop: "0.3rem" }}>
-                                הגדר שירותים, משכי זמן ומחירים לעסק שלך
-                            </p>
+                            <p className="text-sm text-slate-600 mt-1">הגדר שירותים, משכי זמן ומחירים לעסק שלך</p>
                         </div>
-                        <div style={{ display: "flex", gap: "0.75rem" }}>
+                        <div className="flex gap-2">
                             {services.length === 0 && (
-                                <button onClick={seedFromTemplate} disabled={seeding} style={{ background: "rgba(16,185,129,.15)", border: "1px solid rgba(16,185,129,.3)", borderRadius: 12, color: "#34d399", padding: "0.65rem 1.2rem", cursor: "pointer", fontSize: "0.9rem" }}>
-                                    {seeding ? "טוען..." : "⚡ טען ברירות מחדל"}
+                                <button type="button" onClick={seedFromTemplate} disabled={seeding}
+                                    className="inline-flex items-center gap-1.5 min-h-11 px-4 rounded-xl border border-emerald-200 bg-white text-emerald-700 text-sm font-semibold hover:bg-emerald-50 disabled:opacity-60">
+                                    <Zap className="w-4 h-4" aria-hidden /> {seeding ? "טוען..." : "טען ברירות מחדל"}
                                 </button>
                             )}
-                            <button data-tour="service-new" onClick={() => setModal("new")} style={{ background: "linear-gradient(135deg,#7c3aed,#4c1d95)", border: "none", borderRadius: 12, color: "#fff", padding: "0.65rem 1.4rem", fontWeight: 600, cursor: "pointer" }}>
-                                ➕ שירות חדש
+                            <button type="button" data-tour="service-new" onClick={() => setModal("new")}
+                                className="inline-flex items-center gap-1.5 min-h-11 px-5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-sm font-bold shadow-sm">
+                                <Plus className="w-4 h-4" aria-hidden /> שירות חדש
                             </button>
                         </div>
                     </div>
 
                     {loading ? (
-                        <div style={{ textAlign: "center", padding: "4rem", color: "#64748b" }}>⏳ טוען...</div>
+                        <p className="py-16 text-center text-slate-500">טוען...</p>
                     ) : services.length === 0 ? (
-                        <div style={{ textAlign: "center", padding: "4rem", background: "rgba(255,255,255,.04)", borderRadius: 20, border: "1px solid rgba(255,255,255,.08)" }}>
-                            <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>🛎️</div>
-                            <div style={{ color: "#94a3b8", marginBottom: "0.5rem" }}>אין שירותים עדיין</div>
-                            <div style={{ color: "#64748b", fontSize: "0.85rem" }}>לחץ "טען ברירות מחדל" לטעינה מהירה לפי סוג העסק, או צור שירות ידנית</div>
+                        <div className="rounded-3xl border border-slate-200/70 bg-white p-10 text-center shadow-sm">
+                            <ConciergeBell className="w-12 h-12 mx-auto text-slate-300" aria-hidden />
+                            <p className="mt-3 font-semibold text-slate-700">אין שירותים עדיין</p>
+                            <p className="mt-1 text-sm text-slate-500">לחץ &quot;טען ברירות מחדל&quot; לטעינה מהירה לפי סוג העסק, או צור שירות ידנית</p>
                         </div>
                     ) : (
                         Object.entries(grouped).map(([cat, svcs]) => (
-                            <div key={cat} style={{ marginBottom: "2rem" }}>
-                                <div style={{ color: "#a78bfa", fontWeight: 700, fontSize: "0.95rem", marginBottom: "0.75rem", paddingRight: "0.5rem", borderRight: "3px solid #7c3aed" }}>
-                                    {cat}
-                                </div>
-                                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(280px,1fr))", gap: "1rem" }}>
+                            <section key={cat}>
+                                <h2 className="mb-3 text-sm font-bold text-slate-700">{cat}</h2>
+                                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                                     {svcs.sort((a, b) => a.sort_order - b.sort_order).map(svc => (
-                                        <div key={svc.id} style={{ background: "rgba(255,255,255,.05)", border: `1px solid ${svc.color}44`, borderRadius: 16, padding: "1.25rem", position: "relative", opacity: svc.is_active ? 1 : 0.55 }}>
-                                            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.75rem" }}>
-                                                <div style={{ width: 14, height: 14, borderRadius: "50%", background: svc.color, flexShrink: 0 }} />
-                                                <span style={{ fontWeight: 700, fontSize: "1rem" }}>{svc.name}</span>
-                                                {!svc.is_active && <span style={{ background: "rgba(100,116,139,.2)", color: "#64748b", fontSize: "0.7rem", padding: "0.1rem 0.5rem", borderRadius: 8 }}>כבוי</span>}
+                                        <div key={svc.id} className={`rounded-2xl border border-slate-200/70 bg-white p-4 shadow-sm ${svc.is_active ? "" : "opacity-60"}`}
+                                            style={{ borderInlineStartWidth: 4, borderInlineStartColor: svc.color }}>
+                                            <div className="flex items-center gap-2">
+                                                <span className="flex-1 min-w-0 truncate font-bold text-slate-900">{svc.name}</span>
+                                                {!svc.is_active && <span className="rounded-lg bg-slate-100 px-2 py-0.5 text-xs text-slate-500">כבוי</span>}
                                             </div>
-                                            <div style={{ display: "flex", gap: "1rem", fontSize: "0.85rem", color: "#94a3b8", marginBottom: "0.75rem" }}>
-                                                <span>⏱️ {durLabel(svc.duration_minutes)}</span>
-                                                <span>{svc.price_cents > 0 ? `₪${fmt(svc.price_ils)}` : "מחיר משתנה"}</span>
+                                            <div className="mt-2 flex items-center gap-4 text-sm text-slate-600">
+                                                <span className="inline-flex items-center gap-1"><Clock className="w-3.5 h-3.5" aria-hidden /> {durLabel(svc.duration_minutes)}</span>
+                                                <span className="font-semibold">{svc.price_cents > 0 ? `₪${fmt(svc.price_ils)}` : "מחיר משתנה"}</span>
                                             </div>
-                                            {svc.description && <div style={{ color: "#64748b", fontSize: "0.8rem", marginBottom: "0.5rem" }}>{svc.description}</div>}
-                                            <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", marginBottom: "0.75rem" }}>
-                                                {svc.is_bookable_online && <span style={{ background: "rgba(16,185,129,.15)", color: "#34d399", fontSize: "0.7rem", padding: "0.1rem 0.5rem", borderRadius: 8 }}>🌐 אונליין</span>}
-                                                {svc.requires_consultation && <span style={{ background: "rgba(245,158,11,.15)", color: "#fbbf24", fontSize: "0.7rem", padding: "0.1rem 0.5rem", borderRadius: 8 }}>📋 ייעוץ</span>}
-                                                {svc.requires_deposit && <span style={{ background: "rgba(96,165,250,.15)", color: "#60a5fa", fontSize: "0.7rem", padding: "0.1rem 0.5rem", borderRadius: 8 }}>💳 מקדמה ₪{fmt(svc.deposit_amount_ils)}</span>}
-                                                {svc.send_aftercare && <span style={{ background: "rgba(236,72,153,.15)", color: "#f472b6", fontSize: "0.7rem", padding: "0.1rem 0.5rem", borderRadius: 8 }}>💊 טיפול-אחרי</span>}
+                                            {svc.description && <p className="mt-2 text-xs text-slate-500">{svc.description}</p>}
+                                            <div className="mt-3 flex flex-wrap gap-1.5">
+                                                {svc.is_bookable_online && <span className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700"><Globe className="w-3 h-3" aria-hidden /> אונליין</span>}
+                                                {svc.requires_consultation && <span className="inline-flex items-center gap-1 rounded-lg bg-amber-50 px-2 py-0.5 text-xs text-amber-700"><ClipboardList className="w-3 h-3" aria-hidden /> ייעוץ</span>}
+                                                {svc.requires_deposit && <span className="inline-flex items-center gap-1 rounded-lg bg-sky-50 px-2 py-0.5 text-xs text-sky-700"><CreditCard className="w-3 h-3" aria-hidden /> מקדמה ₪{fmt(svc.deposit_amount_ils)}</span>}
+                                                {svc.send_aftercare && <span className="inline-flex items-center gap-1 rounded-lg bg-pink-50 px-2 py-0.5 text-xs text-pink-700"><HeartPulse className="w-3 h-3" aria-hidden /> טיפול-אחרי</span>}
                                             </div>
-                                            <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}>
-                                                <button onClick={() => setModal(svc)} style={{ background: "rgba(167,139,250,.15)", border: "none", borderRadius: 8, color: "#a78bfa", padding: "0.3rem 0.8rem", cursor: "pointer", fontSize: "0.8rem" }}>✏️ עריכה</button>
-                                                <button onClick={() => deleteService(svc.id)} style={{ background: "rgba(239,68,68,.15)", border: "none", borderRadius: 8, color: "#f87171", padding: "0.3rem 0.8rem", cursor: "pointer", fontSize: "0.8rem" }}>🗑️</button>
+                                            <div className="mt-3 flex justify-end gap-2">
+                                                <button type="button" onClick={() => setModal(svc)}
+                                                    className="inline-flex items-center gap-1 min-h-9 px-3 rounded-lg bg-slate-100 text-sm font-semibold text-slate-700 hover:bg-slate-200">
+                                                    <Pencil className="w-3.5 h-3.5" aria-hidden /> עריכה
+                                                </button>
+                                                <button type="button" onClick={() => deleteService(svc.id)} aria-label={`מחיקת ${svc.name}`}
+                                                    className="inline-flex items-center justify-center min-h-9 w-9 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100">
+                                                    <Trash2 className="w-4 h-4" aria-hidden />
+                                                </button>
                                             </div>
                                         </div>
                                     ))}
                                 </div>
-                            </div>
+                            </section>
                         ))
                     )}
 
