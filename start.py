@@ -3087,6 +3087,14 @@ def ensure_schema():
                 cur.execute("ROLLBACK TO SAVEPOINT yuval_deleted")
                 print(f"[start] יובל not deleted: {_e}")
 
+        if _once("platform_background_white_v1"):
+            # The owner (2026-10-19): "I want the white background" — BizControl's background back to the near-white the
+            # screens had (the theme's light blue showed on every screen once the screens took the theme's background).
+            cur.execute("""
+                UPDATE studio_settings ss SET theme_background_color = '#f8fafc'
+                FROM studios s WHERE s.id = ss.studio_id AND s.is_platform
+            """)
+
         conn.commit()
         cur.close()
         conn.close()
