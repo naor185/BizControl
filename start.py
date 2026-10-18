@@ -3070,6 +3070,23 @@ def ensure_schema():
                 )
             """)
 
+        if _once("nctattoo_yuval_deleted_v1"):
+            # יובל, removed from Nctattoo's team (inactive since), deleted for good — the owner asked (2026-10-19, "תמחק
+            # לצמיתות"). Read-only check before: one inactive user, nothing anywhere points at him (the 52 foreign keys
+            # to users, and the user-id columns without one). In a savepoint: should anything point at him by now, he
+            # stays and nothing else of this startup is undone.
+            cur.execute("SAVEPOINT yuval_deleted")
+            try:
+                cur.execute("""
+                    DELETE FROM users u USING studios s
+                    WHERE s.id = u.studio_id AND s.name = 'Nctattoo' AND u.display_name = 'יובל'
+                      AND u.role = 'artist' AND NOT u.is_active
+                """)
+                cur.execute("RELEASE SAVEPOINT yuval_deleted")
+            except Exception as _e:
+                cur.execute("ROLLBACK TO SAVEPOINT yuval_deleted")
+                print(f"[start] יובל not deleted: {_e}")
+
         conn.commit()
         cur.close()
         conn.close()
