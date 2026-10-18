@@ -62,3 +62,9 @@ class UserOut(UserBase):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class TeamMemberOut(UserOut):
+    """Someone on the team as the team list shows them — the e-mail (their sign-in) empty for who may not see it
+    (api/artist_routes list_artists_endpoint)."""
+    email: str = ""

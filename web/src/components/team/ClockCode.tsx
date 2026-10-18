@@ -104,17 +104,8 @@ export default function ClockCode() {
                     </div>
                 )
             )}
-            {st.link && (
-                <details className="text-sm text-slate-600">
-                    <summary className="cursor-pointer font-semibold text-slate-500">רוצים גם מדבקת NFC?</summary>
-                    <ol className="list-decimal pr-5 space-y-1 mt-2">
-                        <li>מתקינים בטלפון את האפליקציה <b>NFC Tools</b> (חינם).</li>
-                        <li><bdi dir="ltr">Write → Add a record → URL</bdi>, ומדביקים את הקישור:
-                            <code dir="ltr" className="block mt-1 truncate rounded-lg bg-slate-50 border border-slate-100 px-2 py-1 text-xs">{st.link}</code></li>
-                        <li>לוחצים Write, ומקרבים את המדבקה לטלפון. מדביקים אותה בכניסה.</li>
-                    </ol>
-                </details>
-            )}
+            {/* the NFC sticker comes only from BizControl (the owner, 2026-10-19) — no instructions to write one here */}
+            {st.link && <p className="text-xs text-slate-500">רוצים גם מדבקת NFC בכניסה? מזמינים אותה מ-BizControl.</p>}
         </section>
     </div>);
 }

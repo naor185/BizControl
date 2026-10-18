@@ -7,7 +7,7 @@ from app.core.deps import require_studio_ctx, AuthContext
 from app.core.database import get_db
 from app.models.studio_settings import StudioSettings
 from app.core.permissions import require_roles, require_permission, may_do, manager_permissions, MANAGER_PERMISSIONS, Perms
-from app.schemas.user import UserOut, ArtistCreate, ArtistUpdate
+from app.schemas.user import UserOut, TeamMemberOut, ArtistCreate, ArtistUpdate
 from app.crud.artist import create_artist, list_artists, update_artist, deactivate_artist
 from app.services.plan_limits import check_staff_seat, staff_seats
 from app.services import activity_log
@@ -21,17 +21,24 @@ _PAY_FIELDS = ("pay_type", "hourly_rate", "commission_rate", "global_salary", "c
 _NO_PAY = {f: UserOut.model_fields[f].default for f in _PAY_FIELDS}
 _ROLE_WORDS = {"owner": "בעל העסק", "admin": "סגן מנהל", "artist": "נותן/ת שירות", "staff": "עובד/ת"}
 
-@router.get("", response_model=list[UserOut])
+@router.get("", response_model=list[TeamMemberOut])
 def list_artists_endpoint(
     ctx: AuthContext = Depends(require_studio_ctx),
     db: Session = Depends(get_db),
 ):
     """Get a list of artists in the studio. Everyone's pay only for the owner and a manager allowed money — the other
-    screens use this list for names and colors."""
-    users = list_artists(db, ctx.studio_id)
-    if may_do(db, ctx.studio_id, ctx.role, "money"):
-        return users
-    return [UserOut.model_validate(u).model_copy(update=_NO_PAY) for u in users]
+    screens use this list for names and colors. The e-mails — each one's sign-in — only for who manages the team, and
+    the owner's only for the owner (the owner, 2026-10-19: "the owner's details must be protected")."""
+    sees_pay = may_do(db, ctx.studio_id, ctx.role, "money")
+    sees_team = may_do(db, ctx.studio_id, ctx.role, "team")
+    is_owner = ctx.role in (Perms.OWNER, "superadmin")
+    out = []
+    for u in list_artists(db, ctx.studio_id):
+        hide = {} if sees_pay else dict(_NO_PAY)
+        if not sees_team or (u.role == Perms.OWNER and not is_owner):
+            hide["email"] = ""
+        out.append(TeamMemberOut.model_validate(u).model_copy(update=hide))
+    return out
 
 
 @router.get("/seats")
@@ -117,6 +124,10 @@ def update_artist_endpoint(
         raise HTTPException(status_code=404, detail="Artist not found")
     if current.role == Perms.OWNER:      # the owner stays the owner — the screen sends the role "artist" for his own row
         payload = payload.model_copy(update={"role": None})
+        if payload.password is not None:
+            # the owner's password only with the current one (settings → החשבון שלי) — never from the team screen, where an
+            # open screen would be enough to take the business over (the owner, 2026-10-19)
+            raise HTTPException(status_code=403, detail="את הסיסמה של בעל העסק משנים בהגדרות ← החשבון שלי, עם הסיסמה הנוכחית")
     if ctx.role != Perms.OWNER:
         _owner_only_for(current, payload.role)
         if not may_do(db, ctx.studio_id, ctx.role, "money"):
