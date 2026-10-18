@@ -1,0 +1,13 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "MBMCB7RJVS.com.bizcontrol.app",
+        "appIDs": ["MBMCB7RJVS.com.bizcontrol.app"],
+        "paths": ["/clock/*"],
+        "components": [{ "/": "/clock/*", "comment": "the attendance clock's barcode and NFC sticker" }]
+      }
+    ]
+  }
+}

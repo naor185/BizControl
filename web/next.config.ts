@@ -12,6 +12,12 @@ const nextConfig: NextConfig = {
   },
   async headers() {
     return [
+      // Apple reads it to let the app open the attendance clock's links (/clock/…) instead of the browser — as JSON
+      // (public/.well-known/apple-app-site-association; the app's side: ios/App/App/App.entitlements)
+      {
+        source: "/.well-known/apple-app-site-association",
+        headers: [{ key: "Content-Type", value: "application/json" }],
+      },
       {
         source: "/(.*)",
         headers: [
