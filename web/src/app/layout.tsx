@@ -4,6 +4,7 @@ import { ToastProvider } from "@/components/ui/toast";
 import { QueryProvider } from "@/components/QueryProvider";
 import OverflowDebugger from "@/components/OverflowDebugger";
 import BackButtonHandler from "@/components/BackButtonHandler";
+import AppLinkHandler from "@/components/AppLinkHandler";
 import ThemeProvider from "@/components/ThemeProvider";
 
 export const metadata = {
@@ -68,6 +69,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <ToastProvider>
               <ThemeProvider />
               <BackButtonHandler />
+              <AppLinkHandler />
               {children}
               {process.env.NODE_ENV !== "production" && <OverflowDebugger />}
             </ToastProvider>
