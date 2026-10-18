@@ -1,5 +1,7 @@
 """The guide's videos (web/public/guide) — screen recordings of its steps at a phone's size, in order: a title card, a
 Hebrew caption for every action, a circle where the finger taps, and "מעולה!" only after the save really succeeded.
+ויקי says it too (2026-10-18): her recorded sentences (web/public/viki-voice, lib/vikiVoice) are cued while recording —
+the screen waits for her where she tells you to press something — and the edit lays them on the video's sound.
 The paths (web/src/lib/tours.ts): the owner's first steps (business service client appointment payment), the owner's
 working day (pos_sale deposit worker_task — 2026-10-15) and the messages to clients (messages_where messages_off
 messages_text messages_optout — 2026-10-16).
@@ -131,28 +133,70 @@ def record(name, start_path, script, morning=False):
         cdp.send("Page.startScreencast", {"format": "jpeg", "quality": 90, "maxWidth": VIEW["width"] * 2,
                                           "maxHeight": VIEW["height"] * 2, "everyNthFrame": 1})
         pg.wait_for_timeout(300)
+        CUES.clear()
+        QUIET[0] = 0.0
         start = time.time()
         script(pg)
+        quiet(pg)                                   # she finishes before the video does
+        pg.wait_for_timeout(400)
         end = time.time()
         pg.wait_for_timeout(300)
         cdp.send("Page.stopScreencast")
         ctx.close()
         b.close()
-    meta = {"frames": str(frames_dir), "list": frames, "start": start, "end": end}
+    meta = {"frames": str(frames_dir), "list": frames, "start": start, "end": end, "voice": list(CUES),
+            "voice_dir": str(VOICE_DIR)}
     (OUT / f"{name}.json").write_text(json.dumps(meta))
     print(name, len(frames), "frames,", round(end - start, 1), "s", flush=True)
 
 
+# ── ויקי's voice: a sentence is cued at the moment it starts; the edit puts it there ──
+VOICE_DIR = pathlib.Path(__file__).resolve().parents[2] / "web" / "public" / "viki-voice"
+CUES = []                        # (time, clip) for the video being recorded
+QUIET = [0.0]                    # when her last sentence ends
+
+
+def clip_seconds(clip):
+    """The clip's length — the files are 96 kbit/s (lib/vikiVoice), so its size says it."""
+    return (VOICE_DIR / f"{clip}.mp3").stat().st_size * 8 / 96000
+
+
+def quiet(pg):
+    """Wait until she has finished what she's saying."""
+    left = QUIET[0] - time.time()
+    if left > 0:
+        pg.wait_for_timeout(int(left * 1000) + 200)
+
+
+def say(pg, clip, wait=True):
+    """She says a clip — after the one before. `wait`: the screen waits until she finishes (an instruction comes before
+    the tap it asks for); without it, the screen goes on while she talks (an opening, while it gets there)."""
+    quiet(pg)
+    CUES.append((time.time(), clip))
+    QUIET[0] = time.time() + clip_seconds(clip)
+    if wait:
+        quiet(pg)
+
+
 # ── helpers for a script ──
-def cap(pg, tag, text, hold=1600):
+def cap(pg, tag, text, hold=1600, voice=None, wait=True):
+    if voice:
+        quiet(pg)
     pg.evaluate("([t, x]) => window.__cap(t, x)", [tag, text])
+    if voice:
+        say(pg, voice, wait)
     pg.wait_for_timeout(hold)
 
 
-def card(pg, step, big, small="", ok=False, hold=2600):
+def card(pg, step, big, small="", ok=False, hold=2600, voice=None):
+    if voice:
+        quiet(pg)
     pg.evaluate("([s, b, m, o]) => window.__card(s, b, m, o)", [step, big, small, ok])
+    if voice:
+        say(pg, voice, wait=False)
     pg.wait_for_timeout(hold)
-    if ok:                       # the closing card — the video ends on it
+    if ok:                       # the closing card — the video ends on it, once she's done
+        quiet(pg)
         return
     pg.evaluate("() => window.__card('', '')")
     pg.wait_for_timeout(450)
@@ -183,11 +227,11 @@ def open_business(pg, category, tile):
 # ── the five steps ──
 def step_business(pg):
     tag = f"שלב 1 מתוך {STEPS_TOTAL} · פרטי העסק והלוגו"
-    card(pg, f"שלב 1 מתוך {STEPS_TOTAL}", "פרטי העסק והלוגו", "הלוגו והכתובת מופיעים בהודעות ללקוחות ובדף העסק")
+    card(pg, f"שלב 1 מתוך {STEPS_TOTAL}", "פרטי העסק והלוגו", "הלוגו והכתובת מופיעים בהודעות ללקוחות ובדף העסק", voice="02")
     cap(pg, tag, "פותחים את \"ניהול עסק\" ובוחרים \"הגדרות\"", 1400)
     open_business(pg, "הגדרות", "הגדרות")
     pg.locator("[data-tour=logo-upload]").first.wait_for()
-    cap(pg, tag, "לוחצים על \"בחר תמונה\" ובוחרים את הלוגו מהטלפון", 1200)
+    cap(pg, tag, "לוחצים על \"בחר תמונה\" ובוחרים את הלוגו מהטלפון", 1200, voice="03")
     pg.locator("[data-tour=logo-upload]").first.scroll_into_view_if_needed()
     pg.wait_for_timeout(500)
     with pg.expect_file_chooser() as fc:
@@ -195,88 +239,93 @@ def step_business(pg):
     fc.value.set_files(str(logo))
     pg.get_by_text("לוגו הועלה בהצלחה").first.wait_for()
     pg.wait_for_timeout(1500)
-    cap(pg, tag, "כותבים את כתובת העסק", 600)
+    cap(pg, tag, "כותבים את כתובת העסק", 600, voice="04", wait=False)
     type_in(pg, pg.locator("[data-tour=business-address]"), "רחוב הרצל 12, תל אביב")
     cap(pg, tag, "ולוחצים על \"שמור הגדרות העסק\"", 1000)
+    quiet(pg)
     tap(pg, pg.locator("button:has-text('שמור הגדרות העסק')"), after=400)
     pg.get_by_text("נשמרו בהצלחה").first.wait_for()          # really saved — or the recording stops here
     pg.wait_for_timeout(1800)
     cap(pg, tag, "")
-    card(pg, "", "מעולה!", "פרטי העסק והלוגו נשמרו", ok=True)
+    card(pg, "", "מעולה!", "פרטי העסק והלוגו נשמרו", ok=True, voice="05")
 
 
 def step_service(pg):
     tag = f"שלב 2 מתוך {STEPS_TOTAL} · שירות ראשון"
-    card(pg, f"שלב 2 מתוך {STEPS_TOTAL}", "שירות ראשון", "שירות הוא מה שהעסק מוכר — עם מחיר ומשך")
+    card(pg, f"שלב 2 מתוך {STEPS_TOTAL}", "שירות ראשון", "שירות הוא מה שהעסק מוכר — עם מחיר ומשך", voice="06")
     cap(pg, tag, "\"ניהול עסק\" ← \"תורים ושירותים\" ← \"שירותים\"", 1400)
     open_business(pg, "תורים ושירותים", "שירותים")
-    cap(pg, tag, "לוחצים על \"שירות חדש\"", 900)
+    cap(pg, tag, "לוחצים על \"שירות חדש\"", 900, voice="07")
     tap(pg, pg.locator("[data-tour=service-new]"), after=1300)
-    cap(pg, tag, "כותבים את שם השירות", 500)
+    cap(pg, tag, "כותבים את שם השירות", 500, voice="08", wait=False)
     type_in(pg, pg.locator("[data-tour=service-form] input").nth(0), "קעקוע קטן")
     cap(pg, tag, "ואת המחיר", 500)
     type_in(pg, pg.locator("[data-tour=service-form] input[type=number]"), "300")
     cap(pg, tag, "ולוחצים על \"צור שירות\"", 1000)
+    quiet(pg)
     tap(pg, pg.locator("[data-tour=service-form] button:has-text('צור שירות')"), after=400)
     pg.locator("[data-tour=service-form]").wait_for(state="hidden")
     pg.wait_for_timeout(1800)
     cap(pg, tag, "")
-    card(pg, "", "מעולה!", "השירות הראשון שלך נשמר", ok=True)
+    card(pg, "", "מעולה!", "השירות הראשון שלך נשמר", ok=True, voice="09")
 
 
 def step_client(pg):
     tag = f"שלב 3 מתוך {STEPS_TOTAL} · לקוח ראשון"
-    card(pg, f"שלב 3 מתוך {STEPS_TOTAL}", "לקוח ראשון", "לכל לקוח יש כרטיס: פרטים, תורים ותשלומים")
+    card(pg, f"שלב 3 מתוך {STEPS_TOTAL}", "לקוח ראשון", "לכל לקוח יש כרטיס: פרטים, תורים ותשלומים", voice="10")
     cap(pg, tag, "לוחצים על \"לקוחות\" בשורה התחתונה", 1200)
     tap(pg, pg.locator("nav.fixed a[href='/clients']"), after=2500)
-    cap(pg, tag, "ועל \"לקוח חדש\"", 900)
+    cap(pg, tag, "ועל \"לקוח חדש\"", 900, voice="11")
     tap(pg, pg.locator("[data-tour=client-new]"), after=1300)
     fields = pg.locator("[data-tour=client-form] input:not([type=checkbox])")
-    cap(pg, tag, "כותבים שם וטלפון", 500)
+    cap(pg, tag, "כותבים שם וטלפון", 500, voice="12", wait=False)
     type_in(pg, fields.nth(0), "דנה לוי")
     type_in(pg, fields.nth(1), "0501234567")
     cap(pg, tag, "ולוחצים על \"שמור\"", 1000)
+    quiet(pg)
     tap(pg, pg.locator("[data-tour=client-form] button:has-text('שמור')"), after=400)
     pg.locator("[data-tour=client-form]").wait_for(state="hidden")
     pg.wait_for_timeout(1800)
     cap(pg, tag, "")
-    card(pg, "", "מעולה!", "הלקוח הראשון נוסף", ok=True)
+    card(pg, "", "מעולה!", "הלקוח הראשון נוסף", ok=True, voice="13")
 
 
 def step_appointment(pg):
     tag = f"שלב 4 מתוך {STEPS_TOTAL} · תור ראשון"
-    card(pg, f"שלב 4 מתוך {STEPS_TOTAL}", "תור ראשון", "קובעים ביומן תור ללקוח ולשירות")
-    cap(pg, tag, "ביומן לוחצים על +", 1200)
+    card(pg, f"שלב 4 מתוך {STEPS_TOTAL}", "תור ראשון", "קובעים ביומן תור ללקוח ולשירות", voice="14")
+    cap(pg, tag, "ביומן לוחצים על +", 1200, voice="16")
     tap(pg, pg.locator("[data-tour=appointment-new]"), after=1500)
-    cap(pg, tag, "בוחרים לקוח", 500)
+    cap(pg, tag, "בוחרים לקוח", 500, voice="18", wait=False)
     type_in(pg, pg.locator("[data-tour=appointment-form] input[placeholder='חפש לפי שם או טלפון...']"), "דנה", after=1200)
     tap(pg, pg.locator("[data-tour=appointment-form] div.cursor-pointer:has-text('דנה לוי')"), after=900)
     cap(pg, tag, "בוחרים את השירות", 500)
     tap(pg, pg.locator("[data-tour=appointment-form] button[aria-pressed]:has-text('קעקוע קטן')"), after=900)
     cap(pg, tag, "התאריך והשעה כבר מולאו (חצי השעה הבאה) — אפשר לשנות אותם", 2000)
     cap(pg, tag, "ולוחצים על \"קבע תור חדש\"", 900)
+    quiet(pg)
     tap(pg, pg.locator("[data-tour=appointment-form] button:has-text('קבע תור חדש')"), after=400)
     pg.locator("[data-tour=appointment-form]").wait_for(state="hidden")
     pg.wait_for_timeout(2200)
     cap(pg, tag, "")
-    card(pg, "", "מעולה!", "התור הראשון נקבע ביומן", ok=True)
+    card(pg, "", "מעולה!", "התור הראשון נקבע ביומן", ok=True, voice="19")
 
 
 def step_payment(pg):
     tag = f"שלב 5 מתוך {STEPS_TOTAL} · אמצעי תשלום למקדמות"
-    card(pg, f"שלב 5 מתוך {STEPS_TOTAL}", "אמצעי תשלום למקדמות", "כדי שלקוחות יוכלו לשלם מקדמה — ביט, פייבוקס או העברה בנקאית")
+    card(pg, f"שלב 5 מתוך {STEPS_TOTAL}", "אמצעי תשלום למקדמות", "כדי שלקוחות יוכלו לשלם מקדמה — ביט, פייבוקס או העברה בנקאית", voice="20")
     cap(pg, tag, "פותחים את \"ניהול עסק\" ובוחרים \"הגדרות\"", 1400)
     open_business(pg, "הגדרות", "הגדרות")
     cap(pg, tag, "עוברים ללשונית \"פיננסים ותשלומים\"", 900)
     tap(pg, pg.get_by_role("tab", name="פיננסים"), after=1800)
-    cap(pg, tag, "מדביקים את קישור הביט שלכם", 600)
+    cap(pg, tag, "מדביקים את קישור הביט שלכם", 600, voice="21", wait=False)
     type_in(pg, pg.locator("[data-tour=pay-bit]"), "https://www.bitpay.co.il/app/me/example")
     cap(pg, tag, "ולוחצים על \"שמור הגדרות העסק\"", 1000)
+    quiet(pg)
     tap(pg, pg.locator("button:has-text('שמור הגדרות העסק')"), after=400)
     pg.get_by_text("נשמרו בהצלחה").first.wait_for()
     pg.wait_for_timeout(1800)
     cap(pg, tag, "")
-    card(pg, "", "מעולה!", "אמצעי התשלום נשמר ומופיע בדף התשלום של הלקוחות", ok=True)
+    card(pg, "", "מעולה!", "אמצעי התשלום נשמר ומופיע בדף התשלום של הלקוחות", ok=True, voice="22")
 
 
 # ── the owner's working day (2026-10-15) ──
@@ -346,40 +395,42 @@ def press_long(pg, hour, day):
 
 def step_pos_sale(pg):
     tag = "יום עבודה · שלב 1 מתוך 3 · מכירה בקופה"
-    card(pg, "יום עבודה · שלב 1 מתוך 3", "מכירה בקופה", "הקופה רושמת את התשלום ומפיקה קבלה ללקוח")
+    card(pg, "יום עבודה · שלב 1 מתוך 3", "מכירה בקופה", "הקופה רושמת את התשלום ומפיקה קבלה ללקוח", voice="39")
     cap(pg, tag, "לוחצים על \"קופה\" בשורה התחתונה", 1200)
     tap(pg, pg.locator("nav.fixed a[href='/pos']"), after=2500)
-    cap(pg, tag, "בוחרים את השירות שנמכר — המחיר מתמלא לבד", 900)
+    cap(pg, tag, "בוחרים את השירות שנמכר — המחיר מתמלא לבד", 900, voice="40")
     tap(pg, pg.locator("[data-tour=pos-services]:visible button:has-text('קעקוע קטן')"), after=1200)
     cap(pg, tag, "(אפשר גם להקליד מחיר במקלדת)", 1500)
-    cap(pg, tag, "לוחצים על \"+ הוסף לעגלה\"", 900)
+    cap(pg, tag, "לוחצים על \"+ הוסף לעגלה\"", 900, voice="42")
     tap(pg, pg.locator("[data-tour=pos-add]:visible"), after=1800)
-    cap(pg, tag, "בוחרים איך הלקוח שילם", 900)
+    cap(pg, tag, "בוחרים איך הלקוח שילם", 900, voice="43", wait=False)
     tap(pg, pg.locator("button:visible:has-text('מזומן')").last, after=900)
     cap(pg, tag, "ולוחצים על \"גבה\"", 900)
+    quiet(pg)
     tap(pg, pg.locator("[data-tour=pos-checkout]:visible"), after=400)
     pg.get_by_text("תשלום בוצע!").first.wait_for()            # really sold — or the recording stops here
     pg.wait_for_timeout(2000)
     cap(pg, tag, "")
-    card(pg, "", "מעולה!", "המכירה נרשמה והקבלה הופקה", ok=True)
+    card(pg, "", "מעולה!", "המכירה נרשמה והקבלה הופקה", ok=True, voice="44")
 
 
 def step_deposit(pg):
     tag = "יום עבודה · שלב 2 מתוך 3 · אישור מקדמה"
-    card(pg, "יום עבודה · שלב 2 מתוך 3", "אישור מקדמה", "לקוח שילם מקדמה ולחץ \"שילמתי\" — מאשרים, וזה מפיק קבלה")
-    cap(pg, tag, "ביומן, תור שהלקוח דיווח ששילם מסומן בפעמון — לוחצים עליו", 1600)
+    card(pg, "יום עבודה · שלב 2 מתוך 3", "אישור מקדמה", "לקוח שילם מקדמה ולחץ \"שילמתי\" — מאשרים, וזה מפיק קבלה", voice="45")
+    cap(pg, tag, "ביומן, תור שהלקוח דיווח ששילם מסומן בפעמון — לוחצים עליו", 1600, voice="46")
     tap(pg, pg.locator(".fc-event:has-text('דנה לוי')"), after=1600)
     cap(pg, tag, "כאן רואים שהלקוח דיווח ששילם", 1800)
-    cap(pg, tag, "לוחצים על \"אישור המקדמה\"", 900)
+    cap(pg, tag, "לוחצים על \"אישור המקדמה\"", 900, voice="47")
     tap(pg, pg.locator("[data-tour=deposit-approve]"), after=1500)
-    cap(pg, tag, "בוחרים באיזה אמצעי התקבלה המקדמה", 900)
+    cap(pg, tag, "בוחרים באיזה אמצעי התקבלה המקדמה", 900, voice="48", wait=False)
     tap(pg, pg.locator("[data-tour=deposit-confirm] button:has-text('Bit')"), after=900)
     cap(pg, tag, "ולוחצים על \"אשר וצור קבלה\"", 900)
+    quiet(pg)
     tap(pg, pg.locator("button:has-text('אשר וצור קבלה')"), after=400)
     pg.get_by_text("קבלה נוצרה!").first.wait_for()
     pg.wait_for_timeout(2000)
     cap(pg, tag, "")
-    card(pg, "", "מעולה!", "המקדמה אושרה והקבלה הופקה", ok=True)
+    card(pg, "", "מעולה!", "המקדמה אושרה והקבלה הופקה", ok=True, voice="49")
 
 
 def step_worker_task(pg):
@@ -403,17 +454,17 @@ def step_worker_task(pg):
 
 
 # ── the messages to clients (2026-10-16) — the owner's own demo business, nothing sent ──
-def _messages_card(pg, n, title, small):
-    card(pg, f"ההודעות ללקוחות · שלב {n} מתוך 4", title, small)
+def _messages_card(pg, n, title, small, voice=None):
+    card(pg, f"ההודעות ללקוחות · שלב {n} מתוך 4", title, small, voice=voice)
 
 
 def step_messages_where(pg):
     tag = "ההודעות ללקוחות · שלב 1 מתוך 4 · כל ההודעות במקום אחד"
-    _messages_card(pg, 1, "כל ההודעות במקום אחד", "כל מה שהמערכת שולחת ללקוחות בשבילך — ומתי")
+    _messages_card(pg, 1, "כל ההודעות במקום אחד", "כל מה שהמערכת שולחת ללקוחות בשבילך — ומתי", voice="26")
     cap(pg, tag, "\"ניהול עסק\" ← \"לקוחות ושיווק\" ← \"תבניות הודעות\"", 1400)
     open_business(pg, "לקוחות ושיווק", "תבניות הודעות")
     pg.locator("[data-tour=msg-card]").first.wait_for()
-    cap(pg, tag, "כל כרטיס הוא הודעה אחת — ומתחת לשם כתוב מתי היא יוצאת", 2200)
+    cap(pg, tag, "כל כרטיס הוא הודעה אחת — ומתחת לשם כתוב מתי היא יוצאת", 2200, voice="27")
     for y in (420, 840, 1260):
         pg.mouse.wheel(0, 420)
         pg.wait_for_timeout(900)
@@ -424,9 +475,9 @@ def step_messages_where(pg):
 
 def step_messages_off(pg):
     tag = "ההודעות ללקוחות · שלב 2 מתוך 4 · לכבות הודעה"
-    _messages_card(pg, 2, "לכבות הודעה", "הודעה כבויה לא יוצאת לאף לקוח")
+    _messages_card(pg, 2, "לכבות הודעה", "הודעה כבויה לא יוצאת לאף לקוח", voice="28")
     pg.locator("[data-tour=msg-switch]").first.wait_for()
-    cap(pg, tag, "לכל הודעה יש מתג", 1300)
+    cap(pg, tag, "לכל הודעה יש מתג", 1300, voice="29", wait=False)
     switch = pg.locator("[data-tour=msg-switch] button, [data-tour=msg-switch] [role=switch]").first
     tap(pg, switch, after=1600)
     cap(pg, tag, "כבויה — היא לא תצא לאף לקוח", 2000)
@@ -439,12 +490,12 @@ def step_messages_off(pg):
 
 def step_messages_text(pg):
     tag = "ההודעות ללקוחות · שלב 3 מתוך 4 · לשנות את הנוסח"
-    _messages_card(pg, 3, "לשנות את הנוסח", "נוסח משלכם — ורואים איך הלקוח יראה אותו")
+    _messages_card(pg, 3, "לשנות את הנוסח", "נוסח משלכם — ורואים איך הלקוח יראה אותו", voice="30")
     pg.locator("[data-tour=msg-edit]").first.wait_for()
-    cap(pg, tag, "לחצו \"עריכת הנוסח\"", 1000)
+    cap(pg, tag, "לחצו \"עריכת הנוסח\"", 1000, voice="31")
     tap(pg, pg.locator("[data-tour=msg-edit]"), after=1500)
     editor = pg.locator("[data-tour=msg-editor]")
-    cap(pg, tag, "כותבים את ההודעה במילים שלכם", 700)
+    cap(pg, tag, "כותבים את ההודעה במילים שלכם", 700, voice="32", wait=False)
     editor.first.fill("")
     type_in(pg, editor, "היי ", after=300)
     cap(pg, tag, "הכפתורים מוסיפים פרטים — שם הלקוח, תאריך, שעה", 900)
@@ -454,7 +505,7 @@ def step_messages_text(pg):
     pg.keyboard.type(" אושר. מחכים לך!", delay=75)
     pg.wait_for_timeout(600)
     pg.locator("[data-tour=msg-preview]").first.scroll_into_view_if_needed()
-    cap(pg, tag, "וכאן רואים בדיוק איך הלקוח יראה את זה", 2400)
+    cap(pg, tag, "וכאן רואים בדיוק איך הלקוח יראה את זה", 2400, voice="33")
     cap(pg, tag, "מרוצים? לחצו \"שמירה\"", 900)
     tap(pg, pg.locator("button:has-text('שמירה')").last, after=400)
     pg.get_by_text("הנוסח נשמר").first.wait_for()
@@ -466,13 +517,13 @@ def step_messages_text(pg):
 
 def step_messages_optout(pg):
     tag = "ההודעות ללקוחות · שלב 4 מתוך 4 · הסרה מהודעות שיווקיות"
-    _messages_card(pg, 4, "הסרה מהודעות שיווקיות", "תפוצות, הזמנה למועדון, ברכת יום הולדת")
+    _messages_card(pg, 4, "הסרה מהודעות שיווקיות", "תפוצות, הזמנה למועדון, ברכת יום הולדת", voice="34")
     marketing = pg.locator("[data-tour=msg-marketing]").first
     marketing.wait_for()
     marketing.scroll_into_view_if_needed()
     pg.wait_for_timeout(600)
     cap(pg, tag, "לקוח שלא רוצה הודעות שיווקיות יכול להסיר את עצמו", 1800)
-    cap(pg, tag, "בקישור שבהודעה, או בתשובה \"הסר\" בוואטסאפ", 2200)
+    cap(pg, tag, "בקישור שבהודעה, או בתשובה \"הסר\" בוואטסאפ", 2200, voice="35", wait=False)
     cap(pg, tag, "ואפשר גם לכבות לו את זה בכרטיס הלקוח:", 900)
     pg.goto(f"{WEB}/clients/{MESSAGES['client']}", wait_until="commit")
     pg.wait_for_function("() => [...document.querySelectorAll('nav.fixed')].some(e => e.getBoundingClientRect().width > 0)", timeout=120000)
