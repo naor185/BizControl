@@ -1072,30 +1072,44 @@ export default function StudioDetailPage() {
                     </div>
                 )}
 
-                {/* Users list */}
+                {/* Users list — a worker removed on ניהול צוות is kept (inactive) for the history in their name
+                    (appointments, payments, receipts, shifts): shown apart, "הוסרו מהצוות", not among the active */}
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                     <div className="px-4 py-3 border-b border-gray-50">
-                        <h2 className="text-sm font-semibold text-gray-700">משתמשים ({detail.users.length})</h2>
+                        <h2 className="text-sm font-semibold text-gray-700">משתמשים ({detail.users.filter(u => u.is_active).length})</h2>
                     </div>
-                    {detail.users.length === 0 ? (
+                    {detail.users.filter(u => u.is_active).length === 0 ? (
                         <p className="text-sm text-gray-400 text-center py-6">אין משתמשים</p>
                     ) : (
                         <div className="divide-y divide-gray-50">
-                            {detail.users.map(u => (
+                            {detail.users.filter(u => u.is_active).map(u => (
                                 <div key={u.id} className="px-4 py-3 flex items-center justify-between gap-3">
                                     <div className="min-w-0">
                                         <div className="text-sm font-medium text-gray-900 truncate">{u.display_name}</div>
                                         <div className="text-xs text-gray-400 truncate">{u.email}</div>
                                     </div>
-                                    <div className="flex items-center gap-2 shrink-0">
-                                        <span className="text-xs text-gray-500">{ROLE_LABELS[u.role] ?? u.role}</span>
-                                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${u.is_active ? "bg-green-50 text-green-600" : "bg-gray-100 text-gray-400"}`}>
-                                            {u.is_active ? "פעיל" : "מושהה"}
-                                        </span>
-                                    </div>
+                                    <span className="text-xs text-gray-500 shrink-0">{ROLE_LABELS[u.role] ?? u.role}</span>
                                 </div>
                             ))}
                         </div>
+                    )}
+                    {detail.users.some(u => !u.is_active) && (
+                        <details className="border-t border-gray-100">
+                            <summary className="px-4 py-2.5 text-xs font-semibold text-gray-500 cursor-pointer">
+                                הוסרו מהצוות ({detail.users.filter(u => !u.is_active).length}) — נשמרים בשביל ההיסטוריה שעל שמם
+                            </summary>
+                            <div className="divide-y divide-gray-50">
+                                {detail.users.filter(u => !u.is_active).map(u => (
+                                    <div key={u.id} className="px-4 py-2.5 flex items-center justify-between gap-3 text-gray-400">
+                                        <div className="min-w-0">
+                                            <div className="text-sm truncate">{u.display_name}</div>
+                                            <div className="text-xs truncate">{u.email}</div>
+                                        </div>
+                                        <span className="text-xs shrink-0">{ROLE_LABELS[u.role] ?? u.role} · הוסר</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </details>
                     )}
                 </div>
 
