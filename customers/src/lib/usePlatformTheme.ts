@@ -44,7 +44,8 @@ export const FALLBACK_THEME: PlatformTheme = {
 let cached: PlatformTheme | null = null;
 let inflight: Promise<PlatformTheme> | null = null;
 
-function fetchPlatformTheme(): Promise<PlatformTheme> {
+/** The server's theme — FALLBACK_THEME itself (the same object) when it didn't answer. */
+export function fetchPlatformTheme(): Promise<PlatformTheme> {
     if (cached) return Promise.resolve(cached);
     if (!inflight) {
         inflight = publicFetch<PlatformTheme>("/api/public/platform-theme")

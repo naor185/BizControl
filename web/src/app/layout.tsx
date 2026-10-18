@@ -47,7 +47,7 @@ export const viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="he" dir="rtl">
+    <html lang="he" dir="rtl" suppressHydrationWarning>
       <head>
         {/* Global platform fonts — the fixed 5-font set the superadmin's
             theme editor picks from (same set LandingPageTemplate already
@@ -58,6 +58,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           rel="stylesheet"
           href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;700;900&family=Assistant:wght@400;700&family=Rubik:wght@400;700&family=M+PLUS+Rounded+1c:wght@400;700&family=Varela+Round&display=swap"
         />
+        {/* The superadmin's colors from the last visit, before the first paint — the app doesn't open in the
+            built-in colors and then change (2026-10-18). ThemeProvider saves them; nothing saved — the built-in. */}
+        <script dangerouslySetInnerHTML={{ __html: `try{var t=JSON.parse(localStorage.getItem("bc_theme_vars")||"{}");for(var k in t)document.documentElement.style.setProperty(k,t[k])}catch(e){}` }} />
       </head>
       <body>
         <QueryProvider>

@@ -6,6 +6,7 @@ import { Switch } from "@/components/ui/switch";
 import { apiFetch } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import { clockQr, downloadClockCard, printClockCard } from "@/lib/clockCard";
+import { whatsappNumber } from "@/lib/format";
 
 // The superadmin's card for a business's attendance clock (app/services/nfc_clock.py): on / off, and the business's
 // own clock link — to write on an NFC sticker, or as a barcode to print and hang at the door (the camera opens the
@@ -14,12 +15,6 @@ import { clockQr, downloadClockCard, printClockCard } from "@/lib/clockCard";
 // open in WhatsApp (attach the image there). A new code when a sticker or a print is lost or its link got out.
 
 type Clock = { on: boolean; link: string | null; included: boolean };   // included: the plan has the attendance clock
-
-// 05X-XXXXXXX → 9725XXXXXXXX, for a WhatsApp link
-const waNumber = (phone: string) => {
-    const d = phone.replace(/\D/g, "");
-    return d.startsWith("0") ? `972${d.slice(1)}` : d;
-};
 
 export default function NfcClockAdmin({ studioId, studioName, ownerName, ownerPhone }: {
     studioId: string; studioName: string; ownerName: string | null; ownerPhone: string | null;
@@ -114,7 +109,7 @@ export default function NfcClockAdmin({ studioId, studioName, ownerName, ownerPh
                                 <Copy className="w-3.5 h-3.5" aria-hidden /> העתקת ההודעה
                             </button>
                             {ownerPhone && (
-                                <a href={`https://wa.me/${waNumber(ownerPhone)}?text=${encodeURIComponent(message)}`} target="_blank" rel="noopener noreferrer"
+                                <a href={`https://wa.me/${whatsappNumber(ownerPhone)}?text=${encodeURIComponent(message)}`} target="_blank" rel="noopener noreferrer"
                                     className="inline-flex items-center gap-1.5 min-h-10 px-3 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700">
                                     <MessageCircle className="w-3.5 h-3.5" aria-hidden /> פתיחה בוואטסאפ ל{ownerName || "בעל העסק"}
                                 </a>

@@ -4,11 +4,12 @@
 // calendar — today, this week, this month (appointments and how full) — then what waits for approval, ויקי's
 // suggestions, the setup checklist (until it's done), the daily collection report, the leads, BizFind's exposure; the
 // free trial's bar under it (AppShell).
-import { BellRing, ChevronDown, Target } from "lucide-react";
+import { Bell, BellRing, ChevronDown, CircleCheck, Lock, MessageCircle, Target } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import RequireAuth from "@/components/RequireAuth";
 import AppShell from "@/components/AppShell";
 import { apiFetch, imgUrl } from "@/lib/api";
+import { whatsappNumber } from "@/lib/format";
 import PaymentModal from "@/components/PaymentModal";
 import DepositConfirmModal, { type DepositToConfirm } from "@/components/DepositConfirmModal";
 import SetupChecklist from "@/components/SetupChecklist";
@@ -385,35 +386,38 @@ export default function Page() {
                                                 )}
                                             </div>
                                         </div>
-                                        <div className="flex gap-2 shrink-0 flex-wrap justify-end">
+                                        {/* the whole width on a phone, wrapping — the card clips what sticks out (the green button
+                                            used to be pushed off it); the green one first */}
+                                        <div className="w-full sm:w-auto flex gap-2 flex-wrap">
+                                            <button
+                                                type="button"
+                                                onClick={() => openDepositCashier(d)}
+                                                className="inline-flex items-center gap-1 min-h-9 px-3 text-xs font-bold text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition"
+                                            >
+                                                <CircleCheck className="w-3.5 h-3.5" aria-hidden /> קיבלתי
+                                            </button>
                                             <button
                                                 type="button"
                                                 onClick={() => sendDepositReminder(d.appointment_id)}
                                                 disabled={sendingReminder === d.appointment_id}
-                                                className="px-3 py-1.5 text-xs font-semibold text-orange-700 border border-orange-200 rounded-lg hover:bg-orange-50 transition disabled:opacity-50"
+                                                className="inline-flex items-center gap-1 min-h-9 px-3 text-xs font-semibold text-orange-700 border border-orange-200 rounded-lg hover:bg-orange-50 transition disabled:opacity-50"
                                                 title="שלח תזכורת WhatsApp עכשיו"
                                             >
-                                                {sendingReminder === d.appointment_id ? "שולח..." : "שלח תזכורת 🔔"}
+                                                <Bell className="w-3.5 h-3.5" aria-hidden /> {sendingReminder === d.appointment_id ? "שולח..." : "שלח תזכורת"}
                                             </button>
-                                            <button
-                                                onClick={() => waiveDeposit(d.appointment_id)}
-                                                disabled={waivingDeposit === d.appointment_id}
-                                                className="px-3 py-1.5 text-xs font-semibold text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition disabled:opacity-50"
-                                                title="נועל את התור ללא גביית מקדמה"
-                                            >
-                                                {waivingDeposit === d.appointment_id ? "..." : "מאשר ללא מקדמה 🔒"}
-                                            </button>
-                                            <a href={`https://wa.me/${d.client_phone.replace(/\D/g, "")}`} target="_blank" rel="noreferrer"
-                                                className="px-3 py-1.5 text-xs font-semibold text-emerald-700 border border-emerald-200 rounded-lg hover:bg-emerald-50 transition">
-                                                💬 וואטסאפ
-                                            </a>
                                             <button
                                                 type="button"
-                                                onClick={() => openDepositCashier(d)}
-                                                className="px-3 py-1.5 text-xs font-bold text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition"
+                                                onClick={() => waiveDeposit(d.appointment_id)}
+                                                disabled={waivingDeposit === d.appointment_id}
+                                                className="inline-flex items-center gap-1 min-h-9 px-3 text-xs font-semibold text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition disabled:opacity-50"
+                                                title="נועל את התור ללא גביית מקדמה"
                                             >
-                                                קיבלתי ✅
+                                                <Lock className="w-3.5 h-3.5" aria-hidden /> {waivingDeposit === d.appointment_id ? "..." : "מאשר ללא מקדמה"}
                                             </button>
+                                            <a href={`https://wa.me/${whatsappNumber(d.client_phone)}`} target="_blank" rel="noreferrer"
+                                                className="inline-flex items-center gap-1 min-h-9 px-3 text-xs font-semibold text-emerald-700 border border-emerald-200 rounded-lg hover:bg-emerald-50 transition">
+                                                <MessageCircle className="w-3.5 h-3.5" aria-hidden /> וואטסאפ
+                                            </a>
                                         </div>
                                     </div>
                                 ))}

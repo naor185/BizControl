@@ -1,10 +1,13 @@
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import type { Metadata } from "next";
 import { SITE } from "@/lib/seo";
 import { Home, Search, ClipboardList, Building2 } from "lucide-react";
 import PushRegistrar from "@/components/PushRegistrar";
 import BackButtonHandler from "@/components/BackButtonHandler";
 import ThemeProvider from "@/components/ThemeProvider";
+import { API } from "@/lib/api";
+import { bizfindVars } from "@/lib/bizfindVars";
+import type { PlatformTheme } from "@/lib/usePlatformTheme";
 
 // The site's own details for Google and link previews; each business's page has its own (b/[slug]/layout.tsx).
 export const metadata: Metadata = {
@@ -59,9 +62,23 @@ const GLOBAL_CSS = `
                     .bottom-nav a:hover { color: var(--bf-text); }
 `;
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+// The superadmin's colors, from the server, in the page itself — so every page (each one a full load: the bottom bar
+// links) opens in them, even on a first visit (2026-10-18: "it shows black behind between pages"). Kept 5 minutes;
+// the browser brings them up to date after (components/ThemeProvider). No answer — the last visit's colors (below).
+async function serverColors(): Promise<Record<string, string> | null> {
+    try {
+        const res = await fetch(`${API}/api/public/platform-theme`, { next: { revalidate: 300 }, signal: AbortSignal.timeout(3000) });
+        if (!res.ok) return null;
+        return bizfindVars(((await res.json()) as PlatformTheme).bizfind);
+    } catch {
+        return null;
+    }
+}
+
+export default async function RootLayout({ children }: { children: ReactNode }) {
+    const colors = await serverColors();
     return (
-        <html lang="he" dir="rtl">
+        <html lang="he" dir="rtl" style={(colors ?? undefined) as CSSProperties | undefined} suppressHydrationWarning>
             <head>
                 {/* Pinch-zoom disabled to match BizControl's fix — an app-like mobile
                     UI (now also wrapped in a native Capacitor shell) shouldn't zoom its
@@ -78,9 +95,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                 {/* Raw CSS, not a text child: a text child's quotes ("Heebo", component's) are escaped on the
                     server and not in the browser, so every page failed hydration and was rebuilt. */}
                 <style dangerouslySetInnerHTML={{ __html: GLOBAL_CSS }} />
-                {/* The superadmin's colors from the last visit, before the first paint — no flash of the default
-                    look (ThemeProvider.tsx saves them; nothing saved — the default). */}
-                <script dangerouslySetInnerHTML={{ __html: `try{var t=JSON.parse(localStorage.getItem("bf_theme_vars")||"{}");for(var k in t)document.documentElement.style.setProperty(k,t[k])}catch(e){}` }} />
+                {/* The server had no answer: the colors from the last visit, before the first paint (ThemeProvider.tsx
+                    saves them; nothing saved — the default). */}
+                {!colors && <script dangerouslySetInnerHTML={{ __html: `try{var t=JSON.parse(localStorage.getItem("bf_theme_vars")||"{}");for(var k in t)document.documentElement.style.setProperty(k,t[k])}catch(e){}` }} />}
             </head>
             <body>
                 <ThemeProvider />

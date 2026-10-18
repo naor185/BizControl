@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { getToken, getCurrentUserRole, isAccessTokenExpiringSoon, tryRefresh, clearToken } from "@/lib/api";
 import { hydrateTokensFromSecureStorage } from "@/lib/secureTokenStorage";
@@ -9,19 +9,24 @@ import { hydrateTokensFromSecureStorage } from "@/lib/secureTokenStorage";
 // the staff who give the service also sign and read the health declarations (app/health-declarations)
 const ARTIST_ALLOWED = ["/calendar", "/health-declarations", "/clock/"];   // /clock/: the barcode (or NFC sticker) at the door
 
+// Every screen has its own RequireAuth, mounted again on each move between screens — so the check ran again each time
+// and "בודק התחברות..." flashed for a moment (the owner, 2026-10-18). Once it passed in this visit, a screen opens at
+// once while its token is still there (and a worker only where a worker may go); the check itself stays for the first
+// screen, and every request still renews or rejects the token (lib/api).
+let checkedThisVisit = false;
+const allowedNow = (pathname: string | null) => {
+    if (!checkedThisVisit || !getToken()) return false;
+    const role = getCurrentUserRole();
+    return !((role === "artist" || role === "staff") && !ARTIST_ALLOWED.some(p => pathname?.startsWith(p)));
+};
+
 export default function RequireAuth({ children }: { children: React.ReactNode }) {
     const router = useRouter();
     const pathname = usePathname();
-    const [ready, setReady] = useState(false);
-    // Track if we've already confirmed auth once — don't re-check on every pathname change
-    const authedRef = useRef(false);
+    const [ready, setReady] = useState(() => allowedNow(pathname));
 
     useEffect(() => {
-        // Already verified in this session — don't re-redirect on navigation
-        if (authedRef.current) {
-            setReady(true);
-            return;
-        }
+        if (ready) return;               // checked earlier in this visit
 
         let cancelled = false;
 
@@ -87,7 +92,7 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
                 return;
             }
 
-            authedRef.current = true;
+            checkedThisVisit = true;
             setReady(true);
           } catch {
             // Whatever this is, it must not be able to leave the app stuck —
@@ -103,7 +108,7 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
 
         return () => { cancelled = true; clearTimeout(hardTimeout); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);  // run once on mount only — subsequent navigations don't remount RequireAuth in App Router
+    }, []);  // once, when the screen opens
 
     if (!ready) {
         return (
