@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Download, Loader2, Nfc, Printer, RefreshCw } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { apiFetch } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import { clockQr, downloadClockCard, printClockCard } from "@/lib/clockCard";
@@ -11,7 +12,7 @@ import { PresenceList, usePresence } from "@/components/team/PresenceNow";
 // owner (and a manager allowed the team) sees its barcode here — to print and hang at the door, or to write on an NFC
 // sticker — and can replace it when it got out (owner, 2026-10-16). Everyone else sees only that it's on.
 
-type Status = { included: boolean; on: boolean; link?: string | null; name?: string };
+type Status = { included: boolean; on: boolean; link?: string | null; name?: string; from_opening?: boolean; opening?: string };
 
 export default function ClockCode() {
     const [st, setSt] = useState<Status | null>(null);
@@ -37,6 +38,24 @@ export default function ClockCode() {
     };
 
     if (!st?.included) return null;
+    const setFromOpening = async (on: boolean) => {
+        try {
+            setSt(await apiFetch<Status>("/api/nfc/from-opening", { method: "POST", body: JSON.stringify({ on }) }));
+            toast.success(on ? "כניסה לפני שעת הפתיחה תיספר משעת הפתיחה" : "כל כניסה תיספר מרגע הכניסה");
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : "השמירה נכשלה");
+        }
+    };
+    // a worker due at the opening who clocks in early is paid from the opening (the owner, 2026-10-19)
+    const opening = (
+        <div className="flex items-center gap-3 rounded-2xl border border-slate-200/70 bg-white px-4 py-3 shadow-sm">
+            <p id="from-opening" className="flex-1 text-sm text-slate-700 leading-relaxed">
+                <b className="text-slate-900">כניסה לפני שעת הפתיחה ({st.opening ?? "08:00"}) נספרת משעת הפתיחה</b>
+                <span className="block text-xs text-slate-500">שעת הכניסה עצמה נשמרת כמו שהייתה. את שעת הפתיחה משנים בהגדרות ← שעות היומן.</span>
+            </p>
+            <Switch checked={st.from_opening !== false} labelledBy="from-opening" onChange={setFromOpening} />
+        </div>
+    );
     // who is on shift now and for how long (the owner, 2026-10-18)
     const now = (
         <section className="bg-white rounded-2xl border border-slate-200/70 shadow-sm overflow-hidden" aria-labelledby="presence-now">
@@ -49,7 +68,7 @@ export default function ClockCode() {
         </section>
     );
     if (!st.on) {
-        return (<div className="space-y-4">{now}
+        return (<div className="space-y-4">{now}{opening}
             <div className="flex items-start gap-3 bg-slate-50 border border-slate-100 rounded-2xl p-4 text-sm text-slate-600 leading-relaxed">
                 <Nfc className="w-5 h-5 mt-0.5 shrink-0 text-slate-400" aria-hidden />
                 <p>
@@ -59,7 +78,7 @@ export default function ClockCode() {
             </div>
         </div>);
     }
-    return (<div className="space-y-4">{now}
+    return (<div className="space-y-4">{now}{opening}
         <section className="bg-white rounded-2xl border border-emerald-100 shadow-sm p-5 space-y-4">
             <div>
                 <h3 className="flex items-center gap-2 text-base font-bold text-slate-800"><Nfc className="w-4.5 h-4.5 text-emerald-600" aria-hidden />שעון נוכחות — ברקוד בכניסה</h3>

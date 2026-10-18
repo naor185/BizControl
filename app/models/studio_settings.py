@@ -223,6 +223,8 @@ class StudioSettings(Base):
     bizfind_theme: Mapped[str | None] = mapped_column(Text, nullable=True)
     # the NFC attendance clock's code — on when set; only the superadmin issues it (services/nfc_clock.py)
     nfc_clock_code: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # a clock-in before the opening hour (calendar_start_hour) counts from it — the owner, 2026-10-19 (nfc_clock.paid_from)
+    clock_from_opening: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
     # the messages turned off on the message templates page — a JSON list of their ids (services/service_switches.py)
     messages_off: Mapped[str | None] = mapped_column(Text, nullable=True)
     # the morning-of reminder's hour, Israel time (the owner picks 7–10; was always 8) and a reminder about two hours

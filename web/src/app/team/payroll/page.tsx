@@ -212,7 +212,7 @@ function Row({ label, value, strong }: { label: string; value: string; strong?: 
 }
 
 // ── A worker's shifts in a month — the owner and the managers fix them (the owner, 2026-10-13: a forgotten clock-in) ──
-type Shift = { id: string; start_time: string; end_time: string | null; hours: number | null; pay: number; fixed: boolean };
+type Shift = { id: string; start_time: string; end_time: string | null; paid_from?: string | null; hours: number | null; pay: number; fixed: boolean };
 type Draft = { id?: string; date: string; start: string; end: string };
 
 const hhmm = (iso: string) => new Date(iso).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
@@ -273,6 +273,7 @@ function Shifts({ userId, month, onChange }: { userId: string; month: Month; onC
                                 </div>
                                 <div className="text-slate-500 tabular-nums">
                                     {hhmm(sh.start_time)}–{sh.end_time ? hhmm(sh.end_time) : "עדיין בעבודה"}
+                                    {sh.paid_from && <> · נספר מ-{hhmm(sh.paid_from)}</>}
                                     {sh.hours != null && <> · {sh.hours.toFixed(1)} שעות</>}
                                 </div>
                             </div>

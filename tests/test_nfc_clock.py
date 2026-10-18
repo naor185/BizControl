@@ -42,6 +42,8 @@ def test_only_the_superadmin_turns_it_on_and_a_touch_clocks_in_then_out(client, 
     owner = _business(client, db_session, "nfc-shop")
     w = _worker(client, owner, "dana@nfc-shop.com")
     sid = _studio_id(client, owner)
+    # the pay from the clock-in itself, whatever the hour the test runs at (not from the opening hour — test_attendance_clock)
+    assert client.post("/api/nfc/from-opening", headers=owner, json={"on": False}).status_code == 200
 
     assert client.post(f"/api/admin/studios/{sid}/nfc-clock", headers=owner, json={"on": True}).status_code == 403
     r = client.post(f"/api/admin/studios/{sid}/nfc-clock", headers=sa, json={"on": True})
@@ -85,7 +87,7 @@ def test_a_new_code_retires_the_old_sticker_and_a_mistake_is_undone(client, db_s
     assert db_session.get(WorkSession, tap["session_id"]) is None
 
     client.post(f"/api/admin/studios/{sid}/nfc-clock", headers=sa, json={"on": False})
-    assert client.get("/api/nfc/status", headers=owner).json() == {"included": True, "on": False}
+    assert client.get("/api/nfc/status", headers=owner).json().items() >= {"included": True, "on": False}.items()
     assert client.post("/api/staff/clock-in", headers=w).status_code == 200            # off: the header button again
 
 

@@ -56,7 +56,8 @@ def _status(db: Session, ctx: AuthContext) -> dict:
     """A worker never gets the link: the barcode at the door is the proof they're there."""
     settings = db.get(StudioSettings, ctx.studio_id)
     included = nfc_clock.included(db, ctx.studio_id)
-    out = {"included": included, "on": included and nfc_clock.on(settings)}
+    out = {"included": included, "on": included and nfc_clock.on(settings),
+           "from_opening": bool(getattr(settings, "clock_from_opening", True)), "opening": getattr(settings, "calendar_start_hour", "08:00")}
     if out["on"] and may_do(db, ctx.studio_id, ctx.role, "team"):
         out |= {"link": nfc_clock.link(settings), "name": db.get(Studio, ctx.studio_id).name}
     return out
@@ -64,6 +65,22 @@ def _status(db: Session, ctx: AuthContext) -> dict:
 
 @router.get("/status")
 def nfc_status(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+    return _status(db, ctx)
+
+
+class FromOpeningIn(BaseModel):
+    on: bool
+
+
+@router.post("/from-opening")
+def nfc_from_opening(body: FromOpeningIn, ctx: AuthContext = Depends(require_permission("team")), db: Session = Depends(get_db)):
+    """A clock-in before the opening hour counts from it (on) — or from the clock-in (off). From now on; past shifts as
+    they were."""
+    from app.services import activity_log
+    settings = db.get(StudioSettings, ctx.studio_id)
+    settings.clock_from_opening = body.on
+    db.commit()
+    activity_log.record(db, ctx, "attendance", "כניסה לפני שעת הפתיחה — " + ("נספרת משעת הפתיחה" if body.on else "נספרת מהכניסה"))
     return _status(db, ctx)
 
 

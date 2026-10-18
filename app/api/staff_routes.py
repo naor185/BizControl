@@ -128,8 +128,10 @@ def _shift_words(db: Session, studio_id, s: WorkSession) -> str:
 
 
 def _shift_out(s: WorkSession) -> dict:
-    hours = round((s.end_time - s.start_time).total_seconds() / 3600, 2) if s.end_time else None
+    from app.repositories.staff_repository import paid_start
+    hours = round(max((s.end_time - paid_start(s)).total_seconds(), 0) / 3600, 2) if s.end_time else None
     return {"id": str(s.id), "start_time": s.start_time.isoformat(), "end_time": s.end_time.isoformat() if s.end_time else None,
+            "paid_from": s.paid_from.isoformat() if s.paid_from else None,
             "hours": hours, "pay": float(s.session_pay or 0), "fixed": s.fixed_by is not None}
 
 
@@ -190,6 +192,7 @@ def fix_shift(shift_id: uuid.UUID, body: ShiftIn, ctx: AuthContext = Depends(req
     start, end = _times(db, ctx.studio_id, data.get("start_time") or s.start_time,
                         data["end_time"] if "end_time" in data else s.end_time)
     s.start_time, s.end_time, s.fixed_by = start, end, ctx.user_id
+    s.paid_from = None                                   # a time fixed by hand counts as it is
     worker = db.get(User, s.user_id)
     price_shift(s, worker)
     db.commit()

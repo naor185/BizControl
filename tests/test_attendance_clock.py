@@ -43,7 +43,7 @@ def test_a_small_business_plan_has_no_clock(client, db_session):
     assert on["on"] is True and on["included"] is False
     code = on["link"].rsplit("/", 1)[1]
     assert client.post("/api/nfc/tap", headers=w, json={"code": code}).status_code == 403
-    assert client.get("/api/nfc/status", headers=owner).json() == {"included": False, "on": False}
+    assert client.get("/api/nfc/status", headers=owner).json().items() >= {"included": False, "on": False}.items()
     worker = db_session.scalar(select(User).where(User.email == "dana@att-small.com"))
     assert mw.clock_in_needed(db_session, worker.studio_id, worker.id, worker.role) is False
 
@@ -74,11 +74,11 @@ def test_the_owner_sees_the_barcode_and_replaces_it(client, db_session):
     w = _member(client, owner, "dana@att-code.com")
     manager = _member(client, owner, "ron@att-code.com", role="admin", pay_type="none")
     sid = _studio_id(client, owner)
-    assert client.get("/api/nfc/status", headers=owner).json() == {"included": True, "on": False}
+    assert client.get("/api/nfc/status", headers=owner).json().items() >= {"included": True, "on": False}.items()
 
     link = client.post(f"/api/admin/studios/{sid}/nfc-clock", headers=sa, json={"on": True}).json()["link"]
-    assert client.get("/api/nfc/status", headers=owner).json() == {"included": True, "on": True, "link": link,
-                                                                   "name": "Studio att-code"}
+    assert client.get("/api/nfc/status", headers=owner).json().items() >= {"included": True, "on": True, "link": link,
+                                                                           "name": "Studio att-code"}.items()
     assert "link" not in client.get("/api/nfc/status", headers=w).json()               # a worker never gets it
     assert "link" not in client.get("/api/nfc/status", headers=manager).json()         # nor a manager not allowed the team
 
@@ -95,3 +95,44 @@ def test_the_owner_sees_the_barcode_and_replaces_it(client, db_session):
     assert client.post("/api/nfc/tap", headers=w, json={"code": new["link"].rsplit("/", 1)[1]}).json()["action"] == "in"
     logged = db_session.scalars(select(AuditLog).where(AuditLog.studio_id == sid, AuditLog.action == "attendance")).all()
     assert [a.details["text"] for a in logged] == ["ברקוד חדש לשעון הנוכחות — הקודם הפסיק לעבוד"]
+
+
+def test_a_clock_in_before_the_opening_counts_from_it(client, db_session):
+    """The owner, 2026-10-19: a worker due at the opening (8) who clocks in at 7 is paid from 8 — the clock-in stays 7;
+    a switch turns it off; a time fixed by hand counts as it is."""
+    from datetime import datetime, timedelta
+    import pytz
+    from app.repositories.staff_repository import StaffRepository, price_shift
+    from app.services import nfc_clock
+
+    owner = register_and_login(client, "att-open", "owner@att-open.com")
+    _plan(db_session, "att-open", "pro")
+    _member(client, owner, "dana@att-open.com", role="staff", pay_type="hourly")
+    worker = db_session.scalar(select(User).where(User.email == "dana@att-open.com"))
+    worker.hourly_rate = 50
+    db_session.commit()
+    IL = pytz.timezone("Asia/Jerusalem")
+    day = datetime.now(IL).date() - timedelta(days=1)                       # yesterday — never "in the future"
+    at = lambda h: IL.localize(datetime(day.year, day.month, day.day, h, 0))
+
+    assert nfc_clock.paid_from(db_session, worker.studio_id, at(7)) == at(8)
+    assert nfc_clock.paid_from(db_session, worker.studio_id, at(9)) is None
+    assert nfc_clock.paid_from(db_session, worker.studio_id, at(2)) is None          # a night's work, not early for 8
+    s = WorkSession(studio_id=worker.studio_id, user_id=worker.id, start_time=at(7), paid_from=at(8), end_time=at(10))
+    price_shift(s, worker)
+    assert float(s.session_pay) == 100.0                                    # 2 h × ₪50, not 3
+    db_session.add(s)
+    db_session.commit()
+    row = next(r for r in StaffRepository(db_session).get_user_payroll_summary(worker.studio_id, at(0), at(23))
+               if r["user_id"] == worker.id)
+    assert row["total_hours"] == 2.0
+    shifts = client.get("/api/staff/shifts", headers=owner, params={"user_id": str(worker.id),
+                        "start_date": f"{day}T00:00:00", "end_date": f"{day}T23:59:00"}).json()
+    assert shifts[0]["hours"] == 2.0 and shifts[0]["paid_from"] is not None
+
+    fixed = client.patch(f"/api/staff/shifts/{s.id}", headers=owner, json={"start_time": f"{day}T07:00", "end_time": f"{day}T10:00"}).json()
+    assert fixed["hours"] == 3.0 and fixed["paid_from"] is None             # fixed by hand: as it is
+
+    assert client.post("/api/nfc/from-opening", headers=owner, json={"on": False}).json()["from_opening"] is False
+    db_session.expire_all()
+    assert nfc_clock.paid_from(db_session, worker.studio_id, at(7)) is None

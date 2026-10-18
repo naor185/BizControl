@@ -20,6 +20,9 @@ class WorkSession(Base):
 
     start_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     end_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # clocked in before the opening hour: the hours and the pay count from here (services/nfc_clock.paid_from); a time
+    # fixed by hand counts as it is (None)
+    paid_from: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Calculated pay for this specific session (if hourly)
     # who fixed it by hand — the owner or a manager (a forgotten clock-in, a wrong time); None: as clocked

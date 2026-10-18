@@ -11,11 +11,17 @@ from app.models.user import User
 from app.models.payment import Payment
 from app.models.appointment import Appointment
 
+def paid_start(shift: WorkSession) -> datetime:
+    """From when the shift counts — the opening hour when clocked in before it (services/nfc_clock.paid_from)."""
+    return shift.paid_from or shift.start_time
+
+
 def price_shift(shift: WorkSession, user: User | None) -> None:
     """A shift's pay — its hours at the worker's hourly rate (hourly pay only; an open shift: 0)."""
     shift.session_pay = Decimal("0.00")
     if shift.end_time and user and user.pay_type == "hourly" and user.hourly_rate and user.hourly_rate > 0:
-        hours = Decimal((shift.end_time - shift.start_time).total_seconds()) / Decimal(3600)
+        seconds = max((shift.end_time - paid_start(shift)).total_seconds(), 0)
+        hours = Decimal(seconds) / Decimal(3600)
         shift.session_pay = (hours * user.hourly_rate).quantize(Decimal("0.01"))
 
 
@@ -41,10 +47,13 @@ class StaffRepository:
         if existing:
             return existing
 
+        from app.services.nfc_clock import paid_from
+        now = datetime.now(timezone.utc)
         db_session = WorkSession(
             studio_id=studio_id,
             user_id=user_id,
-            start_time=datetime.now(timezone.utc)
+            start_time=now,
+            paid_from=paid_from(self.session, studio_id, now),
         )
         self.session.add(db_session)
         self.session.commit()
@@ -82,7 +91,7 @@ class StaffRepository:
             # 2. Sum hourly pay from work sessions
             hourly_stmt = select(
                 func.sum(WorkSession.session_pay),
-                func.sum(func.extract('epoch', WorkSession.end_time - WorkSession.start_time))
+                func.sum(func.greatest(func.extract('epoch', WorkSession.end_time - func.coalesce(WorkSession.paid_from, WorkSession.start_time)), 0))
             ).where(
                 and_(
                     WorkSession.user_id == user.id,
