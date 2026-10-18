@@ -1713,7 +1713,7 @@ function Calendar() {
                                     const TaskIcon = p.done ? CircleCheck : p.overdue ? TriangleAlert : p.kind === "break" ? Coffee
                                         : p.locks ? Lock : p.is_recurring ? Repeat : Pin;
                                     return (
-                                        <div className="@container h-full w-full overflow-hidden" data-tour={p.done || p.kind === "break" ? undefined : "task-item"}>
+                                        <div className="@container h-full w-full overflow-hidden">
                                         <div className="px-1 md:px-1.5 py-0.5 h-full w-full text-[11px] @max-[3.5rem]:text-[9.5px] font-semibold leading-tight whitespace-normal break-words @max-[1.75rem]:[writing-mode:vertical-rl] @max-[1.75rem]:rotate-180 @max-[1.75rem]:px-0">
                                             {!arg.event.allDay && (
                                                 <div className="tabular-nums whitespace-nowrap @max-[1.75rem]:hidden">
@@ -2404,7 +2404,7 @@ function Calendar() {
                                                 {taskOccurrence.assigneeName ? `ל${taskOccurrence.assigneeName}` : "לכל הצוות"} · {new Date(taskOccurrence.date).toLocaleDateString("he-IL", { day: "numeric", month: "numeric" })}
                                             </span>
                                         </div>
-                                        <button type="button" onClick={toggleTaskDone} data-tour={taskOccurrence.done ? undefined : "task-done"}
+                                        <button type="button" onClick={toggleTaskDone}
                                             className={`mt-2 w-full min-h-11 rounded-xl text-sm font-black transition ${taskOccurrence.done ? "bg-white border border-slate-200 text-slate-600 hover:bg-slate-100" : "bg-emerald-600 hover:bg-emerald-700 text-white"}`}>
                                             {taskOccurrence.done ? "ביטול הסימון" : "בוצע"}
                                         </button>

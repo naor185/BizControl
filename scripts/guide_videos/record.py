@@ -1,8 +1,8 @@
 """The guide's videos (web/public/guide) — screen recordings of its steps at a phone's size, in order: a title card, a
 Hebrew caption for every action, a circle where the finger taps, and "מעולה!" only after the save really succeeded.
 The paths (web/src/lib/tours.ts): the owner's first steps (business service client appointment payment), the owner's
-working day (pos_sale deposit worker_task — 2026-10-15), the messages to clients (messages_where messages_off
-messages_text messages_optout — 2026-10-16) and a worker's first steps (clock task_done).
+working day (pos_sale deposit worker_task — 2026-10-15) and the messages to clients (messages_where messages_off
+messages_text messages_optout — 2026-10-16).
 LOCAL ONLY: the dev database, a new demo business with sample details (no real people); the API runs without its
 scheduler, so nothing is sent — and the messages a step queued are deleted at the end.
 
@@ -95,10 +95,10 @@ OVERLAY = r"""
 STEPS_TOTAL = 5
 
 
-def record(name, start_path, script, as_token=None, morning=False):
+def record(name, start_path, script, morning=False):
     """The page at a phone's full resolution, frame by frame (the browser's own screencast) — each frame with its time,
-    from the first card to the last; the edit makes the video from them. `as_token`: whose screen (the owner's when
-    none); `morning`: the browser's clock at 10:00 the next day, where the working day's demo items wait."""
+    from the first card to the last; the edit makes the video from them. `morning`: the browser's clock at 10:00 the
+    next day, where the working day's demo items wait."""
     import base64, shutil
     frames_dir = OUT / f"frames_{name}"
     shutil.rmtree(frames_dir, ignore_errors=True)
@@ -112,7 +112,7 @@ def record(name, start_path, script, as_token=None, morning=False):
         ctx.add_init_script(OVERLAY)
         if morning:
             ctx.clock.set_fixed_time(MORNING)
-        ctx.add_init_script(f"try {{ localStorage.setItem('bizcontrol_token', '{as_token or token}'); localStorage.setItem('biz_hide_selfbooking_banner', '1'); localStorage.setItem('bc_tour_minimized', '1'); localStorage.setItem('viki_popups', '0'); }} catch (e) {{}}")   # no ויקי popping in over a video
+        ctx.add_init_script(f"try {{ localStorage.setItem('bizcontrol_token', '{token}'); localStorage.setItem('biz_hide_selfbooking_banner', '1'); localStorage.setItem('bc_tour_minimized', '1'); localStorage.setItem('viki_popups', '0'); }} catch (e) {{}}")   # no ויקי popping in over a video
         pg = ctx.new_page()
         pg.goto(f"{WEB}{start_path}", wait_until="commit")
         pg.wait_for_selector("nav.fixed", timeout=120000)
@@ -279,8 +279,8 @@ def step_payment(pg):
     card(pg, "", "מעולה!", "אמצעי התשלום נשמר ומופיע בדף התשלום של הלקוחות", ok=True)
 
 
-# ── the owner's working day and a worker's first steps (2026-10-15) ──
-# Their demo items wait at 10:00–13:00 the next day, and the browser's clock says it's 10:00 then — a calm morning in
+# ── the owner's working day (2026-10-15) ──
+# Its demo items wait at 10:00–13:00 the next day, and the browser's clock says it's 10:00 then — a calm morning in
 # the calendar, nothing overdue (the server's clock is the real one, and to it they are in the future).
 import base64
 import datetime as _dt
@@ -298,8 +298,8 @@ def api(method, path, h=None, **kw):
 
 
 def working_day():
-    """The demo business's working day: a service and a client, a worker paid by the hour, an appointment whose client
-    said they paid the deposit (with the picture they sent), a task for the worker. Once per run."""
+    """The demo business's working day: a service and a client, a worker, an appointment whose client said they paid
+    the deposit (with the picture they sent), a task for the worker. Once per run."""
     if WORKER:
         return
     claims = json.loads(base64.urlsafe_b64decode(token.split(".")[1] + "=="))
@@ -318,15 +318,12 @@ def working_day():
     worker = api("POST", "/api/users/artists", json={"email": w_email, "password": "password123", "display_name": "יוסי", "role": "artist"})
     con = psycopg2.connect("postgresql://bizcontrol:bizcontrol@localhost:5433/bizcontrol_dev")
     with con, con.cursor() as cur:
-        cur.execute("UPDATE users SET email_verified = true, pay_type = 'hourly' WHERE email = %s", (w_email,))
+        cur.execute("UPDATE users SET email_verified = true WHERE email = %s", (w_email,))
         cur.execute("UPDATE appointments SET payment_sent_at = now() - interval '20 minutes' WHERE id = %s", (appt["id"],))
     con.close()
-    w_token = requests.post(f"{API}/api/auth/login-by-email", json={"email": w_email, "password": "password123"}, verify=False).json()["access_token"]
-    wh = {"Authorization": f"Bearer {w_token}"}
-    api("PUT", "/api/tutorial/worker_start", h=wh, json={"state": "done"})
     api("POST", "/api/tasks", json={"title": "להזמין דיו שחור", "task_date": DAY.isoformat(), "start_time": "10:30",
                                      "end_time": "11:00", "assignee_id": worker["id"]})
-    WORKER.update(token=w_token, appt=appt["id"])
+    WORKER.update(appt=appt["id"])
 
 
 def press_long(pg, hour, day):
@@ -403,33 +400,6 @@ def step_worker_task(pg):
     pg.wait_for_timeout(2000)
     cap(pg, tag, "")
     card(pg, "", "מעולה!", "המשימה נמסרה — יוסי קיבל הודעה", ok=True)
-
-
-def step_clock(pg):
-    tag = "לעובדים · החתמת כניסה"
-    card(pg, "לעובדים", "החתמת כניסה", "בתחילת יום עבודה מחתימים כניסה, ובסופו יציאה — השעות נכנסות לשכר")
-    pg.evaluate("() => { const c = document.getElementById('rec-cap'); c.style.top = 'auto';"     # the button is up there
-                " c.style.bottom = 'calc(96px + env(safe-area-inset-bottom, 0px))'; }")
-    cap(pg, tag, "מגיעים לעבודה? לוחצים למעלה על \"כניסה\"", 1500)
-    tap(pg, pg.locator("[data-tour=clock]"), after=400)
-    pg.get_by_text("כניסה נרשמה בהצלחה").first.wait_for()
-    pg.wait_for_timeout(1500)
-    cap(pg, tag, "בסוף היום לוחצים באותו מקום על \"יציאה\"", 2200)
-    cap(pg, tag, "")
-    card(pg, "", "מעולה!", "הכניסה נרשמה", ok=True)
-
-
-def step_task_done(pg):
-    tag = "לעובדים · סימון משימה"
-    card(pg, "לעובדים", "סימון משימה", "משימה שקיבלתם מופיעה ביומן — כשמסיימים, מסמנים \"בוצע\"")
-    cap(pg, tag, "לוחצים על המשימה ביומן", 1300)
-    tap(pg, pg.locator("[data-tour=task-item]"), after=1600)
-    cap(pg, tag, "סיימתם? לוחצים על \"בוצע\"", 1000)
-    tap(pg, pg.locator("[data-tour=task-done]"), after=400)
-    pg.get_by_text("המשימה סומנה כבוצעה").first.wait_for()      # really marked — the calendar says so
-    pg.wait_for_timeout(1800)
-    cap(pg, tag, "")
-    card(pg, "", "מעולה!", "המשימה סומנה — בעל העסק קיבל עדכון", ok=True)
 
 
 # ── the messages to clients (2026-10-16) — the owner's own demo business, nothing sent ──
@@ -531,7 +501,6 @@ STEPS = [("business", step_business, {}), ("service", step_service, {}), ("clien
          ("appointment", step_appointment, {}), ("payment", step_payment, {}),
          ("pos_sale", step_pos_sale, {"day": True}), ("deposit", step_deposit, {"day": True}),
          ("worker_task", step_worker_task, {"day": True}),
-         ("clock", step_clock, {"day": True, "worker": True}), ("task_done", step_task_done, {"day": True, "worker": True}),
          ("messages_where", step_messages_where, {"messages": True}), ("messages_off", step_messages_off, {"messages": True, "start": "/message-templates"}),
          ("messages_text", step_messages_text, {"messages": True, "start": "/message-templates"}),
          ("messages_optout", step_messages_optout, {"messages": True, "start": "/message-templates"})]
@@ -543,8 +512,7 @@ try:
             working_day()
         if how.get("messages"):
             messages_setup()
-        record(name, how.get("start", "/calendar"), script, as_token=WORKER["token"] if how.get("worker") else None,
-               morning=bool(how.get("day")))
+        record(name, how.get("start", "/calendar"), script, morning=bool(how.get("day")))
 finally:
     con = psycopg2.connect("postgresql://bizcontrol:bizcontrol@localhost:5433/bizcontrol_dev")
     with con, con.cursor() as cur:                       # what the demo queued — never sent (no scheduler), now gone

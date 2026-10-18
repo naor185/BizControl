@@ -5,9 +5,9 @@
 // (lib/tours): it says what to do, takes you to the screen, highlights the thing to press there, and moves on only when
 // the server confirms the step really happened (api/tutorial_routes /checks) — with praise. The owner's paths, each
 // offered when the one before is done: the first steps (opens by itself once) → the messages to the clients → the
-// working day; and a worker's first steps (opens by itself once). It can be shrunk, skipped step by step, closed, and opened again from the "?"
-// button; its state is kept per user on the server, so the phone, the computer and the app agree. It never blocks the
-// screen: the highlight lets every click through. Where the owner recorded ויקי's voice (lib/vikiVoice) she also says
+// working day. The owner's only — workers have none (the owner, 2026-10-17). It can be shrunk, skipped step by step,
+// closed, and opened again from ויקי's picture; its state is kept per user on the server, so the phone, the computer
+// and the app agree. It never blocks the screen: the highlight lets every click through. Where the owner recorded ויקי's voice (lib/vikiVoice) she also says
 // it — once each, a step's opening before what to do on its screen; the speaker button turns her off or on.
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
@@ -28,7 +28,6 @@ export const useTour = () => useContext(TourContext);
 
 const MIN_KEY = "bc_tour_minimized";
 const AVOID = ["settings-save", "plan-bar"];   // fixed bars at the bottom the guide mustn't cover
-const WORKERS = ["artist", "staff"];
 const pathOf = (href: string) => href.split("?")[0];
 const hasTab = (href: string) => href.includes("tab=");
 const reducedMotion = () => typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
@@ -61,11 +60,8 @@ export function TourButton() {
 export default function TourProvider({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
     const router = useRouter();
-    const [who] = useState<"owner" | "worker" | null>(() => {
-        const role = getCurrentUserRole();
-        return role === "owner" ? "owner" : role && WORKERS.includes(role) ? "worker" : null;
-    });
-    const mine = useMemo(() => TOURS.filter(t => t.who === who), [who]);
+    const [owner] = useState(() => getCurrentUserRole() === "owner");
+    const mine = useMemo(() => (owner ? TOURS : []), [owner]);
     const [tours, setTours] = useState<Record<string, TourState> | null>(null);
     const [checks, setChecks] = useState<Checks | null>(null);
     const [name, setName] = useState<string | null>(null);
@@ -94,10 +90,10 @@ export default function TourProvider({ children }: { children: React.ReactNode }
     }, []);
 
     useEffect(() => {
-        if (!who) return;
+        if (!owner) return;
         apiFetch<Record<string, TourState>>("/api/tutorial").then(setTours).catch(() => { /* off */ });
         loadChecks();
-    }, [who, loadChecks]);
+    }, [owner, loadChecks]);
 
     // a path's steps: those whose checks apply (in the plan, not "not relevant", someone to give a task to…);
     // a step that only shows something is done once seen
@@ -214,7 +210,7 @@ export default function TourProvider({ children }: { children: React.ReactNode }
     }, [pathname, router]);
 
     const api: TourApi = useMemo(() => ({
-        available: !!who && mine.length > 0,
+        available: owner,
         open: () => {
             setMinimized(false);
             if (tour) return;
@@ -232,8 +228,8 @@ export default function TourProvider({ children }: { children: React.ReactNode }
             save(t.id, { state: "active", skipped: (tours?.[t.id]?.skipped ?? []).filter(s => s !== stepId) });
             go(step);
         },
-        stepFor: (itemId: string) => (who === "owner" ? OWNER_START.steps.find(s => s.confirms.includes(itemId))?.id ?? null : null),
-    }), [who, mine, tour, tours, go, save, begin]);
+        stepFor: (itemId: string) => (owner ? OWNER_START.steps.find(s => s.confirms.includes(itemId))?.id ?? null : null),
+    }), [owner, mine, tour, tours, go, save, begin]);
 
     useEffect(() => {
         if (!(tour || picking) || minimized || watching) return;          // Esc over a video closes the video only
@@ -260,7 +256,7 @@ export default function TourProvider({ children }: { children: React.ReactNode }
         if (pending[0]) go(pending[0]);
     };
 
-    const showGuide = !!who && !!checks && ((!!tour && steps.length > 0) || picking);
+    const showGuide = owner && !!checks && ((!!tour && steps.length > 0) || picking);
     const finished = !!tour && !picking && !praise && !intro && pending.length === 0;
 
     // ויקי's voice — what the bubble says now (lib/vikiVoice)

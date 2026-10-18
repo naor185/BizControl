@@ -29,7 +29,6 @@ export type TourStep = {
 
 export type TourDef = {
     id: string;
-    who: "owner" | "worker";
     title: string;
     auto: boolean;              // opens by itself once, for someone with its steps to do
     welcome: string;            // after "היי {name}!"
@@ -42,7 +41,6 @@ export const posterOf = (video: string) => video.replace(/\.mp4$/, ".jpg");
 
 export const OWNER_START: TourDef = {
     id: "owner_start",
-    who: "owner",
     title: "הצעדים הראשונים",
     auto: true,
     welcome: "אני ויקי, העוזרת האישית שלך ב-BizControl. נעבור יחד על הצעדים הראשונים",
@@ -120,7 +118,6 @@ export const OWNER_START: TourDef = {
 
 export const OWNER_WORKDAY: TourDef = {
     id: "owner_workday",
-    who: "owner",
     title: "יום עבודה",
     auto: false,
     welcome: "עכשיו נלמד את העבודה היומיומית",
@@ -179,7 +176,6 @@ export const OWNER_WORKDAY: TourDef = {
 // shown, nothing changed for the owner ("הבנתי").
 export const OWNER_MESSAGES: TourDef = {
     id: "owner_messages",
-    who: "owner",
     title: "ההודעות ללקוחות",
     auto: false,
     welcome: "עכשיו נראה את ההודעות שיוצאות ללקוחות שלך",
@@ -237,48 +233,4 @@ export const OWNER_MESSAGES: TourDef = {
     ],
 };
 
-export const WORKER_START: TourDef = {
-    id: "worker_start",
-    who: "worker",
-    title: "הצעדים הראשונים",
-    auto: true,
-    welcome: "אני ויקי, העוזרת האישית שלך. נעבור יחד על מה שחשוב לך ביומן",
-    finish: "אפשר לקרוא לי שוב בכל רגע — לחצו על התמונה שלי למעלה.",
-    steps: [
-        {
-            id: "calendar",
-            confirms: [],
-            manual: true,
-            href: "/calendar",
-            title: "היומן שלך",
-            intro: "כאן מופיעים התורים והמשימות שלך. לחיצה על תור פותחת את הפרטים שלו.",
-            moves: [{ target: "calendar-grid", say: "כאן מופיעים התורים והמשימות שלך. לחיצה על תור פותחת את הפרטים שלו." }],
-            done: "",
-        },
-        {
-            id: "clock",
-            confirms: ["clock_in"],
-            href: "/calendar",
-            title: "החתמת כניסה",
-            intro: "בתחילת יום עבודה מחתימים כניסה, ובסופו יציאה — כך נרשמות שעות העבודה שלכם.",
-            moves: [{ target: "clock", say: "לחצו כאן כדי להחתים כניסה. אם בכניסה לעסק תלוי ברקוד — סורקים אותו עם המצלמה של הטלפון, וזה כל מה שצריך." }],
-            done: "הכניסה נרשמה.",
-            video: "/guide/guide-clock.mp4",
-        },
-        {
-            id: "task_done",
-            confirms: ["task_done"],
-            href: "/calendar",
-            title: "סימון משימה",
-            intro: "משימה שקיבלתם מופיעה ביומן. כשמסיימים — מסמנים \"בוצע\", ובעל העסק מקבל עדכון.",
-            moves: [
-                { target: "task-done", say: "לחצו על \"בוצע\"." },
-                { target: "task-item", say: "לחצו על המשימה ביומן." },
-            ],
-            done: "המשימה סומנה — בעל העסק קיבל עדכון.",
-            video: "/guide/guide-task_done.mp4",
-        },
-    ],
-};
-
-export const TOURS: TourDef[] = [OWNER_START, OWNER_MESSAGES, OWNER_WORKDAY, WORKER_START];
+export const TOURS: TourDef[] = [OWNER_START, OWNER_MESSAGES, OWNER_WORKDAY];

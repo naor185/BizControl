@@ -37,7 +37,6 @@ def test_a_small_business_plan_has_no_clock(client, db_session):
 
     assert client.get("/api/staff/clock-status", headers=w).json()["available"] is False
     assert client.post("/api/staff/clock-in", headers=w).status_code == 403
-    assert client.get("/api/tutorial/checks", headers=w).json()["checks"]["clock_in"]["applies"] is False
 
     # the superadmin turned the barcode on anyway: his card says the plan doesn't have it, and nobody clocks
     on = client.post(f"/api/admin/studios/{sid}/nfc-clock", headers=sa, json={"on": True}).json()
@@ -59,7 +58,6 @@ def test_every_worker_and_manager_clocks_whatever_their_pay_not_the_owner(client
         assert client.get("/api/staff/clock-status", headers=h).json()["available"] is True
     assert client.get("/api/staff/clock-status", headers=owner).json()["available"] is False
     assert client.post("/api/staff/clock-in", headers=owner).status_code == 403
-    assert client.get("/api/tutorial/checks", headers=artist).json()["checks"]["clock_in"]["applies"] is True
 
     shift = client.post("/api/staff/clock-in", headers=artist).json()
     assert client.post("/api/staff/clock-out", headers=artist).status_code == 200

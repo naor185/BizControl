@@ -95,7 +95,7 @@ export default function ClockWidget() {
 
             {/* With the barcode clock: where they stand, not a button — clocking is a scan at the door */}
             {showClock && myStatus.nfc && (
-                <span data-tour="clock" className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-bold ${isClockedIn ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-slate-100 text-slate-500"}`}
+                <span className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-bold ${isClockedIn ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-slate-100 text-slate-500"}`}
                     title="כניסה ויציאה — סורקים את הברקוד שבכניסה (או נוגעים בטלפון במדבקה)">
                     {isClockedIn && myStatus.active_session
                         ? `בעבודה מ-${new Date(myStatus.active_session.start_time).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })}`
@@ -106,7 +106,6 @@ export default function ClockWidget() {
             {/* Clock-in / Clock-out button */}
             {showClock && !myStatus.nfc && (
                 <button
-                    data-tour="clock"
                     onClick={handleClockToggle}
                     disabled={loading}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-sm transition-all active:scale-95 disabled:opacity-50 ${

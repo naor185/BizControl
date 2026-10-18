@@ -7,8 +7,8 @@ PUT /api/tutorial/{tour_id}  — {state?, skipped?} — started, closed, finishe
                                only shows something, seen)
 
 Whether a step was really done is not kept here: it is checked live against the data (the setup checklist, a sale at
-the till, a deposit approved, a task given, a shift clocked, a task marked done), so a step can't be "done" without the
-thing existing."""
+the till, a deposit approved, a task given), so a step can't be "done" without the thing existing. The guide is the
+owner's — workers have none (the owner, 2026-10-17)."""
 from __future__ import annotations
 
 import json
@@ -25,13 +25,11 @@ from app.models.tutorial_progress import TutorialProgress
 
 router = APIRouter(prefix="/tutorial", tags=["Tutorial"])
 
-# web/src/lib/tours.ts — the owner's first steps, the owner's working day (2026-10-15), the messages to clients
-# (2026-10-16), a worker's first steps
+# web/src/lib/tours.ts — the owner's first steps, the messages to clients (2026-10-16), the working day (2026-10-15)
 STEPS = {
     "owner_start": ("business", "service", "client", "appointment", "payment"),
+    "owner_messages": ("messages_where", "messages_off", "messages_text", "messages_optout"),
     "owner_workday": ("pos_sale", "deposit", "worker_task"),
-    "owner_messages": ("messages_where", "messages_off", "messages_text", "messages_optout"),   # 2026-10-16
-    "worker_start": ("calendar", "clock", "task_done"),
 }
 TOURS = tuple(STEPS)
 WORKERS = ("artist", "staff")
@@ -56,10 +54,7 @@ def get_checks(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Dep
     to…) and whether it's done — live against the real data."""
     from app.models.appointment import Appointment
     from app.models.task import Task
-    from app.models.task_completion import TaskCompletion
     from app.models.user import User
-    from app.models.work_session import WorkSession
-    from app.services import nfc_clock
 
     def exists(q) -> bool:
         return db.scalar(q.limit(1)) is not None
@@ -67,15 +62,7 @@ def get_checks(ctx: AuthContext = Depends(require_studio_ctx), db: Session = Dep
     me = db.get(User, ctx.user_id)
     name = ((me.display_name or "").strip().split(" ")[0] or None) if me else None
     if ctx.role in WORKERS:
-        has_task = exists(select(Task.id).where(Task.studio_id == ctx.studio_id, Task.kind == "task",
-                                                (Task.assignee_id.is_(None)) | (Task.assignee_id == ctx.user_id)))
-        return {"name": name, "checks": {
-            # every worker clocks, whatever their pay, where the plan has the clock (services/nfc_clock.clocks)
-            "clock_in": {"applies": nfc_clock.clocks(db, ctx.studio_id, ctx.role),
-                         "done": exists(select(WorkSession.id).where(WorkSession.user_id == ctx.user_id))},
-            "task_done": {"applies": has_task,
-                          "done": exists(select(TaskCompletion.id).where(TaskCompletion.done_by == ctx.user_id))},
-        }}
+        raise HTTPException(status_code=403, detail="ההדרכה של ויקי היא לבעל העסק")
 
     from app.api.dashboard_routes import _build_setup_items, _dismissed_ids
     from app.core.features import has_module

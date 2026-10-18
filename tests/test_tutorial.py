@@ -70,45 +70,15 @@ def test_the_working_day_steps_are_done_only_when_they_really_happened(client, d
     assert _checks(client, owner)["task_assigned"]["done"] is True
 
 
-def test_a_workers_steps_clock_and_task_done(client, db_session):
-    """A worker's first steps (2026-10-15): the clock where the plan has it (2026-10-16 — whatever their pay), marking a
-    task only when there is a task — each checked against the real data; their own, not the team's."""
-    from datetime import datetime, timezone
-
-    from sqlalchemy import select
-
-    from app.models.studio import Studio
+def test_a_worker_has_no_guide(client):
+    """The guide is the owner's (the owner, 2026-10-17: no guide for a worker)."""
     owner = register_and_login(client, "worker-tour", "owner@worker-tour.com")
-    for email in ("dana@worker-tour.com", "ron@worker-tour.com"):
-        assert client.post("/api/users/artists", headers=owner, json={"email": email, "password": "secret123",
-                                                                      "display_name": email.split("@")[0], "role": "artist"}).status_code == 201
-
-    def login(email):
-        t = client.post("/api/auth/login-by-email", json={"email": email, "password": "secret123"}).json()["access_token"]
-        return {"Authorization": f"Bearer {t}"}
-    dana, ron = login("dana@worker-tour.com"), login("ron@worker-tour.com")
-
-    r = client.get("/api/tutorial/checks", headers=dana).json()
-    assert r["name"] == "dana"
-    assert r["checks"] == {"clock_in": {"applies": False, "done": False}, "task_done": {"applies": False, "done": False}}
-
-    db_session.scalar(select(Studio).where(Studio.slug == "worker-tour")).subscription_plan = "pro"
-    db_session.commit()
-    today = datetime.now(timezone.utc).date().isoformat()
-    task = client.post("/api/tasks", headers=owner, json={"title": "ניקיון כללי", "task_date": today}).json()
-    c = _checks(client, dana)
-    assert c["clock_in"] == {"applies": True, "done": False} and c["task_done"] == {"applies": True, "done": False}
-
-    assert client.post("/api/staff/clock-in", headers=dana).status_code == 200
-    assert client.post(f"/api/tasks/{task['id']}/done", headers=ron, json={"date": today}).status_code == 204
-    c = _checks(client, dana)
-    assert c["clock_in"]["done"] is True and c["task_done"]["done"] is False          # Ron marked it, not Dana
-    assert client.delete(f"/api/tasks/{task['id']}/done", headers=ron, params={"date": today}).status_code == 204
-    assert client.post(f"/api/tasks/{task['id']}/done", headers=dana, json={"date": today}).status_code == 204
-    assert _checks(client, dana)["task_done"]["done"] is True
-
-    r = client.put("/api/tutorial/worker_start", headers=dana, json={"state": "active", "skipped": ["calendar", "pos_sale"]})
-    assert r.json() == {"state": "active", "skipped": ["calendar"]}                   # only this path's steps
+    assert client.post("/api/users/artists", headers=owner, json={"email": "dana@worker-tour.com", "password": "secret123",
+                                                                  "display_name": "dana", "role": "artist"}).status_code == 201
+    t = client.post("/api/auth/login-by-email", json={"email": "dana@worker-tour.com", "password": "secret123"}).json()["access_token"]
+    dana = {"Authorization": f"Bearer {t}"}
+    assert client.get("/api/tutorial/checks", headers=dana).status_code == 403
+    assert client.put("/api/tutorial/worker_start", headers=dana, json={"state": "active"}).status_code == 404
 
 
 def test_the_messages_path_takes_its_own_steps(client):
