@@ -100,7 +100,7 @@ export default function JoinStudioPage() {
     if (err || !info) return <div className="min-h-screen flex items-center justify-center text-red-500">העסק לא נמצא</div>;
     if (info.club_open === false) {          // the club is not in the business's plan
         return (
-            <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4" dir="rtl">
+            <div className="min-h-screen flex items-center justify-center bg-[var(--background)] px-4" dir="rtl">
                 <div className="text-center space-y-2 max-w-sm">
                     <h1 className="text-2xl font-bold text-slate-800">{info.name}</h1>
                     <p className="text-slate-500">מועדון הלקוחות של העסק לא פעיל כרגע.</p>

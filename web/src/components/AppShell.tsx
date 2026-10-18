@@ -158,7 +158,7 @@ export default function AppShell({
 
     return (
         <TourProvider>
-        <div className="app-shell min-h-screen bg-slate-50" dir={dir}>
+        <div className="app-shell min-h-screen bg-[var(--background)]" dir={dir}>
             <div className="flex">
                 {/* Sidebar */}
                 <aside className="hidden md:flex md:w-60 md:flex-col md:fixed md:inset-y-0 bg-white border-l border-slate-100 shadow-sm z-20">

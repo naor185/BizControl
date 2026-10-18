@@ -128,7 +128,7 @@ export default function StudioLandingPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-slate-50">
+            <div className="min-h-screen flex items-center justify-center bg-[var(--background)]">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-900" />
             </div>
         );
@@ -138,7 +138,7 @@ export default function StudioLandingPage() {
 
     if (notFound || !data) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-slate-50" dir="rtl">
+            <div className="min-h-screen flex items-center justify-center bg-[var(--background)]" dir="rtl">
                 <div className="text-center space-y-4">
                     <p className="text-6xl">🔍</p>
                     <h1 className="text-2xl font-bold text-slate-800">העסק לא נמצא</h1>
@@ -151,7 +151,7 @@ export default function StudioLandingPage() {
     // the club is not in the business's plan — no join form (app/services/club.py)
     if (data.club_open === false) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4" dir="rtl">
+            <div className="min-h-screen flex items-center justify-center bg-[var(--background)] px-4" dir="rtl">
                 <div className="text-center space-y-2 max-w-sm">
                     <h1 className="text-2xl font-bold text-slate-800">{data.studio_name}</h1>
                     <p className="text-slate-500">מועדון הלקוחות של העסק לא פעיל כרגע.</p>

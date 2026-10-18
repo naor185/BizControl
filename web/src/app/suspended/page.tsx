@@ -22,7 +22,7 @@ function SuspendedContent() {
     }
 
     return (
-        <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-6" dir="rtl">
+        <div className="min-h-screen flex flex-col items-center justify-center bg-[var(--background)] p-6" dir="rtl">
             <div className="w-full max-w-sm text-center animate-page-in">
 
                 <div className="w-20 h-20 rounded-3xl bg-white border border-slate-100 shadow-sm flex items-center justify-center mx-auto mb-6">
@@ -86,7 +86,7 @@ function SuspendedContent() {
 export default function SuspendedPage() {
     return (
         <Suspense fallback={
-            <div className="min-h-screen flex items-center justify-center bg-slate-50">
+            <div className="min-h-screen flex items-center justify-center bg-[var(--background)]">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-900" />
             </div>
         }>

@@ -40,7 +40,7 @@ export default function HealthLinkPage() {
     );
 
     return (
-        <main className="min-h-screen bg-slate-50" dir="rtl">
+        <main className="min-h-screen bg-[var(--background)]" dir="rtl">
             <div className="max-w-2xl mx-auto px-4 py-6">
                 {missing ? notice(<HeartPulse className="h-12 w-12 mx-auto text-slate-300" aria-hidden />, "הקישור לא נמצא",
                     "ייתכן שהוא הועתק חלקית. בקשו מהעסק לשלוח אותו שוב.")

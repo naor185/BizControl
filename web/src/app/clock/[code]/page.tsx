@@ -53,7 +53,7 @@ function ClockTap() {
     const isIn = tap?.action === "in";
 
     return (
-        <main className="min-h-dvh flex items-center justify-center bg-slate-50 p-6" dir="rtl">
+        <main className="min-h-dvh flex items-center justify-center bg-[var(--background)] p-6" dir="rtl">
             <div className="w-full max-w-sm bg-white rounded-3xl shadow-xl border border-slate-100 p-8 text-center" role="status" aria-live="polite">
                 {err ? (
                     <>

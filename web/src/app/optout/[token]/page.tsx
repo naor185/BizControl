@@ -30,7 +30,7 @@ export default function OptoutPage() {
     };
 
     return (
-        <div dir="rtl" className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
+        <div dir="rtl" className="min-h-screen bg-[var(--background)] flex items-center justify-center p-6">
             <div className="w-full max-w-sm bg-white rounded-2xl shadow-sm border border-slate-200 p-8 text-center">
                 {info?.logo_url && (
                     // eslint-disable-next-line @next/next/no-img-element

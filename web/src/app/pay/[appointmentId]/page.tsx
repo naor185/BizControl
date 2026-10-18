@@ -125,7 +125,7 @@ export default function PublicPaymentPage() {
     };
 
     if (loading) return (
-        <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
+        <div className="min-h-screen bg-[var(--background)] flex items-center justify-center p-6">
             <div className="flex flex-col items-center gap-4">
                 <div className="w-12 h-12 border-4 border-slate-200 border-t-slate-900 rounded-full animate-spin"></div>
                 <p className="text-slate-500 font-medium">טוען פרטים...</p>
@@ -134,7 +134,7 @@ export default function PublicPaymentPage() {
     );
 
     if (error || !info) return (
-        <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
+        <div className="min-h-screen bg-[var(--background)] flex items-center justify-center p-6">
             <div className="bg-white p-8 rounded-3xl shadow-xl border border-red-100 text-center max-w-sm w-full">
                 <div className="text-4xl mb-4 text-red-500">❌</div>
                 <h1 className="text-xl font-bold text-slate-900 mb-2">אופס, משהו השתבש</h1>
@@ -180,7 +180,7 @@ export default function PublicPaymentPage() {
     );
 
     return (
-        <div className="min-h-screen bg-slate-50 flex flex-col items-center py-12 px-6" dir="rtl">
+        <div className="min-h-screen bg-[var(--background)] flex flex-col items-center py-12 px-6" dir="rtl">
             <div className="max-w-md w-full">
                 {/* Header/Logo */}
                 <div className="flex flex-col items-center text-center mb-10">
