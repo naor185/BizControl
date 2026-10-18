@@ -8,6 +8,7 @@ import ThemeProvider from "@/components/ThemeProvider";
 import { API } from "@/lib/api";
 import { bizfindVars } from "@/lib/bizfindVars";
 import type { PlatformTheme } from "@/lib/usePlatformTheme";
+import PlatformThemeProvider from "@/components/PlatformThemeProvider";
 
 // The site's own details for Google and link previews; each business's page has its own (b/[slug]/layout.tsx).
 export const metadata: Metadata = {
@@ -62,21 +63,22 @@ const GLOBAL_CSS = `
                     .bottom-nav a:hover { color: var(--bf-text); }
 `;
 
-// The superadmin's colors, from the server, in the page itself — so every page (each one a full load: the bottom bar
-// links) opens in them, even on a first visit (2026-10-18: "it shows black behind between pages"). Kept 5 minutes;
-// the browser brings them up to date after (components/ThemeProvider). No answer — the last visit's colors (below).
-async function serverColors(): Promise<Record<string, string> | null> {
+// The superadmin's look, from the server, in the page itself — so every page (each one a full load: the bottom bar
+// links) opens in it, even on a first visit (2026-10-18: "it shows black behind between pages"), and the home page's
+// words too. Kept a minute; the browser brings it up to date after (components/ThemeProvider). Nothing is saved on
+// the device — no old colors (2026-10-18). No answer — the built-in look until the browser gets one.
+async function serverTheme(): Promise<PlatformTheme | null> {
     try {
-        const res = await fetch(`${API}/api/public/platform-theme`, { next: { revalidate: 300 }, signal: AbortSignal.timeout(3000) });
-        if (!res.ok) return null;
-        return bizfindVars(((await res.json()) as PlatformTheme).bizfind);
+        const res = await fetch(`${API}/api/public/platform-theme`, { next: { revalidate: 60 }, signal: AbortSignal.timeout(3000) });
+        return res.ok ? ((await res.json()) as PlatformTheme) : null;
     } catch {
         return null;
     }
 }
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
-    const colors = await serverColors();
+    const theme = await serverTheme();
+    const colors = theme ? bizfindVars(theme.bizfind) : null;
     return (
         <html lang="he" dir="rtl" style={(colors ?? undefined) as CSSProperties | undefined} suppressHydrationWarning>
             <head>
@@ -95,11 +97,9 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                 {/* Raw CSS, not a text child: a text child's quotes ("Heebo", component's) are escaped on the
                     server and not in the browser, so every page failed hydration and was rebuilt. */}
                 <style dangerouslySetInnerHTML={{ __html: GLOBAL_CSS }} />
-                {/* The server had no answer: the colors from the last visit, before the first paint (ThemeProvider.tsx
-                    saves them; nothing saved — the default). */}
-                {!colors && <script dangerouslySetInnerHTML={{ __html: `try{var t=JSON.parse(localStorage.getItem("bf_theme_vars")||"{}");for(var k in t)document.documentElement.style.setProperty(k,t[k])}catch(e){}` }} />}
             </head>
             <body>
+                <PlatformThemeProvider theme={theme}>
                 <ThemeProvider />
                 <PushRegistrar />
                 <BackButtonHandler />
@@ -110,6 +110,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                     <a href="/me"><ClipboardList size={20} /><span>התורים שלי</span></a>
                     <a href="/for-business"><Building2 size={20} /><span>לעסקים</span></a>
                 </nav>
+                </PlatformThemeProvider>
             </body>
         </html>
     );

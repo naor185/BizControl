@@ -5,7 +5,10 @@ import { QueryProvider } from "@/components/QueryProvider";
 import OverflowDebugger from "@/components/OverflowDebugger";
 import BackButtonHandler from "@/components/BackButtonHandler";
 import AppLinkHandler from "@/components/AppLinkHandler";
+import type { CSSProperties } from "react";
 import ThemeProvider from "@/components/ThemeProvider";
+import PlatformThemeProvider from "@/components/PlatformThemeProvider";
+import { platformThemeVars, serverPlatformTheme } from "@/lib/platformThemeVars";
 
 export const metadata = {
   title: "BizControl",
@@ -46,9 +49,11 @@ export const viewport = {
   userScalable: false,
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // the superadmin's colors in the page itself, from the first moment (lib/platformThemeVars)
+  const theme = await serverPlatformTheme();
   return (
-    <html lang="he" dir="rtl" suppressHydrationWarning>
+    <html lang="he" dir="rtl" style={(theme ? platformThemeVars(theme) : undefined) as CSSProperties | undefined} suppressHydrationWarning>
       <head>
         {/* Global platform fonts — the fixed 5-font set the superadmin's
             theme editor picks from (same set LandingPageTemplate already
@@ -59,19 +64,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           rel="stylesheet"
           href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;700;900&family=Assistant:wght@400;700&family=Rubik:wght@400;700&family=M+PLUS+Rounded+1c:wght@400;700&family=Varela+Round&display=swap"
         />
-        {/* The superadmin's colors from the last visit, before the first paint — the app doesn't open in the
-            built-in colors and then change (2026-10-18). ThemeProvider saves them; nothing saved — the built-in. */}
-        <script dangerouslySetInnerHTML={{ __html: `try{var t=JSON.parse(localStorage.getItem("bc_theme_vars")||"{}");for(var k in t)document.documentElement.style.setProperty(k,t[k])}catch(e){}` }} />
       </head>
       <body>
         <QueryProvider>
           <LanguageProvider>
             <ToastProvider>
+              <PlatformThemeProvider theme={theme}>
               <ThemeProvider />
               <BackButtonHandler />
               <AppLinkHandler />
               {children}
               {process.env.NODE_ENV !== "production" && <OverflowDebugger />}
+              </PlatformThemeProvider>
             </ToastProvider>
           </LanguageProvider>
         </QueryProvider>

@@ -13,6 +13,7 @@ import { refreshTerms } from "@/lib/useTerms";
 import { apiFetch } from "@/lib/api";
 import confetti from "canvas-confetti";
 import LandingPageTemplate from "@/components/LandingPageTemplate";
+import { usePlatformTheme } from "@/lib/usePlatformTheme";
 import { HIDE_BOOKING_BANNER_KEY } from "@/lib/localPrefs";
 import StaffReminderRulesSettings from "@/components/StaffReminderRulesSettings";
 import MySessionsSettings from "@/components/MySessionsSettings";
@@ -604,6 +605,9 @@ function MarketplaceTab({ settings, handleChange, apiFetch }: { settings: any; h
 export default function AutomationSettingsPage() {
     const plan = usePlan();             // the club's and the gift card's settings follow the business's plan
     const [settings, setSettings] = useState<Settings | null>(null);
+    // the business's page is in the platform's colors and fonts (the superadmin's) — the preview shows those, not the
+    // business's own old ones, which no page uses any more (2026-10-18)
+    const platformTheme = usePlatformTheme();
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [err, setErr] = useState<string | null>(null);
@@ -869,7 +873,7 @@ export default function AutomationSettingsPage() {
                 particleCount: 150,
                 spread: 70,
                 origin: { y: 0.6 },
-                colors: [settings.theme_primary_color || '#000', settings.theme_secondary_color || '#fff', '#fbbf24', '#ec4899', '#3b82f6']
+                colors: [platformTheme.primary, platformTheme.secondary, '#fbbf24', '#ec4899', '#3b82f6']
             });
 
             setTimeout(() => setMsg(null), 3500);
@@ -1431,15 +1435,15 @@ export default function AutomationSettingsPage() {
                                             <div className="flex-1 overflow-x-hidden overflow-y-auto relative bg-white scrollbar-thin">
                                                 <div className="absolute inset-0 origin-top w-[140%] h-[140%] scale-[0.714]">
                                                     <LandingPageTemplate
-                                                        themePrimary={settings.theme_primary_color}
-                                                        themeSecondary={settings.theme_secondary_color}
+                                                        themePrimary={platformTheme.primary}
+                                                        themeSecondary={platformTheme.secondary}
                                                         logoUrl={logoSrc(settings.logo_filename)}
                                                         title={settings.landing_page_title || ""}
                                                         description={settings.landing_page_description || ""}
                                                         templateId={settings.landing_page_active_template}
                                                         bgImage={settings.landing_page_bg_image ? `${process.env.NEXT_PUBLIC_API_BASE || ""}/uploads/${settings.landing_page_bg_image}` : null}
-                                                        titleFont={settings.landing_page_title_font}
-                                                        descFont={settings.landing_page_desc_font}
+                                                        titleFont={platformTheme.heading_font}
+                                                        descFont={platformTheme.body_font}
                                                         galleryImages={[
                                                             settings.landing_page_image_1 ? `${process.env.NEXT_PUBLIC_API_BASE || ""}/uploads/${settings.landing_page_image_1}` : null,
                                                             settings.landing_page_image_2 ? `${process.env.NEXT_PUBLIC_API_BASE || ""}/uploads/${settings.landing_page_image_2}` : null,

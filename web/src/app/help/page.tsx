@@ -10,13 +10,13 @@ import VikiAvatar from "@/components/tour/VikiAvatar";
 import { TOURS, posterOf, type TourStep } from "@/lib/tours";
 
 // The guide's videos, path by path in the order of their steps — short recordings of the real screens on a phone.
-// The owner's paths: the help center is the owner's and the managers' (a worker's screens are the calendar — their
-// videos open from the guide's steps).
+// All the paths are the owner's (the help center is the owner's and the managers'; workers have no guide since
+// 2026-10-17).
 function GuideVideos() {
     const [open, setOpen] = useState<TourStep | null>(null);
     return (
         <>
-            {TOURS.filter(t => t.who === "owner").map(t => {
+            {TOURS.map(t => {
                 const steps = t.steps.filter(s => s.video);
                 if (steps.length === 0) return null;
                 return (
