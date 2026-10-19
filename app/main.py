@@ -260,6 +260,7 @@ def start_scheduler():
                         scheduled_at=now,
                         status="pending",
                         reminder_type="broadcast",
+                        dedup_key=f"bc:{b.id}:{client.id}",      # who it went to — its results (services/viki_learning)
                     ))
                 b.status = "sent"
                 b.sent_count = len(clients)

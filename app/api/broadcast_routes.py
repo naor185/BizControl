@@ -1,7 +1,7 @@
 from __future__ import annotations
 import os
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 from uuid import UUID, uuid4
 
@@ -42,7 +42,15 @@ def list_broadcasts(
         .order_by(Broadcast.scheduled_at.desc())
         .limit(100)
     ).all()
-    return [_out(b) for b in rows]
+    from app.services.viki_learning import result
+    now = datetime.now(timezone.utc)
+    out = []
+    for b in rows:
+        o = _out(b)
+        if b.status == "sent" and b.scheduled_at and now - b.scheduled_at < timedelta(days=60):
+            o["result"] = result(db, b, now)            # how many booked after it (services/viki_learning.py)
+        out.append(o)
+    return out
 
 
 @router.post("/upload-media")

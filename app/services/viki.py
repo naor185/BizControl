@@ -5,7 +5,10 @@ up, nothing is sent to a client; each comes with the button to act on it. And he
 lead, a client who reported paying a deposit) — for her to pop in with (web: components/viki/VikiPopper).
 
 A suggestion's key carries its period — "lapsed:2026-10" — so "עשיתי" / "לא רלוונטי" hides it until it's true again
-in the next period (models/viki_dismissal)."""
+in the next period (models/viki_dismissal).
+
+Stage 3 (services/viki_learning.py): what came of what was done — a message to the clients and how many booked after
+it — on her card and in the next suggestion of its kind; a kind marked "לא רלוונטי" again and again comes up far less."""
 from __future__ import annotations
 
 import math
@@ -126,7 +129,38 @@ def suggestions(db: Session, studio_id, now: datetime | None = None) -> list[dic
                 f"{born} לקוחות חוגגים יום הולדת החודש, וההודעה ליום הולדת כבויה. ברכה עם הטבה קטנה מחזירה לקוחות.",
                 "להפעיל ברכות", "/automation")
 
-    return [s for _, s in sorted(out, key=lambda x: -x[0])]
+    # ── what came of what was done (stage 3 — services/viki_learning.py) ──
+    from app.services import viki_learning as vl
+    sent = vl.recent(db, studio_id, now)
+    for b, r in sent[:2]:
+        when = b.scheduled_at.astimezone(IL).strftime("%d/%m")
+        if r["booked"] and r["days"] >= 1:
+            money = f" — תורים בסך {_ils(r['revenue'])}" if r["revenue"] else ""
+            add(55, f"bc_good:{b.id}", "good",
+                f"ההודעה ששלחת ב-{when} ל-{r['recipients']} לקוחות: {r['booked']} מהם כבר קבעו תור אחרי ההודעה{money}. "
+                "זה עובד — שווה לחזור על זה בעוד חודש.", "להודעות ללקוחות", "/broadcasts")
+        elif r["days"] >= 7 and r["recipients"] >= 10 and not r["booked"]:
+            add(30, f"bc_none:{b.id}", "tip",
+                f"ההודעה מ-{when} ל-{r['recipients']} לקוחות עוד לא הביאה תורים. בפעם הבאה אפשר לנסות הטבה קטנה או נוסח אישי יותר.",
+                "לנסח הודעה חדשה", "/broadcasts")
+    last = {}                                            # the newest message with bookings, per audience
+    for b, r in sent:
+        if r["booked"] and b.audience not in last:
+            last[b.audience] = (b, r)
+    quiet = vl.quiet_kinds(db, studio_id, now)
+    learned = []
+    for prio, s in out:
+        kind = s["key"].split(":")[0]
+        if kind in quiet:
+            prio -= 40                                   # the owner said, again and again, it isn't for them
+        before = last.get({"lapsed": "lapsed", "fill_next": "all"}.get(kind, ""))
+        if before:
+            b, r = before
+            s = {**s, "text": s["text"] + f" בפעם הקודמת ({b.scheduled_at.astimezone(IL):%d/%m}) {r['booked']} לקוחות קבעו תור אחרי ההודעה."}
+            prio += 10
+        learned.append((prio, s))
+
+    return [s for _, s in sorted(learned, key=lambda x: -x[0])]
 
 
 def suggestions_cached(db: Session, studio_id) -> list[dict]:

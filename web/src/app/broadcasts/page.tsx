@@ -17,6 +17,8 @@ type Broadcast = {
     sent_count: number;
     media_url?: string | null;
     created_at: string;
+    // how many of its recipients set an appointment after it, up to 30 days (app/services/viki_learning.py)
+    result?: { recipients: number; booked: number; appointments: number; revenue: number; days: number };
 };
 
 type AutomationSettings = {
@@ -676,6 +678,12 @@ function BroadcastRow({ b, onCancel, canceling, onDuplicate }: { b: Broadcast; o
                         {b.status === "sent" && (
                             <span className="mr-2 text-green-600 font-medium">נשלח ל-{b.sent_count} נמענים</span>
                         )}
+                        {b.status === "sent" && b.result && (b.result.booked > 0 ? (
+                            <span className="mr-2 text-emerald-700 font-bold">
+                                · {b.result.booked === 1 ? "לקוח אחד קבע" : `${b.result.booked} קבעו`} תור אחרי ההודעה
+                                {b.result.revenue > 0 && ` (₪${Math.round(b.result.revenue).toLocaleString("he-IL")})`}
+                            </span>
+                        ) : b.result.days >= 3 ? <span className="mr-2 text-slate-500">· עוד אף אחד לא קבע תור אחרי ההודעה</span> : null)}
                         {b.status === "scheduled" && b.recipient_count > 0 && (
                             <span className="mr-2 text-blue-600 font-medium">~{b.recipient_count} נמענים מתוכננים</span>
                         )}
