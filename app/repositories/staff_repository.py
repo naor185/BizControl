@@ -16,11 +16,34 @@ def paid_start(shift: WorkSession) -> datetime:
     return shift.paid_from or shift.start_time
 
 
+def worked_seconds(shift: WorkSession) -> float:
+    """A closed shift's counted time: from when it counts to the clock-out, less its breaks (an open shift: 0)."""
+    if not shift.end_time:
+        return 0.0
+    return max((shift.end_time - paid_start(shift)).total_seconds() - (shift.break_minutes or 0) * 60, 0)
+
+
+def start_break(shift: WorkSession, at: datetime) -> None:
+    """The worker went on a break (the owner, 2026-10-19) — until it ends, the time isn't counted."""
+    if shift.break_started_at is None:
+        shift.break_started_at = at
+
+
+def end_break(shift: WorkSession, at: datetime) -> int:
+    """Back from the break (or the shift ended during it): its minutes are added to the shift's breaks. Its minutes."""
+    if shift.break_started_at is None:
+        return 0
+    minutes = max(round((at - shift.break_started_at).total_seconds() / 60), 0)
+    shift.break_minutes = (shift.break_minutes or 0) + minutes
+    shift.break_started_at = None
+    return minutes
+
+
 def price_shift(shift: WorkSession, user: User | None) -> None:
-    """A shift's pay — its hours at the worker's hourly rate (hourly pay only; an open shift: 0)."""
+    """A shift's pay — its hours (less the breaks) at the worker's hourly rate (hourly pay only; an open shift: 0)."""
     shift.session_pay = Decimal("0.00")
     if shift.end_time and user and user.pay_type == "hourly" and user.hourly_rate and user.hourly_rate > 0:
-        seconds = max((shift.end_time - paid_start(shift)).total_seconds(), 0)
+        seconds = worked_seconds(shift)
         hours = Decimal(seconds) / Decimal(3600)
         shift.session_pay = (hours * user.hourly_rate).quantize(Decimal("0.01"))
 
@@ -67,6 +90,7 @@ class StaffRepository:
             return None
 
         db_session.end_time = datetime.now(timezone.utc)
+        end_break(db_session, db_session.end_time)           # left during a break — the break lasted until now
         price_shift(db_session, self.session.get(User, user_id))
 
         self.session.commit()
@@ -91,7 +115,8 @@ class StaffRepository:
             # 2. Sum hourly pay from work sessions
             hourly_stmt = select(
                 func.sum(WorkSession.session_pay),
-                func.sum(func.greatest(func.extract('epoch', WorkSession.end_time - func.coalesce(WorkSession.paid_from, WorkSession.start_time)), 0))
+                func.sum(func.greatest(func.extract('epoch', WorkSession.end_time - func.coalesce(WorkSession.paid_from, WorkSession.start_time))
+                                       - WorkSession.break_minutes * 60, 0))
             ).where(
                 and_(
                     WorkSession.user_id == user.id,

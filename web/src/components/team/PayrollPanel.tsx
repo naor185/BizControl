@@ -212,8 +212,9 @@ function Row({ label, value, strong }: { label: string; value: string; strong?: 
 }
 
 // ── A worker's shifts in a month — the owner and the managers fix them (the owner, 2026-10-13: a forgotten clock-in) ──
-type Shift = { id: string; start_time: string; end_time: string | null; paid_from?: string | null; hours: number | null; pay: number; fixed: boolean };
-type Draft = { id?: string; date: string; start: string; end: string };
+type Shift = { id: string; start_time: string; end_time: string | null; paid_from?: string | null; hours: number | null; pay: number; fixed: boolean;
+    break_minutes?: number; on_break_since?: string | null };
+type Draft = { id?: string; date: string; start: string; end: string; brk: string };
 
 const hhmm = (iso: string) => new Date(iso).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
 const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -233,7 +234,8 @@ function Shifts({ userId, month, onChange }: { userId: string; month: Month; onC
         if (!draft) return;
         // an end before the start is the next morning (a night shift)
         const endDate = draft.end && draft.end <= draft.start ? ymd(new Date(new Date(`${draft.date}T12:00`).getTime() + 86400000)) : draft.date;
-        const body = { start_time: `${draft.date}T${draft.start}`, end_time: draft.end ? `${endDate}T${draft.end}` : null };
+        const body = { start_time: `${draft.date}T${draft.start}`, end_time: draft.end ? `${endDate}T${draft.end}` : null,
+                       break_minutes: Math.max(0, Math.min(720, parseInt(draft.brk) || 0)) };
         setSaving(true);
         try {
             if (draft.id) await apiFetch(`/api/staff/shifts/${draft.id}`, { method: "PATCH", body: JSON.stringify(body) });
@@ -251,7 +253,8 @@ function Shifts({ userId, month, onChange }: { userId: string; month: Month; onC
         try { await apiFetch(`/api/staff/shifts/${sh.id}`, { method: "DELETE" }); toast.success("המשמרת נמחקה"); load(); onChange(); }
         catch (e) { toast.error((e as Error)?.message || "שגיאה"); }
     };
-    const edit = (sh: Shift) => setDraft({ id: sh.id, date: ymd(new Date(sh.start_time)), start: hhmm(sh.start_time), end: sh.end_time ? hhmm(sh.end_time) : "" });
+    const edit = (sh: Shift) => setDraft({ id: sh.id, date: ymd(new Date(sh.start_time)), start: hhmm(sh.start_time), end: sh.end_time ? hhmm(sh.end_time) : "",
+                                           brk: String(sh.break_minutes || "") });
     const today = ymd(new Date());
     // a forgotten shift of this month — today if it's this month, else its first day
     const firstOfMonth = ymd(new Date(month.year, month.month - 1, 1));
@@ -274,6 +277,8 @@ function Shifts({ userId, month, onChange }: { userId: string; month: Month; onC
                                 <div className="text-slate-500 tabular-nums">
                                     {hhmm(sh.start_time)}–{sh.end_time ? hhmm(sh.end_time) : "עדיין בעבודה"}
                                     {sh.paid_from && <> · נספר מ-{hhmm(sh.paid_from)}</>}
+                                    {!!sh.break_minutes && <> · הפסקות {sh.break_minutes} דק׳</>}
+                                    {sh.on_break_since && <span className="text-amber-700 font-semibold"> · בהפסקה מ-{hhmm(sh.on_break_since)}</span>}
                                     {sh.hours != null && <> · {sh.hours.toFixed(1)} שעות</>}
                                 </div>
                             </div>
@@ -294,6 +299,10 @@ function Shifts({ userId, month, onChange }: { userId: string; month: Month; onC
                         <div className="min-w-0"><div className="text-xs text-slate-500 mb-1">יציאה (ריק = עדיין בעבודה)</div>
                             <PickerBox type="time" label="שעת יציאה" value={draft.end} onChange={v => setDraft(d => d && { ...d, end: v })} className="rounded-lg border border-slate-200 px-2 py-2.5 font-semibold" /></div>
                     </div>
+                    <label className="flex items-center gap-2 text-sm text-slate-600">הפסקות
+                        <input type="number" inputMode="numeric" min={0} max={720} value={draft.brk} placeholder="0"
+                            onChange={e => setDraft(d => d && { ...d, brk: e.target.value })}
+                            className="w-20 rounded-lg border border-slate-200 px-2 py-2 text-center tabular-nums" /> דקות (לא נספרות)</label>
                     <div className="flex gap-2 pt-1">
                         <button type="button" onClick={save} disabled={saving || !draft.date || !draft.start}
                             className="flex-1 min-h-11 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold disabled:opacity-50">{saving ? "שומר..." : "שמירה"}</button>
@@ -301,7 +310,7 @@ function Shifts({ userId, month, onChange }: { userId: string; month: Month; onC
                     </div>
                 </div>
             ) : (
-                <button type="button" onClick={() => setDraft({ date: newDate, start: "09:00", end: "17:00" })}
+                <button type="button" onClick={() => setDraft({ date: newDate, start: "09:00", end: "17:00", brk: "" })}
                     className="w-full inline-flex items-center justify-center gap-1.5 min-h-11 rounded-xl border border-dashed border-slate-300 bg-white text-sm font-bold text-slate-700 hover:bg-slate-100">
                     <Plus className="w-4 h-4" aria-hidden /> הוספת משמרת שנשכחה
                 </button>

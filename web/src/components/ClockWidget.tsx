@@ -3,14 +3,14 @@
 import { toast } from "@/lib/toast";
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { BarChart3, CalendarRange, Timer, Users } from "lucide-react";
+import { BarChart3, CalendarRange, Coffee, Play, Timer, Users } from "lucide-react";
 import { apiFetch, getCurrentUserRole } from "@/lib/api";
 import { PresenceList, type PresenceEntry } from "@/components/team/PresenceNow";
 
 type ClockStatus = {
     is_clocked_in: boolean;
     pay_type?: string;
-    active_session?: { start_time: string } | null;
+    active_session?: { start_time: string; break_minutes?: number; break_started_at?: string | null } | null;
     nfc?: boolean;              // the business clocks in at the barcode (or NFC sticker) at the door — no button here
     available?: boolean;        // the plan has the attendance clock, and this is a worker or a manager (not the owner)
 };
@@ -58,6 +58,20 @@ export default function ClockWidget() {
         }
     };
 
+    // a break (the owner, 2026-10-19) — from here with the barcode too; not counted in the hours or the pay
+    const handleBreak = async (action: "start" | "end") => {
+        setLoading(true);
+        try {
+            await apiFetch(`/api/staff/break/${action}`, { method: "POST" });
+            toast.success(action === "start" ? "יצאת להפסקה — הזמן לא נספר עד שתחזור/י" : "חזרת מההפסקה");
+            await fetchData();
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : "שגיאה");
+        } finally {
+            setLoading(false);
+        }
+    };
+
     if (!myStatus) return null;
 
     // every worker and manager, whatever their pay — the hours are kept (owner, 2026-10-16); the owner doesn't clock
@@ -67,6 +81,8 @@ export default function ClockWidget() {
     if (!showClock && activeCount === 0) return null;
 
     const isClockedIn = myStatus.is_clocked_in;
+    const onBreakSince = myStatus.active_session?.break_started_at ?? null;
+    const hm = (iso: string) => new Date(iso).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
 
     return (
         <div className="relative flex items-center gap-2">
@@ -83,12 +99,21 @@ export default function ClockWidget() {
 
             {/* With the barcode clock: where they stand, not a button — clocking is a scan at the door */}
             {showClock && myStatus.nfc && (
-                <span className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-bold ${isClockedIn ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-slate-100 text-slate-500"}`}
+                <span className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-bold ${onBreakSince ? "bg-amber-50 text-amber-800 border border-amber-200" : isClockedIn ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-slate-100 text-slate-500"}`}
                     title="כניסה ויציאה — סורקים את הברקוד שבכניסה (או נוגעים בטלפון במדבקה)">
-                    {isClockedIn && myStatus.active_session
-                        ? `בעבודה מ-${new Date(myStatus.active_session.start_time).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })}`
+                    {onBreakSince ? `בהפסקה מ-${hm(onBreakSince)}`
+                        : isClockedIn && myStatus.active_session ? `בעבודה מ-${hm(myStatus.active_session.start_time)}`
                         : "החתמה בכניסה"}
                 </span>
+            )}
+
+            {/* On shift: a break, and back from it */}
+            {showClock && isClockedIn && (
+                <button type="button" onClick={() => handleBreak(onBreakSince ? "end" : "start")} disabled={loading}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-sm transition-all active:scale-95 disabled:opacity-50 ${onBreakSince ? "bg-amber-500 text-white hover:bg-amber-600" : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"}`}>
+                    {onBreakSince ? <Play className="w-4 h-4" aria-hidden /> : <Coffee className="w-4 h-4" aria-hidden />}
+                    {onBreakSince ? "חזרה" : "הפסקה"}
+                </button>
             )}
 
             {/* Clock-in / Clock-out button */}

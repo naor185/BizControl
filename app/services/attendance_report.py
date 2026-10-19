@@ -35,8 +35,8 @@ def alerts_on(settings) -> bool:
 
 
 def _hours(s) -> float:
-    from app.repositories.staff_repository import paid_start
-    return max((s.end_time - paid_start(s)).total_seconds(), 0) / 3600 if s.end_time else 0.0
+    from app.repositories.staff_repository import worked_seconds
+    return worked_seconds(s) / 3600
 
 
 def check_shifts(db: Session, studio_id, first: datetime, last: datetime, settings, now: datetime | None = None) -> list[dict]:

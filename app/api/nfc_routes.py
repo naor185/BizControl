@@ -6,6 +6,8 @@ GET  /api/nfc/status    — does the plan have the clock, is the barcode on; the
 POST /api/nfc/new-code  — the owner (or that manager) replaces the barcode — the old one stops working
 POST /api/nfc/tap       — the barcode's code → clock the signed-in worker in, or out (the owner: "it works")
 POST /api/nfc/undo      — a touch by mistake, taken back within two minutes
+POST /api/nfc/to-break  — the clock-out just now was a break: the shift goes on, on a break since then (a scan on the
+                          way back ends it)
 GET  /api/nfc/presence  — who is clocked in right now
 
 (It replaces a design that was never used — a personal tag per worker read by a device at the business; its tables
@@ -45,11 +47,24 @@ class UndoIn(BaseModel):
     session_id: str
 
 
+def _own_session(db: Session, ctx: AuthContext, session_id: str) -> WorkSession:
+    try:
+        sid = uuid.UUID(session_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="לא נמצא")
+    s = db.get(WorkSession, sid)
+    if s is None or s.studio_id != ctx.studio_id or s.user_id != ctx.user_id:
+        raise HTTPException(status_code=404, detail="לא נמצא")
+    return s
+
+
 class PresenceOut(BaseModel):
     user_id: str
     user_name: str
     clocked_in_at: str
-    duration_minutes: int
+    duration_minutes: int                     # worked — the breaks not counted
+    break_minutes: int = 0
+    on_break_since: str | None = None
 
 
 def _status(db: Session, ctx: AuthContext) -> dict:
@@ -122,22 +137,37 @@ def nfc_tap(body: TapIn, ctx: AuthContext = Depends(require_studio_ctx), db: Ses
     if last is not None and now - (last.end_time or last.start_time) < REPEAT_WINDOW:
         return _answer(last, user, repeat=True)
     repo = StaffRepository(db)
-    session = repo.clock_out(ctx.studio_id, ctx.user_id) if repo.get_active_session(ctx.studio_id, ctx.user_id) \
-        else repo.clock_in(ctx.studio_id, ctx.user_id)
+    active = repo.get_active_session(ctx.studio_id, ctx.user_id)
+    if active is not None and active.break_started_at is not None:        # back from a break — the shift goes on
+        from app.repositories.staff_repository import end_break
+        end_break(active, now)
+        db.commit()
+        return {"action": "back", "at": now.isoformat(), "name": user.display_name or user.email,
+                "session_id": str(active.id), "repeat": False}
+    session = repo.clock_out(ctx.studio_id, ctx.user_id) if active is not None else repo.clock_in(ctx.studio_id, ctx.user_id)
     return _answer(session, user, repeat=False)
+
+
+@router.post("/to-break")
+def nfc_to_break(body: UndoIn, ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+    """"It was a break, not the end of the shift" — within two minutes of the clock-out: the shift is open again, on a
+    break since the clock-out; the scan on the way back ends the break."""
+    s = _own_session(db, ctx, body.session_id)
+    now = datetime.now(timezone.utc)
+    if s.end_time is None or now - s.end_time > UNDO_WINDOW:
+        raise HTTPException(status_code=400, detail="אפשר רק בשתי הדקות שאחרי היציאה")
+    if StaffRepository(db).get_active_session(ctx.studio_id, ctx.user_id):
+        raise HTTPException(status_code=400, detail="יש כבר משמרת פתוחה")
+    s.break_started_at, s.end_time, s.session_pay = s.end_time, None, 0
+    db.commit()
+    return {"action": "break", "at": s.break_started_at.isoformat(), "session_id": str(s.id)}
 
 
 @router.post("/undo")
 def nfc_undo(body: UndoIn, ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
     """A touch by mistake: a clock-out reopens the shift, a clock-in is removed — within two minutes; later, the owner
     or a manager fixes it."""
-    try:
-        sid = uuid.UUID(body.session_id)
-    except ValueError:
-        raise HTTPException(status_code=404, detail="לא נמצא")
-    s = db.get(WorkSession, sid)
-    if s is None or s.studio_id != ctx.studio_id or s.user_id != ctx.user_id:
-        raise HTTPException(status_code=404, detail="לא נמצא")
+    s = _own_session(db, ctx, body.session_id)
     now = datetime.now(timezone.utc)
     if s.end_time is not None and now - s.end_time <= UNDO_WINDOW:
         s.end_time = None
@@ -166,11 +196,14 @@ def get_presence(ctx: AuthContext = Depends(require_studio_ctx), db: Session = D
         user = db.get(User, s.user_id)
         if not user:
             continue
-        duration = int((now - s.start_time.replace(tzinfo=timezone.utc)).total_seconds() / 60)
+        until = s.break_started_at or now                # on a break: the count stopped when it started
+        duration = int((until - s.start_time.replace(tzinfo=timezone.utc)).total_seconds() / 60) - (s.break_minutes or 0)
         result.append(PresenceOut(
             user_id=str(s.user_id),
             user_name=user.display_name or user.email,
             clocked_in_at=s.start_time.isoformat(),
-            duration_minutes=duration,
+            duration_minutes=max(duration, 0),
+            break_minutes=s.break_minutes or 0,
+            on_break_since=s.break_started_at.isoformat() if s.break_started_at else None,
         ))
     return result

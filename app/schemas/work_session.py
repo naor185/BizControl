@@ -11,6 +11,8 @@ class WorkSessionBase(BaseModel):
     start_time: Optional[datetime] = None
     end_time: Optional[datetime] = None
     session_pay: Decimal = Decimal("0.00")
+    break_minutes: int = 0                       # the ended breaks — not counted
+    break_started_at: Optional[datetime] = None  # on a break now, since
 
 
 class WorkSessionCreate(BaseModel):

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { LogIn, LogOut, CircleAlert, CircleCheck, Undo2 } from "lucide-react";
+import { LogIn, LogOut, CircleAlert, CircleCheck, Coffee, Play, Undo2 } from "lucide-react";
 import RequireAuth from "@/components/RequireAuth";
 import { apiFetch } from "@/lib/api";
 import { PresenceList, usePresence } from "@/components/team/PresenceNow";
@@ -14,7 +14,8 @@ import { PresenceList, usePresence } from "@/components/team/PresenceNow";
 
 // "check": the owner scanned it — the barcode works; the owner doesn't clock, and sees who is on shift now and for how
 // long (the owner, 2026-10-18: "it opens the clock — I want to see the workers' clock")
-type Tap = { action: "in" | "out" | "check"; at: string; name: string; session_id: string; repeat: boolean };
+// "back": the worker was on a break — the scan ends it, the shift goes on; "break": the clock-out just now was a break
+type Tap = { action: "in" | "out" | "back" | "break" | "check"; at: string; name: string; session_id: string; repeat: boolean };
 
 function ClockTap() {
     const { code } = useParams<{ code: string }>();
@@ -38,6 +39,16 @@ function ClockTap() {
         return () => clearTimeout(t);
     }, [tap]);
 
+    const wasBreak = async () => {
+        if (!tap) return;
+        try {
+            const r = await apiFetch<{ at: string }>("/api/nfc/to-break", { method: "POST", body: JSON.stringify({ session_id: tap.session_id }) });
+            setTap({ ...tap, action: "break", at: r.at });
+        } catch (e) {
+            setErr((e as Error)?.message || "לא ניתן");
+        }
+    };
+
     const undo = async () => {
         if (!tap) return;
         try {
@@ -51,6 +62,13 @@ function ClockTap() {
     const time = tap ? new Date(tap.at).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" }) : "";
     const date = tap ? new Date(tap.at).toLocaleDateString("he-IL", { weekday: "long", day: "numeric", month: "long" }) : "";
     const isIn = tap?.action === "in";
+    const LOOK = {
+        in: { icon: LogIn, tone: "bg-emerald-100 text-emerald-700", words: "נכנסת לעבודה" },
+        out: { icon: LogOut, tone: "bg-sky-100 text-sky-700", words: "יצאת מהעבודה" },
+        back: { icon: Play, tone: "bg-emerald-100 text-emerald-700", words: "חזרת מההפסקה" },
+        break: { icon: Coffee, tone: "bg-amber-100 text-amber-700", words: "יצאת להפסקה" },
+    } as const;
+    const look = tap && tap.action !== "check" ? LOOK[tap.action] : LOOK.in;
 
     return (
         <main className="min-h-dvh flex items-center justify-center bg-[var(--background)] p-6" dir="rtl">
@@ -72,15 +90,22 @@ function ClockTap() {
                     </>
                 ) : (
                     <>
-                        <div className={`w-20 h-20 mx-auto rounded-full flex items-center justify-center ${isIn ? "bg-emerald-100 text-emerald-700" : "bg-sky-100 text-sky-700"}`}>
-                            {isIn ? <LogIn className="w-10 h-10" aria-hidden /> : <LogOut className="w-10 h-10" aria-hidden />}
+                        <div className={`w-20 h-20 mx-auto rounded-full flex items-center justify-center ${look.tone}`}>
+                            <look.icon className="w-10 h-10" aria-hidden />
                         </div>
                         <p className="mt-5 text-slate-600">שלום {tap.name}</p>
-                        <p className="mt-1 text-2xl font-black text-slate-900">{isIn ? "נכנסת לעבודה" : "יצאת מהעבודה"}</p>
+                        <p className="mt-1 text-2xl font-black text-slate-900">{look.words}</p>
                         <p className="mt-3 text-5xl font-black tabular-nums text-slate-900">{time}</p>
                         <p className="mt-1 text-sm text-slate-500">{date}</p>
                         {tap.repeat && <p className="mt-3 text-sm text-slate-500">כבר נרשם לפני רגע — לא נרשם שוב.</p>}
-                        {canUndo && (
+                        {tap.action === "break" && <p className="mt-3 text-sm text-slate-600">זמן ההפסקה לא נספר. בחזרה — סורקים שוב את הברקוד.</p>}
+                        {tap.action === "out" && !tap.repeat && canUndo && (
+                            <button type="button" onClick={wasBreak}
+                                className="mt-6 w-full inline-flex items-center justify-center gap-1.5 min-h-12 px-5 rounded-xl bg-amber-500 text-white font-bold hover:bg-amber-600">
+                                <Coffee className="w-5 h-5" aria-hidden /> רק יצאתי להפסקה
+                            </button>
+                        )}
+                        {canUndo && (tap.action === "in" || tap.action === "out") && (
                             <button type="button" onClick={undo}
                                 className="mt-6 inline-flex items-center gap-1.5 min-h-11 px-5 rounded-xl border border-slate-200 text-slate-700 font-semibold hover:bg-slate-50">
                                 <Undo2 className="w-4 h-4" aria-hidden /> טעות? ביטול

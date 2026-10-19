@@ -4,14 +4,14 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AlarmClock, CircleCheck, Inbox, Users } from "lucide-react";
 import { apiFetch } from "@/lib/api";
-import { fmtDuration } from "@/components/team/PresenceNow";
+import { fmtDuration, workedMinutes } from "@/components/team/PresenceNow";
 
 // The "היום" tab of the workers center (the owner, 2026-10-19): who is on shift and for how long, who has a shift or
 // appointments today and hasn't clocked in (late — in red, services/attendance_report.py), and the shifts that ended today — GET /api/staff/today, asked again
 // every half minute.
 
 type Today = {
-    working: { user_id: string; name: string; since: string }[];
+    working: { user_id: string; name: string; since: string; break_minutes?: number; on_break_since?: string | null }[];
     missing: { user_id: string; name: string; first_at: string; kind?: "shift" | "appointment"; late_min?: number }[];
     done: { user_id: string; name: string; start: string; end: string; hours: number }[];
 };
@@ -63,8 +63,9 @@ export default function TodayPanel() {
                     <ul className="divide-y divide-slate-100">{t.working.map(w => (
                         <li key={w.user_id} className={row}>
                             <span className="flex-1 min-w-0"><b className="block text-sm text-slate-800 truncate">{w.name}</b>
-                                <span className="text-xs text-slate-500">כניסה ב-{hhmm(w.since)}</span></span>
-                            <span className="text-sm font-bold tabular-nums text-emerald-700">{fmtDuration(Math.max(0, Math.floor((now - new Date(w.since).getTime()) / 60000)))}</span>
+                                <span className="text-xs text-slate-500">כניסה ב-{hhmm(w.since)}
+                                    {w.on_break_since && <span className="ms-1.5 font-semibold text-amber-700">· בהפסקה מ-{hhmm(w.on_break_since)}</span>}</span></span>
+                            <span className="text-sm font-bold tabular-nums text-emerald-700">{fmtDuration(workedMinutes(w.since, now, w.break_minutes, w.on_break_since))}</span>
                         </li>))}</ul>
                 )}
             </Card>

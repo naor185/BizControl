@@ -47,7 +47,7 @@ def shift_rows(db: Session, studio_id, start: datetime, end: datetime, user_id=N
     """The shifts that ended, in the business's time: date, in, out, counted from, hours (from when they count), pay."""
     from app.models.user import User
     from app.models.work_session import WorkSession
-    from app.repositories.staff_repository import paid_start
+    from app.repositories.staff_repository import paid_start, worked_seconds
     tz = _tz(db, studio_id)
     q = (select(WorkSession, User).join(User, User.id == WorkSession.user_id)
          .where(WorkSession.studio_id == studio_id, WorkSession.start_time >= start, WorkSession.start_time <= end,
@@ -63,7 +63,8 @@ def shift_rows(db: Session, studio_id, start: datetime, end: datetime, user_id=N
             "date": w.start_time.astimezone(tz).strftime("%d/%m/%Y"),
             "start": w.start_time.astimezone(tz).strftime("%H:%M"), "end": w.end_time.astimezone(tz).strftime("%H:%M"),
             "counted_from": counted.astimezone(tz).strftime("%H:%M") if w.paid_from else "",
-            "hours": round(max((w.end_time - counted).total_seconds(), 0) / 3600, 2),
+            "break": w.break_minutes or 0,
+            "hours": round(worked_seconds(w) / 3600, 2),
             "pay": float(w.session_pay or 0),
         })
     return out
@@ -72,10 +73,10 @@ def shift_rows(db: Session, studio_id, start: datetime, end: datetime, user_id=N
 def shifts_csv(rows: list[dict]) -> bytes:
     buf = io.StringIO()
     out = csv.writer(buf)
-    out.writerow(["עובד/ת", "סוג שכר", "תאריך", "כניסה", "יציאה", "נספר מ-", "שעות", "שכר המשמרת (₪)"])
+    out.writerow(["עובד/ת", "סוג שכר", "תאריך", "כניסה", "יציאה", "נספר מ-", "הפסקות (דק׳)", "שעות", "שכר המשמרת (₪)"])
     for r in rows:
         out.writerow([r["name"], PAY_WORDS.get(r["pay_type"], r["pay_type"]), r["date"], r["start"], r["end"],
-                      r["counted_from"], f"{r['hours']:.2f}", f"{r['pay']:.2f}"])
+                      r["counted_from"], r.get("break", 0), f"{r['hours']:.2f}", f"{r['pay']:.2f}"])
     return ("﻿" + buf.getvalue()).encode("utf-8")       # the BOM: Excel opens Hebrew right
 
 

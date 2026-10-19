@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import DateTime, ForeignKey, Numeric, func
+from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -23,6 +23,10 @@ class WorkSession(Base):
     # clocked in before the opening hour: the hours and the pay count from here (services/nfc_clock.paid_from); a time
     # fixed by hand counts as it is (None)
     paid_from: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # breaks (repositories/staff_repository start_break / end_break): the ended ones' minutes — not counted in the hours
+    # or the pay — and since when the worker is on one now (None: working)
+    break_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    break_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Calculated pay for this specific session (if hourly)
     # who fixed it by hand — the owner or a manager (a forgotten clock-in, a wrong time); None: as clocked

@@ -6,7 +6,7 @@ from typing import Optional
 import pytz
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -106,12 +106,33 @@ def clock_out(
     return session
 
 
+@router.post("/break/{action}")
+def take_break(action: str, ctx: AuthContext = Depends(require_studio_ctx), repo: StaffRepository = Depends(get_staff_repo),
+               db: Session = Depends(get_db)):
+    """A break in the shift (the owner, 2026-10-19): start / end — from the app, with the barcode at the door too (it's
+    taken where the worker is; back at the door, a scan ends it as well — api/nfc_routes tap)."""
+    from app.repositories.staff_repository import end_break, start_break
+    from app.services import nfc_clock
+    if action not in ("start", "end"):
+        raise HTTPException(status_code=404, detail="Not found")
+    if not nfc_clock.clocks(db, ctx.studio_id, ctx.role):
+        raise HTTPException(status_code=403, detail="הפסקה — לעובדים במשמרת")
+    session = repo.get_active_session(ctx.studio_id, ctx.user_id)
+    if session is None:
+        raise HTTPException(status_code=400, detail="אין משמרת פתוחה — קודם מחתימים כניסה")
+    now = datetime.now(timezone.utc)
+    start_break(session, now) if action == "start" else end_break(session, now)
+    db.commit()
+    return WorkSessionResponse.model_validate(session)
+
+
 # ── Shifts: the owner and the managers fix them (owner, 2026-10-13: "a worker forgot to clock in") ─────────────────────
 
 class ShiftIn(BaseModel):
     user_id: Optional[uuid.UUID] = None       # adding: whose
     start_time: Optional[datetime] = None     # the studio's wall clock ("2026-10-13T09:00") or with an offset
     end_time: Optional[datetime] = None
+    break_minutes: Optional[int] = Field(default=None, ge=0, le=720)    # the shift's breaks, in minutes
 
 
 def _manager(ctx: AuthContext, db: Session, worker_id=None) -> None:
@@ -124,14 +145,16 @@ def _manager(ctx: AuthContext, db: Session, worker_id=None) -> None:
 def _shift_words(db: Session, studio_id, s: WorkSession) -> str:
     """13.10 09:00–17:00 · 13.10 09:00–פתוחה"""
     from app.services.activity_log import at
-    return f"{at(db, studio_id, s.start_time)}–{at(db, studio_id, s.end_time)[-5:] if s.end_time else 'פתוחה'}"
+    words = f"{at(db, studio_id, s.start_time)}–{at(db, studio_id, s.end_time)[-5:] if s.end_time else 'פתוחה'}"
+    return words + (f" (הפסקות {s.break_minutes} דק׳)" if s.break_minutes else "")
 
 
 def _shift_out(s: WorkSession) -> dict:
-    from app.repositories.staff_repository import paid_start
-    hours = round(max((s.end_time - paid_start(s)).total_seconds(), 0) / 3600, 2) if s.end_time else None
+    from app.repositories.staff_repository import worked_seconds
+    hours = round(worked_seconds(s) / 3600, 2) if s.end_time else None
     return {"id": str(s.id), "start_time": s.start_time.isoformat(), "end_time": s.end_time.isoformat() if s.end_time else None,
-            "paid_from": s.paid_from.isoformat() if s.paid_from else None,
+            "paid_from": s.paid_from.isoformat() if s.paid_from else None, "break_minutes": s.break_minutes or 0,
+            "on_break_since": s.break_started_at.isoformat() if s.break_started_at else None,
             "hours": hours, "pay": float(s.session_pay or 0), "fixed": s.fixed_by is not None}
 
 
@@ -170,7 +193,8 @@ def add_shift(body: ShiftIn, ctx: AuthContext = Depends(require_studio_ctx), db:
     start, end = _times(db, ctx.studio_id, body.start_time, body.end_time)
     if end is None and StaffRepository(db).get_active_session(ctx.studio_id, worker.id):
         raise HTTPException(status_code=400, detail="לעובד כבר יש משמרת פתוחה")
-    s = WorkSession(studio_id=ctx.studio_id, user_id=worker.id, start_time=start, end_time=end, fixed_by=ctx.user_id)
+    s = WorkSession(studio_id=ctx.studio_id, user_id=worker.id, start_time=start, end_time=end, fixed_by=ctx.user_id,
+                    break_minutes=body.break_minutes or 0)
     price_shift(s, worker)
     db.add(s)
     db.commit()
@@ -193,6 +217,11 @@ def fix_shift(shift_id: uuid.UUID, body: ShiftIn, ctx: AuthContext = Depends(req
                         data["end_time"] if "end_time" in data else s.end_time)
     s.start_time, s.end_time, s.fixed_by = start, end, ctx.user_id
     s.paid_from = None                                   # a time fixed by hand counts as it is
+    if end is not None:
+        from app.repositories.staff_repository import end_break
+        end_break(s, max(end, s.break_started_at) if s.break_started_at else end)   # closed by hand during a break
+    if "break_minutes" in data:
+        s.break_minutes = data["break_minutes"] or 0
     worker = db.get(User, s.user_id)
     price_shift(s, worker)
     db.commit()
@@ -293,7 +322,7 @@ def staff_today(ctx: AuthContext = Depends(require_studio_ctx), db: Session = De
         raise HTTPException(status_code=403, detail="Forbidden")
     from sqlalchemy import func as _func
     from app.models.appointment import Appointment
-    from app.repositories.staff_repository import paid_start
+    from app.repositories.staff_repository import worked_seconds
     from app.services import nfc_clock
     settings = db.get(StudioSettings, ctx.studio_id)
     tz = pytz.timezone((settings.timezone if settings else None) or "Asia/Jerusalem")
@@ -306,10 +335,12 @@ def staff_today(ctx: AuthContext = Depends(require_studio_ctx), db: Session = De
     sessions = db.scalars(select(WorkSession).where(WorkSession.studio_id == ctx.studio_id,
                                                     (WorkSession.end_time.is_(None)) | (WorkSession.start_time >= start))
                           .order_by(WorkSession.start_time)).all()
-    working = [{"user_id": str(s.user_id), "name": name(s.user_id), "since": s.start_time.isoformat()}
+    working = [{"user_id": str(s.user_id), "name": name(s.user_id), "since": s.start_time.isoformat(),
+                "break_minutes": s.break_minutes or 0,
+                "on_break_since": s.break_started_at.isoformat() if s.break_started_at else None}
                for s in sessions if s.end_time is None and s.user_id in team]
     done = [{"user_id": str(s.user_id), "name": name(s.user_id), "start": s.start_time.isoformat(), "end": s.end_time.isoformat(),
-             "hours": round(max((s.end_time - paid_start(s)).total_seconds(), 0) / 3600, 2)}
+             "hours": round(worked_seconds(s) / 3600, 2), "break_minutes": s.break_minutes or 0}
             for s in sessions if s.end_time is not None and s.start_time >= start and s.user_id in team]
     clocked = {s.user_id for s in sessions if s.end_time is None or s.start_time >= start}
     missing = []

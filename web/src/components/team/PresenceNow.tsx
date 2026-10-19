@@ -8,7 +8,14 @@ import { apiFetch } from "@/lib/api";
 // "פעילים" (components/ClockWidget), ניהול צוות (components/team/ClockCode) and the owner's scan of the barcode
 // (app/clock/[code]); the times move on by themselves, the list is asked for again every half minute.
 
-export type PresenceEntry = { user_id: string; user_name: string; clocked_in_at: string; duration_minutes: number };
+export type PresenceEntry = { user_id: string; user_name: string; clocked_in_at: string; duration_minutes: number;
+    break_minutes?: number; on_break_since?: string | null };
+
+/** Minutes worked on an open shift — less its breaks; during a break the count stands still. */
+export function workedMinutes(since: string, now: number, breakMinutes = 0, onBreakSince?: string | null): number {
+    const until = onBreakSince ? new Date(onBreakSince).getTime() : now;
+    return Math.max(0, Math.floor((until - new Date(since).getTime()) / 60000) - breakMinutes);
+}
 
 export function fmtDuration(minutes: number): string {
     const h = Math.floor(minutes / 60);
@@ -41,7 +48,7 @@ export function PresenceList({ entries, empty = "אף אחד לא במשמרת �
         <ul className="divide-y divide-slate-100">
             {sorted.map(p => {
                 const since = new Date(p.clocked_in_at);
-                const minutes = Math.max(0, Math.floor((now - since.getTime()) / 60000));
+                const minutes = workedMinutes(p.clocked_in_at, now, p.break_minutes, p.on_break_since);
                 return (
                     <li key={p.user_id} className="flex items-center gap-3 px-4 py-2.5">
                         <span className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-sm font-bold text-emerald-700 shrink-0" aria-hidden>
@@ -51,6 +58,7 @@ export function PresenceList({ entries, empty = "אף אחד לא במשמרת �
                             <span className="block text-sm font-semibold text-slate-800 truncate">{p.user_name}</span>
                             <span className="block text-xs text-slate-500">
                                 כניסה ב-{since.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })}
+                                {p.on_break_since && <span className="ms-1.5 font-semibold text-amber-700">· בהפסקה מ-{new Date(p.on_break_since).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })}</span>}
                             </span>
                         </span>
                         <span className="text-sm font-bold tabular-nums text-emerald-700 shrink-0">{fmtDuration(minutes)}</span>

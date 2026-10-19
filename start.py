@@ -2931,6 +2931,9 @@ def ensure_schema():
         # a clock-in before the opening hour counts from it (services/nfc_clock.paid_from), and from when a shift is paid
         cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS clock_from_opening BOOLEAN NOT NULL DEFAULT TRUE")
         cur.execute("ALTER TABLE work_sessions ADD COLUMN IF NOT EXISTS paid_from TIMESTAMPTZ")
+        # breaks in a shift (the owner, 2026-10-19): the minutes of the ended ones — not counted — and the one on now
+        cur.execute("ALTER TABLE work_sessions ADD COLUMN IF NOT EXISTS break_minutes INTEGER NOT NULL DEFAULT 0")
+        cur.execute("ALTER TABLE work_sessions ADD COLUMN IF NOT EXISTS break_started_at TIMESTAMPTZ")
         # the month's hours and pay to the accountant on the 1st, by itself (services/payroll_report.py) — and the month
         # last sent that way
         cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS payroll_to_accountant_auto BOOLEAN NOT NULL DEFAULT FALSE")
