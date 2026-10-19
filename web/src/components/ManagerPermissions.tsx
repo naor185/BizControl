@@ -6,6 +6,7 @@ import { Switch } from "@/components/ui/switch";
 import { apiFetch, getCurrentUserRole } from "@/lib/api";
 import { toast } from "@/lib/toast";
 
+import { tx } from "@/lib/i18n";
 // The owner's switches for what a manager (סגן מנהל) may do — the server enforces them (core/permissions.
 // MANAGER_PERMISSIONS; the owner, 2026-10-13: "only the owner issues receipts and changes settings"). Owner only.
 
@@ -25,9 +26,9 @@ export default function ManagerPermissions() {
         try {
             const next = await apiFetch<Perm[]>("/api/users/artists/manager-permissions", { method: "PUT", body: JSON.stringify({ permissions: { [p.key]: on } }) });
             setPerms(next);
-            toast.success(on ? `סגן המנהל יכול עכשיו: ${p.label}` : `סגן המנהל כבר לא יכול: ${p.label}`);
+            toast.success(on ? tx("סגן המנהל יכול עכשיו: {0}", { 0: p.label }) : tx("סגן המנהל כבר לא יכול: {0}", { 0: p.label }));
         } catch (e) {
-            toast.error((e as Error)?.message || "שגיאה");
+            toast.error((e as Error)?.message || tx("שגיאה"));
         } finally {
             setBusy(null);
         }
@@ -37,9 +38,9 @@ export default function ManagerPermissions() {
     return (
         <section className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5" aria-labelledby="mgr-perms-title">
             <h2 id="mgr-perms-title" className="flex items-center gap-2 font-bold text-slate-900">
-                <ShieldCheck className="w-5 h-5 text-sky-600" aria-hidden /> מה מותר לסגן מנהל
+                <ShieldCheck className="w-5 h-5 text-sky-600" aria-hidden /> {tx("מה מותר לסגן מנהל")}
             </h2>
-            <p className="text-sm text-slate-500 mt-1">רק אתה מחליט. מה שכבוי — סגן המנהל לא רואה ולא יכול לעשות, גם לא בעקיפין.</p>
+            <p className="text-sm text-slate-500 mt-1">{tx("רק אתה מחליט. מה שכבוי — סגן המנהל לא רואה ולא יכול לעשות, גם לא בעקיפין.")}</p>
             <ul className="mt-3 divide-y divide-slate-100">
                 {perms.map(p => (
                     <li key={p.key} className="flex items-center justify-between gap-3 py-2.5">

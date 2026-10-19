@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { useBackButtonClose } from "@/lib/backButtonStack";
 
+import { tx } from "@/lib/i18n";
 type Client = {
     id: string;
     full_name: string;
@@ -59,7 +60,7 @@ export default function QuickWhatsAppModal({ onClose }: { onClose: () => void })
             setSent(true);
             setTimeout(onClose, 1800);
         } catch (e: any) {
-            setError(e?.message || "שגיאה בשליחה");
+            setError(e?.message || tx("שגיאה בשליחה"));
         } finally {
             setSending(false);
         }
@@ -73,21 +74,21 @@ export default function QuickWhatsAppModal({ onClose }: { onClose: () => void })
             >
                 {/* Header */}
                 <div className="flex items-center justify-between">
-                    <h2 className="text-lg font-bold text-slate-900">שלח הודעת וואטסאפ</h2>
+                    <h2 className="text-lg font-bold text-slate-900">{tx("שלח הודעת וואטסאפ")}</h2>
                     <button onClick={onClose} className="text-slate-400 hover:text-slate-700 text-2xl leading-none">&times;</button>
                 </div>
 
                 {sent ? (
                     <div className="text-center py-6 space-y-2">
                         <div className="text-4xl">✅</div>
-                        <div className="font-semibold text-slate-800">ההודעה נשלחה בהצלחה!</div>
+                        <div className="font-semibold text-slate-800">{tx("ההודעה נשלחה בהצלחה!")}</div>
                         <div className="text-sm text-slate-500">{selected?.full_name} · {selected?.phone}</div>
                     </div>
                 ) : (
                     <>
                         {/* Client search */}
                         <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-1.5">לקוח</label>
+                            <label className="block text-sm font-semibold text-slate-700 mb-1.5">{tx("לקוח")}</label>
                             {selected ? (
                                 <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2.5">
                                     <div className="flex-1 min-w-0">
@@ -106,7 +107,7 @@ export default function QuickWhatsAppModal({ onClose }: { onClose: () => void })
                                     <input
                                         ref={searchRef}
                                         type="text"
-                                        placeholder="חפש לפי שם או טלפון..."
+                                        placeholder={tx("חפש לפי שם או טלפון...")}
                                         value={search}
                                         onChange={e => { setSearch(e.target.value); setDropdownOpen(true); }}
                                         onFocus={() => setDropdownOpen(true)}
@@ -116,7 +117,7 @@ export default function QuickWhatsAppModal({ onClose }: { onClose: () => void })
                                     {dropdownOpen && search.length > 0 && (
                                         <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto">
                                             {searching ? (
-                                                <div className="px-4 py-3 text-sm text-slate-400 text-center">מחפש...</div>
+                                                <div className="px-4 py-3 text-sm text-slate-400 text-center">{tx("מחפש...")}</div>
                                             ) : filtered.length > 0 ? filtered.map(c => (
                                                 <div
                                                     key={c.id}
@@ -127,7 +128,7 @@ export default function QuickWhatsAppModal({ onClose }: { onClose: () => void })
                                                     <div className="text-xs text-slate-500" dir="ltr">{c.phone}</div>
                                                 </div>
                                             )) : (
-                                                <div className="px-4 py-3 text-sm text-slate-400 text-center">לא נמצאו לקוחות</div>
+                                                <div className="px-4 py-3 text-sm text-slate-400 text-center">{tx("לא נמצאו לקוחות")}</div>
                                             )}
                                         </div>
                                     )}
@@ -137,15 +138,15 @@ export default function QuickWhatsAppModal({ onClose }: { onClose: () => void })
 
                         {/* Message body */}
                         <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-1.5">הודעה</label>
+                            <label className="block text-sm font-semibold text-slate-700 mb-1.5">{tx("הודעה")}</label>
                             <textarea
                                 rows={4}
-                                placeholder="כתוב את ההודעה כאן..."
+                                placeholder={tx("כתוב את ההודעה כאן...")}
                                 value={body}
                                 onChange={e => setBody(e.target.value)}
                                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 text-sm resize-none"
                             />
-                            <div className="text-xs text-slate-400 text-left mt-0.5">{body.length} תווים</div>
+                            <div className="text-xs text-slate-400 text-end mt-0.5">{body.length}{tx(" תווים")}</div>
                         </div>
 
                         {error && <div className="text-sm text-red-600 bg-red-50 rounded-xl px-4 py-2">{error}</div>}
@@ -157,13 +158,13 @@ export default function QuickWhatsAppModal({ onClose }: { onClose: () => void })
                                 disabled={!selected || !body.trim() || sending}
                                 className="flex-1 py-2.5 bg-emerald-600 text-white text-sm font-bold rounded-xl hover:bg-emerald-700 transition disabled:opacity-40"
                             >
-                                {sending ? "שולח..." : "שלח בוואטסאפ 📱"}
+                                {sending ? tx("שולח...") : tx("שלח בוואטסאפ 📱")}
                             </button>
                             <button
                                 onClick={onClose}
                                 className="px-5 py-2.5 text-sm font-semibold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition"
                             >
-                                סגור
+                                {tx("סגור")}
                             </button>
                         </div>
                     </>

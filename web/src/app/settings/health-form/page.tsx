@@ -9,6 +9,7 @@ import { toast } from "@/lib/toast";
 import HealthFormFill, { type HealthFile, type HealthQuestion } from "@/components/health/HealthFormFill";
 import { useFormFile } from "@/components/health/HealthDeclarations";
 
+import { tx } from "@/lib/i18n";
 // The business's health declaration (app/services/health_forms.py): its text, its questions (yes/no — "yes" asks for
 // details — or open), a file of its own (PDF / image), or all of them together. A ready-made form until it's saved.
 // Changing it never changes a declaration someone already signed. And the business's choices: on or off, the link
@@ -21,13 +22,13 @@ type Form = {
     saved: boolean; enabled: boolean; auto_send: AutoSend; validity: Validity;
 };
 const AUTO_SEND: { key: AutoSend; label: string; note: string }[] = [
-    { key: "off",        label: "רק בלחיצה",          note: "שולחים מהתור או מתיק הלקוח, כשרוצים" },
-    { key: "on_booking", label: "עם קביעת התור",       note: "הקישור יוצא כמה דקות אחרי שנקבע תור" },
-    { key: "day_before", label: "יום לפני התור",       note: "יוצא ב-24 השעות שלפני התור, בין 09:00 ל-21:00" },
+    { key: "off",        label: tx("רק בלחיצה"),          note: tx("שולחים מהתור או מתיק הלקוח, כשרוצים") },
+    { key: "on_booking", label: tx("עם קביעת התור"),       note: tx("הקישור יוצא כמה דקות אחרי שנקבע תור") },
+    { key: "day_before", label: tx("יום לפני התור"),       note: tx("יוצא ב-24 השעות שלפני התור, בין 09:00 ל-21:00") },
 ];
 const VALIDITY: { key: Validity; label: string }[] = [
-    { key: "every_visit", label: "בכל תור מחדש" }, { key: "6m", label: "6 חודשים" },
-    { key: "12m", label: "שנה" }, { key: "forever", label: "פעם אחת לתמיד" },
+    { key: "every_visit", label: tx("בכל תור מחדש") }, { key: "6m", label: tx("6 חודשים") },
+    { key: "12m", label: tx("שנה") }, { key: "forever", label: tx("פעם אחת לתמיד") },
 ];
 const input = "w-full border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-slate-300";
 
@@ -39,8 +40,8 @@ export default function HealthFormSettingsPage() {
     const fileInput = useRef<HTMLInputElement>(null);
     const fileSrc = useFormFile(form?.file?.id);
 
-    useEffect(() => { apiFetch<Form>("/api/health-form").then(setForm).catch(() => toast.error("הטעינה נכשלה")); }, []);
-    if (!form) return <RequireAuth><AppShell title="הצהרת בריאות"><p className="text-center text-slate-400 py-16">טוען...</p></AppShell></RequireAuth>;
+    useEffect(() => { apiFetch<Form>("/api/health-form").then(setForm).catch(() => toast.error(tx("הטעינה נכשלה"))); }, []);
+    if (!form) return <RequireAuth><AppShell title={tx("הצהרת בריאות")}><p className="text-center text-slate-400 py-16">{tx("טוען...")}</p></AppShell></RequireAuth>;
 
     const set = (patch: Partial<Form>) => setForm({ ...form, ...patch });
     const setQ = (i: number, patch: Partial<HealthQuestion>) => set({ questions: form.questions.map((q, j) => (j === i ? { ...q, ...patch } : q)) });
@@ -57,10 +58,10 @@ export default function HealthFormSettingsPage() {
             body.append("file", file);
             const r = await fetch(`${API_BASE}/api/health-form/file`, { method: "POST", body, headers: { Authorization: `Bearer ${getToken() ?? ""}` } });
             const data = await r.json().catch(() => null);
-            if (!r.ok) throw new Error(data?.detail || "ההעלאה נכשלה");
+            if (!r.ok) throw new Error(data?.detail || tx("ההעלאה נכשלה"));
             set({ file: data });
         } catch (e) {
-            toast.error(e instanceof Error ? e.message : "ההעלאה נכשלה");
+            toast.error(e instanceof Error ? e.message : tx("ההעלאה נכשלה"));
         } finally {
             setUploading(false);
             if (fileInput.current) fileInput.current.value = "";
@@ -73,9 +74,9 @@ export default function HealthFormSettingsPage() {
                 method: "PUT",
                 body: JSON.stringify({ ...form, file_id: form.file?.id ?? null }),
             }));
-            toast.success("הטופס נשמר");
+            toast.success(tx("הטופס נשמר"));
         } catch (e) {
-            toast.error(e instanceof Error ? e.message : "השמירה נכשלה");
+            toast.error(e instanceof Error ? e.message : tx("השמירה נכשלה"));
         } finally {
             setSaving(false);
         }
@@ -83,49 +84,48 @@ export default function HealthFormSettingsPage() {
 
     return (
         <RequireAuth>
-            <AppShell title="הצהרת בריאות">
-                <div className="max-w-3xl mx-auto py-6 px-4 space-y-6" dir="rtl">
+            <AppShell title={tx("הצהרת בריאות")}>
+                <div className="max-w-3xl mx-auto py-6 px-4 space-y-6">
                     <div className="flex items-start justify-between gap-4 flex-wrap">
                         <div>
-                            <h1 className="text-2xl font-black text-slate-900">הצהרת בריאות</h1>
+                            <h1 className="text-2xl font-black text-slate-900">{tx("הצהרת בריאות")}</h1>
                             <p className="text-sm text-slate-500 mt-1 max-w-xl">
-                                הטופס שהלקוח ממלא וחותם עליו לפני הטיפול: באייפד או באייפון בעסק, מהתור או מתיק הלקוח. אחרי הלקוח חותם גם המבצע.
-                                אפשר לכתוב כאן שאלות, לצרף קובץ משלך, או את שניהם.
-                                {!form.saved && " זה טופס מוכן להתחלה, אפשר לשנות בו הכול."}
+                                {tx("הטופס שהלקוח ממלא וחותם עליו לפני הטיפול: באייפד או באייפון בעסק, מהתור או מתיק הלקוח. אחרי הלקוח חותם גם המבצע. אפשר לכתוב כאן שאלות, לצרף קובץ משלך, או את שניהם.")}
+                                {!form.saved && tx(" זה טופס מוכן להתחלה, אפשר לשנות בו הכול.")}
                             </p>
                         </div>
                         <button onClick={() => setPreview(true)} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-sm font-bold text-slate-700">
-                            <Eye className="h-4 w-4" aria-hidden /> איך הלקוח רואה את זה
+                            <Eye className="h-4 w-4" aria-hidden /> {tx("איך הלקוח רואה את זה")}
                         </button>
                     </div>
 
                     <section className="bg-white border border-slate-200 rounded-2xl p-5 space-y-5">
                         <label className="flex items-center justify-between gap-4 cursor-pointer">
                             <span>
-                                <span className="block font-bold text-slate-900">הצהרת בריאות בעסק</span>
-                                <span className="block text-xs text-slate-500 mt-0.5">כבויה — לא מופיעה בתורים ובתיק הלקוח, ולא נשלחת. הצהרות שכבר נחתמו נשמרות.</span>
+                                <span className="block font-bold text-slate-900">{tx("הצהרת בריאות בעסק")}</span>
+                                <span className="block text-xs text-slate-500 mt-0.5">{tx("כבויה — לא מופיעה בתורים ובתיק הלקוח, ולא נשלחת. הצהרות שכבר נחתמו נשמרות.")}</span>
                             </span>
                             <input type="checkbox" checked={form.enabled} onChange={e => set({ enabled: e.target.checked })} className="h-6 w-6 accent-slate-900 shrink-0" />
                         </label>
                         {form.enabled && (
                             <>
                                 <div>
-                                    <p className="text-sm font-bold text-slate-900">שליחת הקישור ללקוח</p>
+                                    <p className="text-sm font-bold text-slate-900">{tx("שליחת הקישור ללקוח")}</p>
                                     <div className="mt-2 grid sm:grid-cols-3 gap-2">
                                         {AUTO_SEND.map(o => (
                                             <button key={o.key} type="button" onClick={() => set({ auto_send: o.key })} aria-pressed={form.auto_send === o.key}
-                                                className={`text-right rounded-xl border-2 px-3 py-2.5 ${form.auto_send === o.key ? "border-slate-900 bg-slate-50" : "border-slate-200 bg-white hover:border-slate-300"}`}>
+                                                className={`text-start rounded-xl border-2 px-3 py-2.5 ${form.auto_send === o.key ? "border-slate-900 bg-slate-50" : "border-slate-200 bg-white hover:border-slate-300"}`}>
                                                 <span className="block text-sm font-bold text-slate-900">{o.label}</span>
                                                 <span className="block text-xs text-slate-500 mt-0.5">{o.note}</span>
                                             </button>
                                         ))}
                                     </div>
                                     {form.auto_send !== "off" && (
-                                        <p className="text-xs text-slate-500 mt-2">נשלח ב-WhatsApp מהמספר של העסק, רק ללקוח עם טלפון, ורק לתורים שייקבעו מעכשיו.</p>
+                                        <p className="text-xs text-slate-500 mt-2">{tx("נשלח ב-WhatsApp מהמספר של העסק, רק ללקוח עם טלפון, ורק לתורים שייקבעו מעכשיו.")}</p>
                                     )}
                                 </div>
                                 <div>
-                                    <p className="text-sm font-bold text-slate-900">הצהרה שמולאה תקפה ל-</p>
+                                    <p className="text-sm font-bold text-slate-900">{tx("הצהרה שמולאה תקפה ל-")}</p>
                                     <div className="mt-2 flex flex-wrap gap-2">
                                         {VALIDITY.map(o => (
                                             <button key={o.key} type="button" onClick={() => set({ validity: o.key })} aria-pressed={form.validity === o.key}
@@ -136,8 +136,8 @@ export default function HealthFormSettingsPage() {
                                     </div>
                                     <p className="text-xs text-slate-500 mt-2">
                                         {form.validity === "every_visit"
-                                            ? "כל תור מקבל הצהרה משלו."
-                                            : "לקוח שמילא הצהרה שעוד בתוקף לא יקבל קישור שוב, ובתור יופיע \"יש הצהרה בתוקף\". אפשר תמיד לבקש חדשה בלחיצה."}
+                                            ? tx("כל תור מקבל הצהרה משלו.")
+                                            : tx("לקוח שמילא הצהרה שעוד בתוקף לא יקבל קישור שוב, ובתור יופיע \"יש הצהרה בתוקף\". אפשר תמיד לבקש חדשה בלחיצה.")}
                                     </p>
                                 </div>
                             </>
@@ -146,16 +146,16 @@ export default function HealthFormSettingsPage() {
 
                     <section className="bg-white border border-slate-200 rounded-2xl p-5 space-y-4">
                         <label className="block">
-                            <span className="text-xs font-semibold text-slate-500">כותרת</span>
+                            <span className="text-xs font-semibold text-slate-500">{tx("כותרת")}</span>
                             <input className={`${input} mt-1 font-bold`} value={form.title} maxLength={120} onChange={e => set({ title: e.target.value })} />
                         </label>
                         <label className="block">
-                            <span className="text-xs font-semibold text-slate-500">טקסט פתיחה / ההצהרה עצמה</span>
+                            <span className="text-xs font-semibold text-slate-500">{tx("טקסט פתיחה / ההצהרה עצמה")}</span>
                             <textarea className={`${input} mt-1 min-h-[110px] leading-relaxed`} value={form.intro} maxLength={5000} onChange={e => set({ intro: e.target.value })} />
                         </label>
 
                         <div>
-                            <span className="text-xs font-semibold text-slate-500">קובץ משלך (לא חובה)</span>
+                            <span className="text-xs font-semibold text-slate-500">{tx("קובץ משלך (לא חובה)")}</span>
                             <div className="mt-1 flex items-center gap-3 flex-wrap">
                                 {form.file ? (
                                     <>
@@ -164,71 +164,71 @@ export default function HealthFormSettingsPage() {
                                             {fileSrc ? <a href={fileSrc} target="_blank" rel="noopener" className="underline">{form.file.filename}</a> : form.file.filename}
                                         </span>
                                         <button onClick={() => set({ file: null })} className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-rose-600">
-                                            <X className="h-3.5 w-3.5" aria-hidden /> הסרה
+                                            <X className="h-3.5 w-3.5" aria-hidden /> {tx("הסרה")}
                                         </button>
                                     </>
                                 ) : (
                                     <button onClick={() => fileInput.current?.click()} disabled={uploading}
                                         className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-dashed border-slate-300 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">
-                                        <Paperclip className="h-4 w-4" aria-hidden /> {uploading ? "מעלה..." : "צירוף PDF או תמונה"}
+                                        <Paperclip className="h-4 w-4" aria-hidden /> {uploading ? tx("מעלה...") : tx("צירוף PDF או תמונה")}
                                     </button>
                                 )}
                                 <input ref={fileInput} type="file" accept="application/pdf,image/jpeg,image/png,image/webp" className="hidden"
                                     onChange={e => { const f = e.target.files?.[0]; if (f) upload(f); }} />
                             </div>
-                            <p className="text-xs text-slate-400 mt-1">הלקוח רואה את הקובץ בטופס ומאשר אותו בחתימה. עד 8MB.</p>
+                            <p className="text-xs text-slate-400 mt-1">{tx("הלקוח רואה את הקובץ בטופס ומאשר אותו בחתימה. עד 8MB.")}</p>
                         </div>
                     </section>
 
                     <section className="bg-white border border-slate-200 rounded-2xl p-5 space-y-3">
                         <div className="flex items-center justify-between">
-                            <h2 className="font-bold text-slate-900">שאלות</h2>
-                            <span className="text-xs text-slate-500">{form.questions.length} שאלות</span>
+                            <h2 className="font-bold text-slate-900">{tx("שאלות")}</h2>
+                            <span className="text-xs text-slate-500">{form.questions.length}{tx(" שאלות")}</span>
                         </div>
                         <ol className="space-y-2">
                             {form.questions.map((q, i) => (
                                 <li key={q.id} className="flex items-start gap-2">
                                     <span className="text-xs text-slate-400 tabular-nums pt-2.5 w-5 shrink-0">{i + 1}.</span>
                                     <div className="flex-1 space-y-1.5">
-                                        <textarea className={`${input} leading-relaxed`} rows={2} value={q.text} maxLength={500} onChange={e => setQ(i, { text: e.target.value })} aria-label={`שאלה ${i + 1}`} />
+                                        <textarea className={`${input} leading-relaxed`} rows={2} value={q.text} maxLength={500} onChange={e => setQ(i, { text: e.target.value })} aria-label={tx("שאלה {0}", { 0: i + 1 })} />
                                         <div className="flex gap-1.5">
                                             {(["yes_no", "text", "none"] as const).map(k => (
                                                 <button key={k} type="button" onClick={() => setQ(i, { kind: k })} aria-pressed={q.kind === k}
                                                     className={`px-2.5 py-1 rounded-lg text-xs font-semibold border ${q.kind === k ? "bg-slate-900 text-white border-slate-900" : "bg-white text-slate-600 border-slate-200"}`}>
-                                                    {k === "yes_no" ? "כן / לא" : k === "text" ? "תשובה פתוחה" : "ללא תשובה"}
+                                                    {k === "yes_no" ? tx("כן / לא") : k === "text" ? tx("תשובה פתוחה") : tx("ללא תשובה")}
                                                 </button>
                                             ))}
                                         </div>
                                     </div>
                                     <div className="flex flex-col gap-0.5 shrink-0">
-                                        <button onClick={() => moveQ(i, -1)} disabled={i === 0} aria-label="למעלה" className="p-1.5 rounded-lg text-slate-400 hover:text-slate-900 hover:bg-slate-100 disabled:opacity-20"><ArrowUp className="h-4 w-4" /></button>
-                                        <button onClick={() => moveQ(i, 1)} disabled={i === form.questions.length - 1} aria-label="למטה" className="p-1.5 rounded-lg text-slate-400 hover:text-slate-900 hover:bg-slate-100 disabled:opacity-20"><ArrowDown className="h-4 w-4" /></button>
-                                        <button onClick={() => set({ questions: form.questions.filter((_, j) => j !== i) })} aria-label="מחיקה" className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50"><Trash2 className="h-4 w-4" /></button>
+                                        <button onClick={() => moveQ(i, -1)} disabled={i === 0} aria-label={tx("למעלה")} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-900 hover:bg-slate-100 disabled:opacity-20"><ArrowUp className="h-4 w-4" /></button>
+                                        <button onClick={() => moveQ(i, 1)} disabled={i === form.questions.length - 1} aria-label={tx("למטה")} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-900 hover:bg-slate-100 disabled:opacity-20"><ArrowDown className="h-4 w-4" /></button>
+                                        <button onClick={() => set({ questions: form.questions.filter((_, j) => j !== i) })} aria-label={tx("מחיקה")} className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50"><Trash2 className="h-4 w-4" /></button>
                                     </div>
                                 </li>
                             ))}
                         </ol>
                         <button onClick={() => set({ questions: [...form.questions, { id: `new${Date.now().toString(36)}`, text: "", kind: "yes_no" }] })}
                             className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-sm font-bold text-slate-700">
-                            <Plus className="h-4 w-4" aria-hidden /> שאלה חדשה
+                            <Plus className="h-4 w-4" aria-hidden /> {tx("שאלה חדשה")}
                         </button>
                     </section>
 
                     <section className="bg-white border border-slate-200 rounded-2xl p-5 space-y-4">
                         <label className="block">
-                            <span className="text-xs font-semibold text-slate-500">משפט האישור לפני החתימה</span>
+                            <span className="text-xs font-semibold text-slate-500">{tx("משפט האישור לפני החתימה")}</span>
                             <textarea className={`${input} mt-1 min-h-[80px] leading-relaxed`} value={form.closing} maxLength={2000} onChange={e => set({ closing: e.target.value })} />
                         </label>
                         <label className="flex items-center gap-3 cursor-pointer">
                             <input type="checkbox" checked={form.ask_age} onChange={e => set({ ask_age: e.target.checked })} className="h-5 w-5 accent-slate-900" />
-                            <span className="text-sm text-slate-800">לבקש מספר תעודת זהות</span>
+                            <span className="text-sm text-slate-800">{tx("לבקש מספר תעודת זהות")}</span>
                         </label>
                     </section>
 
                     <div className="sticky bottom-4 flex justify-end">
                         <button onClick={save} disabled={saving}
                             className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-slate-900 text-white font-bold shadow-lg disabled:opacity-50">
-                            <Check className="h-4 w-4" aria-hidden /> {saving ? "שומר..." : "שמירת הטופס"}
+                            <Check className="h-4 w-4" aria-hidden /> {saving ? tx("שומר...") : tx("שמירת הטופס")}
                         </button>
                     </div>
                 </div>
@@ -236,16 +236,16 @@ export default function HealthFormSettingsPage() {
                 {preview && (
                     <div className="fixed inset-0 z-[70] bg-slate-50 overflow-y-auto" role="dialog" aria-modal="true">
                         <div className="sticky top-0 bg-white/90 backdrop-blur border-b border-slate-200" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
-                            <div className="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between" dir="rtl">
-                                <span className="font-bold text-slate-900">תצוגה מקדימה — כך הלקוח רואה את הטופס</span>
-                                <button onClick={() => setPreview(false)} aria-label="סגירה" className="p-2 -m-2 text-slate-500 hover:text-slate-900"><X className="h-6 w-6" /></button>
+                            <div className="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between">
+                                <span className="font-bold text-slate-900">{tx("תצוגה מקדימה — כך הלקוח רואה את הטופס")}</span>
+                                <button onClick={() => setPreview(false)} aria-label={tx("סגירה")} className="p-2 -m-2 text-slate-500 hover:text-slate-900"><X className="h-6 w-6" /></button>
                             </div>
                         </div>
                         <div className="max-w-2xl mx-auto px-4 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))]">
                             <HealthFormFill
-                                form={{ ...form, questions: form.questions.filter(q => q.text.trim()), client_name: "ישראל ישראלי (דוגמה)", business_name: "" }}
+                                form={{ ...form, questions: form.questions.filter(q => q.text.trim()), client_name: tx("ישראל ישראלי (דוגמה)"), business_name: "" }}
                                 fileSrc={fileSrc}
-                                onSubmit={async () => { setPreview(false); toast.success("זו רק תצוגה מקדימה — שום דבר לא נשמר"); }} />
+                                onSubmit={async () => { setPreview(false); toast.success(tx("זו רק תצוגה מקדימה — שום דבר לא נשמר")); }} />
                         </div>
                     </div>
                 )}

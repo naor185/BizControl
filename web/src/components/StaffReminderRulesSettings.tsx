@@ -4,6 +4,7 @@ import { Switch } from "@/components/ui/switch";
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
 
+import { tx } from "@/lib/i18n";
 // Shared between /automation's settings tab and the calendar's own gear-menu
 // dropdown (both desktop and mobile go through this same component, since
 // the native app loads the same site) — one place to fix instead of two.
@@ -16,17 +17,17 @@ type ReminderRule = { id: string; applies_to: "appointment" | "task" | "both"; l
 function formatLeadLabel(minutes: number): string {
     if (minutes >= 7 * 24 * 60 && minutes % (7 * 24 * 60) === 0) {
         const w = minutes / (7 * 24 * 60);
-        return w === 1 ? "שבוע לפני" : `${w} שבועות לפני`;
+        return w === 1 ? tx("שבוע לפני") : tx("{0} שבועות לפני", { 0: w });
     }
     if (minutes >= 24 * 60 && minutes % (24 * 60) === 0) {
         const d = minutes / (24 * 60);
-        return d === 1 ? "יום לפני" : `${d} ימים לפני`;
+        return d === 1 ? tx("יום לפני") : tx("{0} ימים לפני", { 0: d });
     }
     if (minutes >= 60 && minutes % 60 === 0) {
         const h = minutes / 60;
-        return h === 1 ? "שעה לפני" : `${h} שעות לפני`;
+        return h === 1 ? tx("שעה לפני") : tx("{0} שעות לפני", { 0: h });
     }
-    return `${minutes} דקות לפני`;
+    return tx("{0} דקות לפני", { 0: minutes });
 }
 
 export default function StaffReminderRulesSettings({ compact }: { compact?: boolean }) {
@@ -60,7 +61,7 @@ export default function StaffReminderRulesSettings({ compact }: { compact?: bool
             setNewValue(30);
             setNewUnit("minutes");
         } catch {
-            setErr("שגיאה בהוספת התזמון");
+            setErr(tx("שגיאה בהוספת התזמון"));
         } finally {
             setSaving(false);
         }
@@ -93,17 +94,17 @@ export default function StaffReminderRulesSettings({ compact }: { compact?: bool
     return (
         <div className={compact ? "" : "bg-white rounded-2xl border border-slate-100 shadow-sm p-6"}>
             <div className="mb-3">
-                <h4 className={compact ? "text-sm font-bold text-slate-700" : "text-lg font-bold text-slate-800"}>🔔 תזכורות פוש לצוות</h4>
+                <h4 className={compact ? "text-sm font-bold text-slate-700" : "text-lg font-bold text-slate-800"}>{tx("🔔 תזכורות פוש לצוות")}</h4>
                 {!compact && (
-                    <p className="text-sm text-slate-500 mt-0.5">שלחו פוש לעצמכם/לצוות לפני שתור או משימה מתחילים — הוסיפו כמה תזמונים שתרצו, אין מגבלה על הכמות</p>
+                    <p className="text-sm text-slate-500 mt-0.5">{tx("שלחו פוש לעצמכם/לצוות לפני שתור או משימה מתחילים — הוסיפו כמה תזמונים שתרצו, אין מגבלה על הכמות")}</p>
                 )}
             </div>
 
             {loading ? (
-                <p className="text-sm text-slate-400">טוען...</p>
+                <p className="text-sm text-slate-400">{tx("טוען...")}</p>
             ) : (
                 <div className="space-y-2 mb-3">
-                    {rules.length === 0 && <p className="text-xs text-slate-400">אין תזמונים מוגדרים עדיין</p>}
+                    {rules.length === 0 && <p className="text-xs text-slate-400">{tx("אין תזמונים מוגדרים עדיין")}</p>}
                     {rules.map(rule => (
                         <div key={rule.id} className="flex items-center justify-between gap-2 bg-slate-50 rounded-lg px-2.5 py-2 border border-slate-100">
                             <div className="flex items-center gap-2 min-w-0">
@@ -113,14 +114,14 @@ export default function StaffReminderRulesSettings({ compact }: { compact?: bool
                                 </span>
                                 {!compact && (
                                     <span className="text-[10px] text-slate-400 shrink-0">
-                                        {rule.applies_to === "both" ? "תורים ומשימות" : rule.applies_to === "appointment" ? "תורים בלבד" : "משימות בלבד"}
+                                        {rule.applies_to === "both" ? tx("תורים ומשימות") : rule.applies_to === "appointment" ? tx("תורים בלבד") : tx("משימות בלבד")}
                                     </span>
                                 )}
                             </div>
                             <button
                                 type="button"
                                 onClick={() => deleteRule(rule.id)}
-                                aria-label="מחק תזמון"
+                                aria-label={tx("מחק תזמון")}
                                 className="text-slate-300 hover:text-red-500 text-base leading-none shrink-0 px-1"
                             >
                                 ✕
@@ -141,15 +142,15 @@ export default function StaffReminderRulesSettings({ compact }: { compact?: bool
                         className={`${inputCls} w-16 text-center`} dir="ltr"
                     />
                     <select value={newUnit} onChange={e => setNewUnit(e.target.value as "minutes" | "hours" | "days")} className={`${inputCls} flex-1`}>
-                        <option value="minutes">דקות לפני</option>
-                        <option value="hours">שעות לפני</option>
-                        <option value="days">ימים לפני</option>
+                        <option value="minutes">{tx("דקות לפני")}</option>
+                        <option value="hours">{tx("שעות לפני")}</option>
+                        <option value="days">{tx("ימים לפני")}</option>
                     </select>
                 </div>
                 <select value={newAppliesTo} onChange={e => setNewAppliesTo(e.target.value as "appointment" | "task" | "both")} className={`${inputCls} w-full`}>
-                    <option value="both">חל על: תורים ומשימות</option>
-                    <option value="appointment">חל על: תורים בלבד</option>
-                    <option value="task">חל על: משימות בלבד</option>
+                    <option value="both">{tx("חל על: תורים ומשימות")}</option>
+                    <option value="appointment">{tx("חל על: תורים בלבד")}</option>
+                    <option value="task">{tx("חל על: משימות בלבד")}</option>
                 </select>
                 <button
                     type="button"
@@ -157,7 +158,7 @@ export default function StaffReminderRulesSettings({ compact }: { compact?: bool
                     disabled={saving}
                     className="w-full py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-colors disabled:opacity-50 min-h-11"
                 >
-                    {saving ? "מוסיף..." : "+ הוסף תזמון"}
+                    {saving ? tx("מוסיף...") : tx("+ הוסף תזמון")}
                 </button>
             </div>
         </div>

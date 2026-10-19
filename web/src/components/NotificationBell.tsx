@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { apiFetch } from "@/lib/api";
 
+import { tx } from "@/lib/i18n";
 type Notif = {
     id: string;
     type: string;
@@ -24,10 +25,10 @@ const TYPE_ICON: Record<string, string> = {
 
 function timeAgo(dateStr: string): string {
     const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
-    if (diff < 60) return "עכשיו";
-    if (diff < 3600) return `לפני ${Math.floor(diff / 60)} ד'`;
-    if (diff < 86400) return `לפני ${Math.floor(diff / 3600)} ש'`;
-    return `לפני ${Math.floor(diff / 86400)} ימים`;
+    if (diff < 60) return tx("עכשיו");
+    if (diff < 3600) return tx("לפני {0} ד'", { 0: Math.floor(diff / 60) });
+    if (diff < 86400) return tx("לפני {0} ש'", { 0: Math.floor(diff / 3600) });
+    return tx("לפני {0} ימים", { 0: Math.floor(diff / 86400) });
 }
 
 export default function NotificationBell() {
@@ -93,11 +94,11 @@ export default function NotificationBell() {
             <button
                 onClick={() => setOpen(o => !o)}
                 className="relative w-9 h-9 flex items-center justify-center rounded-xl hover:bg-slate-100 transition-colors"
-                title="התראות"
+                title={tx("התראות")}
             >
                 <span className="text-xl">🔔</span>
                 {unread > 0 && (
-                    <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                    <span className="absolute -top-0.5 -start-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
                         {unread > 9 ? "9+" : unread}
                     </span>
                 )}
@@ -110,13 +111,13 @@ export default function NotificationBell() {
                 // header, regardless of the dropdown's own width. Pinning it
                 // to the viewport with side margins below sm: sidesteps that
                 // entirely; sm: and up restores the original anchored dropdown.
-                <div className="fixed inset-x-4 top-16 sm:absolute sm:inset-x-auto sm:left-0 sm:top-11 sm:w-80 bg-white rounded-2xl shadow-2xl border border-slate-100 z-50 overflow-hidden" dir="rtl">
+                <div className="fixed inset-x-4 top-16 sm:absolute sm:inset-x-auto sm:end-0 sm:top-11 sm:w-80 bg-white rounded-2xl shadow-2xl border border-slate-100 z-50 overflow-hidden">
                     {/* Header */}
                     <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
-                        <span className="font-bold text-slate-800 text-sm">התראות</span>
+                        <span className="font-bold text-slate-800 text-sm">{tx("התראות")}</span>
                         {unread > 0 && (
                             <button onClick={markAll} className="text-xs text-blue-600 hover:text-blue-800 font-medium transition-colors">
-                                סמן הכל כנקרא
+                                {tx("סמן הכל כנקרא")}
                             </button>
                         )}
                     </div>
@@ -124,7 +125,7 @@ export default function NotificationBell() {
                     {/* List */}
                     <div className="max-h-96 overflow-y-auto divide-y divide-slate-50">
                         {notifs.length === 0 ? (
-                            <div className="py-10 text-center text-slate-400 text-sm">אין התראות</div>
+                            <div className="py-10 text-center text-slate-400 text-sm">{tx("אין התראות")}</div>
                         ) : notifs.map(n => (
                             <div
                                 key={n.id}
@@ -145,7 +146,7 @@ export default function NotificationBell() {
                                 <button
                                     onClick={() => remove(n.id)}
                                     className="text-slate-300 hover:text-slate-500 text-sm flex-shrink-0 transition-colors mt-0.5"
-                                    title="מחק"
+                                    title={tx("מחק")}
                                 >
                                     ✕
                                 </button>

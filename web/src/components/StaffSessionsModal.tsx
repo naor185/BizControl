@@ -5,6 +5,7 @@ import { apiFetch } from "@/lib/api";
 import { type SessionOut, describeDevice, formatSessionDate } from "@/lib/sessionFormat";
 import { useBackButtonClose } from "@/lib/backButtonStack";
 
+import { tx } from "@/lib/i18n";
 // Owner/admin view of a staff member's active devices (require_roles(OWNER,
 // ADMIN) enforced server-side on both endpoints — same as MySessionsSettings
 // but scoped to another user, and revoking here force-logs-out that person's
@@ -44,7 +45,7 @@ export default function StaffSessionsModal({ userId, userName, onClose }: { user
             >
                 <div className="bg-slate-50 border-b border-slate-100 p-5 flex items-center justify-between shrink-0">
                     <div>
-                        <h3 className="text-xl font-bold text-slate-800">📱 מכשירים מחוברים</h3>
+                        <h3 className="text-xl font-bold text-slate-800">{tx("📱 מכשירים מחוברים")}</h3>
                         <p className="text-sm text-slate-500 mt-0.5">{userName}</p>
                     </div>
                     <button onClick={onClose} className="text-slate-400 hover:text-slate-600 p-2 hover:bg-white rounded-full transition-colors">✕</button>
@@ -52,16 +53,16 @@ export default function StaffSessionsModal({ userId, userName, onClose }: { user
 
                 <div className="p-6 space-y-2 overflow-y-auto">
                     {loading ? (
-                        <p className="text-sm text-slate-400">טוען...</p>
+                        <p className="text-sm text-slate-400">{tx("טוען...")}</p>
                     ) : sessions.length === 0 ? (
-                        <p className="text-sm text-slate-400">לא נמצאו מכשירים מחוברים</p>
+                        <p className="text-sm text-slate-400">{tx("לא נמצאו מכשירים מחוברים")}</p>
                     ) : (
                         sessions.map(s => (
                             <div key={s.id} className="flex items-center justify-between gap-3 bg-slate-50 rounded-xl px-4 py-3 border border-slate-100">
                                 <div className="min-w-0">
                                     <div className="text-sm font-semibold text-slate-700">{describeDevice(s.user_agent)}</div>
                                     <div className="text-xs text-slate-400 mt-0.5">
-                                        מחובר מאז {formatSessionDate(s.session_started_at)} · פעיל לאחרונה {formatSessionDate(s.last_active_at)}
+                                        {tx("מחובר מאז")} {formatSessionDate(s.session_started_at)}{tx(" · פעיל לאחרונה ")}{formatSessionDate(s.last_active_at)}
                                     </div>
                                 </div>
                                 <button
@@ -70,7 +71,7 @@ export default function StaffSessionsModal({ userId, userName, onClose }: { user
                                     disabled={revokingId === s.id}
                                     className="shrink-0 text-xs font-bold px-3 py-2 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50 transition-colors"
                                 >
-                                    {revokingId === s.id ? "..." : "נתק מכשיר"}
+                                    {revokingId === s.id ? "..." : tx("נתק מכשיר")}
                                 </button>
                             </div>
                         ))

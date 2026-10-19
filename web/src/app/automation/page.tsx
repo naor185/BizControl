@@ -24,6 +24,7 @@ import { Flag, Palette, SlidersHorizontal, Wallet, Plug, Globe, UserRound, KeyRo
 import PlanLock from "@/components/PlanLock";
 import { usePlan } from "@/lib/usePlan";
 
+import { tx, intl } from "@/lib/i18n";
 // logo_filename may be a bare local filename or a full Cloudinary URL —
 // only prefix with /uploads/ for the former.
 function logoSrc(filename: string | null | undefined): string | null {
@@ -167,7 +168,7 @@ type Settings = {
 };
 
 // index = 0 Sunday … 6 Saturday, like the server's work_days
-const WORK_DAY_LABELS = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
+const WORK_DAY_LABELS = [tx("ראשון"), tx("שני"), tx("שלישי"), tx("רביעי"), tx("חמישי"), tx("שישי"), tx("שבת")];
 const DEFAULT_WORK_DAYS = [0, 1, 2, 3, 4, 5];
 
 function WebhookUrlBox({ provider, instanceId }: { provider: "green_api" | "meta"; instanceId: string }) {
@@ -187,7 +188,7 @@ function WebhookUrlBox({ provider, instanceId }: { provider: "green_api" | "meta
             onClick={() => copy(text, label)}
             className="flex-shrink-0 px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
         >
-            {copied === label ? "✓ הועתק" : "העתק"}
+            {copied === label ? tx("✓ הועתק") : tx("העתק")}
         </button>
     );
 
@@ -197,13 +198,13 @@ function WebhookUrlBox({ provider, instanceId }: { provider: "green_api" | "meta
             <div className="mt-4 bg-amber-50 border border-amber-200 rounded-2xl p-5 space-y-3">
                 <div className="flex items-center gap-2">
                     <span className="text-lg">🔗</span>
-                    <h4 className="font-bold text-amber-900 text-sm">כתובת Webhook להגדרה ב-Green API</h4>
+                    <h4 className="font-bold text-amber-900 text-sm">{tx("כתובת Webhook להגדרה ב-Green API")}</h4>
                 </div>
                 <p className="text-xs text-amber-700">
-                    בממשק Green API, תחת ה-Instance שלך → Settings → Webhooks, הכנס את הכתובת הבאה:
+                    {tx("בממשק Green API, תחת ה-Instance שלך → Settings → Webhooks, הכנס את הכתובת הבאה:")}
                 </p>
                 <div className="flex items-center gap-2 bg-white rounded-xl border border-amber-200 px-3 py-2">
-                    <code className="flex-1 text-xs font-mono text-slate-700 break-all dir-ltr text-left">{webhookUrl}</code>
+                    <code className="flex-1 text-xs font-mono text-slate-700 break-all dir-ltr text-end">{webhookUrl}</code>
                     <CopyBtn text={webhookUrl} label="green_webhook" />
                 </div>
             </div>
@@ -216,23 +217,23 @@ function WebhookUrlBox({ provider, instanceId }: { provider: "green_api" | "meta
         <div className="mt-4 bg-blue-50 border border-blue-200 rounded-2xl p-5 space-y-3">
             <div className="flex items-center gap-2">
                 <span className="text-lg">🔗</span>
-                <h4 className="font-bold text-blue-900 text-sm">הגדרת Webhook ב-Meta Developer Portal</h4>
+                <h4 className="font-bold text-blue-900 text-sm">{tx("הגדרת Webhook ב-Meta Developer Portal")}</h4>
             </div>
             <p className="text-xs text-blue-700">
-                ב-Meta for Developers → WhatsApp → Configuration → Webhook, הכנס:
+                {tx("ב-Meta for Developers → WhatsApp → Configuration → Webhook, הכנס:")}
             </p>
             <div className="space-y-2">
                 <div>
                     <div className="text-xs font-bold text-slate-500 mb-1">Callback URL</div>
                     <div className="flex items-center gap-2 bg-white rounded-xl border border-blue-200 px-3 py-2">
-                        <code className="flex-1 text-xs font-mono text-slate-700 break-all dir-ltr text-left">{webhookUrl}</code>
+                        <code className="flex-1 text-xs font-mono text-slate-700 break-all dir-ltr text-end">{webhookUrl}</code>
                         <CopyBtn text={webhookUrl} label="meta_webhook" />
                     </div>
                 </div>
                 <div>
                     <div className="text-xs font-bold text-slate-500 mb-1">Verify Token</div>
                     <div className="flex items-center gap-2 bg-white rounded-xl border border-blue-200 px-3 py-2">
-                        <code className="flex-1 text-xs font-mono text-slate-700 dir-ltr text-left">{verifyToken}</code>
+                        <code className="flex-1 text-xs font-mono text-slate-700 dir-ltr text-end">{verifyToken}</code>
                         <CopyBtn text={verifyToken} label="meta_token" />
                     </div>
                 </div>
@@ -325,7 +326,7 @@ function MarketplaceTab({ settings, handleChange, apiFetch }: { settings: any; h
             if (!res.ok) throw new Error(await res.text());
             const photo = await res.json();
             setGallery(g => [...g, photo]);
-        } catch (err: any) { alert(err.message || "שגיאה בהעלאה"); }
+        } catch (err: any) { alert(err.message || tx("שגיאה בהעלאה")); }
         finally { setUploading(false); e.target.value = ""; }
     };
 
@@ -350,7 +351,7 @@ function MarketplaceTab({ settings, handleChange, apiFetch }: { settings: any; h
             if (!res.ok) throw new Error(await res.text());
             const { url } = await res.json();
             handleChange("marketplace_cover_url", url);
-        } catch (err: any) { alert(err.message || "שגיאה בהעלאה"); }
+        } catch (err: any) { alert(err.message || tx("שגיאה בהעלאה")); }
         finally { setCoverUploading(false); e.target.value = ""; }
     };
 
@@ -373,8 +374,8 @@ function MarketplaceTab({ settings, handleChange, apiFetch }: { settings: any; h
 
             {/* Business Type */}
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-                <h3 className="text-lg font-bold text-slate-800 mb-1">🏷️ סוג העסק</h3>
-                <p className="text-sm text-slate-500 mb-4">מגדיר את הקטגוריה שלך ב-Marketplace ואת ברירות המחדל של השירותים</p>
+                <h3 className="text-lg font-bold text-slate-800 mb-1">{tx("🏷️ סוג העסק")}</h3>
+                <p className="text-sm text-slate-500 mb-4">{tx("מגדיר את הקטגוריה שלך ב-Marketplace ואת ברירות המחדל של השירותים")}</p>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     {btOptions.map(opt => (
                         <button
@@ -392,7 +393,7 @@ function MarketplaceTab({ settings, handleChange, apiFetch }: { settings: any; h
                         </button>
                     ))}
                 </div>
-                {btSaving && <p className="text-xs text-violet-500 mt-2">שומר...</p>}
+                {btSaving && <p className="text-xs text-violet-500 mt-2">{tx("שומר...")}</p>}
             </div>
 
             {/* The field's words, which the owner can change for their business */}
@@ -402,37 +403,37 @@ function MarketplaceTab({ settings, handleChange, apiFetch }: { settings: any; h
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
                 <div className="flex items-center justify-between mb-4">
                     <div>
-                        <h3 className="text-lg font-bold text-slate-800">🗺️ פרופיל ציבורי ב-Marketplace</h3>
-                        <p className="text-sm text-slate-500 mt-0.5">לקוחות יגלו את העסק שלך בחיפוש</p>
+                        <h3 className="text-lg font-bold text-slate-800">{tx("🗺️ פרופיל ציבורי ב-Marketplace")}</h3>
+                        <p className="text-sm text-slate-500 mt-0.5">{tx("לקוחות יגלו את העסק שלך בחיפוש")}</p>
                     </div>
-                    <Switch checked={!!settings.marketplace_visible} onChange={v => handleChange("marketplace_visible", v)} onColor="bg-violet-500" label="פרופיל ציבורי ב-BizFind" />
+                    <Switch checked={!!settings.marketplace_visible} onChange={v => handleChange("marketplace_visible", v)} onColor="bg-violet-500" label={tx("פרופיל ציבורי ב-BizFind")} />
                 </div>
                 {settings.marketplace_visible && slug && (
                     <div className="flex gap-2 items-center p-3 bg-violet-50 rounded-xl border border-violet-200 mb-4">
                         <span className="text-sm text-violet-700 font-mono flex-1">/profile/{slug}</span>
-                        <a href={`/profile/${slug}`} target="_blank" className="text-xs px-3 py-1.5 bg-violet-500 text-white rounded-lg font-semibold hover:bg-violet-600 transition-colors">פתח ↗</a>
+                        <a href={`/profile/${slug}`} target="_blank" className="text-xs px-3 py-1.5 bg-violet-500 text-white rounded-lg font-semibold hover:bg-violet-600 transition-colors">{tx("פתח ↗")}</a>
                         <a href="/explore" target="_blank" className="text-xs px-3 py-1.5 bg-slate-100 text-slate-700 rounded-lg font-semibold hover:bg-slate-200 transition-colors">Explore</a>
                     </div>
                 )}
 
                 {/* Cover photo */}
                 <div className="mb-4">
-                    <label className="block text-sm font-semibold text-slate-700 mb-2">📸 תמונת כיסוי</label>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">{tx("📸 תמונת כיסוי")}</label>
                     {settings.marketplace_cover_url && (
                         <div className="relative mb-2 rounded-xl overflow-hidden h-32 bg-slate-100">
                             <img src={settings.marketplace_cover_url.startsWith("/") ? `${API_BASE}${settings.marketplace_cover_url}` : settings.marketplace_cover_url} alt="cover" className="w-full h-full object-cover" />
                         </div>
                     )}
                     <label className="flex items-center gap-2 cursor-pointer px-4 py-2.5 border-2 border-dashed border-slate-300 rounded-xl hover:border-violet-400 transition-colors w-fit">
-                        <span className="text-sm text-slate-600">{coverUploading ? "מעלה..." : "📤 העלה תמונת כיסוי"}</span>
+                        <span className="text-sm text-slate-600">{coverUploading ? tx("מעלה...") : tx("📤 העלה תמונת כיסוי")}</span>
                         <input type="file" accept="image/*" className="hidden" onChange={uploadCover} disabled={coverUploading} />
                     </label>
                 </div>
 
                 <div className="grid md:grid-cols-2 gap-4">
                     {[
-                        { key: "marketplace_city", label: "עיר", placeholder: "תל אביב" },
-                        { key: "marketplace_phone", label: "טלפון לתצוגה ציבורית", placeholder: "050-0000000" },
+                        { key: "marketplace_city", label: tx("עיר"), placeholder: tx("תל אביב") },
+                        { key: "marketplace_phone", label: tx("טלפון לתצוגה ציבורית"), placeholder: "050-0000000" },
                     ].map(f => (
                         <div key={f.key}>
                             <label className="block text-sm font-semibold text-slate-700 mb-1">{f.label}</label>
@@ -446,27 +447,27 @@ function MarketplaceTab({ settings, handleChange, apiFetch }: { settings: any; h
                         </div>
                     ))}
                     <div className="md:col-span-2">
-                        <label className="block text-sm font-semibold text-slate-700 mb-1">תיאור קצר (מוצג בפרופיל)</label>
+                        <label className="block text-sm font-semibold text-slate-700 mb-1">{tx("תיאור קצר (מוצג בפרופיל)")}</label>
                         <textarea
                             rows={3}
                             value={settings.marketplace_description || ""}
                             onChange={e => handleChange("marketplace_description", e.target.value)}
-                            placeholder="ספר על העסק, הסגנון והחוויה שאתה מציע..."
+                            placeholder={tx("ספר על העסק, הסגנון והחוויה שאתה מציע...")}
                             className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-violet-400 resize-none"
                         />
                     </div>
                     <div className="md:col-span-2">
-                        <label className="block text-sm font-semibold text-slate-700 mb-1">🕐 שעות פעילות</label>
+                        <label className="block text-sm font-semibold text-slate-700 mb-1">{tx("🕐 שעות פעילות")}</label>
                         <input
                             type="text"
                             value={settings.marketplace_hours || ""}
                             onChange={e => handleChange("marketplace_hours", e.target.value)}
-                            placeholder="א׳-ה׳ 10:00-20:00, ו׳ 10:00-14:00"
+                            placeholder={tx("א׳-ה׳ 10:00-20:00, ו׳ 10:00-14:00")}
                             className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-violet-400"
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-semibold text-slate-700 mb-1">📱 WhatsApp לתצוגה</label>
+                        <label className="block text-sm font-semibold text-slate-700 mb-1">{tx("📱 WhatsApp לתצוגה")}</label>
                         <input
                             type="text"
                             value={settings.marketplace_whatsapp || ""}
@@ -476,12 +477,12 @@ function MarketplaceTab({ settings, handleChange, apiFetch }: { settings: any; h
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-semibold text-slate-700 mb-1">🔔 WhatsApp להתראות</label>
+                        <label className="block text-sm font-semibold text-slate-700 mb-1">{tx("🔔 WhatsApp להתראות")}</label>
                         <input
                             type="text"
                             value={(settings as any).notification_phone || ""}
                             onChange={e => handleChange("notification_phone" as any, e.target.value)}
-                            placeholder="050-0000000 (מקבל התראה על הזמנות)"
+                            placeholder={tx("050-0000000 (מקבל התראה על הזמנות)")}
                             className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-violet-400"
                         />
                     </div>
@@ -489,14 +490,14 @@ function MarketplaceTab({ settings, handleChange, apiFetch }: { settings: any; h
 
                 {/* Social Links */}
                 <div className="mt-5">
-                    <h4 className="text-sm font-bold text-slate-700 mb-3">🔗 רשתות חברתיות</h4>
+                    <h4 className="text-sm font-bold text-slate-700 mb-3">{tx("🔗 רשתות חברתיות")}</h4>
                     <div className="grid md:grid-cols-2 gap-3">
                         {[
                             { key: "marketplace_instagram", label: "📸 Instagram", placeholder: "https://instagram.com/yourstudio" },
                             { key: "marketplace_facebook",  label: "👥 Facebook",  placeholder: "https://facebook.com/yourstudio" },
                             { key: "marketplace_tiktok",    label: "🎵 TikTok",    placeholder: "https://tiktok.com/@yourstudio" },
                             { key: "marketplace_youtube",   label: "▶️ YouTube",   placeholder: "https://youtube.com/@yourstudio" },
-                            { key: "marketplace_website",   label: "🌐 אתר אינטרנט", placeholder: "https://yourstudio.com" },
+                            { key: "marketplace_website",   label: tx("🌐 אתר אינטרנט"), placeholder: "https://yourstudio.com" },
                         ].map(f => (
                             <div key={f.key}>
                                 <label className="block text-xs font-semibold text-slate-600 mb-1">{f.label}</label>
@@ -518,20 +519,20 @@ function MarketplaceTab({ settings, handleChange, apiFetch }: { settings: any; h
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
                 <div className="flex items-center justify-between mb-4">
                     <div>
-                        <h3 className="text-lg font-bold text-slate-800">🖼️ גלריית תמונות</h3>
-                        <p className="text-sm text-slate-500">עד 20 תמונות — מוצגות בפרופיל הציבורי</p>
+                        <h3 className="text-lg font-bold text-slate-800">{tx("🖼️ גלריית תמונות")}</h3>
+                        <p className="text-sm text-slate-500">{tx("עד 20 תמונות — מוצגות בפרופיל הציבורי")}</p>
                     </div>
                     <label className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer transition-colors ${gallery.length >= 20 ? "bg-slate-100 text-slate-400 cursor-not-allowed" : "bg-violet-500 text-white hover:bg-violet-600"}`}>
-                        {uploading ? "⏳ מעלה..." : "📤 הוסף תמונה"}
+                        {uploading ? tx("⏳ מעלה...") : tx("📤 הוסף תמונה")}
                         <input type="file" accept="image/*" className="hidden" onChange={uploadGalleryPhoto} disabled={uploading || gallery.length >= 20} />
                     </label>
                 </div>
                 {galleryLoading ? (
-                    <div className="text-center py-8 text-slate-400">⏳ טוען גלריה...</div>
+                    <div className="text-center py-8 text-slate-400">{tx("⏳ טוען גלריה...")}</div>
                 ) : gallery.length === 0 ? (
                     <div className="text-center py-12 border-2 border-dashed border-slate-200 rounded-xl">
                         <div className="text-4xl mb-2">🖼️</div>
-                        <p className="text-slate-400 text-sm">אין תמונות עדיין — העלה את הראשונה</p>
+                        <p className="text-slate-400 text-sm">{tx("אין תמונות עדיין — העלה את הראשונה")}</p>
                     </div>
                 ) : (
                     <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
@@ -545,7 +546,7 @@ function MarketplaceTab({ settings, handleChange, apiFetch }: { settings: any; h
                                 <button
                                     type="button"
                                     onClick={() => deleteGalleryPhoto(photo.id)}
-                                    className="absolute top-1 right-1 w-6 h-6 bg-red-500 text-white rounded-full text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                                    className="absolute top-1 start-1 w-6 h-6 bg-red-500 text-white rounded-full text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
                                 >
                                     ×
                                 </button>
@@ -553,21 +554,21 @@ function MarketplaceTab({ settings, handleChange, apiFetch }: { settings: any; h
                         ))}
                     </div>
                 )}
-                <p className="text-xs text-slate-400 mt-3">{gallery.length}/20 תמונות</p>
+                <p className="text-xs text-slate-400 mt-3">{gallery.length}{tx("/20 תמונות")}</p>
             </div>
 
             {/* Pending reviews */}
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
                 <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-bold text-slate-800">⭐ ביקורות לטיפול</h3>
-                    <button type="button" onClick={() => { setReviewsLoaded(false); loadReviews(); }} className="text-xs text-slate-400 hover:text-slate-700 transition-colors">↻ רענן</button>
+                    <h3 className="text-lg font-bold text-slate-800">{tx("⭐ ביקורות לטיפול")}</h3>
+                    <button type="button" onClick={() => { setReviewsLoaded(false); loadReviews(); }} className="text-xs text-slate-400 hover:text-slate-700 transition-colors">{tx("↻ רענן")}</button>
                 </div>
                 {reviewsLoading ? (
-                    <div className="text-center py-8 text-slate-400">⏳ טוען...</div>
+                    <div className="text-center py-8 text-slate-400">{tx("⏳ טוען...")}</div>
                 ) : pendingReviews.length === 0 ? (
                     <div className="text-center py-8 text-slate-400">
                         <div className="text-3xl mb-2">✅</div>
-                        <div className="text-sm">אין ביקורות לטיפול</div>
+                        <div className="text-sm">{tx("אין ביקורות לטיפול")}</div>
                     </div>
                 ) : (
                     <div className="space-y-3">
@@ -577,21 +578,21 @@ function MarketplaceTab({ settings, handleChange, apiFetch }: { settings: any; h
                                     {r.is_approved && (
                                         <div className="flex items-center gap-1.5 text-xs font-semibold text-rose-700 mb-1.5">
                                             <Flag className="w-3.5 h-3.5" aria-hidden />
-                                            {r.reports === 1 ? "לקוח דיווח על הביקורת" : `${r.reports} לקוחות דיווחו על הביקורת`}{r.reasons.length > 0 && ` · ${r.reasons.join(", ")}`}
+                                            {r.reports === 1 ? tx("לקוח דיווח על הביקורת") : tx("{0} לקוחות דיווחו על הביקורת", { 0: r.reports })}{r.reasons.length > 0 && ` · ${r.reasons.join(", ")}`}
                                         </div>
                                     )}
                                     <div className="flex items-center gap-2 mb-1">
                                         <span className="font-semibold text-slate-800 text-sm">{r.client_name}</span>
                                         <span className="text-amber-500">{"★".repeat(r.rating)}{"☆".repeat(5 - r.rating)}</span>
-                                        <span className="text-xs text-slate-400">{new Date(r.created_at).toLocaleDateString("he-IL")}</span>
+                                        <span className="text-xs text-slate-400">{new Date(r.created_at).toLocaleDateString(intl())}</span>
                                     </div>
                                     {r.comment && <p className="text-sm text-slate-600">{r.comment}</p>}
                                 </div>
                                 <div className="flex gap-2 shrink-0">
                                     {r.is_approved
-                                        ? <button type="button" onClick={() => keepReview(r.id)} className="text-xs px-3 py-1.5 bg-white border border-slate-200 text-slate-700 rounded-lg font-semibold hover:bg-slate-50 transition-colors">השארה</button>
-                                        : <button type="button" onClick={() => approveReview(r.id)} className="text-xs px-3 py-1.5 bg-emerald-500 text-white rounded-lg font-semibold hover:bg-emerald-600 transition-colors">✅ אשר</button>}
-                                    <button type="button" onClick={() => deleteReview(r.id)} className="text-xs px-3 py-1.5 bg-red-100 text-red-600 rounded-lg font-semibold hover:bg-red-200 transition-colors">🗑️ מחק</button>
+                                        ? <button type="button" onClick={() => keepReview(r.id)} className="text-xs px-3 py-1.5 bg-white border border-slate-200 text-slate-700 rounded-lg font-semibold hover:bg-slate-50 transition-colors">{tx("השארה")}</button>
+                                        : <button type="button" onClick={() => approveReview(r.id)} className="text-xs px-3 py-1.5 bg-emerald-500 text-white rounded-lg font-semibold hover:bg-emerald-600 transition-colors">{tx("✅ אשר")}</button>}
+                                    <button type="button" onClick={() => deleteReview(r.id)} className="text-xs px-3 py-1.5 bg-red-100 text-red-600 rounded-lg font-semibold hover:bg-red-200 transition-colors">{tx("🗑️ מחק")}</button>
                                 </div>
                             </div>
                         ))}
@@ -688,9 +689,9 @@ export default function AutomationSettingsPage() {
                 method: "PATCH",
                 body: JSON.stringify({ phone: myPhone.trim() }),
             });
-            setMyPhoneMsg("✓ נשמר");
+            setMyPhoneMsg(tx("✓ נשמר"));
         } catch (e: unknown) {
-            setMyPhoneMsg((e as Error)?.message || "שגיאה בשמירה");
+            setMyPhoneMsg((e as Error)?.message || tx("שגיאה בשמירה"));
         } finally {
             setMyPhoneSaving(false);
         }
@@ -769,7 +770,7 @@ export default function AutomationSettingsPage() {
                     // the message templates screen) — filling them in saved them as if the owner had written them.
                 });
             })
-            .catch((e) => setErr(e?.message || "שגיאה בטעינת ההגדרות"))
+            .catch((e) => setErr(e?.message || tx("שגיאה בטעינת ההגדרות")))
             .finally(() => setLoading(false));
     }, []);
 
@@ -806,11 +807,11 @@ export default function AutomationSettingsPage() {
             });
             if (settings) {
                 setSettings({ ...settings, logo_filename: res.filename });
-                setMsg("לוגו הועלה בהצלחה! ✅");
+                setMsg(tx("לוגו הועלה בהצלחה! ✅"));
                 setTimeout(() => setMsg(null), 3000);
             }
         } catch (e: unknown) {
-            setErr((e as { message?: string })?.message || "שגיאה בהעלאת לוגו");
+            setErr((e as { message?: string })?.message || tx("שגיאה בהעלאת לוגו"));
             setLogoPreview(null);
         } finally {
             setLogoUploading(false);
@@ -845,11 +846,11 @@ export default function AutomationSettingsPage() {
             });
             if (settings) {
                 setSettings({ ...settings, [fieldName]: res.filename });
-                setMsg("תמונה הועלתה בהצלחה!");
+                setMsg(tx("תמונה הועלתה בהצלחה!"));
                 setTimeout(() => setMsg(null), 3000);
             }
         } catch (e: any) {
-            setErr(e?.message || "שגיאה בהעלאת תמונה");
+            setErr(e?.message || tx("שגיאה בהעלאת תמונה"));
         } finally {
             setSaving(false);
         }
@@ -866,7 +867,7 @@ export default function AutomationSettingsPage() {
                 body: JSON.stringify(settings),
             });
             setSettings(res);
-            setMsg("ההגדרות נשמרו בהצלחה!");
+            setMsg(tx("ההגדרות נשמרו בהצלחה!"));
 
             // Trigger Confetti
             confetti({
@@ -878,7 +879,7 @@ export default function AutomationSettingsPage() {
 
             setTimeout(() => setMsg(null), 3500);
         } catch (e: any) {
-            setErr(e?.message || "שגיאה בשמירת הגדרות");
+            setErr(e?.message || tx("שגיאה בשמירת הגדרות"));
         } finally {
             setSaving(false);
         }
@@ -887,12 +888,12 @@ export default function AutomationSettingsPage() {
 
     const handleAIGenerate = async () => {
         if (!aiPrompt.trim()) {
-            setErr("נא להזין תיאור עבור סגנון העסק לפני הפעלת ה-AI.");
+            setErr(tx("נא להזין תיאור עבור סגנון העסק לפני הפעלת ה-AI."));
             return;
         }
 
         if (settings && settings.ai_generations_count >= 3) {
-            setErr("הגעת למכסת ה-AI החודשית שלך (3 בחודש). נסה שוב בחודש הבא.");
+            setErr(tx("הגעת למכסת ה-AI החודשית שלך (3 בחודש). נסה שוב בחודש הבא."));
             return;
         }
 
@@ -913,11 +914,11 @@ export default function AutomationSettingsPage() {
                     landing_page_description: res.landing_page_description,
                     ai_generations_count: settings.ai_generations_count + 1
                 });
-                setMsg("העיצוב המותאם יוצר והוחל בהצלחה! באפשרותך לשמור כעת.");
+                setMsg(tx("העיצוב המותאם יוצר והוחל בהצלחה! באפשרותך לשמור כעת."));
                 setTimeout(() => setMsg(null), 3000);
             }
         } catch (e: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
-            setErr(e?.message || "שגיאה בייצור העיצוב ה-AI. נסה שוב.");
+            setErr(e?.message || tx("שגיאה בייצור העיצוב ה-AI. נסה שוב."));
         } finally {
             setIsAiLoading(false);
         }
@@ -926,14 +927,14 @@ export default function AutomationSettingsPage() {
 
     const handleBirthdaySweep = async () => {
         const month = new Date().getMonth() + 2 > 12 ? 1 : new Date().getMonth() + 2;
-        if (!confirm(`שלח עכשיו הודעות יומולדת לכל חברי המועדון עם יומולדת בחודש ${month}?`)) return;
+        if (!confirm(tx("שלח עכשיו הודעות יומולדת לכל חברי המועדון עם יומולדת בחודש {0}?", { 0: month }))) return;
         setBirthdaySweepLoading(true);
         setBirthdaySweepResult(null);
         try {
             const res = await apiFetch<{ ok: boolean; messages_enqueued: number }>("/api/studio/automation/birthday-sweep", { method: "POST" });
             setBirthdaySweepResult(res);
         } catch (e: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
-            setErr(e?.message || "שגיאה בשליחת הודעות יומולדת");
+            setErr(e?.message || tx("שגיאה בשליחת הודעות יומולדת"));
         } finally {
             setBirthdaySweepLoading(false);
         }
@@ -946,21 +947,21 @@ export default function AutomationSettingsPage() {
             const res = await apiFetch<{ image_b64: string }>(`/api/gift-cards/preview-voucher?theme=${theme}`);
             setVoucherPreviewImage(`data:image/png;base64,${res.image_b64}`);
         } catch (e: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
-            setVoucherPreviewErr(e?.message || "שגיאה בהצגת תצוגה מקדימה");
+            setVoucherPreviewErr(e?.message || tx("שגיאה בהצגת תצוגה מקדימה"));
         } finally {
             setVoucherPreviewLoading(false);
         }
     };
 
     const handleRetroactiveWelcome = async () => {
-        if (!confirm("שלח הודעת ברוכים הבאים לכל חברי המועדון שלא קיבלו הודעה עד עכשיו?")) return;
+        if (!confirm(tx("שלח הודעת ברוכים הבאים לכל חברי המועדון שלא קיבלו הודעה עד עכשיו?"))) return;
         setRetroLoading(true);
         setRetroResult(null);
         try {
             const res = await apiFetch<{ processed: number; failed: number; clients: { id: string; name: string }[] }>("/api/studio/automation/retroactive-welcome", { method: "POST" });
             setRetroResult(res);
         } catch (e: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
-            setErr(e?.message || "שגיאה בשליחת הודעות רטרואקטיביות");
+            setErr(e?.message || tx("שגיאה בשליחת הודעות רטרואקטיביות"));
         } finally {
             setRetroLoading(false);
         }
@@ -969,7 +970,7 @@ export default function AutomationSettingsPage() {
     if (loading) {
         return (
             <RequireAuth>
-                <AppShell title="הגדרות מערכת">
+                <AppShell title={tx("הגדרות מערכת")}>
                     <div className="flex h-[60dvh] items-center justify-center">
                         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-900"></div>
                     </div>
@@ -981,10 +982,10 @@ export default function AutomationSettingsPage() {
     if (!settings) {
         return (
             <RequireAuth>
-                <AppShell title="הגדרות מערכת">
+                <AppShell title={tx("הגדרות מערכת")}>
                     <div className="p-8 text-center text-red-500 bg-red-50 rounded-2xl border border-red-100 mt-10 max-w-lg mx-auto">
-                        <h2 className="text-xl font-bold mb-2">אופס!</h2>
-                        <p>{err || "לא נמצאו הגדרות במערכת"}</p>
+                        <h2 className="text-xl font-bold mb-2">{tx("אופס!")}</h2>
+                        <p>{err || tx("לא נמצאו הגדרות במערכת")}</p>
                     </div>
                 </AppShell>
             </RequireAuth>
@@ -992,17 +993,17 @@ export default function AutomationSettingsPage() {
     }
 
     const tabs = [
-        { id: "branding", label: "זהות ומיתוג", icon: Palette },
-        { id: "policy", label: "מדיניות ואוטומציה", icon: SlidersHorizontal },
-        { id: "finance", label: "פיננסים ותשלומים", icon: Wallet },
-        { id: "integrations", label: "חיבורים", icon: Plug },
-        { id: "public", label: "נוכחות ציבורית", icon: Globe },
-        { id: "account", label: "החשבון שלי", icon: UserRound },
+        { id: "branding", label: tx("זהות ומיתוג"), icon: Palette },
+        { id: "policy", label: tx("מדיניות ואוטומציה"), icon: SlidersHorizontal },
+        { id: "finance", label: tx("פיננסים ותשלומים"), icon: Wallet },
+        { id: "integrations", label: tx("חיבורים"), icon: Plug },
+        { id: "public", label: tx("נוכחות ציבורית"), icon: Globe },
+        { id: "account", label: tx("החשבון שלי"), icon: UserRound },
     ] as const;
 
     return (
         <RequireAuth>
-            <AppShell title="הגדרות מערכת מתקדמות">
+            <AppShell title={tx("הגדרות מערכת מתקדמות")}>
 
                 {/* Prominent Success Popup */}
                 {msg && (
@@ -1018,12 +1019,12 @@ export default function AutomationSettingsPage() {
 
                     {/* Header describing the section */}
                     <div className="mb-8">
-                        <h1 className="text-3xl font-bold text-slate-800 tracking-tight">הגדרות העסק</h1>
-                        <p className="text-slate-500 mt-2 text-lg">ניהול מראה המערכת, דפי נחיתה, חוקי מועדון לקוחות וחיבורים חיצוניים.</p>
+                        <h1 className="text-3xl font-bold text-slate-800 tracking-tight">{tx("הגדרות העסק")}</h1>
+                        <p className="text-slate-500 mt-2 text-lg">{tx("ניהול מראה המערכת, דפי נחיתה, חוקי מועדון לקוחות וחיבורים חיצוניים.")}</p>
                     </div>
 
                     {/* Navigation Tabs */}
-                    <div role="tablist" aria-label="אזורי ההגדרות" className="flex overflow-x-auto gap-1.5 bg-slate-200/50 p-1.5 rounded-xl mb-8 -mx-1 [scrollbar-width:none]">
+                    <div role="tablist" aria-label={tx("אזורי ההגדרות")} className="flex overflow-x-auto gap-1.5 bg-slate-200/50 p-1.5 rounded-xl mb-8 -mx-1 [scrollbar-width:none]">
                         {tabs.map((tab) => (
                             <button
                                 key={tab.id}
@@ -1048,11 +1049,11 @@ export default function AutomationSettingsPage() {
                         {activeTab === "branding" && (
                             <div className="space-y-8">
                             <div className="bg-white rounded-2xl border border-slate-100 shadow-xl shadow-slate-200/40 p-6 md:p-10 overflow-hidden relative">
-                                <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/10 rounded-bl-full -z-10"></div>
-                                <h3 className="text-2xl font-bold text-slate-800 mb-6">עיצוב ומיתוג</h3>
+                                <div className="absolute top-0 start-0 w-32 h-32 bg-purple-500/10 rounded-ee-full -z-10"></div>
+                                <h3 className="text-2xl font-bold text-slate-800 mb-6">{tx("עיצוב ומיתוג")}</h3>
                                 <div className="grid md:grid-cols-2 gap-8">
                                     <div className="md:col-span-2">
-                                        <label className="block text-sm font-semibold text-slate-700 mb-4">לוגו העסק</label>
+                                        <label className="block text-sm font-semibold text-slate-700 mb-4">{tx("לוגו העסק")}</label>
                                         <div className="flex flex-col sm:flex-row items-center gap-8">
 
                                             {/* Circle preview */}
@@ -1065,14 +1066,14 @@ export default function AutomationSettingsPage() {
                                                         // eslint-disable-next-line @next/next/no-img-element
                                                         <img
                                                             src={logoPreview || logoSrc(settings.logo_filename) || ""}
-                                                            alt="לוגו"
+                                                            alt={tx("לוגו")}
                                                             className="w-full h-full object-cover"
                                                             onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
                                                         />
                                                     ) : (
                                                         <div className="text-center text-slate-400 px-2">
                                                             <div className="text-3xl mb-1">🏢</div>
-                                                            <div className="text-xs">גרור לכאן</div>
+                                                            <div className="text-xs">{tx("גרור לכאן")}</div>
                                                         </div>
                                                     )}
                                                     {logoUploading && (
@@ -1083,19 +1084,19 @@ export default function AutomationSettingsPage() {
                                                 </div>
                                                 {logoDragging && (
                                                     <div className="absolute inset-0 rounded-full border-4 border-blue-400 border-dashed bg-blue-50/50 flex items-center justify-center">
-                                                        <span className="text-blue-500 text-sm font-bold">שחרר כאן</span>
+                                                        <span className="text-blue-500 text-sm font-bold">{tx("שחרר כאן")}</span>
                                                     </div>
                                                 )}
                                             </div>
 
                                             {/* Upload controls */}
-                                            <div className="flex-1 space-y-3 text-right">
-                                                <p className="text-sm font-semibold text-slate-700">הלוגו של העסק שלך</p>
-                                                <p className="text-xs text-slate-500 leading-relaxed">הלוגו מופיע בדפי הנחיתה, בממשק הכניסה ובהודעות ללקוחות. מומלץ תמונה מרובעת (PNG/JPG) ברזולוציה 400×400 לפחות.</p>
+                                            <div className="flex-1 space-y-3 text-start">
+                                                <p className="text-sm font-semibold text-slate-700">{tx("הלוגו של העסק שלך")}</p>
+                                                <p className="text-xs text-slate-500 leading-relaxed">{tx("הלוגו מופיע בדפי הנחיתה, בממשק הכניסה ובהודעות ללקוחות. מומלץ תמונה מרובעת (PNG/JPG) ברזולוציה 400×400 לפחות.")}</p>
 
                                                 <label data-tour="logo-upload" className="cursor-pointer flex items-center justify-center gap-2 w-full py-3 rounded-xl border-2 border-dashed border-slate-300 hover:border-sky-400 hover:bg-sky-50 text-slate-600 hover:text-sky-600 font-medium text-sm transition-all">
                                                     <span className="text-lg">📤</span>
-                                                    <span>{settings.logo_filename ? "החלף תמונה" : "בחר תמונה"}</span>
+                                                    <span>{settings.logo_filename ? tx("החלף תמונה") : tx("בחר תמונה")}</span>
                                                     <input type="file" className="hidden" accept="image/*" onChange={handleLogoUpload} />
                                                 </label>
 
@@ -1103,11 +1104,11 @@ export default function AutomationSettingsPage() {
                                                     <button
                                                         onClick={() => { setSettings({ ...settings, logo_filename: null }); setLogoPreview(null); }}
                                                         className="w-full py-2 text-xs text-red-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors border border-red-100">
-                                                        🗑️ הסר לוגו
+                                                        {tx("🗑️ הסר לוגו")}
                                                     </button>
                                                 )}
 
-                                                <p className="text-[11px] text-slate-400">ניתן גם לגרור קובץ ישירות לעיגול</p>
+                                                <p className="text-[11px] text-slate-400">{tx("ניתן גם לגרור קובץ ישירות לעיגול")}</p>
                                             </div>
                                         </div>
                                     </div>
@@ -1116,24 +1117,24 @@ export default function AutomationSettingsPage() {
 
                             {/* Studio Info — moved from policy tab */}
                             <div className="bg-white rounded-2xl border border-slate-100 shadow-xl shadow-slate-200/40 p-6 md:p-10 relative overflow-hidden">
-                                <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/10 rounded-bl-full -z-10"></div>
-                                <h3 className="text-2xl font-bold text-slate-800 mb-2">פרטי העסק</h3>
-                                <p className="text-slate-500 text-sm mb-8">פרטים אלו ישולבו אוטומטית בהודעות ללקוחות (כתובת, מפה, תיק עבודות).</p>
+                                <div className="absolute top-0 start-0 w-32 h-32 bg-orange-500/10 rounded-ee-full -z-10"></div>
+                                <h3 className="text-2xl font-bold text-slate-800 mb-2">{tx("פרטי העסק")}</h3>
+                                <p className="text-slate-500 text-sm mb-8">{tx("פרטים אלו ישולבו אוטומטית בהודעות ללקוחות (כתובת, מפה, תיק עבודות).")}</p>
                                 <div className="space-y-5">
                                     <div>
-                                        <label className="block text-sm font-semibold text-slate-700 mb-1">כתובת העסק</label>
+                                        <label className="block text-sm font-semibold text-slate-700 mb-1">{tx("כתובת העסק")}</label>
                                         <input data-tour="business-address" type="text" value={settings.studio_address || ""} onChange={e => handleChange("studio_address", e.target.value)}
-                                            placeholder="לדוג׳: רחוב הרצל 12, תל אביב"
+                                            placeholder={tx("לדוג׳: רחוב הרצל 12, תל אביב")}
                                             className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-orange-500 text-sm" />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-semibold text-slate-700 mb-1">קישור למפה (Waze / Google Maps)</label>
+                                        <label className="block text-sm font-semibold text-slate-700 mb-1">{tx("קישור למפה (Waze / Google Maps)")}</label>
                                         <input type="url" dir="ltr" value={settings.studio_map_link || ""} onChange={e => handleChange("studio_map_link", e.target.value)}
                                             placeholder="https://waze.com/ul?..."
                                             className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-orange-500 text-sm" />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-semibold text-slate-700 mb-1">קישור לתיק עבודות (Instagram / אתר)</label>
+                                        <label className="block text-sm font-semibold text-slate-700 mb-1">{tx("קישור לתיק עבודות (Instagram / אתר)")}</label>
                                         <input type="url" dir="ltr" value={settings.studio_portfolio_link || ""} onChange={e => handleChange("studio_portfolio_link", e.target.value)}
                                             placeholder="https://instagram.com/..."
                                             className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-orange-500 text-sm" />
@@ -1143,12 +1144,12 @@ export default function AutomationSettingsPage() {
 
                             {/* Calendar Hours — moved from automation tab */}
                             <div className="bg-white rounded-2xl border border-slate-100 shadow-xl shadow-slate-200/40 p-6 md:p-10 relative overflow-hidden">
-                                <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-bl-full -z-10"></div>
-                                <h3 className="text-2xl font-bold text-slate-800 mb-2">שעות פעילות העסק ביומן</h3>
-                                <p className="text-slate-500 text-sm mb-6">טווח השעות שיוצג ביומן התורים כדי לשמור על תצוגה נקייה.</p>
+                                <div className="absolute top-0 start-0 w-32 h-32 bg-blue-500/10 rounded-ee-full -z-10"></div>
+                                <h3 className="text-2xl font-bold text-slate-800 mb-2">{tx("שעות פעילות העסק ביומן")}</h3>
+                                <p className="text-slate-500 text-sm mb-6">{tx("טווח השעות שיוצג ביומן התורים כדי לשמור על תצוגה נקייה.")}</p>
                                 <div id="work-days" className="mb-6 scroll-mt-24">
-                                    <span className="block text-sm font-semibold text-slate-700 mb-1">ימי עבודה</span>
-                                    <p className="text-slate-500 text-xs mb-3">יעד ההכנסה החודשי סופר רק את הימים שתסמן — למשל "ימים שנותרו" ו"נדרש ביום".</p>
+                                    <span className="block text-sm font-semibold text-slate-700 mb-1">{tx("ימי עבודה")}</span>
+                                    <p className="text-slate-500 text-xs mb-3">{tx("יעד ההכנסה החודשי סופר רק את הימים שתסמן — למשל \"ימים שנותרו\" ו\"נדרש ביום\".")}</p>
                                     <div className="flex flex-wrap gap-2">
                                         {WORK_DAY_LABELS.map((label, day) => {
                                             const days = settings.work_days ?? DEFAULT_WORK_DAYS;
@@ -1156,7 +1157,7 @@ export default function AutomationSettingsPage() {
                                             const isLast = on && days.length === 1;
                                             return (
                                                 <button key={day} type="button" aria-pressed={on} disabled={isLast}
-                                                    title={isLast ? "צריך לפחות יום עבודה אחד" : undefined}
+                                                    title={isLast ? tx("צריך לפחות יום עבודה אחד") : undefined}
                                                     onClick={() => handleChange("work_days", on ? days.filter(d => d !== day) : [...days, day].sort((a, b) => a - b))}
                                                     className={`px-4 py-2 rounded-xl text-sm font-semibold border transition-colors ${on
                                                         ? "bg-blue-600 border-blue-600 text-white"
@@ -1169,13 +1170,13 @@ export default function AutomationSettingsPage() {
                                 </div>
                                 <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
                                     <div className="flex items-center gap-3">
-                                        <span className="text-sm font-semibold text-slate-700">שעת פתיחה:</span>
+                                        <span className="text-sm font-semibold text-slate-700">{tx("שעת פתיחה:")}</span>
                                         <input type="time" value={settings.calendar_start_hour || "08:00"}
                                             onChange={e => handleChange("calendar_start_hour", e.target.value)}
                                             className="w-32 text-center bg-white border border-slate-200 rounded-xl px-4 py-2 font-semibold text-lg outline-none focus:ring-2 focus:ring-blue-500" dir="ltr" />
                                     </div>
                                     <div className="flex items-center gap-3">
-                                        <span className="text-sm font-semibold text-slate-700">שעת סגירה:</span>
+                                        <span className="text-sm font-semibold text-slate-700">{tx("שעת סגירה:")}</span>
                                         <input type="time" value={settings.calendar_end_hour || "23:00"}
                                             onChange={e => handleChange("calendar_end_hour", e.target.value)}
                                             className="w-32 text-center bg-white border border-slate-200 rounded-xl px-4 py-2 font-semibold text-lg outline-none focus:ring-2 focus:ring-blue-500" dir="ltr" />
@@ -1196,8 +1197,8 @@ export default function AutomationSettingsPage() {
                                 return (
                                     <div className="bg-gradient-to-l from-pink-50 to-purple-50 border border-pink-200 rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4">
                                         <div className="flex-1 min-w-0">
-                                            <p className="text-sm font-bold text-pink-900 mb-1">הקישור הייחודי שלך לדף הנחיתה</p>
-                                            <p className="text-xs text-pink-700 mb-2">שלח את הקישור הזה ללקוחות שלך — הם יגיעו לדף ההצטרפות למועדון</p>
+                                            <p className="text-sm font-bold text-pink-900 mb-1">{tx("הקישור הייחודי שלך לדף הנחיתה")}</p>
+                                            <p className="text-xs text-pink-700 mb-2">{tx("שלח את הקישור הזה ללקוחות שלך — הם יגיעו לדף ההצטרפות למועדון")}</p>
                                             <div className="flex items-center bg-white rounded-xl border border-pink-200 px-3 py-2">
                                                 <code className="flex-1 text-xs font-mono text-slate-700 break-all" dir="ltr">{link}</code>
                                             </div>
@@ -1205,13 +1206,13 @@ export default function AutomationSettingsPage() {
                                         <div className="flex gap-2 flex-shrink-0">
                                             <button
                                                 type="button"
-                                                onClick={() => { navigator.clipboard.writeText(link); setMsg("הקישור הועתק!"); setTimeout(() => setMsg(null), 2000); }}
+                                                onClick={() => { navigator.clipboard.writeText(link); setMsg(tx("הקישור הועתק!")); setTimeout(() => setMsg(null), 2000); }}
                                                 className="bg-pink-600 hover:bg-pink-700 text-white px-4 py-2.5 rounded-xl font-bold text-sm transition-all whitespace-nowrap"
                                             >
-                                                העתק קישור
+                                                {tx("העתק קישור")}
                                             </button>
                                             <a href={link} target="_blank" rel="noopener noreferrer" className="bg-white border border-pink-200 hover:bg-pink-50 text-pink-700 px-4 py-2.5 rounded-xl font-bold text-sm transition-all whitespace-nowrap">
-                                                תצוגה מקדימה
+                                                {tx("תצוגה מקדימה")}
                                             </a>
                                         </div>
                                     </div>
@@ -1219,14 +1220,14 @@ export default function AutomationSettingsPage() {
                             })()}
 
                             <div className="bg-white rounded-2xl border border-slate-100 shadow-xl shadow-slate-200/40 p-6 md:p-10 relative overflow-hidden">
-                                <div className="absolute top-0 left-0 w-32 h-32 bg-pink-500/10 rounded-br-full -z-10"></div>
+                                <div className="absolute top-0 end-0 w-32 h-32 bg-pink-500/10 rounded-es-full -z-10"></div>
 
                                 <div className="grid lg:grid-cols-2 gap-10">
                                     {/* Left Side: Settings Form */}
                                     <div className="flex flex-col gap-8">
                                         <div>
-                                            <h3 className="text-2xl font-bold text-slate-800 mb-2">עיצוב דף הנחיתה</h3>
-                                            <p className="text-slate-500">איך יראה דף ההרשמה שהלקוחות שלך רואים כשהם מצטרפים למועדון?</p>
+                                            <h3 className="text-2xl font-bold text-slate-800 mb-2">{tx("עיצוב דף הנחיתה")}</h3>
+                                            <p className="text-slate-500">{tx("איך יראה דף ההרשמה שהלקוחות שלך רואים כשהם מצטרפים למועדון?")}</p>
                                         </div>
 
                                         {/* AI Generator Box - MOVED TO TOP */}
@@ -1234,20 +1235,20 @@ export default function AutomationSettingsPage() {
                                             <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
                                                 <div className="flex items-center gap-2">
                                                     <span className="text-xl">✨</span>
-                                                    <h4 className="font-bold text-indigo-900 whitespace-nowrap">מחולל עיצוב ב-AI</h4>
+                                                    <h4 className="font-bold text-indigo-900 whitespace-nowrap">{tx("מחולל עיצוב ב-AI")}</h4>
                                                 </div>
                                                 <div className={`text-xs font-bold px-2.5 py-1 rounded-full ${settings.ai_generations_count >= 3 ? 'bg-red-100 text-red-700' : 'bg-indigo-100 text-indigo-700'}`}>
-                                                    נסיונות החודש: {Math.max(0, 3 - settings.ai_generations_count)}/3 נותרו
+                                                    {tx("נסיונות החודש:")} {Math.max(0, 3 - settings.ai_generations_count)}{tx("/3 נותרו")}
                                                 </div>
                                             </div>
-                                            <p className="text-sm text-indigo-700/80 mb-4">תאר/י את האווירה של העסק שלך וניתן לבינה מלאכותית לעצב ולכתוב לך את דף הנחיתה המושלם!</p>
+                                            <p className="text-sm text-indigo-700/80 mb-4">{tx("תאר/י את האווירה של העסק שלך וניתן לבינה מלאכותית לעצב ולכתוב לך את דף הנחיתה המושלם!")}</p>
 
                                             <div className="flex flex-col sm:flex-row gap-3">
                                                 <input
                                                     type="text"
                                                     value={aiPrompt}
                                                     onChange={(e) => setAiPrompt(e.target.value)}
-                                                    placeholder="לדוגמה: אווירה נעימה, שירות אישי ו-10 שנות ניסיון..."
+                                                    placeholder={tx("לדוגמה: אווירה נעימה, שירות אישי ו-10 שנות ניסיון...")}
                                                     className="flex-1 bg-white border border-indigo-200 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-indigo-500 text-sm disabled:opacity-50"
                                                     disabled={isAiLoading || settings.ai_generations_count >= 3}
                                                 />
@@ -1259,22 +1260,22 @@ export default function AutomationSettingsPage() {
                                                     {isAiLoading ? (
                                                         <>
                                                             <div className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin"></div>
-                                                            מייצר...
+                                                            {tx("מייצר...")}
                                                         </>
                                                     ) : (
-                                                        "צור עיצוב"
+                                                        tx("צור עיצוב")
                                                     )}
                                                 </button>
                                             </div>
                                         </div>
 
                                         <div>
-                                            <label className="block text-sm font-semibold text-slate-700 mb-4">תבנית דף הנחיתה</label>
+                                            <label className="block text-sm font-semibold text-slate-700 mb-4">{tx("תבנית דף הנחיתה")}</label>
                                             <div className="grid gap-3">
                                                 {[
-                                                    { id: 1, name: "תבנית קלאסית", desc: "כרטיס הרשמה ממורכז ומרשים." },
-                                                    { id: 2, name: "מסך מפוצל", desc: "מודרני ויוקרתי, הלוגו והצבע הראשי בצד ימין." },
-                                                    { id: 3, name: "מינימליסטית", desc: "נקי ורך, בסגנון מגזין אופנה (Vogue)." }
+                                                    { id: 1, name: tx("תבנית קלאסית"), desc: tx("כרטיס הרשמה ממורכז ומרשים.") },
+                                                    { id: 2, name: tx("מסך מפוצל"), desc: tx("מודרני ויוקרתי, הלוגו והצבע הראשי בצד ימין.") },
+                                                    { id: 3, name: tx("מינימליסטית"), desc: tx("נקי ורך, בסגנון מגזין אופנה (Vogue).") }
                                                 ].map(t => (
                                                     <label
                                                         key={t.id}
@@ -1295,7 +1296,7 @@ export default function AutomationSettingsPage() {
                                                         <div className="text-xs text-slate-500 leading-relaxed">{t.desc}</div>
 
                                                         {settings.landing_page_active_template === t.id && (
-                                                            <div className="absolute top-4 left-4 w-4 h-4 bg-pink-500 rounded-full flex items-center justify-center">
+                                                            <div className="absolute top-4 end-4 w-4 h-4 bg-pink-500 rounded-full flex items-center justify-center">
                                                                 <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
                                                             </div>
                                                         )}
@@ -1307,7 +1308,7 @@ export default function AutomationSettingsPage() {
                                         <div className="space-y-4 pt-4 border-t border-slate-100">
                                             <div className="grid grid-cols-2 gap-4">
                                                 <div className="space-y-2">
-                                                    <label className="block text-sm font-semibold text-slate-700">פונט לכותרת</label>
+                                                    <label className="block text-sm font-semibold text-slate-700">{tx("פונט לכותרת")}</label>
                                                     <select
                                                         value={settings.landing_page_title_font}
                                                         onChange={e => handleChange("landing_page_title_font", e.target.value)}
@@ -1321,7 +1322,7 @@ export default function AutomationSettingsPage() {
                                                     </select>
                                                 </div>
                                                 <div className="space-y-2">
-                                                    <label className="block text-sm font-semibold text-slate-700">פונט לתיאור</label>
+                                                    <label className="block text-sm font-semibold text-slate-700">{tx("פונט לתיאור")}</label>
                                                     <select
                                                         value={settings.landing_page_desc_font}
                                                         onChange={e => handleChange("landing_page_desc_font", e.target.value)}
@@ -1337,35 +1338,35 @@ export default function AutomationSettingsPage() {
                                             </div>
 
                                             <div className="space-y-2">
-                                                <label className="block text-sm font-semibold text-slate-700">תמונת רקע לדף (אופציונלי)</label>
+                                                <label className="block text-sm font-semibold text-slate-700">{tx("תמונת רקע לדף (אופציונלי)")}</label>
                                                 {settings.landing_page_bg_image ? (
                                                     <div className="flex items-center gap-4">
                                                         {/* eslint-disable-next-line @next/next/no-img-element */}
                                                         <img src={`${process.env.NEXT_PUBLIC_API_BASE || ""}/uploads/${settings.landing_page_bg_image}`} alt="BG" className="h-16 w-16 object-cover rounded-lg border border-slate-200" />
-                                                        <button onClick={() => handleChange("landing_page_bg_image", null)} className="text-red-500 text-sm font-bold hover:underline">הסר תמונה</button>
+                                                        <button onClick={() => handleChange("landing_page_bg_image", null)} className="text-red-500 text-sm font-bold hover:underline">{tx("הסר תמונה")}</button>
                                                     </div>
                                                 ) : (
                                                     <label className="cursor-pointer inline-flex items-center justify-center px-6 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-xl transition-colors border border-slate-300 w-full">
-                                                        <span>העלה תמונת רקע</span>
+                                                        <span>{tx("העלה תמונת רקע")}</span>
                                                         <input type="file" className="hidden" accept="image/*" onChange={(e) => handleGenericUpload(e, "landing_page_bg_image")} />
                                                     </label>
                                                 )}
                                             </div>
 
                                             <div className="space-y-2">
-                                                <label className="block text-sm font-semibold text-slate-700">כותרת עמוד ההרשמה</label>
+                                                <label className="block text-sm font-semibold text-slate-700">{tx("כותרת עמוד ההרשמה")}</label>
                                                 <input
                                                     type="text"
-                                                    placeholder="למשל: הצטרפו למועדון הלקוחות האקסקלוסיבי שלנו!"
+                                                    placeholder={tx("למשל: הצטרפו למועדון הלקוחות האקסקלוסיבי שלנו!")}
                                                     value={settings.landing_page_title || ""}
                                                     onChange={e => handleChange("landing_page_title", e.target.value)}
                                                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-pink-500 focus:bg-white transition-all text-sm"
                                                 />
                                             </div>
                                             <div className="space-y-2">
-                                                <label className="block text-sm font-semibold text-slate-700">תיאור ופרטי המבצע</label>
+                                                <label className="block text-sm font-semibold text-slate-700">{tx("תיאור ופרטי המבצע")}</label>
                                                 <textarea
-                                                    placeholder="למשל: הירשמו עכשיו וקבלו 50 נקודות מתנה לפגישה הראשונה..."
+                                                    placeholder={tx("למשל: הירשמו עכשיו וקבלו 50 נקודות מתנה לפגישה הראשונה...")}
                                                     rows={3}
                                                     value={settings.landing_page_description || ""}
                                                     onChange={e => handleChange("landing_page_description", e.target.value)}
@@ -1374,7 +1375,7 @@ export default function AutomationSettingsPage() {
                                             </div>
 
                                             <div className="space-y-2 pt-4">
-                                                <label className="block text-sm font-semibold text-slate-700">גלריית תמונות (עד 3 - יוצג כסליידר אוטומטי)</label>
+                                                <label className="block text-sm font-semibold text-slate-700">{tx("גלריית תמונות (עד 3 - יוצג כסליידר אוטומטי)")}</label>
                                                 <div className="grid grid-cols-3 gap-2">
                                                     {[1, 2, 3].map(num => {
                                                         const key = `landing_page_image_${num}` as keyof Settings;
@@ -1385,7 +1386,7 @@ export default function AutomationSettingsPage() {
                                                                     <>
                                                                         {/* eslint-disable-next-line @next/next/no-img-element */}
                                                                         <img src={`${process.env.NEXT_PUBLIC_API_BASE || ""}/uploads/${val}`} alt={`img-${num}`} className="w-full h-full object-cover" />
-                                                                        <button onClick={() => handleChange(key, null)} className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs shadow-md pb-0.5">&times;</button>
+                                                                        <button onClick={() => handleChange(key, null)} className="absolute top-1 start-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs shadow-md pb-0.5">&times;</button>
                                                                     </>
                                                                 ) : (
                                                                     <label className="cursor-pointer flex flex-col items-center justify-center w-full h-full hover:bg-slate-100 transition-colors">
@@ -1397,7 +1398,7 @@ export default function AutomationSettingsPage() {
                                                         );
                                                     })}
                                                 </div>
-                                                <p className="text-xs text-slate-400 mt-1">העלה את העבודות הטובות ביותר שלך כדי להרשים את הלקוחות בעמוד ההרשמה.</p>
+                                                <p className="text-xs text-slate-400 mt-1">{tx("העלה את העבודות הטובות ביותר שלך כדי להרשים את הלקוחות בעמוד ההרשמה.")}</p>
                                             </div>
                                         </div>
                                     </div>
@@ -1405,15 +1406,15 @@ export default function AutomationSettingsPage() {
                                     {/* Right Side: Live Preview Browser Window */}
                                     <div className="bg-slate-100/50 p-6 rounded-3xl border border-slate-200 flex flex-col h-[750px] sticky top-10">
                                         <div className="flex items-center justify-between mb-4">
-                                            <h4 className="font-bold text-slate-700 flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-pink-500 animate-pulse"></span>תצוגה מקדימה</h4>
+                                            <h4 className="font-bold text-slate-700 flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-pink-500 animate-pulse"></span>{tx("תצוגה מקדימה")}</h4>
                                             <span className="text-xs font-mono text-slate-400 bg-white px-2 py-1 rounded shadow-sm">Preview</span>
                                         </div>
 
                                         <div className="mb-4 bg-white border border-slate-200 rounded-xl p-3 flex flex-col gap-2">
-                                            <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">לינק הצטרפות אישי</label>
+                                            <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">{tx("לינק הצטרפות אישי")}</label>
                                             <div className="flex items-center gap-2">
-                                                <input readOnly value={settings.studio_slug ? `${typeof window !== "undefined" ? window.location.origin : ""}/s/${settings.studio_slug}` : "לא הוגדר קישור לעסק"} className="flex-1 bg-slate-50 text-slate-600 font-mono text-sm px-3 py-2 rounded-lg border border-slate-200 outline-none" dir="ltr" />
-                                                <button onClick={() => { const link = `${typeof window !== "undefined" ? window.location.origin : ""}/s/${settings.studio_slug}`; navigator.clipboard.writeText(link); setMsg("הקישור הועתק!"); setTimeout(() => setMsg(null), 2000); }} className="px-3 py-2 bg-pink-50 text-pink-600 hover:bg-pink-100 font-bold rounded-lg text-sm transition-colors ring-1 ring-pink-200">העתק</button>
+                                                <input readOnly value={settings.studio_slug ? `${typeof window !== "undefined" ? window.location.origin : ""}/s/${settings.studio_slug}` : tx("לא הוגדר קישור לעסק")} className="flex-1 bg-slate-50 text-slate-600 font-mono text-sm px-3 py-2 rounded-lg border border-slate-200 outline-none" dir="ltr" />
+                                                <button onClick={() => { const link = `${typeof window !== "undefined" ? window.location.origin : ""}/s/${settings.studio_slug}`; navigator.clipboard.writeText(link); setMsg(tx("הקישור הועתק!")); setTimeout(() => setMsg(null), 2000); }} className="px-3 py-2 bg-pink-50 text-pink-600 hover:bg-pink-100 font-bold rounded-lg text-sm transition-colors ring-1 ring-pink-200">{tx("העתק")}</button>
                                             </div>
                                         </div>
 
@@ -1427,7 +1428,7 @@ export default function AutomationSettingsPage() {
                                                     <div className="w-3 h-3 rounded-full bg-green-400"></div>
                                                 </div>
                                                 <div className="flex-1 flex justify-center">
-                                                    <div className="bg-white/60 text-slate-400 text-[10px] font-mono py-1 px-8 rounded-full border border-slate-200">{settings.studio_slug ? `biz-control.com/s/${settings.studio_slug}` : "slug לא מוגדר"}</div>
+                                                    <div className="bg-white/60 text-slate-400 text-[10px] font-mono py-1 px-8 rounded-full border border-slate-200">{settings.studio_slug ? `biz-control.com/s/${settings.studio_slug}` : tx("slug לא מוגדר")}</div>
                                                 </div>
                                             </div>
 
@@ -1468,24 +1469,24 @@ export default function AutomationSettingsPage() {
                             <div className="space-y-8">
                                 {/* Bank Details */}
                                 <div className="bg-white rounded-2xl border border-slate-100 shadow-xl shadow-slate-200/40 p-6 md:p-10 relative overflow-hidden">
-                                    <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-bl-full -z-10"></div>
-                                    <h3 className="text-2xl font-bold text-slate-800 mb-2">פרטי העברה בנקאית</h3>
-                                    <p className="text-slate-500 text-sm mb-8">פרטים אלו ישולבו אוטומטית בהודעת בקשת המקדמה דרך המשתנה <code className="bg-slate-100 px-1 rounded text-xs">{"{bank_details}"}</code></p>
+                                    <div className="absolute top-0 start-0 w-32 h-32 bg-blue-500/10 rounded-ee-full -z-10"></div>
+                                    <h3 className="text-2xl font-bold text-slate-800 mb-2">{tx("פרטי העברה בנקאית")}</h3>
+                                    <p className="text-slate-500 text-sm mb-8">{tx("פרטים אלו ישולבו אוטומטית בהודעת בקשת המקדמה דרך המשתנה ")}<code className="bg-slate-100 px-1 rounded text-xs">{"{bank_details}"}</code></p>
                                     <div className="grid md:grid-cols-3 gap-5">
                                         <div>
-                                            <label className="block text-sm font-semibold text-slate-700 mb-1">שם הבנק</label>
+                                            <label className="block text-sm font-semibold text-slate-700 mb-1">{tx("שם הבנק")}</label>
                                             <input type="text" value={settings.bank_name || ""} onChange={e => handleChange("bank_name", e.target.value)}
-                                                placeholder="לדוג׳: בנק הפועלים"
+                                                placeholder={tx("לדוג׳: בנק הפועלים")}
                                                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-semibold text-slate-700 mb-1">מספר סניף</label>
+                                            <label className="block text-sm font-semibold text-slate-700 mb-1">{tx("מספר סניף")}</label>
                                             <input type="text" dir="ltr" value={settings.bank_branch || ""} onChange={e => handleChange("bank_branch", e.target.value)}
                                                 placeholder="612"
                                                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-semibold text-slate-700 mb-1">מספר חשבון</label>
+                                            <label className="block text-sm font-semibold text-slate-700 mb-1">{tx("מספר חשבון")}</label>
                                             <input type="text" dir="ltr" value={settings.bank_account || ""} onChange={e => handleChange("bank_account", e.target.value)}
                                                 placeholder="123456"
                                                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
@@ -1493,21 +1494,21 @@ export default function AutomationSettingsPage() {
                                     </div>
                                     {(settings.bank_name || settings.bank_branch || settings.bank_account) && (
                                         <div className="mt-4 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-600" dir="ltr">
-                                            <span className="font-semibold text-slate-800">תצוגה מקדימה: </span>
-                                            {settings.bank_name} | סניף {settings.bank_branch} | חשבון {settings.bank_account}
+                                            <span className="font-semibold text-slate-800">{tx("תצוגה מקדימה: ")}</span>
+                                            {settings.bank_name}{tx(" | סניף ")}{settings.bank_branch}{tx(" | חשבון ")}{settings.bank_account}
                                         </div>
                                     )}
                                 </div>
 
                                 {/* Deposit Auto-Fill */}
                                 <div className="bg-white rounded-2xl border border-slate-100 shadow-xl shadow-slate-200/40 p-6 md:p-10 relative overflow-hidden">
-                                    <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-bl-full -z-10"></div>
-                                    <h3 className="text-2xl font-bold text-slate-800 mb-2">מקדמה אוטומטית ביומן</h3>
-                                    <p className="text-slate-500 text-sm mb-8">כאשר קובעים תור ביומן, שדה המקדמה יתמלא אוטומטית על פי הגדרות אלו.</p>
+                                    <div className="absolute top-0 start-0 w-32 h-32 bg-emerald-500/10 rounded-ee-full -z-10"></div>
+                                    <h3 className="text-2xl font-bold text-slate-800 mb-2">{tx("מקדמה אוטומטית ביומן")}</h3>
+                                    <p className="text-slate-500 text-sm mb-8">{tx("כאשר קובעים תור ביומן, שדה המקדמה יתמלא אוטומטית על פי הגדרות אלו.")}</p>
                                     <div className="grid md:grid-cols-2 gap-8">
                                         <div className="bg-emerald-50 p-6 rounded-2xl border border-emerald-100">
-                                            <label className="block text-base font-bold text-slate-800 mb-2">סכום מקדמה קבוע 💳</label>
-                                            <p className="text-sm text-slate-500 mb-4">כמה ₪ יוצג אוטומטית בשדה המקדמה בעת קביעת תור? (0 = ללא)</p>
+                                            <label className="block text-base font-bold text-slate-800 mb-2">{tx("סכום מקדמה קבוע 💳")}</label>
+                                            <p className="text-sm text-slate-500 mb-4">{tx("כמה ₪ יוצג אוטומטית בשדה המקדמה בעת קביעת תור? (0 = ללא)")}</p>
                                             <div className="flex items-center gap-3">
                                                 <input type="number" min="0"
                                                     value={settings.deposit_fixed_amount_ils || ""}
@@ -1518,15 +1519,15 @@ export default function AutomationSettingsPage() {
                                             </div>
                                         </div>
                                         <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
-                                            <label className="block text-base font-bold text-slate-800 mb-2">מינימום דקות לתור עם מקדמה ⏱️</label>
-                                            <p className="text-sm text-slate-500 mb-4">מקדמה תתמלא אוטומטית רק אם התור ארוך מ-X דקות. (ריק = תמיד)</p>
+                                            <label className="block text-base font-bold text-slate-800 mb-2">{tx("מינימום דקות לתור עם מקדמה ⏱️")}</label>
+                                            <p className="text-sm text-slate-500 mb-4">{tx("מקדמה תתמלא אוטומטית רק אם התור ארוך מ-X דקות. (ריק = תמיד)")}</p>
                                             <div className="flex items-center gap-3">
                                                 <input type="number" min="0"
                                                     value={settings.deposit_min_duration_minutes ?? ""}
                                                     onChange={e => handleChange("deposit_min_duration_minutes", e.target.value === "" ? null : parseInt(e.target.value) || 0)}
-                                                    placeholder="ללא הגבלה"
+                                                    placeholder={tx("ללא הגבלה")}
                                                     className="w-32 placeholder:text-sm placeholder:font-normal text-center bg-white border border-slate-200 rounded-xl px-4 py-3 font-bold text-xl outline-none focus:ring-2 focus:ring-blue-500" />
-                                                <span className="text-slate-600 font-medium">דקות</span>
+                                                <span className="text-slate-600 font-medium">{tx("דקות")}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -1534,38 +1535,38 @@ export default function AutomationSettingsPage() {
 
                                 {/* Cancellation Policy — merged from branding tab */}
                                 <div className="bg-white rounded-2xl border border-slate-100 shadow-xl shadow-slate-200/40 p-6 md:p-10 relative overflow-hidden">
-                                    <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/10 rounded-bl-full -z-10"></div>
-                                    <h3 className="text-2xl font-bold text-slate-800 mb-2">מדיניות ביטולים ומקדמה</h3>
-                                    <p className="text-slate-500 text-sm mb-8">הגדרות אלו ישולבו אוטומטית בהודעת אישור המקדמה.</p>
+                                    <div className="absolute top-0 start-0 w-32 h-32 bg-red-500/10 rounded-ee-full -z-10"></div>
+                                    <h3 className="text-2xl font-bold text-slate-800 mb-2">{tx("מדיניות ביטולים ומקדמה")}</h3>
+                                    <p className="text-slate-500 text-sm mb-8">{tx("הגדרות אלו ישולבו אוטומטית בהודעת אישור המקדמה.")}</p>
                                     <div className="grid md:grid-cols-2 gap-8">
                                         <div className="bg-emerald-50 p-6 rounded-2xl border border-emerald-100">
-                                            <label className="block text-base font-bold text-slate-800 mb-2">ביטול חינם עד כמה ימים לפני? ✅</label>
-                                            <p className="text-sm text-slate-500 mb-4">לקוח יקבל החזר מקדמה מלא אם יבטל לפחות X ימים לפני התור.</p>
+                                            <label className="block text-base font-bold text-slate-800 mb-2">{tx("ביטול חינם עד כמה ימים לפני? ✅")}</label>
+                                            <p className="text-sm text-slate-500 mb-4">{tx("לקוח יקבל החזר מקדמה מלא אם יבטל לפחות X ימים לפני התור.")}</p>
                                             <div className="flex items-center gap-3">
                                                 <input type="number" min="0" max="60"
                                                     value={settings.cancellation_free_days ?? ""}
                                                     placeholder="7"
                                                     onChange={e => handleChange("cancellation_free_days", e.target.value === "" ? 0 : parseInt(e.target.value) || 0)}
                                                     className="w-24 text-center bg-white border border-emerald-200 rounded-xl px-4 py-3 font-bold text-xl outline-none focus:ring-2 focus:ring-emerald-500" />
-                                                <span className="text-slate-600 font-medium">ימים לפני</span>
+                                                <span className="text-slate-600 font-medium">{tx("ימים לפני")}</span>
                                             </div>
                                         </div>
                                         <div className="bg-red-50 p-6 rounded-2xl border border-red-100">
-                                            <label className="block text-base font-bold text-slate-800 mb-2">נעילת שינוי תור עד כמה ימים לפני? 🔒</label>
-                                            <p className="text-sm text-slate-500 mb-4">לאחר תשלום מקדמה, הלקוח לא יוכל לשנות את התור X ימים לפניו.</p>
+                                            <label className="block text-base font-bold text-slate-800 mb-2">{tx("נעילת שינוי תור עד כמה ימים לפני? 🔒")}</label>
+                                            <p className="text-sm text-slate-500 mb-4">{tx("לאחר תשלום מקדמה, הלקוח לא יוכל לשנות את התור X ימים לפניו.")}</p>
                                             <div className="flex items-center gap-3">
                                                 <input type="number" min="0" max="60"
                                                     value={settings.deposit_lock_days ?? ""}
                                                     placeholder="7"
                                                     onChange={e => handleChange("deposit_lock_days", e.target.value === "" ? 0 : parseInt(e.target.value) || 0)}
                                                     className="w-24 text-center bg-white border border-red-200 rounded-xl px-4 py-3 font-bold text-xl outline-none focus:ring-2 focus:ring-red-500" />
-                                                <span className="text-slate-600 font-medium">ימים לפני</span>
+                                                <span className="text-slate-600 font-medium">{tx("ימים לפני")}</span>
                                             </div>
                                         </div>
                                     </div>
                                     <div className="mt-6 bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
-                                        <span className="font-bold">תצוגה מקדימה של מדיניות הביטולים: </span>
-                                        ביטול עד {settings.cancellation_free_days ?? 7} ימים לפני — החזר מלא של המקדמה. פחות מ-{settings.cancellation_free_days ?? 7} ימים — ללא החזר. שינוי תור אפשרי עד {settings.deposit_lock_days ?? 7} ימים לפני בלבד.
+                                        <span className="font-bold">{tx("תצוגה מקדימה של מדיניות הביטולים: ")}</span>
+                                        {tx("ביטול עד")} {settings.cancellation_free_days ?? 7}{tx(" ימים לפני — החזר מלא של המקדמה. פחות מ-")}{settings.cancellation_free_days ?? 7}{tx(" ימים — ללא החזר. שינוי תור אפשרי עד ")}{settings.deposit_lock_days ?? 7} {tx("ימים לפני בלבד.")}
                                     </div>
                                 </div>
                             </div>
@@ -1579,33 +1580,33 @@ export default function AutomationSettingsPage() {
                                     <div className="flex items-center gap-4">
                                         <span className="text-3xl">✉️</span>
                                         <div>
-                                            <p className="font-bold text-slate-800 text-base">תבניות הודעות</p>
-                                            <p className="text-sm text-slate-500">ערוך את טקסט ההודעות: אישור תור, תזכורות, Aftercare, ברוכים הבאים ועוד</p>
+                                            <p className="font-bold text-slate-800 text-base">{tx("תבניות הודעות")}</p>
+                                            <p className="text-sm text-slate-500">{tx("ערוך את טקסט ההודעות: אישור תור, תזכורות, Aftercare, ברוכים הבאים ועוד")}</p>
                                         </div>
                                     </div>
                                     <span className="text-blue-500 text-xl group-hover:translate-x-[-4px] transition-transform">←</span>
                                 </Link>
 
                                 <div className="bg-white rounded-2xl border border-slate-100 shadow-xl shadow-slate-200/40 p-6 md:p-10 relative overflow-hidden">
-                                    <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-bl-full -z-10"></div>
-                                    <h3 className="text-2xl font-bold text-slate-800 mb-6">חוקי מועדון ואוטומציה</h3>
+                                    <div className="absolute top-0 start-0 w-32 h-32 bg-blue-500/10 rounded-ee-full -z-10"></div>
+                                    <h3 className="text-2xl font-bold text-slate-800 mb-6">{tx("חוקי מועדון ואוטומציה")}</h3>
 
                                     {/* Shabbat block toggle */}
                                     <div className="flex items-center justify-between gap-4 bg-slate-50 border border-slate-200 rounded-2xl px-6 py-5 mb-6">
                                         <div>
-                                            <p className="text-base font-bold text-slate-800">🕍 חסום שליחת הודעות בשבת</p>
+                                            <p className="text-base font-bold text-slate-800">{tx("🕍 חסום שליחת הודעות בשבת")}</p>
                                             <p className="text-sm text-slate-500 mt-0.5">
-                                                הודעות WhatsApp, מייל ותפוצות לא יישלחו בשבת — יישלחו אוטומטית ביום ראשון.
+                                                {tx("הודעות WhatsApp, מייל ותפוצות לא יישלחו בשבת — יישלחו אוטומטית ביום ראשון.")}
                                             </p>
                                         </div>
-                                        <Switch checked={!!settings.block_shabbat_messages} onChange={v => handleChange("block_shabbat_messages", v)} onColor="bg-blue-600" title="חסום שליחה בשבת" />
+                                        <Switch checked={!!settings.block_shabbat_messages} onChange={v => handleChange("block_shabbat_messages", v)} onColor="bg-blue-600" title={tx("חסום שליחה בשבת")} />
                                     </div>
 
                                     {/* Opt-out landing page wording */}
                                     <div className="bg-slate-50 border border-slate-200 rounded-2xl px-6 py-5 mb-6">
-                                        <p className="text-base font-bold text-slate-800 mb-1">🔕 נוסח דף הסרה מהודעות</p>
+                                        <p className="text-base font-bold text-slate-800 mb-1">{tx("🔕 נוסח דף הסרה מהודעות")}</p>
                                         <p className="text-sm text-slate-500 mb-4">
-                                            הטקסט שהלקוח רואה בדף הציבורי אחרי שהוא לוחץ על קישור הסרה (בתפוצות ובהזמנה למועדון). הלוגו ושם העסק שלך מוצגים שם אוטומטית.
+                                            {tx("הטקסט שהלקוח רואה בדף הציבורי אחרי שהוא לוחץ על קישור הסרה (בתפוצות ובהזמנה למועדון). הלוגו ושם העסק שלך מוצגים שם אוטומטית.")}
                                         </p>
                                         <textarea
                                             value={settings.optout_page_message ?? ""}
@@ -1615,7 +1616,7 @@ export default function AutomationSettingsPage() {
                                             className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-slate-400 resize-none"
                                         />
                                         <p className="text-xs text-slate-400 mt-1.5">
-                                            💡 אפשר להשתמש ב-<span className="font-mono">{"{studio_name}"}</span> — יוחלף אוטומטית בשם העסק שלך.
+                                            {tx("💡 אפשר להשתמש ב-")}<span className="font-mono">{"{studio_name}"}</span> {tx("— יוחלף אוטומטית בשם העסק שלך.")}
                                         </p>
                                     </div>
 
@@ -1624,16 +1625,16 @@ export default function AutomationSettingsPage() {
                                     <div className="bg-orange-50 border border-orange-200 rounded-2xl px-6 py-5 mb-6">
                                         <div className="flex items-center justify-between gap-4 mb-3">
                                             <div>
-                                                <p className="text-base font-bold text-slate-800">🎉 כרטיס חגיגה למימוש נקודות גדול</p>
+                                                <p className="text-base font-bold text-slate-800">{tx("🎉 כרטיס חגיגה למימוש נקודות גדול")}</p>
                                                 <p className="text-sm text-slate-500 mt-0.5">
-                                                    מעל סכום מסוים שהלקוח מממש בנקודות/קאשבק, נשלח אליו כרטיס חגיגי עם קונפטי (״חסכת ₪X היום!״) — משתף בסטורי ומזמין חברים למועדון.
+                                                    {tx("מעל סכום מסוים שהלקוח מממש בנקודות/קאשבק, נשלח אליו כרטיס חגיגי עם קונפטי (״חסכת ₪X היום!״) — משתף בסטורי ומזמין חברים למועדון.")}
                                                 </p>
                                             </div>
-                                            <Switch checked={!!settings.points_celebration_enabled} onChange={v => handleChange("points_celebration_enabled", v)} onColor="bg-orange-500" title="הפעל כרטיס חגיגה" />
+                                            <Switch checked={!!settings.points_celebration_enabled} onChange={v => handleChange("points_celebration_enabled", v)} onColor="bg-orange-500" title={tx("הפעל כרטיס חגיגה")} />
                                         </div>
                                         {settings.points_celebration_enabled && (
                                             <div className="flex items-center gap-3 mt-4">
-                                                <span className="text-slate-600 font-medium text-sm">מעל מימוש של</span>
+                                                <span className="text-slate-600 font-medium text-sm">{tx("מעל מימוש של")}</span>
                                                 <div className="flex items-center gap-1">
                                                     <span className="text-slate-500">₪</span>
                                                     <input
@@ -1645,7 +1646,7 @@ export default function AutomationSettingsPage() {
                                                         min="0"
                                                     />
                                                 </div>
-                                                <span className="text-orange-600 font-bold text-sm">בתשלום אחד</span>
+                                                <span className="text-orange-600 font-bold text-sm">{tx("בתשלום אחד")}</span>
                                             </div>
                                         )}
                                     </div>
@@ -1654,13 +1655,13 @@ export default function AutomationSettingsPage() {
                                     <div className="grid md:grid-cols-2 gap-8">
                                         <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
 <div className="flex items-center justify-between gap-3 mb-2">
-                                                <label className="block text-base font-bold text-slate-800">הודעת Aftercare וביקורת</label>
-                                                <Switch checked={settings.aftercare_enabled !== false} onChange={v => handleChange("aftercare_enabled", v)} onColor="bg-blue-600" label="הודעת Aftercare וביקורת" />
+                                                <label className="block text-base font-bold text-slate-800">{tx("הודעת Aftercare וביקורת")}</label>
+                                                <Switch checked={settings.aftercare_enabled !== false} onChange={v => handleChange("aftercare_enabled", v)} onColor="bg-blue-600" label={tx("הודעת Aftercare וביקורת")} />
                                             </div>
                                             {settings.aftercare_enabled === false ? (
-                                                <p className="text-sm text-slate-500">כבויה — לא נשלחת ללקוח הודעה עם הוראות טיפול ובקשת ביקורת אחרי התור.</p>
+                                                <p className="text-sm text-slate-500">{tx("כבויה — לא נשלחת ללקוח הודעה עם הוראות טיפול ובקשת ביקורת אחרי התור.")}</p>
                                             ) : (<>
-                                            <p className="text-sm text-slate-500 mb-4">כמה דקות לאחר סיום התור תישלח ללקוח ההודעה והבקשה לביקורת?</p>
+                                            <p className="text-sm text-slate-500 mb-4">{tx("כמה דקות לאחר סיום התור תישלח ללקוח ההודעה והבקשה לביקורת?")}</p>
                                             <div className="flex items-center gap-3">
                                                 <input
                                                     type="number"
@@ -1669,21 +1670,21 @@ export default function AutomationSettingsPage() {
                                                     onChange={e => handleChange("aftercare_delay_minutes", e.target.value === "" ? 0 : parseInt(e.target.value) || 0)}
                                                     className="w-24 text-center bg-white border border-slate-200 rounded-xl px-4 py-3 font-semibold text-lg outline-none focus:ring-2 focus:ring-blue-500"
                                                 />
-                                                <span className="text-slate-600 font-medium">דקות</span>
+                                                <span className="text-slate-600 font-medium">{tx("דקות")}</span>
                                             </div>
                                             </>)}
                                         </div>
 
-                                        <PlanLock module="customer_club" feature="מועדון לקוחות: מתנת הצטרפות, קאשבק ויום הולדת" compact><>
+                                        <PlanLock module="customer_club" feature={tx("מועדון לקוחות: מתנת הצטרפות, קאשבק ויום הולדת")} compact><>
                                         <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
 <div className="flex items-center justify-between gap-3 mb-2">
-                                                <label className="block text-base font-bold text-slate-800">מתנת הצטרפות למועדון</label>
-                                                <Switch checked={settings.club_join_gift_enabled !== false} onChange={v => handleChange("club_join_gift_enabled", v)} onColor="bg-pink-500" label="מתנת הצטרפות למועדון" />
+                                                <label className="block text-base font-bold text-slate-800">{tx("מתנת הצטרפות למועדון")}</label>
+                                                <Switch checked={settings.club_join_gift_enabled !== false} onChange={v => handleChange("club_join_gift_enabled", v)} onColor="bg-pink-500" label={tx("מתנת הצטרפות למועדון")} />
                                             </div>
                                             {settings.club_join_gift_enabled === false ? (
-                                                <p className="text-sm text-slate-500">כבויה — מצטרפים חדשים לא מקבלים נקודות, וההזמנה למועדון לא מבטיחה נקודות.</p>
+                                                <p className="text-sm text-slate-500">{tx("כבויה — מצטרפים חדשים לא מקבלים נקודות, וההזמנה למועדון לא מבטיחה נקודות.")}</p>
                                             ) : (<>
-                                            <p className="text-sm text-slate-500 mb-4">כמה נקודות יקבל לקוח חדש ברגע שיירשם דרך דף הנחיתה?</p>
+                                            <p className="text-sm text-slate-500 mb-4">{tx("כמה נקודות יקבל לקוח חדש ברגע שיירשם דרך דף הנחיתה?")}</p>
                                             <div className="flex items-center gap-3">
                                                 <input
                                                     type="number"
@@ -1692,20 +1693,20 @@ export default function AutomationSettingsPage() {
                                                     onChange={e => handleChange("points_on_signup", e.target.value === "" ? 0 : parseInt(e.target.value) || 0)}
                                                     className="w-24 text-center bg-white border border-slate-200 rounded-xl px-4 py-3 font-semibold text-lg outline-none focus:ring-2 focus:ring-pink-500"
                                                 />
-                                                <span className="text-slate-600 font-medium">נקודות</span>
+                                                <span className="text-slate-600 font-medium">{tx("נקודות")}</span>
                                             </div>
                                             </>)}
                                         </div>
 
                                         <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
 <div className="flex items-center justify-between gap-3 mb-2">
-                                                <label className="block text-base font-bold text-slate-800">קאשבק מתשלום</label>
-                                                <Switch checked={settings.cashback_enabled !== false} onChange={v => handleChange("cashback_enabled", v)} onColor="bg-pink-500" label="קאשבק מתשלום" />
+                                                <label className="block text-base font-bold text-slate-800">{tx("קאשבק מתשלום")}</label>
+                                                <Switch checked={settings.cashback_enabled !== false} onChange={v => handleChange("cashback_enabled", v)} onColor="bg-pink-500" label={tx("קאשבק מתשלום")} />
                                             </div>
                                             {settings.cashback_enabled === false ? (
-                                                <p className="text-sm text-slate-500">כבוי — לא נצברות נקודות על תשלום: תור, קופה, מנוי או שיעור.</p>
+                                                <p className="text-sm text-slate-500">{tx("כבוי — לא נצברות נקודות על תשלום: תור, קופה, מנוי או שיעור.")}</p>
                                             ) : (<>
-                                            <p className="text-sm text-slate-500 mb-4">כמה אחוזים מהתשלום חוזרים ללקוח כנקודות (Cashback)?</p>
+                                            <p className="text-sm text-slate-500 mb-4">{tx("כמה אחוזים מהתשלום חוזרים ללקוח כנקודות (Cashback)?")}</p>
                                             <div className="flex items-center gap-3">
                                                 <input
                                                     type="number"
@@ -1715,20 +1716,20 @@ export default function AutomationSettingsPage() {
                                                     className="w-24 text-center bg-white border border-slate-200 rounded-xl px-4 py-3 font-semibold text-lg outline-none focus:ring-2 focus:ring-pink-500"
                                                     min="0" max="100"
                                                 />
-                                                <span className="text-slate-600 font-medium">אחוזים (%)</span>
+                                                <span className="text-slate-600 font-medium">{tx("אחוזים (%)")}</span>
                                             </div>
                                             </>)}
                                         </div>
 
                                         <div className="bg-pink-50 p-6 rounded-2xl border border-pink-100">
 <div className="flex items-center justify-between gap-3 mb-2">
-                                                <label className="block text-base font-bold text-slate-800">הטבת יום הולדת 🎉</label>
-                                                <Switch checked={settings.birthday_automation_enabled !== false} onChange={v => handleChange("birthday_automation_enabled", v)} onColor="bg-pink-500" label="הטבת יום הולדת 🎉" />
+                                                <label className="block text-base font-bold text-slate-800">{tx("הטבת יום הולדת 🎉")}</label>
+                                                <Switch checked={settings.birthday_automation_enabled !== false} onChange={v => handleChange("birthday_automation_enabled", v)} onColor="bg-pink-500" label={tx("הטבת יום הולדת 🎉")} />
                                             </div>
                                             {settings.birthday_automation_enabled === false ? (
-                                                <p className="text-sm text-slate-500">כבויה — לא נשלחת הודעת יום הולדת ולא קופון, גם לא בשליחה ידנית.</p>
+                                                <p className="text-sm text-slate-500">{tx("כבויה — לא נשלחת הודעת יום הולדת ולא קופון, גם לא בשליחה ידנית.")}</p>
                                             ) : (<>
-                                            <p className="text-sm text-slate-500 mb-4">איזו הנחה יקבל לקוח בחודש של יום ההולדת שלו?</p>
+                                            <p className="text-sm text-slate-500 mb-4">{tx("איזו הנחה יקבל לקוח בחודש של יום ההולדת שלו?")}</p>
                                             <div className="flex items-center gap-3">
                                                 <input
                                                     type="number"
@@ -1738,27 +1739,27 @@ export default function AutomationSettingsPage() {
                                                     className="w-24 text-center bg-white border border-pink-200 rounded-xl px-4 py-3 font-semibold text-lg outline-none focus:ring-2 focus:ring-pink-500"
                                                     min="1" max="100"
                                                 />
-                                                <span className="text-pink-600 font-medium font-bold">אחוז הנחה (%)</span>
+                                                <span className="text-pink-600 font-medium font-bold">{tx("אחוז הנחה (%)")}</span>
                                             </div>
                                             </>)}
                                         </div>
                                         </></PlanLock>
 
-                                        <PlanLock module="gift_cards" feature="גיפט קארד: סכומים, בונוס ועיצוב השובר" compact><>
+                                        <PlanLock module="gift_cards" feature={tx("גיפט קארד: סכומים, בונוס ועיצוב השובר")} compact><>
                                         <div className="bg-violet-50 p-6 rounded-2xl border border-violet-200 md:col-span-2">
 <div className="flex items-center justify-between gap-3 mb-2">
-                                                <label className="block text-base font-bold text-slate-800">💳 מכירת גיפט קארד</label>
-                                                <Switch checked={settings.gift_card_sales_enabled !== false} onChange={v => handleChange("gift_card_sales_enabled", v)} onColor="bg-violet-600" label="💳 מכירת גיפט קארד" />
+                                                <label className="block text-base font-bold text-slate-800">{tx("💳 מכירת גיפט קארד")}</label>
+                                                <Switch checked={settings.gift_card_sales_enabled !== false} onChange={v => handleChange("gift_card_sales_enabled", v)} onColor="bg-violet-600" label={tx("💳 מכירת גיפט קארד")} />
                                             </div>
                                             {settings.gift_card_sales_enabled === false ? (
-                                                <p className="text-sm text-slate-500">כבויה — דף הרכישה סגור ואי אפשר למכור כרטיס חדש, גם לא מהמערכת. כרטיסים שכבר נמכרו ממשיכים לעבוד.</p>
+                                                <p className="text-sm text-slate-500">{tx("כבויה — דף הרכישה סגור ואי אפשר למכור כרטיס חדש, גם לא מהמערכת. כרטיסים שכבר נמכרו ממשיכים לעבוד.")}</p>
                                             ) : (<>
                                             <p className="text-sm text-slate-500 mb-4">
-                                                הסכום המינימלי והמקסימלי שלקוח יכול לבחור בדף הרכישה הציבורי. השאר את המקסימום ריק לאין הגבלה.
+                                                {tx("הסכום המינימלי והמקסימלי שלקוח יכול לבחור בדף הרכישה הציבורי. השאר את המקסימום ריק לאין הגבלה.")}
                                             </p>
                                             <div className="flex flex-wrap items-center gap-6">
                                                 <div className="flex items-center gap-3">
-                                                    <span className="text-slate-600 font-medium text-sm">מינימום</span>
+                                                    <span className="text-slate-600 font-medium text-sm">{tx("מינימום")}</span>
                                                     <div className="flex items-center gap-1">
                                                         <span className="text-slate-500">₪</span>
                                                         <input
@@ -1772,13 +1773,13 @@ export default function AutomationSettingsPage() {
                                                     </div>
                                                 </div>
                                                 <div className="flex items-center gap-3">
-                                                    <span className="text-slate-600 font-medium text-sm">מקסימום</span>
+                                                    <span className="text-slate-600 font-medium text-sm">{tx("מקסימום")}</span>
                                                     <div className="flex items-center gap-1">
                                                         <span className="text-slate-500">₪</span>
                                                         <input
                                                             type="number"
                                                             value={settings.gift_card_max_amount_cents ? settings.gift_card_max_amount_cents / 100 : ""}
-                                                            placeholder="ללא הגבלה"
+                                                            placeholder={tx("ללא הגבלה")}
                                                             onChange={e => handleChange("gift_card_max_amount_cents", e.target.value === "" ? 0 : Math.round((parseFloat(e.target.value) || 0) * 100))}
                                                             className="w-32 placeholder:text-sm placeholder:font-normal text-center bg-white border border-violet-200 rounded-xl px-4 py-3 font-semibold text-lg outline-none focus:ring-2 focus:ring-violet-500"
                                                             min="0"
@@ -1786,7 +1787,7 @@ export default function AutomationSettingsPage() {
                                                     </div>
                                                 </div>
                                                 <div className="flex items-center gap-3">
-                                                    <span className="text-slate-600 font-medium text-sm">תוקף הכרטיס</span>
+                                                    <span className="text-slate-600 font-medium text-sm">{tx("תוקף הכרטיס")}</span>
                                                     <div className="flex items-center gap-1">
                                                         <input
                                                             type="number"
@@ -1796,7 +1797,7 @@ export default function AutomationSettingsPage() {
                                                             className="w-20 text-center bg-white border border-violet-200 rounded-xl px-4 py-3 font-semibold text-lg outline-none focus:ring-2 focus:ring-violet-500"
                                                             min="1" max="60"
                                                         />
-                                                        <span className="text-slate-500">חודשים</span>
+                                                        <span className="text-slate-500">{tx("חודשים")}</span>
                                                     </div>
                                                 </div>
                                             </div>
@@ -1808,17 +1809,17 @@ export default function AutomationSettingsPage() {
                                         <div className="bg-violet-50 p-6 rounded-2xl border border-violet-200 md:col-span-2">
                                             <div className="flex items-center justify-between gap-4 mb-3">
                                                 <div>
-                                                    <label className="block text-base font-bold text-slate-800">🎁 בונוס לרכישת גיפט קארד</label>
+                                                    <label className="block text-base font-bold text-slate-800">{tx("🎁 בונוס לרכישת גיפט קארד")}</label>
                                                     <p className="text-sm text-slate-500 mt-0.5">
-                                                        מעל סכום מסוים, הכרטיס שיוצא ללקוח יהיה שווה יותר ממה ששילם — למשל &quot;מעל ₪500, מקבלים 10% בונוס&quot;.
+                                                        {tx("מעל סכום מסוים, הכרטיס שיוצא ללקוח יהיה שווה יותר ממה ששילם — למשל \"מעל ₪500, מקבלים 10% בונוס\".")}
                                                     </p>
                                                 </div>
-                                                <Switch checked={!!settings.gift_card_bonus_enabled} onChange={v => handleChange("gift_card_bonus_enabled", v)} onColor="bg-violet-600" title="הפעל בונוס לגיפט קארד" />
+                                                <Switch checked={!!settings.gift_card_bonus_enabled} onChange={v => handleChange("gift_card_bonus_enabled", v)} onColor="bg-violet-600" title={tx("הפעל בונוס לגיפט קארד")} />
                                             </div>
                                             {settings.gift_card_bonus_enabled && (
                                                 <div className="flex flex-wrap items-center gap-6 mt-4">
                                                     <div className="flex items-center gap-3">
-                                                        <span className="text-slate-600 font-medium text-sm">מעל סכום של</span>
+                                                        <span className="text-slate-600 font-medium text-sm">{tx("מעל סכום של")}</span>
                                                         <div className="flex items-center gap-1">
                                                             <span className="text-slate-500">₪</span>
                                                             <input
@@ -1832,7 +1833,7 @@ export default function AutomationSettingsPage() {
                                                         </div>
                                                     </div>
                                                     <div className="flex items-center gap-3">
-                                                        <span className="text-slate-600 font-medium text-sm">הלקוח מקבל</span>
+                                                        <span className="text-slate-600 font-medium text-sm">{tx("הלקוח מקבל")}</span>
                                                         <input
                                                             type="number"
                                                             value={settings.gift_card_bonus_percent || ""}
@@ -1841,7 +1842,7 @@ export default function AutomationSettingsPage() {
                                                             className="w-20 text-center bg-white border border-violet-200 rounded-xl px-4 py-3 font-semibold text-lg outline-none focus:ring-2 focus:ring-violet-500"
                                                             min="0" max="100"
                                                         />
-                                                        <span className="text-violet-600 font-bold text-sm">% בונוס לערך הכרטיס</span>
+                                                        <span className="text-violet-600 font-bold text-sm">{tx("% בונוס לערך הכרטיס")}</span>
                                                     </div>
                                                 </div>
                                             )}
@@ -1849,20 +1850,20 @@ export default function AutomationSettingsPage() {
 
                                         <div className="bg-violet-50 p-6 rounded-2xl border border-violet-200 md:col-span-2">
 <div className="flex items-center justify-between gap-3 mb-2">
-                                                <label className="block text-base font-bold text-slate-800">🎨 שובר מעוצב לכרטיס המתנה</label>
-                                                <Switch checked={settings.gift_voucher_design_enabled !== false} onChange={v => handleChange("gift_voucher_design_enabled", v)} onColor="bg-violet-600" label="🎨 שובר מעוצב לכרטיס המתנה" />
+                                                <label className="block text-base font-bold text-slate-800">{tx("🎨 שובר מעוצב לכרטיס המתנה")}</label>
+                                                <Switch checked={settings.gift_voucher_design_enabled !== false} onChange={v => handleChange("gift_voucher_design_enabled", v)} onColor="bg-violet-600" label={tx("🎨 שובר מעוצב לכרטיס המתנה")} />
                                             </div>
                                             {settings.gift_voucher_design_enabled === false ? (
-                                                <p className="text-sm text-slate-500">כבוי — הלקוח מקבל את הגיפט קארד כהודעה עם הקוד והקישור, בלי תמונת שובר.</p>
+                                                <p className="text-sm text-slate-500">{tx("כבוי — הלקוח מקבל את הגיפט קארד כהודעה עם הקוד והקישור, בלי תמונת שובר.")}</p>
                                             ) : (<>
                                             <p className="text-sm text-slate-500 mb-4">
-                                                העיצוב שהלקוח יקבל בוואטסאפ ובמייל אחרי שהתשלום אושר — כולל הלוגו שלך.
+                                                {tx("העיצוב שהלקוח יקבל בוואטסאפ ובמייל אחרי שהתשלום אושר — כולל הלוגו שלך.")}
                                             </p>
                                             <div className="flex flex-wrap gap-2 mb-3">
                                                 {[
-                                                    { key: "black_gold", label: "שחור-זהב (VIP)" },
-                                                    { key: "purple_classic", label: "סגול קלאסי" },
-                                                    { key: "cream_rose", label: "שמנת-רוזגולד" },
+                                                    { key: "black_gold", label: tx("שחור-זהב (VIP)") },
+                                                    { key: "purple_classic", label: tx("סגול קלאסי") },
+                                                    { key: "cream_rose", label: tx("שמנת-רוזגולד") },
                                                 ].map(t => (
                                                     <button
                                                         key={t.key}
@@ -1880,14 +1881,14 @@ export default function AutomationSettingsPage() {
                                                 disabled={voucherPreviewLoading}
                                                 className="text-sm font-semibold text-violet-700 bg-white border border-violet-200 rounded-xl px-4 py-2 hover:bg-violet-100 transition-colors disabled:opacity-50"
                                             >
-                                                {voucherPreviewLoading ? "טוען תצוגה מקדימה..." : "👁️ הצג דוגמה איך זה ייראה"}
+                                                {voucherPreviewLoading ? tx("טוען תצוגה מקדימה...") : tx("👁️ הצג דוגמה איך זה ייראה")}
                                             </button>
                                             {voucherPreviewErr && (
                                                 <p className="text-sm text-rose-600 mt-2">{voucherPreviewErr}</p>
                                             )}
                                             {voucherPreviewImage && (
                                                 <div className="mt-4">
-                                                    <img src={voucherPreviewImage} alt="תצוגה מקדימה של שובר גיפט קארד" className="w-full max-w-md rounded-2xl border border-violet-200 shadow-sm" />
+                                                    <img src={voucherPreviewImage} alt={tx("תצוגה מקדימה של שובר גיפט קארד")} className="w-full max-w-md rounded-2xl border border-violet-200 shadow-sm" />
                                                 </div>
                                             )}
                                             </>)}
@@ -1897,10 +1898,9 @@ export default function AutomationSettingsPage() {
 
                                         {plan.has("customer_club") && (<>
                                         <div className="bg-pink-50 p-6 rounded-2xl border border-pink-200 md:col-span-2">
-                                            <label className="block text-base font-bold text-slate-800 mb-2">שליחה ידנית של הודעות יומולדת 🎂</label>
+                                            <label className="block text-base font-bold text-slate-800 mb-2">{tx("שליחה ידנית של הודעות יומולדת 🎂")}</label>
                                             <p className="text-sm text-slate-500 mb-4">
-                                                המערכת שולחת אוטומטית כל יום הודעת יומולדת אישית + קופון לכל חבר מועדון,
-                                                יומיים לפני יום ההולדת שלו. לחץ כאן כדי להריץ את הסבב של היום ידנית (למי שיומולדתו בעוד יומיים).
+                                                {tx("המערכת שולחת אוטומטית כל יום הודעת יומולדת אישית + קופון לכל חבר מועדון, יומיים לפני יום ההולדת שלו. לחץ כאן כדי להריץ את הסבב של היום ידנית (למי שיומולדתו בעוד יומיים).")}
                                             </p>
                                             <button
                                                 type="button"
@@ -1908,34 +1908,34 @@ export default function AutomationSettingsPage() {
                                                 disabled={birthdaySweepLoading}
                                                 className="px-5 py-2.5 bg-pink-500 hover:bg-pink-600 disabled:opacity-50 text-white font-semibold rounded-xl transition-colors text-sm"
                                             >
-                                                {birthdaySweepLoading ? "שולח..." : "🎂 שלח הודעות יומולדת עכשיו"}
+                                                {birthdaySweepLoading ? tx("שולח...") : tx("🎂 שלח הודעות יומולדת עכשיו")}
                                             </button>
                                             {birthdaySweepResult && (
                                                 <p className={`mt-3 text-sm font-semibold ${birthdaySweepResult.ok ? "text-emerald-600" : "text-red-600"}`}>
                                                     {birthdaySweepResult.ok
                                                         ? birthdaySweepResult.messages_enqueued > 0
-                                                            ? `✅ נשלחו ${birthdaySweepResult.messages_enqueued} הודעות בהצלחה`
-                                                            : "✅ אין לקוחות חדשים לשלוח — כולם כבר קיבלו הודעה"
-                                                        : "❌ שגיאה בשליחה"}
+                                                            ? tx("✅ נשלחו {0} הודעות בהצלחה", { 0: birthdaySweepResult.messages_enqueued })
+                                                            : tx("✅ אין לקוחות חדשים לשלוח — כולם כבר קיבלו הודעה")
+                                                        : tx("❌ שגיאה בשליחה")}
                                                 </p>
                                             )}
                                         </div>
 
                                         <div className="bg-amber-50 p-6 rounded-2xl border border-amber-200 md:col-span-2">
-                                            <label className="block text-base font-bold text-slate-800 mb-2">שליחה רטרואקטיבית של הודעת ברוכים הבאים</label>
-                                            <p className="text-sm text-slate-500 mb-4">חברי מועדון שנרשמו בעבר ולא קיבלו הודעת ברוכים הבאים — לחץ לשלוח להם עכשיו.</p>
+                                            <label className="block text-base font-bold text-slate-800 mb-2">{tx("שליחה רטרואקטיבית של הודעת ברוכים הבאים")}</label>
+                                            <p className="text-sm text-slate-500 mb-4">{tx("חברי מועדון שנרשמו בעבר ולא קיבלו הודעת ברוכים הבאים — לחץ לשלוח להם עכשיו.")}</p>
                                             <button
                                                 type="button"
                                                 onClick={handleRetroactiveWelcome}
                                                 disabled={retroLoading}
                                                 className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white font-semibold rounded-xl transition-colors text-sm"
                                             >
-                                                {retroLoading ? "שולח..." : "שלח הודעות לחברים שהפספסו"}
+                                                {retroLoading ? tx("שולח...") : tx("שלח הודעות לחברים שהפספסו")}
                                             </button>
                                             {retroResult && (
                                                 <div className="mt-3">
                                                     <p className="text-sm font-semibold text-emerald-700">
-                                                        נשלח ל-{retroResult.processed} לקוחות {retroResult.failed > 0 ? `• ${retroResult.failed} נכשלו` : "✓"}
+                                                        {tx("נשלח ל-")}{retroResult.processed}{tx(" לקוחות ")}{retroResult.failed > 0 ? tx("• {0} נכשלו", { 0: retroResult.failed }) : "✓"}
                                                     </p>
                                                     {retroResult.clients?.length > 0 && (
                                                         <ul className="mt-2 text-xs text-slate-600 space-y-0.5">
@@ -1949,13 +1949,13 @@ export default function AutomationSettingsPage() {
 
                                         <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 md:col-span-2 flex items-center justify-between gap-4 flex-wrap">
                                             <div>
-                                                <label className="block text-base font-bold text-slate-800 mb-1">טמפלטים לכותרת טיפול</label>
+                                                <label className="block text-base font-bold text-slate-800 mb-1">{tx("טמפלטים לכותרת טיפול")}</label>
                                                 <p className="text-sm text-slate-500">
-                                                    עברו ל<strong>קטלוג השירותים</strong> — שם מגדירים שירות פעם אחת (כולל מקדמה והוראות טיפול), וזה חל בכל מקום: קביעת תור ביומן, וגם קביעת תור עצמאית דרך BizFind. לא צריך יותר להגדיר את אותו הדבר פעמיים.
+                                                    {tx("עברו ל")}<strong>{tx("קטלוג השירותים")}</strong> {tx("— שם מגדירים שירות פעם אחת (כולל מקדמה והוראות טיפול), וזה חל בכל מקום: קביעת תור ביומן, וגם קביעת תור עצמאית דרך BizFind. לא צריך יותר להגדיר את אותו הדבר פעמיים.")}
                                                 </p>
                                             </div>
                                             <Link href="/services" className="bg-slate-900 hover:bg-slate-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm transition-colors whitespace-nowrap">
-                                                🛎️ פתח קטלוג שירותים ←
+                                                {tx("🛎️ פתח קטלוג שירותים ←")}
                                             </Link>
                                         </div>
 
@@ -1966,15 +1966,15 @@ export default function AutomationSettingsPage() {
                                 <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
                                     <div className="flex items-center justify-between mb-4">
                                         <div>
-                                            <h4 className="text-lg font-bold text-slate-800">📲 קביעת תורים אונליין</h4>
-                                            <p className="text-sm text-slate-500 mt-0.5">לקוחות יוכלו לקבוע תור בעצמם דרך עמוד ציבורי</p>
+                                            <h4 className="text-lg font-bold text-slate-800">{tx("📲 קביעת תורים אונליין")}</h4>
+                                            <p className="text-sm text-slate-500 mt-0.5">{tx("לקוחות יוכלו לקבוע תור בעצמם דרך עמוד ציבורי")}</p>
                                         </div>
-                                        <Switch checked={!!settings.self_booking_enabled} onChange={v => handleChange("self_booking_enabled", v)} onColor="bg-emerald-500" label="קביעת תורים אונליין" />
+                                        <Switch checked={!!settings.self_booking_enabled} onChange={v => handleChange("self_booking_enabled", v)} onColor="bg-emerald-500" label={tx("קביעת תורים אונליין")} />
                                     </div>
 
                                     {!settings.self_booking_enabled && (
                                         <label className="flex items-center justify-between gap-3 pt-3 border-t border-slate-100 cursor-pointer">
-                                            <span className="text-sm text-slate-600">הראה תזכורת ביומן כל עוד זה כבוי</span>
+                                            <span className="text-sm text-slate-600">{tx("הראה תזכורת ביומן כל עוד זה כבוי")}</span>
                                             <input
                                                 type="checkbox"
                                                 checked={showBookingBannerPref}
@@ -1987,8 +1987,8 @@ export default function AutomationSettingsPage() {
                                     {settings.self_booking_enabled && (
                                         <div className="space-y-4 pt-3 border-t border-slate-100">
                                             <div>
-                                                <label className="block text-sm font-semibold text-slate-700 mb-1">משך חריץ ברירת מחדל (דקות)</label>
-                                                <p className="text-xs text-slate-400 mb-2">כשלא הוגדר משך לשירות ספציפי</p>
+                                                <label className="block text-sm font-semibold text-slate-700 mb-1">{tx("משך חריץ ברירת מחדל (דקות)")}</label>
+                                                <p className="text-xs text-slate-400 mb-2">{tx("כשלא הוגדר משך לשירות ספציפי")}</p>
                                                 <input
                                                     type="number" min={5} max={480} step={5}
                                                     value={settings.self_booking_slot_minutes ?? 60}
@@ -1999,7 +1999,7 @@ export default function AutomationSettingsPage() {
 
                                             {settings.studio_slug && (
                                                 <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
-                                                    <p className="text-sm font-semibold text-emerald-700 mb-2">🔗 קישור לקביעת תור:</p>
+                                                    <p className="text-sm font-semibold text-emerald-700 mb-2">{tx("🔗 קישור לקביעת תור:")}</p>
                                                     <div className="flex gap-2 items-center">
                                                         <input
                                                             readOnly
@@ -2009,14 +2009,14 @@ export default function AutomationSettingsPage() {
                                                         <button
                                                             onClick={() => navigator.clipboard.writeText(`${typeof window !== "undefined" ? window.location.origin : ""}/book/${settings.studio_slug}`)}
                                                             className="px-3 py-2 bg-emerald-100 text-emerald-700 hover:bg-emerald-200 font-bold rounded-lg text-sm transition-colors"
-                                                        >העתק</button>
+                                                        >{tx("העתק")}</button>
                                                         <a
                                                             href={`/book/${settings.studio_slug}`} target="_blank"
                                                             className="px-3 py-2 bg-emerald-500 text-white hover:bg-emerald-600 font-bold rounded-lg text-sm transition-colors"
-                                                        >פתח ↗</a>
+                                                        >{tx("פתח ↗")}</a>
                                                     </div>
                                                     <p className="text-xs text-emerald-600 mt-2">
-                                                        💡 כל שירות צריך להיות מסומן &quot;זמין להזמנה אונליין&quot; בדף השירותים
+                                                        {tx("💡 כל שירות צריך להיות מסומן \"זמין להזמנה אונליין\" בדף השירותים")}
                                                     </p>
                                                 </div>
                                             )}
@@ -2034,16 +2034,16 @@ export default function AutomationSettingsPage() {
                         {/* 5. FINANCE TAB */}
                         {activeTab === "finance" && (
                             <div className="bg-white rounded-2xl border border-slate-100 shadow-xl shadow-slate-200/40 p-6 md:p-10 relative overflow-hidden">
-                                <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-bl-full -z-10"></div>
-                                <h3 className="text-2xl font-bold text-slate-800 mb-6">ניהול פיננסי ומיסוי</h3>
+                                <div className="absolute top-0 start-0 w-32 h-32 bg-emerald-500/10 rounded-ee-full -z-10"></div>
+                                <h3 className="text-2xl font-bold text-slate-800 mb-6">{tx("ניהול פיננסי ומיסוי")}</h3>
                                 
                                 <div className="grid md:grid-cols-2 gap-8">
                                     <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 md:col-span-2">
-                                        <label className="block text-base font-bold text-slate-800 mb-2">הגדרות מיסוי 💰</label>
-                                        <p className="text-sm text-slate-500 mb-4">הכנס את אחוזי המס שלך כדי שהמערכת תציג לך כמה כסף באמת נשאר לך בכיס (נטו) אחרי הכל.</p>
+                                        <label className="block text-base font-bold text-slate-800 mb-2">{tx("הגדרות מיסוי 💰")}</label>
+                                        <p className="text-sm text-slate-500 mb-4">{tx("הכנס את אחוזי המס שלך כדי שהמערכת תציג לך כמה כסף באמת נשאר לך בכיס (נטו) אחרי הכל.")}</p>
                                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                                             <div className="space-y-2">
-                                                <span className="text-sm font-semibold text-slate-700">מע״מ (%)</span>
+                                                <span className="text-sm font-semibold text-slate-700">{tx("מע״מ (%)")}</span>
                                                 <input
                                                     type="number"
                                                     value={settings.vat_percent ?? 0}
@@ -2052,7 +2052,7 @@ export default function AutomationSettingsPage() {
                                                 />
                                             </div>
                                             <div className="space-y-2">
-                                                <span className="text-sm font-semibold text-slate-700">מס הכנסה (%)</span>
+                                                <span className="text-sm font-semibold text-slate-700">{tx("מס הכנסה (%)")}</span>
                                                 <input
                                                     type="number"
                                                     value={settings.income_tax_percent ?? 0}
@@ -2061,7 +2061,7 @@ export default function AutomationSettingsPage() {
                                                 />
                                             </div>
                                             <div className="space-y-2">
-                                                <span className="text-sm font-semibold text-slate-700">ביטוח לאומי (%)</span>
+                                                <span className="text-sm font-semibold text-slate-700">{tx("ביטוח לאומי (%)")}</span>
                                                 <input
                                                     type="number"
                                                     value={settings.social_security_percent ?? 0}
@@ -2073,23 +2073,23 @@ export default function AutomationSettingsPage() {
                                     </div>
 
                                     <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
-                                        <label className="block text-base font-bold text-slate-800 mb-2">קישורי תשלום מהירים (Bit/Paybox)</label>
-                                        <p className="text-sm text-slate-500 mb-4">קישורים אלו יצורפו לחשבוניות ולהודעות התשלום שיישלחו ללקוחות.</p>
+                                        <label className="block text-base font-bold text-slate-800 mb-2">{tx("קישורי תשלום מהירים (Bit/Paybox)")}</label>
+                                        <p className="text-sm text-slate-500 mb-4">{tx("קישורים אלו יצורפו לחשבוניות ולהודעות התשלום שיישלחו ללקוחות.")}</p>
                                         <div className="space-y-4">
                                             <div className="space-y-1">
-                                                <span className="text-xs font-bold text-slate-500 uppercase">לינק Bit</span>
+                                                <span className="text-xs font-bold text-slate-500 uppercase">{tx("לינק Bit")}</span>
                                                 <input data-tour="pay-bit" type="url" dir="ltr" value={settings.bit_link || ""} onChange={e => handleChange("bit_link", e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
                                             </div>
                                             <div className="space-y-1">
-                                                <span className="text-xs font-bold text-slate-500 uppercase">לינק Paybox</span>
+                                                <span className="text-xs font-bold text-slate-500 uppercase">{tx("לינק Paybox")}</span>
                                                 <input type="url" dir="ltr" value={settings.paybox_link || ""} onChange={e => handleChange("paybox_link", e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
                                             </div>
                                         </div>
                                     </div>
 
                                     <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
-                                        <label className="block text-base font-bold text-slate-800 mb-2">קישור לביקורת בגוגל ⭐</label>
-                                        <p className="text-sm text-slate-500 mb-4">הקישור יצורף להודעת תודה לאחר תשלום בקופה (POS) כדי לעודד ביקורות.</p>
+                                        <label className="block text-base font-bold text-slate-800 mb-2">{tx("קישור לביקורת בגוגל ⭐")}</label>
+                                        <p className="text-sm text-slate-500 mb-4">{tx("הקישור יצורף להודעת תודה לאחר תשלום בקופה (POS) כדי לעודד ביקורות.")}</p>
                                         <input type="url" dir="ltr" value={settings.review_link_google || ""} onChange={e => handleChange("review_link_google", e.target.value)}
                                             placeholder="https://g.page/r/..."
                                             className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-yellow-500" />
@@ -2106,8 +2106,8 @@ export default function AutomationSettingsPage() {
                         {activeTab === "integrations" && (<>
                             <div className="bg-white rounded-2xl border border-slate-100 shadow-xl shadow-slate-200/40 p-6 md:p-10">
                                 <div className="mb-8">
-                                    <h3 className="text-2xl font-bold text-slate-800 mb-2">חיבורים חיצוניים</h3>
-                                    <p className="text-slate-500">כל חיבור מגיע עם אשף הגדרה אישי שמנחה אותך שלב אחרי שלב.</p>
+                                    <h3 className="text-2xl font-bold text-slate-800 mb-2">{tx("חיבורים חיצוניים")}</h3>
+                                    <p className="text-slate-500">{tx("כל חיבור מגיע עם אשף הגדרה אישי שמנחה אותך שלב אחרי שלב.")}</p>
                                 </div>
 
                                 <div className="flex flex-col gap-4">
@@ -2116,7 +2116,7 @@ export default function AutomationSettingsPage() {
                                             icon: "📸",
                                             color: "bg-gradient-to-br from-purple-100 to-pink-100",
                                             title: "Instagram",
-                                            desc: "קבל לידים אוטומטית מהודעות DM ומפרסומות Lead Ads באינסטגרם",
+                                            desc: tx("קבל לידים אוטומטית מהודעות DM ומפרסומות Lead Ads באינסטגרם"),
                                             connected: !!(settings.instagram_account_id),
                                             href: "/integrations/meta",
                                             logo: null,
@@ -2125,7 +2125,7 @@ export default function AutomationSettingsPage() {
                                             icon: "👍",
                                             color: "bg-blue-100",
                                             title: "Facebook",
-                                            desc: "קבל לידים אוטומטית מ-Messenger ומפרסומות Lead Ads בפייסבוק",
+                                            desc: tx("קבל לידים אוטומטית מ-Messenger ומפרסומות Lead Ads בפייסבוק"),
                                             connected: !!(settings.facebook_page_id),
                                             href: "/integrations/meta",
                                             logo: null,
@@ -2134,7 +2134,7 @@ export default function AutomationSettingsPage() {
                                             icon: "📅",
                                             color: "bg-sky-100",
                                             title: "Google Calendar",
-                                            desc: "סנכרן תורים ופגישות ישירות ליומן Google שלך",
+                                            desc: tx("סנכרן תורים ופגישות ישירות ליומן Google שלך"),
                                             connected: !!(settings.google_calendar_refresh_token),
                                             href: "/integrations/google-calendar",
                                             logo: null,
@@ -2149,16 +2149,16 @@ export default function AutomationSettingsPage() {
                                                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-1">
                                                     <h4 className="font-bold text-slate-800 text-lg">{item.title}</h4>
                                                     {item.connected ? (
-                                                        <span className="text-xs font-bold px-3 py-1 rounded-full bg-emerald-100 text-emerald-700">מחובר ✓</span>
+                                                        <span className="text-xs font-bold px-3 py-1 rounded-full bg-emerald-100 text-emerald-700">{tx("מחובר ✓")}</span>
                                                     ) : (
-                                                        <span className="text-xs font-bold px-3 py-1 rounded-full bg-slate-200 text-slate-500">לא מחובר</span>
+                                                        <span className="text-xs font-bold px-3 py-1 rounded-full bg-slate-200 text-slate-500">{tx("לא מחובר")}</span>
                                                     )}
                                                 </div>
                                                 <p className="text-sm text-slate-500">{item.desc}</p>
                                             </div>
                                             </div>
                                             <Link href={item.href} className="flex-shrink-0 w-full sm:w-auto justify-center bg-slate-900 hover:bg-slate-700 text-white px-6 py-3 sm:py-2.5 rounded-xl font-bold text-sm transition-all flex items-center gap-2 whitespace-nowrap">
-                                                {item.connected ? "ערוך הגדרות" : "הגדר עכשיו"} <span>←</span>
+                                                {item.connected ? tx("ערוך הגדרות") : tx("הגדר עכשיו")} <span>←</span>
                                             </Link>
                                         </div>
                                     ))}
@@ -2171,12 +2171,12 @@ export default function AutomationSettingsPage() {
                                 <div className="flex items-center gap-3">
                                     <span className="text-2xl">📧</span>
                                     <div>
-                                        <h3 className="font-bold text-slate-800">הגדרות מייל</h3>
-                                        <p className="text-sm text-slate-500">כתובת מענה, חתימה, ואילו מיילים נשלחים ללקוחות</p>
+                                        <h3 className="font-bold text-slate-800">{tx("הגדרות מייל")}</h3>
+                                        <p className="text-sm text-slate-500">{tx("כתובת מענה, חתימה, ואילו מיילים נשלחים ללקוחות")}</p>
                                     </div>
                                 </div>
                                 <Link href="/settings/email" className="bg-black text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-gray-800 transition whitespace-nowrap">
-                                    פתח הגדרות מייל ←
+                                    {tx("פתח הגדרות מייל ←")}
                                 </Link>
                             </div>
                         </>)}
@@ -2190,17 +2190,17 @@ export default function AutomationSettingsPage() {
                                     <div className="flex items-center gap-3 mb-4">
                                         <span className="text-2xl">👤</span>
                                         <div>
-                                            <h3 className="font-bold text-slate-800">הפרטים שלי</h3>
-                                            <p className="text-sm text-slate-500">מספר הטלפון שלך נדרש כדי שתוכל לשחזר סיסמה דרך וואטסאפ</p>
+                                            <h3 className="font-bold text-slate-800">{tx("הפרטים שלי")}</h3>
+                                            <p className="text-sm text-slate-500">{tx("מספר הטלפון שלך נדרש כדי שתוכל לשחזר סיסמה דרך וואטסאפ")}</p>
                                         </div>
                                     </div>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
                                         <div>
-                                            <label className="text-xs font-semibold text-slate-500 block mb-1.5">אימייל</label>
+                                            <label className="text-xs font-semibold text-slate-500 block mb-1.5">{tx("אימייל")}</label>
                                             <input value={myEmail} disabled dir="ltr" className="w-full border rounded-xl px-4 py-2 bg-slate-50 text-slate-400 text-sm" />
                                         </div>
                                         <div>
-                                            <label className="text-xs font-semibold text-slate-500 block mb-1.5">טלפון</label>
+                                            <label className="text-xs font-semibold text-slate-500 block mb-1.5">{tx("טלפון")}</label>
                                             <div className="flex gap-2">
                                                 <input
                                                     value={myPhone}
@@ -2214,7 +2214,7 @@ export default function AutomationSettingsPage() {
                                                     disabled={myPhoneSaving}
                                                     className="bg-black text-white text-sm font-semibold px-4 py-2 rounded-xl hover:bg-gray-800 disabled:opacity-50 transition"
                                                 >
-                                                    {myPhoneSaving ? "שומר..." : "שמור"}
+                                                    {myPhoneSaving ? tx("שומר...") : tx("שמור")}
                                                 </button>
                                             </div>
                                         </div>
@@ -2231,8 +2231,8 @@ export default function AutomationSettingsPage() {
                                     <div className="flex items-center gap-3 mb-4">
                                         <KeyRound className="w-6 h-6 text-slate-500 shrink-0" aria-hidden />
                                         <div>
-                                            <h3 className="font-bold text-slate-800">סיסמה</h3>
-                                            <p className="text-sm text-slate-500">הסיסמה שבה נכנסים למערכת</p>
+                                            <h3 className="font-bold text-slate-800">{tx("סיסמה")}</h3>
+                                            <p className="text-sm text-slate-500">{tx("הסיסמה שבה נכנסים למערכת")}</p>
                                         </div>
                                     </div>
                                     <ChangePasswordForm />
@@ -2243,13 +2243,13 @@ export default function AutomationSettingsPage() {
                                     <div className="flex items-center gap-3">
                                         <LockKeyhole className="w-6 h-6 text-slate-500 shrink-0" aria-hidden />
                                         <div>
-                                            <h3 className="font-bold text-slate-800">קוד PIN</h3>
-                                            <p className="text-sm text-slate-500">4 ספרות — לאישור הנחה בקופה ולייצוא הלקוחות</p>
+                                            <h3 className="font-bold text-slate-800">{tx("קוד PIN")}</h3>
+                                            <p className="text-sm text-slate-500">{tx("4 ספרות — לאישור הנחה בקופה ולייצוא הלקוחות")}</p>
                                         </div>
                                     </div>
                                     <button type="button" onClick={() => setPinMode(hasPin ? "change" : "set")}
                                         className="bg-slate-900 text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-slate-700 transition whitespace-nowrap">
-                                        {hasPin ? "שינוי קוד PIN" : "הגדרת קוד PIN"}
+                                        {hasPin ? tx("שינוי קוד PIN") : tx("הגדרת קוד PIN")}
                                     </button>
                                 </div>
 
@@ -2258,11 +2258,11 @@ export default function AutomationSettingsPage() {
                                     <div className="flex items-center gap-3 mb-4">
                                         <span className="text-2xl">🔐</span>
                                         <div>
-                                            <h3 className="font-bold text-slate-800">אימות דו-שלבי (2FA)</h3>
-                                            <p className="text-sm text-slate-500">הגן על החשבון שלך עם קוד נוסף בכניסה</p>
+                                            <h3 className="font-bold text-slate-800">{tx("אימות דו-שלבי (2FA)")}</h3>
+                                            <p className="text-sm text-slate-500">{tx("הגן על החשבון שלך עם קוד נוסף בכניסה")}</p>
                                         </div>
-                                        <span className={`mr-auto text-xs font-semibold px-3 py-1 rounded-full ${totpEnabled ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
-                                            {totpEnabled ? "מופעל ✓" : "כבוי"}
+                                        <span className={`ms-auto text-xs font-semibold px-3 py-1 rounded-full ${totpEnabled ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+                                            {totpEnabled ? tx("מופעל ✓") : tx("כבוי")}
                                         </span>
                                     </div>
 
@@ -2284,7 +2284,7 @@ export default function AutomationSettingsPage() {
                                                     const QRCode = (await import("qrcode")).default;
                                                     setTotpQr(await QRCode.toDataURL(data.otpauth_uri));
                                                 } catch {
-                                                    setTotpMsg("שגיאה בטעינת ה-QR");
+                                                    setTotpMsg(tx("שגיאה בטעינת ה-QR"));
                                                 } finally {
                                                     setTotpLoading(false);
                                                 }
@@ -2292,15 +2292,15 @@ export default function AutomationSettingsPage() {
                                             disabled={totpLoading}
                                             className="bg-black text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-gray-800 disabled:opacity-50 transition"
                                         >
-                                            {totpLoading ? "טוען..." : "הפעל אימות דו-שלבי"}
+                                            {totpLoading ? tx("טוען...") : tx("הפעל אימות דו-שלבי")}
                                         </button>
                                     )}
 
                                     {!totpEnabled && totpSetupUri && (
                                         <div className="space-y-4">
-                                            <p className="text-sm text-slate-600">סרוק את ה-QR באפליקציית אימות (Google Authenticator / Authy):</p>
+                                            <p className="text-sm text-slate-600">{tx("סרוק את ה-QR באפליקציית אימות (Google Authenticator / Authy):")}</p>
                                             {totpQr && <img src={totpQr} alt="QR Code" className="w-44 h-44 rounded-xl border" />}
-                                            <p className="text-xs text-slate-400 font-mono break-all">או הכנס ידנית: <span className="font-bold text-slate-700">{totpSetupSecret}</span></p>
+                                            <p className="text-xs text-slate-400 font-mono break-all">{tx("או הכנס ידנית: ")}<span className="font-bold text-slate-700">{totpSetupSecret}</span></p>
                                             <div className="flex gap-3">
                                                 <input
                                                     type="text"
@@ -2308,7 +2308,7 @@ export default function AutomationSettingsPage() {
                                                     maxLength={6}
                                                     value={totpCode}
                                                     onChange={e => setTotpCode(e.target.value.replace(/\D/g, ""))}
-                                                    placeholder="הכנס קוד 6 ספרות"
+                                                    placeholder={tx("הכנס קוד 6 ספרות")}
                                                     dir="ltr"
                                                     className="flex-1 border rounded-xl px-4 py-2 text-center font-mono text-lg tracking-widest outline-none focus:ring-2 focus:ring-black/20"
                                                 />
@@ -2327,12 +2327,12 @@ export default function AutomationSettingsPage() {
                                                             setTotpQr(null);
                                                             setTotpCode("");
                                                             setTotpMsg(
-                                                                "✓ אימות דו-שלבי הופעל בהצלחה. החיבור הנוכחי שלך ימשיך כרגיל — " +
-                                                                "הקוד יידרש רק בפעם הבאה שתתחבר מחדש למערכת (אחרי יציאה, או באפליקציה אחרי כמה שבועות). " +
-                                                                "שמור על אפליקציית האימות שלך — בלעדיה לא תוכל להתחבר."
+                                                                tx("✓ אימות דו-שלבי הופעל בהצלחה. החיבור הנוכחי שלך ימשיך כרגיל — ") +
+                                                                tx("הקוד יידרש רק בפעם הבאה שתתחבר מחדש למערכת (אחרי יציאה, או באפליקציה אחרי כמה שבועות). ") +
+                                                                tx("שמור על אפליקציית האימות שלך — בלעדיה לא תוכל להתחבר.")
                                                             );
                                                         } catch (e: unknown) {
-                                                            setTotpMsg((e as Error)?.message || "קוד שגוי");
+                                                            setTotpMsg((e as Error)?.message || tx("קוד שגוי"));
                                                         } finally {
                                                             setTotpLoading(false);
                                                         }
@@ -2340,7 +2340,7 @@ export default function AutomationSettingsPage() {
                                                     disabled={totpLoading || totpCode.length < 6}
                                                     className="bg-black text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-gray-800 disabled:opacity-50 transition"
                                                 >
-                                                    {totpLoading ? "מאמת..." : "אמת והפעל"}
+                                                    {totpLoading ? tx("מאמת...") : tx("אמת והפעל")}
                                                 </button>
                                             </div>
                                         </div>
@@ -2348,7 +2348,7 @@ export default function AutomationSettingsPage() {
 
                                     {totpEnabled && (
                                         <div className="space-y-3">
-                                            <p className="text-sm text-slate-600">להשבתה, הכנס קוד מאפליקציית האימות:</p>
+                                            <p className="text-sm text-slate-600">{tx("להשבתה, הכנס קוד מאפליקציית האימות:")}</p>
                                             <div className="flex gap-3">
                                                 <input
                                                     type="text"
@@ -2356,7 +2356,7 @@ export default function AutomationSettingsPage() {
                                                     maxLength={6}
                                                     value={totpCode}
                                                     onChange={e => setTotpCode(e.target.value.replace(/\D/g, ""))}
-                                                    placeholder="קוד 6 ספרות"
+                                                    placeholder={tx("קוד 6 ספרות")}
                                                     dir="ltr"
                                                     className="flex-1 border rounded-xl px-4 py-2 text-center font-mono text-lg tracking-widest outline-none focus:ring-2 focus:ring-black/20"
                                                 />
@@ -2371,9 +2371,9 @@ export default function AutomationSettingsPage() {
                                                             });
                                                             setTotpEnabled(false);
                                                             setTotpCode("");
-                                                            setTotpMsg("✓ אימות דו-שלבי הושבת");
+                                                            setTotpMsg(tx("✓ אימות דו-שלבי הושבת"));
                                                         } catch (e: unknown) {
-                                                            setTotpMsg((e as Error)?.message || "קוד שגוי");
+                                                            setTotpMsg((e as Error)?.message || tx("קוד שגוי"));
                                                         } finally {
                                                             setTotpLoading(false);
                                                         }
@@ -2381,7 +2381,7 @@ export default function AutomationSettingsPage() {
                                                     disabled={totpLoading || totpCode.length < 6}
                                                     className="border border-red-200 text-red-600 text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-red-50 disabled:opacity-50 transition"
                                                 >
-                                                    {totpLoading ? "..." : "השבת"}
+                                                    {totpLoading ? "..." : tx("השבת")}
                                                 </button>
                                             </div>
                                         </div>
@@ -2399,9 +2399,9 @@ export default function AutomationSettingsPage() {
                 </div>
 
                 {pinMode && (
-                    <PinModal mode={pinMode} heading={pinMode === "change" ? "שינוי קוד PIN" : "הגדרת קוד PIN"}
+                    <PinModal mode={pinMode} heading={pinMode === "change" ? tx("שינוי קוד PIN") : tx("הגדרת קוד PIN")}
                         onClose={() => setPinMode(null)}
-                        onSuccess={() => { setPinMode(null); setHasPin(true); setMsg("קוד ה-PIN נשמר"); setTimeout(() => setMsg(null), 2500); }} />
+                        onSuccess={() => { setPinMode(null); setHasPin(true); setMsg(tx("קוד ה-PIN נשמר")); setTimeout(() => setMsg(null), 2500); }} />
                 )}
 
                 {activeTab !== "account" && (<>
@@ -2419,7 +2419,7 @@ export default function AutomationSettingsPage() {
                         {saving && (
                             <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                         )}
-                        <span className="relative z-10">{saving ? "שומר שינויים..." : "שמור הגדרות העסק"}</span>
+                        <span className="relative z-10">{saving ? tx("שומר שינויים...") : tx("שמור הגדרות העסק")}</span>
                         {!saving && <span className="text-xl group-hover:translate-x-1 transition-transform">✨</span>}
                         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-shimmer"></div>
                     </button>
@@ -2466,9 +2466,9 @@ function AccountantEmailCard() {
                 method: "PATCH",
                 body: JSON.stringify({ accountant_email: email }),
             });
-            setSaveMsg("נשמר ✓");
+            setSaveMsg(tx("נשמר ✓"));
         } catch {
-            setSaveMsg("שגיאה בשמירה");
+            setSaveMsg(tx("שגיאה בשמירה"));
         } finally {
             setSaving(false);
             setTimeout(() => setSaveMsg(null), 3000);
@@ -2476,7 +2476,7 @@ function AccountantEmailCard() {
     };
 
     const sendNow = async () => {
-        if (!email) { setSendMsg("הזן מייל רואה חשבון קודם"); return; }
+        if (!email) { setSendMsg(tx("הזן מייל רואה חשבון קודם")); return; }
         setSending(true);
         setSendMsg(null);
         try {
@@ -2484,9 +2484,9 @@ function AccountantEmailCard() {
                 method: "POST",
                 body: JSON.stringify({ date_from: sendFrom, date_to: sendTo }),
             });
-            setSendMsg(`נשלח ✓ — ${res.sent} מסמכים`);
+            setSendMsg(tx("נשלח ✓ — {0} מסמכים", { 0: res.sent }));
         } catch (e: unknown) {
-            setSendMsg((e as { message?: string })?.message || "שגיאה בשליחה");
+            setSendMsg((e as { message?: string })?.message || tx("שגיאה בשליחה"));
         } finally {
             setSending(false);
             setTimeout(() => setSendMsg(null), 5000);
@@ -2497,9 +2497,9 @@ function AccountantEmailCard() {
 
     return (
         <div className="bg-emerald-50 p-6 rounded-2xl border border-emerald-100">
-            <label className="block text-base font-bold text-emerald-900 mb-2">📧 מייל רואה חשבון</label>
+            <label className="block text-base font-bold text-emerald-900 mb-2">{tx("📧 מייל רואה חשבון")}</label>
             <p className="text-sm text-emerald-700/80 mb-4">
-                כתובת המייל שאליה יישלחו חשבוניות/קבלות ידנית, וגם דוחות הוצאות ספציפיים שתשלח מעמוד ההוצאות.
+                {tx("כתובת המייל שאליה יישלחו חשבוניות/קבלות ידנית, וגם דוחות הוצאות ספציפיים שתשלח מעמוד ההוצאות.")}
             </p>
             <div className="flex gap-2 mb-4">
                 <input
@@ -2509,24 +2509,24 @@ function AccountantEmailCard() {
                 />
                 <button type="button" onClick={saveEmail} disabled={saving}
                     className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold disabled:opacity-60 whitespace-nowrap">
-                    {saving ? "..." : "שמור"}
+                    {saving ? "..." : tx("שמור")}
                 </button>
             </div>
             {saveMsg && <div className={`text-sm font-semibold mb-4 ${saveMsg.includes("✓") ? "text-emerald-700" : "text-red-600"}`}>{saveMsg}</div>}
 
             <div className="border-t border-emerald-100 pt-4">
-                <label className="block text-sm font-semibold text-emerald-900 mb-2">שלח מסמכים לרואה חשבון לפי תקופה</label>
+                <label className="block text-sm font-semibold text-emerald-900 mb-2">{tx("שלח מסמכים לרואה חשבון לפי תקופה")}</label>
                 <div className="flex flex-wrap items-center gap-2 mb-3">
-                    <PickerBox type="date" label="מתאריך" value={sendFrom} onChange={v => setSendFrom(v)} className="px-3 py-2 rounded-lg border border-emerald-200 text-sm bg-white text-start" />
-                    <span className="text-emerald-600 font-bold">עד</span>
-                    <PickerBox type="date" label="עד תאריך" value={sendTo} onChange={v => setSendTo(v)} className="px-3 py-2 rounded-lg border border-emerald-200 text-sm bg-white text-start" />
+                    <PickerBox type="date" label={tx("מתאריך")} value={sendFrom} onChange={v => setSendFrom(v)} className="px-3 py-2 rounded-lg border border-emerald-200 text-sm bg-white text-start" />
+                    <span className="text-emerald-600 font-bold">{tx("עד")}</span>
+                    <PickerBox type="date" label={tx("עד תאריך")} value={sendTo} onChange={v => setSendTo(v)} className="px-3 py-2 rounded-lg border border-emerald-200 text-sm bg-white text-start" />
                 </div>
                 <button type="button" onClick={sendNow} disabled={sending || !email}
                     className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold disabled:opacity-60 disabled:cursor-not-allowed">
-                    {sending ? "שולח..." : "📤 שלח לרואה חשבון"}
+                    {sending ? tx("שולח...") : tx("📤 שלח לרואה חשבון")}
                 </button>
                 {sendMsg && <div className={`mt-2 text-sm font-semibold ${sendMsg.includes("✓") ? "text-emerald-700" : "text-red-600"}`}>{sendMsg}</div>}
-                <p className="mt-2 text-xs text-emerald-700/70">ישלח סיכום טקסטואלי של כל הקבלות והחשבוניות בטווח לכתובת המייל שהוגדרה.</p>
+                <p className="mt-2 text-xs text-emerald-700/70">{tx("ישלח סיכום טקסטואלי של כל הקבלות והחשבוניות בטווח לכתובת המייל שהוגדרה.")}</p>
             </div>
         </div>
     );

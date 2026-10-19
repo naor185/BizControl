@@ -6,17 +6,18 @@ import RequireAuth from "@/components/RequireAuth";
 import AppShell from "@/components/AppShell";
 import { apiFetch } from "@/lib/api";
 
+import { tx } from "@/lib/i18n";
 type Step = 1 | 2 | 3;
 
 const STEPS = [
-    { id: 1 as Step, label: "פרטי חיבור" },
+    { id: 1 as Step, label: tx("פרטי חיבור") },
     { id: 2 as Step, label: "Webhook" },
-    { id: 3 as Step, label: "סיום" },
+    { id: 3 as Step, label: tx("סיום") },
 ];
 
 function Stepper({ current }: { current: Step }) {
     return (
-        <div className="flex items-center mb-8" dir="rtl">
+        <div className="flex items-center mb-8">
             {STEPS.map((s, i) => (
                 <div key={s.id} className="flex items-center flex-1 last:flex-none">
                     <div className="flex flex-col items-center">
@@ -76,22 +77,22 @@ export default function MetaWizardPage() {
             });
             setStep(2);
         } catch (e: unknown) {
-            setErr((e as { message?: string })?.message || "שגיאה בשמירה");
+            setErr((e as { message?: string })?.message || tx("שגיאה בשמירה"));
         } finally { setSaving(false); }
     };
 
     return (
         <RequireAuth>
-            <AppShell title="חיבור Meta (Instagram & Facebook)">
-                <div className="max-w-2xl mx-auto pb-16" dir="rtl">
+            <AppShell title={tx("חיבור Meta (Instagram & Facebook)")}>
+                <div className="max-w-2xl mx-auto pb-16">
                     <button onClick={() => router.push("/automation")} className="flex items-center gap-2 text-slate-500 hover:text-slate-800 mb-6 transition-colors text-sm font-medium">
-                        <span>→</span> חזרה להגדרות
+                        <span>→</span> {tx("חזרה להגדרות")}
                     </button>
 
                     <div className="mb-8">
                         <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-100 to-blue-100 flex items-center justify-center text-3xl mb-4">📱</div>
-                        <h1 className="text-2xl font-bold text-slate-800">אשף חיבור Meta</h1>
-                        <p className="text-slate-500 mt-1">קבל לידים אוטומטית מטפסי Lead Ads של Meta (Facebook / Instagram)</p>
+                        <h1 className="text-2xl font-bold text-slate-800">{tx("אשף חיבור Meta")}</h1>
+                        <p className="text-slate-500 mt-1">{tx("קבל לידים אוטומטית מטפסי Lead Ads של Meta (Facebook / Instagram)")}</p>
                     </div>
 
                     <Stepper current={step} />
@@ -104,19 +105,19 @@ export default function MetaWizardPage() {
                             {step === 1 && (
                                 <div className="space-y-6">
                                     <div>
-                                        <h2 className="text-xl font-bold text-slate-800 mb-1">פרטי חיבור Meta</h2>
-                                        <p className="text-sm text-slate-500">הזן את פרטי הדף והחשבון שלך</p>
+                                        <h2 className="text-xl font-bold text-slate-800 mb-1">{tx("פרטי חיבור Meta")}</h2>
+                                        <p className="text-sm text-slate-500">{tx("הזן את פרטי הדף והחשבון שלך")}</p>
                                     </div>
 
                                     {/* Guide */}
                                     <div className="bg-blue-50 border border-blue-100 rounded-2xl p-5 space-y-2">
-                                        <h4 className="font-bold text-blue-900 flex items-center gap-2">📋 איך מתחילים:</h4>
+                                        <h4 className="font-bold text-blue-900 flex items-center gap-2">{tx("📋 איך מתחילים:")}</h4>
                                         <ol className="space-y-1.5 text-sm text-blue-800 list-decimal list-inside">
-                                            <li>היכנס ל-<strong>developers.facebook.com</strong></li>
-                                            <li>צור App חדש → Business → הוסף WhatsApp + Instagram + Messenger</li>
-                                            <li>תחת Settings → Basic העתק את <strong>App ID</strong></li>
-                                            <li>מצא את ה-<strong>Page ID</strong> — בדף הפייסבוק → About</li>
-                                            <li>מצא את ה-<strong>Instagram Account ID</strong> — ב-Graph API Explorer</li>
+                                            <li>{tx("היכנס ל-")}<strong>developers.facebook.com</strong></li>
+                                            <li>{tx("צור App חדש → Business → הוסף WhatsApp + Instagram + Messenger")}</li>
+                                            <li>{tx("תחת Settings → Basic העתק את ")}<strong>App ID</strong></li>
+                                            <li>{tx("מצא את ה-")}<strong>Page ID</strong>{tx(" — בדף הפייסבוק → About")}</li>
+                                            <li>{tx("מצא את ה-")}<strong>Instagram Account ID</strong>{tx(" — ב-Graph API Explorer")}</li>
                                         </ol>
                                     </div>
 
@@ -124,13 +125,13 @@ export default function MetaWizardPage() {
                                         <div className="space-y-1.5">
                                             <label className="block text-sm font-semibold text-slate-700">Facebook Page ID</label>
                                             <input type="text" dir="ltr" value={pageId} onChange={e => setPageId(e.target.value)} placeholder="123456789012345" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-mono outline-none focus:ring-2 focus:ring-blue-400" />
-                                            <p className="text-xs text-slate-400">נמצא בדף הפייסבוק → About → Page Transparency</p>
+                                            <p className="text-xs text-slate-400">{tx("נמצא בדף הפייסבוק → About → Page Transparency")}</p>
                                         </div>
 
                                         <div className="space-y-1.5">
                                             <label className="block text-sm font-semibold text-slate-700">Instagram Account ID</label>
                                             <input type="text" dir="ltr" value={igAccountId} onChange={e => setIgAccountId(e.target.value)} placeholder="987654321098765" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-mono outline-none focus:ring-2 focus:ring-pink-400" />
-                                            <p className="text-xs text-slate-400">ניתן למצוא דרך Graph API Explorer עם token</p>
+                                            <p className="text-xs text-slate-400">{tx("ניתן למצוא דרך Graph API Explorer עם token")}</p>
                                         </div>
 
                                     </div>
@@ -139,7 +140,7 @@ export default function MetaWizardPage() {
 
                                     <div className="flex justify-end pt-2">
                                         <button onClick={handleSave} disabled={saving} className="bg-sky-600 hover:bg-sky-700 text-white px-8 py-3 rounded-xl font-bold transition-all disabled:opacity-50 flex items-center gap-2">
-                                            {saving ? <><div className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />שומר...</> : <>שמור ועבור לשלב הבא ←</>}
+                                            {saving ? <><div className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />{tx("שומר...")}</> : <>{tx("שמור ועבור לשלב הבא ←")}</>}
                                         </button>
                                     </div>
                                 </div>
@@ -148,12 +149,12 @@ export default function MetaWizardPage() {
                             {step === 2 && (
                                 <div className="space-y-6">
                                     <div>
-                                        <h2 className="text-xl font-bold text-slate-800 mb-1">הגדרת Webhook</h2>
-                                        <p className="text-sm text-slate-500">חבר את Meta לשרת BizControl כדי לקבל לידים בזמן אמת</p>
+                                        <h2 className="text-xl font-bold text-slate-800 mb-1">{tx("הגדרת Webhook")}</h2>
+                                        <p className="text-sm text-slate-500">{tx("חבר את Meta לשרת BizControl כדי לקבל לידים בזמן אמת")}</p>
                                     </div>
 
                                     <div className="bg-blue-50 border border-blue-200 rounded-2xl p-5 space-y-4">
-                                        <h4 className="font-bold text-blue-900">ב-Meta for Developers → App → Webhooks:</h4>
+                                        <h4 className="font-bold text-blue-900">{tx("ב-Meta for Developers → App → Webhooks:")}</h4>
 
                                         <div className="space-y-3">
                                             <div>
@@ -161,7 +162,7 @@ export default function MetaWizardPage() {
                                                 <div className="flex items-center gap-2 bg-white rounded-xl border border-blue-200 px-3 py-2">
                                                     <code className="flex-1 text-xs font-mono text-slate-700 break-all" dir="ltr">{webhookUrl}</code>
                                                     <button type="button" onClick={() => copy(webhookUrl, "url")} className="shrink-0 px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors">
-                                                        {copied === "url" ? "✓ הועתק" : "העתק"}
+                                                        {copied === "url" ? tx("✓ הועתק") : tx("העתק")}
                                                     </button>
                                                 </div>
                                             </div>
@@ -170,14 +171,14 @@ export default function MetaWizardPage() {
                                                 <div className="flex items-center gap-2 bg-white rounded-xl border border-blue-200 px-3 py-2">
                                                     <code className="flex-1 text-xs font-mono text-slate-700" dir="ltr">{verifyToken}</code>
                                                     <button type="button" onClick={() => copy(verifyToken, "token")} className="shrink-0 px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors">
-                                                        {copied === "token" ? "✓ הועתק" : "העתק"}
+                                                        {copied === "token" ? tx("✓ הועתק") : tx("העתק")}
                                                     </button>
                                                 </div>
                                             </div>
                                         </div>
 
                                         <div className="bg-white rounded-xl border border-blue-100 p-3">
-                                            <p className="text-xs font-bold text-slate-600 mb-2">Subscribe לאירועים הבאים:</p>
+                                            <p className="text-xs font-bold text-slate-600 mb-2">{tx("Subscribe לאירועים הבאים:")}</p>
                                             <div className="flex flex-wrap gap-2">
                                                 {["leadgen"].map(e => (
                                                     <span key={e} className="text-[11px] font-mono bg-blue-50 text-blue-700 px-2 py-1 rounded-lg">{e}</span>
@@ -188,10 +189,10 @@ export default function MetaWizardPage() {
 
                                     <div className="flex justify-between pt-2">
                                         <button onClick={() => setStep(1)} className="text-slate-500 hover:text-slate-800 px-6 py-3 rounded-xl font-medium transition-colors flex items-center gap-2">
-                                            <span>→</span> חזרה
+                                            <span>→</span> {tx("חזרה")}
                                         </button>
                                         <button onClick={() => setStep(3)} className="bg-sky-600 hover:bg-sky-700 text-white px-8 py-3 rounded-xl font-bold transition-all flex items-center gap-2">
-                                            הגדרתי את ה-Webhook ←
+                                            {tx("הגדרתי את ה-Webhook ←")}
                                         </button>
                                     </div>
                                 </div>
@@ -201,14 +202,14 @@ export default function MetaWizardPage() {
                                 <div className="text-center py-8 space-y-6">
                                     <div className="w-20 h-20 bg-gradient-to-br from-purple-100 to-blue-100 rounded-full flex items-center justify-center text-4xl mx-auto">✅</div>
                                     <div>
-                                        <h2 className="text-2xl font-bold text-slate-800 mb-2">Meta מחובר!</h2>
-                                        <p className="text-slate-500">המערכת תקבל לידים מטפסי Lead Ads של Meta</p>
+                                        <h2 className="text-2xl font-bold text-slate-800 mb-2">{tx("Meta מחובר!")}</h2>
+                                        <p className="text-slate-500">{tx("המערכת תקבל לידים מטפסי Lead Ads של Meta")}</p>
                                     </div>
-                                    <div className="bg-slate-50 rounded-2xl border border-slate-100 p-5 text-right space-y-2">
-                                        <p className="text-sm text-slate-600 flex items-center gap-2"><span className="text-emerald-500">✓</span> טופס Lead Ads → ליד מיידי עם כל הפרטים</p>
+                                    <div className="bg-slate-50 rounded-2xl border border-slate-100 p-5 text-start space-y-2">
+                                        <p className="text-sm text-slate-600 flex items-center gap-2"><span className="text-emerald-500">✓</span>{tx(" טופס Lead Ads → ליד מיידי עם כל הפרטים")}</p>
                                     </div>
                                     <button onClick={() => router.push("/leads")} className="bg-sky-600 hover:bg-sky-700 text-white px-10 py-3 rounded-xl font-bold transition-all">
-                                        עבור לאינבוקס לידים →
+                                        {tx("עבור לאינבוקס לידים →")}
                                     </button>
                                 </div>
                             )}

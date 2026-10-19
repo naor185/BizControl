@@ -106,4 +106,18 @@ EN: dict[str, str] = {
     "יומן הפעילות פתוח לבעל העסק בלבד": "The activity log is for the business owner only",
     "לא הוגדר מייל של רואה החשבון — מגדירים אותו בחשבוניות ← הגדרות": "No accountant email set — set it in Invoices → Settings",
     "השליחה נכשלה — נסו שוב בעוד כמה דקות": "Sending failed — try again in a few minutes",
+    # ── stage 4a: settings, the account, connections ──
+    "שינוי הגדרות העסק — בעל העסק לא אפשר את זה": "Changing the business settings — the owner didn't allow this",
+    "WhatsApp לא מוגדר — יש להגדיר ספק ופרטי חיבור": "WhatsApp isn't set up — set a provider and connection details",
+    "ההתחברות פגה, יש להתחבר שוב": "Your sign-in expired, please sign in again",
+    "טוקן לא תקין": "Invalid token",
+    "מספר טלפון לא תקין": "Invalid phone number",
+    "כתובת אימייל לא תקינה": "Invalid email address",
+    "אימייל זה כבר רשום. נסה להתחבר": "This email is already registered. Try signing in",
+    "אימייל או סיסמה שגויים": "Wrong email or password",
+    "כרטיס בארנק לא זמין אצל העסק": "The wallet card isn't available at this business",
+    "תכנית זו הופסקה. כל בעלי העסקים מנוהלים כעת דרך BizControl.": "This program was discontinued. All business owners are now managed through BizControl.",
+    "חסר טוקן אימות": "Missing verification token",
+    "קישור האימות אינו תקף או שכבר נעשה בו שימוש": "The verification link is invalid or was already used",
+    "קישור האימות פג תוקף — יש לבקש שליחה חוזרת": "The verification link expired — ask for it to be sent again",
 }

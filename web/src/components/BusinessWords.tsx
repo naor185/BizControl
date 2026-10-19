@@ -6,6 +6,7 @@ import { apiFetch } from "@/lib/api";
 import { refreshTerms } from "@/lib/useTerms";
 import { toast } from "@/lib/toast";
 
+import { tx } from "@/lib/i18n";
 type TermsResponse = {
     terms: Record<string, string>;    // what the business uses now
     field: Record<string, string>;    // its field's words
@@ -39,9 +40,9 @@ export default function BusinessWords({ reloadKey }: { reloadKey?: string }) {
             setData(d);
             setOwn(d.own);
             refreshTerms();
-            toast.success("המילים נשמרו");
+            toast.success(tx("המילים נשמרו"));
         } catch (e) {
-            toast.error(e instanceof Error ? e.message : "השמירה נכשלה");
+            toast.error(e instanceof Error ? e.message : tx("השמירה נכשלה"));
         } finally {
             setSaving(false);
         }
@@ -50,10 +51,10 @@ export default function BusinessWords({ reloadKey }: { reloadKey?: string }) {
     return (
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
             <h3 className="text-lg font-bold text-slate-800 mb-1 flex items-center gap-2">
-                <Type className="h-5 w-5 text-violet-600" /> המילים של העסק
+                <Type className="h-5 w-5 text-violet-600" /> {tx("המילים של העסק")}
             </h3>
             <p className="text-sm text-slate-500 mb-4">
-                המערכת משתמשת במילים של התחום שלך במסכים ובהודעות. אפשר לשנות כל מילה לעסק שלך — שדה ריק חוזר למילה של התחום.
+                {tx("המערכת משתמשת במילים של התחום שלך במסכים ובהודעות. אפשר לשנות כל מילה לעסק שלך — שדה ריק חוזר למילה של התחום.")}
             </p>
             <div className="grid sm:grid-cols-2 gap-3">
                 {keys.map(k => (
@@ -76,7 +77,7 @@ export default function BusinessWords({ reloadKey }: { reloadKey?: string }) {
                 disabled={saving}
                 className="mt-4 px-5 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-sm font-bold disabled:opacity-50"
             >
-                {saving ? "שומר..." : "שמירת המילים"}
+                {saving ? tx("שומר...") : tx("שמירת המילים")}
             </button>
         </div>
     );

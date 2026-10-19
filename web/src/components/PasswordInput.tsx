@@ -2,6 +2,7 @@
 
 import { useState, InputHTMLAttributes } from "react";
 
+import { tx } from "@/lib/i18n";
 // Shared password field with an accessible show/hide eye toggle.
 // The eye icon defaults to a dark, high-contrast slate (accessible on light
 // backgrounds). On dark panels pass `iconClassName` (e.g. "text-white/70
@@ -25,14 +26,14 @@ export default function PasswordInput({ className = "", iconClassName = "text-sl
     const [show, setShow] = useState(false);
     return (
         <div className="relative">
-            <input {...props} type={show ? "text" : "password"} className={`${className} pl-11`} />
+            <input {...props} type={show ? "text" : "password"} className={`${className} pe-11`} />
             <button
                 type="button"
                 onClick={() => setShow(v => !v)}
                 tabIndex={-1}
-                aria-label={show ? "הסתר סיסמה" : "הצג סיסמה"}
-                title={show ? "הסתר סיסמה" : "הצג סיסמה"}
-                className={`absolute left-3 top-1/2 -translate-y-1/2 transition-colors ${iconClassName}`}
+                aria-label={show ? tx("הסתר סיסמה") : tx("הצג סיסמה")}
+                title={show ? tx("הסתר סיסמה") : tx("הצג סיסמה")}
+                className={`absolute end-3 top-1/2 -translate-y-1/2 transition-colors ${iconClassName}`}
             >
                 {show ? EYE_OFF : EYE}
             </button>

@@ -2,8 +2,10 @@
 import { Switch } from "@/components/ui/switch";
 import { useEffect, useState } from "react";
 import AppShell from "@/components/AppShell";
+import RequireAuth from "@/components/RequireAuth";
 import { apiFetch } from "@/lib/api";
 
+import { tx, intl } from "@/lib/i18n";
 interface StudioEmailSettings {
     reply_to_email?: string;
     business_signature?: string;
@@ -37,15 +39,15 @@ interface Log {
 }
 
 const TEMPLATE_LABELS: Record<string, string> = {
-    appointment_confirmation: "אישור תור",
-    appointment_reminder:     "תזכורת תור",
-    appointment_cancelled:    "ביטול תור",
-    invoice_created:          "קבלה / חשבונית",
-    credit_note_created:      "זיכוי",
-    birthday_coupon:          "קופון יום הולדת",
-    password_reset:           "איפוס סיסמה",
-    welcome_email:            "ברכת שלום",
-    test_email:               "מייל בדיקה",
+    appointment_confirmation: tx("אישור תור"),
+    appointment_reminder:     tx("תזכורת תור"),
+    appointment_cancelled:    tx("ביטול תור"),
+    invoice_created:          tx("קבלה / חשבונית"),
+    credit_note_created:      tx("זיכוי"),
+    birthday_coupon:          tx("קופון יום הולדת"),
+    password_reset:           tx("איפוס סיסמה"),
+    welcome_email:            tx("ברכת שלום"),
+    test_email:               tx("מייל בדיקה"),
 };
 
 export default function StudioEmailSettingsPage() {
@@ -98,16 +100,16 @@ export default function StudioEmailSettingsPage() {
     };
 
     return (
-        <AppShell title="הגדרות מייל">
+        <RequireAuth><AppShell title={tx("הגדרות מייל")}>
             {/* Tabs — history/stats only exist for superadmin, so a regular
                 owner/admin gets straight to the settings content with no
                 tab bar at all (nothing to switch between). */}
             {isSuperadmin && (
                 <div className="flex gap-1 px-4 border-b border-slate-100 mb-5">
                     {[
-                        { id: "settings", label: "⚙️ הגדרות" },
-                        { id: "logs",     label: "📋 היסטוריה" },
-                        { id: "stats",    label: "📊 סטטיסטיקות" },
+                        { id: "settings", label: tx("⚙️ הגדרות") },
+                        { id: "logs",     label: tx("📋 היסטוריה") },
+                        { id: "stats",    label: tx("📊 סטטיסטיקות") },
                     ].map(t => (
                         <button key={t.id} type="button" onClick={() => setTab(t.id as any)}
                             className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors ${tab === t.id ? "border-slate-900 text-slate-900" : "border-transparent text-slate-400 hover:text-slate-600"}`}>
@@ -123,14 +125,14 @@ export default function StudioEmailSettingsPage() {
                     <>
                         {/* How it works */}
                         <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 text-sm text-blue-800">
-                            <div className="font-bold mb-1">איך זה עובד?</div>
+                            <div className="font-bold mb-1">{tx("איך זה עובד?")}</div>
                             <div className="text-xs leading-relaxed">
-                                כל המיילים יוצאים מתשתית BizControl.<br />
-                                הלקוח רואה את <strong>שם העסק שלך</strong> ויכול להשיב ישירות אל כתובת ה-Reply-To שלך.
+                                {tx("כל המיילים יוצאים מתשתית BizControl.")}<br />
+                                {tx("הלקוח רואה את")} <strong>{tx("שם העסק שלך")}</strong> {tx("ויכול להשיב ישירות אל כתובת ה-Reply-To שלך.")}
                             </div>
                             <div className="mt-2 font-mono text-xs bg-white rounded-xl px-3 py-2 border border-blue-100">
-                                <span className="text-slate-400">From:</span> {"{שם העסק}"} via BizControl<br />
-                                <span className="text-slate-400">Reply-To:</span> {settings.reply_to_email || "כתובת שתגדיר"}
+                                <span className="text-slate-400">From:</span> {tx("{שם העסק}")} via BizControl<br />
+                                <span className="text-slate-400">Reply-To:</span> {settings.reply_to_email || tx("כתובת שתגדיר")}
                             </div>
                         </div>
 
@@ -139,7 +141,7 @@ export default function StudioEmailSettingsPage() {
                             <label className="block text-sm font-bold text-slate-700 mb-1.5">
                                 Reply-To Email
                             </label>
-                            <p className="text-xs text-slate-400 mb-2">כתובת שהלקוח יראה ויוכל להשיב אליה</p>
+                            <p className="text-xs text-slate-400 mb-2">{tx("כתובת שהלקוח יראה ויוכל להשיב אליה")}</p>
                             <input
                                 value={settings.reply_to_email || ""}
                                 onChange={e => setSettings(p => ({ ...p, reply_to_email: e.target.value }))}
@@ -152,14 +154,14 @@ export default function StudioEmailSettingsPage() {
                         {/* Signature */}
                         <div>
                             <label className="block text-sm font-bold text-slate-700 mb-1.5">
-                                חתימת עסק (אופציונלי)
+                                {tx("חתימת עסק (אופציונלי)")}
                             </label>
-                            <p className="text-xs text-slate-400 mb-2">תופיע בתחתית כל מייל שנשלח מהעסק שלך</p>
+                            <p className="text-xs text-slate-400 mb-2">{tx("תופיע בתחתית כל מייל שנשלח מהעסק שלך")}</p>
                             <textarea
                                 value={settings.business_signature || ""}
                                 onChange={e => setSettings(p => ({ ...p, business_signature: e.target.value }))}
                                 rows={5}
-                                placeholder={"בברכה,\nנועם כהן\n\nטלפון: 050-0000000\nכתובת: הרצל 100 ראשון לציון"}
+                                placeholder={tx("בברכה,\nנועם כהן\n\nטלפון: 050-0000000\nכתובת: הרצל 100 ראשון לציון")}
                                 className="w-full border border-slate-200 rounded-xl px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black/10 resize-none"
                             />
                         </div>
@@ -167,20 +169,20 @@ export default function StudioEmailSettingsPage() {
                         {/* Email Toggles */}
                         <div>
                             <label className="block text-sm font-bold text-slate-700 mb-1.5">
-                                בקרת שליחת מיילים
+                                {tx("בקרת שליחת מיילים")}
                             </label>
-                            <p className="text-xs text-slate-400 mb-3">בחר אילו הודעות המערכת תשלח ללקוחות שלך במייל</p>
+                            <p className="text-xs text-slate-400 mb-3">{tx("בחר אילו הודעות המערכת תשלח ללקוחות שלך במייל")}</p>
                             <div className="space-y-2">
                                 {([
-                                    { key: "email_confirmation_enabled",     icon: "✅", label: "אישור תור",              desc: "כשנקבע תור חדש" },
-                                    { key: "email_reminder_enabled",         icon: "⏰", label: "תזכורות תור",            desc: "יום לפני, 3 ימים, שבוע, ביום התור" },
-                                    { key: "email_deposit_approved_enabled", icon: "💳", label: "אישור מקדמה",           desc: "כשאתה מאשר קבלת מקדמה" },
-                                    { key: "email_reschedule_enabled",       icon: "🔄", label: "שינוי מועד תור",        desc: "כשתור מוזז לתאריך/שעה חדשים" },
-                                    { key: "email_cancel_enabled",           icon: "❌", label: "ביטול תור",             desc: "כשתור מבוטל" },
-                                    { key: "email_post_payment_enabled",     icon: "🙏", label: "תודה אחרי תשלום",      desc: "אחרי תשלום מלא, כולל טיפול אחרי" },
-                                    { key: "email_birthday_enabled",         icon: "🎉", label: "הטבת יום הולדת",        desc: "קופון לחודש ההולדת לחברי מועדון" },
-                                    { key: "email_club_invite_enabled",      icon: "🎁", label: "הזמנה למועדון לקוחות", desc: "ללקוחות שאינם חברי מועדון אחרי ביקור" },
-                                    { key: "email_receipt_enabled",          icon: "🧾", label: "קישור קבלה",           desc: "אחרי כל תשלום — לינק לצפייה בקבלה" },
+                                    { key: "email_confirmation_enabled",     icon: "✅", label: tx("אישור תור"),              desc: tx("כשנקבע תור חדש") },
+                                    { key: "email_reminder_enabled",         icon: "⏰", label: tx("תזכורות תור"),            desc: tx("יום לפני, 3 ימים, שבוע, ביום התור") },
+                                    { key: "email_deposit_approved_enabled", icon: "💳", label: tx("אישור מקדמה"),           desc: tx("כשאתה מאשר קבלת מקדמה") },
+                                    { key: "email_reschedule_enabled",       icon: "🔄", label: tx("שינוי מועד תור"),        desc: tx("כשתור מוזז לתאריך/שעה חדשים") },
+                                    { key: "email_cancel_enabled",           icon: "❌", label: tx("ביטול תור"),             desc: tx("כשתור מבוטל") },
+                                    { key: "email_post_payment_enabled",     icon: "🙏", label: tx("תודה אחרי תשלום"),      desc: tx("אחרי תשלום מלא, כולל טיפול אחרי") },
+                                    { key: "email_birthday_enabled",         icon: "🎉", label: tx("הטבת יום הולדת"),        desc: tx("קופון לחודש ההולדת לחברי מועדון") },
+                                    { key: "email_club_invite_enabled",      icon: "🎁", label: tx("הזמנה למועדון לקוחות"), desc: tx("ללקוחות שאינם חברי מועדון אחרי ביקור") },
+                                    { key: "email_receipt_enabled",          icon: "🧾", label: tx("קישור קבלה"),           desc: tx("אחרי כל תשלום — לינק לצפייה בקבלה") },
                                 ] as { key: keyof StudioEmailSettings; icon: string; label: string; desc: string }[]).map(t => (
                                     <div key={t.key} className="flex items-center justify-between bg-slate-50 rounded-xl px-4 py-3 border border-slate-100">
                                         <div className="flex items-center gap-3">
@@ -191,7 +193,7 @@ export default function StudioEmailSettingsPage() {
                                             </div>
                                         </div>
                                         <Switch checked={!!(settings[t.key] ?? true)} onChange={v => setSettings(p => ({ ...p, [t.key]: v }))}
-                                            title={`${(settings[t.key] ?? true) ? "כבה" : "הפעל"} ${t.label}`} />
+                                            title={`${(settings[t.key] ?? true) ? tx("כבה") : tx("הפעל")} ${t.label}`} />
                                     </div>
                                 ))}
                             </div>
@@ -199,18 +201,18 @@ export default function StudioEmailSettingsPage() {
 
                         <button type="button" onClick={save} disabled={saving}
                             className="w-full py-3 bg-slate-900 text-white rounded-2xl font-bold text-sm hover:bg-slate-700 transition disabled:opacity-60">
-                            {saved ? "✓ נשמר!" : saving ? "שומר..." : "שמור הגדרות"}
+                            {saved ? tx("✓ נשמר!") : saving ? tx("שומר...") : tx("שמור הגדרות")}
                         </button>
                     </>
                 )}
 
                 {tab === "logs" && (
                     <div>
-                        <p className="text-xs text-slate-400 mb-3">סה"כ {logsTotal} מיילים</p>
+                        <p className="text-xs text-slate-400 mb-3">{tx("סה\"כ ")}{logsTotal}{tx(" מיילים")}</p>
                         {logs.length === 0 ? (
                             <div className="text-center py-12 text-slate-400">
                                 <div className="text-4xl mb-2">📭</div>
-                                <div>אין מיילים שנשלחו עדיין</div>
+                                <div>{tx("אין מיילים שנשלחו עדיין")}</div>
                             </div>
                         ) : (
                             <div className="space-y-2">
@@ -219,7 +221,7 @@ export default function StudioEmailSettingsPage() {
                                         <div className="flex items-start justify-between gap-2 mb-1">
                                             <div className="text-xs font-mono text-slate-500">{l.recipient_email}</div>
                                             <span className={`text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${l.status === "sent" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600"}`}>
-                                                {l.status === "sent" ? "✓ נשלח" : "✗ נכשל"}
+                                                {l.status === "sent" ? tx("✓ נשלח") : tx("✗ נכשל")}
                                             </span>
                                         </div>
                                         <div className="text-sm text-slate-800 font-medium truncate">{l.subject}</div>
@@ -228,7 +230,7 @@ export default function StudioEmailSettingsPage() {
                                                 {TEMPLATE_LABELS[l.template_key] || l.template_key}
                                             </span>
                                             <span className="text-xs text-slate-400">
-                                                {new Date(l.sent_at).toLocaleString("he-IL")}
+                                                {new Date(l.sent_at).toLocaleString(intl())}
                                             </span>
                                         </div>
                                         {l.error_message && <div className="text-xs text-red-500 mt-1">{l.error_message}</div>}
@@ -243,10 +245,10 @@ export default function StudioEmailSettingsPage() {
                     <>
                         <div className="grid grid-cols-2 gap-3">
                             {[
-                                { label: "סה\"כ מיילים", value: stats.total },
-                                { label: "נשלחו בהצלחה", value: stats.sent, color: "text-emerald-700" },
-                                { label: "נכשלו",         value: stats.failed, color: "text-red-600" },
-                                { label: "אחוז הצלחה",   value: `${stats.success_rate}%`, color: "text-blue-700" },
+                                { label: tx("סה\"כ מיילים"), value: stats.total },
+                                { label: tx("נשלחו בהצלחה"), value: stats.sent, color: "text-emerald-700" },
+                                { label: tx("נכשלו"),         value: stats.failed, color: "text-red-600" },
+                                { label: tx("אחוז הצלחה"),   value: `${stats.success_rate}%`, color: "text-blue-700" },
                             ].map(k => (
                                 <div key={k.label} className="bg-white rounded-2xl p-4 text-center border border-slate-100">
                                     <div className={`text-xl font-black ${k.color || "text-slate-800"}`}>{k.value}</div>
@@ -256,7 +258,7 @@ export default function StudioEmailSettingsPage() {
                         </div>
 
                         <div className="bg-white rounded-2xl border border-slate-100 p-4">
-                            <div className="font-bold text-sm text-slate-700 mb-3">לפי סוג מייל</div>
+                            <div className="font-bold text-sm text-slate-700 mb-3">{tx("לפי סוג מייל")}</div>
                             {stats.by_template.map(r => (
                                 <div key={r.template_key} className="flex justify-between items-center py-2 border-b border-slate-50 last:border-0 text-sm">
                                     <span className="text-slate-700">{TEMPLATE_LABELS[r.template_key] || r.template_key}</span>
@@ -267,6 +269,6 @@ export default function StudioEmailSettingsPage() {
                     </>
                 )}
             </div>
-        </AppShell>
+        </AppShell></RequireAuth>
     );
 }

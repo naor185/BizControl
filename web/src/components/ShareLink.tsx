@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Copy, ExternalLink, MessageCircle, Printer, QrCode } from "lucide-react";
 import { toast } from "@/lib/toast";
 
+import { tx } from "@/lib/i18n";
 // A link the business hands out (the gift card shop, a coupon): the address, copy, send on WhatsApp, open, and a QR
 // code to print. One piece for every such link.
 export default function ShareLink({ url, whatsappText, printTitle, printLine }: {
@@ -24,9 +25,9 @@ export default function ShareLink({ url, whatsappText, printTitle, printLine }: 
     const copy = async () => {
         try {
             await navigator.clipboard.writeText(url);
-            toast.success("הקישור הועתק");
+            toast.success(tx("הקישור הועתק"));
         } catch {
-            toast.error("לא הצלחנו להעתיק — סמנו את הקישור והעתיקו ידנית");
+            toast.error(tx("לא הצלחנו להעתיק — סמנו את הקישור והעתיקו ידנית"));
         }
     };
 
@@ -48,27 +49,27 @@ export default function ShareLink({ url, whatsappText, printTitle, printLine }: 
             <div dir="ltr" className="text-sm font-mono bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-700 break-all select-all">{url}</div>
             <div className="flex flex-wrap gap-2">
                 <button type="button" onClick={copy} className={`${btn} bg-slate-900 hover:bg-slate-700 text-white`}>
-                    <Copy className="w-4 h-4" aria-hidden /> העתקה
+                    <Copy className="w-4 h-4" aria-hidden /> {tx("העתקה")}
                 </button>
                 <a href={`https://wa.me/?text=${encodeURIComponent(`${whatsappText}\n${url}`)}`} target="_blank" rel="noopener"
                     className={`${btn} bg-emerald-600 hover:bg-emerald-700 text-white`}>
-                    <MessageCircle className="w-4 h-4" aria-hidden /> שליחה בוואטסאפ
+                    <MessageCircle className="w-4 h-4" aria-hidden /> {tx("שליחה בוואטסאפ")}
                 </a>
                 <a href={url} target="_blank" rel="noopener" className={`${btn} border border-slate-200 text-slate-700 hover:border-slate-400`}>
-                    <ExternalLink className="w-4 h-4" aria-hidden /> פתיחה
+                    <ExternalLink className="w-4 h-4" aria-hidden /> {tx("פתיחה")}
                 </a>
                 <button type="button" onClick={() => setShowQr(v => !v)} className={`${btn} border border-slate-200 text-slate-700 hover:border-slate-400`}>
-                    <QrCode className="w-4 h-4" aria-hidden /> קוד QR
+                    <QrCode className="w-4 h-4" aria-hidden /> {tx("קוד QR")}
                 </button>
             </div>
             {showQr && (
                 <div className="flex items-center gap-4">
                     {qr ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={qr} alt="קוד QR של הקישור" className="w-40 h-40 rounded-xl border border-slate-200" />
+                        <img src={qr} alt={tx("קוד QR של הקישור")} className="w-40 h-40 rounded-xl border border-slate-200" />
                     ) : <div className="w-40 h-40 rounded-xl bg-slate-100 animate-pulse" />}
                     <button type="button" onClick={print} disabled={!qr} className={`${btn} border border-slate-200 text-slate-700 hover:border-slate-400 disabled:opacity-40`}>
-                        <Printer className="w-4 h-4" aria-hidden /> הדפסה
+                        <Printer className="w-4 h-4" aria-hidden /> {tx("הדפסה")}
                     </button>
                 </div>
             )}
