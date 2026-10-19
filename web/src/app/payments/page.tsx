@@ -9,6 +9,7 @@ import { Receipt, Banknote, CreditCard, Smartphone, Wallet, Landmark, MoreHorizo
 
 import Link from "next/link";
 
+import { tx, intl } from "@/lib/i18n";
 type Payment = {
     id: string;
     client_id: string;
@@ -55,23 +56,23 @@ type Entry = {
 };
 
 const METHODS: { key: string; label: string; icon: LucideIcon }[] = [
-    { key: "all", label: "הכל", icon: Receipt },
-    { key: "cash", label: "מזומן", icon: Banknote },
-    { key: "credit_card", label: "אשראי", icon: CreditCard },
-    { key: "bit", label: "ביט", icon: Smartphone },
-    { key: "paybox", label: "פייבוקס", icon: Wallet },
-    { key: "bank_transfer", label: "העברה בנקאית", icon: Landmark },
-    { key: "other", label: "אחר", icon: MoreHorizontal },
+    { key: "all", label: tx("הכל"), icon: Receipt },
+    { key: "cash", label: tx("מזומן"), icon: Banknote },
+    { key: "credit_card", label: tx("אשראי"), icon: CreditCard },
+    { key: "bit", label: tx("ביט"), icon: Smartphone },
+    { key: "paybox", label: tx("פייבוקס"), icon: Wallet },
+    { key: "bank_transfer", label: tx("העברה בנקאית"), icon: Landmark },
+    { key: "other", label: tx("אחר"), icon: MoreHorizontal },
 ];
 
 const METHOD_LABELS: Record<string, string> = {
-    cash: "מזומן",
-    credit_card: "אשראי",
-    bit: "ביט",
-    paybox: "פייבוקס",
-    bank_transfer: "העברה בנקאית",
-    installment: "תשלומים",
-    other: "אחר",
+    cash: tx("מזומן"),
+    credit_card: tx("אשראי"),
+    bit: tx("ביט"),
+    paybox: tx("פייבוקס"),
+    bank_transfer: tx("העברה בנקאית"),
+    installment: tx("תשלומים"),
+    other: tx("אחר"),
 };
 
 // One neutral style for every method — no per-method rainbow, matching the
@@ -154,8 +155,8 @@ export default function Page() {
                 type: "pos_sale",
                 created_at: t.created_at,
                 notes: t.discount_cents > 0
-                    ? `קופה — ${t.items_count} פריטים, הנחה ₪${(t.discount_cents / 100).toFixed(0)}`
-                    : `קופה — ${t.items_count} פריטים`,
+                    ? tx("קופה — {0} פריטים, הנחה ₪{1}", { 0: t.items_count, 1: (t.discount_cents / 100).toFixed(0) })
+                    : tx("קופה — {0} פריטים", { 0: t.items_count }),
                 clientId: null,
                 clientName: t.client_name,
                 isWalkIn: false,
@@ -169,7 +170,7 @@ export default function Page() {
             );
             setEntries(merged);
         } catch (e: any) {
-            setErr(e?.message || "שגיאה בטעינת תשלומים");
+            setErr(e?.message || tx("שגיאה בטעינת תשלומים"));
         } finally {
             setLoading(false);
         }
@@ -187,7 +188,7 @@ export default function Page() {
             setDeletingId(null);
             loadPayments();
         } catch (e: any) {
-            toast.error(e?.message || "שגיאה במחיקת תשלום");
+            toast.error(e?.message || tx("שגיאה במחיקת תשלום"));
         } finally {
             setIsDeleting(false);
         }
@@ -198,11 +199,11 @@ export default function Page() {
         try {
             setIsCrediting(true);
             await apiFetch(`/api/payments/${creditingId}/credit`, { method: "POST" });
-            toast.success("זיכוי הופק בהצלחה");
+            toast.success(tx("זיכוי הופק בהצלחה"));
             setCreditingId(null);
             loadPayments();
         } catch (e: any) {
-            toast.error(e?.message || "שגיאה בהפקת זיכוי");
+            toast.error(e?.message || tx("שגיאה בהפקת זיכוי"));
         } finally {
             setIsCrediting(false);
         }
@@ -213,18 +214,18 @@ export default function Page() {
         try {
             setIsVoidingPos(true);
             await voidPosTransaction(voidingPosId);
-            toast.success("העסקה בוטלה");
+            toast.success(tx("העסקה בוטלה"));
             setVoidingPosId(null);
             loadPayments();
         } catch (e: any) {
-            toast.error(e?.message || "שגיאה בביטול העסקה");
+            toast.error(e?.message || tx("שגיאה בביטול העסקה"));
         } finally {
             setIsVoidingPos(false);
         }
     };
 
     const fmt = (cents: number) =>
-        (cents / 100).toLocaleString("he-IL", { style: "currency", currency: "ILS" });
+        (cents / 100).toLocaleString(intl(), { style: "currency", currency: "ILS" });
 
     // Filter by method (multi-select)
     const filtered = useMemo(() =>
@@ -261,7 +262,7 @@ export default function Page() {
     const monthLabel = (key: string) => {
         const [year, month] = key.split("-");
         const d = new Date(Number(year), Number(month) - 1, 1);
-        return d.toLocaleDateString("he-IL", { month: "long", year: "numeric" });
+        return d.toLocaleDateString(intl(), { month: "long", year: "numeric" });
     };
 
     const monthTotal = (es: Entry[]) =>
@@ -280,7 +281,7 @@ export default function Page() {
 
     return (
         <RequireAuth>
-            <AppShell title="תשלומים">
+            <AppShell title={tx("תשלומים")}>
                 <div className="space-y-6">
 
                     {/* Current month totals */}
@@ -288,7 +289,7 @@ export default function Page() {
                         <div>
                             <div className="flex items-center gap-1.5 text-xs text-slate-400 font-semibold mb-2 px-1">
                                 <Calendar className="w-3.5 h-3.5" />
-                                {new Date().toLocaleDateString("he-IL", { month: "long", year: "numeric" })} — סיכום חודש נוכחי
+                                {new Date().toLocaleDateString(intl(), { month: "long", year: "numeric" })} {tx("— סיכום חודש נוכחי")}
                             </div>
                             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
                                 {METHODS.filter(m => m.key !== "all").map(m => (
@@ -308,7 +309,7 @@ export default function Page() {
                         <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/50">
                             <h3 className="flex items-center gap-2 text-xl font-bold text-slate-800 mb-4">
                                 <Calendar className="w-5 h-5 text-slate-400" />
-                                היסטוריית עסקאות לפי חודש
+                                {tx("היסטוריית עסקאות לפי חודש")}
                             </h3>
 
                             {/* Filter buttons */}
@@ -336,11 +337,11 @@ export default function Page() {
                         </div>
 
                         {loading ? (
-                            <div className="p-12 text-center text-slate-400">טוען נתונים...</div>
+                            <div className="p-12 text-center text-slate-400">{tx("טוען נתונים...")}</div>
                         ) : err ? (
                             <div className="p-8 text-rose-500 bg-rose-50 m-6 rounded-2xl border border-rose-100">{err}</div>
                         ) : byMonth.length === 0 ? (
-                            <div className="p-12 text-center text-slate-400 italic">לא נמצאו עסקאות</div>
+                            <div className="p-12 text-center text-slate-400 italic">{tx("לא נמצאו עסקאות")}</div>
                         ) : (
                             <div className="divide-y divide-slate-100">
                                 {byMonth.map(([monthKey, es]) => {
@@ -353,14 +354,14 @@ export default function Page() {
                                             <button
                                                 type="button"
                                                 onClick={() => toggleMonth(monthKey)}
-                                                className={`w-full px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-right transition-colors ${isCurrentMonth ? "bg-slate-100/70 hover:bg-slate-100" : "bg-slate-50 hover:bg-slate-100/70"}`}
+                                                className={`w-full px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-start transition-colors ${isCurrentMonth ? "bg-slate-100/70 hover:bg-slate-100" : "bg-slate-50 hover:bg-slate-100/70"}`}
                                             >
                                                 <div className="flex items-center gap-3 min-w-0">
                                                     <span className={`text-lg transition-transform duration-200 shrink-0 ${isExpanded ? "rotate-90" : ""}`}>▶</span>
                                                     <div className="min-w-0">
                                                         <div className="flex flex-wrap items-center gap-2">
                                                             <span className="font-bold text-slate-800 text-base shrink-0">{monthLabel(monthKey)}</span>
-                                                            {isCurrentMonth && <span className="text-[10px] bg-slate-700 text-white px-2 py-0.5 rounded-full font-bold shrink-0">חודש נוכחי</span>}
+                                                            {isCurrentMonth && <span className="text-[10px] bg-slate-700 text-white px-2 py-0.5 rounded-full font-bold shrink-0">{tx("חודש נוכחי")}</span>}
                                                         </div>
                                                         <div className="flex flex-wrap items-center divide-x divide-slate-200 mt-1.5">
                                                             {Object.entries(mByMethod).map(([method, cents]) => (
@@ -371,8 +372,8 @@ export default function Page() {
                                                         </div>
                                                     </div>
                                                 </div>
-                                                <div className="text-right shrink-0">
-                                                    <div className="text-xs text-slate-400 font-medium">סה״כ חודשי</div>
+                                                <div className="text-start shrink-0">
+                                                    <div className="text-xs text-slate-400 font-medium">{tx("סה״כ חודשי")}</div>
                                                     <div className={`text-xl font-black ${mTotal >= 0 ? "text-emerald-600" : "text-rose-600"}`} dir="ltr">
                                                         {fmt(Math.abs(mTotal))}
                                                     </div>
@@ -387,14 +388,14 @@ export default function Page() {
                                                             <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
                                                                 {e.clientId ? (
                                                                     <Link href={`/clients/${e.clientId}`} className="text-sm font-bold text-blue-600 hover:underline truncate max-w-40 shrink">
-                                                                        {e.clientName || "ללא שם"}
+                                                                        {e.clientName || tx("ללא שם")}
                                                                     </Link>
                                                                 ) : e.clientName ? (
                                                                     <span className="text-sm font-bold text-slate-700 truncate max-w-40 shrink">{e.clientName}</span>
                                                                 ) : (
-                                                                    <span className="text-sm font-bold text-slate-400 italic shrink-0">אנונימי</span>
+                                                                    <span className="text-sm font-bold text-slate-400 italic shrink-0">{tx("אנונימי")}</span>
                                                                 )}
-                                                                {e.isWalkIn && <span className="bg-slate-100 text-slate-500 text-[10px] px-1.5 py-0.5 rounded font-normal shrink-0">מזדמן</span>}
+                                                                {e.isWalkIn && <span className="bg-slate-100 text-slate-500 text-[10px] px-1.5 py-0.5 rounded font-normal shrink-0">{tx("מזדמן")}</span>}
                                                                 <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold shrink-0 ${METHOD_PILL_CLASS}`}>
                                                                     {METHOD_LABELS[e.method] || e.method}
                                                                 </span>
@@ -410,7 +411,7 @@ export default function Page() {
                                                         <div className="flex items-center justify-between gap-2">
                                                             <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
                                                                 <span className="text-xs text-slate-400 shrink-0">
-                                                                    {new Date(e.created_at).toLocaleDateString("he-IL")}
+                                                                    {new Date(e.created_at).toLocaleDateString(intl())}
                                                                 </span>
                                                                 <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold shrink-0 ${
                                                                     e.type === "refund" ? "bg-rose-100 text-rose-700" :
@@ -418,7 +419,7 @@ export default function Page() {
                                                                     e.type === "pos_sale" ? "bg-violet-100 text-violet-700" :
                                                                     "bg-emerald-100 text-emerald-700"
                                                                 }`}>
-                                                                    {e.type === "refund" ? "זיכוי" : e.type === "deposit" ? "מקדמה" : e.type === "pos_sale" ? "קופה" : "תשלום"}
+                                                                    {e.type === "refund" ? tx("זיכוי") : e.type === "deposit" ? tx("מקדמה") : e.type === "pos_sale" ? tx("קופה") : tx("תשלום")}
                                                                 </span>
                                                                 {e.notes && !e.notes.startsWith("[מערכת]") && (
                                                                     <span className="text-xs text-slate-400 italic truncate max-w-45 hidden sm:inline">{e.notes}</span>
@@ -432,7 +433,7 @@ export default function Page() {
                                                                         type="button"
                                                                         onClick={() => downloadReceipt(e.paymentId!)}
                                                                         className="text-slate-700 hover:text-blue-600 transition-colors p-1.5 rounded-lg hover:bg-blue-50"
-                                                                        title="הורד קבלה PDF"
+                                                                        title={tx("הורד קבלה PDF")}
                                                                     >
                                                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -444,7 +445,7 @@ export default function Page() {
                                                                             type="button"
                                                                             onClick={() => setCreditingId(e.paymentId!)}
                                                                             className="text-slate-700 hover:text-amber-600 transition-colors p-1.5 rounded-lg hover:bg-amber-50"
-                                                                            title="הוצא זיכוי"
+                                                                            title={tx("הוצא זיכוי")}
                                                                         >
                                                                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
@@ -457,7 +458,7 @@ export default function Page() {
                                                                             type="button"
                                                                             onClick={() => setDeletingId(e.paymentId!)}
                                                                             className="text-slate-700 hover:text-red-600 transition-colors p-1.5 rounded-lg hover:bg-red-50"
-                                                                            title="מחק תשלום לצמיתות (סופר-אדמין)"
+                                                                            title={tx("מחק תשלום לצמיתות (סופר-אדמין)")}
                                                                         >
                                                                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -473,7 +474,7 @@ export default function Page() {
                                                                         type="button"
                                                                         onClick={() => downloadPosReceipt(e.posTxnId!)}
                                                                         className="text-slate-700 hover:text-blue-600 transition-colors p-1.5 rounded-lg hover:bg-blue-50"
-                                                                        title="הורד קבלה PDF"
+                                                                        title={tx("הורד קבלה PDF")}
                                                                     >
                                                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -485,7 +486,7 @@ export default function Page() {
                                                                             type="button"
                                                                             onClick={() => setVoidingPosId(e.posTxnId!)}
                                                                             className="text-slate-700 hover:text-red-600 transition-colors p-1.5 rounded-lg hover:bg-red-50"
-                                                                            title="בטל עסקת קופה"
+                                                                            title={tx("בטל עסקת קופה")}
                                                                         >
                                                                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -516,12 +517,12 @@ export default function Page() {
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
                                 </svg>
                             </div>
-                            <h3 className="text-xl font-bold text-slate-800 mb-2">הוצאת זיכוי</h3>
+                            <h3 className="text-xl font-bold text-slate-800 mb-2">{tx("הוצאת זיכוי")}</h3>
                             <p className="text-sm text-slate-500 mb-6">
-                                יופק מסמך זיכוי מול הקבלה המקורית של תשלום זה.
+                                {tx("יופק מסמך זיכוי מול הקבלה המקורית של תשלום זה.")}
                                 <br />
                                 <span className="text-amber-600 font-semibold mt-2 block">
-                                    הקבלה המקורית תסומן כ"זוכתה" ולא ניתן לבטל פעולה זו.
+                                    {tx("הקבלה המקורית תסומן כ\"זוכתה\" ולא ניתן לבטל פעולה זו.")}
                                 </span>
                             </p>
                             <div className="flex justify-center gap-3">
@@ -531,7 +532,7 @@ export default function Page() {
                                     disabled={isCrediting}
                                     className="px-5 py-2.5 text-sm font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
                                 >
-                                    ביטול
+                                    {tx("ביטול")}
                                 </button>
                                 <button
                                     type="button"
@@ -539,7 +540,7 @@ export default function Page() {
                                     disabled={isCrediting}
                                     className="px-5 py-2.5 text-sm font-semibold text-white bg-amber-500 hover:bg-amber-600 rounded-xl shadow-lg ring-1 ring-amber-600 transition-colors disabled:opacity-50"
                                 >
-                                    {isCrediting ? "מפיק זיכוי..." : "כן, הוצא זיכוי"}
+                                    {isCrediting ? tx("מפיק זיכוי...") : tx("כן, הוצא זיכוי")}
                                 </button>
                             </div>
                         </div>
@@ -555,12 +556,12 @@ export default function Page() {
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                                 </svg>
                             </div>
-                            <h3 className="text-xl font-bold text-slate-800 mb-2">ביטול עסקת קופה</h3>
+                            <h3 className="text-xl font-bold text-slate-800 mb-2">{tx("ביטול עסקת קופה")}</h3>
                             <p className="text-sm text-slate-500 mb-6">
-                                העסקה תבוטל והמלאי שנוכה יוחזר אוטומטית.
+                                {tx("העסקה תבוטל והמלאי שנוכה יוחזר אוטומטית.")}
                                 <br />
                                 <span className="text-red-500 font-bold mt-2 block">
-                                    לא ניתן לבטל פעולה זו.
+                                    {tx("לא ניתן לבטל פעולה זו.")}
                                 </span>
                             </p>
                             <div className="flex justify-center gap-3">
@@ -570,7 +571,7 @@ export default function Page() {
                                     disabled={isVoidingPos}
                                     className="px-5 py-2.5 text-sm font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
                                 >
-                                    ביטול
+                                    {tx("ביטול")}
                                 </button>
                                 <button
                                     type="button"
@@ -578,7 +579,7 @@ export default function Page() {
                                     disabled={isVoidingPos}
                                     className="px-5 py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl shadow-lg ring-1 ring-red-700 transition-colors disabled:opacity-50"
                                 >
-                                    {isVoidingPos ? "מבטל..." : "כן, בטל עסקה"}
+                                    {isVoidingPos ? tx("מבטל...") : tx("כן, בטל עסקה")}
                                 </button>
                             </div>
                         </div>
@@ -594,12 +595,12 @@ export default function Page() {
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                 </svg>
                             </div>
-                            <h3 className="text-xl font-bold text-slate-800 mb-2">מחיקה מלאה — סופר-אדמין</h3>
+                            <h3 className="text-xl font-bold text-slate-800 mb-2">{tx("מחיקה מלאה — סופר-אדמין")}</h3>
                             <p className="text-sm text-slate-500 mb-6">
-                                פעולה זו תמחק לצמיתות את התשלום, הקבלה/חשבונית, וכל זיכוי מקושר.
+                                {tx("פעולה זו תמחק לצמיתות את התשלום, הקבלה/חשבונית, וכל זיכוי מקושר.")}
                                 <br />
                                 <span className="text-red-500 font-bold mt-2 block">
-                                    לא ניתן לבטל פעולה זו. השתמש רק לצורכי בדיקות ופיתוח.
+                                    {tx("לא ניתן לבטל פעולה זו. השתמש רק לצורכי בדיקות ופיתוח.")}
                                 </span>
                             </p>
                             <div className="flex justify-center gap-3">
@@ -609,7 +610,7 @@ export default function Page() {
                                     disabled={isDeleting}
                                     className="px-5 py-2.5 text-sm font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
                                 >
-                                    ביטול
+                                    {tx("ביטול")}
                                 </button>
                                 <button
                                     type="button"
@@ -617,7 +618,7 @@ export default function Page() {
                                     disabled={isDeleting}
                                     className="px-5 py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl shadow-lg ring-1 ring-red-700 transition-colors disabled:opacity-50"
                                 >
-                                    {isDeleting ? "מוחק..." : "מחק לצמיתות"}
+                                    {isDeleting ? tx("מוחק...") : tx("מחק לצמיתות")}
                                 </button>
                             </div>
                         </div>

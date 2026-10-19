@@ -6,11 +6,12 @@ import { getGoalProgress, setMonthlyGoal, GoalProgress } from "@/lib/api";
 import { AreaChart, Area, ResponsiveContainer, Tooltip, XAxis } from "recharts";
 import Link from "next/link";
 
-const fmt = (n: number) => Math.round(n).toLocaleString("he-IL");
+import { intl, tx } from "@/lib/i18n";
+const fmt = (n: number) => Math.round(n).toLocaleString(intl());
 
 // index = 0 Sunday … 6 Saturday, like the server's work_days
-const DAY_NAMES = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
-const joinHe = (names: string[]) => names.length < 2 ? names.join("") : `${names.slice(0, -1).join(", ")} ו${names[names.length - 1]}`;
+const DAY_NAMES = [tx("ראשון"), tx("שני"), tx("שלישי"), tx("רביעי"), tx("חמישי"), tx("שישי"), tx("שבת")];
+const joinHe = (names: string[]) => names.length < 2 ? names.join("") : tx("{0} ו{1}", { 0: names.slice(0, -1).join(", "), 1: names[names.length - 1] });
 
 // SVG ring progress
 function RingProgress({ pct, size = 110, color }: { pct: number; size?: number; color: string }) {
@@ -52,7 +53,7 @@ export default function GoalWidget({ month, year }: { month?: number; year?: num
             await setMonthlyGoal(target, month || today.getMonth() + 1, year || today.getFullYear());
             setIsEditing(false);
             fetchGoal();
-        } catch { toast.error("שגיאה בעדכון יעד"); }
+        } catch { toast.error(tx("שגיאה בעדכון יעד")); }
     };
 
     if (loading && !progress) return <div style={{ height: 120, background: "#f8fafc", borderRadius: 16, animation: "pulse 1.5s infinite" }} />;
@@ -70,10 +71,10 @@ export default function GoalWidget({ month, year }: { month?: number; year?: num
     const hasAverage = progress.days_elapsed > 0;
     const pace: { text: string; good: boolean } | null =
         target <= 0 ? null
-        : isTargetMet ? { text: "✅ היעד הושג", good: true }
-        : progress.days_remaining === 0 ? { text: "❌ היעד לא הושג", good: false }
+        : isTargetMet ? { text: tx("✅ היעד הושג"), good: true }
+        : progress.days_remaining === 0 ? { text: tx("❌ היעד לא הושג"), good: false }
         : !hasAverage ? null
-        : isOnTrack ? { text: "✅ בקצב", good: true } : { text: "⚠️ מאחור", good: false };
+        : isOnTrack ? { text: tx("✅ בקצב"), good: true } : { text: tx("⚠️ מאחור"), good: false };
 
     const trendData = (progress.daily_revenue ?? []).map(r => ({ day: r.day, value: Number(r.amount) }));
     const hasTrend = trendData.some(p => p.value > 0);
@@ -83,7 +84,7 @@ export default function GoalWidget({ month, year }: { month?: number; year?: num
     const offDays = DAY_NAMES.filter((_, d) => !workDays.includes(d));
 
     return (
-        <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #e5e7eb", padding: "1.25rem 1.5rem", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }} dir="rtl">
+        <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #e5e7eb", padding: "1.25rem 1.5rem", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
             <div style={{ display: "flex", gap: "1.5rem", alignItems: "center", flexWrap: "wrap" }}>
 
                 {/* Ring + % */}
@@ -91,16 +92,16 @@ export default function GoalWidget({ month, year }: { month?: number; year?: num
                     <RingProgress pct={pct} size={110} color={color} />
                     <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
                         <span style={{ fontSize: "1.1rem", fontWeight: 800, color }}>{pct.toFixed(0)}%</span>
-                        <span style={{ fontSize: "0.6rem", color: "#9ca3af", fontWeight: 600 }}>בוצע</span>
+                        <span style={{ fontSize: "0.6rem", color: "#9ca3af", fontWeight: 600 }}>{tx("בוצע")}</span>
                     </div>
                 </div>
 
                 {/* Main info */}
                 <div style={{ flex: 1, minWidth: 160 }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.4rem" }}>
-                        <span style={{ fontWeight: 700, fontSize: "0.9rem", color: "#1a1a2e" }}>יעד הכנסה חודשי</span>
+                        <span style={{ fontWeight: 700, fontSize: "0.9rem", color: "#1a1a2e" }}>{tx("יעד הכנסה חודשי")}</span>
                         <span style={{ fontSize: "0.75rem", color: "#6b7280" }}>
-                            {new Date(progress.year, progress.month - 1, 1).toLocaleDateString("he-IL", { month: "long", year: "numeric" })}
+                            {new Date(progress.year, progress.month - 1, 1).toLocaleDateString(intl(), { month: "long", year: "numeric" })}
                         </span>
                     </div>
 
@@ -111,8 +112,8 @@ export default function GoalWidget({ month, year }: { month?: number; year?: num
                                 onKeyDown={e => { if (e.key === "Enter") handleSave(); if (e.key === "Escape") setIsEditing(false); }}
                                 style={{ flex: 1, border: "2px solid #6366f1", borderRadius: 8, padding: "0.35rem 0.7rem", fontSize: "0.9rem", outline: "none" }}
                                 dir="ltr" autoFocus placeholder="75000" />
-                            <button onClick={handleSave} style={{ background: "#6366f1", color: "#fff", border: "none", borderRadius: 8, padding: "0.35rem 0.8rem", fontWeight: 700, cursor: "pointer" }}>שמור</button>
-                            <button onClick={() => setIsEditing(false)} style={{ background: "none", border: "1px solid #e5e7eb", borderRadius: 8, padding: "0.35rem 0.8rem", cursor: "pointer", color: "#6b7280" }}>ביטול</button>
+                            <button onClick={handleSave} style={{ background: "#6366f1", color: "#fff", border: "none", borderRadius: 8, padding: "0.35rem 0.8rem", fontWeight: 700, cursor: "pointer" }}>{tx("שמור")}</button>
+                            <button onClick={() => setIsEditing(false)} style={{ background: "none", border: "1px solid #e5e7eb", borderRadius: 8, padding: "0.35rem 0.8rem", cursor: "pointer", color: "#6b7280" }}>{tx("ביטול")}</button>
                         </div>
                     ) : (
                         <div style={{ display: "flex", alignItems: "baseline", gap: "0.5rem", marginBottom: "0.5rem" }}>
@@ -120,7 +121,7 @@ export default function GoalWidget({ month, year }: { month?: number; year?: num
                             <span style={{ color: "#9ca3af", fontSize: "0.85rem" }}>/ ₪{fmt(target)}</span>
                             <button onClick={() => { setNewTarget(target > 0 ? String(Math.round(target)) : ""); setIsEditing(true); }}
                                 style={{ background: "none", border: "none", color: "#6366f1", fontSize: "0.72rem", fontWeight: 700, cursor: "pointer", marginRight: "auto" }}>
-                                עדכן יעד ✏️
+                                {tx("עדכן יעד ✏️")}
                             </button>
                         </div>
                     )}
@@ -128,19 +129,19 @@ export default function GoalWidget({ month, year }: { month?: number; year?: num
                     {/* Mini stats row */}
                     <div style={{ display: "flex", gap: "1.25rem", flexWrap: "wrap" }}>
                         <div>
-                            <div style={{ fontSize: "0.65rem", color: "#9ca3af", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>נותר</div>
+                            <div style={{ fontSize: "0.65rem", color: "#9ca3af", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>{tx("נותר")}</div>
                             <div style={{ fontSize: "0.9rem", fontWeight: 700, color: color }} dir="ltr">₪{fmt(remaining)}</div>
                         </div>
                         <div>
-                            <div style={{ fontSize: "0.65rem", color: "#9ca3af", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>ממוצע יומי</div>
+                            <div style={{ fontSize: "0.65rem", color: "#9ca3af", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>{tx("ממוצע יומי")}</div>
                             <div style={{ fontSize: "0.9rem", fontWeight: 700, color: "#1a1a2e" }} dir="ltr">{hasAverage ? `₪${fmt(dailyAvg)}` : "—"}</div>
                         </div>
                         <div>
-                            <div style={{ fontSize: "0.65rem", color: "#9ca3af", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>נדרש ביום</div>
+                            <div style={{ fontSize: "0.65rem", color: "#9ca3af", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>{tx("נדרש ביום")}</div>
                             <div style={{ fontSize: "0.9rem", fontWeight: 700, color: !hasAverage ? "#1a1a2e" : isOnTrack ? "#10b981" : "#ef4444" }} dir="ltr">₪{fmt(dailyNeeded)}</div>
                         </div>
                         <div>
-                            <div style={{ fontSize: "0.65rem", color: "#9ca3af", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>ימי עבודה שנותרו</div>
+                            <div style={{ fontSize: "0.65rem", color: "#9ca3af", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>{tx("ימי עבודה שנותרו")}</div>
                             <div style={{ fontSize: "0.9rem", fontWeight: 700, color: "#1a1a2e" }}>{progress.days_remaining}</div>
                         </div>
                         {pace && (
@@ -152,15 +153,15 @@ export default function GoalWidget({ month, year }: { month?: number; year?: num
                         )}
                     </div>
                     <div style={{ marginTop: "0.5rem", fontSize: "0.72rem", color: "#9ca3af" }}>
-                        {offDays.length ? `לא נספרים ימי ${joinHe(offDays)}` : "כל ימי השבוע נספרים"}
+                        {offDays.length ? tx("לא נספרים ימי {0}", { 0: joinHe(offDays) }) : tx("כל ימי השבוע נספרים")}
                         {" · "}
-                        <Link href="/automation?tab=branding#work-days" style={{ color: "#6366f1", fontWeight: 700, textDecoration: "none", whiteSpace: "nowrap" }}>שינוי ימי עבודה</Link>
+                        <Link href="/automation?tab=branding#work-days" style={{ color: "#6366f1", fontWeight: 700, textDecoration: "none", whiteSpace: "nowrap" }}>{tx("שינוי ימי עבודה")}</Link>
                     </div>
                 </div>
 
                 {/* Trend sparkline */}
                 <div style={{ width: 140, flexShrink: 0 }}>
-                    <div style={{ fontSize: "0.7rem", color: "#9ca3af", fontWeight: 600, marginBottom: "0.3rem", textAlign: "center" }}>מגמת הכנסות יומית</div>
+                    <div style={{ fontSize: "0.7rem", color: "#9ca3af", fontWeight: 600, marginBottom: "0.3rem", textAlign: "center" }}>{tx("מגמת הכנסות יומית")}</div>
                     {hasTrend ? (
                         <ResponsiveContainer width="100%" height={60}>
                             <AreaChart data={trendData} margin={{ top: 2, right: 2, left: 2, bottom: 2 }}>
@@ -173,15 +174,15 @@ export default function GoalWidget({ month, year }: { month?: number; year?: num
                                 <XAxis dataKey="day" hide />
                                 <Tooltip
                                     contentStyle={{ fontSize: "0.7rem", padding: "2px 6px", border: "none", boxShadow: "0 1px 4px rgba(0,0,0,0.1)", borderRadius: 6 }}
-                                    formatter={(v) => [`₪${fmt(Number(v))}`, "הכנסות"]}
-                                    labelFormatter={(day) => `${day} בחודש`}
+                                    formatter={(v) => [`₪${fmt(Number(v))}`, tx("הכנסות")]}
+                                    labelFormatter={(day) => tx("{0} בחודש", { 0: day })}
                                 />
                                 <Area type="monotone" dataKey="value" stroke={color} strokeWidth={2} fill="url(#sparkGrad)" dot={false} />
                             </AreaChart>
                         </ResponsiveContainer>
                     ) : (
                         <div style={{ height: 60, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.72rem", color: "#9ca3af" }}>
-                            עוד אין הכנסות החודש
+                            {tx("עוד אין הכנסות החודש")}
                         </div>
                     )}
                 </div>
@@ -189,7 +190,7 @@ export default function GoalWidget({ month, year }: { month?: number; year?: num
 
             {isTargetMet && (
                 <div style={{ marginTop: "0.75rem", background: "#d1fae5", color: "#065f46", padding: "0.5rem 1rem", borderRadius: 10, fontSize: "0.82rem", fontWeight: 700, textAlign: "center" }}>
-                    ✨ כל הכבוד! עברת את היעד החודשי!
+                    {tx("✨ כל הכבוד! עברת את היעד החודשי!")}
                 </div>
             )}
         </div>

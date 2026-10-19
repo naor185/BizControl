@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { apiFetch } from "@/lib/api";
 import { useBackButtonClose } from "@/lib/backButtonStack";
 
+import { tx } from "@/lib/i18n";
 type Mode = "verify" | "set" | "change";
 
 type Props = {
@@ -102,7 +103,7 @@ export default function PinModal({ mode, onSuccess, onClose, heading, hint }: Pr
 
         if (step === "confirm") {
             if (target !== pin) {
-                setError("הקודים אינם תואמים");
+                setError(tx("הקודים אינם תואמים"));
                 triggerShake();
                 setConfirmPin("");
                 return;
@@ -128,7 +129,7 @@ export default function PinModal({ mode, onSuccess, onClose, heading, hint }: Pr
             }
         } catch (e: unknown) {
             const err = e as ApiError;
-            const msg = err.message || "שגיאה";
+            const msg = err.message || tx("שגיאה");
             if (msg.includes("נעול")) {
                 setLocked(true);
                 setLockMessage(msg);
@@ -143,23 +144,23 @@ export default function PinModal({ mode, onSuccess, onClose, heading, hint }: Pr
     };
 
     const stepLabel = {
-        verify: "הזן PIN",
-        current: "PIN נוכחי",
-        new: "PIN חדש",
-        confirm: "אשר PIN",
+        verify: tx("הזן PIN"),
+        current: tx("PIN נוכחי"),
+        new: tx("PIN חדש"),
+        confirm: tx("אשר PIN"),
     }[step];
 
     const stepHint = {
-        verify: hint ?? "הזן את ה-PIN של בעל העסק",
-        current: "הזן את ה-PIN הנוכחי שלך",
-        new: "בחר PIN חדש (4 ספרות)",
-        confirm: "הזן שוב את ה-PIN החדש לאישור",
+        verify: hint ?? tx("הזן את ה-PIN של בעל העסק"),
+        current: tx("הזן את ה-PIN הנוכחי שלך"),
+        new: tx("בחר PIN חדש (4 ספרות)"),
+        confirm: tx("הזן שוב את ה-PIN החדש לאישור"),
     }[step];
 
     const currentDots = step === "current" ? currentPin : step === "confirm" ? confirmPin : pin;
 
     return (
-        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center" dir="rtl">
+        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center">
             {/* Backdrop */}
             <div
                 className="absolute inset-0 bg-black/60 backdrop-blur-sm"
@@ -182,7 +183,7 @@ export default function PinModal({ mode, onSuccess, onClose, heading, hint }: Pr
                             <circle cx="12" cy="16" r="1.5" fill="currentColor" />
                         </svg>
                     </div>
-                    <h2 className="text-lg font-bold text-slate-900">{heading ?? "קוד PIN"}</h2>
+                    <h2 className="text-lg font-bold text-slate-900">{heading ?? tx("קוד PIN")}</h2>
                     <p className="text-sm text-slate-500 mt-1">{stepHint}</p>
 
                     {/* Step indicator for set/change */}
@@ -256,11 +257,11 @@ export default function PinModal({ mode, onSuccess, onClose, heading, hint }: Pr
                 <div className="border-t border-slate-100 px-6 py-4 flex justify-between items-center">
                     {onClose ? (
                         <button onClick={onClose} className="text-sm text-slate-400 hover:text-slate-600 transition-colors">
-                            ביטול
+                            {tx("ביטול")}
                         </button>
                     ) : <span />}
                     {mode === "verify" && (
-                        <span className="text-xs text-slate-400">5 ניסיונות מקסימום</span>
+                        <span className="text-xs text-slate-400">{tx("5 ניסיונות מקסימום")}</span>
                     )}
                 </div>
             </div>

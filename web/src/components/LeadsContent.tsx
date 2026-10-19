@@ -7,6 +7,7 @@ import { Check, X } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { useTerms } from "@/lib/useTerms";
 
+import { tx, intl } from "@/lib/i18n";
 type Lead = {
     id: string;
     name: string;
@@ -33,15 +34,15 @@ type Lead = {
 };
 
 const STATUSES = [
-    { key: "new",        label: "חדש",       color: "bg-blue-500",   light: "bg-blue-50 text-blue-700",   ring: "ring-blue-300" },
-    { key: "contacted",  label: "נוצר קשר",  color: "bg-purple-500", light: "bg-purple-50 text-purple-700", ring: "ring-purple-300" },
-    { key: "interested", label: "מעוניין",   color: "bg-amber-500",  light: "bg-amber-50 text-amber-700",  ring: "ring-amber-300" },
-    { key: "booked",     label: "קבע תור",   color: "bg-emerald-500",light: "bg-emerald-50 text-emerald-700", ring: "ring-emerald-300" },
-    { key: "lost",       label: "אבד",       color: "bg-red-400",    light: "bg-red-50 text-red-600",     ring: "ring-red-200" },
+    { key: "new",        label: tx("חדש"),       color: "bg-blue-500",   light: "bg-blue-50 text-blue-700",   ring: "ring-blue-300" },
+    { key: "contacted",  label: tx("נוצר קשר"),  color: "bg-purple-500", light: "bg-purple-50 text-purple-700", ring: "ring-purple-300" },
+    { key: "interested", label: tx("מעוניין"),   color: "bg-amber-500",  light: "bg-amber-50 text-amber-700",  ring: "ring-amber-300" },
+    { key: "booked",     label: tx("קבע תור"),   color: "bg-emerald-500",light: "bg-emerald-50 text-emerald-700", ring: "ring-emerald-300" },
+    { key: "lost",       label: tx("אבד"),       color: "bg-red-400",    light: "bg-red-50 text-red-600",     ring: "ring-red-200" },
 ];
 
 const SOURCES = [
-    { key: "manual",    label: "ידני",      icon: "✏️", color: "text-slate-500" },
+    { key: "manual",    label: tx("ידני"),      icon: "✏️", color: "text-slate-500" },
     { key: "whatsapp",  label: "WhatsApp",  icon: "💬", color: "text-emerald-600" },
     { key: "instagram", label: "Instagram", icon: "📸", color: "text-pink-600" },
     { key: "facebook",  label: "Facebook",  icon: "👍", color: "text-blue-600" },
@@ -57,10 +58,10 @@ function fmtTime(iso: string) {
     const d = new Date(iso);
     const now = new Date();
     const diffDays = Math.floor((now.getTime() - d.getTime()) / 86400000);
-    if (diffDays === 0) return d.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
-    if (diffDays === 1) return "אתמול";
-    if (diffDays < 7) return d.toLocaleDateString("he-IL", { weekday: "short" });
-    return d.toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit" });
+    if (diffDays === 0) return d.toLocaleTimeString(intl(), { hour: "2-digit", minute: "2-digit" });
+    if (diffDays === 1) return tx("אתמול");
+    if (diffDays < 7) return d.toLocaleDateString(intl(), { weekday: "short" });
+    return d.toLocaleDateString(intl(), { day: "2-digit", month: "2-digit" });
 }
 
 function initials(name: string) {
@@ -74,10 +75,10 @@ const EMPTY_FORM = { name: "", phone: "", email: "", source: "manual", service_i
 
 // ── Analytics helpers ──────────────────────────────────────────────────────────
 const PERIODS: { key: "week" | "month" | "2months" | "all"; label: string; days: number | null }[] = [
-    { key: "week", label: "שבוע", days: 7 },
-    { key: "month", label: "חודש", days: 30 },
-    { key: "2months", label: "חודשיים", days: 60 },
-    { key: "all", label: "הכל", days: null },
+    { key: "week", label: tx("שבוע"), days: 7 },
+    { key: "month", label: tx("חודש"), days: 30 },
+    { key: "2months", label: tx("חודשיים"), days: 60 },
+    { key: "all", label: tx("הכל"), days: null },
 ];
 
 function AnalyticsTab({ leads: allLeads }: { leads: Lead[] }) {
@@ -124,7 +125,7 @@ function AnalyticsTab({ leads: allLeads }: { leads: Lead[] }) {
     const maxSource = Math.max(...bySource.map(s => s[1].total), 1);
 
     return (
-        <div className="p-4 space-y-6 overflow-y-auto h-full" dir="rtl">
+        <div className="p-4 space-y-6 overflow-y-auto h-full">
 
             <div className="flex bg-slate-50 border border-slate-200 rounded-xl overflow-hidden text-xs w-fit">
                 {PERIODS.map(p => (
@@ -141,10 +142,10 @@ function AnalyticsTab({ leads: allLeads }: { leads: Lead[] }) {
             {/* Summary cards */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {[
-                    { label: "סה״כ לידים", value: leads.length, icon: "🎯", color: "bg-sky-50 text-sky-700" },
-                    { label: "קבעו תור", value: leads.filter(l => l.status === "booked").length, icon: "✅", color: "bg-emerald-50 text-emerald-700" },
-                    { label: "המרה", value: leads.length ? Math.round(leads.filter(l => l.status === "booked").length / leads.length * 100) + "%" : "0%", icon: "📈", color: "bg-violet-50 text-violet-700" },
-                    { label: "אבדו", value: leads.filter(l => l.status === "lost").length, icon: "❌", color: "bg-red-50 text-red-600" },
+                    { label: tx("סה״כ לידים"), value: leads.length, icon: "🎯", color: "bg-sky-50 text-sky-700" },
+                    { label: tx("קבעו תור"), value: leads.filter(l => l.status === "booked").length, icon: "✅", color: "bg-emerald-50 text-emerald-700" },
+                    { label: tx("המרה"), value: leads.length ? Math.round(leads.filter(l => l.status === "booked").length / leads.length * 100) + "%" : "0%", icon: "📈", color: "bg-violet-50 text-violet-700" },
+                    { label: tx("אבדו"), value: leads.filter(l => l.status === "lost").length, icon: "❌", color: "bg-red-50 text-red-600" },
                 ].map(c => (
                     <div key={c.label} className={`rounded-2xl p-4 ${c.color} flex flex-col gap-1`}>
                         <span className="text-2xl">{c.icon}</span>
@@ -156,10 +157,10 @@ function AnalyticsTab({ leads: allLeads }: { leads: Lead[] }) {
 
             {daily.length > 0 && (
                 <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
-                    <h3 className="font-bold text-slate-800 mb-4">לידים יומיים</h3>
+                    <h3 className="font-bold text-slate-800 mb-4">{tx("לידים יומיים")}</h3>
                     <div className="flex items-end gap-1 h-24">
                         {daily.map(([date, count]) => (
-                            <div key={date} className="flex-1 flex flex-col items-center justify-end h-full" title={`${new Date(date).toLocaleDateString("he-IL")} — ${count}`}>
+                            <div key={date} className="flex-1 flex flex-col items-center justify-end h-full" title={`${new Date(date).toLocaleDateString(intl())} — ${count}`}>
                                 <div className="w-full rounded-t" style={{ height: `${Math.max((count / maxDaily) * 88, 4)}px`, background: "var(--primary)" }} />
                             </div>
                         ))}
@@ -169,11 +170,11 @@ function AnalyticsTab({ leads: allLeads }: { leads: Lead[] }) {
 
             {/* Funnel */}
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
-                <h3 className="font-bold text-slate-800 mb-4">משפך המרה</h3>
+                <h3 className="font-bold text-slate-800 mb-4">{tx("משפך המרה")}</h3>
                 <div className="space-y-2.5">
                     {funnel.map(f => (
                         <div key={f.key} className="flex items-center gap-3">
-                            <span className="text-xs font-semibold text-slate-500 w-16 text-right">{f.label}</span>
+                            <span className="text-xs font-semibold text-slate-500 w-16 text-start">{f.label}</span>
                             <div className="flex-1 bg-slate-100 rounded-full h-6 overflow-hidden">
                                 <div
                                     className={`h-full rounded-full flex items-center px-2 transition-all duration-500 ${f.color}`}
@@ -182,7 +183,7 @@ function AnalyticsTab({ leads: allLeads }: { leads: Lead[] }) {
                                     {f.count > 0 && <span className="text-white text-[10px] font-bold">{f.count}</span>}
                                 </div>
                             </div>
-                            <span className="text-xs font-bold text-slate-600 w-6 text-left">{f.count}</span>
+                            <span className="text-xs font-bold text-slate-600 w-6 text-end">{f.count}</span>
                         </div>
                     ))}
                 </div>
@@ -190,9 +191,9 @@ function AnalyticsTab({ leads: allLeads }: { leads: Lead[] }) {
 
             {/* By source */}
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
-                <h3 className="font-bold text-slate-800 mb-4">לידים לפי מקור</h3>
+                <h3 className="font-bold text-slate-800 mb-4">{tx("לידים לפי מקור")}</h3>
                 {bySource.length === 0 ? (
-                    <p className="text-sm text-slate-400 text-center py-4">אין נתונים</p>
+                    <p className="text-sm text-slate-400 text-center py-4">{tx("אין נתונים")}</p>
                 ) : (
                     <div className="space-y-3">
                         {bySource.map(([src, data]) => {
@@ -203,7 +204,7 @@ function AnalyticsTab({ leads: allLeads }: { leads: Lead[] }) {
                                     <div className="flex items-center justify-between mb-1">
                                         <span className="text-xs font-semibold text-slate-500">{s.icon} {s.label}</span>
                                         <div className="flex items-center gap-2">
-                                            <span className="text-[10px] text-emerald-600 font-semibold">{convPct}% המרה</span>
+                                            <span className="text-[10px] text-emerald-600 font-semibold">{convPct}{tx("% המרה")}</span>
                                             <span className="text-xs font-bold text-slate-700">{data.total}</span>
                                         </div>
                                     </div>
@@ -223,15 +224,15 @@ function AnalyticsTab({ leads: allLeads }: { leads: Lead[] }) {
             {/* By campaign */}
             {byCampaign.length > 0 && (
                 <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
-                    <h3 className="font-bold text-slate-800 mb-4">ביצועי קמפיינים 📣</h3>
+                    <h3 className="font-bold text-slate-800 mb-4">{tx("ביצועי קמפיינים 📣")}</h3>
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                             <thead>
                                 <tr className="text-xs text-slate-400 border-b border-slate-100">
-                                    <th className="text-right pb-2 font-semibold">קמפיין</th>
-                                    <th className="text-center pb-2 font-semibold">לידים</th>
-                                    <th className="text-center pb-2 font-semibold">תורים</th>
-                                    <th className="text-center pb-2 font-semibold">המרה</th>
+                                    <th className="text-start pb-2 font-semibold">{tx("קמפיין")}</th>
+                                    <th className="text-center pb-2 font-semibold">{tx("לידים")}</th>
+                                    <th className="text-center pb-2 font-semibold">{tx("תורים")}</th>
+                                    <th className="text-center pb-2 font-semibold">{tx("המרה")}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -318,7 +319,7 @@ export default function LeadsContent({ heightClass = "h-[560px]" }: { heightClas
                 setSelected(updated);
             }
             setModal(null);
-        } catch (e: any) { toast.error(e?.message || "שגיאה"); } finally { setSaving(false); }
+        } catch (e: any) { toast.error(e?.message || tx("שגיאה")); } finally { setSaving(false); }
     };
 
     // Opening a lead clears it from the "new" badges and its bell entry.
@@ -341,14 +342,14 @@ export default function LeadsContent({ heightClass = "h-[560px]" }: { heightClas
         setReqBusy(true);
         try {
             await apiFetch(`/api/booking-requests/${lead.booking_request.id}/approve`, { method: "PATCH" });
-            toast.success("התור אושר ונוסף ליומן");
+            toast.success(tx("התור אושר ונוסף ליומן"));
             await refreshLead(lead.id);
-        } catch (e: unknown) { toast.error(e instanceof Error ? e.message : "שגיאה באישור הבקשה"); } finally { setReqBusy(false); }
+        } catch (e: unknown) { toast.error(e instanceof Error ? e.message : tx("שגיאה באישור הבקשה")); } finally { setReqBusy(false); }
     };
 
     const handleRejectRequest = async (lead: Lead) => {
         if (!lead.booking_request) return;
-        const reason = window.prompt("סיבת הדחייה (לא חובה) — תישלח ללקוח בוואטסאפ");
+        const reason = window.prompt(tx("סיבת הדחייה (לא חובה) — תישלח ללקוח בוואטסאפ"));
         if (reason === null) return;
         setReqBusy(true);
         try {
@@ -356,9 +357,9 @@ export default function LeadsContent({ heightClass = "h-[560px]" }: { heightClas
                 method: "PATCH",
                 body: JSON.stringify({ reason: reason.trim() || null }),
             });
-            toast.success("הבקשה נדחתה");
+            toast.success(tx("הבקשה נדחתה"));
             await refreshLead(lead.id);
-        } catch (e: unknown) { toast.error(e instanceof Error ? e.message : "שגיאה בדחיית הבקשה"); } finally { setReqBusy(false); }
+        } catch (e: unknown) { toast.error(e instanceof Error ? e.message : tx("שגיאה בדחיית הבקשה")); } finally { setReqBusy(false); }
     };
 
     const handleMove = async (status: string) => {
@@ -373,7 +374,7 @@ export default function LeadsContent({ heightClass = "h-[560px]" }: { heightClas
 
     const handleDelete = async () => {
         if (!selected) return;
-        if (!confirm(`למחוק את ${selected.name}?`)) return;
+        if (!confirm(tx("למחוק את {0}?", { 0: selected.name }))) return;
         await apiFetch(`/api/leads/${selected.id}`, { method: "DELETE" });
         setLeads(prev => prev.filter(l => l.id !== selected.id));
         setSelected(null);
@@ -382,14 +383,14 @@ export default function LeadsContent({ heightClass = "h-[560px]" }: { heightClas
 
     const handleConvert = async () => {
         if (!selected) return;
-        if (!confirm(`להמיר את ${selected.name} ללקוח?`)) return;
+        if (!confirm(tx("להמיר את {0} ללקוח?", { 0: selected.name }))) return;
         setConverting(true);
         try {
             const res = await apiFetch<{ client_id: string; created: boolean }>(`/api/leads/${selected.id}/convert`, { method: "POST" });
             await load();
             setSelected(null);
             setShowDetail(false);
-            toast.error(res.created ? "לקוח חדש נוצר!" : "קושר ללקוח קיים.");
+            toast.error(res.created ? tx("לקוח חדש נוצר!") : tx("קושר ללקוח קיים."));
         } catch (e: any) { toast.error(e?.message); } finally { setConverting(false); }
     };
 
@@ -397,7 +398,7 @@ export default function LeadsContent({ heightClass = "h-[560px]" }: { heightClas
         if (!selected || !noteText.trim()) return;
         setAddingNote(true);
         try {
-            const newNotes = selected.notes ? `${selected.notes}\n\n${new Date().toLocaleDateString("he-IL")} — ${noteText.trim()}` : `${new Date().toLocaleDateString("he-IL")} — ${noteText.trim()}`;
+            const newNotes = selected.notes ? `${selected.notes}\n\n${new Date().toLocaleDateString(intl())} — ${noteText.trim()}` : `${new Date().toLocaleDateString(intl())} — ${noteText.trim()}`;
             const updated = await apiFetch<Lead>(`/api/leads/${selected.id}`, { method: "PATCH", body: JSON.stringify({ notes: newNotes }) });
             setLeads(prev => prev.map(l => l.id === updated.id ? updated : l));
             setSelected(updated);
@@ -406,7 +407,7 @@ export default function LeadsContent({ heightClass = "h-[560px]" }: { heightClas
     };
 
     if (loading) return (
-        <div className="flex items-center justify-center h-64 text-slate-400">טוען...</div>
+        <div className="flex items-center justify-center h-64 text-slate-400">{tx("טוען...")}</div>
     );
 
     const DetailPanel = ({ lead }: { lead: Lead }) => {
@@ -414,10 +415,10 @@ export default function LeadsContent({ heightClass = "h-[560px]" }: { heightClas
         const src = srcOf(lead.source);
         const noteLines = lead.notes ? lead.notes.split("\n\n").filter(Boolean) : [];
         return (
-            <div className="flex flex-col h-full bg-[#f0f2f5]" dir="rtl">
+            <div className="flex flex-col h-full bg-[#f0f2f5]">
                 {/* Detail header */}
                 <div className="bg-white border-b border-slate-100 px-4 py-3 flex items-center gap-3 shadow-sm">
-                    <button className="md:hidden text-slate-400 hover:text-slate-700 ml-1" onClick={() => setShowDetail(false)}>
+                    <button className="md:hidden text-slate-400 hover:text-slate-700 me-1" onClick={() => setShowDetail(false)}>
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                     </button>
                     <div className={`w-10 h-10 rounded-full ${avatarColor(lead.id)} flex items-center justify-center text-white font-bold text-sm flex-shrink-0`}>
@@ -441,7 +442,7 @@ export default function LeadsContent({ heightClass = "h-[560px]" }: { heightClas
                 {/* Appointment request (BizFind / booking page) — approve or reject right here */}
                 {lead.booking_request?.has_slot && (
                     <div className="bg-white border-b border-slate-100 px-4 py-3">
-                        <div className="text-[11px] font-semibold text-slate-400 mb-1">בקשת תור</div>
+                        <div className="text-[11px] font-semibold text-slate-400 mb-1">{tx("בקשת תור")}</div>
                         <div className="text-sm font-bold text-slate-800">
                             {lead.booking_request.requested_at_local}
                             {lead.booking_request.artist_name ? ` · ${lead.booking_request.artist_name}` : ""}
@@ -451,16 +452,16 @@ export default function LeadsContent({ heightClass = "h-[560px]" }: { heightClas
                             <div className="flex gap-2 mt-2">
                                 <button onClick={() => handleApproveRequest(lead)} disabled={reqBusy}
                                     className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl hover:bg-slate-700 transition-colors disabled:opacity-50">
-                                    <Check className="h-4 w-4" /> אשר תור
+                                    <Check className="h-4 w-4" /> {tx("אשר תור")}
                                 </button>
                                 <button onClick={() => handleRejectRequest(lead)} disabled={reqBusy}
                                     className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-slate-100 text-slate-600 text-xs font-bold rounded-xl hover:bg-slate-200 transition-colors disabled:opacity-50">
-                                    <X className="h-4 w-4" /> דחה
+                                    <X className="h-4 w-4" /> {tx("דחה")}
                                 </button>
                             </div>
                         ) : (
                             <div className="text-xs font-semibold text-slate-500 mt-1">
-                                {lead.booking_request.status === "approved" ? "אושר ונקבע ביומן" : "הבקשה נדחתה"}
+                                {lead.booking_request.status === "approved" ? tx("אושר ונקבע ביומן") : tx("הבקשה נדחתה")}
                             </div>
                         )}
                     </div>
@@ -471,11 +472,11 @@ export default function LeadsContent({ heightClass = "h-[560px]" }: { heightClas
                     {noteLines.length === 0 ? (
                         <div className="flex flex-col items-center justify-center h-full text-slate-300 gap-2">
                             <span className="text-4xl">💬</span>
-                            <span className="text-sm">אין הערות עדיין</span>
+                            <span className="text-sm">{tx("אין הערות עדיין")}</span>
                         </div>
                     ) : noteLines.map((note, i) => (
                         <div key={i} className="flex justify-end">
-                            <div className="bg-white rounded-2xl rounded-tr-sm shadow-sm px-4 py-2.5 max-w-[80%]">
+                            <div className="bg-white rounded-2xl rounded-ss-sm shadow-sm px-4 py-2.5 max-w-[80%]">
                                 <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{note}</p>
                             </div>
                         </div>
@@ -507,12 +508,12 @@ export default function LeadsContent({ heightClass = "h-[560px]" }: { heightClas
                     {lead.phone && (
                         <a href={`tel:${lead.phone}`}
                             className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-sky-50 text-sky-700 text-xs font-bold rounded-xl hover:bg-sky-100 transition-colors">
-                            📞 שיחה
+                            {tx("📞 שיחה")}
                         </a>
                     )}
                     <button onClick={() => openEdit(lead)} className="px-3 py-2 bg-slate-100 text-slate-600 text-xs font-bold rounded-xl hover:bg-slate-200 transition-colors">✏️</button>
                     <button onClick={handleConvert} disabled={converting} className="flex-1 py-2 bg-sky-600 text-white text-xs font-bold rounded-xl hover:bg-sky-700 transition-colors disabled:opacity-50">
-                        {converting ? "..." : "✅ המר"}
+                        {converting ? "..." : tx("✅ המר")}
                     </button>
                     <button onClick={handleDelete} className="px-3 py-2 bg-red-50 text-red-500 text-xs font-bold rounded-xl hover:bg-red-100 transition-colors">🗑</button>
                 </div>
@@ -523,8 +524,8 @@ export default function LeadsContent({ heightClass = "h-[560px]" }: { heightClas
                         value={noteText}
                         onChange={e => setNoteText(e.target.value)}
                         onKeyDown={e => e.key === "Enter" && !e.shiftKey && handleAddNote()}
-                        placeholder="הוסף הערה..."
-                        className="flex-1 bg-slate-100 rounded-full px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-sky-300 text-right"
+                        placeholder={tx("הוסף הערה...")}
+                        className="flex-1 bg-slate-100 rounded-full px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-sky-300 text-start"
                     />
                     <button
                         onClick={handleAddNote}
@@ -540,20 +541,20 @@ export default function LeadsContent({ heightClass = "h-[560px]" }: { heightClas
 
     return (
         <>
-                <div className={`flex flex-col ${heightClass}`} dir="rtl">
+                <div className={`flex flex-col ${heightClass}`}>
 
                     {/* Top tabs */}
                     <div className="bg-white border-b border-slate-100 flex items-center justify-between px-4 py-2 gap-3 flex-shrink-0">
                         <div className="flex gap-1 bg-slate-100 rounded-xl p-1">
                             <button onClick={() => setTab("inbox")} className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${tab === "inbox" ? "bg-white shadow-sm text-sky-600" : "text-slate-500 hover:text-slate-700"}`}>
-                                📥 אינבוקס
+                                {tx("📥 אינבוקס")}
                             </button>
                             <button onClick={() => setTab("analytics")} className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${tab === "analytics" ? "bg-white shadow-sm text-sky-600" : "text-slate-500 hover:text-slate-700"}`}>
-                                📊 אנליטיקס
+                                {tx("📊 אנליטיקס")}
                             </button>
                         </div>
                         <button onClick={openCreate} className="bg-sky-600 text-white text-sm font-bold px-4 py-2 rounded-xl hover:bg-sky-700 transition-colors flex-shrink-0">
-                            + ליד
+                            {tx("+ ליד")}
                         </button>
                     </div>
 
@@ -565,22 +566,22 @@ export default function LeadsContent({ heightClass = "h-[560px]" }: { heightClas
                         <div className="flex flex-1 overflow-hidden">
 
                             {/* LEFT — lead list */}
-                            <div className={`flex flex-col w-full md:w-80 lg:w-96 flex-shrink-0 border-l border-slate-100 bg-white ${showDetail ? "hidden md:flex" : "flex"}`}>
+                            <div className={`flex flex-col w-full md:w-80 lg:w-96 flex-shrink-0 border-e border-slate-100 bg-white ${showDetail ? "hidden md:flex" : "flex"}`}>
                                 {/* Search + filters */}
                                 <div className="p-3 space-y-2 border-b border-slate-100">
                                     <input
                                         value={search}
                                         onChange={e => setSearch(e.target.value)}
-                                        placeholder="חיפוש לידים..."
-                                        className="w-full bg-slate-100 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-sky-300 text-right"
+                                        placeholder={tx("חיפוש לידים...")}
+                                        className="w-full bg-slate-100 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-sky-300 text-start"
                                     />
                                     <div className="flex gap-2 overflow-x-auto pb-0.5">
                                         <select value={filterSrc} onChange={e => setFilterSrc(e.target.value)} className="text-xs bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 outline-none flex-shrink-0">
-                                            <option value="all">כל המקורות</option>
+                                            <option value="all">{tx("כל המקורות")}</option>
                                             {SOURCES.map(s => <option key={s.key} value={s.key}>{s.icon} {s.label}</option>)}
                                         </select>
                                         <select value={filterSt} onChange={e => setFilterSt(e.target.value)} className="text-xs bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 outline-none flex-shrink-0">
-                                            <option value="all">כל הסטטוסים</option>
+                                            <option value="all">{tx("כל הסטטוסים")}</option>
                                             {STATUSES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
                                         </select>
                                     </div>
@@ -591,7 +592,7 @@ export default function LeadsContent({ heightClass = "h-[560px]" }: { heightClas
                                     {filtered.length === 0 ? (
                                         <div className="flex flex-col items-center justify-center py-16 text-slate-300 gap-2">
                                             <span className="text-4xl">🎯</span>
-                                            <span className="text-sm">אין לידים</span>
+                                            <span className="text-sm">{tx("אין לידים")}</span>
                                         </div>
                                     ) : filtered.map(lead => {
                                         const st  = stOf(lead.status);
@@ -605,12 +606,12 @@ export default function LeadsContent({ heightClass = "h-[560px]" }: { heightClas
                                             >
                                                 <div className={`w-11 h-11 rounded-full ${avatarColor(lead.id)} flex items-center justify-center text-white font-bold text-sm flex-shrink-0 relative`}>
                                                     {initials(lead.name)}
-                                                    <span className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white ${st.color}`} />
+                                                    <span className={`absolute -bottom-0.5 -start-0.5 w-3.5 h-3.5 rounded-full border-2 border-white ${st.color}`} />
                                                 </div>
                                                 <div className="flex-1 min-w-0">
                                                     <div className="flex items-center justify-between gap-2">
                                                         <span className={`text-sm text-slate-800 truncate ${lead.seen_at ? "font-semibold" : "font-extrabold"}`}>
-                                                            {!lead.seen_at && <span className="inline-block w-2 h-2 rounded-full ml-1.5 align-middle" style={{ background: "var(--accent)" }} />}
+                                                            {!lead.seen_at && <span className="inline-block w-2 h-2 rounded-full me-1.5 align-middle" style={{ background: "var(--accent)" }} />}
                                                             {lead.name}
                                                         </span>
                                                         <span className="text-[10px] text-slate-400 flex-shrink-0">{fmtTime(lead.updated_at)}</span>
@@ -633,7 +634,7 @@ export default function LeadsContent({ heightClass = "h-[560px]" }: { heightClas
                                 ) : (
                                     <div className="flex flex-col items-center justify-center h-full text-slate-300 gap-3">
                                         <span className="text-6xl">💬</span>
-                                        <span className="text-sm font-medium">בחר ליד לצפייה</span>
+                                        <span className="text-sm font-medium">{tx("בחר ליד לצפייה")}</span>
                                     </div>
                                 )}
                             </div>
@@ -646,47 +647,47 @@ export default function LeadsContent({ heightClass = "h-[560px]" }: { heightClas
                     <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/40 px-4" onClick={() => setModal(null)}>
                         <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full sm:max-w-md p-6 pb-8 space-y-4 max-h-[90dvh] overflow-y-auto" onClick={e => e.stopPropagation()}>
                             <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto sm:hidden" />
-                            <h2 className="text-base font-bold text-slate-900">{modal.mode === "create" ? "ליד חדש" : "עריכת ליד"}</h2>
+                            <h2 className="text-base font-bold text-slate-900">{modal.mode === "create" ? tx("ליד חדש") : tx("עריכת ליד")}</h2>
                             <div className="space-y-3">
                                 <div>
-                                    <label className="text-xs text-slate-500 block mb-1">שם *</label>
-                                    <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="שם הליד" className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-right focus:outline-none focus:ring-2 focus:ring-sky-300" />
+                                    <label className="text-xs text-slate-500 block mb-1">{tx("שם *")}</label>
+                                    <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder={tx("שם הליד")} className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-start focus:outline-none focus:ring-2 focus:ring-sky-300" />
                                 </div>
                                 <div className="grid grid-cols-2 gap-3">
                                     <div>
-                                        <label className="text-xs text-slate-500 block mb-1">טלפון</label>
+                                        <label className="text-xs text-slate-500 block mb-1">{tx("טלפון")}</label>
                                         <input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="05X-XXXXXXX" dir="ltr" className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-300" />
                                     </div>
                                     <div>
-                                        <label className="text-xs text-slate-500 block mb-1">אימייל</label>
+                                        <label className="text-xs text-slate-500 block mb-1">{tx("אימייל")}</label>
                                         <input value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="email@..." dir="ltr" className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-300" />
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-2 gap-3">
                                     <div>
-                                        <label className="text-xs text-slate-500 block mb-1">מקור</label>
+                                        <label className="text-xs text-slate-500 block mb-1">{tx("מקור")}</label>
                                         <select value={form.source} onChange={e => setForm(f => ({ ...f, source: e.target.value }))} className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-sky-300">
                                             {SOURCES.map(s => <option key={s.key} value={s.key}>{s.icon} {s.label}</option>)}
                                         </select>
                                     </div>
                                     <div>
-                                        <label className="text-xs text-slate-500 block mb-1">שירות מבוקש</label>
-                                        <input value={form.service_interest} onChange={e => setForm(f => ({ ...f, service_interest: e.target.value }))} placeholder={terms.example_service ? `לדוגמה: ${terms.example_service}` : "השירות שמעניין את הלקוח"} className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-right focus:outline-none focus:ring-2 focus:ring-sky-300" />
+                                        <label className="text-xs text-slate-500 block mb-1">{tx("שירות מבוקש")}</label>
+                                        <input value={form.service_interest} onChange={e => setForm(f => ({ ...f, service_interest: e.target.value }))} placeholder={terms.example_service ? tx("לדוגמה: {0}", { 0: terms.example_service }) : tx("השירות שמעניין את הלקוח")} className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-start focus:outline-none focus:ring-2 focus:ring-sky-300" />
                                     </div>
                                 </div>
                                 <div>
-                                    <label className="text-xs text-slate-500 block mb-1">שם קמפיין / פרסום 📣</label>
-                                    <input value={form.campaign_name} onChange={e => setForm(f => ({ ...f, campaign_name: e.target.value }))} placeholder="למשל: פוסט אינסטגרם מאי, ממומן פייסבוק..." className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-right focus:outline-none focus:ring-2 focus:ring-sky-300" />
+                                    <label className="text-xs text-slate-500 block mb-1">{tx("שם קמפיין / פרסום 📣")}</label>
+                                    <input value={form.campaign_name} onChange={e => setForm(f => ({ ...f, campaign_name: e.target.value }))} placeholder={tx("למשל: פוסט אינסטגרם מאי, ממומן פייסבוק...")} className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-start focus:outline-none focus:ring-2 focus:ring-sky-300" />
                                 </div>
                                 <div>
-                                    <label className="text-xs text-slate-500 block mb-1">הערות</label>
-                                    <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="מידע נוסף..." rows={2} className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-right resize-none focus:outline-none focus:ring-2 focus:ring-sky-300" />
+                                    <label className="text-xs text-slate-500 block mb-1">{tx("הערות")}</label>
+                                    <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder={tx("מידע נוסף...")} rows={2} className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-start resize-none focus:outline-none focus:ring-2 focus:ring-sky-300" />
                                 </div>
                             </div>
                             <div className="flex gap-2 pt-1">
-                                <button onClick={() => setModal(null)} className="flex-1 py-2.5 bg-slate-100 text-slate-700 text-sm font-semibold rounded-xl hover:bg-slate-200 transition-colors">ביטול</button>
+                                <button onClick={() => setModal(null)} className="flex-1 py-2.5 bg-slate-100 text-slate-700 text-sm font-semibold rounded-xl hover:bg-slate-200 transition-colors">{tx("ביטול")}</button>
                                 <button onClick={handleSave} disabled={saving || !form.name.trim()} className="flex-1 py-2.5 bg-sky-600 text-white text-sm font-semibold rounded-xl hover:bg-sky-700 transition-colors disabled:opacity-40">
-                                    {saving ? "שומר..." : modal.mode === "create" ? "הוסף ליד" : "שמור"}
+                                    {saving ? tx("שומר...") : modal.mode === "create" ? tx("הוסף ליד") : tx("שמור")}
                                 </button>
                             </div>
                         </div>

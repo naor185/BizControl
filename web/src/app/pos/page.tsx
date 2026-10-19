@@ -10,6 +10,7 @@ import RequireAuth from "@/components/RequireAuth";
 import PinModal from "@/components/PinModal";
 import { Tag, Gift, X } from "lucide-react";
 
+import { tx, intl } from "@/lib/i18n";
 type Product = { id: string; name: string; price: number; category: string | null; stock_quantity: number; image_url: string | null; };
 type CartItem = { key: string; product_id: string | null; description: string; quantity: number; unit_price_cents: number; };
 type ClientResult = { id: string; full_name: string; name?: string; phone: string | null; is_club_member?: boolean; loyalty_points?: number; };
@@ -20,13 +21,13 @@ type TransactionOut = {
 };
 
 const PAYMENT_METHODS = [
-    { key: "cash",          label: "מזומן",   icon: "💵" },
-    { key: "credit",        label: "אשראי",   icon: "💳" },
+    { key: "cash",          label: tx("מזומן"),   icon: "💵" },
+    { key: "credit",        label: tx("אשראי"),   icon: "💳" },
     { key: "bit",           label: "Bit",     icon: "📱" },
     { key: "paybox",        label: "PayBox",  icon: "📲" },
-    { key: "bank_transfer", label: "העברה",   icon: "🏦" },
+    { key: "bank_transfer", label: tx("העברה"),   icon: "🏦" },
 ];
-const METHOD_LABELS: Record<string, string> = { cash:"מזומן", credit:"אשראי", bit:"Bit", paybox:"PayBox", bank_transfer:"העברה בנקאית", credit_card:"אשראי", other:"אחר" };
+const METHOD_LABELS: Record<string, string> = { cash:tx("מזומן"), credit:tx("אשראי"), bit:"Bit", paybox:"PayBox", bank_transfer:tx("העברה בנקאית"), credit_card:tx("אשראי"), other:tx("אחר") };
 
 // ── Receipt Modal ─────────────────────────────────────────────────────────────
 function ReceiptModal({ txn, clientId, onClose }: { txn: TransactionOut; clientId: string | null; onClose: () => void }) {
@@ -44,13 +45,13 @@ function ReceiptModal({ txn, clientId, onClose }: { txn: TransactionOut; clientI
                 { method: "POST" }
             );
             if (res.already_sent) {
-                toast.error("הקבלה כבר נשלחה — לא ניתן לבטל");
+                toast.error(tx("הקבלה כבר נשלחה — לא ניתן לבטל"));
             } else {
                 setReceiptCanceled(true);
-                toast.success("שליחת הקבלה בוואטסאפ בוטלה");
+                toast.success(tx("שליחת הקבלה בוואטסאפ בוטלה"));
             }
         } catch (e: unknown) {
-            toast.error((e as Error).message || "שגיאה בביטול השליחה");
+            toast.error((e as Error).message || tx("שגיאה בביטול השליחה"));
         } finally {
             setCancelingReceipt(false);
         }
@@ -75,13 +76,13 @@ function ReceiptModal({ txn, clientId, onClose }: { txn: TransactionOut; clientI
                             unit_price_cents: i.unit_price_cents,
                         })),
                         // the receipt is what was paid — the discount too
-                        ...(txn.discount_cents > 0 ? [{ description: "הנחה", quantity: 1, unit_price_cents: -txn.discount_cents }] : []),
+                        ...(txn.discount_cents > 0 ? [{ description: tx("הנחה"), quantity: 1, unit_price_cents: -txn.discount_cents }] : []),
                     ],
                 }),
             });
             setInvoiceId(inv.id);
         } catch (e: unknown) {
-            toast.error((e as Error).message || "שגיאה בהפקת חשבונית");
+            toast.error((e as Error).message || tx("שגיאה בהפקת חשבונית"));
         } finally { setCreating(false); }
     };
 
@@ -108,7 +109,7 @@ function ReceiptModal({ txn, clientId, onClose }: { txn: TransactionOut; clientI
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xs overflow-hidden" onClick={e => e.stopPropagation()}>
                 <div className="bg-emerald-600 text-white px-5 py-4 text-center">
                     <div className="text-2xl mb-1">✅</div>
-                    <div className="text-lg font-bold">תשלום בוצע!</div>
+                    <div className="text-lg font-bold">{tx("תשלום בוצע!")}</div>
                     {txn.client_name && <div className="text-emerald-100 text-xs mt-0.5">{txn.client_name}</div>}
                 </div>
                 <div className="p-4 space-y-2">
@@ -123,34 +124,34 @@ function ReceiptModal({ txn, clientId, onClose }: { txn: TransactionOut; clientI
                     <div className="border-t pt-2">
                         {txn.discount_cents > 0 && (
                             <div className="flex justify-between text-sm text-rose-600">
-                                <span>הנחה</span><span>-₪{(txn.discount_cents/100).toFixed(2)}</span>
+                                <span>{tx("הנחה")}</span><span>-₪{(txn.discount_cents/100).toFixed(2)}</span>
                             </div>
                         )}
                         <div className="flex justify-between font-bold text-base">
-                            <span>סה״כ</span>
+                            <span>{tx("סה״כ")}</span>
                             <span className="text-emerald-700">₪{(txn.total_cents/100).toFixed(2)}</span>
                         </div>
                         <div className="flex justify-between text-xs text-slate-400 mt-0.5">
-                            <span>אמצעי תשלום</span><span>{METHOD_LABELS[txn.method] || txn.method}</span>
+                            <span>{tx("אמצעי תשלום")}</span><span>{METHOD_LABELS[txn.method] || txn.method}</span>
                         </div>
                     </div>
                     {txn.points_earned > 0 && (
                         <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5 text-center text-xs text-amber-700 font-bold">
-                            +{txn.points_earned} נקודות נוספו
+                            +{txn.points_earned} {tx("נקודות נוספו")}
                         </div>
                     )}
                     {txn.receipt_message_job_id && !receiptCanceled && (
                         <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5 text-xs">
-                            <span className="text-blue-700 font-semibold">📲 קבלה נשלחת בוואטסאפ ללקוח...</span>
+                            <span className="text-blue-700 font-semibold">{tx("📲 קבלה נשלחת בוואטסאפ ללקוח...")}</span>
                             <button type="button" onClick={cancelReceiptSend} disabled={cancelingReceipt}
-                                className="text-rose-600 font-bold underline disabled:opacity-50 shrink-0 mr-2">
-                                {cancelingReceipt ? "מבטל..." : "בטל שליחה"}
+                                className="text-rose-600 font-bold underline disabled:opacity-50 shrink-0 ms-2">
+                                {cancelingReceipt ? tx("מבטל...") : tx("בטל שליחה")}
                             </button>
                         </div>
                     )}
                     {receiptCanceled && (
                         <div className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-center text-xs text-slate-500 font-semibold">
-                            שליחת הקבלה בוואטסאפ בוטלה
+                            {tx("שליחת הקבלה בוואטסאפ בוטלה")}
                         </div>
                     )}
                 </div>
@@ -158,16 +159,16 @@ function ReceiptModal({ txn, clientId, onClose }: { txn: TransactionOut; clientI
                     {!invoiceId ? (
                         <button type="button" onClick={createInvoice} disabled={creating}
                             className="w-full bg-violet-600 hover:bg-violet-700 disabled:opacity-60 text-white font-bold py-2.5 rounded-xl text-sm transition-colors">
-                            {creating ? "מפיק..." : "🧾 הפק קבלה"}
+                            {creating ? tx("מפיק...") : tx("🧾 הפק קבלה")}
                         </button>
                     ) : (
                         <button type="button" onClick={downloadPdf}
                             className="w-full bg-violet-600 hover:bg-violet-700 text-white font-bold py-2.5 rounded-xl text-sm transition-colors">
-                            📄 הורד PDF
+                            {tx("📄 הורד PDF")}
                         </button>
                     )}
                     <button onClick={onClose} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl text-sm transition-colors">
-                        מכירה חדשה
+                        {tx("מכירה חדשה")}
                     </button>
                 </div>
             </div>
@@ -269,8 +270,8 @@ export default function PosPage() {
 
     const handleAddItem = useCallback(() => {
         const price = parseFloat(calcDisplay);
-        if (isNaN(price) || price <= 0) { toast.error("הכנס מחיר"); return; }
-        setCart(prev => [...prev, { key: `m-${Date.now()}`, product_id: null, description: itemDesc.trim() || "פריט", quantity: 1, unit_price_cents: Math.round(price * 100) }]);
+        if (isNaN(price) || price <= 0) { toast.error(tx("הכנס מחיר")); return; }
+        setCart(prev => [...prev, { key: `m-${Date.now()}`, product_id: null, description: itemDesc.trim() || tx("פריט"), quantity: 1, unit_price_cents: Math.round(price * 100) }]);
         setCalcDisplay("0"); setItemDesc(""); setAutoPrice(null);
         if (window.innerWidth < 768) setMobileTab("cart");
     }, [calcDisplay, itemDesc]);
@@ -278,7 +279,7 @@ export default function PosPage() {
     const addProduct = (product: Product) => {
         const currentQty = cart.find(i => i.product_id === product.id)?.quantity ?? 0;
         if (product.stock_quantity > 0 && currentQty >= product.stock_quantity) {
-            toast.error(`נגמר המלאי — נותרו ${product.stock_quantity} יחידות בלבד`);
+            toast.error(tx("נגמר המלאי — נותרו {0} יחידות בלבד", { 0: product.stock_quantity }));
             return;
         }
         setCart(prev => {
@@ -295,7 +296,7 @@ export default function PosPage() {
             if (item?.product_id) {
                 const product = products.find(p => p.id === item.product_id);
                 if (product && product.stock_quantity > 0 && item.quantity >= product.stock_quantity) {
-                    toast.error(`נגמר המלאי — נותרו ${product.stock_quantity} יחידות בלבד`);
+                    toast.error(tx("נגמר המלאי — נותרו {0} יחידות בלבד", { 0: product.stock_quantity }));
                     return;
                 }
             }
@@ -312,10 +313,10 @@ export default function PosPage() {
             const r = await apiFetch<{ balance_ils: number; recipient_name: string; status: string }>(
                 `/api/public/gift-cards/${encodeURIComponent(code)}`
             );
-            if (r.status !== "active") { setGiftCardError("כרטיס לא פעיל"); return; }
+            if (r.status !== "active") { setGiftCardError(tx("כרטיס לא פעיל")); return; }
             setGiftCardInfo(r);
             setGiftCardDiscount(Math.floor(r.balance_ils));
-        } catch { setGiftCardError("קוד לא תקין"); }
+        } catch { setGiftCardError(tx("קוד לא תקין")); }
         finally { setGiftCardLoading(false); }
     };
 
@@ -326,8 +327,8 @@ export default function PosPage() {
             const who = client?.id ? `&client_id=${client.id}` : "";
             const r = await apiFetch<{ discount_percent: number }>(`/api/coupons/validate?code=${encodeURIComponent(couponCode.trim().toUpperCase())}${who}`);
             setCouponDiscount(r.discount_percent);
-            toast.success(`קופון תקין — ${r.discount_percent}% הנחה`);
-        } catch (e: unknown) { setCouponError((e as { message?: string })?.message || "קוד לא תקין"); setCouponDiscount(0); }
+            toast.success(tx("קופון תקין — {0}% הנחה", { 0: r.discount_percent }));
+        } catch (e: unknown) { setCouponError((e as { message?: string })?.message || tx("קוד לא תקין")); setCouponDiscount(0); }
         finally { setCouponLoading(false); }
     };
 
@@ -342,7 +343,7 @@ export default function PosPage() {
     const cartCount = cart.reduce((s, i) => s + i.quantity, 0);
 
     const handleCheckout = async () => {
-        if (cart.length === 0) { toast.error("העגלה ריקה"); return; }
+        if (cart.length === 0) { toast.error(tx("העגלה ריקה")); return; }
         setLoading(true);
         try {
             const txn = await apiFetch<TransactionOut>("/api/pos/checkout", {
@@ -378,7 +379,7 @@ export default function PosPage() {
             setUsePoints(false); setPointsRedeemed(0);
             setGiftCardCode(""); setGiftCardInfo(null); setGiftCardDiscount(0); setGiftCardError("");
             setMobileTab("pad");
-        } catch (err) { toast.error(err instanceof Error ? err.message : "שגיאה בתשלום"); }
+        } catch (err) { toast.error(err instanceof Error ? err.message : tx("שגיאה בתשלום")); }
         finally { setLoading(false); }
     };
 
@@ -388,8 +389,8 @@ export default function PosPage() {
         try {
             const c = await apiFetch<ClientResult>("/api/clients/", { method: "POST", body: JSON.stringify({ name: newClientName.trim(), phone: newClientPhone.trim() || null }) });
             setClient(c); setShowAddClient(false); setNewClientName(""); setNewClientPhone("");
-            toast.success("לקוח נוסף");
-        } catch { toast.error("שגיאה"); }
+            toast.success(tx("לקוח נוסף"));
+        } catch { toast.error(tx("שגיאה")); }
         finally { setAddingClient(false); }
     };
 
@@ -399,18 +400,18 @@ export default function PosPage() {
             {/* Calc display */}
             <div className="bg-slate-900 text-white px-4 py-2 shrink-0">
                 <div className="text-xs text-slate-400 h-4 truncate">{itemDesc || " "}</div>
-                <div className="text-2xl font-mono font-bold text-right">
-                    ₪{parseFloat(calcDisplay || "0").toLocaleString("he-IL", { minimumFractionDigits: calcDisplay.includes(".") ? calcDisplay.split(".")[1]?.length || 0 : 0 })}
+                <div className="text-2xl font-mono font-bold text-start">
+                    ₪{parseFloat(calcDisplay || "0").toLocaleString(intl(), { minimumFractionDigits: calcDisplay.includes(".") ? calcDisplay.split(".")[1]?.length || 0 : 0 })}
                 </div>
             </div>
             {/* Desc input */}
             <div className="px-4 md:px-2 pt-2 shrink-0">
-                <input value={itemDesc} onChange={e => setItemDesc(e.target.value)} placeholder="תיאור..."
+                <input value={itemDesc} onChange={e => setItemDesc(e.target.value)} placeholder={tx("תיאור...")}
                     className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
                     onKeyDown={e => e.key === "Enter" && handleAddItem()} />
             </div>
             {services.length > 0 && (
-                <div data-tour="pos-services" className="flex md:flex-wrap gap-1.5 px-4 md:px-3 pt-2 overflow-x-auto md:overflow-visible shrink-0" role="group" aria-label="טיפולים מוכנים">
+                <div data-tour="pos-services" className="flex md:flex-wrap gap-1.5 px-4 md:px-3 pt-2 overflow-x-auto md:overflow-visible shrink-0" role="group" aria-label={tx("טיפולים מוכנים")}>
                     {services.map(svc => {
                         const on = pickedNames.includes(svc.name);
                         return (
@@ -436,7 +437,7 @@ export default function PosPage() {
             <div className="px-4 md:px-2 pt-2 shrink-0">
                 <button type="button" data-tour="pos-add" onClick={handleAddItem} disabled={calcDisplay === "0" || parseFloat(calcDisplay) <= 0}
                     className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white font-bold py-2.5 rounded-xl text-sm transition-all active:scale-95 shadow-sm">
-                    + הוסף לעגלה
+                    {tx("+ הוסף לעגלה")}
                 </button>
             </div>
             {/* Category filter */}
@@ -444,7 +445,7 @@ export default function PosPage() {
                 {[null, ...categories].map(cat => (
                     <button key={cat ?? "all"} type="button" onClick={() => setCategoryFilter(cat)}
                         className={`shrink-0 px-2 py-1 rounded-lg text-xs font-medium transition-colors ${categoryFilter === cat ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
-                        {cat ?? "הכל"}
+                        {cat ?? tx("הכל")}
                     </button>
                 ))}
             </div>
@@ -452,21 +453,21 @@ export default function PosPage() {
             <div className="flex-1 min-h-0 overflow-y-auto px-4 py-2 md:p-2">
                 {filteredProducts.length === 0 ? (
                     <div className="text-center text-slate-300 mt-6 text-xs">
-                        <div className="text-2xl mb-1">📦</div>אין מוצרים
-                        <a href="/products" className="block text-blue-400 hover:underline mt-1">הוסף מוצרים</a>
+                        <div className="text-2xl mb-1">📦</div>{tx("אין מוצרים")}
+                        <a href="/products" className="block text-blue-400 hover:underline mt-1">{tx("הוסף מוצרים")}</a>
                     </div>
                 ) : (
                     <div className="grid grid-cols-2 gap-1.5">
                         {filteredProducts.map(p => (
                             <button key={p.id} type="button" onClick={() => addProduct(p)} disabled={p.stock_quantity === 0}
-                                className={`bg-white rounded-xl border p-2 text-right transition-all active:scale-95 ${p.stock_quantity === 0 ? "opacity-40 cursor-not-allowed border-slate-100" : "border-slate-200 hover:border-emerald-400 hover:shadow-sm"}`}>
+                                className={`bg-white rounded-xl border p-2 text-start transition-all active:scale-95 ${p.stock_quantity === 0 ? "opacity-40 cursor-not-allowed border-slate-100" : "border-slate-200 hover:border-emerald-400 hover:shadow-sm"}`}>
                                 {p.image_url
                                     ? <img src={p.image_url} alt={p.name} className="w-full h-10 object-cover rounded-lg mb-1" />
                                     : <div className="w-full h-10 bg-slate-100 rounded-lg mb-1 flex items-center justify-center text-base">📦</div>}
                                 <div className="font-semibold text-slate-800 text-xs truncate leading-tight">{p.name}</div>
                                 <div className="text-emerald-700 font-bold text-xs">₪{Number(p.price).toFixed(2)}</div>
                                 <div className={`text-[9px] ${p.stock_quantity <= 3 ? "text-rose-500" : "text-slate-400"}`}>
-                                    {p.stock_quantity === 0 ? "אזל" : `${p.stock_quantity} במלאי`}
+                                    {p.stock_quantity === 0 ? tx("אזל") : tx("{0} במלאי", { 0: p.stock_quantity })}
                                 </div>
                             </button>
                         ))}
@@ -482,8 +483,8 @@ export default function PosPage() {
             {/* Client — prominent */}
             <div className="bg-white border-b border-slate-200 px-4 py-3 shrink-0">
                 <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-bold text-slate-700">👤 לקוח</span>
-                    <button type="button" onClick={() => setShowAddClient(true)} className="text-sm text-emerald-600 font-bold hover:text-emerald-700">+ לקוח חדש</button>
+                    <span className="text-sm font-bold text-slate-700">{tx("👤 לקוח")}</span>
+                    <button type="button" onClick={() => setShowAddClient(true)} className="text-sm text-emerald-600 font-bold hover:text-emerald-700">{tx("+ לקוח חדש")}</button>
                 </div>
                 {client ? (
                     <div className="flex items-center gap-2 bg-emerald-50 border-2 border-emerald-300 rounded-xl px-4 py-2.5">
@@ -497,14 +498,14 @@ export default function PosPage() {
                     </div>
                 ) : (
                     <div className="relative">
-                        <input value={clientSearch} onChange={e => setClientSearch(e.target.value)} placeholder="חפש שם או טלפון..."
+                        <input value={clientSearch} onChange={e => setClientSearch(e.target.value)} placeholder={tx("חפש שם או טלפון...")}
                             className="w-full border-2 border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400" />
-                        {searchLoading && <div className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-slate-300 border-t-emerald-500 rounded-full animate-spin" />}
+                        {searchLoading && <div className="absolute end-3 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-slate-300 border-t-emerald-500 rounded-full animate-spin" />}
                         {clientResults.length > 0 && (
                             <div className="absolute top-full mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden z-30">
                                 {clientResults.map(c => (
                                     <button key={c.id} type="button" onClick={() => { setClient({ ...c, name: c.full_name }); setClientSearch(""); setClientResults([]); }}
-                                        className="w-full text-right px-4 py-2.5 hover:bg-emerald-50 transition-colors border-b border-slate-100 last:border-0">
+                                        className="w-full text-start px-4 py-2.5 hover:bg-emerald-50 transition-colors border-b border-slate-100 last:border-0">
                                         <div className="text-sm font-semibold text-slate-800 flex items-center gap-1.5">
                                             {c.full_name}
                                             {c.is_club_member && <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 rounded-full">👑</span>}
@@ -523,7 +524,7 @@ export default function PosPage() {
                 {cart.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-full text-slate-300 py-12">
                         <div className="text-6xl mb-3">🛒</div>
-                        <div className="text-sm font-medium">העגלה ריקה</div>
+                        <div className="text-sm font-medium">{tx("העגלה ריקה")}</div>
                     </div>
                 ) : cart.map(item => (
                     <div key={item.key} className="flex items-center gap-3 bg-white rounded-xl border border-slate-100 px-4 py-3 shadow-sm">
@@ -550,11 +551,11 @@ export default function PosPage() {
                     <div className="relative">
                         <button type="button" onClick={() => discountUnlocked ? setShowDiscountPicker(s => !s) : setAskOwnerPin(true)}
                             className={`flex items-center gap-1.5 text-sm font-bold px-3 min-h-11 rounded-xl border transition-all ${discountPct > 0 ? "bg-rose-50 border-rose-300 text-rose-700" : "bg-slate-50 border-slate-200 text-slate-600"}`}>
-                            <Tag className="w-4 h-4" aria-hidden /> {discountPct > 0 ? `${discountPct}%` : "הנחה"}
-                            {discountPct > 0 && <span role="button" aria-label="בטל הנחה" onClick={e => { e.stopPropagation(); setDiscountPct(0); }} className="ms-0.5 hover:text-rose-600"><X className="w-4 h-4" aria-hidden /></span>}
+                            <Tag className="w-4 h-4" aria-hidden /> {discountPct > 0 ? `${discountPct}%` : tx("הנחה")}
+                            {discountPct > 0 && <span role="button" aria-label={tx("בטל הנחה")} onClick={e => { e.stopPropagation(); setDiscountPct(0); }} className="ms-0.5 hover:text-rose-600"><X className="w-4 h-4" aria-hidden /></span>}
                         </button>
                         {showDiscountPicker && (
-                            <div className="absolute bottom-full mb-1 right-0 z-40 bg-white border border-slate-200 rounded-xl shadow-xl p-2 w-64">
+                            <div className="absolute bottom-full mb-1 start-0 z-40 bg-white border border-slate-200 rounded-xl shadow-xl p-2 w-64">
                                 <div className="grid grid-cols-3 gap-1.5 mb-2">
                                     {[5,10,15,20,25,30].map(pct => (
                                         <button key={pct} type="button" onClick={() => { setDiscountPct(pct); setShowDiscountPicker(false); }}
@@ -564,9 +565,9 @@ export default function PosPage() {
                                     ))}
                                 </div>
                                 <div className="flex gap-1">
-                                    <input type="number" inputMode="decimal" min="0" max="100" placeholder="אחוז אחר" className="flex-1 min-w-0 min-h-10 border border-slate-200 rounded-lg px-2 text-base focus:outline-none focus:ring-1 focus:ring-rose-400"
+                                    <input type="number" inputMode="decimal" min="0" max="100" placeholder={tx("אחוז אחר")} className="flex-1 min-w-0 min-h-10 border border-slate-200 rounded-lg px-2 text-base focus:outline-none focus:ring-1 focus:ring-rose-400"
                                         onKeyDown={e => { if (e.key === "Enter") { setDiscountPct(parseFloat((e.target as HTMLInputElement).value) || 0); setShowDiscountPicker(false); } }} />
-                                    <button type="button" onClick={() => setShowDiscountPicker(false)} aria-label="סגור" className="w-10 min-h-10 flex items-center justify-center text-slate-400"><X className="w-4 h-4" aria-hidden /></button>
+                                    <button type="button" onClick={() => setShowDiscountPicker(false)} aria-label={tx("סגור")} className="w-10 min-h-10 flex items-center justify-center text-slate-400"><X className="w-4 h-4" aria-hidden /></button>
                                 </div>
                             </div>
                         )}
@@ -574,18 +575,18 @@ export default function PosPage() {
                     {/* Coupon */}
                     <div className="flex-1 flex gap-1 items-center">
                         <input value={couponCode} onChange={e => { setCouponCode(e.target.value.toUpperCase()); setCouponDiscount(0); setCouponError(""); }}
-                            placeholder="קוד קופון..."
+                            placeholder={tx("קוד קופון...")}
                             className={`flex-1 min-w-0 min-h-11 border rounded-xl px-3 text-base font-mono focus:outline-none focus:ring-1 ${couponDiscount > 0 ? "border-emerald-400 bg-emerald-50" : couponError ? "border-rose-400" : "border-slate-200"}`}
                             onKeyDown={e => e.key === "Enter" && validateCoupon()} />
                         <button type="button" onClick={validateCoupon} disabled={!couponCode.trim() || couponLoading}
                             className="shrink-0 bg-slate-800 text-white px-4 min-h-11 rounded-xl text-sm font-bold disabled:opacity-40">
-                            {couponLoading ? "..." : "אמת"}
+                            {couponLoading ? "..." : tx("אמת")}
                         </button>
                     </div>
                 </div>
                 {(couponError || couponDiscount > 0) && (
                     <div className={`text-xs -mt-1 ${couponDiscount > 0 ? "text-emerald-600" : "text-rose-500"}`}>
-                        {couponDiscount > 0 ? `✓ קופון ${couponDiscount}% הופעל` : couponError}
+                        {couponDiscount > 0 ? tx("✓ קופון {0}% הופעל", { 0: couponDiscount }) : couponError}
                     </div>
                 )}
 
@@ -594,18 +595,18 @@ export default function PosPage() {
                     <Gift className="w-5 h-5 shrink-0 text-violet-600" aria-hidden />
                     <input value={giftCardCode}
                         onChange={e => { setGiftCardCode(e.target.value.toUpperCase()); setGiftCardInfo(null); setGiftCardDiscount(0); setGiftCardError(""); }}
-                        placeholder="קוד גיפט קארד..."
+                        placeholder={tx("קוד גיפט קארד...")}
                         className={`flex-1 min-w-0 min-h-11 border rounded-xl px-3 text-base font-mono focus:outline-none focus:ring-1 ${giftCardInfo ? "border-violet-400 bg-violet-50" : giftCardError ? "border-rose-400" : "border-slate-200"}`}
                         onKeyDown={e => e.key === "Enter" && validateGiftCard()} />
                     <button type="button" onClick={validateGiftCard} disabled={!giftCardCode.trim() || giftCardLoading}
                         className="shrink-0 bg-violet-700 text-white px-4 min-h-11 rounded-xl text-sm font-bold disabled:opacity-40">
-                        {giftCardLoading ? "..." : "אמת"}
+                        {giftCardLoading ? "..." : tx("אמת")}
                     </button>
                 </div>
                 {(giftCardError || giftCardInfo) && (
                     <div className={`text-xs -mt-1 ${giftCardInfo ? "text-violet-600" : "text-rose-500"}`}>
                         {giftCardInfo
-                            ? `✓ כרטיס של ${giftCardInfo.recipient_name} · יתרה ₪${giftCardInfo.balance_ils} · ינוכה ₪${(giftCardDiscountCents / 100).toFixed(0)}`
+                            ? tx("✓ כרטיס של {0} · יתרה ₪{1} · ינוכה ₪{2}", { 0: giftCardInfo.recipient_name, 1: giftCardInfo.balance_ils, 2: (giftCardDiscountCents / 100).toFixed(0) })
                             : giftCardError}
                     </div>
                 )}
@@ -615,17 +616,17 @@ export default function PosPage() {
                     <div className={`rounded-xl border-2 transition-all px-3 py-2 ${usePoints ? "border-amber-400 bg-amber-50" : "border-slate-100 bg-slate-50"}`}>
                         <div className="flex items-center justify-between">
                             <Switch size="sm" checked={usePoints} onColor="bg-amber-400"
-                                title={usePoints ? "בטל ניצול נקודות" : "נצל נקודות"}
+                                title={usePoints ? tx("בטל ניצול נקודות") : tx("נצל נקודות")}
                                 onChange={() => { setUsePoints(v => !v); if (!usePoints) setPointsRedeemed(maxRedeemPoints || availablePoints); else setPointsRedeemed(0); }} />
-                            <div className="text-right">
-                                <span className="text-xs font-bold text-slate-700">⭐ ניצול נקודות</span>
-                                <span className="text-[10px] text-slate-400 mr-1">({availablePoints} זמינות)</span>
+                            <div className="text-start">
+                                <span className="text-xs font-bold text-slate-700">{tx("⭐ ניצול נקודות")}</span>
+                                <span className="text-[10px] text-slate-400 ms-1">({availablePoints}{tx(" זמינות)")}</span>
                             </div>
                         </div>
                         {usePoints && (
                             <div className="flex items-center gap-2 mt-2">
                                 <input type="range" min={0} max={availablePoints} value={pointsRedeemed}
-                                    title="כמות נקודות לניצול"
+                                    title={tx("כמות נקודות לניצול")}
                                     onChange={e => setPointsRedeemed(parseInt(e.target.value))}
                                     className="flex-1 accent-amber-400" />
                                 <span className="text-xs font-bold text-amber-600 shrink-0 min-w-14 text-left" dir="ltr">
@@ -639,27 +640,27 @@ export default function PosPage() {
                 {/* Totals — compact */}
                 <div className="bg-slate-50 rounded-xl px-3 py-2 border border-slate-100">
                     <div className="flex justify-between text-xs text-slate-500">
-                        <span>סכום ביניים</span><span>₪{(subtotal/100).toFixed(2)}</span>
+                        <span>{tx("סכום ביניים")}</span><span>₪{(subtotal/100).toFixed(2)}</span>
                     </div>
                     {discountCents > 0 && (
                         <div className="flex justify-between text-xs text-rose-600">
-                            <span>הנחה ({discountPct + couponDiscount}%)</span><span>-₪{(discountCents/100).toFixed(2)}</span>
+                            <span>{tx("הנחה (")}{discountPct + couponDiscount}%)</span><span>-₪{(discountCents/100).toFixed(2)}</span>
                         </div>
                     )}
                     {pointsDiscount > 0 && (
                         <div className="flex justify-between text-xs text-amber-600 font-bold">
                             <span>-₪{pointsDiscount.toFixed(2)}</span>
-                            <span>ניצול {pointsDiscount} נקודות ⭐</span>
+                            <span>{tx("ניצול ")}{pointsDiscount}{tx(" נקודות ⭐")}</span>
                         </div>
                     )}
                     {giftCardDiscountCents > 0 && (
                         <div className="flex justify-between text-xs text-violet-600 font-bold">
                             <span>-₪{(giftCardDiscountCents / 100).toFixed(2)}</span>
-                            <span>גיפט קארד 🎁</span>
+                            <span>{tx("גיפט קארד 🎁")}</span>
                         </div>
                     )}
                     <div className="flex justify-between font-bold text-sm text-slate-900 border-t border-slate-200 pt-1.5 mt-1">
-                        <span>סה״כ לתשלום</span>
+                        <span>{tx("סה״כ לתשלום")}</span>
                         <span className="text-emerald-700">₪{(total/100).toFixed(2)}</span>
                     </div>
                 </div>
@@ -678,16 +679,16 @@ export default function PosPage() {
                 {/* Send receipt toggle — only when client has phone */}
                 {client?.phone && (
                     <div className={`flex items-center justify-between rounded-xl px-3 py-2 border transition-all ${sendReceipt ? "bg-blue-50 border-blue-200" : "bg-slate-50 border-slate-200"}`}>
-                        <span className="text-xs font-semibold text-slate-700">📲 שלח קבלה בוואטסאפ</span>
+                        <span className="text-xs font-semibold text-slate-700">{tx("📲 שלח קבלה בוואטסאפ")}</span>
                         <Switch size="sm" checked={sendReceipt} onChange={setSendReceipt} onColor="bg-blue-500"
-                            title={sendReceipt ? "בטל שליחת קבלה" : "שלח קבלה"} />
+                            title={sendReceipt ? tx("בטל שליחת קבלה") : tx("שלח קבלה")} />
                     </div>
                 )}
 
                 {/* Checkout */}
                 <button type="button" data-tour="pos-checkout" onClick={handleCheckout} disabled={loading || cart.length === 0}
                     className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold py-3 rounded-2xl text-sm transition-all shadow-md active:scale-95">
-                    {loading ? "מעבד..." : `💳 גבה ₪${(total/100).toFixed(2)}`}
+                    {loading ? tx("מעבד...") : tx("💳 גבה ₪{0}", { 0: (total/100).toFixed(2) })}
                 </button>
             </div>
         </div>
@@ -695,12 +696,12 @@ export default function PosPage() {
 
     return (
         <RequireAuth>
-        <AppShell title="קופה" fullBleed>
-        <div className="h-full overflow-hidden bg-slate-100" dir="rtl">
+        <AppShell title={tx("קופה")} fullBleed>
+        <div className="h-full overflow-hidden bg-slate-100">
 
             {/* ── DESKTOP: 2 columns side by side ── */}
             <div className="hidden md:flex h-full">
-                <div className="w-80 shrink-0 border-l border-slate-200 shadow-sm">{LeftPanel}</div>
+                <div className="w-80 shrink-0 border-e border-slate-200 shadow-sm">{LeftPanel}</div>
                 <div className="flex-1 min-w-0">{RightPanel}</div>
             </div>
 
@@ -710,13 +711,13 @@ export default function PosPage() {
                 <div className="flex bg-white border-b border-slate-200 shrink-0">
                     <button type="button" onClick={() => setMobileTab("pad")}
                         className={`flex-1 py-2.5 text-sm font-bold transition-colors ${mobileTab === "pad" ? "text-emerald-600 border-b-2 border-emerald-600" : "text-slate-500"}`}>
-                        🧮 מחשבון
+                        {tx("🧮 מחשבון")}
                     </button>
                     <button type="button" onClick={() => setMobileTab("cart")}
                         className={`flex-1 py-2.5 text-sm font-bold transition-colors relative ${mobileTab === "cart" ? "text-emerald-600 border-b-2 border-emerald-600" : "text-slate-500"}`}>
-                        🛒 עגלה
+                        {tx("🛒 עגלה")}
                         {cartCount > 0 && (
-                            <span className="absolute top-1.5 right-6 bg-emerald-600 text-white text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                            <span className="absolute top-1.5 start-6 bg-emerald-600 text-white text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
                                 {cartCount}
                             </span>
                         )}
@@ -733,29 +734,29 @@ export default function PosPage() {
         {receipt && <ReceiptModal txn={receipt} clientId={client?.id ?? null} onClose={() => setReceipt(null)} />}
         {showAddClient && (
             <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4" onClick={() => setShowAddClient(false)}>
-                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xs p-5" onClick={e => e.stopPropagation()} dir="rtl">
-                    <div className="text-sm font-bold text-slate-800 mb-3">הוסף לקוח חדש</div>
+                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xs p-5" onClick={e => e.stopPropagation()}>
+                    <div className="text-sm font-bold text-slate-800 mb-3">{tx("הוסף לקוח חדש")}</div>
                     <div className="space-y-2">
-                        <input value={newClientName} onChange={e => setNewClientName(e.target.value)} placeholder="שם מלא *" autoFocus
+                        <input value={newClientName} onChange={e => setNewClientName(e.target.value)} placeholder={tx("שם מלא *")} autoFocus
                             className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
                             onKeyDown={e => e.key === "Enter" && handleAddClient()} />
-                        <input value={newClientPhone} onChange={e => setNewClientPhone(e.target.value)} placeholder="טלפון" type="tel"
+                        <input value={newClientPhone} onChange={e => setNewClientPhone(e.target.value)} placeholder={tx("טלפון")} type="tel"
                             className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
                             onKeyDown={e => e.key === "Enter" && handleAddClient()} />
                     </div>
                     <div className="flex gap-2 mt-3">
                         <button type="button" onClick={handleAddClient} disabled={!newClientName.trim() || addingClient}
                             className="flex-1 bg-emerald-600 text-white font-bold py-2 rounded-xl text-sm disabled:opacity-50">
-                            {addingClient ? "..." : "הוסף"}
+                            {addingClient ? "..." : tx("הוסף")}
                         </button>
                         <button type="button" onClick={() => setShowAddClient(false)}
-                            className="px-4 border border-slate-200 rounded-xl text-sm text-slate-600">ביטול</button>
+                            className="px-4 border border-slate-200 rounded-xl text-sm text-slate-600">{tx("ביטול")}</button>
                     </div>
                 </div>
             </div>
         )}
         {askOwnerPin && (
-            <PinModal mode="verify" heading="אישור הנחה" hint="הזן את ה-PIN של בעל העסק כדי לתת הנחה"
+            <PinModal mode="verify" heading={tx("אישור הנחה")} hint={tx("הזן את ה-PIN של בעל העסק כדי לתת הנחה")}
                 onSuccess={() => { setAskOwnerPin(false); setDiscountUnlocked(true); setShowDiscountPicker(true); }}
                 onClose={() => setAskOwnerPin(false)} />
         )}

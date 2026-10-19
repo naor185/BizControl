@@ -6,6 +6,7 @@ import { ClipboardList, Eye, Heart, Search, TrendingUp, type LucideIcon } from "
 import { apiFetch } from "@/lib/api";
 import { BIZFIND_URL } from "@/lib/config";
 
+import { tx, intl } from "@/lib/i18n";
 interface BizFindStats {
     marketplace_visible: boolean;
     studio_slug: string;
@@ -31,14 +32,14 @@ export default function BizFindExposureCard() {
         return <div className="h-48 bg-slate-50 animate-pulse rounded-2xl" />;
     }
     if (!stats) {
-        return <div className="bg-white rounded-2xl border border-slate-100 p-8 text-center text-slate-400 text-sm">נתוני החשיפה ב-BizFind לא זמינים כרגע</div>;
+        return <div className="bg-white rounded-2xl border border-slate-100 p-8 text-center text-slate-400 text-sm">{tx("נתוני החשיפה ב-BizFind לא זמינים כרגע")}</div>;
     }
 
     const metrics: { label: string; value: number; icon: LucideIcon }[] = [
-        { label: "צפיות 7 ימים", value: stats.views.last_7_days, icon: Eye },
-        { label: "צפיות 30 ימים", value: stats.views.last_30_days, icon: TrendingUp },
-        { label: "מועדפים", value: stats.favorites_count, icon: Heart },
-        { label: "בקשות תור החודש", value: stats.booking_requests.this_month, icon: ClipboardList },
+        { label: tx("צפיות 7 ימים"), value: stats.views.last_7_days, icon: Eye },
+        { label: tx("צפיות 30 ימים"), value: stats.views.last_30_days, icon: TrendingUp },
+        { label: tx("מועדפים"), value: stats.favorites_count, icon: Heart },
+        { label: tx("בקשות תור החודש"), value: stats.booking_requests.this_month, icon: ClipboardList },
     ];
 
     return (
@@ -47,19 +48,19 @@ export default function BizFindExposureCard() {
                 <div className="flex items-center gap-3">
                     <Search className="h-5 w-5 text-slate-500" />
                     <div>
-                        <h3 className="font-bold text-slate-800 text-sm">BizFind — חשיפה בשוק</h3>
-                        <p className="text-xs text-slate-400 mt-0.5">ביצועי הפרופיל שלך באפליקציית החיפוש</p>
+                        <h3 className="font-bold text-slate-800 text-sm">{tx("BizFind — חשיפה בשוק")}</h3>
+                        <p className="text-xs text-slate-400 mt-0.5">{tx("ביצועי הפרופיל שלך באפליקציית החיפוש")}</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
                     <span className={`flex items-center gap-1.5 text-xs font-bold px-2 py-0.5 rounded-full ${stats.marketplace_visible ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
                         <span className={`w-1.5 h-1.5 rounded-full ${stats.marketplace_visible ? "bg-emerald-500" : "bg-slate-400"}`} />
-                        {stats.marketplace_visible ? "גלוי" : "מוסתר"}
+                        {stats.marketplace_visible ? tx("גלוי") : tx("מוסתר")}
                     </span>
                     {stats.studio_slug && (
                         <a href={`${BIZFIND_URL}/b/${stats.studio_slug}`} target="_blank" rel="noopener"
                             className="text-xs font-semibold hover:underline" style={{ color: "var(--primary)" }}>
-                            צפה ←
+                            {tx("צפה ←")}
                         </a>
                     )}
                 </div>
@@ -77,14 +78,14 @@ export default function BizFindExposureCard() {
             </div>
             {stats.daily_views.length > 0 && (
                 <div className="px-5 pb-3 pt-1 border-t border-slate-100">
-                    <div className="text-[11px] text-slate-400 mb-1 font-semibold">צפיות יומיות — 30 ימים אחרונים</div>
+                    <div className="text-[11px] text-slate-400 mb-1 font-semibold">{tx("צפיות יומיות — 30 ימים אחרונים")}</div>
                     <ResponsiveContainer width="100%" height={36}>
                         <BarChart data={stats.daily_views} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
                             <XAxis dataKey="date" hide />
                             <Bar dataKey="count" radius={[3, 3, 0, 0]} fill="var(--primary)" opacity={0.85} />
                             <Tooltip
-                                formatter={(v) => [Number(v), "צפיות"]}
-                                labelFormatter={(l) => new Date(l).toLocaleDateString("he-IL")}
+                                formatter={(v) => [Number(v), tx("צפיות")]}
+                                labelFormatter={(l) => new Date(l).toLocaleDateString(intl())}
                                 contentStyle={{ fontSize: 11, borderRadius: 8 }}
                             />
                         </BarChart>
@@ -93,8 +94,8 @@ export default function BizFindExposureCard() {
             )}
             {!stats.marketplace_visible && (
                 <div className="px-5 py-2 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
-                    <span className="text-xs text-slate-600">הפרופיל שלך לא גלוי ב-BizFind — הפעל כדי לקבל לקוחות חדשים</span>
-                    <a href="/business" className="text-xs font-bold underline" style={{ color: "var(--primary)" }}>הגדר ←</a>
+                    <span className="text-xs text-slate-600">{tx("הפרופיל שלך לא גלוי ב-BizFind — הפעל כדי לקבל לקוחות חדשים")}</span>
+                    <a href="/business" className="text-xs font-bold underline" style={{ color: "var(--primary)" }}>{tx("הגדר ←")}</a>
                 </div>
             )}
         </div>

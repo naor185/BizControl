@@ -10,7 +10,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Literal
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -29,10 +29,15 @@ class AnswerIn(BaseModel):
     kind: Literal["done", "not_relevant"]
 
 
+def _lang(request: Request) -> str:
+    from app.core.i18n import lang_of
+    return lang_of(request.headers.get("x-lang"))
+
+
 @router.get("")
-def get_suggestions(ctx: AuthContext = Depends(require_permission("money")), db: Session = Depends(get_db)):
+def get_suggestions(request: Request, ctx: AuthContext = Depends(require_permission("money")), db: Session = Depends(get_db)):
     from app.services.viki_summary import latest
-    left = viki.for_user(db, ctx.studio_id, ctx.user_id)
+    left = viki.for_user(db, ctx.studio_id, ctx.user_id, _lang(request))
     return {"suggestions": left[:viki.SHOWN], "more": max(0, len(left) - viki.SHOWN), "summary": latest(db, ctx.studio_id)}
 
 
@@ -47,7 +52,7 @@ def answer(body: AnswerIn, ctx: AuthContext = Depends(require_permission("money"
 
 
 @router.get("/moments")
-def get_moments(since: datetime = Query(...), ctx: AuthContext = Depends(require_permission("money")),
+def get_moments(request: Request, since: datetime = Query(...), ctx: AuthContext = Depends(require_permission("money")),
                 db: Session = Depends(get_db)):
     since = since if since.tzinfo else since.replace(tzinfo=timezone.utc)
-    return {"now": datetime.now(timezone.utc).isoformat(), "moments": viki.moments(db, ctx.studio_id, since)}
+    return {"now": datetime.now(timezone.utc).isoformat(), "moments": viki.moments(db, ctx.studio_id, since, lang=_lang(request))}

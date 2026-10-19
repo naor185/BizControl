@@ -14,6 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import Viki from "./Viki";
 import { popupsOn, setPopupsOn } from "./vikiPrefs";
 
+import { tx } from "@/lib/i18n";
 type Suggestion = { key: string; tone: "warn" | "tip" | "good"; text: string; action: { label: string; href: string } | null };
 // the week's (Sunday) or the month's (the 1st) — services/viki_summary
 type Summary = { kind: "weekly" | "monthly"; title: string; good: string[]; improve: string[]; focus: string };
@@ -49,16 +50,16 @@ export default function VikiCard() {
 
     if (hidden || items === null) return null;
     return (
-        <section id="viki" className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden scroll-mt-4" dir="rtl">
+        <section id="viki" className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden scroll-mt-4">
             <div className="flex items-end gap-3 px-5 pt-4 bg-gradient-to-l from-sky-50 to-white border-b border-slate-100">
                 <Viki size={84} pose="wave" className="shrink-0 -mb-1" />
                 <div className="flex-1 min-w-0 pb-3">
-                    <h3 className="font-bold text-slate-800">ויקי ממליצה</h3>
-                    <p className="text-xs text-slate-500 mt-0.5">מה כדאי לעשות עכשיו — מתוך המספרים של העסק שלך</p>
+                    <h3 className="font-bold text-slate-800">{tx("ויקי ממליצה")}</h3>
+                    <p className="text-xs text-slate-500 mt-0.5">{tx("מה כדאי לעשות עכשיו — מתוך המספרים של העסק שלך")}</p>
                 </div>
-                <label className="pb-3 flex items-center gap-2 text-xs text-slate-500 cursor-pointer select-none" title="ויקי קופצת מהצד כשקורה משהו — ליד חדש, מקדמה ששולמה">
-                    <span className="hidden sm:inline">ויקי קופצת כשקורה משהו</span>
-                    <span className="sm:hidden">קופצת</span>
+                <label className="pb-3 flex items-center gap-2 text-xs text-slate-500 cursor-pointer select-none" title={tx("ויקי קופצת מהצד כשקורה משהו — ליד חדש, מקדמה ששולמה")}>
+                    <span className="hidden sm:inline">{tx("ויקי קופצת כשקורה משהו")}</span>
+                    <span className="sm:hidden">{tx("קופצת")}</span>
                     <Switch size="sm" checked={pops} onColor="bg-sky-500"
                         onChange={(v: boolean) => { setPops(v); setPopupsOn(v); }} />
                 </label>
@@ -92,7 +93,7 @@ export default function VikiCard() {
                 </div>
             )}
             {items.length === 0 ? (
-                <p className="px-5 py-4 text-sm text-slate-600">הכול נראה טוב — אין לי כרגע המלצות. אני ממשיכה לעקוב.</p>
+                <p className="px-5 py-4 text-sm text-slate-600">{tx("הכול נראה טוב — אין לי כרגע המלצות. אני ממשיכה לעקוב.")}</p>
             ) : (
                 <ul className="p-4 space-y-3">
                     {items.map(s => {
@@ -103,21 +104,21 @@ export default function VikiCard() {
                                     <t.icon className={`w-5 h-5 shrink-0 mt-0.5 ${t.fg}`} aria-hidden />
                                     <p className="flex-1 text-sm text-slate-700 leading-relaxed">{s.text}</p>
                                 </div>
-                                <div className="mt-2.5 flex flex-wrap items-center gap-2 mr-7">
+                                <div className="mt-2.5 flex flex-wrap items-center gap-2 ms-7">
                                     {s.action && (
                                         <Link href={s.action.href} onClick={e => followSection(e, s.action!.href, pathname)} className="min-h-9 inline-flex items-center px-3 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold transition">
                                             {s.action.label}
                                         </Link>
                                     )}
                                     <button type="button" disabled={busy === s.key} onClick={() => answer(s, "done")}
-                                        className="min-h-9 px-3 rounded-lg text-xs font-semibold text-slate-600 hover:bg-white transition disabled:opacity-50">עשיתי</button>
+                                        className="min-h-9 px-3 rounded-lg text-xs font-semibold text-slate-600 hover:bg-white transition disabled:opacity-50">{tx("עשיתי")}</button>
                                     <button type="button" disabled={busy === s.key} onClick={() => answer(s, "not_relevant")}
-                                        className="min-h-9 px-3 rounded-lg text-xs font-semibold text-slate-400 hover:bg-white transition disabled:opacity-50">לא רלוונטי</button>
+                                        className="min-h-9 px-3 rounded-lg text-xs font-semibold text-slate-400 hover:bg-white transition disabled:opacity-50">{tx("לא רלוונטי")}</button>
                                 </div>
                             </li>
                         );
                     })}
-                    {more > 0 && <li className="text-xs text-slate-400 text-center">ועוד {more === 1 ? "המלצה אחת" : `${more} המלצות`} — יעלו כשתסיים עם אלה</li>}
+                    {more > 0 && <li className="text-xs text-slate-400 text-center">{tx("ועוד ")}{more === 1 ? tx("המלצה אחת") : tx("{0} המלצות", { 0: more })}{tx(" — יעלו כשתסיים עם אלה")}</li>}
                 </ul>
             )}
         </section>

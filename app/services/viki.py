@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 
 IL = pytz.timezone("Asia/Jerusalem")
 SHOWN = 3                           # suggestions on the card at once
-_CACHE: dict = {}                   # studio → (when, suggestions) — worked out at most every few minutes
+_CACHE: dict = {}                   # (studio, language) → (when, suggestions) — worked out at most every few minutes
 CACHE_SECONDS = 300
 
 
@@ -42,9 +42,10 @@ def _avg_appointment_ils(db: Session, studio_id, now: datetime) -> float:
     return float(avg or 0) / 100
 
 
-def suggestions(db: Session, studio_id, now: datetime | None = None) -> list[dict]:
+def suggestions(db: Session, studio_id, now: datetime | None = None, lang: str = "he") -> list[dict]:
     """Every suggestion that's true for the business now, the most important first:
-    {key, tone: warn|tip|good, text, action: {label, href} | None}."""
+    {key, tone: warn|tip|good, text, action: {label, href} | None} — said in the user's language (he | en —
+    core/i18n.py; each text is written in both, side by side)."""
     from app.api.dashboard_routes import calendar_fill
     from app.core.features import has_module
     from app.models.appointment import Appointment
@@ -61,6 +62,9 @@ def suggestions(db: Session, studio_id, now: datetime | None = None) -> list[dic
     can_broadcast = has_module(db, studio_id, "broadcasts")
     out: list[tuple[int, dict]] = []
 
+    def w(he: str, en: str) -> str:
+        return en if lang == "en" else he
+
     def add(prio: int, key: str, tone: str, text: str, label: str | None = None, href: str | None = None):
         out.append((prio, {"key": key, "tone": tone, "text": text, "action": {"label": label, "href": href} if label else None}))
 
@@ -68,11 +72,13 @@ def suggestions(db: Session, studio_id, now: datetime | None = None) -> list[dic
     prog = GoalRepository(db).get_progress(studio_id, today.year, today.month)
     target, current = float(prog["target_amount"]), float(prog["current_revenue"])
     if target <= 0:
-        add(45, f"goal_none:{ym}", "tip", "עוד לא הגדרת יעד הכנסות לחודש הזה. עם יעד אני יכולה להגיד לך כל יום אם אתה בקצב — ומה לעשות אם לא.",
-            "להגדיר יעד", "/expenses")
+        add(45, f"goal_none:{ym}", "tip", w("עוד לא הגדרת יעד הכנסות לחודש הזה. עם יעד אני יכולה להגיד לך כל יום אם אתה בקצב — ומה לעשות אם לא.",
+                                           "You haven't set a revenue goal for this month yet. With a goal I can tell you every day whether you're on pace — and what to do if not."),
+            w("להגדיר יעד", "Set a goal"), "/expenses")
     elif current >= target:
-        add(50, f"goal_hit:{ym}", "good", f"כל הכבוד! עברת את יעד החודש — {_ils(current)} מתוך {_ils(target)}. עכשיו העיקר לשמור על הקצב עד סוף החודש.",
-            "לראות את החודש", "/analytics/business")
+        add(50, f"goal_hit:{ym}", "good", w(f"כל הכבוד! עברת את יעד החודש — {_ils(current)} מתוך {_ils(target)}. עכשיו העיקר לשמור על הקצב עד סוף החודש.",
+                                           f"Well done! You passed this month's goal — {_ils(current)} of {_ils(target)}. Now the key is to keep the pace until the month ends."),
+            w("לראות את החודש", "See the month"), "/analytics/business")
     elif prog["days_elapsed"] >= 3:
         projected = float(prog["current_daily_avg"]) * prog["days_in_month"]
         pct = round(projected / target * 100)
@@ -80,27 +86,32 @@ def suggestions(db: Session, studio_id, now: datetime | None = None) -> list[dic
             missing, days_left = target - current, prog["days_remaining"]
             avg = _avg_appointment_ils(db, studio_id, now)
             appts = math.ceil(missing / avg) if avg > 0 else 0
-            more = f" — בערך {appts} תורים ב-{days_left} ימי העבודה שנשארו." if appts and days_left else "."
+            more = w(f" — בערך {appts} תורים ב-{days_left} ימי העבודה שנשארו.", f" — about {appts} appointments in the {days_left} working days left.") \
+                if appts and days_left else "."
             add(90, f"goal_behind:{ym}", "warn",
-                f"בקצב הנוכחי החודש ייסגר בערך ב-{_ils(projected)} — {pct}% מהיעד ({_ils(target)}). כדי להגיע ליעד חסרים {_ils(missing)}{more}",
-                "לפתוח את היומן", "/calendar")
+                w(f"בקצב הנוכחי החודש ייסגר בערך ב-{_ils(projected)} — {pct}% מהיעד ({_ils(target)}). כדי להגיע ליעד חסרים {_ils(missing)}{more}",
+                  f"At the current pace the month will close at about {_ils(projected)} — {pct}% of the goal ({_ils(target)}). To reach the goal you need {_ils(missing)} more{more}"),
+                w("לפתוח את היומן", "Open the calendar"), "/calendar")
         else:
-            add(35, f"goal_pace:{ym}", "good", f"אתה בקצב טוב: בקצב הזה החודש ייסגר בערך ב-{_ils(projected)} — {pct}% מהיעד.")
+            add(35, f"goal_pace:{ym}", "good", w(f"אתה בקצב טוב: בקצב הזה החודש ייסגר בערך ב-{_ils(projected)} — {pct}% מהיעד.",
+                                                f"You're on a good pace: at this pace the month will close at about {_ils(projected)} — {pct}% of the goal."))
 
     # ── leads waiting for an answer ──
     waiting = _count(db, select(Lead.id).where(Lead.studio_id == studio_id, Lead.status == "new",
                                                Lead.created_at < now - timedelta(hours=24)))
     if waiting:
         add(85, f"leads:{today.isoformat()}", "warn",
-            ("ליד אחד מחכה" if waiting == 1 else f"{waiting} לידים מחכים") + " לתשובה כבר יותר מיום. ליד שעונים לו מהר — נסגר הרבה יותר.",
-            "ללידים", "/dashboard#leads")
+            w(("ליד אחד מחכה" if waiting == 1 else f"{waiting} לידים מחכים") + " לתשובה כבר יותר מיום. ליד שעונים לו מהר — נסגר הרבה יותר.",
+              ("One lead has" if waiting == 1 else f"{waiting} leads have") + " been waiting for an answer for over a day. A lead answered quickly closes far more often."),
+            w("ללידים", "To the leads"), "/dashboard#leads")
 
     # ── clients who haven't come back ──
     lapsed = _count(db, broadcast_recipients_query(studio_id, "lapsed"))
     if lapsed >= 3:
         add(75, f"lapsed:{ym}", "tip",
-            f"{lapsed} לקוחות לא הגיעו כבר יותר מחודשיים ואין להם תור. הודעה אישית קצרה מחזירה חלק מהם.",
-            *(("לשלוח להם הודעה", "/broadcasts?audience=lapsed") if can_broadcast else ("לראות", "/clients/analytics")))
+            w(f"{lapsed} לקוחות לא הגיעו כבר יותר מחודשיים ואין להם תור. הודעה אישית קצרה מחזירה חלק מהם.",
+              f"{lapsed} clients haven't come in for over two months and have no appointment. A short personal message brings some of them back."),
+            *((w("לשלוח להם הודעה", "Send them a message"), "/broadcasts?audience=lapsed") if can_broadcast else (w("לראות", "See them"), "/clients/analytics")))
 
     # ── next week's calendar ──
     week_start = today - timedelta(days=(today.weekday() + 1) % 7)
@@ -108,8 +119,9 @@ def suggestions(db: Session, studio_id, now: datetime | None = None) -> list[dic
     work_days = getattr(settings, "work_days", None)
     if next_week["percent"] < 40 and (work_days is None or len(work_days) > 0):
         add(70, f"fill_next:{(week_start + timedelta(days=7)).isoformat()}", "warn",
-            f"השבוע הבא מלא רק ב-{next_week['percent']}%. זה זמן טוב להזכיר ללקוחות שאפשר לקבוע — הודעה קצרה ללקוחות קבועים עושה פלאים.",
-            *(("לשלוח הודעה ללקוחות", "/broadcasts?audience=all") if can_broadcast else ("לפתוח את היומן", "/calendar")))
+            w(f"השבוע הבא מלא רק ב-{next_week['percent']}%. זה זמן טוב להזכיר ללקוחות שאפשר לקבוע — הודעה קצרה ללקוחות קבועים עושה פלאים.",
+              f"Next week is only {next_week['percent']}% full. A good time to remind clients they can book — a short message to regulars works wonders."),
+            *((w("לשלוח הודעה ללקוחות", "Message your clients"), "/broadcasts?audience=all") if can_broadcast else (w("לפתוח את היומן", "Open the calendar"), "/calendar")))
 
     # ── no-shows, while the reminder two hours before is off ──
     if settings is not None and not settings.reminder_2_hours_enabled:
@@ -117,8 +129,9 @@ def suggestions(db: Session, studio_id, now: datetime | None = None) -> list[dic
                                                           Appointment.starts_at >= now - timedelta(days=30)))
         if no_shows >= 3:
             add(60, f"noshow:{ym}", "tip",
-                f"{no_shows} לקוחות לא הגיעו לתור ב-30 הימים האחרונים. תזכורת נוספת כשעתיים לפני התור מורידה את זה.",
-                "להפעיל את התזכורת", "/message-templates")
+                w(f"{no_shows} לקוחות לא הגיעו לתור ב-30 הימים האחרונים. תזכורת נוספת כשעתיים לפני התור מורידה את זה.",
+                  f"{no_shows} clients didn't show up in the last 30 days. Another reminder about two hours before the appointment brings that down."),
+                w("להפעיל את התזכורת", "Turn on the reminder"), "/message-templates")
 
     # ── birthdays, while the birthday message is off ──
     if settings is not None and not settings.birthday_automation_enabled:
@@ -126,8 +139,9 @@ def suggestions(db: Session, studio_id, now: datetime | None = None) -> list[dic
                                                   func.extract("month", Client.birth_date) == today.month))
         if born:
             add(40, f"birthdays:{ym}", "tip",
-                f"{born} לקוחות חוגגים יום הולדת החודש, וההודעה ליום הולדת כבויה. ברכה עם הטבה קטנה מחזירה לקוחות.",
-                "להפעיל ברכות", "/automation")
+                w(f"{born} לקוחות חוגגים יום הולדת החודש, וההודעה ליום הולדת כבויה. ברכה עם הטבה קטנה מחזירה לקוחות.",
+                  f"{born} clients have a birthday this month, and the birthday message is off. A greeting with a small benefit brings clients back."),
+                w("להפעיל ברכות", "Turn on greetings"), "/automation")
 
     # ── what came of what was done (stage 3 — services/viki_learning.py) ──
     from app.services import viki_learning as vl
@@ -135,14 +149,17 @@ def suggestions(db: Session, studio_id, now: datetime | None = None) -> list[dic
     for b, r in sent[:2]:
         when = b.scheduled_at.astimezone(IL).strftime("%d/%m")
         if r["booked"] and r["days"] >= 1:
-            money = f" — תורים בסך {_ils(r['revenue'])}" if r["revenue"] else ""
+            money = w(f" — תורים בסך {_ils(r['revenue'])}", f" — appointments worth {_ils(r['revenue'])}") if r["revenue"] else ""
             add(55, f"bc_good:{b.id}", "good",
-                f"ההודעה ששלחת ב-{when} ל-{r['recipients']} לקוחות: {r['booked']} מהם כבר קבעו תור אחרי ההודעה{money}. "
-                "זה עובד — שווה לחזור על זה בעוד חודש.", "להודעות ללקוחות", "/broadcasts")
+                w(f"ההודעה ששלחת ב-{when} ל-{r['recipients']} לקוחות: {r['booked']} מהם כבר קבעו תור אחרי ההודעה{money}. "
+                  "זה עובד — שווה לחזור על זה בעוד חודש.",
+                  f"The message you sent on {when} to {r['recipients']} clients: {r['booked']} of them already booked after it{money}. "
+                  "It works — worth repeating in a month."), w("להודעות ללקוחות", "To client messages"), "/broadcasts")
         elif r["days"] >= 7 and r["recipients"] >= 10 and not r["booked"]:
             add(30, f"bc_none:{b.id}", "tip",
-                f"ההודעה מ-{when} ל-{r['recipients']} לקוחות עוד לא הביאה תורים. בפעם הבאה אפשר לנסות הטבה קטנה או נוסח אישי יותר.",
-                "לנסח הודעה חדשה", "/broadcasts")
+                w(f"ההודעה מ-{when} ל-{r['recipients']} לקוחות עוד לא הביאה תורים. בפעם הבאה אפשר לנסות הטבה קטנה או נוסח אישי יותר.",
+                  f"The message from {when} to {r['recipients']} clients hasn't brought appointments yet. Next time try a small benefit or a more personal wording."),
+                w("לנסח הודעה חדשה", "Write a new message"), "/broadcasts")
     last = {}                                            # the newest message with bookings, per audience
     for b, r in sent:
         if r["booked"] and b.audience not in last:
@@ -156,34 +173,37 @@ def suggestions(db: Session, studio_id, now: datetime | None = None) -> list[dic
         before = last.get({"lapsed": "lapsed", "fill_next": "all"}.get(kind, ""))
         if before:
             b, r = before
-            s = {**s, "text": s["text"] + f" בפעם הקודמת ({b.scheduled_at.astimezone(IL):%d/%m}) {r['booked']} לקוחות קבעו תור אחרי ההודעה."}
+            on = b.scheduled_at.astimezone(IL).strftime("%d/%m")
+            s = {**s, "text": s["text"] + w(f" בפעם הקודמת ({on}) {r['booked']} לקוחות קבעו תור אחרי ההודעה.",
+                                            f" Last time ({on}) {r['booked']} clients booked after the message.")}
             prio += 10
         learned.append((prio, s))
 
     return [s for _, s in sorted(learned, key=lambda x: -x[0])]
 
 
-def suggestions_cached(db: Session, studio_id) -> list[dict]:
-    hit = _CACHE.get(studio_id)
+def suggestions_cached(db: Session, studio_id, lang: str = "he") -> list[dict]:
+    hit = _CACHE.get((studio_id, lang))
     if hit and _time.monotonic() - hit[0] < CACHE_SECONDS:
         return hit[1]
-    fresh = suggestions(db, studio_id)
-    _CACHE[studio_id] = (_time.monotonic(), fresh)
+    fresh = suggestions(db, studio_id, lang=lang)
+    _CACHE[(studio_id, lang)] = (_time.monotonic(), fresh)
     return fresh
 
 
 def forget(studio_id) -> None:
-    _CACHE.pop(studio_id, None)
+    for lang in ("he", "en"):
+        _CACHE.pop((studio_id, lang), None)
 
 
-def for_user(db: Session, studio_id, user_id) -> list[dict]:
-    """The suggestions this user hasn't answered."""
+def for_user(db: Session, studio_id, user_id, lang: str = "he") -> list[dict]:
+    """The suggestions this user hasn't answered, in their language."""
     from app.models.viki_dismissal import VikiDismissal
     answered = set(db.scalars(select(VikiDismissal.key).where(VikiDismissal.user_id == user_id)).all())
-    return [s for s in suggestions_cached(db, studio_id) if s["key"] not in answered]
+    return [s for s in suggestions_cached(db, studio_id, lang) if s["key"] not in answered]
 
 
-def moments(db: Session, studio_id, since: datetime, now: datetime | None = None) -> list[dict]:
+def moments(db: Session, studio_id, since: datetime, now: datetime | None = None, lang: str = "he") -> list[dict]:
     """What happened since `since` that ויקי pops in for: a new lead, a client who reported paying a deposit.
     {key, text, action}."""
     from app.models.appointment import Appointment
@@ -195,14 +215,17 @@ def moments(db: Session, studio_id, since: datetime, now: datetime | None = None
     for lead in db.scalars(select(Lead).where(Lead.studio_id == studio_id, Lead.created_at > since)
                            .order_by(Lead.created_at.desc()).limit(3)).all():
         what = f" — {lead.service_interest}" if lead.service_interest else ""
-        out.append({"key": f"lead:{lead.id}", "text": f"נכנס ליד חדש: {lead.name}{what}. ליד שעונים לו מהר — נסגר הרבה יותר!",
-                    "action": {"label": "ללידים", "href": "/dashboard#leads"}})
+        out.append({"key": f"lead:{lead.id}",
+                    "text": f"A new lead: {lead.name}{what}. A lead answered quickly closes far more often!" if lang == "en"
+                    else f"נכנס ליד חדש: {lead.name}{what}. ליד שעונים לו מהר — נסגר הרבה יותר!",
+                    "action": {"label": "To the leads" if lang == "en" else "ללידים", "href": "/dashboard#leads"}})
     rows = db.execute(select(Appointment, Client.full_name).join(Client, Client.id == Appointment.client_id, isouter=True)
                       .where(Appointment.studio_id == studio_id, Appointment.payment_sent_at > since,
                              Appointment.payment_verified_at.is_(None), Appointment.deposit_amount_cents > 0)
                       .order_by(Appointment.payment_sent_at.desc()).limit(3)).all()
     for appt, name in rows:
         out.append({"key": f"deposit:{appt.id}",
-                    "text": f"{name or 'לקוח'} דיווח ששילם מקדמה של {_ils(appt.deposit_amount_cents / 100)}. לאשר?",
-                    "action": {"label": "לאשר", "href": f"/calendar?appt={appt.id}"}})
+                    "text": f"{name or 'A client'} reported paying a {_ils(appt.deposit_amount_cents / 100)} deposit. Approve?" if lang == "en"
+                    else f"{name or 'לקוח'} דיווח ששילם מקדמה של {_ils(appt.deposit_amount_cents / 100)}. לאשר?",
+                    "action": {"label": "Approve" if lang == "en" else "לאשר", "href": f"/calendar?appt={appt.id}"}})
     return out

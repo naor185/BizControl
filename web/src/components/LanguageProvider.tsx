@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
-import { Locale, LOCALE_KEY, LOCALES, TranslationKey, savedLocale, translations } from "@/lib/i18n";
+import { Locale, LOCALE_KEY, LOCALES, TranslationKey, savedLocale, setTxLocale, translations } from "@/lib/i18n";
 import { EN } from "@/lib/en";
 import { apiFetch, getToken } from "@/lib/api";
 
@@ -49,13 +49,17 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
         document.documentElement.dir = info.dir;
     }, [locale]);
 
-    const keep = (l: Locale) => {
+    // a new language: kept on the device, then the page loads again in it — the screens' texts (tx) are read once
+    // per load. Not when the device can't keep it (it would load again and again).
+    const keep = (l: Locale, then?: Promise<unknown>) => {
+        const was = savedLocale();
         try { localStorage.setItem(LOCALE_KEY, l); } catch { /* the device keeps nothing — the account does */ }
         setLocaleState(l);
+        setTxLocale(l);
+        if (was !== l && savedLocale() === l) (then ?? Promise.resolve()).finally(() => window.location.reload());
     };
     const setLocale = (l: Locale) => {
-        keep(l);
-        if (getToken()) apiFetch("/api/auth/me/locale", { method: "PUT", body: JSON.stringify({ locale: l }) }).catch(() => {});
+        keep(l, getToken() ? apiFetch("/api/auth/me/locale", { method: "PUT", body: JSON.stringify({ locale: l }) }).catch(() => {}) : undefined);
     };
     const adopt = useCallback((l: string | null | undefined) => {
         if (l === "he" || l === "en") keep(l);

@@ -8,6 +8,7 @@ import { getCurrentUserRole } from "@/lib/api";
 import { isNativeApp } from "@/lib/platform";
 import { usePlan } from "@/lib/usePlan";
 
+import { tx } from "@/lib/i18n";
 type TabDef = {
     href: string;
     label: string;
@@ -18,11 +19,11 @@ type TabDef = {
 };
 
 const TABS: TabDef[] = [
-    { href: "/clients",           label: "לקוחות",        icon: Users,      isActive: (p, t) => p === "/clients" && t !== "club" },
-    { href: "/clients?tab=club",  label: "מועדון לקוחות", icon: Crown,      isActive: (p, t) => p === "/clients" && t === "club", module: "customer_club" },
-    { href: "/clients/analytics", label: "אנליטיקה",      icon: BarChart3,  isActive: p => p === "/clients/analytics", managersOnly: true },
-    { href: "/clients/marketing-optouts", label: "הוסרו מהודעות", icon: BellOff, isActive: p => p === "/clients/marketing-optouts", managersOnly: true },
-    { href: "/wallet",            label: "כרטיס דיגיטלי", icon: Smartphone, isActive: p => p === "/wallet", managersOnly: true, module: "wallet" },
+    { href: "/clients",           label: tx("לקוחות"),        icon: Users,      isActive: (p, t) => p === "/clients" && t !== "club" },
+    { href: "/clients?tab=club",  label: tx("מועדון לקוחות"), icon: Crown,      isActive: (p, t) => p === "/clients" && t === "club", module: "customer_club" },
+    { href: "/clients/analytics", label: tx("אנליטיקה"),      icon: BarChart3,  isActive: p => p === "/clients/analytics", managersOnly: true },
+    { href: "/clients/marketing-optouts", label: tx("הוסרו מהודעות"), icon: BellOff, isActive: p => p === "/clients/marketing-optouts", managersOnly: true },
+    { href: "/wallet",            label: tx("כרטיס דיגיטלי"), icon: Smartphone, isActive: p => p === "/wallet", managersOnly: true, module: "wallet" },
 ];
 
 function ClientsTabsInner({ clubCount }: { clubCount?: number }) {

@@ -1,6 +1,7 @@
 import { BellRing, Hourglass } from "lucide-react";
 import { statusMeta } from "@/lib/appointment-status";
 
+import { tx } from "@/lib/i18n";
 // Compact, info-first calendar-event card: client, time, service, staff,
 // status — everything else (notes, deposit, full payment breakdown) only
 // shows up once the appointment is opened, not crammed into the calendar grid.
@@ -60,12 +61,12 @@ export default function AppointmentCard({
             )}
             <span className="mt-auto text-[10px] leading-none flex items-center gap-1" title={meta.label}>
                 {deposit === "reported" && (
-                    <span title="הלקוח דיווח ששילם מקדמה — לאישור" className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-white text-sky-700">
+                    <span title={tx("הלקוח דיווח ששילם מקדמה — לאישור")} className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-white text-sky-700">
                         <BellRing className="w-2.5 h-2.5" aria-hidden />
                     </span>
                 )}
                 {deposit === "waiting" && (
-                    <span title="ממתין למקדמה"><Hourglass className="w-3 h-3 opacity-90" aria-hidden /></span>
+                    <span title={tx("ממתין למקדמה")}><Hourglass className="w-3 h-3 opacity-90" aria-hidden /></span>
                 )}
                 {paymentIcon}
                 {status !== "scheduled" && <span>{meta.icon}</span>}

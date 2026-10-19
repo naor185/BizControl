@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useBackButtonClose } from "@/lib/backButtonStack";
 
+import { tx } from "@/lib/i18n";
 // The single reusable bottom-sheet the app was missing — this exact pattern
 // (backdrop + rounded-t-3xl + drag handle + slide-in-from-bottom) was
 // previously copy-pasted independently in 9+ files with inconsistent details
@@ -59,7 +60,6 @@ export default function BottomSheet({ open, onClose, title, children, footer, cl
         <div
             className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-end justify-center animate-in fade-in duration-200"
             onClick={onClose}
-            dir="rtl"
         >
             <div
                 className={cn(
@@ -75,8 +75,8 @@ export default function BottomSheet({ open, onClose, title, children, footer, cl
                         <button
                             type="button"
                             onClick={onClose}
-                            aria-label="סגור"
-                            className="absolute left-1.5 top-0.5 w-9 h-9 flex items-center justify-center text-slate-400 hover:text-slate-600"
+                            aria-label={tx("סגור")}
+                            className="absolute end-1.5 top-0.5 w-9 h-9 flex items-center justify-center text-slate-400 hover:text-slate-600"
                         >
                             ✕
                         </button>
@@ -89,7 +89,7 @@ export default function BottomSheet({ open, onClose, title, children, footer, cl
                         <button
                             type="button"
                             onClick={onClose}
-                            aria-label="סגור"
+                            aria-label={tx("סגור")}
                             className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-600 -me-2"
                         >
                             ✕

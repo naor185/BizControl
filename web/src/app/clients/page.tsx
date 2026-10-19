@@ -11,6 +11,7 @@ import { apiFetch } from "@/lib/api";
 import { toLocalDateStr } from "@/lib/format";
 import Link from "next/link";
 
+import { tx, intl } from "@/lib/i18n";
 type Client = {
     id: string;
     full_name?: string | null;
@@ -56,21 +57,21 @@ type LoyaltyStats = {
     clients_with_points: number;
 };
 
-const MONTHS = ["ינואר","פברואר","מרץ","אפריל","מאי","יוני","יולי","אוגוסט","ספטמבר","אוקטובר","נובמבר","דצמבר"];
+const MONTHS = [tx("ינואר"),tx("פברואר"),tx("מרץ"),tx("אפריל"),tx("מאי"),tx("יוני"),tx("יולי"),tx("אוגוסט"),tx("ספטמבר"),tx("אוקטובר"),tx("נובמבר"),tx("דצמבר")];
 
 type MemberSortKey = "points" | "birthday" | "joined" | "name";
 // the first click shows what the owner usually wants first: most points, the nearest birthday, the newest member
 const FIRST_DIR: Record<MemberSortKey, "asc" | "desc"> = { points: "desc", birthday: "asc", joined: "desc", name: "asc" };
 const MEMBER_SORTS: { value: string; label: string }[] = [
-    { value: "", label: "מיון: ללא" },
-    { value: "points:desc", label: "הכי הרבה נקודות" },
-    { value: "points:asc", label: "הכי מעט נקודות" },
-    { value: "birthday:asc", label: "יום הולדת הכי קרוב" },
-    { value: "birthday:desc", label: "יום הולדת הכי רחוק" },
-    { value: "joined:desc", label: "הצטרפו לאחרונה" },
-    { value: "joined:asc", label: "הצטרפו ראשונים" },
-    { value: "name:asc", label: "שם (א–ת)" },
-    { value: "name:desc", label: "שם (ת–א)" },
+    { value: "", label: tx("מיון: ללא") },
+    { value: "points:desc", label: tx("הכי הרבה נקודות") },
+    { value: "points:asc", label: tx("הכי מעט נקודות") },
+    { value: "birthday:asc", label: tx("יום הולדת הכי קרוב") },
+    { value: "birthday:desc", label: tx("יום הולדת הכי רחוק") },
+    { value: "joined:desc", label: tx("הצטרפו לאחרונה") },
+    { value: "joined:asc", label: tx("הצטרפו ראשונים") },
+    { value: "name:asc", label: tx("שם (א–ת)") },
+    { value: "name:desc", label: tx("שם (ת–א)") },
 ];
 
 /** Days from today to the next birthday (0 = today); null with no birth date. */
@@ -160,7 +161,7 @@ function PageInner() {
             setItems(data);
             setTrueCounts(counts);
         } catch (e: unknown) {
-            setErr((e as Error)?.message || "שגיאה בטעינת לקוחות");
+            setErr((e as Error)?.message || tx("שגיאה בטעינת לקוחות"));
         } finally {
             setLoading(false);
         }
@@ -198,16 +199,16 @@ function PageInner() {
             setDeletingClientId(null);
             loadClients();
         } catch (e: unknown) {
-            toast.error((e as Error)?.message || "שגיאה במחיקת לקוח");
+            toast.error((e as Error)?.message || tx("שגיאה במחיקת לקוח"));
         }
     };
 
     const handleCreateClient = async () => {
         setCreateError(null);
-        if (!newName.trim() || !newPhone.trim()) { setCreateError("יש להזין שם וטלפון"); return; }
+        if (!newName.trim() || !newPhone.trim()) { setCreateError(tx("יש להזין שם וטלפון")); return; }
         if (newBirthDate) {
             const year = parseInt(newBirthDate.split("-")[0]);
-            if (year < 1900 || year > new Date().getFullYear()) { setCreateError("תאריך לידה לא תקין — בדוק את השנה"); return; }
+            if (year < 1900 || year > new Date().getFullYear()) { setCreateError(tx("תאריך לידה לא תקין — בדוק את השנה")); return; }
         }
         try {
             setIsSaving(true);
@@ -225,12 +226,12 @@ function PageInner() {
             setCreateError(null);
             loadClients();
             if (isClubMember && result?.is_club_member) {
-                toast.success("הלקוח שודרג לחבר מועדון ✅");
+                toast.success(tx("הלקוח שודרג לחבר מועדון ✅"));
             } else {
-                toast.success("לקוח נוסף בהצלחה ✅");
+                toast.success(tx("לקוח נוסף בהצלחה ✅"));
             }
         } catch (e: unknown) {
-            setCreateError((e as Error)?.message || "שגיאה ביצירת לקוח");
+            setCreateError((e as Error)?.message || tx("שגיאה ביצירת לקוח"));
         } finally { setIsSaving(false); }
     };
 
@@ -280,7 +281,7 @@ function PageInner() {
 
     return (
         <RequireAuth>
-            <AppShell title="לקוחות">
+            <AppShell title={tx("לקוחות")}>
                 <div className="space-y-5 animate-page-in">
 
                     <ClientsTabs clubCount={trueCounts?.club_members ?? clubCount} />
@@ -288,17 +289,17 @@ function PageInner() {
                     {/* Header */}
                     <div className="flex items-center justify-between gap-3">
                         <div className="min-w-0 flex-1">
-                            <h2 className="text-xl font-bold text-slate-800 truncate">רשימת לקוחות</h2>
+                            <h2 className="text-xl font-bold text-slate-800 truncate">{tx("רשימת לקוחות")}</h2>
                             {!loading && (
                                 <p className="text-sm text-slate-400 mt-0.5 truncate">
-                                    {trueCounts?.total ?? items.length} לקוחות סה״כ · {trueCounts?.club_members ?? clubCount} חברי מועדון
+                                    {trueCounts?.total ?? items.length}{tx(" לקוחות סה״כ · ")}{trueCounts?.club_members ?? clubCount} {tx("חברי מועדון")}
                                 </p>
                             )}
                         </div>
                         <button data-tour="client-new" onClick={() => setIsModalOpen(true)}
                             className="flex items-center gap-2 bg-black hover:bg-slate-800 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors shadow-sm shrink-0">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
-                            לקוח חדש
+                            {tx("לקוח חדש")}
                         </button>
                     </div>
 
@@ -310,28 +311,28 @@ function PageInner() {
                             {!loading && !err && (
                                 <div className="space-y-3">
                                     <div className="relative">
-                                        <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                        <svg className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                             <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
                                         </svg>
                                         <input type="text" value={search} onChange={e => setSearch(e.target.value)}
-                                            placeholder="חיפוש לפי שם, טלפון או אימייל..."
-                                            className="w-full bg-white border border-slate-200 rounded-xl pr-9 pl-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-black/10 transition" />
-                                        {search && <button onClick={() => setSearch("")} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">✕</button>}
+                                            placeholder={tx("חיפוש לפי שם, טלפון או אימייל...")}
+                                            className="w-full bg-white border border-slate-200 rounded-xl ps-9 pe-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-black/10 transition" />
+                                        {search && <button onClick={() => setSearch("")} className="absolute end-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">✕</button>}
                                     </div>
                                     <div className="flex flex-wrap gap-2">
                                         {([
-                                            { key: "all", label: "כולם", count: trueCounts?.total ?? items.length },
-                                            { key: "club", label: "מועדון 👑", count: trueCounts?.club_members ?? clubCount },
-                                            { key: "regular", label: "רגילים", count: (trueCounts?.total ?? items.length) - (trueCounts?.club_members ?? clubCount) },
+                                            { key: "all", label: tx("כולם"), count: trueCounts?.total ?? items.length },
+                                            { key: "club", label: tx("מועדון 👑"), count: trueCounts?.club_members ?? clubCount },
+                                            { key: "regular", label: tx("רגילים"), count: (trueCounts?.total ?? items.length) - (trueCounts?.club_members ?? clubCount) },
                                         ] as const).map(f => (
                                             <button key={f.key} onClick={() => setFilter(f.key)}
                                                 className={`px-3.5 py-1.5 rounded-full text-sm font-semibold transition-all border ${filter === f.key ? "bg-black text-white border-black shadow-sm" : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"}`}>
-                                                {f.label} <span className={`mr-1.5 text-xs ${filter === f.key ? "text-white/70" : "text-slate-400"}`}>{f.count}</span>
+                                                {f.label} <span className={`ms-1.5 text-xs ${filter === f.key ? "text-white/70" : "text-slate-400"}`}>{f.count}</span>
                                             </button>
                                         ))}
                                         <select value={birthdayMonth} onChange={e => setBirthdayMonth(e.target.value === "all" ? "all" : parseInt(e.target.value))}
                                             className="px-3 py-1.5 rounded-full text-sm font-semibold bg-white border border-slate-200 outline-none hover:border-slate-400 transition cursor-pointer text-slate-600">
-                                            <option value="all">🎂 כל החודשים</option>
+                                            <option value="all">{tx("🎂 כל החודשים")}</option>
                                             {MONTHS.map((m, i) => <option key={i + 1} value={i + 1}>{m}</option>)}
                                         </select>
                                     </div>
@@ -353,10 +354,10 @@ function PageInner() {
                                         <table className="w-full text-sm">
                                             <thead>
                                                 <tr className="bg-slate-50 border-b border-slate-100 text-slate-500 text-xs font-semibold uppercase tracking-wide">
-                                                    <th className="text-right px-5 py-3">לקוח</th>
-                                                    <th className="text-right px-5 py-3">טלפון</th>
-                                                    <th className="text-right px-5 py-3">אימייל</th>
-                                                    <th className="text-right px-5 py-3">הצטרפות</th>
+                                                    <th className="text-start px-5 py-3">{tx("לקוח")}</th>
+                                                    <th className="text-start px-5 py-3">{tx("טלפון")}</th>
+                                                    <th className="text-start px-5 py-3">{tx("אימייל")}</th>
+                                                    <th className="text-start px-5 py-3">{tx("הצטרפות")}</th>
                                                     <th className="px-5 py-3 w-14" />
                                                 </tr>
                                             </thead>
@@ -364,7 +365,7 @@ function PageInner() {
                                                 {visible.length === 0 ? (
                                                     <tr><td colSpan={5} className="py-16 text-center">
                                                         <div className="text-3xl mb-2">🔍</div>
-                                                        <div className="text-slate-500 font-medium">לא נמצאו לקוחות</div>
+                                                        <div className="text-slate-500 font-medium">{tx("לא נמצאו לקוחות")}</div>
                                                     </td></tr>
                                                 ) : visible.map(c => (
                                                     <tr key={c.id} className="hover:bg-slate-50/80 transition-colors group">
@@ -376,15 +377,15 @@ function PageInner() {
                                                                 <div>
                                                                     <div className="font-semibold text-slate-800 group-hover:text-black flex items-center gap-1.5">
                                                                         <span>{c.full_name || c.id.slice(0, 8)}</span>
-                                                                        {c.receives_marketing === false && <span title="לא מקבל/ת הודעות שיווקיות">🔕</span>}
+                                                                        {c.receives_marketing === false && <span title={tx("לא מקבל/ת הודעות שיווקיות")}>🔕</span>}
                                                                     </div>
-                                                                    {c.is_club_member && <span className="text-[10px] bg-amber-100 text-amber-700 font-bold px-1.5 py-0.5 rounded-full">מועדון 👑</span>}
+                                                                    {c.is_club_member && <span className="text-[10px] bg-amber-100 text-amber-700 font-bold px-1.5 py-0.5 rounded-full">{tx("מועדון 👑")}</span>}
                                                                 </div>
                                                             </Link>
                                                         </td>
                                                         <td className="px-5 py-3.5 text-slate-600 text-xs font-mono" dir="ltr">{c.phone || <span className="text-slate-300">—</span>}</td>
                                                         <td className="px-5 py-3.5 text-slate-500 text-xs" dir="ltr">{c.email || <span className="text-slate-300">—</span>}</td>
-                                                        <td className="px-5 py-3.5 text-slate-400 text-xs">{c.created_at ? new Date(c.created_at).toLocaleDateString("he-IL") : "—"}</td>
+                                                        <td className="px-5 py-3.5 text-slate-400 text-xs">{c.created_at ? new Date(c.created_at).toLocaleDateString(intl()) : "—"}</td>
                                                         <td className="px-5 py-3.5">
                                                             <button onClick={() => setDeletingClientId(c.id)}
                                                                 className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 transition-all p-1.5 rounded-lg hover:bg-red-50">
@@ -408,10 +409,10 @@ function PageInner() {
                                                 <div className="flex-1 min-w-0">
                                                     <div className="font-semibold text-slate-800 truncate flex items-center gap-2">
                                                         {c.full_name || c.id.slice(0, 8)}
-                                                        {c.receives_marketing === false && <span title="לא מקבל/ת הודעות שיווקיות">🔕</span>}
+                                                        {c.receives_marketing === false && <span title={tx("לא מקבל/ת הודעות שיווקיות")}>🔕</span>}
                                                         {c.is_club_member && <span className="text-[10px] bg-amber-100 text-amber-700 font-bold px-1.5 py-0.5 rounded-full">👑</span>}
                                                     </div>
-                                                    <div className="text-xs text-slate-400 mt-0.5 font-mono" dir="ltr">{c.phone || "אין טלפון"}</div>
+                                                    <div className="text-xs text-slate-400 mt-0.5 font-mono" dir="ltr">{c.phone || tx("אין טלפון")}</div>
                                                 </div>
                                             </Link>
                                         ))}
@@ -422,7 +423,7 @@ function PageInner() {
                     )}
 
                     {/* ── TAB: מועדון לקוחות ── */}
-                    {tab === "club" && (<PlanLock module="customer_club" feature="מועדון לקוחות">{
+                    {tab === "club" && (<PlanLock module="customer_club" feature={tx("מועדון לקוחות")}>{
                         clubLoading ? (
                             <div className="flex justify-center items-center h-48">
                                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-500" />
@@ -432,10 +433,10 @@ function PageInner() {
                                 {/* Stats cards */}
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                                     {[
-                                        { label: "סה״כ חברי מועדון", value: clubStats?.total ?? 0, icon: "👑", bg: "bg-amber-50" },
-                                        { label: "הצטרפו החודש", value: clubStats?.this_month ?? 0, icon: "🆕", bg: "bg-sky-50" },
-                                        { label: "דרך קישור", value: clubStats?.via_landing ?? 0, icon: "🔗", bg: "bg-green-50" },
-                                        { label: "הכנסה ידנית", value: clubStats?.via_manual ?? 0, icon: "✍️", bg: "bg-purple-50" },
+                                        { label: tx("סה״כ חברי מועדון"), value: clubStats?.total ?? 0, icon: "👑", bg: "bg-amber-50" },
+                                        { label: tx("הצטרפו החודש"), value: clubStats?.this_month ?? 0, icon: "🆕", bg: "bg-sky-50" },
+                                        { label: tx("דרך קישור"), value: clubStats?.via_landing ?? 0, icon: "🔗", bg: "bg-green-50" },
+                                        { label: tx("הכנסה ידנית"), value: clubStats?.via_manual ?? 0, icon: "✍️", bg: "bg-purple-50" },
                                     ].map(s => (
                                         <div key={s.label} className={`${s.bg} rounded-2xl border border-slate-100 shadow-sm p-3 flex items-center gap-3 min-w-0`}>
                                             <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-lg shadow-sm shrink-0">{s.icon}</div>
@@ -450,22 +451,22 @@ function PageInner() {
                                 {/* Points summary */}
                                 {loyaltyStats && (
                                     <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-                                        <h3 className="font-bold text-slate-800 mb-4">⭐ סיכום נקודות נאמנות</h3>
+                                        <h3 className="font-bold text-slate-800 mb-4">{tx("⭐ סיכום נקודות נאמנות")}</h3>
                                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                             <div className="bg-slate-50 rounded-xl p-4">
-                                                <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">נקודות שהוענקו</div>
+                                                <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">{tx("נקודות שהוענקו")}</div>
                                                 <div className="text-2xl font-black text-slate-800">{loyaltyStats.total_points_awarded.toLocaleString()}</div>
                                                 <div className="text-xs text-slate-400 mt-0.5">= ₪{loyaltyStats.total_points_awarded.toLocaleString()}</div>
                                             </div>
                                             <div className="bg-emerald-50 rounded-xl p-4">
-                                                <div className="text-xs font-bold text-emerald-600 uppercase tracking-widest mb-1">נקודות שמומשו</div>
+                                                <div className="text-xs font-bold text-emerald-600 uppercase tracking-widest mb-1">{tx("נקודות שמומשו")}</div>
                                                 <div className="text-2xl font-black text-emerald-700">{loyaltyStats.total_points_redeemed.toLocaleString()}</div>
-                                                <div className="text-xs text-emerald-500 mt-0.5">= ₪{loyaltyStats.total_points_redeemed_ils.toLocaleString()} הנחות</div>
+                                                <div className="text-xs text-emerald-500 mt-0.5">= ₪{loyaltyStats.total_points_redeemed_ils.toLocaleString()}{tx(" הנחות")}</div>
                                             </div>
                                             <div className="bg-amber-50 rounded-xl p-4">
-                                                <div className="text-xs font-bold text-amber-600 uppercase tracking-widest mb-1">יתרה אצל לקוחות</div>
+                                                <div className="text-xs font-bold text-amber-600 uppercase tracking-widest mb-1">{tx("יתרה אצל לקוחות")}</div>
                                                 <div className="text-2xl font-black text-amber-700">{loyaltyStats.total_outstanding_points.toLocaleString()}</div>
-                                                <div className="text-xs text-amber-500 mt-0.5">= ₪{loyaltyStats.total_outstanding_ils.toLocaleString()} פוטנציאל</div>
+                                                <div className="text-xs text-amber-500 mt-0.5">= ₪{loyaltyStats.total_outstanding_ils.toLocaleString()}{tx(" פוטנציאל")}</div>
                                             </div>
                                         </div>
                                     </div>
@@ -475,9 +476,9 @@ function PageInner() {
                                 {leaderboard && (
                                     <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
                                         <div className="px-5 py-4 border-b border-slate-50 flex flex-wrap items-center justify-between gap-2">
-                                            <h3 className="font-bold text-slate-800 shrink-0">🏆 לוח אלופים</h3>
+                                            <h3 className="font-bold text-slate-800 shrink-0">{tx("🏆 לוח אלופים")}</h3>
                                             <div className="flex gap-2 flex-wrap">
-                                                {([["payers","💰 שילמו הכי הרבה"],["visitors","📅 ביקרו הכי הרבה"]] as const).map(([key,label]) => (
+                                                {([["payers",tx("💰 שילמו הכי הרבה")],["visitors",tx("📅 ביקרו הכי הרבה")]] as const).map(([key,label]) => (
                                                     <button key={key} type="button" onClick={() => setLeaderTab(key)}
                                                         className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all shrink-0 ${leaderTab===key ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
                                                         {label}
@@ -498,10 +499,10 @@ function PageInner() {
                                                         </div>
                                                         {e.phone && <div className="text-xs text-slate-400" dir="ltr">{e.phone}</div>}
                                                     </div>
-                                                    <div className="text-right shrink-0">
+                                                    <div className="text-start shrink-0">
                                                         {leaderTab==="payers"
                                                             ? <div className="text-sm font-black text-emerald-700" dir="ltr">₪{((e.total_paid_cents??0)/100).toLocaleString()}</div>
-                                                            : <div className="text-sm font-black text-blue-700">{e.visit_count} ביקורים</div>}
+                                                            : <div className="text-sm font-black text-blue-700">{e.visit_count}{tx(" ביקורים")}</div>}
                                                         <div className="text-[10px] text-amber-500">⭐ {e.loyalty_points}</div>
                                                     </div>
                                                 </Link>
@@ -513,19 +514,19 @@ function PageInner() {
                                 {/* Member list */}
                                 <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-x-auto">
                                     <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row gap-3">
-                                        <input type="text" placeholder="חיפוש לפי שם או טלפון..." value={clubSearch}
+                                        <input type="text" placeholder={tx("חיפוש לפי שם או טלפון...")} value={clubSearch}
                                             onChange={e => setClubSearch(e.target.value)}
                                             className="flex-1 rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" />
                                         <div className="flex gap-2">
                                             {(["all", "landing", "manual"] as const).map(f => (
                                                 <button key={f} onClick={() => setSourceFilter(f)}
                                                     className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors border ${sourceFilter === f ? "bg-amber-500 text-white border-amber-500" : "bg-white text-slate-600 border-slate-200 hover:bg-amber-50"}`}>
-                                                    {f === "all" ? "הכל" : f === "landing" ? "🔗 קישור" : "✍️ ידני"}
+                                                    {f === "all" ? tx("הכל") : f === "landing" ? tx("🔗 קישור") : tx("✍️ ידני")}
                                                 </button>
                                             ))}
                                         </div>
                                         {/* on a narrow screen some columns are hidden — sorting by them is chosen here */}
-                                        <select title="מיון" aria-label="מיון"
+                                        <select title={tx("מיון")} aria-label={tx("מיון")}
                                             value={memberSort ? `${memberSort.key}:${memberSort.dir}` : ""}
                                             onChange={e => {
                                                 const [key, dir] = e.target.value.split(":") as [MemberSortKey, "asc" | "desc"];
@@ -538,18 +539,18 @@ function PageInner() {
                                     {filteredMembers.length === 0 ? (
                                         <div className="py-16 text-center space-y-2">
                                             <div className="text-5xl">👑</div>
-                                            <div className="text-slate-600 font-semibold">אין חברי מועדון</div>
+                                            <div className="text-slate-600 font-semibold">{tx("אין חברי מועדון")}</div>
                                         </div>
                                     ) : (
                                         <table className="w-full min-w-105 text-sm">
                                             <thead>
                                                 <tr className="bg-slate-50 border-b border-slate-100">
-                                                    {sortTh("name", "שם", "text-right px-5 py-3")}
-                                                    <th className="text-right px-5 py-3 font-semibold text-slate-500 text-xs hidden sm:table-cell">טלפון</th>
-                                                    {sortTh("points", "נקודות", "text-right px-5 py-3")}
-                                                    {sortTh("birthday", "יום הולדת", "text-right px-5 py-3 hidden md:table-cell")}
-                                                    {sortTh("joined", "הצטרפות", "text-right px-5 py-3 hidden lg:table-cell")}
-                                                    <th className="text-right px-5 py-3 font-semibold text-slate-500 text-xs">מקור</th>
+                                                    {sortTh("name", tx("שם"), "text-start px-5 py-3")}
+                                                    <th className="text-start px-5 py-3 font-semibold text-slate-500 text-xs hidden sm:table-cell">{tx("טלפון")}</th>
+                                                    {sortTh("points", tx("נקודות"), "text-start px-5 py-3")}
+                                                    {sortTh("birthday", tx("יום הולדת"), "text-start px-5 py-3 hidden md:table-cell")}
+                                                    {sortTh("joined", tx("הצטרפות"), "text-start px-5 py-3 hidden lg:table-cell")}
+                                                    <th className="text-start px-5 py-3 font-semibold text-slate-500 text-xs">{tx("מקור")}</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-slate-50">
@@ -582,17 +583,17 @@ function PageInner() {
                                                             {m.birth_date ? (
                                                                 <span className={`text-xs font-medium ${isBirthdayThisMonth ? "text-pink-600 font-bold" : "text-slate-500"}`}>
                                                                     {isBirthdayThisMonth && "🎉 "}
-                                                                    {new Date(m.birth_date).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit" })}
+                                                                    {new Date(m.birth_date).toLocaleDateString(intl(), { day: "2-digit", month: "2-digit" })}
                                                                 </span>
                                                             ) : <span className="text-slate-300 text-xs">—</span>}
                                                         </td>
                                                         <td className="px-5 py-3.5 text-slate-500 text-xs hidden lg:table-cell">
-                                                            {m.joined_at ? new Date(m.joined_at).toLocaleDateString("he-IL") : "—"}
+                                                            {m.joined_at ? new Date(m.joined_at).toLocaleDateString(intl()) : "—"}
                                                         </td>
                                                         <td className="px-5 py-3.5">
                                                             {m.source === "landing"
-                                                                ? <span className="inline-flex items-center gap-1 bg-green-50 text-green-700 font-medium px-2.5 py-0.5 rounded-full text-xs border border-green-100">🔗 קישור</span>
-                                                                : <span className="inline-flex items-center gap-1 bg-purple-50 text-purple-700 font-medium px-2.5 py-0.5 rounded-full text-xs border border-purple-100">✍️ ידני</span>}
+                                                                ? <span className="inline-flex items-center gap-1 bg-green-50 text-green-700 font-medium px-2.5 py-0.5 rounded-full text-xs border border-green-100">{tx("🔗 קישור")}</span>
+                                                                : <span className="inline-flex items-center gap-1 bg-purple-50 text-purple-700 font-medium px-2.5 py-0.5 rounded-full text-xs border border-purple-100">{tx("✍️ ידני")}</span>}
                                                         </td>
                                                     </tr>
                                                     );
@@ -606,15 +607,15 @@ function PageInner() {
                                 <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-x-auto">
                                     <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                                         <div>
-                                            <h3 className="font-bold text-slate-800">🎂 קופוני יום הולדת — מי קיבל ומי לא</h3>
-                                            <p className="text-xs text-slate-400 mt-0.5">כל הלקוחות עם יום הולדת בחודש הנבחר, סטטוס שליחה ומימוש</p>
+                                            <h3 className="font-bold text-slate-800">{tx("🎂 קופוני יום הולדת — מי קיבל ומי לא")}</h3>
+                                            <p className="text-xs text-slate-400 mt-0.5">{tx("כל הלקוחות עם יום הולדת בחודש הנבחר, סטטוס שליחה ומימוש")}</p>
                                         </div>
                                         <div className="flex items-center gap-2 shrink-0">
-                                            <select title="בחר חודש" value={bdMonth} onChange={e => { const m = Number(e.target.value); setBdMonth(m); loadBdStatus(m, bdYear); }}
+                                            <select title={tx("בחר חודש")} value={bdMonth} onChange={e => { const m = Number(e.target.value); setBdMonth(m); loadBdStatus(m, bdYear); }}
                                                 className="text-sm border border-slate-200 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-pink-300">
                                                 {MONTHS.map((name, i) => <option key={i} value={i + 1}>{name}</option>)}
                                             </select>
-                                            <select title="בחר שנה" value={bdYear} onChange={e => { const y = Number(e.target.value); setBdYear(y); loadBdStatus(bdMonth, y); }}
+                                            <select title={tx("בחר שנה")} value={bdYear} onChange={e => { const y = Number(e.target.value); setBdYear(y); loadBdStatus(bdMonth, y); }}
                                                 className="text-sm border border-slate-200 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-pink-300">
                                                 {[now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1].map(y => <option key={y} value={y}>{y}</option>)}
                                             </select>
@@ -632,18 +633,18 @@ function PageInner() {
                                     ) : !bdData || bdData.length === 0 ? (
                                         <div className="py-10 text-center text-slate-400 text-sm">
                                             <div className="text-3xl mb-2">🎂</div>
-                                            אין לקוחות עם יום הולדת ב{MONTHS[bdMonth - 1]}
+                                            {tx("אין לקוחות עם יום הולדת ב")}{MONTHS[bdMonth - 1]}
                                         </div>
                                     ) : (
                                         <table className="w-full min-w-150 text-sm">
                                             <thead>
                                                 <tr className="bg-slate-50 border-b border-slate-100 text-xs text-slate-500 font-semibold">
-                                                    <th className="text-right px-4 py-3">שם</th>
-                                                    <th className="text-right px-4 py-3 hidden sm:table-cell">תאריך</th>
-                                                    <th className="text-right px-4 py-3">מועדון</th>
-                                                    <th className="text-right px-4 py-3">קוד קופון</th>
-                                                    <th className="text-right px-4 py-3">נשלח</th>
-                                                    <th className="text-right px-4 py-3">סטטוס</th>
+                                                    <th className="text-start px-4 py-3">{tx("שם")}</th>
+                                                    <th className="text-start px-4 py-3 hidden sm:table-cell">{tx("תאריך")}</th>
+                                                    <th className="text-start px-4 py-3">{tx("מועדון")}</th>
+                                                    <th className="text-start px-4 py-3">{tx("קוד קופון")}</th>
+                                                    <th className="text-start px-4 py-3">{tx("נשלח")}</th>
+                                                    <th className="text-start px-4 py-3">{tx("סטטוס")}</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -658,51 +659,51 @@ function PageInner() {
                                                     const beforeRun = new Date().getHours() < 10;
                                                     const canSendNow = c.is_club_member && !c.message_sent && c.may_receive_marketing && c.coupon_status !== "redeemed";
                                                     const statusConfig: Record<string, { label: string; cls: string }> = {
-                                                        active:   { label: "פעיל",    cls: "bg-emerald-50 text-emerald-700 border-emerald-200" },
-                                                        redeemed: { label: "✅ מומש",  cls: "bg-blue-50 text-blue-700 border-blue-200" },
-                                                        expired:  { label: "פג תוקף", cls: "bg-slate-50 text-slate-500 border-slate-200" },
-                                                        not_sent: { label: "לא נשלח", cls: "bg-slate-50 text-slate-400 border-slate-200" },
+                                                        active:   { label: tx("פעיל"),    cls: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+                                                        redeemed: { label: tx("✅ מומש"),  cls: "bg-blue-50 text-blue-700 border-blue-200" },
+                                                        expired:  { label: tx("פג תוקף"), cls: "bg-slate-50 text-slate-500 border-slate-200" },
+                                                        not_sent: { label: tx("לא נשלח"), cls: "bg-slate-50 text-slate-400 border-slate-200" },
                                                         pending:  c.message_sent
-                                                            ? { label: "✅ נשלח", cls: "bg-emerald-50 text-emerald-700 border-emerald-200" }
+                                                            ? { label: tx("✅ נשלח"), cls: "bg-emerald-50 text-emerald-700 border-emerald-200" }
                                                             : !c.may_receive_marketing
-                                                            ? { label: "לא יישלח — לא מאשר/ת שיווק", cls: "bg-slate-50 text-slate-500 border-slate-200" }
+                                                            ? { label: tx("לא יישלח — לא מאשר/ת שיווק"), cls: "bg-slate-50 text-slate-500 border-slate-200" }
                                                             : sendUntil < today || (sendUntil.getTime() === today.getTime() && !beforeRun)
-                                                            ? { label: "לא קיבל", cls: "bg-red-50 text-red-600 border-red-200" }
+                                                            ? { label: tx("לא קיבל"), cls: "bg-red-50 text-red-600 border-red-200" }
                                                             : sendDate <= today
-                                                            ? { label: beforeRun ? "יישלח היום ב-10:00" : "יישלח מחר ב-10:00", cls: "bg-amber-50 text-amber-700 border-amber-200" }
-                                                            : { label: `יישלח ב-${sendDate.toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit" })}`, cls: "bg-slate-100 text-slate-500 border-slate-200" },
+                                                            ? { label: beforeRun ? tx("יישלח היום ב-10:00") : tx("יישלח מחר ב-10:00"), cls: "bg-amber-50 text-amber-700 border-amber-200" }
+                                                            : { label: tx("יישלח ב-{0}", { 0: sendDate.toLocaleDateString(intl(), { day: "2-digit", month: "2-digit" }) }), cls: "bg-slate-100 text-slate-500 border-slate-200" },
                                                     };
                                                     const st = statusConfig[c.coupon_status] ?? { label: c.coupon_status, cls: "bg-slate-50 text-slate-400 border-slate-200" };
                                                     return (
                                                         <tr key={c.client_id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
                                                             <td className="px-4 py-3 font-medium text-slate-800">
                                                                 {c.full_name}
-                                                                {!c.is_club_member && <span className="mr-1 text-xs text-slate-400">(לא חבר)</span>}
-                                                                {!c.may_receive_marketing && <span className="mr-1 text-xs text-red-400" title="לא מקבל/ת הודעות שיווקיות">🚫</span>}
+                                                                {!c.is_club_member && <span className="ms-1 text-xs text-slate-400">{tx("(לא חבר)")}</span>}
+                                                                {!c.may_receive_marketing && <span className="ms-1 text-xs text-red-400" title={tx("לא מקבל/ת הודעות שיווקיות")}>🚫</span>}
                                                                 {c.redeemed_at && (
                                                                     <div className="text-xs text-blue-500 mt-0.5">
-                                                                        מומש: {new Date(c.redeemed_at).toLocaleDateString("he-IL")}
+                                                                        {tx("מומש:")} {new Date(c.redeemed_at).toLocaleDateString(intl())}
                                                                     </div>
                                                                 )}
                                                             </td>
                                                             <td className="px-4 py-3 text-slate-500 hidden sm:table-cell">
-                                                                {c.birth_date ? new Date(c.birth_date).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit" }) : "—"}
+                                                                {c.birth_date ? new Date(c.birth_date).toLocaleDateString(intl(), { day: "2-digit", month: "2-digit" }) : "—"}
                                                             </td>
                                                             <td className="px-4 py-3">
                                                                 {c.is_club_member
-                                                                    ? <span className="text-xs font-bold text-amber-600">👑 כן</span>
-                                                                    : <span className="text-xs text-slate-400">לא</span>}
+                                                                    ? <span className="text-xs font-bold text-amber-600">{tx("👑 כן")}</span>
+                                                                    : <span className="text-xs text-slate-400">{tx("לא")}</span>}
                                                             </td>
                                                             <td className="px-4 py-3">
                                                                 {c.coupon_code
                                                                     ? <span className="font-mono font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded text-xs">{c.coupon_code}</span>
                                                                     : <span className="text-slate-300 text-xs">—</span>}
-                                                                {c.coupon_discount && <span className="text-xs text-slate-400 mr-1">({c.coupon_discount}%)</span>}
+                                                                {c.coupon_discount && <span className="text-xs text-slate-400 ms-1">({c.coupon_discount}%)</span>}
                                                             </td>
                                                             <td className="px-4 py-3">
                                                                 {c.message_sent
-                                                                    ? <span className="text-xs text-emerald-600 font-semibold">✅ נשלח</span>
-                                                                    : <span className="text-xs text-slate-400">לא</span>}
+                                                                    ? <span className="text-xs text-emerald-600 font-semibold">{tx("✅ נשלח")}</span>
+                                                                    : <span className="text-xs text-slate-400">{tx("לא")}</span>}
                                                             </td>
                                                             <td className="px-4 py-3">
                                                                 <div className="flex items-center gap-2">
@@ -717,17 +718,17 @@ function PageInner() {
                                                                                 setSendingCouponFor(c.client_id);
                                                                                 try {
                                                                                     await apiFetch(`/api/customer-club/send-birthday-coupon/${c.client_id}?month=${bdMonth}&year=${bdYear}`, { method: "POST" });
-                                                                                    toast.success(`קופון נשלח ל${c.full_name} ✅`);
+                                                                                    toast.success(tx("קופון נשלח ל{0} ✅", { 0: c.full_name }));
                                                                                     loadBdStatus(bdMonth, bdYear);
                                                                                 } catch (e: unknown) {
-                                                                                    toast.error((e as Error)?.message || "שגיאה בשליחה");
+                                                                                    toast.error((e as Error)?.message || tx("שגיאה בשליחה"));
                                                                                 } finally {
                                                                                     setSendingCouponFor(null);
                                                                                 }
                                                                             }}
                                                                             className="text-xs font-semibold px-2 py-0.5 rounded-full border bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100 transition-colors disabled:opacity-50 disabled:cursor-wait whitespace-nowrap"
                                                                         >
-                                                                            {sendingCouponFor === c.client_id ? "שולח..." : "🎁 שלח עכשיו"}
+                                                                            {sendingCouponFor === c.client_id ? tx("שולח...") : tx("🎁 שלח עכשיו")}
                                                                         </button>
                                                                     )}
                                                                 </div>
@@ -742,11 +743,11 @@ function PageInner() {
                                     {/* Summary row */}
                                     {bdData && bdData.length > 0 && (
                                         <div className="px-4 py-3 bg-slate-50 border-t border-slate-100 flex gap-4 text-xs text-slate-500 flex-wrap">
-                                            <span>סה״כ: <strong className="text-slate-700">{bdData.length}</strong></span>
-                                            <span>חברי מועדון: <strong className="text-amber-600">{bdData.filter(c => c.is_club_member).length}</strong></span>
-                                            <span>נשלח: <strong className="text-emerald-600">{bdData.filter(c => c.message_sent).length}</strong></span>
-                                            <span>מומש: <strong className="text-blue-600">{bdData.filter(c => c.coupon_status === "redeemed").length}</strong></span>
-                                            <span>לא מקבל (לא חבר / לא מאשר שיווק): <strong className="text-red-500">{bdData.filter(c => !c.is_club_member || !c.may_receive_marketing).length}</strong></span>
+                                            <span>{tx("סה״כ: ")}<strong className="text-slate-700">{bdData.length}</strong></span>
+                                            <span>{tx("חברי מועדון: ")}<strong className="text-amber-600">{bdData.filter(c => c.is_club_member).length}</strong></span>
+                                            <span>{tx("נשלח: ")}<strong className="text-emerald-600">{bdData.filter(c => c.message_sent).length}</strong></span>
+                                            <span>{tx("מומש: ")}<strong className="text-blue-600">{bdData.filter(c => c.coupon_status === "redeemed").length}</strong></span>
+                                            <span>{tx("לא מקבל (לא חבר / לא מאשר שיווק): ")}<strong className="text-red-500">{bdData.filter(c => !c.is_club_member || !c.may_receive_marketing).length}</strong></span>
                                         </div>
                                     )}
                                 </div>
@@ -764,11 +765,11 @@ function PageInner() {
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                 </svg>
                             </div>
-                            <h3 className="text-lg font-bold text-slate-800 mb-1">מחיקת לקוח</h3>
-                            <p className="text-sm text-slate-500 mb-6">הלקוח יוסתר מהמערכת.</p>
+                            <h3 className="text-lg font-bold text-slate-800 mb-1">{tx("מחיקת לקוח")}</h3>
+                            <p className="text-sm text-slate-500 mb-6">{tx("הלקוח יוסתר מהמערכת.")}</p>
                             <div className="flex gap-3">
-                                <button onClick={() => setDeletingClientId(null)} className="flex-1 py-2.5 text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition">ביטול</button>
-                                <button onClick={handleDeleteClient} className="flex-1 py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl transition">מחק</button>
+                                <button onClick={() => setDeletingClientId(null)} className="flex-1 py-2.5 text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition">{tx("ביטול")}</button>
+                                <button onClick={handleDeleteClient} className="flex-1 py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl transition">{tx("מחק")}</button>
                             </div>
                         </div>
                     </div>
@@ -779,14 +780,14 @@ function PageInner() {
                     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
                         <div data-tour="client-form" className="bg-white rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden">
                             <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-                                <h3 className="text-base font-bold text-slate-800">לקוח חדש</h3>
+                                <h3 className="text-base font-bold text-slate-800">{tx("לקוח חדש")}</h3>
                                 <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 transition">✕</button>
                             </div>
                             <div className="p-5 space-y-3.5 max-h-[70dvh] overflow-y-auto">
                                 {[
-                                    { label: "שם מלא *", val: newName, set: setNewName, type: "text" },
-                                    { label: "טלפון *", val: newPhone, set: setNewPhone, type: "tel" },
-                                    { label: "אימייל", val: newEmail, set: setNewEmail, type: "email" },
+                                    { label: tx("שם מלא *"), val: newName, set: setNewName, type: "text" },
+                                    { label: tx("טלפון *"), val: newPhone, set: setNewPhone, type: "tel" },
+                                    { label: tx("אימייל"), val: newEmail, set: setNewEmail, type: "email" },
                                 ].map(f => (
                                     <div key={f.label}>
                                         <label className="block text-xs font-semibold text-slate-600 mb-1.5">{f.label}</label>
@@ -795,32 +796,32 @@ function PageInner() {
                                     </div>
                                 ))}
                                 <div>
-                                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">תאריך לידה</label>
-                                    <PickerBox type="date" label="תאריך לידה" value={newBirthDate} onChange={v => setNewBirthDate(v)} min="1900-01-01" max={toLocalDateStr(new Date())} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-black/10 transition text-start" />
+                                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">{tx("תאריך לידה")}</label>
+                                    <PickerBox type="date" label={tx("תאריך לידה")} value={newBirthDate} onChange={v => setNewBirthDate(v)} min="1900-01-01" max={toLocalDateStr(new Date())} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-black/10 transition text-start" />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">הערות</label>
+                                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">{tx("הערות")}</label>
                                     <textarea value={newNotes} onChange={e => setNewNotes(e.target.value)} rows={2}
                                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-black/10 transition resize-none" />
                                 </div>
                                 <label className="flex items-center gap-3 cursor-pointer p-3 bg-amber-50 rounded-xl border border-amber-100">
                                     <input type="checkbox" checked={isClubMember} onChange={e => setIsClubMember(e.target.checked)} className="w-4 h-4 rounded accent-black" />
                                     <div>
-                                        <div className="text-sm font-bold text-amber-800">חבר מועדון 👑</div>
-                                        <div className="text-xs text-amber-600">מקבל הטבות ונקודות</div>
+                                        <div className="text-sm font-bold text-amber-800">{tx("חבר מועדון 👑")}</div>
+                                        <div className="text-xs text-amber-600">{tx("מקבל הטבות ונקודות")}</div>
                                     </div>
                                 </label>
                             </div>
                             {createError && (
-                                <div className="mx-5 mb-0 mt-0 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700 font-medium text-right">
+                                <div className="mx-5 mb-0 mt-0 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700 font-medium text-start">
                                     {createError}
                                 </div>
                             )}
                             <div className="px-5 py-4 border-t border-slate-100 flex gap-3">
-                                <button onClick={() => { setIsModalOpen(false); setCreateError(null); }} className="flex-1 py-2.5 text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition">ביטול</button>
+                                <button onClick={() => { setIsModalOpen(false); setCreateError(null); }} className="flex-1 py-2.5 text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition">{tx("ביטול")}</button>
                                 <button onClick={handleCreateClient} disabled={isSaving}
                                     className="flex-1 py-2.5 text-sm font-semibold text-white bg-black hover:bg-slate-800 rounded-xl transition disabled:opacity-50">
-                                    {isSaving ? "שומר..." : "שמור"}
+                                    {isSaving ? tx("שומר...") : tx("שמור")}
                                 </button>
                             </div>
                         </div>

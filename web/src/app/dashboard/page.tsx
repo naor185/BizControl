@@ -19,6 +19,7 @@ import VikiCard from "@/components/viki/VikiCard";
 import { useNewLeadsCount } from "@/lib/useNewLeadsCount";
 import { SECTION_EVENT } from "@/lib/sectionLinks";
 
+import { intl, tx } from "@/lib/i18n";
 type PendingGiftCard = {
     id: string;
     code: string;
@@ -69,7 +70,7 @@ function readLeadsOpen(): boolean {
 }
 
 const fmt = (n: number) =>
-    n.toLocaleString("he-IL", { style: "currency", currency: "ILS", maximumFractionDigits: 0 });
+    n.toLocaleString(intl(), { style: "currency", currency: "ILS", maximumFractionDigits: 0 });
 
 
 export default function Page() {
@@ -123,7 +124,7 @@ export default function Page() {
             setTodayRevenue(todayRevData);
             setPendingGiftCards(pendingGiftCardsData);
         } catch {
-            setError("שגיאה בטעינת נתונים");
+            setError(tx("שגיאה בטעינת נתונים"));
         } finally {
             setLoading(false);
         }
@@ -141,7 +142,7 @@ export default function Page() {
                     : d
             ));
         } catch (e: any) {
-            alert(e?.message || "שגיאה בשליחת תזכורת");
+            alert(e?.message || tx("שגיאה בשליחת תזכורת"));
         } finally {
             setSendingReminder(null);
         }
@@ -153,7 +154,7 @@ export default function Page() {
             await apiFetch(`/api/appointments/${id}/waive-deposit`, { method: "POST" });
             setPendingDeposits(prev => prev.filter(d => d.appointment_id !== id));
         } catch (e: any) {
-            alert(e?.message || "שגיאה");
+            alert(e?.message || tx("שגיאה"));
         } finally {
             setWaivingDeposit(null);
         }
@@ -195,7 +196,7 @@ export default function Page() {
     const handlePaymentSuccess = () => { setIsPaymentModalOpen(false); fetchData(); };
 
     if (loading) return (
-        <RequireAuth><AppShell title="לוח בקרה">
+        <RequireAuth><AppShell title={tx("לוח בקרה")}>
             <div className="flex justify-center items-center h-64">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-900" />
             </div>
@@ -203,14 +204,14 @@ export default function Page() {
     );
 
     if (error) return (
-        <RequireAuth><AppShell title="לוח בקרה">
+        <RequireAuth><AppShell title={tx("לוח בקרה")}>
             <div className="bg-red-50 text-red-600 p-4 rounded-xl">{error}</div>
         </AppShell></RequireAuth>
     );
 
     return (
         <RequireAuth>
-            <AppShell title="לוח בקרה">
+            <AppShell title={tx("לוח בקרה")}>
                 <div className="space-y-6 animate-in fade-in duration-300">
 
                     {/* ── The calendar: today, this week, this month — how much is booked, and how many appointments ── */}
@@ -224,26 +225,26 @@ export default function Page() {
                                         <span className="text-2xl font-black text-slate-900 tabular-nums">{now.percent}%</span>
                                     </div>
                                     <div className="mt-1.5 h-2.5 rounded-full bg-slate-100 overflow-hidden" role="progressbar"
-                                        aria-valuenow={now.percent} aria-valuemin={0} aria-valuemax={100} aria-label={`מילוי היומן ${label}`}>
+                                        aria-valuenow={now.percent} aria-valuemin={0} aria-valuemax={100} aria-label={tx("מילוי היומן {0}", { 0: label })}>
                                         <div className={`h-full rounded-full ${tone}`} style={{ width: `${now.percent}%`, transition: "width 0.8s ease" }} />
                                     </div>
                                     <div className="mt-1 text-xs text-slate-500">
-                                        <span className="font-bold text-slate-700">{now.count === 1 ? "תור אחד" : `${now.count} תורים`}</span>
+                                        <span className="font-bold text-slate-700">{now.count === 1 ? tx("תור אחד") : tx("{0} תורים", { 0: now.count })}</span>
                                         {before && ` · ${beforeLabel}: ${before.percent}%`}
                                     </div>
                                 </div>
                             );
                         };
                         return (
-                            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5" dir="rtl">
-                                <h3 className="font-bold text-slate-800">מילוי היומן</h3>
-                                <p className="text-xs text-slate-500 mt-0.5">כמה תורים יש, וכמה מזמן העבודה שלך כבר תפוס בהם</p>
+                            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+                                <h3 className="font-bold text-slate-800">{tx("מילוי היומן")}</h3>
+                                <p className="text-xs text-slate-500 mt-0.5">{tx("כמה תורים יש, וכמה מזמן העבודה שלך כבר תפוס בהם")}</p>
                                 <div className="mt-4 grid gap-5 sm:grid-cols-3">
-                                    <Row label="היום" now={occupancy.today} />
-                                    <Row label="השבוע" now={occupancy.this_week} before={occupancy.last_week} beforeLabel="בשבוע שעבר" />
-                                    <Row label="החודש" now={occupancy.this_month} before={occupancy.last_month} beforeLabel="בחודש שעבר" />
+                                    <Row label={tx("היום")} now={occupancy.today} />
+                                    <Row label={tx("השבוע")} now={occupancy.this_week} before={occupancy.last_week} beforeLabel={tx("בשבוע שעבר")} />
+                                    <Row label={tx("החודש")} now={occupancy.this_month} before={occupancy.last_month} beforeLabel={tx("בחודש שעבר")} />
                                 </div>
-                                <p className="mt-4 text-[11px] text-slate-400">לפי ימי העבודה ושעות היומן שבהגדרות</p>
+                                <p className="mt-4 text-[11px] text-slate-400">{tx("לפי ימי העבודה ושעות היומן שבהגדרות")}</p>
                             </div>
                         );
                     })()}
@@ -253,14 +254,14 @@ export default function Page() {
                         <div className="rounded-2xl border-2 border-amber-400 bg-amber-50 overflow-hidden">
                             <button
                                 onClick={() => setPendingExpanded(o => !o)}
-                                className="w-full p-5 flex items-center gap-4 text-right hover:bg-amber-100/60 transition-colors"
+                                className="w-full p-5 flex items-center gap-4 text-start hover:bg-amber-100/60 transition-colors"
                             >
                                 <span className="text-3xl">⚠️</span>
                                 <div className="flex-1">
-                                    <div className="font-bold text-amber-900">{pendingPayments.length} דיווחי תשלום ממתינים לאישור</div>
-                                    <div className="text-sm text-amber-700">לקוחות שסימנו "שילמתי" — לחץ לפירוט</div>
+                                    <div className="font-bold text-amber-900">{pendingPayments.length}{tx(" דיווחי תשלום ממתינים לאישור")}</div>
+                                    <div className="text-sm text-amber-700">{tx("לקוחות שסימנו \"שילמתי\" — לחץ לפירוט")}</div>
                                 </div>
-                                <span className="text-amber-600 text-sm font-semibold">{pendingExpanded ? "▲ סגור" : "▼ פרוס"}</span>
+                                <span className="text-amber-600 text-sm font-semibold">{pendingExpanded ? tx("▲ סגור") : tx("▼ פרוס")}</span>
                             </button>
                             {pendingExpanded && (
                                 <div className="border-t border-amber-300 divide-y divide-amber-200">
@@ -268,29 +269,29 @@ export default function Page() {
                                         <div key={p.appointment_id} className="px-5 py-3 flex items-center gap-4 bg-white/60">
                                             <div className="flex-1 min-w-0">
                                                 <div className="font-semibold text-slate-800">{p.client_name}</div>
-                                                <div className="text-xs text-slate-500">{p.client_phone} · {new Date(p.starts_at).toLocaleDateString("he-IL")}</div>
+                                                <div className="text-xs text-slate-500">{p.client_phone} · {new Date(p.starts_at).toLocaleDateString(intl())}</div>
                                             </div>
-                                            <div className="text-right shrink-0">
+                                            <div className="text-start shrink-0">
                                                 <div className="font-bold text-rose-600" dir="ltr">{fmt(p.remaining_cents / 100)}</div>
-                                                <div className="text-xs text-slate-400">נותר לתשלום</div>
+                                                <div className="text-xs text-slate-400">{tx("נותר לתשלום")}</div>
                                             </div>
                                             <div className="flex gap-2 shrink-0">
                                                 <a
                                                     href={`/clients/${p.client_id}`}
                                                     className="px-3 py-1.5 bg-slate-800 text-white text-xs font-semibold rounded-lg hover:bg-slate-700 transition"
                                                 >
-                                                    פתח לקוח
+                                                    {tx("פתח לקוח")}
                                                 </a>
                                                 <button
                                                     onClick={async () => {
-                                                        if (confirm(`לאשר קבלת תשלום מ-${p.client_name}?`)) {
+                                                        if (confirm(tx("לאשר קבלת תשלום מ-{0}?", { 0: p.client_name }))) {
                                                             await apiFetch(`/api/appointments/${p.appointment_id}/verify-payment`, { method: "POST" });
                                                             fetchData();
                                                         }
                                                     }}
                                                     className="px-3 py-1.5 bg-emerald-600 text-white text-xs font-semibold rounded-lg hover:bg-emerald-700 transition"
                                                 >
-                                                    אשר ✅
+                                                    {tx("אשר ✅")}
                                                 </button>
                                             </div>
                                         </div>
@@ -305,14 +306,14 @@ export default function Page() {
                         <div className="rounded-2xl border-2 border-amber-400 bg-amber-50 overflow-hidden">
                             <button
                                 onClick={() => setPendingGiftCardsExpanded(o => !o)}
-                                className="w-full p-5 flex items-center gap-4 text-right hover:bg-amber-100/60 transition-colors"
+                                className="w-full p-5 flex items-center gap-4 text-start hover:bg-amber-100/60 transition-colors"
                             >
                                 <span className="text-3xl">🎁</span>
                                 <div className="flex-1">
-                                    <div className="font-bold text-amber-900">{pendingGiftCards.length} גיפט קארד ממתינים לאישור תשלום</div>
-                                    <div className="text-sm text-amber-700">הזמנות מהחנות הציבורית — לחץ לפירוט</div>
+                                    <div className="font-bold text-amber-900">{pendingGiftCards.length}{tx(" גיפט קארד ממתינים לאישור תשלום")}</div>
+                                    <div className="text-sm text-amber-700">{tx("הזמנות מהחנות הציבורית — לחץ לפירוט")}</div>
                                 </div>
-                                <span className="text-amber-600 text-sm font-semibold">{pendingGiftCardsExpanded ? "▲ סגור" : "▼ פרוס"}</span>
+                                <span className="text-amber-600 text-sm font-semibold">{pendingGiftCardsExpanded ? tx("▲ סגור") : tx("▼ פרוס")}</span>
                             </button>
                             {pendingGiftCardsExpanded && (
                                 <div className="border-t border-amber-300 divide-y divide-amber-200">
@@ -320,17 +321,17 @@ export default function Page() {
                                         <div key={g.id} className="px-5 py-3 flex items-center gap-4 bg-white/60">
                                             <div className="flex-1 min-w-0">
                                                 <div className="font-semibold text-slate-800">{g.buyer_name}</div>
-                                                <div className="text-xs text-slate-500">{g.buyer_phone} · לנמען: {g.recipient_name}</div>
+                                                <div className="text-xs text-slate-500">{g.buyer_phone}{tx(" · לנמען: ")}{g.recipient_name}</div>
                                             </div>
-                                            <div className="text-right shrink-0">
+                                            <div className="text-start shrink-0">
                                                 <div className="font-bold text-emerald-700" dir="ltr">{fmt(g.amount_ils)}</div>
-                                                {g.bonus_ils > 0 && <div className="text-xs text-slate-400">כולל בונוס ₪{g.bonus_ils.toFixed(0)}</div>}
+                                                {g.bonus_ils > 0 && <div className="text-xs text-slate-400">{tx("כולל בונוס ₪")}{g.bonus_ils.toFixed(0)}</div>}
                                             </div>
                                             <a
                                                 href="/gift-cards"
                                                 className="px-3 py-1.5 bg-slate-800 text-white text-xs font-semibold rounded-lg hover:bg-slate-700 transition shrink-0"
                                             >
-                                                לאישור
+                                                {tx("לאישור")}
                                             </a>
                                         </div>
                                     ))}
@@ -345,8 +346,8 @@ export default function Page() {
                             <div className="px-5 py-4 bg-amber-50 border-b border-amber-200 flex items-center gap-3">
                                 <span className="text-xl">💰</span>
                                 <div className="flex-1">
-                                    <div className="font-bold text-amber-900">ממתינים לאישור מקדמה</div>
-                                    <div className="text-xs text-amber-700">{pendingDeposits.length} תורים — לקוח שלחץ &quot;שילמתי&quot; בדף התשלום מסומן כאן, עם הצילום ששלח</div>
+                                    <div className="font-bold text-amber-900">{tx("ממתינים לאישור מקדמה")}</div>
+                                    <div className="text-xs text-amber-700">{pendingDeposits.length}{tx(" תורים — לקוח שלחץ \"שילמתי\" בדף התשלום מסומן כאן, עם הצילום ששלח")}</div>
                                 </div>
                             </div>
                             <div className="divide-y divide-slate-100">
@@ -355,20 +356,20 @@ export default function Page() {
                                         <div className="flex-1 min-w-0">
                                             <div className="font-semibold text-slate-800">{d.client_name}</div>
                                             <div className="text-xs text-slate-500">
-                                                {d.title} · {d.starts_at ? new Date(d.starts_at).toLocaleDateString("he-IL") + " " + new Date(d.starts_at).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" }) : "—"}
+                                                {d.title} · {d.starts_at ? new Date(d.starts_at).toLocaleDateString(intl()) + " " + new Date(d.starts_at).toLocaleTimeString(intl(), { hour: "2-digit", minute: "2-digit" }) : "—"}
                                             </div>
                                             <div className="text-xs font-bold text-amber-600 mt-0.5">
-                                                מקדמה: ₪{(d.deposit_amount_cents / 100).toLocaleString()}
+                                                {tx("מקדמה: ₪")}{(d.deposit_amount_cents / 100).toLocaleString()}
                                             </div>
                                             {d.payment_sent_at && (
                                                 <div className="mt-1 flex items-center gap-2">
                                                     <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5">
-                                                        <BellRing className="w-3 h-3" aria-hidden /> הלקוח דיווח ששילם · {new Date(d.payment_sent_at).toLocaleString("he-IL", { day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" })}
+                                                        <BellRing className="w-3 h-3" aria-hidden />{tx(" הלקוח דיווח ששילם · ")}{new Date(d.payment_sent_at).toLocaleString(intl(), { day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" })}
                                                     </span>
                                                     {d.payment_proof_url && (
-                                                        <a href={imgUrl(d.payment_proof_url)} target="_blank" rel="noopener noreferrer" className="shrink-0" title="הצילום ששלח הלקוח">
+                                                        <a href={imgUrl(d.payment_proof_url)} target="_blank" rel="noopener noreferrer" className="shrink-0" title={tx("הצילום ששלח הלקוח")}>
                                                             {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                            <img src={imgUrl(d.payment_proof_url)} alt="צילום התשלום" className="w-8 h-10 object-cover rounded border border-slate-200" />
+                                                            <img src={imgUrl(d.payment_proof_url)} alt={tx("צילום התשלום")} className="w-8 h-10 object-cover rounded border border-slate-200" />
                                                         </a>
                                                     )}
                                                 </div>
@@ -377,11 +378,11 @@ export default function Page() {
                                             <div className="mt-1">
                                                 {d.deposit_reminder_sent ? (
                                                     <span className="inline-flex items-center gap-1 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5">
-                                                        ✅ תזכורת נשלחה{d.deposit_reminder_sent_at ? ` · ${new Date(d.deposit_reminder_sent_at).toLocaleDateString("he-IL")}` : ""}
+                                                        {tx("✅ תזכורת נשלחה")}{d.deposit_reminder_sent_at ? ` · ${new Date(d.deposit_reminder_sent_at).toLocaleDateString(intl())}` : ""}
                                                     </span>
                                                 ) : (
                                                     <span className="inline-flex items-center gap-1 text-xs text-slate-400 bg-slate-50 border border-slate-200 rounded-full px-2 py-0.5">
-                                                        🔔 טרם נשלחה תזכורת
+                                                        {tx("🔔 טרם נשלחה תזכורת")}
                                                     </span>
                                                 )}
                                             </div>
@@ -394,29 +395,29 @@ export default function Page() {
                                                 onClick={() => openDepositCashier(d)}
                                                 className="inline-flex items-center gap-1 min-h-9 px-3 text-xs font-bold text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition"
                                             >
-                                                <CircleCheck className="w-3.5 h-3.5" aria-hidden /> קיבלתי
+                                                <CircleCheck className="w-3.5 h-3.5" aria-hidden /> {tx("קיבלתי")}
                                             </button>
                                             <button
                                                 type="button"
                                                 onClick={() => sendDepositReminder(d.appointment_id)}
                                                 disabled={sendingReminder === d.appointment_id}
                                                 className="inline-flex items-center gap-1 min-h-9 px-3 text-xs font-semibold text-orange-700 border border-orange-200 rounded-lg hover:bg-orange-50 transition disabled:opacity-50"
-                                                title="שלח תזכורת WhatsApp עכשיו"
+                                                title={tx("שלח תזכורת WhatsApp עכשיו")}
                                             >
-                                                <Bell className="w-3.5 h-3.5" aria-hidden /> {sendingReminder === d.appointment_id ? "שולח..." : "שלח תזכורת"}
+                                                <Bell className="w-3.5 h-3.5" aria-hidden /> {sendingReminder === d.appointment_id ? tx("שולח...") : tx("שלח תזכורת")}
                                             </button>
                                             <button
                                                 type="button"
                                                 onClick={() => waiveDeposit(d.appointment_id)}
                                                 disabled={waivingDeposit === d.appointment_id}
                                                 className="inline-flex items-center gap-1 min-h-9 px-3 text-xs font-semibold text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition disabled:opacity-50"
-                                                title="נועל את התור ללא גביית מקדמה"
+                                                title={tx("נועל את התור ללא גביית מקדמה")}
                                             >
-                                                <Lock className="w-3.5 h-3.5" aria-hidden /> {waivingDeposit === d.appointment_id ? "..." : "מאשר ללא מקדמה"}
+                                                <Lock className="w-3.5 h-3.5" aria-hidden /> {waivingDeposit === d.appointment_id ? "..." : tx("מאשר ללא מקדמה")}
                                             </button>
                                             <a href={`https://wa.me/${whatsappNumber(d.client_phone)}`} target="_blank" rel="noreferrer"
                                                 className="inline-flex items-center gap-1 min-h-9 px-3 text-xs font-semibold text-emerald-700 border border-emerald-200 rounded-lg hover:bg-emerald-50 transition">
-                                                <MessageCircle className="w-3.5 h-3.5" aria-hidden /> וואטסאפ
+                                                <MessageCircle className="w-3.5 h-3.5" aria-hidden /> {tx("וואטסאפ")}
                                             </a>
                                         </div>
                                     </div>
@@ -435,42 +436,42 @@ export default function Page() {
                     <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
                         <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
                             <div>
-                                <h3 className="font-bold text-slate-800">דוח גבייה יומי — {new Date().toLocaleDateString("he-IL")}</h3>
-                                <p className="text-xs text-slate-500 mt-0.5">ניהול תשלומים לתורים של היום</p>
+                                <h3 className="font-bold text-slate-800">{tx("דוח גבייה יומי — ")}{new Date().toLocaleDateString(intl())}</h3>
+                                <p className="text-xs text-slate-500 mt-0.5">{tx("ניהול תשלומים לתורים של היום")}</p>
                             </div>
-                            <span className="px-2 py-1 bg-emerald-100 text-emerald-700 text-xs font-bold rounded-full">סנכרון חי</span>
+                            <span className="px-2 py-1 bg-emerald-100 text-emerald-700 text-xs font-bold rounded-full">{tx("סנכרון חי")}</span>
                         </div>
                         {todayRevenue && (
-                            <div className="px-6 py-3 bg-emerald-50 border-b border-emerald-100 flex items-center gap-6 flex-wrap" dir="rtl">
+                            <div className="px-6 py-3 bg-emerald-50 border-b border-emerald-100 flex items-center gap-6 flex-wrap">
                                 <div>
-                                    <span className="text-xs text-emerald-600 font-semibold">💵 סה״כ נגבה היום</span>
-                                    <span className="text-xl font-black text-emerald-700 mr-2">{fmt(todayRevenue.total_today_cents / 100)}</span>
+                                    <span className="text-xs text-emerald-600 font-semibold">{tx("💵 סה״כ נגבה היום")}</span>
+                                    <span className="text-xl font-black text-emerald-700 ms-2">{fmt(todayRevenue.total_today_cents / 100)}</span>
                                 </div>
                                 <div className="w-px bg-emerald-200 h-6 hidden sm:block" />
                                 <div className="flex gap-x-4 gap-y-1 text-sm text-emerald-800 flex-wrap items-center">
-                                    <span className="text-xs text-emerald-600">מתוך זה:</span>
+                                    <span className="text-xs text-emerald-600">{tx("מתוך זה:")}</span>
                                     {[
-                                        { label: "תורים של היום", cents: todayRevenue.appointments_today_cents },
-                                        { label: "מקדמות לתורים הבאים", cents: todayRevenue.deposits_today_cents },
-                                        { label: "תשלומים על תורים קודמים", cents: todayRevenue.earlier_appointments_cents },
-                                        { label: "מנויים, שיעורים ואחר", cents: todayRevenue.other_payments_cents },
-                                        { label: "קופה", cents: todayRevenue.pos_revenue_cents },
+                                        { label: tx("תורים של היום"), cents: todayRevenue.appointments_today_cents },
+                                        { label: tx("מקדמות לתורים הבאים"), cents: todayRevenue.deposits_today_cents },
+                                        { label: tx("תשלומים על תורים קודמים"), cents: todayRevenue.earlier_appointments_cents },
+                                        { label: tx("מנויים, שיעורים ואחר"), cents: todayRevenue.other_payments_cents },
+                                        { label: tx("קופה"), cents: todayRevenue.pos_revenue_cents },
                                     ].filter(p => p.cents > 0).map(p => (
                                         <span key={p.label}>{p.label}: <strong>{fmt(p.cents / 100)}</strong></span>
                                     ))}
                                     {todayRevenue.refunds_cents > 0 && (
-                                        <span className="text-rose-600">החזרים: <strong>−{fmt(todayRevenue.refunds_cents / 100)}</strong></span>
+                                        <span className="text-rose-600">{tx("החזרים: ")}<strong>−{fmt(todayRevenue.refunds_cents / 100)}</strong></span>
                                     )}
                                     {todayRevenue.total_today_cents === 0 && todayRevenue.refunds_cents === 0 && (
-                                        <span className="text-emerald-600">עוד לא נכנס כסף היום</span>
+                                        <span className="text-emerald-600">{tx("עוד לא נכנס כסף היום")}</span>
                                     )}
                                 </div>
                                 {todayRevenue.deposits_today?.length > 0 && (
                                     <div className="w-full flex gap-x-4 gap-y-1 text-xs flex-wrap text-violet-700">
                                         {todayRevenue.deposits_today.map((d, i) => (
                                             <span key={i}>
-                                                💰 מקדמה {d.client_name}: <strong>{fmt(d.amount_cents / 100)}</strong>
-                                                <span className="text-violet-400"> (תור {new Date(d.appointment_date).toLocaleDateString("he-IL")})</span>
+                                                {tx("💰 מקדמה")} {d.client_name}: <strong>{fmt(d.amount_cents / 100)}</strong>
+                                                <span className="text-violet-400">{tx(" (תור ")}{new Date(d.appointment_date).toLocaleDateString(intl())})</span>
                                             </span>
                                         ))}
                                     </div>
@@ -478,20 +479,20 @@ export default function Page() {
                             </div>
                         )}
                         <div className="overflow-x-auto">
-                            <table className="w-full text-right text-sm">
+                            <table className="w-full text-start text-sm">
                                 <thead>
                                     <tr className="bg-slate-50 text-slate-500 text-xs font-bold uppercase tracking-wide border-b border-slate-100">
-                                        <th className="px-6 py-3">לקוח</th>
-                                        <th className="px-6 py-3">שעה</th>
-                                        <th className="px-6 py-3">סה״כ</th>
-                                        <th className="px-6 py-3">שולם</th>
-                                        <th className="px-6 py-3 text-emerald-600">יתרה</th>
-                                        <th className="px-6 py-3">פעולות</th>
+                                        <th className="px-6 py-3">{tx("לקוח")}</th>
+                                        <th className="px-6 py-3">{tx("שעה")}</th>
+                                        <th className="px-6 py-3">{tx("סה״כ")}</th>
+                                        <th className="px-6 py-3">{tx("שולם")}</th>
+                                        <th className="px-6 py-3 text-emerald-600">{tx("יתרה")}</th>
+                                        <th className="px-6 py-3">{tx("פעולות")}</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50">
                                     {dailyPayments.length === 0 ? (
-                                        <tr><td colSpan={6} className="px-6 py-12 text-center text-slate-400">לא נמצאו תורים להיום</td></tr>
+                                        <tr><td colSpan={6} className="px-6 py-12 text-center text-slate-400">{tx("לא נמצאו תורים להיום")}</td></tr>
                                     ) : dailyPayments.map(p => (
                                         <tr key={p.appointment_id} className="hover:bg-slate-50/80 transition-colors">
                                             <td className="px-6 py-4">
@@ -499,7 +500,7 @@ export default function Page() {
                                                 <div className="text-xs text-slate-400">{p.client_phone}</div>
                                             </td>
                                             <td className="px-6 py-4 text-slate-600">
-                                                {new Date(p.starts_at).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })}
+                                                {new Date(p.starts_at).toLocaleTimeString(intl(), { hour: "2-digit", minute: "2-digit" })}
                                             </td>
                                             <td className="px-6 py-4 font-semibold text-slate-700" dir="ltr">
                                                 {(p.total_price_cents ?? 0) > 0 ? fmt((p.total_price_cents ?? 0) / 100) : <span className="text-slate-300 font-normal">—</span>}
@@ -508,25 +509,25 @@ export default function Page() {
                                             <td className="px-6 py-4">
                                                 {!((p.total_price_cents ?? 0) > 0)
                                                     // no price on the appointment — nothing to say it is fully paid
-                                                    ? <span className="text-xs text-slate-400">לא נקבע מחיר</span>
+                                                    ? <span className="text-xs text-slate-400">{tx("לא נקבע מחיר")}</span>
                                                     : p.remaining_cents > 0
                                                     ? <span className="font-bold text-rose-500 bg-rose-50 px-2 py-0.5 rounded-full" dir="ltr">{fmt(p.remaining_cents / 100)}</span>
-                                                    : <span className="font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">שולם ✨</span>
+                                                    : <span className="font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">{tx("שולם ✨")}</span>
                                                 }
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex flex-col gap-1.5">
                                                     <a href={`/clients/${p.client_id}`} className="px-3 py-1.5 bg-slate-100 text-slate-800 text-xs font-semibold rounded-lg text-center hover:bg-slate-200 transition">
-                                                        כרטיס לקוח
+                                                        {tx("כרטיס לקוח")}
                                                     </a>
                                                     <button onClick={() => { setSelectedAppt(p); setIsPaymentModalOpen(true); }}
                                                         className="px-3 py-1.5 bg-black text-white text-xs font-semibold rounded-lg hover:bg-slate-800 transition">
-                                                        הקלט תשלום 💳
+                                                        {tx("הקלט תשלום 💳")}
                                                     </button>
                                                     {p.payment_sent_at && !p.payment_verified_at && (
                                                         <button onClick={() => openDepositCashier(p)}
                                                             className="px-3 py-1.5 bg-emerald-600 text-white text-xs font-semibold rounded-lg hover:bg-emerald-700 transition animate-pulse">
-                                                            אשר קבלתי ✅
+                                                            {tx("אשר קבלתי ✅")}
                                                         </button>
                                                     )}
                                                 </div>
@@ -547,14 +548,14 @@ export default function Page() {
                             className={`w-full px-5 py-3 flex items-center gap-3 hover:bg-slate-50 transition-colors ${leadsOpen ? "border-b border-slate-100" : ""}`}
                         >
                             <Target className="h-5 w-5 text-slate-500" />
-                            <h3 className="font-bold text-slate-800 text-sm">לידים</h3>
+                            <h3 className="font-bold text-slate-800 text-sm">{tx("לידים")}</h3>
                             {newLeads > 0 && (
                                 <span className="text-white text-xs font-bold rounded-full px-2 h-5 flex items-center" style={{ background: "var(--accent)" }}>
-                                    {newLeads} {newLeads === 1 ? "חדש" : "חדשים"}
+                                    {newLeads} {newLeads === 1 ? tx("חדש") : tx("חדשים")}
                                 </span>
                             )}
-                            <span className="mr-auto flex items-center gap-1.5 text-xs font-semibold text-slate-400">
-                                {leadsOpen ? "סגור" : "פתח"}
+                            <span className="ms-auto flex items-center gap-1.5 text-xs font-semibold text-slate-400">
+                                {leadsOpen ? tx("סגור") : tx("פתח")}
                                 <ChevronDown className={`h-4 w-4 transition-transform ${leadsOpen ? "rotate-180" : ""}`} />
                             </span>
                         </button>

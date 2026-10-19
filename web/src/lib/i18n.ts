@@ -1,5 +1,7 @@
 // The system's languages — Hebrew and English (the owner, 2026-10-19: Arabic out). The choice is kept in the user's
 // account (PUT /api/auth/me/locale — the owner's is the business's too) and on the device, for the first paint.
+import { EN } from "@/lib/en";
+
 export type Locale = "he" | "en";
 
 export const LOCALES: { code: Locale; label: string; short: string; dir: "rtl" | "ltr" }[] = [
@@ -12,6 +14,29 @@ export const LOCALE_KEY = "biz_locale";
 /** The language kept on this device — he unless it's en (an old "ar" too). */
 export function savedLocale(): Locale {
     try { return localStorage.getItem(LOCALE_KEY) === "en" ? "en" : "he"; } catch { return "he"; }
+}
+
+// The screens' own texts in the chosen language — tx("טקסט", { 0: n }) anywhere, in a component or not (the
+// translation's stages 2–4; the screens are written in Hebrew, English from lib/en.ts — a text without English yet
+// stays Hebrew). The language is read when the page loads; changing it reloads the page (components/LanguageProvider),
+// so texts worked out when a module loads are right too. The signed-in screens render after the browser loads
+// (RequireAuth), so the server's Hebrew page never meets an English first paint.
+let txLocale: Locale = typeof window === "undefined" ? "he" : savedLocale();
+
+export function setTxLocale(l: Locale) { txLocale = l; }
+
+/** The dates' and numbers' locale for the chosen language. */
+export const intl = (): string => (txLocale === "en" ? "en-GB" : "he-IL");
+
+export function tx(he: string, vars?: Record<string | number, unknown>): string {
+    let out = he;
+    if (txLocale === "en") {
+        const m = /^(\s*)([\s\S]*?)(\s*)$/.exec(he);      // the spaces around a text stay where they were
+        const hit = m ? EN[m[2]] : undefined;
+        if (m && hit !== undefined) out = m[1] + hit + m[3];
+    }
+    if (vars) for (const [k, v] of Object.entries(vars)) out = out.split(`{${k}}`).join(String(v));
+    return out;
 }
 
 export const translations = {

@@ -8,6 +8,7 @@ import { toast } from "@/lib/toast";
 import { useTour } from "@/components/tour/TourProvider";
 import VikiAvatar from "@/components/tour/VikiAvatar";
 
+import { tx } from "@/lib/i18n";
 function Ring({ pct, size = 64 }: { pct: number; size?: number }) {
     const r = (size - 10) / 2;
     const circ = 2 * Math.PI * r;
@@ -43,7 +44,7 @@ export default function SetupChecklist() {
         try {
             setProgress(await fn(id));
         } catch (e: unknown) {
-            toast.error(e instanceof Error ? e.message : "שגיאה");
+            toast.error(e instanceof Error ? e.message : tx("שגיאה"));
         } finally {
             setBusyId(null);
         }
@@ -56,16 +57,16 @@ export default function SetupChecklist() {
     const done = progress.items.filter(i => i.done);
 
     return (
-        <section className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5" dir="rtl">
+        <section className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
             <div className="flex items-center gap-4 mb-4">
                 <div className="relative shrink-0">
                     <Ring pct={progress.percent} />
                     <span className="absolute inset-0 flex items-center justify-center text-sm font-extrabold text-slate-800">{progress.percent}%</span>
                 </div>
                 <div className="min-w-0">
-                    <h3 className="font-bold text-slate-800">הקמת העסק</h3>
+                    <h3 className="font-bold text-slate-800">{tx("הקמת העסק")}</h3>
                     <p className="text-sm text-slate-500 mt-0.5">
-                        {progress.completed_count} מתוך {progress.total_count} משימות הושלמו · האיזור הזה ייעלם כשתסיימו את כולן
+                        {progress.completed_count}{tx(" מתוך ")}{progress.total_count} {tx("משימות הושלמו · האיזור הזה ייעלם כשתסיימו את כולן")}
                     </p>
                 </div>
             </div>
@@ -74,21 +75,21 @@ export default function SetupChecklist() {
                 {remaining.map(item => (
                     <div key={item.id} className="flex items-center gap-3 py-2.5">
                         <Circle className="h-4 w-4 text-slate-300 shrink-0" />
-                        <Link href={item.href} className="flex-1 min-w-0 text-sm font-semibold text-slate-800 hover:underline truncate">{item.label}</Link>
+                        <Link href={item.href} className="flex-1 min-w-0 text-sm font-semibold text-slate-800 hover:underline truncate">{tx(item.label)}</Link>
                         {tour.stepFor(item.id) && (
                             <button type="button" onClick={() => tour.startAt(tour.stepFor(item.id)!)}
                                 className="flex items-center gap-1 text-[11px] font-bold text-sky-700 bg-sky-50 hover:bg-sky-100 px-2 py-0.5 rounded-full shrink-0">
-                                <VikiAvatar size={16} className="rounded-full" /> הראו לי
+                                <VikiAvatar size={16} className="rounded-full" /> {tx("הראו לי")}
                             </button>
                         )}
                         <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${item.tier === "required" ? "bg-rose-50 text-rose-600" : "bg-slate-100 text-slate-500"}`}>
-                            {item.tier === "required" ? "חובה" : "מומלץ"}
+                            {item.tier === "required" ? tx("חובה") : tx("מומלץ")}
                         </span>
                         {item.tier === "recommended" && (
                             <button
                                 onClick={() => act(item.id, dismissSetupItem)}
                                 disabled={busyId === item.id}
-                                title="לא רלוונטי עבורי"
+                                title={tx("לא רלוונטי עבורי")}
                                 className="text-slate-300 hover:text-slate-600 disabled:opacity-40"
                             >
                                 <X className="h-4 w-4" />
@@ -102,25 +103,25 @@ export default function SetupChecklist() {
                 <div className="border-t border-slate-100 pt-3">
                     <button onClick={() => setShowDone(v => !v)} className="flex items-center gap-1.5 text-xs font-semibold text-slate-400 hover:text-slate-600">
                         <ChevronDown className={`h-4 w-4 transition-transform ${showDone ? "rotate-180" : ""}`} />
-                        {done.length} הושלמו{progress.dismissed_items.length > 0 ? ` · ${progress.dismissed_items.length} סומנו כלא רלוונטי` : ""}
+                        {done.length}{tx(" הושלמו")}{progress.dismissed_items.length > 0 ? tx(" · {0} סומנו כלא רלוונטי", { 0: progress.dismissed_items.length }) : ""}
                     </button>
                     {showDone && (
                         <div className="mt-2 space-y-1.5">
                             {done.map(item => (
                                 <div key={item.id} className="flex items-center gap-3 text-sm text-slate-400">
                                     <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
-                                    <span className="line-through">{item.label}</span>
+                                    <span className="line-through">{tx(item.label)}</span>
                                 </div>
                             ))}
                             {progress.dismissed_items.map(item => (
                                 <div key={item.id} className="flex items-center gap-3 text-sm text-slate-400">
-                                    <span className="flex-1">{item.label} <span className="text-xs">(לא רלוונטי)</span></span>
+                                    <span className="flex-1">{tx(item.label)} <span className="text-xs">{tx("(לא רלוונטי)")}</span></span>
                                     <button
                                         onClick={() => act(item.id, restoreSetupItem)}
                                         disabled={busyId === item.id}
                                         className="flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-slate-800 disabled:opacity-40"
                                     >
-                                        <RotateCcw className="h-3.5 w-3.5" /> החזר
+                                        <RotateCcw className="h-3.5 w-3.5" /> {tx("החזר")}
                                     </button>
                                 </div>
                             ))}

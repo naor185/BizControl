@@ -26,11 +26,11 @@ import { useTerms } from "@/lib/useTerms";
 // What the "הצגת חגים" panel lets you switch on/off, one group at a time.
 type HolidayCat = "chagim" | "modern" | "fasts" | "roshChodesh" | "parsha";
 const HOLIDAY_CATS: { key: HolidayCat; label: string }[] = [
-    { key: "chagim", label: "חגים ומועדים" },
-    { key: "modern", label: "ימי זיכרון ולאום" },
-    { key: "fasts", label: "צומות" },
-    { key: "roshChodesh", label: "ראשי חודשים" },
-    { key: "parsha", label: "פרשת השבוע ושבתות מיוחדות" },
+    { key: "chagim", label: tx("חגים ומועדים") },
+    { key: "modern", label: tx("ימי זיכרון ולאום") },
+    { key: "fasts", label: tx("צומות") },
+    { key: "roshChodesh", label: tx("ראשי חודשים") },
+    { key: "parsha", label: tx("פרשת השבוע ושבתות מיוחדות") },
 ];
 const DEFAULT_HOLIDAY_CATS: Record<HolidayCat, boolean> = { chagim: true, modern: true, fasts: true, roshChodesh: true, parsha: true };
 const HOLIDAY_CATS_KEY = "biz_holiday_cats";
@@ -83,6 +83,7 @@ import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import heLocale from '@fullcalendar/core/locales/he';
 
+import { tx, intl } from "@/lib/i18n";
 type Client = { id: string; full_name: string; phone?: string | null; is_walk_in?: boolean; cancellation_count?: number; no_show_count?: number; };
 type Artist = { id: string; email: string; display_name?: string | null };
 type Appointment = {
@@ -290,12 +291,12 @@ function Calendar() {
     const loadedRangeRef = useRef<{ start: Date; end: Date } | null>(null);
 
     const handleDatesSet = useCallback((info: any) => {
-        const HE_MONTHS = ["ינואר","פברואר","מרץ","אפריל","מאי","יוני","יולי","אוגוסט","ספטמבר","אוקטובר","נובמבר","דצמבר"];
+        const HE_MONTHS = [tx("ינואר"),tx("פברואר"),tx("מרץ"),tx("אפריל"),tx("מאי"),tx("יוני"),tx("יולי"),tx("אוגוסט"),tx("ספטמבר"),tx("אוקטובר"),tx("נובמבר"),tx("דצמבר")];
         const start = new Date(info.start);
         const end   = new Date(info.end);
         end.setDate(end.getDate() - 1);
         if (start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear()) {
-            setCurrentDateRange(`${start.getDate()}–${end.getDate()} ב${HE_MONTHS[start.getMonth()]} ${start.getFullYear()}`);
+            setCurrentDateRange(tx("{0}–{1} ב{2} {3}", { 0: start.getDate(), 1: end.getDate(), 2: HE_MONTHS[start.getMonth()], 3: start.getFullYear() }));
         } else {
             setCurrentDateRange(`${start.getDate()}/${start.getMonth()+1} – ${end.getDate()}/${end.getMonth()+1} ${start.getFullYear()}`);
         }
@@ -416,7 +417,7 @@ function Calendar() {
                 // the calendar may still be drawing — go to the appointment's day once it is
                 setTimeout(() => calendarRef.current?.getApi().gotoDate(a.starts_at), 300);
             })
-            .catch(() => showToast("התור לא נמצא", "error"))
+            .catch(() => showToast(tx("התור לא נמצא"), "error"))
             .finally(() => router.replace("/calendar"));
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [linkedApptId]);
@@ -472,7 +473,7 @@ function Calendar() {
                 setServices(svcs);
             } catch { /* services not critical */ }
         } catch (e: any) {
-            setErr(e?.message || "שגיאה בטעינת נתוני היומן");
+            setErr(e?.message || tx("שגיאה בטעינת נתוני היומן"));
         } finally {
             setLoading(false);
         }
@@ -595,7 +596,7 @@ function Calendar() {
             const hd = ev.getDate();
             const g = hd.greg();
             const iso = `${g.getFullYear()}-${pad(g.getMonth() + 1)}-${pad(g.getDate())}`;
-            const name = heb(ev.render("he"));
+            const name = intl() === "en-GB" ? ev.render("en") : heb(ev.render("he"));     // the holiday in the chosen language
             const emoji = holidayEmoji(ev.getDesc(), f, F as unknown as Record<string, number>);
             const c = styleFor(f, holidayCategory(f, F as unknown as Record<string, number>));
             return {
@@ -640,7 +641,7 @@ function Calendar() {
                     id: app.id,
                     // Plain-text fallback for accessibility/list-view — the actual
                     // on-screen rendering comes from the eventContent AppointmentCard.
-                    title: isExternalGoogle ? app.title : `${app.title} - ${app.client_name || 'ללא לקוח'}`,
+                    title: isExternalGoogle ? app.title : `${app.title} - ${app.client_name || tx("ללא לקוח")}`,
                     start: app.starts_at,
                     end: app.ends_at,
                     backgroundColor: app.artist_color || statusMeta(app.status).color,
@@ -665,7 +666,7 @@ function Calendar() {
     }
 
     async function handleCreateNewClient() {
-        if (!newClientName.trim()) { setNewClientErr("שם חובה"); return; }
+        if (!newClientName.trim()) { setNewClientErr(tx("שם חובה")); return; }
         setNewClientErr(null);
         setNewClientLoading(true);
         try {
@@ -686,8 +687,8 @@ function Calendar() {
         } catch (e: any) {
             const msg = String(e?.message || "");
             setNewClientErr(msg.includes("כבר קיים") || msg.includes("already") || msg.includes("duplicate")
-                ? "לקוח עם מספר טלפון זה כבר קיים במערכת"
-                : msg || "שגיאה ביצירת לקוח");
+                ? tx("לקוח עם מספר טלפון זה כבר קיים במערכת")
+                : msg || tx("שגיאה ביצירת לקוח"));
         } finally {
             setNewClientLoading(false);
         }
@@ -810,7 +811,7 @@ function Calendar() {
             return;
         }
         if (app.isExternalGoogle) {
-            showToast("זהו אירוע מיומן גוגל — לא ניתן לערוך אותו מכאן.", "error");
+            showToast(tx("זהו אירוע מיומן גוגל — לא ניתן לערוך אותו מכאן."), "error");
             return;
         }
 
@@ -828,9 +829,9 @@ function Calendar() {
             await apiFetch(`/api/appointments/${appointmentId}`, { method: "PATCH", body: JSON.stringify({ status: newStatus }) });
             setViewSheetAppt(null);
             loadData();
-            showToast("✅ הסטטוס עודכן");
+            showToast(tx("✅ הסטטוס עודכן"));
         } catch (e: any) {
-            showToast(e?.message || "שגיאה בעדכון סטטוס", "error");
+            showToast(e?.message || tx("שגיאה בעדכון סטטוס"), "error");
         }
     };
 
@@ -854,9 +855,9 @@ function Calendar() {
                 body: fd,
             });
             if (!res.ok) throw new Error(await res.text());
-            showToast("📸 התמונה נשמרה");
+            showToast(tx("📸 התמונה נשמרה"));
         } catch (err: any) {
-            showToast(err?.message || "שגיאה בהעלאת תמונה", "error");
+            showToast(err?.message || tx("שגיאה בהעלאת תמונה"), "error");
         } finally {
             setUploadingViewPhoto(false);
             e.target.value = "";
@@ -872,14 +873,14 @@ function Calendar() {
         const newStartStr = resizeInfo.event.startStr;
         const newEndStr = resizeInfo.event.endStr;
         const eventId = resizeInfo.event.id;
-        const clientName = resizeInfo.event.extendedProps?.client_name || resizeInfo.event.title || "התור";
+        const clientName = resizeInfo.event.extendedProps?.client_name || resizeInfo.event.title || tx("התור");
         const newEnd = new Date(newEndStr);
-        const endLabel = newEnd.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
+        const endLabel = newEnd.toLocaleTimeString(intl(), { hour: "2-digit", minute: "2-digit" });
 
         resizeInfo.revert();
 
         setDragConfirm({
-            label: `לשנות את משך "${clientName}" לסיום בשעה ${endLabel}?`,
+            label: tx("לשנות את משך \"{0}\" לסיום בשעה {1}?", { 0: clientName, 1: endLabel }),
             onConfirm: async () => {
                 setDragConfirm(null);
                 try {
@@ -894,9 +895,9 @@ function Calendar() {
                         body: JSON.stringify({ ends_at: newEndStr }),
                     });
                     setAppointments(prev => prev.map(a => a.id === eventId ? { ...a, ends_at: newEndStr } : a));
-                    showToast("משך התור עודכן ✅");
+                    showToast(tx("משך התור עודכן ✅"));
                 } catch (e: any) {
-                    showToast("שגיאה בעדכון משך התור: " + (e?.message || ""), "error");
+                    showToast(tx("שגיאה בעדכון משך התור: ") + (e?.message || ""), "error");
                 }
             },
             onCancel: () => setDragConfirm(null),
@@ -907,7 +908,7 @@ function Calendar() {
         const app = dropInfo.event.extendedProps;
         if (app.isClass) { dropInfo.revert(); return; }
         if (app.isExternalGoogle) {
-            showToast("לא ניתן להזיז אירועים מגוגל קלנדר חיצוני.", "error");
+            showToast(tx("לא ניתן להזיז אירועים מגוגל קלנדר חיצוני."), "error");
             dropInfo.revert();
             return;
         }
@@ -931,7 +932,7 @@ function Calendar() {
                     : t
                 ));
             } catch {
-                showToast("שגיאה בהזזת המשימה", "error");
+                showToast(tx("שגיאה בהזזת המשימה"), "error");
                 dropInfo.revert();
             }
             return;
@@ -941,17 +942,17 @@ function Calendar() {
         const newStartStr = dropInfo.event.startStr;
         const newEndStr = dropInfo.event.endStr;
         const eventId = dropInfo.event.id;
-        const clientName = dropInfo.event.extendedProps?.client_name || dropInfo.event.title || "התור";
+        const clientName = dropInfo.event.extendedProps?.client_name || dropInfo.event.title || tx("התור");
 
         // Revert visually first, then ask for confirmation (mobile + desktop)
         dropInfo.revert();
         const newStart = new Date(newStartStr);
         const isPast = newStart < new Date();
-        const dateLabel = newStart.toLocaleDateString("he-IL", { weekday: "long", day: "2-digit", month: "2-digit" });
-        const timeLabel = newStart.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
+        const dateLabel = newStart.toLocaleDateString(intl(), { weekday: "long", day: "2-digit", month: "2-digit" });
+        const timeLabel = newStart.toLocaleTimeString(intl(), { hour: "2-digit", minute: "2-digit" });
 
         setDragConfirm({
-            label: `להזיז את "${clientName}" ל-${dateLabel} בשעה ${timeLabel}?${isPast ? "\n⚠️ שים לב — תאריך זה כבר עבר." : ""}`,
+            label: tx("להזיז את \"{0}\" ל-{1} בשעה {2}?{3}", { 0: clientName, 1: dateLabel, 2: timeLabel, 3: isPast ? tx("\n⚠️ שים לב — תאריך זה כבר עבר.") : "" }),
             onConfirm: async () => {
                 setDragConfirm(null);
                 try {
@@ -960,9 +961,9 @@ function Calendar() {
                         body: JSON.stringify({ starts_at: newStartStr, ends_at: newEndStr }),
                     });
                     setAppointments(prev => prev.map(a => a.id === eventId ? { ...a, starts_at: newStartStr, ends_at: newEndStr } : a));
-                    showToast("התור הוזז בהצלחה ✅");
+                    showToast(tx("התור הוזז בהצלחה ✅"));
                 } catch (e: any) {
-                    showToast("שגיאה בהזזת התור: " + (e?.message || ""), "error");
+                    showToast(tx("שגיאה בהזזת התור: ") + (e?.message || ""), "error");
                 }
             },
             onCancel: () => setDragConfirm(null),
@@ -979,7 +980,7 @@ function Calendar() {
 
     const handleSaveAppointment = async (skipPastCheck = false) => {
         if (!title || !startAt || !endAt || !artistId || !clientId) {
-            showToast("יש למלא את כל שדות החובה: כותרת, זמנים, איש צוות ולקוח.", "error");
+            showToast(tx("יש למלא את כל שדות החובה: כותרת, זמנים, איש צוות ולקוח."), "error");
             return;
         }
 
@@ -1016,7 +1017,7 @@ function Calendar() {
             setIsModalOpen(false);
             loadData();
         } catch (e: any) {
-            showToast(e?.message || "שגיאה בשמירת התור", "error");
+            showToast(e?.message || tx("שגיאה בשמירת התור"), "error");
         }
     };
 
@@ -1042,7 +1043,7 @@ function Calendar() {
         setIsPaymentModalOpen(false);
         setIsModalOpen(false);
         loadData();
-        showToast("✅ התשלום אושר בהצלחה!");
+        showToast(tx("✅ התשלום אושר בהצלחה!"));
     };
 
     const handleDeleteClick = () => {
@@ -1059,7 +1060,7 @@ function Calendar() {
             setIsModalOpen(false);
             loadData();
         } catch (e: any) {
-            showToast(e?.message || "שגיאה במחיקת התור", "error");
+            showToast(e?.message || tx("שגיאה במחיקת התור"), "error");
         }
     };
 
@@ -1117,19 +1118,19 @@ function Calendar() {
             }
             setIsTaskModalOpen(false);
             loadData();
-            showToast(taskOccurrence.done ? "הסימון בוטל" : "✅ המשימה סומנה כבוצעה");
+            showToast(taskOccurrence.done ? tx("הסימון בוטל") : tx("✅ המשימה סומנה כבוצעה"));
         } catch (e: unknown) {
-            showToast((e as { message?: string })?.message || "הסימון לא נשמר", "error");
+            showToast((e as { message?: string })?.message || tx("הסימון לא נשמר"), "error");
         }
     };
 
     const handleSaveTask = async () => {
-        if (!taskTitle.trim()) { showToast("יש להזין כותרת למשימה", "error"); return; }
-        if (taskKind === "break" && (!taskStartTime || !taskEndTime)) { showToast("להפסקה או לפגישה צריך שעת התחלה ושעת סיום", "error"); return; }
-        if (taskRecurrence === "none" && !taskDate) { showToast("יש לבחור תאריך", "error"); return; }
-        if (taskRecurrence === "weekly" && taskRecurrenceDaysOfWeek.length === 0) { showToast("יש לבחור לפחות יום אחד בשבוע", "error"); return; }
-        if (taskRecurrence === "monthly" && !taskRecurrenceDay) { showToast("יש לבחור יום בחודש", "error"); return; }
-        if (taskRecurrence === "yearly" && (!taskRecurrenceDay || !taskRecurrenceMonth)) { showToast("יש לבחור יום וחודש", "error"); return; }
+        if (!taskTitle.trim()) { showToast(tx("יש להזין כותרת למשימה"), "error"); return; }
+        if (taskKind === "break" && (!taskStartTime || !taskEndTime)) { showToast(tx("להפסקה או לפגישה צריך שעת התחלה ושעת סיום"), "error"); return; }
+        if (taskRecurrence === "none" && !taskDate) { showToast(tx("יש לבחור תאריך"), "error"); return; }
+        if (taskRecurrence === "weekly" && taskRecurrenceDaysOfWeek.length === 0) { showToast(tx("יש לבחור לפחות יום אחד בשבוע"), "error"); return; }
+        if (taskRecurrence === "monthly" && !taskRecurrenceDay) { showToast(tx("יש לבחור יום בחודש"), "error"); return; }
+        if (taskRecurrence === "yearly" && (!taskRecurrenceDay || !taskRecurrenceMonth)) { showToast(tx("יש לבחור יום וחודש"), "error"); return; }
 
         const body: any = {
             title: taskTitle.trim(),
@@ -1156,22 +1157,22 @@ function Calendar() {
             }
             setIsTaskModalOpen(false);
             loadData();
-            showToast(taskKind === "break" ? "✅ נשמר ביומן — השעות האלה נעולות לתורים" : selectedTaskId ? "✅ המשימה עודכנה" : "✅ המשימה נוספה");
+            showToast(taskKind === "break" ? tx("✅ נשמר ביומן — השעות האלה נעולות לתורים") : selectedTaskId ? tx("✅ המשימה עודכנה") : tx("✅ המשימה נוספה"));
         } catch (e: any) {
-            showToast(e?.message || "שגיאה בשמירת המשימה", "error");
+            showToast(e?.message || tx("שגיאה בשמירת המשימה"), "error");
         }
     };
 
     const handleDeleteTask = async () => {
         if (!selectedTaskId) return;
-        if (!confirm("למחוק את המשימה?")) return;
+        if (!confirm(tx("למחוק את המשימה?"))) return;
         try {
             await apiFetch(`/api/tasks/${selectedTaskId}`, { method: "DELETE" });
             setIsTaskModalOpen(false);
             loadData();
-            showToast("המשימה נמחקה");
+            showToast(tx("המשימה נמחקה"));
         } catch (e: any) {
-            showToast(e?.message || "שגיאה במחיקת המשימה", "error");
+            showToast(e?.message || tx("שגיאה במחיקת המשימה"), "error");
         }
     };
 
@@ -1210,7 +1211,7 @@ function Calendar() {
                 onClick={() => { toggleHolidays(); }}
                 className={`w-full flex items-center justify-between px-3 py-2 rounded-lg border transition-all mb-3 min-h-11 ${showHolidays ? "bg-sky-50 border-sky-200 text-sky-800" : "bg-slate-50 border-slate-200 text-slate-500"}`}
             >
-                <span>🗓️ הצגת חגים</span>
+                <span>{tx("🗓️ הצגת חגים")}</span>
                 <Switch as="span" size="sm" checked={showHolidays} onColor="bg-sky-500" />
             </button>
             {showHolidays && (
@@ -1227,13 +1228,13 @@ function Calendar() {
             {/* Start / End hour inputs — side by side, a gap between them */}
             <div className="grid grid-cols-2 gap-3 mb-2">
                 <div className="min-w-0">
-                    <div className="text-xs font-bold text-slate-500 mb-1 flex items-center gap-1"><Clock className="w-3.5 h-3.5" aria-hidden /> התחלה</div>
-                    <PickerBox type="time" label="שעת התחלה" value={draftStartHour} onChange={setDraftStartHour}
+                    <div className="text-xs font-bold text-slate-500 mb-1 flex items-center gap-1"><Clock className="w-3.5 h-3.5" aria-hidden />{tx(" התחלה")}</div>
+                    <PickerBox type="time" label={tx("שעת התחלה")} value={draftStartHour} onChange={setDraftStartHour}
                         className="border border-slate-200 rounded-lg px-2 py-2.5 text-sm font-semibold text-slate-700" />
                 </div>
                 <div className="min-w-0">
-                    <div className="text-xs font-bold text-slate-500 mb-1 flex items-center gap-1"><Clock className="w-3.5 h-3.5" aria-hidden /> סיום</div>
-                    <PickerBox type="time" label="שעת סיום" value={draftEndHour} onChange={setDraftEndHour}
+                    <div className="text-xs font-bold text-slate-500 mb-1 flex items-center gap-1"><Clock className="w-3.5 h-3.5" aria-hidden />{tx(" סיום")}</div>
+                    <PickerBox type="time" label={tx("שעת סיום")} value={draftEndHour} onChange={setDraftEndHour}
                         className="border border-slate-200 rounded-lg px-2 py-2.5 text-sm font-semibold text-slate-700" />
                 </div>
             </div>
@@ -1241,7 +1242,7 @@ function Calendar() {
                 type="button"
                 onClick={saveCalendarHours}
                 className="w-full py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-colors min-h-11">
-                שמור שעות
+                {tx("שמור שעות")}
             </button>
 
             {/* Same component /automation's policy tab uses — one set of
@@ -1257,7 +1258,7 @@ function Calendar() {
         <RequireAuth>
             <AppShell
                 fullBleed={isMobile}
-                title="יומן תורים"
+                title={tx("יומן תורים")}
                 titleAction={
                     isMobile ? (
                         <>
@@ -1267,12 +1268,12 @@ function Calendar() {
                             <button
                                 type="button"
                                 onClick={() => setShowFiltersSheet(true)}
-                                aria-label="פילטרים"
+                                aria-label={tx("פילטרים")}
                                 className="relative w-11 h-11 flex items-center justify-center rounded-lg text-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors border border-slate-200"
                             >
                                 🔍
                                 {activeFilterCount > 0 && (
-                                    <span className="absolute -top-1 -left-1 bg-sky-600 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                                    <span className="absolute -top-1 -end-1 bg-sky-600 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
                                         {activeFilterCount}
                                     </span>
                                 )}
@@ -1280,26 +1281,26 @@ function Calendar() {
                             <button
                                 type="button"
                                 onClick={() => setShowCalSettings(true)}
-                                aria-label="אפשרויות יומן"
+                                aria-label={tx("אפשרויות יומן")}
                                 className="w-11 h-11 flex items-center justify-center rounded-lg text-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors border border-slate-200"
                             >
                                 ⚙️
                             </button>
-                            <BottomSheet open={showCalSettings} onClose={() => setShowCalSettings(false)} title="אפשרויות יומן">
+                            <BottomSheet open={showCalSettings} onClose={() => setShowCalSettings(false)} title={tx("אפשרויות יומן")}>
                                 <button
                                     type="button"
                                     onClick={() => { setShowCalSettings(false); router.push("/clients?create=1"); }}
                                     className="w-full flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg text-sm font-bold bg-sky-600 text-white hover:bg-sky-700 transition-colors mb-4 min-h-11"
                                 >
                                     <span className="text-base leading-none">+</span>
-                                    לקוח חדש
+                                    {tx("לקוח חדש")}
                                 </button>
                                 {calendarSettingsBody}
                             </BottomSheet>
                             <BottomSheet
                                 open={showFiltersSheet}
                                 onClose={() => setShowFiltersSheet(false)}
-                                title="סינון יומן"
+                                title={tx("סינון יומן")}
                                 footer={
                                     <div className="flex gap-2">
                                         <button
@@ -1307,21 +1308,21 @@ function Calendar() {
                                             onClick={() => { setFilterArtistNames([]); setFilterTreatments([]); setFilterStatuses([]); setFilterRoomIds([]); }}
                                             className="flex-1 min-h-11 rounded-xl bg-slate-100 text-slate-600 text-sm font-bold"
                                         >
-                                            נקה הכל
+                                            {tx("נקה הכל")}
                                         </button>
                                         <button
                                             type="button"
                                             onClick={() => setShowFiltersSheet(false)}
                                             className="flex-1 min-h-11 rounded-xl bg-sky-600 text-white text-sm font-bold"
                                         >
-                                            הצג תוצאות
+                                            {tx("הצג תוצאות")}
                                         </button>
                                     </div>
                                 }
                             >
                                 {artists.length > 0 && (
                                     <div className="mb-4">
-                                        <div className="text-xs font-bold text-slate-400 mb-2">איש צוות</div>
+                                        <div className="text-xs font-bold text-slate-400 mb-2">{tx("איש צוות")}</div>
                                         <div className="flex flex-wrap gap-2">
                                             {artists.map(a => {
                                                 const name = a.display_name || a.email;
@@ -1343,7 +1344,7 @@ function Calendar() {
 
                                 {classRooms.length > 0 && (
                                     <div className="mb-4">
-                                        <div className="text-xs font-bold text-slate-400 mb-2">חדר (שיעורים)</div>
+                                        <div className="text-xs font-bold text-slate-400 mb-2">{tx("חדר (שיעורים)")}</div>
                                         <div className="flex flex-wrap gap-2">
                                             {classRooms.filter(r => r.is_active).map(r => {
                                                 const active = filterRoomIds.includes(r.id);
@@ -1364,7 +1365,7 @@ function Calendar() {
 
                                 {services.length > 0 && (
                                     <div className="mb-4">
-                                        <div className="text-xs font-bold text-slate-400 mb-2">סוג טיפול</div>
+                                        <div className="text-xs font-bold text-slate-400 mb-2">{tx("סוג טיפול")}</div>
                                         <div className="flex flex-wrap gap-2">
                                             {services.map(s => {
                                                 const active = filterTreatments.includes(s.name);
@@ -1384,7 +1385,7 @@ function Calendar() {
                                 )}
 
                                 <div>
-                                    <div className="text-xs font-bold text-slate-400 mb-2">סטטוס</div>
+                                    <div className="text-xs font-bold text-slate-400 mb-2">{tx("סטטוס")}</div>
                                     <div className="flex flex-wrap gap-2">
                                         {(["scheduled", "done", "canceled", "no_show"] as const).map(s => {
                                             const active = filterStatuses.includes(s);
@@ -1410,10 +1411,10 @@ function Calendar() {
                                 <select
                                     value={filterRoomIds[0] ?? ""}
                                     onChange={e => setFilterRoomIds(e.target.value ? [e.target.value] : [])}
-                                    aria-label="חדר"
+                                    aria-label={tx("חדר")}
                                     className="px-2 py-1 rounded-lg text-xs font-semibold bg-white text-slate-700 border border-slate-200"
                                 >
-                                    <option value="">שיעורים: כל החדרים</option>
+                                    <option value="">{tx("שיעורים: כל החדרים")}</option>
                                     {classRooms.filter(r => r.is_active).map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
                                 </select>
                             )}
@@ -1423,20 +1424,20 @@ function Calendar() {
                                 className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-sky-600 text-white hover:bg-sky-700 transition-colors shadow-sm shadow-sky-200"
                             >
                                 <span className="text-sm leading-none">+</span>
-                                לקוח חדש
+                                {tx("לקוח חדש")}
                             </button>
                             {/* Calendar settings button */}
                             <button
                                 type="button"
                                 onClick={() => setShowCalSettings(s => !s)}
                                 className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors border border-slate-200"
-                                title="הגדרות יומן"
+                                title={tx("הגדרות יומן")}
                             >
                                 ⚙️
                             </button>
                             {showCalSettings && (
-                                <div className="absolute top-8 left-0 z-50 bg-white rounded-xl shadow-xl border border-slate-100 p-3 w-64 text-sm" dir="rtl">
-                                    <div className="font-bold text-slate-700 mb-3 text-xs uppercase tracking-wide border-b pb-2">הגדרות יומן</div>
+                                <div className="absolute top-8 end-0 z-50 bg-white rounded-xl shadow-xl border border-slate-100 p-3 w-64 text-sm">
+                                    <div className="font-bold text-slate-700 mb-3 text-xs uppercase tracking-wide border-b pb-2">{tx("הגדרות יומן")}</div>
                                     {calendarSettingsBody}
                                 </div>
                             )}
@@ -1449,8 +1450,8 @@ function Calendar() {
                     <div className="mx-4 mt-3 md:mx-0 md:mt-0 mb-3 flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2.5 text-sm">
                         <span className="text-lg">📅</span>
                         <div className="flex-1 min-w-0">
-                            <span className="font-bold text-emerald-900">רוצה שלקוחות יקבעו תורים עצמאית? </span>
-                            <a href="/automation?tab=policy" className="text-emerald-700 underline font-semibold">הפעל קביעת תורים אונליין ←</a>
+                            <span className="font-bold text-emerald-900">{tx("רוצה שלקוחות יקבעו תורים עצמאית? ")}</span>
+                            <a href="/automation?tab=policy" className="text-emerald-700 underline font-semibold">{tx("הפעל קביעת תורים אונליין ←")}</a>
                         </div>
                         <button type="button" onClick={() => { setDismissedBookingBanner(true); try { localStorage.setItem(HIDE_BOOKING_BANNER_KEY, "1"); } catch {} }}
                             className="text-emerald-400 hover:text-emerald-600 font-bold text-base leading-none shrink-0">✕</button>
@@ -1462,17 +1463,17 @@ function Calendar() {
                     <div className="mb-3 flex items-center gap-3 bg-violet-50 border border-violet-200 rounded-xl px-4 py-2.5 text-sm">
                         <span className="text-lg">📢</span>
                         <div className="flex-1 min-w-0">
-                            <span className="font-bold text-violet-900">תפוצה מתוזמנת היום: </span>
+                            <span className="font-bold text-violet-900">{tx("תפוצה מתוזמנת היום: ")}</span>
                             {todayBroadcasts.map((b, i) => (
                                 <span key={b.id} className="text-violet-700">
                                     {b.title}
-                                    {` · ${new Date(b.scheduled_at).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })}`}
+                                    {` · ${new Date(b.scheduled_at).toLocaleTimeString(intl(), { hour: "2-digit", minute: "2-digit" })}`}
                                     {i < todayBroadcasts.length - 1 ? " | " : ""}
                                 </span>
                             ))}
                         </div>
                         <a href="/broadcasts" className="text-xs font-bold text-violet-700 hover:text-violet-900 shrink-0 border border-violet-300 rounded-lg px-2 py-1 hover:bg-violet-100 transition">
-                            לניהול ←
+                            {tx("לניהול ←")}
                         </a>
                         <button type="button" onClick={() => setTodayBroadcasts([])} className="text-violet-400 hover:text-violet-700 text-lg leading-none shrink-0">×</button>
                     </div>
@@ -1658,8 +1659,10 @@ function Calendar() {
                             titleFormat={isMobile ? { month: "numeric", day: "numeric" } : undefined}
                             footerToolbar={false}
                             locales={[heLocale]}
-                            locale="he"
-                            direction="rtl"
+                            locale={intl() === "en-GB" ? "en" : "he"}
+                            direction={intl() === "en-GB" ? "ltr" : "rtl"}
+                            {...(intl() === "en-GB" ? { slotLabelFormat: { hour: "2-digit", minute: "2-digit", hour12: false } as const,
+                                                        eventTimeFormat: { hour: "2-digit", minute: "2-digit", hour12: false } as const } : {})}
                             selectable={true}
                             editable={true}
                             selectMirror={true}
@@ -1704,7 +1707,7 @@ function Calendar() {
                                                 <Users className="w-3 h-3 shrink-0" aria-hidden />
                                                 <span className="tabular-nums">{p.booked}/{p.capacity}</span>
                                                 {p.room_name && <span className="truncate">· {p.room_name}</span>}
-                                                {p.status !== "scheduled" && p.status !== "done" && <span>· בוטל</span>}
+                                                {p.status !== "scheduled" && p.status !== "done" && <span>{tx("· בוטל")}</span>}
                                             </div>
                                         </div>
                                     );
@@ -1743,7 +1746,7 @@ function Calendar() {
                                     <AppointmentCard
                                         timeText={arg.timeText}
                                         title={p.title}
-                                        clientName={p.client_name || "ללא לקוח"}
+                                        clientName={p.client_name || tx("ללא לקוח")}
                                         artistName={p.artist_name}
                                         status={p.status}
                                         paidCents={p.paid_cents}
@@ -1766,15 +1769,15 @@ function Calendar() {
                     const app = viewSheetAppt;
                     const client = clients.find(c => c.id === app.client_id);
                     const meta = statusMeta(app.status);
-                    const timeStr = (iso: string) => new Date(iso).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
-                    const dateStr = (iso: string) => new Date(iso).toLocaleDateString("he-IL", { weekday: "long", day: "numeric", month: "long" });
+                    const timeStr = (iso: string) => new Date(iso).toLocaleTimeString(intl(), { hour: "2-digit", minute: "2-digit" });
+                    const dateStr = (iso: string) => new Date(iso).toLocaleDateString(intl(), { weekday: "long", day: "numeric", month: "long" });
                     const depositCents = app.deposit_amount_cents || 0;
                     const depositApproved = !!app.payment_verified_at;
                     const depositReported = !depositApproved && !!app.payment_sent_at;
-                    const depositILS = `₪${(depositCents / 100).toLocaleString("he-IL")}`;
+                    const depositILS = `₪${(depositCents / 100).toLocaleString(intl())}`;
                     const mayApprove = myRole !== "artist" && myRole !== "staff";   // money — the owner's and the managers'
                     return (
-                        <BottomSheet open={true} onClose={() => setViewSheetAppt(null)} title={app.client_name || "ללא לקוח"}>
+                        <BottomSheet open={true} onClose={() => setViewSheetAppt(null)} title={app.client_name || tx("ללא לקוח")}>
                             <div className="space-y-1 mb-4 text-sm text-slate-600">
                                 <div className="flex items-center gap-2">📅 {dateStr(app.starts_at)}</div>
                                 <div className="flex items-center gap-2">🕒 {timeStr(app.starts_at)}–{timeStr(app.ends_at)}</div>
@@ -1792,21 +1795,21 @@ function Calendar() {
                                         {depositApproved ? <CircleCheck className="w-4 h-4 shrink-0" aria-hidden />
                                             : depositReported ? <BellRing className="w-4 h-4 shrink-0" aria-hidden />
                                             : <Hourglass className="w-4 h-4 shrink-0" aria-hidden />}
-                                        {depositApproved ? `המקדמה אושרה (${depositILS})`
-                                            : depositReported ? `הלקוח דיווח ששילם מקדמה של ${depositILS}`
-                                            : `ממתין למקדמה של ${depositILS}`}
+                                        {depositApproved ? tx("המקדמה אושרה ({0})", { 0: depositILS })
+                                            : depositReported ? tx("הלקוח דיווח ששילם מקדמה של {0}", { 0: depositILS })
+                                            : tx("ממתין למקדמה של {0}", { 0: depositILS })}
                                     </div>
                                     {depositReported && (
-                                        <div className="text-xs text-sky-700 mt-0.5 mr-6">
-                                            {new Date(app.payment_sent_at).toLocaleString("he-IL", { weekday: "short", day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" })}
+                                        <div className="text-xs text-sky-700 mt-0.5 ms-6">
+                                            {new Date(app.payment_sent_at).toLocaleString(intl(), { weekday: "short", day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" })}
                                         </div>
                                     )}
                                     {!depositApproved && app.payment_proof_url && (
                                         <a href={imgUrl(app.payment_proof_url)} target="_blank" rel="noopener noreferrer"
                                             className="mt-2 flex items-center gap-3 rounded-xl bg-white border border-slate-200 p-2 hover:bg-slate-50 transition">
                                             {/* eslint-disable-next-line @next/next/no-img-element */}
-                                            <img src={imgUrl(app.payment_proof_url)} alt="צילום התשלום ששלח הלקוח" className="w-12 h-16 object-cover rounded-lg border border-slate-200" />
-                                            <span className="text-sm font-semibold text-slate-700">הצילום ששלח הלקוח — לחיצה פותחת בגודל מלא</span>
+                                            <img src={imgUrl(app.payment_proof_url)} alt={tx("צילום התשלום ששלח הלקוח")} className="w-12 h-16 object-cover rounded-lg border border-slate-200" />
+                                            <span className="text-sm font-semibold text-slate-700">{tx("הצילום ששלח הלקוח — לחיצה פותחת בגודל מלא")}</span>
                                         </a>
                                     )}
                                     {!depositApproved && mayApprove && (
@@ -1817,7 +1820,7 @@ function Calendar() {
                                                 setViewSheetAppt(null);
                                             }}
                                             className="mt-2 w-full min-h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-black transition">
-                                            אישור המקדמה
+                                            {tx("אישור המקדמה")}
                                         </button>
                                     )}
                                 </div>
@@ -1828,7 +1831,7 @@ function Calendar() {
                                     href={client?.phone ? `tel:${client.phone}` : undefined}
                                     className={`min-h-11 flex items-center justify-center gap-1.5 rounded-xl text-sm font-bold border ${client?.phone ? "bg-white border-slate-200 text-slate-700 hover:bg-slate-50" : "bg-slate-50 border-slate-100 text-slate-300 pointer-events-none"}`}
                                 >
-                                    📞 התקשר
+                                    {tx("📞 התקשר")}
                                 </a>
                                 <a
                                     href={client?.phone ? `https://wa.me/${client.phone.replace(/\D/g, "")}` : undefined}
@@ -1836,7 +1839,7 @@ function Calendar() {
                                     rel="noopener noreferrer"
                                     className={`min-h-11 flex items-center justify-center gap-1.5 rounded-xl text-sm font-bold border ${client?.phone ? "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100" : "bg-slate-50 border-slate-100 text-slate-300 pointer-events-none"}`}
                                 >
-                                    💬 וואטסאפ
+                                    {tx("💬 וואטסאפ")}
                                 </a>
                             </div>
 
@@ -1844,7 +1847,7 @@ function Calendar() {
                                 by the backend the moment a full payment is recorded
                                 (app/crud/payment.py), via the payment button below. "No-show" stays
                                 a direct status toggle since it has nothing to do with payment. */}
-                            <div className="text-xs font-bold text-slate-400 mb-2">סטטוס</div>
+                            <div className="text-xs font-bold text-slate-400 mb-2">{tx("סטטוס")}</div>
                             <div className="flex flex-wrap gap-2 mb-2">
                                 <span className="min-h-11 flex items-center px-3 rounded-xl text-sm font-semibold border bg-slate-50 border-slate-200 text-slate-500">
                                     {statusMeta(app.status).icon} {statusMeta(app.status).label}
@@ -1865,14 +1868,14 @@ function Calendar() {
                                     onClick={() => { setSelectedEventId(app.id); setViewSheetAppt(null); handlePaymentClick(app); }}
                                     className="w-full min-h-11 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-sm font-bold transition-colors mb-4 flex items-center justify-center gap-1.5"
                                 >
-                                    💳 חיוב לתשלום
+                                    {tx("💳 חיוב לתשלום")}
                                 </button>
                             )}
 
                             <label
                                 className={`w-full min-h-11 rounded-xl border text-sm font-bold transition-colors mb-4 flex items-center justify-center gap-1.5 cursor-pointer ${uploadingViewPhoto ? "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed" : "bg-violet-50 border-violet-200 text-violet-700 hover:bg-violet-100"}`}
                             >
-                                {uploadingViewPhoto ? "⏳ מעלה..." : "📸 הוסף תמונת טיפול"}
+                                {uploadingViewPhoto ? tx("⏳ מעלה...") : tx("📸 הוסף תמונת טיפול")}
                                 <input
                                     type="file"
                                     accept="image/*"
@@ -1894,7 +1897,7 @@ function Calendar() {
                                     onClick={() => { setViewSheetAppt(null); openEditModalFor(app); }}
                                     className="w-full min-h-11 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-sm font-bold transition-colors"
                                 >
-                                    ✏️ עריכה מלאה
+                                    {tx("✏️ עריכה מלאה")}
                                 </button>
                                 {app.status === "scheduled" && (
                                     <button
@@ -1902,7 +1905,7 @@ function Calendar() {
                                         onClick={() => { setSelectedEventId(app.id); setViewSheetAppt(null); handleDeleteClick(); }}
                                         className="w-full min-h-11 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 text-sm font-bold transition-colors"
                                     >
-                                        ❌ ביטול תור
+                                        {tx("❌ ביטול תור")}
                                     </button>
                                 )}
                             </div>
@@ -1913,27 +1916,27 @@ function Calendar() {
                 {/* Appointment Modal */}
                 {isModalOpen && (
                     <div className={`fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm animate-in fade-in duration-200 ${isMobile ? "flex items-end justify-center" : "flex items-center justify-center p-3 sm:p-4"}`}>
-                        <div data-tour="appointment-form" className={`bg-white w-full shadow-2xl overflow-hidden flex flex-col ${isMobile ? "rounded-t-3xl max-h-[92dvh] animate-in slide-in-from-bottom duration-300" : "rounded-3xl max-w-lg max-h-[calc(100dvh-5rem)] animate-in zoom-in-95 duration-300"}`} dir="rtl">
+                        <div data-tour="appointment-form" className={`bg-white w-full shadow-2xl overflow-hidden flex flex-col ${isMobile ? "rounded-t-3xl max-h-[92dvh] animate-in slide-in-from-bottom duration-300" : "rounded-3xl max-w-lg max-h-[calc(100dvh-5rem)] animate-in zoom-in-95 duration-300"}`}>
                             {isMobile && <div className="flex justify-center pt-3 pb-1 flex-shrink-0"><div className="w-10 h-1 rounded-full bg-slate-300" /></div>}
                             {/* The close button on the right, the title in the middle (the owner, 2026-10-11) */}
                             <div className="bg-slate-50 border-b border-slate-100 px-4 py-3 grid grid-cols-[2.75rem_1fr_2.75rem] items-center flex-shrink-0">
-                                <button type="button" onClick={() => setIsModalOpen(false)} aria-label="סגור"
+                                <button type="button" onClick={() => setIsModalOpen(false)} aria-label={tx("סגור")}
                                     className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-600 bg-white rounded-full shadow-sm hover:shadow transition-all">
                                     <X className="w-5 h-5" aria-hidden />
                                 </button>
-                                <h3 className="text-xl font-bold text-slate-800 text-center">{selectedEventId ? "עריכת תור" : "קביעת תור חדש"}</h3>
+                                <h3 className="text-xl font-bold text-slate-800 text-center">{selectedEventId ? tx("עריכת תור") : tx("קביעת תור חדש")}</h3>
                                 <span aria-hidden />
                             </div>
 
                             <div className="p-4 space-y-3 overflow-y-auto flex-1 min-h-0">
                                 {/* Date row */}
                                 <div>
-                                    <label className="block text-sm font-semibold text-slate-700 mb-1">תאריך</label>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-1">{tx("תאריך")}</label>
                                     {/* The day and the date in words, in Hebrew order ("יום שני, 12 באוקטובר 2026") — the
                                         phone's own date box cut the 12 off on the left (the owner, 2026-10-11) */}
                                     <PickerBox
                                         type="date"
-                                        label="תאריך התור"
+                                        label={tx("תאריך התור")}
                                         clearable={false}
                                         value={startAt.split("T")[0] || ""}
                                         onChange={newDate => {
@@ -1945,8 +1948,8 @@ function Calendar() {
                                         display={(() => {
                                             const d = new Date(startAt);
                                             return startAt && !isNaN(d.getTime())
-                                                ? d.toLocaleDateString("he-IL", { weekday: "long", day: "numeric", month: "long", year: "numeric" })
-                                                : "בחירת תאריך";
+                                                ? d.toLocaleDateString(intl(), { weekday: "long", day: "numeric", month: "long", year: "numeric" })
+                                                : tx("בחירת תאריך");
                                         })()}
                                         className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-base font-semibold text-slate-800"
                                     />
@@ -1954,20 +1957,20 @@ function Calendar() {
                                 {/* Time row — start & end side by side, equal width, a gap between them */}
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="min-w-0">
-                                        <label className="block text-sm font-semibold text-slate-700 mb-1">שעת התחלה</label>
+                                        <label className="block text-sm font-semibold text-slate-700 mb-1">{tx("שעת התחלה")}</label>
                                         <PickerBox
                                             type="time"
-                                            label="שעת התחלה"
+                                            label={tx("שעת התחלה")}
                                             value={startAt.split("T")[1] || ""}
                                             onChange={t => setStartAt(`${startAt.split("T")[0]}T${t}`)}
                                             className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-base font-semibold text-slate-800"
                                         />
                                     </div>
                                     <div className="min-w-0">
-                                        <label className="block text-sm font-semibold text-slate-700 mb-1">שעת סיום</label>
+                                        <label className="block text-sm font-semibold text-slate-700 mb-1">{tx("שעת סיום")}</label>
                                         <PickerBox
                                             type="time"
-                                            label="שעת סיום"
+                                            label={tx("שעת סיום")}
                                             value={endAt.split("T")[1] || ""}
                                             onChange={t => setEndAt(`${startAt.split("T")[0]}T${t}`)}
                                             className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-base font-semibold text-slate-800"
@@ -1977,14 +1980,14 @@ function Calendar() {
 
                                 {/* Client section */}
                                 <div>
-                                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">לקוח</label>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">{tx("לקוח")}</label>
 
                                     {/* Row 1: search */}
                                     <div className="flex items-center gap-2 mb-2">
                                         <div className="relative flex-1">
                                             <input
                                                 type="text"
-                                                placeholder="חפש לפי שם או טלפון..."
+                                                placeholder={tx("חפש לפי שם או טלפון...")}
                                                 value={clientSearch}
                                                 onChange={e => { setClientSearch(e.target.value); setClientId(""); setIsWalkIn(false); setIsClientDropdownOpen(true); }}
                                                 onFocus={() => setIsClientDropdownOpen(true)}
@@ -1993,7 +1996,7 @@ function Calendar() {
                                             />
                                             {clientSearch && clientId && (
                                                 <button type="button" onClick={() => { setClientSearch(""); setClientId(""); setIsWalkIn(false); }}
-                                                    className="absolute left-3 top-1.5 text-slate-400 hover:text-red-500 font-bold text-2xl leading-none">&times;</button>
+                                                    className="absolute end-3 top-1.5 text-slate-400 hover:text-red-500 font-bold text-2xl leading-none">&times;</button>
                                             )}
                                         </div>
                                         {(() => {
@@ -2004,7 +2007,7 @@ function Calendar() {
                                                     href={`https://wa.me/${selectedClient.phone.replace(/\D/g, "")}`}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
-                                                    title="שלח וואטסאפ ללקוח"
+                                                    title={tx("שלח וואטסאפ ללקוח")}
                                                     className="shrink-0 flex items-center justify-center w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-100 transition-colors"
                                                 >
                                                     💬
@@ -2016,14 +2019,14 @@ function Calendar() {
                                         <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto">
                                             {filteredClients.filter(c => !c.is_walk_in).length > 0 ? (
                                                 filteredClients.filter(c => !c.is_walk_in).map(c => (
-                                                    <div key={c.id} className="px-4 py-2 hover:bg-slate-50 cursor-pointer border-b border-slate-50 last:border-0 text-right"
+                                                    <div key={c.id} className="px-4 py-2 hover:bg-slate-50 cursor-pointer border-b border-slate-50 last:border-0 text-start"
                                                         onMouseDown={() => { setClientId(c.id); setClientSearch(c.full_name || c.phone || ""); setIsWalkIn(false); setIsClientDropdownOpen(false); }}>
                                                         <div className="font-semibold text-slate-800 text-sm">{c.full_name}</div>
                                                         {c.phone && <div className="text-xs text-slate-500" dir="ltr">{c.phone}</div>}
                                                     </div>
                                                 ))
                                             ) : (
-                                                <div className="px-4 py-3 text-sm text-slate-500 text-center">לא נמצאו לקוחות</div>
+                                                <div className="px-4 py-3 text-sm text-slate-500 text-center">{tx("לא נמצאו לקוחות")}</div>
                                             )}
                                         </div>
                                     )}
@@ -2035,7 +2038,7 @@ function Calendar() {
                                             onClick={() => { setShowNewClientForm(v => { if (v) { setNewClientName(""); setNewClientPhone(""); setNewClientClub(false); } return !v; }); setNewClientErr(null); }}
                                             className={`flex-1 py-2 px-3 rounded-xl text-sm font-bold border-2 transition-all ${showNewClientForm ? "bg-blue-600 border-blue-600 text-white" : "bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"}`}
                                         >
-                                            + צור לקוח חדש
+                                            {tx("+ צור לקוח חדש")}
                                         </button>
                                         <button
                                             type="button"
@@ -2043,15 +2046,15 @@ function Calendar() {
                                                 try {
                                                     const wi = await apiFetch<Client>("/api/clients/walk-in");
                                                     setClientId(wi.id);
-                                                    setClientSearch("לקוח מזדמן 🚶");
+                                                    setClientSearch(tx("לקוח מזדמן 🚶"));
                                                     setIsWalkIn(true);
                                                     setIsClientDropdownOpen(false);
                                                     setShowNewClientForm(false);
-                                                } catch (e: any) { showToast("שגיאה בלקוח מזדמן", "error"); }
+                                                } catch (e: any) { showToast(tx("שגיאה בלקוח מזדמן"), "error"); }
                                             }}
                                             className={`flex-1 py-2 px-3 rounded-xl text-sm font-bold border-2 transition-all ${isWalkIn ? "bg-orange-500 border-orange-500 text-white" : "bg-orange-50 border-orange-200 text-orange-700 hover:bg-orange-100"}`}
                                         >
-                                            🚶 {isWalkIn ? "מזדמן ✓" : "לקוח מזדמן"}
+                                            🚶 {isWalkIn ? tx("מזדמן ✓") : tx("לקוח מזדמן")}
                                         </button>
                                     </div>
 
@@ -2060,14 +2063,14 @@ function Calendar() {
                                         <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-2 space-y-2">
                                             <input
                                                 type="text"
-                                                placeholder="שם מלא *"
+                                                placeholder={tx("שם מלא *")}
                                                 value={newClientName}
                                                 onChange={e => setNewClientName(e.target.value)}
                                                 className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-400"
                                             />
                                             <input
                                                 type="tel"
-                                                placeholder="מספר טלפון"
+                                                placeholder={tx("מספר טלפון")}
                                                 value={newClientPhone}
                                                 onChange={e => setNewClientPhone(e.target.value)}
                                                 className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-400"
@@ -2075,7 +2078,7 @@ function Calendar() {
                                             />
                                             <label className="flex items-center gap-2 text-sm text-blue-800 cursor-pointer">
                                                 <input type="checkbox" checked={newClientClub} onChange={e => setNewClientClub(e.target.checked)} className="accent-blue-600" />
-                                                הוסף למועדון לקוחות
+                                                {tx("הוסף למועדון לקוחות")}
                                             </label>
                                             {newClientErr && <p className="text-xs text-red-600">{newClientErr}</p>}
                                             <button
@@ -2084,7 +2087,7 @@ function Calendar() {
                                                 disabled={newClientLoading}
                                                 className="w-full py-2 rounded-lg bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 disabled:opacity-50 transition-colors"
                                             >
-                                                {newClientLoading ? "יוצר..." : "צור לקוח"}
+                                                {newClientLoading ? tx("יוצר...") : tx("צור לקוח")}
                                             </button>
                                         </div>
                                     )}
@@ -2096,10 +2099,10 @@ function Calendar() {
                                                 <div className="mt-2 text-sm font-medium text-amber-700 bg-amber-50 p-2.5 rounded-lg border border-amber-200 flex items-start gap-2">
                                                     <span>⚠️</span>
                                                     <span>
-                                                        לקוח מועד לפורענות:
-                                                        {(sc.cancellation_count || 0) > 0 && ` ביטל ${sc.cancellation_count} תורים`}
-                                                        {(sc.cancellation_count || 0) > 0 && (sc.no_show_count || 0) > 0 && " ו-"}
-                                                        {(sc.no_show_count || 0) > 0 && `לא הגיע ל-${sc.no_show_count} תורים`}.
+                                                        {tx("לקוח מועד לפורענות:")}
+                                                        {(sc.cancellation_count || 0) > 0 && tx(" ביטל {0} תורים", { 0: sc.cancellation_count })}
+                                                        {(sc.cancellation_count || 0) > 0 && (sc.no_show_count || 0) > 0 && tx(" ו-")}
+                                                        {(sc.no_show_count || 0) > 0 && tx("לא הגיע ל-{0} תורים", { 0: sc.no_show_count })}.
                                                     </span>
                                                 </div>
                                             );
@@ -2109,7 +2112,7 @@ function Calendar() {
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-semibold text-slate-700 mb-1">כותרת הטיפול</label>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-1">{tx("כותרת הטיפול")}</label>
                                     {services.length > 0 && (
                                         <div className="flex flex-wrap gap-2 mb-2">
                                             {services.map(svc => (
@@ -2140,7 +2143,7 @@ function Calendar() {
                                     <input
                                         value={title}
                                         onChange={e => { setTitle(e.target.value); setPickedServiceIds([]); }}
-                                        placeholder={services.length > 0 ? "בחר טיפול אחד או כמה למעלה, או הקלד ישירות..." : "כותרת הטיפול"}
+                                        placeholder={services.length > 0 ? tx("בחר טיפול אחד או כמה למעלה, או הקלד ישירות...") : tx("כותרת הטיפול")}
                                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500"
                                     />
                                 </div>
@@ -2148,9 +2151,9 @@ function Calendar() {
                                 {/* Staff member — hidden for artist role (pre-filled by backend) */}
                                 {myRole !== "artist" && myRole !== "staff" && (
                                     <div>
-                                        <label className="block text-sm font-semibold text-slate-700 mb-1">איש צוות</label>
+                                        <label className="block text-sm font-semibold text-slate-700 mb-1">{tx("איש צוות")}</label>
                                         <select value={artistId} onChange={e => setArtistId(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500">
-                                            <option value="">בחירה...</option>
+                                            <option value="">{tx("בחירה...")}</option>
                                             {artists.map(a => <option key={a.id} value={a.id}>{a.display_name || a.email}</option>)}
                                         </select>
                                     </div>
@@ -2158,7 +2161,7 @@ function Calendar() {
 
                                 {/* Deposit */}
                                 <div>
-                                    <label className="block text-sm font-semibold text-slate-700 mb-1">מקדמה (₪) 💳</label>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-1">{tx("מקדמה (₪) 💳")}</label>
                                     <input
                                         type="number"
                                         min="0"
@@ -2178,7 +2181,7 @@ function Calendar() {
                                 })()}
 
                                 <div>
-                                    <label className="block text-sm font-semibold text-slate-700 mb-1">הערות פנימיות</label>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-1">{tx("הערות פנימיות")}</label>
                                     <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-blue-500" />
                                 </div>
                             </div>
@@ -2188,7 +2191,7 @@ function Calendar() {
                                     {selectedEventId && status === "scheduled" && (
                                         <button onClick={handleDeleteClick} className="px-4 py-2 text-sm font-bold text-red-600 hover:bg-red-50 rounded-xl transition-colors flex items-center gap-1">
                                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                            מחק תור
+                                            {tx("מחק תור")}
                                         </button>
                                     )}
                                     {selectedEventId && new Date(startAt) < new Date() && status === "scheduled" && (
@@ -2197,7 +2200,7 @@ function Calendar() {
                                             className="px-4 py-2 text-sm font-bold text-emerald-600 hover:bg-emerald-50 rounded-xl transition-colors flex items-center gap-1"
                                         >
                                             <span className="text-lg">💳</span>
-                                            לחייב לתשלום
+                                            {tx("לחייב לתשלום")}
                                         </button>
                                     )}
                                     {/* receipts are the owner's and the managers' — a worker's server refuses them (2026-10-13) */}
@@ -2226,10 +2229,10 @@ function Calendar() {
                                                         const invData = apptInvoiceData || await apiFetch<any>(`/api/invoices/${apptInvoiceId}`);
                                                         if (!apptInvoiceData) setApptInvoiceData(invData);
                                                         printInv(invData);
-                                                    } catch { showToast("שגיאה בטעינת קבלה", "error"); }
+                                                    } catch { showToast(tx("שגיאה בטעינת קבלה"), "error"); }
                                                 }}
                                                 className="px-4 py-2 text-sm font-bold text-violet-600 hover:bg-violet-50 rounded-xl transition-colors flex items-center gap-1">
-                                                <span>📄</span> הדפסה / הורד קבלה
+                                                <span>📄</span> {tx("הדפסה / הורד קבלה")}
                                             </button>
                                         ) : (
                                             <button type="button" disabled={creatingApptInvoice}
@@ -2253,20 +2256,20 @@ function Calendar() {
                                                         setApptInvoiceData(inv);
                                                         printInv(inv);
                                                     } catch (e: any) {
-                                                        showToast(e?.message || "שגיאה בהפקת קבלה", "error");
+                                                        showToast(e?.message || tx("שגיאה בהפקת קבלה"), "error");
                                                     } finally { setCreatingApptInvoice(false); }
                                                 }}
                                                 className="px-4 py-2 text-sm font-bold text-violet-600 hover:bg-violet-50 rounded-xl transition-colors flex items-center gap-1 disabled:opacity-50">
                                                 <span>🧾</span>
-                                                {creatingApptInvoice ? "מפיק..." : "הפק קבלה"}
+                                                {creatingApptInvoice ? tx("מפיק...") : tx("הפק קבלה")}
                                             </button>
                                         );
                                     })()}
                                 </div>
                                 <div className="flex gap-3">
-                                    <button onClick={() => setIsModalOpen(false)} className="px-5 py-2 text-sm font-bold text-slate-600 hover:bg-slate-200 rounded-xl transition-colors">סגור</button>
+                                    <button onClick={() => setIsModalOpen(false)} className="px-5 py-2 text-sm font-bold text-slate-600 hover:bg-slate-200 rounded-xl transition-colors">{tx("סגור")}</button>
                                     <button onClick={saveOnce} disabled={savingAppt} className="px-6 py-2 text-sm font-bold text-white bg-sky-600 shadow-lg shadow-sky-600/20 hover:bg-sky-700 hover:-translate-y-0.5 rounded-xl transition-all disabled:opacity-60">
-                                        {savingAppt ? "שומר…" : selectedEventId ? "שמור שינויים" : "קבע תור חדש"}
+                                        {savingAppt ? tx("שומר…") : selectedEventId ? tx("שמור שינויים") : tx("קבע תור חדש")}
                                     </button>
                                 </div>
                             </div>
@@ -2277,42 +2280,42 @@ function Calendar() {
                 {/* Delete Confirmation Modal */}
                 {isDeleteModalOpen && (
                     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-                        <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200" dir="rtl">
+                        <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
                             <div className="p-6">
-                                <h3 className="text-xl font-bold text-slate-800 mb-2">מחיקת תור</h3>
-                                <p className="text-sm text-slate-500 mb-5">מדוע התור נמחק מיומן המערכת?</p>
+                                <h3 className="text-xl font-bold text-slate-800 mb-2">{tx("מחיקת תור")}</h3>
+                                <p className="text-sm text-slate-500 mb-5">{tx("מדוע התור נמחק מיומן המערכת?")}</p>
 
                                 <div className="space-y-3">
                                     <label className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${deleteReason === "" ? "border-slate-800 bg-slate-50" : "border-slate-200 hover:bg-slate-50"}`}>
                                         <input type="radio" name="deleteReason" checked={deleteReason === ""} onChange={() => setDeleteReason("")} className="mt-1" />
                                         <div>
-                                            <div className="font-semibold text-slate-800 text-sm">ביטול רגיל / טעות ברישום</div>
-                                            <div className="text-xs text-slate-500">התור פשוט יימחק מבלי להשפיע על הלקוח.</div>
+                                            <div className="font-semibold text-slate-800 text-sm">{tx("ביטול רגיל / טעות ברישום")}</div>
+                                            <div className="text-xs text-slate-500">{tx("התור פשוט יימחק מבלי להשפיע על הלקוח.")}</div>
                                         </div>
                                     </label>
 
                                     <label className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${deleteReason === "client_cancelled" ? "border-orange-500 bg-orange-50" : "border-slate-200 hover:bg-slate-50"}`}>
                                         <input type="radio" name="deleteReason" checked={deleteReason === "client_cancelled"} onChange={() => setDeleteReason("client_cancelled")} className="mt-1" />
                                         <div>
-                                            <div className="font-semibold text-orange-800 text-sm">הלקוח הודיע על ביטול</div>
-                                            <div className="text-xs text-orange-600/80">ייספר ללקוח כביטול תור.</div>
+                                            <div className="font-semibold text-orange-800 text-sm">{tx("הלקוח הודיע על ביטול")}</div>
+                                            <div className="text-xs text-orange-600/80">{tx("ייספר ללקוח כביטול תור.")}</div>
                                         </div>
                                     </label>
 
                                     <label className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${deleteReason === "no_show" ? "border-red-500 bg-red-50" : "border-slate-200 hover:bg-slate-50"}`}>
                                         <input type="radio" name="deleteReason" checked={deleteReason === "no_show"} onChange={() => setDeleteReason("no_show")} className="mt-1" />
                                         <div>
-                                            <div className="font-semibold text-red-800 text-sm">הלקוח לא הגיע (No-Show)</div>
-                                            <div className="text-xs text-red-600/80">ייספר ללקוח כהברזה.</div>
+                                            <div className="font-semibold text-red-800 text-sm">{tx("הלקוח לא הגיע (No-Show)")}</div>
+                                            <div className="text-xs text-red-600/80">{tx("ייספר ללקוח כהברזה.")}</div>
                                         </div>
                                     </label>
                                 </div>
                             </div>
 
                             <div className="bg-slate-50 p-4 flex justify-end gap-3 rounded-b-3xl border-t border-slate-100">
-                                <button onClick={() => setIsDeleteModalOpen(false)} className="px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-200 rounded-xl transition-colors">בטל החלטה</button>
+                                <button onClick={() => setIsDeleteModalOpen(false)} className="px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-200 rounded-xl transition-colors">{tx("בטל החלטה")}</button>
                                 <button onClick={confirmDelete} className="px-5 py-2 text-sm font-bold text-white bg-red-600 shadow-lg shadow-red-600/20 hover:bg-red-700 hover:-translate-y-0.5 rounded-xl transition-all">
-                                    אישור מחיקה
+                                    {tx("אישור מחיקה")}
                                 </button>
                             </div>
                         </div>
@@ -2324,9 +2327,9 @@ function Calendar() {
                     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-150"
                         onClick={() => setShowTypeChooser(false)}>
                         <div className={`bg-white rounded-3xl shadow-2xl p-6 w-full ${canSetTasks || (classesOn && canSetUpClasses) ? "max-w-sm" : "max-w-xs"} animate-in zoom-in-95 duration-200`}
-                            onClick={e => e.stopPropagation()} dir="rtl">
-                            <h3 className="text-lg font-bold text-slate-800 mb-1 text-center">מה תרצה להוסיף?</h3>
-                            <p className="text-xs text-slate-400 text-center mb-5">בחר סוג האירוע ביומן</p>
+                            onClick={e => e.stopPropagation()}>
+                            <h3 className="text-lg font-bold text-slate-800 mb-1 text-center">{tx("מה תרצה להוסיף?")}</h3>
+                            <p className="text-xs text-slate-400 text-center mb-5">{tx("בחר סוג האירוע ביומן")}</p>
                             <div className="flex gap-3">
                                 <button
                                     data-tour="type-appointment"
@@ -2334,7 +2337,7 @@ function Calendar() {
                                     className="flex-1 flex flex-col items-center gap-2 p-4 rounded-2xl border-2 border-sky-200 bg-sky-50 hover:bg-sky-100 transition-colors"
                                 >
                                     <CalendarPlus className="w-7 h-7 text-sky-600" aria-hidden />
-                                    <span className="text-sm font-bold text-sky-700">קביעת תור</span>
+                                    <span className="text-sm font-bold text-sky-700">{tx("קביעת תור")}</span>
                                 </button>
                                 {canSetTasks && (<button
                                     data-tour="type-task"
@@ -2351,7 +2354,7 @@ function Calendar() {
                                     className="flex-1 flex flex-col items-center gap-2 p-4 rounded-2xl border-2 border-violet-200 bg-violet-50 hover:bg-violet-100 transition-colors"
                                 >
                                     <Pin className="w-7 h-7 text-violet-600" aria-hidden />
-                                    <span className="text-sm font-bold text-violet-700">משימה / תזכורת</span>
+                                    <span className="text-sm font-bold text-violet-700">{tx("משימה / תזכורת")}</span>
                                 </button>)}
                                 {canSetTasks && (<button
                                     onClick={() => {
@@ -2364,7 +2367,7 @@ function Calendar() {
                                     className="flex-1 flex flex-col items-center gap-2 p-4 rounded-2xl border-2 border-slate-200 bg-slate-50 hover:bg-slate-100 transition-colors"
                                 >
                                     <Coffee className="w-7 h-7 text-slate-600" aria-hidden />
-                                    <span className="text-sm font-bold text-slate-700">הפסקה / פגישה</span>
+                                    <span className="text-sm font-bold text-slate-700">{tx("הפסקה / פגישה")}</span>
                                 </button>)}
                                 {classesOn && canSetUpClasses && (
                                     <button
@@ -2372,7 +2375,7 @@ function Calendar() {
                                         className="flex-1 flex flex-col items-center gap-2 p-4 rounded-2xl border-2 border-indigo-200 bg-indigo-50 hover:bg-indigo-100 transition-colors"
                                     >
                                         <UsersRound className="w-7 h-7 text-indigo-600" aria-hidden />
-                                        <span className="text-sm font-bold text-indigo-700">שיעור</span>
+                                        <span className="text-sm font-bold text-indigo-700">{tx("שיעור")}</span>
                                     </button>
                                 )}
                             </div>
@@ -2394,10 +2397,10 @@ function Calendar() {
                 {/* Task Modal */}
                 {isTaskModalOpen && (
                     <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm sm:p-4 animate-in fade-in duration-200">
-                        <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full sm:max-w-md shadow-2xl overflow-hidden max-h-[85dvh] flex flex-col animate-in slide-in-from-bottom sm:zoom-in-95 duration-300" dir="rtl">
+                        <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full sm:max-w-md shadow-2xl overflow-hidden max-h-[85dvh] flex flex-col animate-in slide-in-from-bottom sm:zoom-in-95 duration-300">
                             <div className="bg-violet-50 border-b border-violet-100 p-5 flex items-center justify-between flex-shrink-0">
-                                <h3 className="text-xl font-bold text-violet-900">{taskKind === "break" ? (selectedTaskId && canSetTasks ? "עריכת הפסקה / פגישה" : "הפסקה / פגישה")
-                                    : !canSetTasks ? "משימה" : selectedTaskId ? "עריכת משימה" : "משימה / תזכורת חדשה"}</h3>
+                                <h3 className="text-xl font-bold text-violet-900">{taskKind === "break" ? (selectedTaskId && canSetTasks ? tx("עריכת הפסקה / פגישה") : tx("הפסקה / פגישה"))
+                                    : !canSetTasks ? tx("משימה") : selectedTaskId ? tx("עריכת משימה") : tx("משימה / תזכורת חדשה")}</h3>
                                 <button onClick={() => setIsTaskModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-2 bg-white rounded-full shadow-sm">✕</button>
                             </div>
 
@@ -2409,14 +2412,14 @@ function Calendar() {
                                             {taskOccurrence.done ? <CircleCheck className="w-4 h-4 shrink-0" aria-hidden />
                                                 : taskOccurrence.overdue ? <TriangleAlert className="w-4 h-4 shrink-0" aria-hidden />
                                                 : <Clock className="w-4 h-4 shrink-0" aria-hidden />}
-                                            {taskOccurrence.done ? "בוצע" : taskOccurrence.overdue ? "עבר הזמן — עוד לא בוצע" : "עוד לא בוצע"}
-                                            <span className="mr-auto text-xs font-semibold text-slate-500">
-                                                {taskOccurrence.assigneeName ? `ל${taskOccurrence.assigneeName}` : "לכל הצוות"} · {new Date(taskOccurrence.date).toLocaleDateString("he-IL", { day: "numeric", month: "numeric" })}
+                                            {taskOccurrence.done ? tx("בוצע") : taskOccurrence.overdue ? tx("עבר הזמן — עוד לא בוצע") : tx("עוד לא בוצע")}
+                                            <span className="ms-auto text-xs font-semibold text-slate-500">
+                                                {taskOccurrence.assigneeName ? tx("ל{0}", { 0: taskOccurrence.assigneeName }) : tx("לכל הצוות")} · {new Date(taskOccurrence.date).toLocaleDateString(intl(), { day: "numeric", month: "numeric" })}
                                             </span>
                                         </div>
                                         <button type="button" onClick={toggleTaskDone}
                                             className={`mt-2 w-full min-h-11 rounded-xl text-sm font-black transition ${taskOccurrence.done ? "bg-white border border-slate-200 text-slate-600 hover:bg-slate-100" : "bg-emerald-600 hover:bg-emerald-700 text-white"}`}>
-                                            {taskOccurrence.done ? "ביטול הסימון" : "בוצע"}
+                                            {taskOccurrence.done ? tx("ביטול הסימון") : tx("בוצע")}
                                         </button>
                                     </div>
                                 )}
@@ -2432,35 +2435,35 @@ function Calendar() {
                                 ) : (<>
                                 {/* Title */}
                                 <div>
-                                    <label className="block text-sm font-semibold text-slate-700 mb-1">כותרת *</label>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-1">{tx("כותרת *")}</label>
                                     <input value={taskTitle} onChange={e => setTaskTitle(e.target.value)}
-                                        placeholder={taskKind === "break" ? "לדוגמה: הפסקת צהריים, פגישה עם ספק..." : "לדוגמה: ארנונה, מרפאה, חופשה..."}
+                                        placeholder={taskKind === "break" ? tx("לדוגמה: הפסקת צהריים, פגישה עם ספק...") : tx("לדוגמה: ארנונה, מרפאה, חופשה...")}
                                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-violet-400 text-sm" />
                                 </div>
 
                                 {/* For whom — a worker hears at once, and is reminded until it's marked done */}
                                 <div data-tour="task-assignee">
-                                    <label className="block text-sm font-semibold text-slate-700 mb-1">{taskKind === "break" ? "למי" : "למי המשימה"}</label>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-1">{taskKind === "break" ? tx("למי") : tx("למי המשימה")}</label>
                                     <select value={taskAssigneeId} onChange={e => setTaskAssigneeId(e.target.value)}
                                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-violet-400 text-sm">
-                                        <option value="">כל הצוות</option>
+                                        <option value="">{tx("כל הצוות")}</option>
                                         {artists.map(a => <option key={a.id} value={a.id}>{a.display_name || a.email}</option>)}
                                     </select>
                                     {taskAssigneeId && (
                                         <p className="text-xs text-slate-500 mt-1">{taskKind === "break"
-                                            ? "היומן שלו נעול בשעות האלה — לא ייקבעו לו תורים"
-                                            : "העובד מקבל הודעה כשהמשימה נמסרת לו, ותזכורת כל עוד היא לא סומנה כבוצעה"}</p>
+                                            ? tx("היומן שלו נעול בשעות האלה — לא ייקבעו לו תורים")
+                                            : tx("העובד מקבל הודעה כשהמשימה נמסרת לו, ותזכורת כל עוד היא לא סומנה כבוצעה")}</p>
                                     )}
                                 </div>
 
                                 {/* Recurrence */}
                                 <div>
-                                    <label className="block text-sm font-semibold text-slate-700 mb-2">סוג חזרה</label>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-2">{tx("סוג חזרה")}</label>
                                     <div className="flex gap-2">
                                         {(["none","weekly","monthly","yearly"] as const).map(r => (
                                             <button key={r} type="button" onClick={() => setTaskRecurrence(r)}
                                                 className={`flex-1 py-2 rounded-xl text-xs font-bold border-2 transition-all ${taskRecurrence === r ? "bg-violet-600 border-violet-600 text-white" : "bg-slate-50 border-slate-200 text-slate-600 hover:border-violet-300"}`}>
-                                                {r === "none" ? "חד פעמי" : r === "weekly" ? "שבועי" : r === "monthly" ? "חודשי" : "שנתי"}
+                                                {r === "none" ? tx("חד פעמי") : r === "weekly" ? tx("שבועי") : r === "monthly" ? tx("חודשי") : tx("שנתי")}
                                             </button>
                                         ))}
                                     </div>
@@ -2469,15 +2472,15 @@ function Calendar() {
                                 {/* Date / Recurrence day */}
                                 {taskRecurrence === "none" && (
                                     <div>
-                                        <label className="block text-sm font-semibold text-slate-700 mb-1">תאריך *</label>
-                                        <PickerBox type="date" label="תאריך המשימה" value={taskDate} onChange={v => setTaskDate(v)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-violet-400 text-sm text-start" />
+                                        <label className="block text-sm font-semibold text-slate-700 mb-1">{tx("תאריך *")}</label>
+                                        <PickerBox type="date" label={tx("תאריך המשימה")} value={taskDate} onChange={v => setTaskDate(v)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-violet-400 text-sm text-start" />
                                     </div>
                                 )}
                                 {taskRecurrence === "weekly" && (
                                     <div>
-                                        <label className="block text-sm font-semibold text-slate-700 mb-2">בימים * (אפשר לבחור כמה)</label>
+                                        <label className="block text-sm font-semibold text-slate-700 mb-2">{tx("בימים * (אפשר לבחור כמה)")}</label>
                                         <div className="flex gap-1.5">
-                                            {["ראשון","שני","שלישי","רביעי","חמישי","שישי","שבת"].map((label, jsDay) => {
+                                            {[tx("ראשון"),tx("שני"),tx("שלישי"),tx("רביעי"),tx("חמישי"),tx("שישי"),tx("שבת")].map((label, jsDay) => {
                                                 const active = taskRecurrenceDaysOfWeek.includes(jsDay);
                                                 return (
                                                     <button key={jsDay} type="button"
@@ -2494,7 +2497,7 @@ function Calendar() {
                                 )}
                                 {taskRecurrence === "monthly" && (
                                     <div>
-                                        <label className="block text-sm font-semibold text-slate-700 mb-1">ביום ה-__ לכל חודש *</label>
+                                        <label className="block text-sm font-semibold text-slate-700 mb-1">{tx("ביום ה-__ לכל חודש *")}</label>
                                         <input type="number" min={1} max={31} value={taskRecurrenceDay}
                                             onChange={e => setTaskRecurrenceDay(e.target.value === "" ? "" : Number(e.target.value))}
                                             placeholder="1–31"
@@ -2504,17 +2507,17 @@ function Calendar() {
                                 {taskRecurrence === "yearly" && (
                                     <div className="flex gap-3">
                                         <div className="flex-1">
-                                            <label className="block text-sm font-semibold text-slate-700 mb-1">חודש *</label>
+                                            <label className="block text-sm font-semibold text-slate-700 mb-1">{tx("חודש *")}</label>
                                             <select value={taskRecurrenceMonth} onChange={e => setTaskRecurrenceMonth(Number(e.target.value))}
                                                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-violet-400 text-sm">
-                                                <option value="">בחר...</option>
-                                                {["ינואר","פברואר","מרץ","אפריל","מאי","יוני","יולי","אוגוסט","ספטמבר","אוקטובר","נובמבר","דצמבר"].map((m,i) => (
+                                                <option value="">{tx("בחר...")}</option>
+                                                {[tx("ינואר"),tx("פברואר"),tx("מרץ"),tx("אפריל"),tx("מאי"),tx("יוני"),tx("יולי"),tx("אוגוסט"),tx("ספטמבר"),tx("אוקטובר"),tx("נובמבר"),tx("דצמבר")].map((m,i) => (
                                                     <option key={i} value={i+1}>{m}</option>
                                                 ))}
                                             </select>
                                         </div>
                                         <div className="w-28">
-                                            <label className="block text-sm font-semibold text-slate-700 mb-1">יום *</label>
+                                            <label className="block text-sm font-semibold text-slate-700 mb-1">{tx("יום *")}</label>
                                             <input type="number" min={1} max={31} value={taskRecurrenceDay}
                                                 onChange={e => setTaskRecurrenceDay(e.target.value === "" ? "" : Number(e.target.value))}
                                                 placeholder="1–31"
@@ -2526,21 +2529,21 @@ function Calendar() {
                                 {/* Recurring end date */}
                                 {taskRecurrence !== "none" && (
                                     <div>
-                                        <label className="block text-sm font-semibold text-slate-700 mb-1">תאריך סיום חזרה (אופציונלי)</label>
-                                        <PickerBox type="date" label="תאריך סיום החזרה" value={taskRecurrenceEndDate} onChange={v => setTaskRecurrenceEndDate(v)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-violet-400 text-sm text-start" />
+                                        <label className="block text-sm font-semibold text-slate-700 mb-1">{tx("תאריך סיום חזרה (אופציונלי)")}</label>
+                                        <PickerBox type="date" label={tx("תאריך סיום החזרה")} value={taskRecurrenceEndDate} onChange={v => setTaskRecurrenceEndDate(v)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-violet-400 text-sm text-start" />
                                     </div>
                                 )}
 
                                 {/* Time — side by side, a gap between them */}
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="min-w-0">
-                                        <label className="block text-sm font-semibold text-slate-700 mb-1">שעת התחלה</label>
-                                        <PickerBox type="time" label="שעת התחלה" value={taskStartTime} onChange={setTaskStartTime}
+                                        <label className="block text-sm font-semibold text-slate-700 mb-1">{tx("שעת התחלה")}</label>
+                                        <PickerBox type="time" label={tx("שעת התחלה")} value={taskStartTime} onChange={setTaskStartTime}
                                             className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm" />
                                     </div>
                                     <div className="min-w-0">
-                                        <label className="block text-sm font-semibold text-slate-700 mb-1">שעת סיום</label>
-                                        <PickerBox type="time" label="שעת סיום" value={taskEndTime} onChange={setTaskEndTime}
+                                        <label className="block text-sm font-semibold text-slate-700 mb-1">{tx("שעת סיום")}</label>
+                                        <PickerBox type="time" label={tx("שעת סיום")} value={taskEndTime} onChange={setTaskEndTime}
                                             className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm" />
                                     </div>
                                 </div>
@@ -2549,24 +2552,24 @@ function Calendar() {
                                 {taskKind === "break" ? (
                                     <div className="flex items-start gap-2 rounded-xl bg-slate-50 border border-slate-200 p-3 text-xs text-slate-600">
                                         <Lock className="w-4 h-4 shrink-0 text-slate-500" aria-hidden />
-                                        <span>נועל את היומן {taskAssigneeId ? `של ${artists.find(a => a.id === taskAssigneeId)?.display_name || "העובד"}` : "של כל הצוות"} בשעות האלה — לא ייקבעו תורים, גם לא בקביעה עצמית של לקוחות.</span>
+                                        <span>{tx("נועל את היומן ")}{taskAssigneeId ? tx("של {0}", { 0: artists.find(a => a.id === taskAssigneeId)?.display_name || tx("העובד") }) : tx("של כל הצוות")}{tx(" בשעות האלה — לא ייקבעו תורים, גם לא בקביעה עצמית של לקוחות.")}</span>
                                     </div>
                                 ) : taskStartTime && taskEndTime ? (
                                     <div className="flex items-start gap-3 rounded-xl bg-slate-50 border border-slate-200 p-3">
                                         <Switch size="sm" checked={taskLocks} onChange={setTaskLocks} onColor="bg-violet-600"
-                                            title={taskLocks ? "לבטל את נעילת היומן" : "לנעול את היומן"} />
+                                            title={taskLocks ? tx("לבטל את נעילת היומן") : tx("לנעול את היומן")} />
                                         <span className="text-xs text-slate-600">
-                                            <span className="block font-semibold text-slate-700">נועל את היומן בשעות האלה</span>
+                                            <span className="block font-semibold text-slate-700">{tx("נועל את היומן בשעות האלה")}</span>
                                             {taskLocks
-                                                ? `לא ייקבעו תורים ${taskAssigneeId ? `ל${artists.find(a => a.id === taskAssigneeId)?.display_name || "עובד"}` : "לאף אחד בצוות"} בשעות האלה, גם לא בקביעה עצמית של לקוחות.`
-                                                : "אפשר לקבוע תורים בשעות האלה."}
+                                                ? tx("לא ייקבעו תורים {0} בשעות האלה, גם לא בקביעה עצמית של לקוחות.", { 0: taskAssigneeId ? tx("ל{0}", { 0: artists.find(a => a.id === taskAssigneeId)?.display_name || tx("עובד") }) : tx("לאף אחד בצוות") })
+                                                : tx("אפשר לקבוע תורים בשעות האלה.")}
                                         </span>
                                     </div>
                                 ) : null}
 
                                 {/* Color */}
                                 <div>
-                                    <label className="block text-sm font-semibold text-slate-700 mb-2">צבע</label>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-2">{tx("צבע")}</label>
                                     <div className="flex gap-2 flex-wrap">
                                         {["#8b5cf6","#3b82f6","#10b981","#f59e0b","#ef4444","#f97316","#ec4899","#6b7280"].map(c => (
                                             <button key={c} type="button" onClick={() => setTaskColor(c)}
@@ -2578,7 +2581,7 @@ function Calendar() {
 
                                 {/* Notes */}
                                 <div>
-                                    <label className="block text-sm font-semibold text-slate-700 mb-1">הערות</label>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-1">{tx("הערות")}</label>
                                     <textarea value={taskNotes} onChange={e => setTaskNotes(e.target.value)} rows={2}
                                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-violet-400 text-sm" />
                                 </div>
@@ -2589,14 +2592,14 @@ function Calendar() {
                                 <div>
                                     {selectedTaskId && canSetTasks && (
                                         <button onClick={handleDeleteTask} className="px-4 py-2 text-sm font-bold text-red-600 hover:bg-red-50 rounded-xl transition-colors">
-                                            🗑️ מחק
+                                            {tx("🗑️ מחק")}
                                         </button>
                                     )}
                                 </div>
                                 <div className="flex gap-3">
-                                    <button onClick={() => setIsTaskModalOpen(false)} className="px-5 py-2 text-sm font-bold text-slate-600 hover:bg-slate-200 rounded-xl transition-colors">סגור</button>
+                                    <button onClick={() => setIsTaskModalOpen(false)} className="px-5 py-2 text-sm font-bold text-slate-600 hover:bg-slate-200 rounded-xl transition-colors">{tx("סגור")}</button>
                                     {canSetTasks && <button onClick={handleSaveTask} className="px-6 py-2 text-sm font-bold text-white bg-violet-600 shadow-lg shadow-violet-600/20 hover:bg-violet-700 hover:-translate-y-0.5 rounded-xl transition-all">
-                                        {selectedTaskId ? "שמור שינויים" : taskKind === "break" ? "הוסף ליומן" : "הוסף משימה"}
+                                        {selectedTaskId ? tx("שמור שינויים") : taskKind === "break" ? tx("הוסף ליומן") : tx("הוסף משימה")}
                                     </button>}
                                 </div>
                             </div>
@@ -2616,13 +2619,13 @@ function Calendar() {
                                     onClick={() => { toggleHolidays(); setHolidayPopup(null); }}
                                     className="flex-1 py-2 rounded-xl text-sm border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors"
                                 >
-                                    הסתר חגים
+                                    {tx("הסתר חגים")}
                                 </button>
                                 <button
                                     onClick={() => setHolidayPopup(null)}
                                     className="flex-1 py-2 rounded-xl text-sm bg-sky-600 text-white font-semibold hover:bg-slate-700 transition-colors"
                                 >
-                                    סגור
+                                    {tx("סגור")}
                                 </button>
                             </div>
                         </div>
@@ -2632,7 +2635,7 @@ function Calendar() {
                 {/* Mobile FAB */}
                 <button
                     data-tour="appointment-new"
-                    className="fixed bottom-28 left-4 z-40 sm:hidden w-14 h-14 bg-sky-600 text-white rounded-full shadow-2xl shadow-slate-900/40 flex items-center justify-center text-3xl font-light active:scale-95 transition-transform"
+                    className="fixed bottom-28 end-4 z-40 sm:hidden w-14 h-14 bg-sky-600 text-white rounded-full shadow-2xl shadow-slate-900/40 flex items-center justify-center text-3xl font-light active:scale-95 transition-transform"
                     onClick={() => {
                         // the next round half hour — "now" to the minute was already past by the save, and asked
                         // "a date in the past?" every time (2026-10-15)
@@ -2666,28 +2669,28 @@ function Calendar() {
 
                 {depositToConfirm && (
                     <DepositConfirmModal deposit={depositToConfirm} onClose={() => setDepositToConfirm(null)}
-                        onConfirmed={() => { loadData(); showToast("המקדמה אושרה"); }} />
+                        onConfirmed={() => { loadData(); showToast(tx("המקדמה אושרה")); }} />
                 )}
 
                 {/* Past-date confirmation dialog */}
                 {dragConfirm && (
-                    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40" dir="rtl">
+                    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40">
                         <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden">
                             <div className="bg-blue-50 border-b border-blue-200 px-5 py-4 flex items-start gap-3">
                                 <span className="text-2xl mt-0.5">📅</span>
                                 <div>
-                                    <div className="font-bold text-blue-900 text-base">אישור הזזת תור</div>
+                                    <div className="font-bold text-blue-900 text-base">{tx("אישור הזזת תור")}</div>
                                     <div className="text-sm text-blue-700 mt-1 whitespace-pre-line">{dragConfirm.label}</div>
                                 </div>
                             </div>
                             <div className="flex gap-3 px-5 py-4">
                                 <button onClick={dragConfirm.onCancel}
                                     className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-700 font-semibold text-sm hover:bg-slate-50 transition-colors">
-                                    ביטול
+                                    {tx("ביטול")}
                                 </button>
                                 <button onClick={dragConfirm.onConfirm}
                                     className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm transition-colors">
-                                    ✅ כן, הזז תור
+                                    {tx("✅ כן, הזז תור")}
                                 </button>
                             </div>
                         </div>
@@ -2695,14 +2698,14 @@ function Calendar() {
                 )}
 
                 {pastDateConfirm && (
-                    <div className="fixed inset-0 z-9999 flex items-center justify-center bg-black/40" dir="rtl">
+                    <div className="fixed inset-0 z-9999 flex items-center justify-center bg-black/40">
                         <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden">
                             <div className="bg-amber-50 border-b border-amber-200 px-5 py-4 flex items-start gap-3">
                                 <TriangleAlert className="w-6 h-6 mt-0.5 shrink-0 text-amber-600" aria-hidden />
                                 <div>
-                                    <div className="font-bold text-amber-900 text-base">תאריך שעבר</div>
+                                    <div className="font-bold text-amber-900 text-base">{tx("תאריך שעבר")}</div>
                                     <div className="text-sm text-amber-700 mt-1">
-                                        התאריך שבחרת כבר עבר. האם אתה בטוח שברצונך לשמור תור בעבר?
+                                        {tx("התאריך שבחרת כבר עבר. האם אתה בטוח שברצונך לשמור תור בעבר?")}
                                     </div>
                                 </div>
                             </div>
@@ -2711,13 +2714,13 @@ function Calendar() {
                                     onClick={pastDateConfirm.onCancel}
                                     className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-700 font-semibold text-sm hover:bg-slate-50 transition-colors"
                                 >
-                                    ביטול
+                                    {tx("ביטול")}
                                 </button>
                                 <button
                                     onClick={pastDateConfirm.onConfirm}
                                     className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm transition-colors"
                                 >
-                                    כן, שמור בכל זאת
+                                    {tx("כן, שמור בכל זאת")}
                                 </button>
                             </div>
                         </div>
