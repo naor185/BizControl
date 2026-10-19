@@ -969,6 +969,14 @@ function Calendar() {
         });
     };
 
+    // one save at a time — a second tap while it's being saved would set the appointment twice
+    const [savingAppt, setSavingAppt] = useState(false);
+    const saveOnce = async () => {
+        if (savingAppt) return;
+        setSavingAppt(true);
+        try { await handleSaveAppointment(); } finally { setSavingAppt(false); }
+    };
+
     const handleSaveAppointment = async (skipPastCheck = false) => {
         if (!title || !startAt || !endAt || !artistId || !clientId) {
             showToast("יש למלא את כל שדות החובה: כותרת, זמנים, איש צוות ולקוח.", "error");
@@ -2257,8 +2265,8 @@ function Calendar() {
                                 </div>
                                 <div className="flex gap-3">
                                     <button onClick={() => setIsModalOpen(false)} className="px-5 py-2 text-sm font-bold text-slate-600 hover:bg-slate-200 rounded-xl transition-colors">סגור</button>
-                                    <button onClick={() => handleSaveAppointment()} className="px-6 py-2 text-sm font-bold text-white bg-sky-600 shadow-lg shadow-sky-600/20 hover:bg-sky-700 hover:-translate-y-0.5 rounded-xl transition-all">
-                                        {selectedEventId ? "שמור שינויים" : "קבע תור חדש"}
+                                    <button onClick={saveOnce} disabled={savingAppt} className="px-6 py-2 text-sm font-bold text-white bg-sky-600 shadow-lg shadow-sky-600/20 hover:bg-sky-700 hover:-translate-y-0.5 rounded-xl transition-all disabled:opacity-60">
+                                        {savingAppt ? "שומר…" : selectedEventId ? "שמור שינויים" : "קבע תור חדש"}
                                     </button>
                                 </div>
                             </div>

@@ -5,6 +5,7 @@ import { QueryProvider } from "@/components/QueryProvider";
 import OverflowDebugger from "@/components/OverflowDebugger";
 import BackButtonHandler from "@/components/BackButtonHandler";
 import AppLinkHandler from "@/components/AppLinkHandler";
+import SteadyTaps from "@/components/SteadyTaps";
 import type { CSSProperties } from "react";
 import ThemeProvider from "@/components/ThemeProvider";
 import PlatformThemeProvider from "@/components/PlatformThemeProvider";
@@ -73,6 +74,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               <ThemeProvider />
               <BackButtonHandler />
               <AppLinkHandler />
+              <SteadyTaps />
               {children}
               {process.env.NODE_ENV !== "production" && <OverflowDebugger />}
               </PlatformThemeProvider>
