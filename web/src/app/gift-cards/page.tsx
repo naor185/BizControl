@@ -11,6 +11,7 @@ import { Gift, Link2, Ticket } from "lucide-react";
 import ShareLink from "@/components/ShareLink";
 import CouponsPanel from "@/components/coupons/CouponsPanel";
 
+import { tx, intl } from "@/lib/i18n";
 interface GiftCard {
     id: string;
     code: string;
@@ -34,11 +35,11 @@ interface GiftCard {
 }
 
 const STATUS: Record<string, { label: string; cls: string }> = {
-    active:          { label: "פעיל",           cls: "bg-emerald-100 text-emerald-700" },
-    used:            { label: "נוצל",           cls: "bg-slate-100 text-slate-500" },
-    canceled:        { label: "בוטל",          cls: "bg-rose-100 text-rose-600" },
-    expired:         { label: "פג תוקף",        cls: "bg-amber-100 text-amber-700" },
-    pending_payment: { label: "ממתין לתשלום",  cls: "bg-amber-100 text-amber-700" },
+    active:          { label: tx("פעיל"),           cls: "bg-emerald-100 text-emerald-700" },
+    used:            { label: tx("נוצל"),           cls: "bg-slate-100 text-slate-500" },
+    canceled:        { label: tx("בוטל"),          cls: "bg-rose-100 text-rose-600" },
+    expired:         { label: tx("פג תוקף"),        cls: "bg-amber-100 text-amber-700" },
+    pending_payment: { label: tx("ממתין לתשלום"),  cls: "bg-amber-100 text-amber-700" },
 };
 
 type Tab = "gift" | "coupons";
@@ -85,7 +86,7 @@ export default function GiftCardsPage() {
     const shopLink = studioId ? `${window.location.origin}/gift/${studioId}` : "";
 
     const cancel = async (id: string) => {
-        if (!confirm("לבטל כרטיס זה?")) return;
+        if (!confirm(tx("לבטל כרטיס זה?"))) return;
         try {
             await apiFetch(`/api/gift-cards/${id}/cancel`, { method: "POST" });
             load();
@@ -94,7 +95,7 @@ export default function GiftCardsPage() {
     };
 
     const deleteCard = async (id: string) => {
-        if (!confirm("למחוק את הכרטיס לצמיתות? הפעולה בלתי הפיכה ותמחק גם את היסטוריית המימושים שלו.")) return;
+        if (!confirm(tx("למחוק את הכרטיס לצמיתות? הפעולה בלתי הפיכה ותמחק גם את היסטוריית המימושים שלו."))) return;
         try {
             await apiFetch(`/api/gift-cards/${id}`, { method: "DELETE" });
             load();
@@ -109,13 +110,13 @@ export default function GiftCardsPage() {
             const res = await apiFetch<{ deleted_invoices: number; deleted_pos_transactions: number }>(
                 "/api/gift-cards/cleanup-orphaned-records", { method: "POST" }
             );
-            alert(`נוקו: ${res.deleted_invoices} קבלות, ${res.deleted_pos_transactions} רשומות הכנסה יתומות`);
+            alert(tx("נוקו: {0} קבלות, {1} רשומות הכנסה יתומות", { 0: res.deleted_invoices, 1: res.deleted_pos_transactions }));
         } catch (e: unknown) { alert((e as Error).message); }
         finally { setCleaning(false); }
     };
 
     const approvePayment = async (id: string, sendReceipt: boolean) => {
-        if (!confirm("לאשר שהתשלום התקבל ולשלוח את השובר?")) return;
+        if (!confirm(tx("לאשר שהתשלום התקבל ולשלוח את השובר?"))) return;
         try {
             await apiFetch(`/api/gift-cards/${id}/approve-payment`, {
                 method: "POST",
@@ -136,11 +137,11 @@ export default function GiftCardsPage() {
 
     return (
         <RequireAuth>
-            <AppShell title="גיפט קארד וקופונים">
+            <AppShell title={tx("גיפט קארד וקופונים")}>
                 <div className="space-y-5 pb-12">
 
                     <div role="tablist" className="flex gap-2">
-                        {([["gift", "גיפט קארד", Gift], ["coupons", "קופונים", Ticket]] as const).map(([id, label, Icon]) => (
+                        {([["gift", tx("גיפט קארד"), Gift], ["coupons", tx("קופונים"), Ticket]] as const).map(([id, label, Icon]) => (
                             <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => openTab(id)}
                                 className={`inline-flex items-center gap-2 min-h-11 px-5 rounded-xl text-sm font-bold border transition-colors ${tab === id ? "bg-slate-900 border-slate-900 text-white" : "bg-white border-slate-200 text-slate-600 hover:border-slate-400"}`}>
                                 <Icon className="w-4 h-4" aria-hidden /> {label}
@@ -148,31 +149,31 @@ export default function GiftCardsPage() {
                         ))}
                     </div>
 
-                    {tab === "coupons" ? <PlanLock module="coupons" feature="קופונים"><CouponsPanel /></PlanLock> : (<PlanLock module="gift_cards" feature="גיפט קארד"><>
+                    {tab === "coupons" ? <PlanLock module="coupons" feature={tx("קופונים")}><CouponsPanel /></PlanLock> : (<PlanLock module="gift_cards" feature={tx("גיפט קארד")}><>
 
                     {/* The link customers buy a gift card at */}
                     <section className="bg-white rounded-2xl border border-slate-200/70 shadow-sm p-5 space-y-3">
                         <div>
-                            <h3 className="flex items-center gap-2 text-base font-bold text-slate-800"><Link2 className="w-4.5 h-4.5 text-violet-600" aria-hidden />הקישור שלך למכירת גיפט קארד</h3>
-                            <p className="text-sm text-slate-500 mt-1">שולחים ללקוחות, שמים באינסטגרם או מדפיסים כקוד QR — הלקוח בוחר סכום וקונה. כל רכישה מופיעה כאן למטה לאישור התשלום.</p>
+                            <h3 className="flex items-center gap-2 text-base font-bold text-slate-800"><Link2 className="w-4.5 h-4.5 text-violet-600" aria-hidden />{tx("הקישור שלך למכירת גיפט קארד")}</h3>
+                            <p className="text-sm text-slate-500 mt-1">{tx("שולחים ללקוחות, שמים באינסטגרם או מדפיסים כקוד QR — הלקוח בוחר סכום וקונה. כל רכישה מופיעה כאן למטה לאישור התשלום.")}</p>
                         </div>
                         {!salesOn ? (
                             <p className="text-sm text-amber-800 bg-amber-50 rounded-xl px-3 py-2">
-                                מכירת גיפט קארד כבויה — דף הרכישה סגור. מפעילים בהגדרות, בכרטיס &quot;מכירת גיפט קארד&quot;. כרטיסים שכבר נמכרו ממשיכים לעבוד.
+                                {tx("מכירת גיפט קארד כבויה — דף הרכישה סגור. מפעילים בהגדרות, בכרטיס \"מכירת גיפט קארד\". כרטיסים שכבר נמכרו ממשיכים לעבוד.")}
                             </p>
                         ) : shopLink ? (
-                            <ShareLink url={shopLink} whatsappText="גיפט קארד — מתנה מושלמת, קונים כאן:" printTitle="גיפט קארד" printLine="סורקים וקונים מתנה" />
+                            <ShareLink url={shopLink} whatsappText="גיפט קארד — מתנה מושלמת, קונים כאן:" printTitle={tx("גיפט קארד")} printLine="סורקים וקונים מתנה" />
                         ) : <div className="h-10 rounded-xl bg-slate-100 animate-pulse" />}
                     </section>
 
                     {/* Summary strip */}
                     <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
                         {[
-                            { label: "ממתינות לאישור", value: totals.pending, icon: "⏳", highlight: totals.pending > 0 },
-                            { label: "כרטיסים פעילים", value: totals.active, icon: "🎁" },
-                            { label: "יתרה פתוחה", value: `₪${totals.balance.toFixed(0)}`, icon: "💳" },
-                            { label: "סה״כ נוצל", value: `₪${totals.used.toFixed(0)}`, icon: "✅" },
-                            { label: "סה״כ הונפק", value: `₪${totals.issued.toFixed(0)}`, icon: "📊" },
+                            { label: tx("ממתינות לאישור"), value: totals.pending, icon: "⏳", highlight: totals.pending > 0 },
+                            { label: tx("כרטיסים פעילים"), value: totals.active, icon: "🎁" },
+                            { label: tx("יתרה פתוחה"), value: `₪${totals.balance.toFixed(0)}`, icon: "💳" },
+                            { label: tx("סה״כ נוצל"), value: `₪${totals.used.toFixed(0)}`, icon: "✅" },
+                            { label: tx("סה״כ הונפק"), value: `₪${totals.issued.toFixed(0)}`, icon: "📊" },
                         ].map(({ label, value, icon, highlight }) => (
                             <div key={label} className={`bg-white rounded-xl border shadow-sm p-4 ${highlight ? "border-amber-300 ring-1 ring-amber-200" : "border-slate-100"}`}>
                                 <div className="text-xl mb-1">{icon}</div>
@@ -184,10 +185,10 @@ export default function GiftCardsPage() {
 
                     {pageViews && (
                         <div className="text-xs text-slate-400 bg-white rounded-xl border border-slate-100 px-4 py-2.5 flex flex-wrap gap-x-4 gap-y-1">
-                            <span>👁️ ביקורים בדף הרכישה:</span>
-                            <span className="font-bold text-slate-600">{pageViews.last_7_days} ב-7 ימים</span>
-                            <span className="font-bold text-slate-600">{pageViews.last_30_days} ב-30 יום</span>
-                            <span className="font-bold text-slate-600">{pageViews.total} סה״כ</span>
+                            <span>{tx("👁️ ביקורים בדף הרכישה:")}</span>
+                            <span className="font-bold text-slate-600">{pageViews.last_7_days}{tx(" ב-7 ימים")}</span>
+                            <span className="font-bold text-slate-600">{pageViews.last_30_days}{tx(" ב-30 יום")}</span>
+                            <span className="font-bold text-slate-600">{pageViews.total}{tx(" סה״כ")}</span>
                         </div>
                     )}
 
@@ -195,21 +196,21 @@ export default function GiftCardsPage() {
                     <div className="flex gap-2 flex-wrap items-center">
                         <button type="button" onClick={() => setShowCreate(true)}
                             className="bg-violet-600 hover:bg-violet-700 text-white font-bold text-sm px-4 py-2 rounded-xl transition-colors">
-                            + גיפט קארד חדש
+                            {tx("+ גיפט קארד חדש")}
                         </button>
                         <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
                             className="text-sm border border-slate-200 rounded-xl px-3 py-2 outline-none">
-                            <option value="">כל הסטטוסים</option>
-                            <option value="pending_payment">ממתין לתשלום</option>
-                            <option value="active">פעיל</option>
-                            <option value="used">נוצל</option>
-                            <option value="canceled">בוטל</option>
+                            <option value="">{tx("כל הסטטוסים")}</option>
+                            <option value="pending_payment">{tx("ממתין לתשלום")}</option>
+                            <option value="active">{tx("פעיל")}</option>
+                            <option value="used">{tx("נוצל")}</option>
+                            <option value="canceled">{tx("בוטל")}</option>
                         </select>
-                        <span className="text-xs text-slate-400 mr-auto">{cards.length} כרטיסים</span>
+                        <span className="text-xs text-slate-400 ms-auto">{cards.length}{tx(" כרטיסים")}</span>
                         <button type="button" onClick={cleanupOrphaned} disabled={cleaning}
-                            title="מסיר קבלות/רשומות הכנסה שנשארו מכרטיסים שכבר נמחקו"
+                            title={tx("מסיר קבלות/רשומות הכנסה שנשארו מכרטיסים שכבר נמחקו")}
                             className="text-xs text-slate-400 hover:text-slate-600 disabled:opacity-50 underline">
-                            {cleaning ? "מנקה..." : "🧹 נקה רשומות יתומות"}
+                            {cleaning ? tx("מנקה...") : tx("🧹 נקה רשומות יתומות")}
                         </button>
                     </div>
 
@@ -221,20 +222,20 @@ export default function GiftCardsPage() {
                     ) : cards.length === 0 ? (
                         <div className="text-center py-16 text-slate-400">
                             <div className="text-4xl mb-3">🎁</div>
-                            <div>אין גיפט קארד עדיין — שלחו את הקישור שלמעלה ללקוחות</div>
+                            <div>{tx("אין גיפט קארד עדיין — שלחו את הקישור שלמעלה ללקוחות")}</div>
                         </div>
                     ) : (
                         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
                             <div className="overflow-x-auto">
-                            <table className="min-w-[38rem] w-full text-right text-sm">
+                            <table className="min-w-[38rem] w-full text-start text-sm">
                                 <thead>
                                     <tr className="bg-slate-50 text-slate-500 text-xs font-bold border-b">
-                                        <th className="px-4 py-3">קוד</th>
-                                        <th className="px-4 py-3">נמען</th>
-                                        <th className="px-4 py-3 text-center">סכום</th>
-                                        <th className="px-4 py-3 text-center">יתרה</th>
-                                        <th className="px-4 py-3 text-center">סטטוס</th>
-                                        <th className="px-4 py-3">תאריך</th>
+                                        <th className="px-4 py-3">{tx("קוד")}</th>
+                                        <th className="px-4 py-3">{tx("נמען")}</th>
+                                        <th className="px-4 py-3 text-center">{tx("סכום")}</th>
+                                        <th className="px-4 py-3 text-center">{tx("יתרה")}</th>
+                                        <th className="px-4 py-3 text-center">{tx("סטטוס")}</th>
+                                        <th className="px-4 py-3">{tx("תאריך")}</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50">
@@ -265,7 +266,7 @@ export default function GiftCardsPage() {
                                                     <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${st.cls}`}>{st.label}</span>
                                                 </td>
                                                 <td className="px-4 py-3 text-xs text-slate-400">
-                                                    {new Date(c.created_at).toLocaleDateString("he-IL")}
+                                                    {new Date(c.created_at).toLocaleDateString(intl())}
                                                 </td>
                                             </tr>
                                         );
@@ -310,8 +311,8 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
 
     const submit = async () => {
         const cents = Math.round(parseFloat(amount) * 100);
-        if (!cents || cents < 100) { setErr("סכום מינימלי ₪1"); return; }
-        if (!recipientName.trim()) { setErr("שם הנמען נדרש"); return; }
+        if (!cents || cents < 100) { setErr(tx("סכום מינימלי ₪1")); return; }
+        if (!recipientName.trim()) { setErr(tx("שם הנמען נדרש")); return; }
         setSaving(true); setErr(null);
         try {
             const card = await apiFetch<{ code: string; amount_ils: number }>("/api/gift-cards", {
@@ -335,7 +336,7 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
             <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-auto max-h-[95dvh]">
                 <div className="p-6">
                     <div className="flex justify-between items-center mb-5">
-                        <h2 className="text-lg font-black">🎁 גיפט קארד חדש</h2>
+                        <h2 className="text-lg font-black">{tx("🎁 גיפט קארד חדש")}</h2>
                         <button type="button" onClick={created ? onCreated : onClose}
                             className="text-slate-400 hover:text-slate-600 text-xl font-bold">×</button>
                     </div>
@@ -343,57 +344,57 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
                     {created ? (
                         <div className="text-center py-4">
                             <div className="text-5xl mb-4">🎉</div>
-                            <h3 className="text-lg font-black mb-2">הכרטיס נוצר בהצלחה!</h3>
+                            <h3 className="text-lg font-black mb-2">{tx("הכרטיס נוצר בהצלחה!")}</h3>
                             <div className="bg-violet-50 border-2 border-violet-200 rounded-2xl p-5 my-4">
-                                <div className="text-xs text-violet-500 uppercase tracking-widest mb-2">קוד המימוש</div>
+                                <div className="text-xs text-violet-500 uppercase tracking-widest mb-2">{tx("קוד המימוש")}</div>
                                 <div className="text-3xl font-black text-violet-700 tracking-widest font-mono">{created.code}</div>
-                                <div className="text-slate-500 text-sm mt-2">שווי: ₪{created.amount_ils.toFixed(0)}</div>
+                                <div className="text-slate-500 text-sm mt-2">{tx("שווי: ₪")}{created.amount_ils.toFixed(0)}</div>
                             </div>
                             {recipientEmail && (
-                                <p className="text-sm text-emerald-600 font-semibold">✅ נשלח למייל {recipientEmail}</p>
+                                <p className="text-sm text-emerald-600 font-semibold">{tx("✅ נשלח למייל ")}{recipientEmail}</p>
                             )}
                             <button type="button" onClick={onCreated}
                                 className="mt-4 w-full bg-violet-600 text-white font-bold py-3 rounded-2xl">
-                                סגור
+                                {tx("סגור")}
                             </button>
                         </div>
                     ) : (
                         <div className="space-y-3">
                             <div>
-                                <label className={lbl}>סכום הכרטיס (₪) *</label>
+                                <label className={lbl}>{tx("סכום הכרטיס (₪) *")}</label>
                                 <input value={amount} onChange={e => setAmount(e.target.value)} type="number"
                                     min="1" placeholder="200" className={inp} dir="ltr" />
                             </div>
                             <div>
-                                <label className={lbl}>שם הנמען *</label>
+                                <label className={lbl}>{tx("שם הנמען *")}</label>
                                 <input value={recipientName} onChange={e => setRecipientName(e.target.value)}
-                                    placeholder="שם מלא" className={inp} />
+                                    placeholder={tx("שם מלא")} className={inp} />
                             </div>
                             <div className="grid grid-cols-2 gap-2">
                                 <div>
-                                    <label className={lbl}>אימייל (לשליחה)</label>
+                                    <label className={lbl}>{tx("אימייל (לשליחה)")}</label>
                                     <input value={recipientEmail} onChange={e => setRecipientEmail(e.target.value)}
                                         type="email" placeholder="email@..." className={inp} dir="ltr" />
                                 </div>
                                 <div>
-                                    <label className={lbl}>טלפון</label>
+                                    <label className={lbl}>{tx("טלפון")}</label>
                                     <input value={recipientPhone} onChange={e => setRecipientPhone(e.target.value)}
                                         type="tel" placeholder="050..." className={inp} dir="ltr" />
                                 </div>
                             </div>
                             <div>
-                                <label className={lbl}>הודעה אישית</label>
+                                <label className={lbl}>{tx("הודעה אישית")}</label>
                                 <textarea value={message} onChange={e => setMessage(e.target.value)}
-                                    rows={2} placeholder="ברכה לנמען..." className={inp + " resize-none"} />
+                                    rows={2} placeholder={tx("ברכה לנמען...")} className={inp + " resize-none"} />
                             </div>
                             <div>
-                                <label className={lbl}>תוקף עד (אופציונלי)</label>
-                                <PickerBox type="date" label="תוקף" value={expiresAt} onChange={v => setExpiresAt(v)} className={cn(inp, "text-start")} />
+                                <label className={lbl}>{tx("תוקף עד (אופציונלי)")}</label>
+                                <PickerBox type="date" label={tx("תוקף")} value={expiresAt} onChange={v => setExpiresAt(v)} className={cn(inp, "text-start")} />
                             </div>
                             {err && <p className="text-rose-600 text-sm">{err}</p>}
                             <button type="button" onClick={submit} disabled={saving}
                                 className="w-full bg-violet-600 hover:bg-violet-700 disabled:opacity-60 text-white font-bold py-3 rounded-2xl transition-colors mt-2">
-                                {saving ? "יוצר..." : "✨ צור גיפט קארד"}
+                                {saving ? tx("יוצר...") : tx("✨ צור גיפט קארד")}
                             </button>
                         </div>
                     )}
@@ -416,7 +417,7 @@ function DetailModal({ card, onClose, onCancel, onApprove, onDelete }: { card: G
             <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-auto max-h-[92dvh]">
                 <div className="p-6">
                     <div className="flex justify-between items-center mb-4">
-                        <h2 className="text-base font-black">פרטי כרטיס</h2>
+                        <h2 className="text-base font-black">{tx("פרטי כרטיס")}</h2>
                         <button type="button" onClick={onClose} className="text-slate-400 text-xl font-bold">×</button>
                     </div>
 
@@ -428,17 +429,17 @@ function DetailModal({ card, onClose, onCancel, onApprove, onDelete }: { card: G
                     </div>
 
                     <div className="space-y-2 text-sm mb-4">
-                        <Row label="נמען" value={card.recipient_name} />
-                        {card.recipient_email && <Row label="אימייל" value={card.recipient_email} />}
-                        {card.recipient_phone && <Row label="טלפון" value={card.recipient_phone} />}
-                        <Row label="סכום מקורי" value={`₪${card.amount_ils.toFixed(0)}`} />
+                        <Row label={tx("נמען")} value={card.recipient_name} />
+                        {card.recipient_email && <Row label={tx("אימייל")} value={card.recipient_email} />}
+                        {card.recipient_phone && <Row label={tx("טלפון")} value={card.recipient_phone} />}
+                        <Row label={tx("סכום מקורי")} value={`₪${card.amount_ils.toFixed(0)}`} />
                         {!!card.bonus_ils && card.bonus_ils > 0 && (
-                            <Row label="כולל בונוס" value={`₪${card.bonus_ils.toFixed(0)} 🎉`} />
+                            <Row label={tx("כולל בונוס")} value={`₪${card.bonus_ils.toFixed(0)} 🎉`} />
                         )}
-                        <Row label="יתרה" value={`₪${card.balance_ils.toFixed(0)}`} bold />
-                        <Row label="נוצל" value={`₪${card.used_ils.toFixed(0)}`} />
-                        {card.expires_at && <Row label="תוקף" value={new Date(card.expires_at).toLocaleDateString("he-IL")} />}
-                        <Row label="הונפק" value={new Date(card.created_at).toLocaleDateString("he-IL")} />
+                        <Row label={tx("יתרה")} value={`₪${card.balance_ils.toFixed(0)}`} bold />
+                        <Row label={tx("נוצל")} value={`₪${card.used_ils.toFixed(0)}`} />
+                        {card.expires_at && <Row label={tx("תוקף")} value={new Date(card.expires_at).toLocaleDateString(intl())} />}
+                        <Row label={tx("הונפק")} value={new Date(card.created_at).toLocaleDateString(intl())} />
                     </div>
 
                     {card.personal_message && (
@@ -449,11 +450,11 @@ function DetailModal({ card, onClose, onCancel, onApprove, onDelete }: { card: G
 
                     {isPending && (
                         <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4 space-y-2 text-sm">
-                            <div className="font-bold text-amber-700 mb-1">פרטי הקונה — הזמנה מהחנות הציבורית</div>
-                            {card.buyer_name && <Row label="שם הקונה" value={card.buyer_name} />}
-                            {card.buyer_phone && <Row label="טלפון הקונה" value={card.buyer_phone} />}
-                            {card.buyer_email && <Row label="אימייל הקונה" value={card.buyer_email} />}
-                            <Row label="השובר יישלח אל" value={card.deliver_to === "recipient" ? "הנמען/ת ישירות" : "הקונה"} bold />
+                            <div className="font-bold text-amber-700 mb-1">{tx("פרטי הקונה — הזמנה מהחנות הציבורית")}</div>
+                            {card.buyer_name && <Row label={tx("שם הקונה")} value={card.buyer_name} />}
+                            {card.buyer_phone && <Row label={tx("טלפון הקונה")} value={card.buyer_phone} />}
+                            {card.buyer_email && <Row label={tx("אימייל הקונה")} value={card.buyer_email} />}
+                            <Row label={tx("השובר יישלח אל")} value={card.deliver_to === "recipient" ? tx("הנמען/ת ישירות") : tx("הקונה")} bold />
                         </div>
                     )}
 
@@ -465,13 +466,13 @@ function DetailModal({ card, onClose, onCancel, onApprove, onDelete }: { card: G
                                 className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl border transition-colors mb-2 ${sendReceipt ? "bg-sky-50 border-sky-200" : "bg-slate-50 border-slate-200"}`}
                             >
                                 <span className={`text-xs font-bold ${sendReceipt ? "text-sky-700" : "text-slate-500"}`}>
-                                    {sendReceipt ? "📨 שלח קבלה ללקוח" : "🔕 לא לשלוח קבלה ללקוח"}
+                                    {sendReceipt ? tx("📨 שלח קבלה ללקוח") : tx("🔕 לא לשלוח קבלה ללקוח")}
                                 </span>
                                 <Switch as="span" size="sm" checked={sendReceipt} onColor="bg-sky-500" />
                             </button>
                             <button type="button" onClick={() => onApprove(sendReceipt)}
                                 className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl text-sm transition-colors mb-2">
-                                ✅ אשר תשלום ושלח שובר
+                                {tx("✅ אשר תשלום ושלח שובר")}
                             </button>
                         </>
                     )}
@@ -479,13 +480,13 @@ function DetailModal({ card, onClose, onCancel, onApprove, onDelete }: { card: G
                     {canCancel && (
                         <button type="button" onClick={onCancel}
                             className="w-full bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold py-2.5 rounded-xl text-sm transition-colors mb-2">
-                            {isPending ? "דחה/בטל הזמנה" : "ביטול כרטיס"}
+                            {isPending ? tx("דחה/בטל הזמנה") : tx("ביטול כרטיס")}
                         </button>
                     )}
 
                     <button type="button" onClick={onDelete}
                         className="w-full text-rose-400 hover:text-rose-600 font-semibold py-2 rounded-xl text-xs transition-colors">
-                        🗑️ מחק לצמיתות (לניקוי בדיקות)
+                        {tx("🗑️ מחק לצמיתות (לניקוי בדיקות)")}
                     </button>
                 </div>
             </div>

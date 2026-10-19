@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
 
+import { intl, tx } from "@/lib/i18n";
 // This month's use of what the plan counts — WhatsApp messages, עסק קטן's broadcasts, invoice scans
 // (GET /api/modules/me/usage; the counting is app/services/message_quota.py). When the WhatsApp messages run out,
 // reminders go by e-mail and broadcasts stop until the month starts again.
@@ -14,13 +15,13 @@ export default function UsageThisMonth() {
         apiFetch<Usage[]>("/api/modules/me/usage").then(setRows).catch(() => setRows([]));
     }, []);
     if (!rows || rows.length === 0) return null;
-    const resets = new Date(rows[0].resets_on).toLocaleDateString("he-IL", { day: "numeric", month: "numeric" });
+    const resets = new Date(rows[0].resets_on).toLocaleDateString(intl(), { day: "numeric", month: "numeric" });
 
     return (
-        <section className="rounded-2xl border border-slate-100 p-4 space-y-4" aria-label="ניצול החודש">
+        <section className="rounded-2xl border border-slate-100 p-4 space-y-4" aria-label={tx("ניצול החודש")}>
             <div className="flex items-baseline justify-between gap-3">
-                <h4 className="font-bold text-slate-800 text-sm">ניצול החודש</h4>
-                <span className="text-xs text-slate-400">מתאפס ב-{resets}</span>
+                <h4 className="font-bold text-slate-800 text-sm">{tx("ניצול החודש")}</h4>
+                <span className="text-xs text-slate-400">{tx("מתאפס ב-")}{resets}</span>
             </div>
             {rows.map(u => {
                 const pct = u.limit ? Math.min(100, Math.round((u.used / u.limit) * 100)) : 0;
@@ -28,11 +29,11 @@ export default function UsageThisMonth() {
                 return (
                     <div key={u.key}>
                         <div className="flex items-baseline justify-between gap-3 text-sm">
-                            <span className="text-slate-700 font-medium">{u.label}</span>
+                            <span className="text-slate-700 font-medium">{tx(u.label)}</span>
                             <span className="text-slate-500 tabular-nums">
                                 {u.limit === null
-                                    ? `${u.used.toLocaleString("he-IL")} החודש · ללא הגבלה`
-                                    : `${u.used.toLocaleString("he-IL")} מתוך ${u.limit.toLocaleString("he-IL")} · נשארו ${(u.remaining ?? 0).toLocaleString("he-IL")}`}
+                                    ? tx("{0} החודש · ללא הגבלה", { 0: u.used.toLocaleString(intl()) })
+                                    : tx("{0} מתוך {1} · נשארו {2}", { 0: u.used.toLocaleString(intl()), 1: u.limit.toLocaleString(intl()), 2: (u.remaining ?? 0).toLocaleString(intl()) })}
                             </span>
                         </div>
                         {u.limit !== null && (
@@ -42,7 +43,7 @@ export default function UsageThisMonth() {
                             </div>
                         )}
                         {u.key === "whatsapp" && u.limit !== null && (u.remaining ?? 0) === 0 && (
-                            <p className="text-xs text-rose-600 mt-1">נגמרו ההודעות לחודש — תזכורות ואישורים יוצאים במייל ללקוחות שיש להם מייל, ותפוצות לא יוצאות.</p>
+                            <p className="text-xs text-rose-600 mt-1">{tx("נגמרו ההודעות לחודש — תזכורות ואישורים יוצאים במייל ללקוחות שיש להם מייל, ותפוצות לא יוצאות.")}</p>
                         )}
                     </div>
                 );

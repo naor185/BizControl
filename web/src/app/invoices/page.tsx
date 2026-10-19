@@ -3,8 +3,10 @@ import PickerBox from "@/components/ui/picker-box";
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import AppShell from "@/components/AppShell";
+import RequireAuth from "@/components/RequireAuth";
 import { apiFetch, getCurrentUserRole } from "@/lib/api";
 
+import { tx, intl } from "@/lib/i18n";
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface InvoiceSettings {
@@ -81,32 +83,32 @@ interface Invoice {
 }
 
 const DOC_TYPES: Record<string, string> = {
-    invoice_tax: "חשבונית מס",
-    receipt: "קבלה",
-    invoice_tax_receipt: "חשבונית מס/קבלה",
-    credit: "זיכוי",
-    transaction: "חשבונית עסקה",
+    invoice_tax: tx("חשבונית מס"),
+    receipt: tx("קבלה"),
+    invoice_tax_receipt: tx("חשבונית מס/קבלה"),
+    credit: tx("זיכוי"),
+    transaction: tx("חשבונית עסקה"),
 };
 
 const BIZ_TYPES = [
-    { value: "osek_patur", label: "עוסק פטור" },
-    { value: "osek_murshe", label: "עוסק מורשה" },
-    { value: "chevra_baam", label: 'חברה בע"מ' },
+    { value: "osek_patur", label: tx("עוסק פטור") },
+    { value: "osek_murshe", label: tx("עוסק מורשה") },
+    { value: "chevra_baam", label: tx("חברה בע\"מ") },
 ];
 
 const METHODS = [
-    { value: "cash", label: "מזומן" },
+    { value: "cash", label: tx("מזומן") },
     { value: "bit", label: "Bit" },
     { value: "paybox", label: "PayBox" },
-    { value: "credit_card", label: "כרטיס אשראי" },
-    { value: "bank_transfer", label: "העברה בנקאית" },
-    { value: "check", label: "צ'ק" },
-    { value: "other", label: "אחר" },
+    { value: "credit_card", label: tx("כרטיס אשראי") },
+    { value: "bank_transfer", label: tx("העברה בנקאית") },
+    { value: "check", label: tx("צ'ק") },
+    { value: "other", label: tx("אחר") },
 ];
 
 const STATUS_BADGE: Record<string, { label: string; bg: string; color: string }> = {
-    issued:   { label: "הופק",   bg: "#dcfce7", color: "#166534" },
-    credited: { label: "זוכה",   bg: "#fee2e2", color: "#991b1b" },
+    issued:   { label: tx("הופק"),   bg: "#dcfce7", color: "#166534" },
+    credited: { label: tx("זוכה"),   bg: "#fee2e2", color: "#991b1b" },
 };
 
 const TYPE_COLOR: Record<string, string> = {
@@ -316,7 +318,7 @@ export default function InvoicesPage() {
     };
 
     return (
-        <AppShell title="חשבוניות ומסמכים">
+        <RequireAuth><AppShell title={tx("חשבוניות ומסמכים")}>
             {/* Setup wizard — shown on first use (skip for superadmin impersonation) */}
             {settings && !settings.settings_completed && !isAdminView && (
                 <InvoiceSetupWizard
@@ -335,7 +337,7 @@ export default function InvoicesPage() {
                         borderBottom: tab === t ? "2px solid #7c3aed" : "2px solid transparent",
                         color: tab === t ? "#7c3aed" : "#64748b",
                     }}>
-                        {{ documents: "📄 מסמכים", settings: "⚙️ הגדרות", series: "🔢 סדרות" }[t]}
+                        {{ documents: tx("📄 מסמכים"), settings: tx("⚙️ הגדרות"), series: tx("🔢 סדרות") }[t]}
                     </button>
                 ))}
             </div>
@@ -360,13 +362,13 @@ export default function InvoicesPage() {
                     onPdf={(id) => window.open(`/receipt/${id}`, "_blank")}
                     onDelete={isAdminView ? async (id) => {
                         if (!confirm(
-                            "מחיקה מלאה לצמיתות — כאילו לא קרה כלום?\n\n" +
-                            "יימחק הכל:\n" +
-                            "• המסמך (קבלה / חשבונית)\n" +
-                            "• רשומת התשלום\n" +
-                            "• נקודות מועדון שנצברו\n" +
-                            "• זיכויים מקושרים\n\n" +
-                            "⛔ פעולה בלתי הפיכה לחלוטין!"
+                            tx("מחיקה מלאה לצמיתות — כאילו לא קרה כלום?\n\n") +
+                            tx("יימחק הכל:\n") +
+                            tx("• המסמך (קבלה / חשבונית)\n") +
+                            tx("• רשומת התשלום\n") +
+                            tx("• נקודות מועדון שנצברו\n") +
+                            tx("• זיכויים מקושרים\n\n") +
+                            tx("⛔ פעולה בלתי הפיכה לחלוטין!")
                         )) return;
                         try {
                             // Use original superadmin token (not impersonation token)
@@ -377,11 +379,11 @@ export default function InvoicesPage() {
                             });
                             if (!res.ok) {
                                 const err = await res.json().catch(() => ({}));
-                                throw new Error(err.detail || `שגיאה ${res.status}`);
+                                throw new Error(err.detail || tx("שגיאה {0}", { 0: res.status }));
                             }
                             loadInvoices();
                         } catch (e: any) {
-                            alert(e?.message || "שגיאה במחיקה");
+                            alert(e?.message || tx("שגיאה במחיקה"));
                         }
                     } : undefined}
                 />
@@ -401,7 +403,7 @@ export default function InvoicesPage() {
                     onCredit={(method, notes) => createCredit(viewInvoice.id, method, notes)}
                 />
             )}
-        </AppShell>
+        </AppShell></RequireAuth>
     );
 }
 
@@ -420,7 +422,7 @@ function DocumentsTab({ invoices, total, loading, settings, filterType, setFilte
     const [backfillResult, setBackfillResult] = useState<{ created: number; failed: number } | null>(null);
 
     const handleBackfill = async () => {
-        if (!confirm("יצור קבלות לכל התשלומים שלא קיבלו קבלה. להמשיך?")) return;
+        if (!confirm(tx("יצור קבלות לכל התשלומים שלא קיבלו קבלה. להמשיך?"))) return;
         setBackfilling(true);
         setBackfillResult(null);
         try {
@@ -428,7 +430,7 @@ function DocumentsTab({ invoices, total, loading, settings, filterType, setFilte
             setBackfillResult({ created: res.created, failed: res.failed });
             if (res.created > 0) onFilter();
         } catch (e: any) {
-            alert(e?.message || "שגיאה ביצירת קבלות");
+            alert(e?.message || tx("שגיאה ביצירת קבלות"));
         } finally {
             setBackfilling(false);
         }
@@ -440,38 +442,38 @@ function DocumentsTab({ invoices, total, loading, settings, filterType, setFilte
             <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem", flexWrap: "wrap", alignItems: "center" }}>
                 <select value={filterType} onChange={e => { setFilterType(e.target.value); setTimeout(onFilter, 0); }}
                     style={{ padding: "0.5rem 0.75rem", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: "0.85rem" }}>
-                    <option value="">כל הסוגים</option>
+                    <option value="">{tx("כל הסוגים")}</option>
                     {(settings?.allowed_doc_types || Object.keys(DOC_TYPES)).map(t => (
                         <option key={t} value={t}>{DOC_TYPES[t]}</option>
                     ))}
                 </select>
 
-                <PickerBox type="date" label="סינון לפי תאריך" value={filterDate} onChange={v => { setFilterDate(v); setTimeout(onFilter, 0); }} className="text-start" style={{ padding: "0.5rem 0.75rem", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: "0.85rem" }} />
+                <PickerBox type="date" label={tx("סינון לפי תאריך")} value={filterDate} onChange={v => { setFilterDate(v); setTimeout(onFilter, 0); }} className="text-start" style={{ padding: "0.5rem 0.75rem", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: "0.85rem" }} />
 
-                <span style={{ color: "#94a3b8", fontSize: "0.82rem", marginRight: "auto" }}>{total} מסמכים</span>
+                <span style={{ color: "#94a3b8", fontSize: "0.82rem", marginRight: "auto" }}>{total}{tx(" מסמכים")}</span>
 
                 <button
                     type="button"
                     onClick={handleBackfill}
                     disabled={backfilling}
                     style={{ padding: "0.45rem 0.9rem", borderRadius: 8, border: "1px solid #ddd6fe", background: backfilling ? "#f5f3ff" : "#ede9fe", color: "#7c3aed", fontSize: "0.8rem", fontWeight: 600, cursor: backfilling ? "not-allowed" : "pointer" }}
-                    title="צור קבלות לכל התשלומים שלא קיבלו קבלה"
+                    title={tx("צור קבלות לכל התשלומים שלא קיבלו קבלה")}
                 >
-                    {backfilling ? "מייצר..." : "🔄 השלם קבלות חסרות"}
+                    {backfilling ? tx("מייצר...") : tx("🔄 השלם קבלות חסרות")}
                 </button>
                 {backfillResult && (
                     <span style={{ fontSize: "0.78rem", color: backfillResult.failed > 0 ? "#dc2626" : "#16a34a", fontWeight: 600 }}>
-                        ✅ {backfillResult.created} נוצרו{backfillResult.failed > 0 ? ` · ❌ ${backfillResult.failed} נכשלו` : ""}
+                        ✅ {backfillResult.created}{tx(" נוצרו")}{backfillResult.failed > 0 ? tx(" · ❌ {0} נכשלו", { 0: backfillResult.failed }) : ""}
                     </span>
                 )}
             </div>
 
             {loading ? (
-                <div style={{ textAlign: "center", padding: "3rem", color: "#94a3b8" }}>טוען...</div>
+                <div style={{ textAlign: "center", padding: "3rem", color: "#94a3b8" }}>{tx("טוען...")}</div>
             ) : invoices.length === 0 ? (
                 <div style={{ textAlign: "center", padding: "3rem", color: "#94a3b8" }}>
                     <div style={{ fontSize: "2.5rem", marginBottom: "0.5rem" }}>📄</div>
-                    <div>אין מסמכים עדיין</div>
+                    <div>{tx("אין מסמכים עדיין")}</div>
                 </div>
             ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
@@ -508,7 +510,7 @@ function InvoiceRow({ inv, onView, onPdf, onDelete, isLoading }: { inv: Invoice;
                     <span style={{ background: st.bg, color: st.color, fontSize: "0.7rem", fontWeight: 700, padding: "0.15rem 0.5rem", borderRadius: 6 }}>{st.label}</span>
                 </div>
                 <div style={{ color: "#64748b", fontSize: "0.8rem" }}>
-                    {isLoading ? "⏳ טוען..." : `${inv.client_name || "—"} · ${new Date(inv.issued_at).toLocaleDateString("he-IL")}`}
+                    {isLoading ? tx("⏳ טוען...") : `${inv.client_name || "—"} · ${new Date(inv.issued_at).toLocaleDateString(intl())}`}
                 </div>
             </div>
             <div style={{ textAlign: "left", flexShrink: 0, display: "flex", flexDirection: "column", gap: "0.25rem", alignItems: "flex-end" }}>
@@ -518,7 +520,7 @@ function InvoiceRow({ inv, onView, onPdf, onDelete, isLoading }: { inv: Invoice;
                 <div style={{ display: "flex", gap: "0.25rem" }}>
                     <button type="button" onClick={sendWA}
                         style={{ background: "none", border: "1px solid #bbf7d0", borderRadius: 6, padding: "0.2rem 0.5rem", fontSize: "0.72rem", cursor: "pointer", color: "#16a34a" }}
-                        title="שלח קבלה בוואטסאפ">
+                        title={tx("שלח קבלה בוואטסאפ")}>
                         💬 WA
                     </button>
                     <button type="button" onClick={e => { e.stopPropagation(); onPdf(inv.id); }}
@@ -528,7 +530,7 @@ function InvoiceRow({ inv, onView, onPdf, onDelete, isLoading }: { inv: Invoice;
                     {onDelete && (
                         <button type="button" onClick={e => { e.stopPropagation(); onDelete(inv.id); }}
                             style={{ background: "none", border: "1px solid #fecaca", borderRadius: 6, padding: "0.2rem 0.5rem", fontSize: "0.72rem", cursor: "pointer", color: "#dc2626" }}
-                            title="מחק לצמיתות (סופר-אדמין)">
+                            title={tx("מחק לצמיתות (סופר-אדמין)")}>
                             🗑️
                         </button>
                     )}
@@ -541,9 +543,9 @@ function InvoiceRow({ inv, onView, onPdf, onDelete, isLoading }: { inv: Invoice;
 // ── Invoice Detail Modal ──────────────────────────────────────────────────────
 
 const METHOD_LABELS_FE: Record<string, string> = {
-    cash: "מזומן", bit: "Bit", paybox: "PayBox",
-    credit_card: "כרטיס אשראי", bank_transfer: "העברה בנקאית",
-    check: "צ'ק", other: "אחר",
+    cash: tx("מזומן"), bit: "Bit", paybox: "PayBox",
+    credit_card: tx("כרטיס אשראי"), bank_transfer: tx("העברה בנקאית"),
+    check: tx("צ'ק"), other: tx("אחר"),
 };
 
 function InvoiceDetailModal({ invoice, onClose, onDownload, getPdfUrl, onCredit }: {
@@ -580,7 +582,7 @@ function InvoiceDetailModal({ invoice, onClose, onDownload, getPdfUrl, onCredit 
             invoice.business_name ? `מאת: ${invoice.business_name}` : "",
             `סכום: ₪${Math.abs(invoice.total_ils).toFixed(2)}`,
             invoice.client_name ? `ללקוח: ${invoice.client_name}` : "",
-            new Date(invoice.issued_at).toLocaleDateString("he-IL"),
+            new Date(invoice.issued_at).toLocaleDateString(intl()),
             `\nלצפייה בקבלה:\n${receiptUrl}`,
         ].filter(Boolean).join("\n");
         const phone = invoice.client_phone?.replace(/\D/g, "");
@@ -615,7 +617,7 @@ function InvoiceDetailModal({ invoice, onClose, onDownload, getPdfUrl, onCredit 
                     {/* Close bar */}
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "1rem 1.25rem 0.75rem", borderBottom: "1px solid #f1f5f9" }}>
                         <button type="button" onClick={onClose} style={{ background: "none", border: "none", fontSize: "1.4rem", cursor: "pointer", color: "#94a3b8", lineHeight: 1 }}>×</button>
-                        <span style={{ fontWeight: 700, fontSize: "0.9rem", color: "#64748b" }}>תצוגה מקדימה</span>
+                        <span style={{ fontWeight: 700, fontSize: "0.9rem", color: "#64748b" }}>{tx("תצוגה מקדימה")}</span>
                         <div style={{ width: 28 }} />
                     </div>
 
@@ -652,9 +654,9 @@ function InvoiceDetailModal({ invoice, onClose, onDownload, getPdfUrl, onCredit 
                                 )}
                             </div>
                             <div style={{ textAlign: "left", fontSize: "0.8rem", color: "#64748b" }}>
-                                {new Date(invoice.issued_at).toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                                {new Date(invoice.issued_at).toLocaleDateString(intl(), { day: "2-digit", month: "2-digit", year: "numeric" })}
                                 <br />
-                                {new Date(invoice.issued_at).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })}
+                                {new Date(invoice.issued_at).toLocaleTimeString(intl(), { hour: "2-digit", minute: "2-digit" })}
                             </div>
                         </div>
 
@@ -680,7 +682,7 @@ function InvoiceDetailModal({ invoice, onClose, onDownload, getPdfUrl, onCredit 
                                                 <th style={{ padding: "0.5rem 0.6rem", textAlign: "right", fontWeight: 700, borderRadius: "6px 0 0 0" }}>תיאור</th>
                                                 <th style={{ padding: "0.5rem 0.6rem", textAlign: "center", fontWeight: 700, width: 50 }}>כמות</th>
                                                 <th style={{ padding: "0.5rem 0.6rem", textAlign: "center", fontWeight: 700, width: 70 }}>מחיר</th>
-                                                <th style={{ padding: "0.5rem 0.6rem", textAlign: "left", fontWeight: 700, width: 80, borderRadius: "0 6px 0 0" }}>סה"כ</th>
+                                                <th style={{ padding: "0.5rem 0.6rem", textAlign: "left", fontWeight: 700, width: 80, borderRadius: "0 6px 0 0" }}>{tx("סה\"כ")}</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -702,10 +704,10 @@ function InvoiceDetailModal({ invoice, onClose, onDownload, getPdfUrl, onCredit 
                                 {(invoice.shows_vat ?? invoice.vat_amount_ils > 0) && (
                                     <>
                                         <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem", marginBottom: "0.3rem", color: "#64748b" }}>
-                                            <span>לפני מע"מ</span><span>₪{invoice.subtotal_ils.toFixed(2)}</span>
+                                            <span>{tx("לפני מע\"מ")}</span><span>₪{invoice.subtotal_ils.toFixed(2)}</span>
                                         </div>
                                         <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem", marginBottom: "0.3rem", color: "#64748b" }}>
-                                            <span>מע"מ {invoice.vat_rate}%</span><span>₪{invoice.vat_amount_ils.toFixed(2)}</span>
+                                            <span>{tx("מע\"מ ")}{invoice.vat_rate}%</span><span>₪{invoice.vat_amount_ils.toFixed(2)}</span>
                                         </div>
                                     </>
                                 )}
@@ -750,14 +752,14 @@ function InvoiceDetailModal({ invoice, onClose, onDownload, getPdfUrl, onCredit 
                     <div style={{ padding: "0.85rem 1.25rem 1.25rem", borderTop: "1px solid #f1f5f9", display: "flex", gap: "0.5rem", background: "#fff" }}>
                         {canCredit && (
                             <button type="button" onClick={() => setShowCreditForm(true)} style={{ background: "#fee2e2", color: "#dc2626", border: "1px solid #fecaca", borderRadius: 12, padding: "0.75rem 1rem", fontWeight: 700, cursor: "pointer", fontSize: "0.88rem" }}>
-                                זיכוי
+                                {tx("זיכוי")}
                             </button>
                         )}
                         <button type="button" onClick={() => setShowActions(true)} style={{ flex: 1, background: accentColor, color: "#fff", border: "none", borderRadius: 12, padding: "0.75rem", fontWeight: 800, cursor: "pointer", fontSize: "0.95rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.4rem" }}>
                             <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
                             </svg>
-                            : פעולות
+                            {tx(": פעולות")}
                         </button>
                     </div>
                 </div>
@@ -770,21 +772,21 @@ function InvoiceDetailModal({ invoice, onClose, onDownload, getPdfUrl, onCredit 
                     <div style={{ background: "#fff", borderRadius: "20px 20px 0 0", width: "100%", maxWidth: 580, padding: "1.5rem" }}
                         onClick={e => e.stopPropagation()}>
                         <div style={{ width: 40, height: 4, background: "#e2e8f0", borderRadius: 2, margin: "0 auto 1.25rem" }} />
-                        <div style={{ fontWeight: 800, fontSize: "1.1rem", color: "#dc2626", marginBottom: "0.3rem" }}>יצירת זיכוי</div>
+                        <div style={{ fontWeight: 800, fontSize: "1.1rem", color: "#dc2626", marginBottom: "0.3rem" }}>{tx("יצירת זיכוי")}</div>
                         <div style={{ fontSize: "0.82rem", color: "#64748b", marginBottom: "1.25rem" }}>
-                            זיכוי עבור {invoice.doc_type_label} #{invoice.doc_number} · ₪{Math.abs(invoice.total_ils).toFixed(2)}
+                            {tx("זיכוי עבור")} {invoice.doc_type_label} #{invoice.doc_number} · ₪{Math.abs(invoice.total_ils).toFixed(2)}
                         </div>
 
                         <div style={{ marginBottom: "1rem" }}>
-                            <label style={labelStyle}>כיצד יוחזר הכסף ללקוח? *</label>
+                            <label style={labelStyle}>{tx("כיצד יוחזר הכסף ללקוח? *")}</label>
                             <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
                                 {[
-                                    { value: "cash", label: "מזומן" },
+                                    { value: "cash", label: tx("מזומן") },
                                     { value: "bit", label: "Bit" },
                                     { value: "paybox", label: "PayBox" },
-                                    { value: "bank_transfer", label: "העברה" },
-                                    { value: "credit_card", label: 'כרטיס' },
-                                    { value: "check", label: "צ'ק" },
+                                    { value: "bank_transfer", label: tx("העברה") },
+                                    { value: "credit_card", label: tx("כרטיס") },
+                                    { value: "check", label: tx("צ'ק") },
                                 ].map(m => (
                                     <button key={m.value} type="button" onClick={() => setCreditMethod(m.value)} style={{
                                         padding: "0.45rem 0.9rem", borderRadius: 10,
@@ -798,22 +800,22 @@ function InvoiceDetailModal({ invoice, onClose, onDownload, getPdfUrl, onCredit 
                         </div>
 
                         <div style={{ marginBottom: "1.25rem" }}>
-                            <label style={labelStyle}>הערה (אופציונלי)</label>
+                            <label style={labelStyle}>{tx("הערה (אופציונלי)")}</label>
                             <input value={creditNotes} onChange={e => setCreditNotes(e.target.value)}
-                                style={inputStyle} placeholder="סיבת הזיכוי..." />
+                                style={inputStyle} placeholder={tx("סיבת הזיכוי...")} />
                         </div>
 
                         <div style={{ display: "flex", gap: "0.6rem" }}>
                             <button type="button" onClick={() => setShowCreditForm(false)} style={{
                                 flex: 1, background: "#f8fafc", color: "#64748b", border: "1px solid #e2e8f0",
                                 borderRadius: 12, padding: "0.85rem", fontWeight: 700, cursor: "pointer",
-                            }}>ביטול</button>
+                            }}>{tx("ביטול")}</button>
                             <button type="button" onClick={submitCredit} disabled={creditLoading} style={{
                                 flex: 2, background: "#dc2626", color: "#fff", border: "none",
                                 borderRadius: 12, padding: "0.85rem", fontWeight: 800, cursor: "pointer",
                                 opacity: creditLoading ? 0.7 : 1,
                             }}>
-                                {creditLoading ? "מייצר זיכוי..." : "✓ צור זיכוי"}
+                                {creditLoading ? tx("מייצר זיכוי...") : tx("✓ צור זיכוי")}
                             </button>
                         </div>
                     </div>
@@ -829,10 +831,10 @@ function InvoiceDetailModal({ invoice, onClose, onDownload, getPdfUrl, onCredit 
                         <div style={{ width: 40, height: 4, background: "#e2e8f0", borderRadius: 2, margin: "0.75rem auto 1rem" }} />
 
                         {[
-                            { label: "הדפסה", icon: "🖨️", action: () => { setShowActions(false); printDoc(); } },
-                            { label: "וואטסאפ", icon: "💬", action: () => { setShowActions(false); shareWhatsApp(); } },
+                            { label: tx("הדפסה"), icon: "🖨️", action: () => { setShowActions(false); printDoc(); } },
+                            { label: tx("וואטסאפ"), icon: "💬", action: () => { setShowActions(false); shareWhatsApp(); } },
                             { label: "SMS", icon: "📱", action: () => { setShowActions(false); shareSMS(); } },
-                            { label: "קובץ PDF", icon: "📄", action: () => { setShowActions(false); onDownload(); } },
+                            { label: tx("קובץ PDF"), icon: "📄", action: () => { setShowActions(false); onDownload(); } },
                         ].map(({ label, icon, action }) => (
                             <button key={label} type="button" onClick={action} style={{
                                 width: "100%", background: "none", border: "none", borderBottom: "1px solid #f1f5f9",
@@ -850,7 +852,7 @@ function InvoiceDetailModal({ invoice, onClose, onDownload, getPdfUrl, onCredit 
                             fontSize: "1rem", fontWeight: 600, cursor: "pointer", color: "#94a3b8", textAlign: "right",
                         }}>
                             <span style={{ fontSize: "1.3rem" }}>✕</span>
-                            סגירה
+                            {tx("סגירה")}
                         </button>
                     </div>
                 </div>
@@ -889,8 +891,8 @@ function InvoiceSetupWizard({ series, existing, onComplete }: { series: SeriesMa
     });
 
     const goNext = () => {
-        if (!bizName.trim()) { setErr("יש להזין שם עסק"); return; }
-        if (!bizNum.trim()) { setErr("יש להזין מספר עוסק / ח.פ"); return; }
+        if (!bizName.trim()) { setErr(tx("יש להזין שם עסק")); return; }
+        if (!bizNum.trim()) { setErr(tx("יש להזין מספר עוסק / ח.פ")); return; }
         setErr(null);
         setStep(2);
     };
@@ -921,11 +923,11 @@ function InvoiceSetupWizard({ series, existing, onComplete }: { series: SeriesMa
     };
 
     const DOC_LABELS: Record<string, string> = {
-        invoice_tax_receipt: "חשבונית מס/קבלה",
-        invoice_tax: "חשבונית מס",
-        receipt: "קבלה",
-        credit: "זיכוי",
-        transaction: "חשבונית עסקה",
+        invoice_tax_receipt: tx("חשבונית מס/קבלה"),
+        invoice_tax: tx("חשבונית מס"),
+        receipt: tx("קבלה"),
+        credit: tx("זיכוי"),
+        transaction: tx("חשבונית עסקה"),
     };
 
     return (
@@ -934,15 +936,15 @@ function InvoiceSetupWizard({ series, existing, onComplete }: { series: SeriesMa
 
                 {/* Title */}
                 <div style={{ padding: "1.5rem 1.5rem 0", textAlign: "center" }}>
-                    <div style={{ fontWeight: 900, fontSize: "1.3rem", color: "#1a1a2e" }}>הגדרת חשבוניות</div>
-                    <div style={{ fontSize: "0.82rem", color: "#94a3b8", marginTop: "0.25rem" }}>הגדרה חד-פעמית · לא ניתן לשינוי ללא תמיכה</div>
+                    <div style={{ fontWeight: 900, fontSize: "1.3rem", color: "#1a1a2e" }}>{tx("הגדרת חשבוניות")}</div>
+                    <div style={{ fontSize: "0.82rem", color: "#94a3b8", marginTop: "0.25rem" }}>{tx("הגדרה חד-פעמית · לא ניתן לשינוי ללא תמיכה")}</div>
                 </div>
 
                 {/* Step tabs */}
                 <div style={{ display: "flex", margin: "1.25rem 1.5rem 0", border: "1px solid #e2e8f0", borderRadius: 12, overflow: "hidden" }}>
                     {[
-                        { num: 1, label: "פרטי העסק" },
-                        { num: 2, label: "מספר מסמכים" },
+                        { num: 1, label: tx("פרטי העסק") },
+                        { num: 2, label: tx("מספר מסמכים") },
                     ].map(s => (
                         <div key={s.num} style={{
                             flex: 1, padding: "0.7rem", textAlign: "center", fontSize: "0.85rem", fontWeight: 700,
@@ -959,7 +961,7 @@ function InvoiceSetupWizard({ series, existing, onComplete }: { series: SeriesMa
                     {step === 1 && (
                         <div style={{ display: "flex", flexDirection: "column", gap: "0.9rem" }}>
                             <div>
-                                <label style={labelStyle}>סוג עסק *</label>
+                                <label style={labelStyle}>{tx("סוג עסק *")}</label>
                                 <div style={{ display: "flex", gap: "0.4rem" }}>
                                     {BIZ_TYPES.map(b => (
                                         <button key={b.value} type="button" onClick={() => setBizType(b.value)} style={{
@@ -974,30 +976,30 @@ function InvoiceSetupWizard({ series, existing, onComplete }: { series: SeriesMa
                                     <label style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem", marginTop: "0.7rem", fontSize: "0.82rem", color: "#334155", cursor: "pointer" }}>
                                         <input type="checkbox" checked={eilat} onChange={e => setEilat(e.target.checked)} style={{ width: 18, height: 18, marginTop: 2, flexShrink: 0 }} />
                                         <span>
-                                            <b>העסק רשום באילת</b> — עסקאות באילת פטורות ממע&quot;מ: החשבוניות יצאו עם מע&quot;מ 0%.
-                                            <span style={{ display: "block", color: "#94a3b8", fontSize: "0.75rem", marginTop: 2 }}>יש תנאים וחריגים בחוק — כדאי לוודא עם רואה החשבון.</span>
+                                            <b>{tx("העסק רשום באילת")}</b> {tx("— עסקאות באילת פטורות ממע\"מ: החשבוניות יצאו עם מע\"מ 0%.")}
+                                            <span style={{ display: "block", color: "#94a3b8", fontSize: "0.75rem", marginTop: 2 }}>{tx("יש תנאים וחריגים בחוק — כדאי לוודא עם רואה החשבון.")}</span>
                                         </span>
                                     </label>
                                 )}
                             </div>
                             <div>
-                                <label style={labelStyle}>שם העסק על המסמכים *</label>
-                                <input value={bizName} onChange={e => setBizName(e.target.value)} style={inputStyle} placeholder="שם עסק רשמי" />
+                                <label style={labelStyle}>{tx("שם העסק על המסמכים *")}</label>
+                                <input value={bizName} onChange={e => setBizName(e.target.value)} style={inputStyle} placeholder={tx("שם עסק רשמי")} />
                             </div>
                             <div>
-                                <label style={labelStyle}>ח.פ / ע.מ *</label>
-                                <input value={bizNum} onChange={e => setBizNum(e.target.value)} style={inputStyle} placeholder="מספר עוסק / ח.פ" dir="ltr" />
+                                <label style={labelStyle}>{tx("ח.פ / ע.מ *")}</label>
+                                <input value={bizNum} onChange={e => setBizNum(e.target.value)} style={inputStyle} placeholder={tx("מספר עוסק / ח.פ")} dir="ltr" />
                             </div>
                             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
-                                <div><label style={labelStyle}>כתובת</label>
-                                    <input value={addr} onChange={e => setAddr(e.target.value)} style={inputStyle} placeholder="רחוב ומספר" /></div>
-                                <div><label style={labelStyle}>עיר</label>
-                                    <input value={city} onChange={e => setCity(e.target.value)} style={inputStyle} placeholder="עיר" /></div>
+                                <div><label style={labelStyle}>{tx("כתובת")}</label>
+                                    <input value={addr} onChange={e => setAddr(e.target.value)} style={inputStyle} placeholder={tx("רחוב ומספר")} /></div>
+                                <div><label style={labelStyle}>{tx("עיר")}</label>
+                                    <input value={city} onChange={e => setCity(e.target.value)} style={inputStyle} placeholder={tx("עיר")} /></div>
                             </div>
                             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
-                                <div><label style={labelStyle}>טלפון</label>
+                                <div><label style={labelStyle}>{tx("טלפון")}</label>
                                     <input value={phone} onChange={e => setPhone(e.target.value)} style={inputStyle} type="tel" placeholder="050..." /></div>
-                                <div><label style={labelStyle}>אימייל</label>
+                                <div><label style={labelStyle}>{tx("אימייל")}</label>
                                     <input value={email} onChange={e => setEmail(e.target.value)} style={inputStyle} type="email" placeholder="email@..." /></div>
                             </div>
                         </div>
@@ -1006,8 +1008,8 @@ function InvoiceSetupWizard({ series, existing, onComplete }: { series: SeriesMa
                     {step === 2 && (
                         <div>
                             <div style={{ background: "#f8fafc", borderRadius: 10, padding: "0.85rem 1rem", marginBottom: "1rem", fontSize: "0.82rem", color: "#475569", lineHeight: 1.6 }}>
-                                המספר שתגדיר יהיה מספר המסמך הראשון שיצא.<br />
-                                <strong>לדוגמה:</strong> אם החשבונית האחרונה הייתה 6001, כתוב/י 6002.
+                                {tx("המספר שתגדיר יהיה מספר המסמך הראשון שיצא.")}<br />
+                                <strong>{tx("לדוגמה:")}</strong> {tx("אם החשבונית האחרונה הייתה 6001, כתוב/י 6002.")}
                             </div>
                             <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
                                 {WIZARD_DOC_TYPES.filter(dt => {
@@ -1018,8 +1020,8 @@ function InvoiceSetupWizard({ series, existing, onComplete }: { series: SeriesMa
                                         <div style={{ fontWeight: 700, fontSize: "0.9rem" }}>{DOC_LABELS[dt]}</div>
                                         <input
                                             type="number" min="1" value={nums[dt] ?? 1000}
-                                            aria-label={`מספר התחלתי עבור ${DOC_LABELS[dt]}`}
-                                            title={`מספר התחלתי עבור ${DOC_LABELS[dt]}`}
+                                            aria-label={tx("מספר התחלתי עבור {0}", { 0: DOC_LABELS[dt] })}
+                                            title={tx("מספר התחלתי עבור {0}", { 0: DOC_LABELS[dt] })}
                                             onChange={e => setNums(p => ({ ...p, [dt]: parseInt(e.target.value) || 1 }))}
                                             style={{ width: 90, padding: "0.4rem 0.6rem", border: "1px solid #e2e8f0", borderRadius: 8, textAlign: "center", fontWeight: 700, fontSize: "1rem" }}
                                             dir="ltr"
@@ -1028,7 +1030,7 @@ function InvoiceSetupWizard({ series, existing, onComplete }: { series: SeriesMa
                                 ))}
                             </div>
                             <div style={{ background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 10, padding: "0.75rem 1rem", marginTop: "1rem", fontSize: "0.8rem", color: "#92400e" }}>
-                                אם אין כוונה לנהל מלאי או לא ניהלת בעבר, תוכל/י להשאיר את השדות כמו שהם. ניתן לפנות לתמיכה במידה ויבצעו שינויים.
+                                {tx("אם אין כוונה לנהל מלאי או לא ניהלת בעבר, תוכל/י להשאיר את השדות כמו שהם. ניתן לפנות לתמיכה במידה ויבצעו שינויים.")}
                             </div>
                         </div>
                     )}
@@ -1043,7 +1045,7 @@ function InvoiceSetupWizard({ series, existing, onComplete }: { series: SeriesMa
                             flex: 1, background: "#fff", color: "#334155", border: "1.5px solid #e2e8f0",
                             borderRadius: 14, padding: "0.9rem", fontWeight: 700, cursor: "pointer", fontSize: "0.95rem",
                         }}>
-                            הקודם
+                            {tx("הקודם")}
                         </button>
                     )}
                     <button type="button" onClick={step === 1 ? goNext : finish} disabled={saving} style={{
@@ -1051,7 +1053,7 @@ function InvoiceSetupWizard({ series, existing, onComplete }: { series: SeriesMa
                         borderRadius: 14, padding: "0.9rem", fontWeight: 800, cursor: "pointer", fontSize: "0.95rem",
                         opacity: saving ? 0.7 : 1,
                     }}>
-                        {saving ? "שומר..." : step === 1 ? "המשך" : "סיים והנעל הגדרות"}
+                        {saving ? tx("שומר...") : step === 1 ? tx("המשך") : tx("סיים והנעל הגדרות")}
                     </button>
                 </div>
             </div>
@@ -1068,51 +1070,51 @@ function SettingsTab({ settings }: { settings: InvoiceSettings }) {
         <div style={{ padding: "0 1rem 2rem", maxWidth: 540 }}>
             {locked && (
                 <div style={{ background: "#fef9c3", border: "1px solid #fde68a", borderRadius: 12, padding: "0.85rem 1rem", marginBottom: "1rem", display: "flex", alignItems: "center", gap: "0.6rem", fontSize: "0.85rem", color: "#92400e" }}>
-                    🔒 <span>הגדרות החשבונית נעולות. לשינוי פנה לתמיכה של BizControl.</span>
+                    🔒 <span>{tx("הגדרות החשבונית נעולות. לשינוי פנה לתמיכה של BizControl.")}</span>
                 </div>
             )}
             <div style={{ display: "flex", flexDirection: "column", gap: "0.9rem" }}>
                 <div>
-                    <label style={labelStyle}>סוג עסק</label>
+                    <label style={labelStyle}>{tx("סוג עסק")}</label>
                     <div style={{ ...inputStyle, background: "#f8fafc", color: "#334155" }}>
                         {BIZ_TYPES.find(b => b.value === settings.business_type)?.label || settings.business_type}
                     </div>
                 </div>
                 <div>
-                    <label style={labelStyle}>שם העסק על המסמכים</label>
+                    <label style={labelStyle}>{tx("שם העסק על המסמכים")}</label>
                     <div style={{ ...inputStyle, background: "#f8fafc", color: "#334155" }}>{settings.business_name || "—"}</div>
                 </div>
                 <div>
-                    <label style={labelStyle}>ח.פ / ע.מ</label>
+                    <label style={labelStyle}>{tx("ח.פ / ע.מ")}</label>
                     <div style={{ ...inputStyle, background: "#f8fafc", color: "#334155" }}>{settings.business_number || "—"}</div>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
                     <div>
-                        <label style={labelStyle}>כתובת</label>
+                        <label style={labelStyle}>{tx("כתובת")}</label>
                         <div style={{ ...inputStyle, background: "#f8fafc", color: "#334155" }}>{settings.business_address || "—"}</div>
                     </div>
                     <div>
-                        <label style={labelStyle}>עיר</label>
+                        <label style={labelStyle}>{tx("עיר")}</label>
                         <div style={{ ...inputStyle, background: "#f8fafc", color: "#334155" }}>{settings.business_city || "—"}</div>
                     </div>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
                     <div>
-                        <label style={labelStyle}>טלפון</label>
+                        <label style={labelStyle}>{tx("טלפון")}</label>
                         <div style={{ ...inputStyle, background: "#f8fafc", color: "#334155" }}>{settings.business_phone || "—"}</div>
                     </div>
                     <div>
-                        <label style={labelStyle}>אימייל</label>
+                        <label style={labelStyle}>{tx("אימייל")}</label>
                         <div style={{ ...inputStyle, background: "#f8fafc", color: "#334155" }}>{settings.business_email || "—"}</div>
                     </div>
                 </div>
                 {!locked && (
-                    <p style={{ color: "#94a3b8", fontSize: "0.8rem" }}>השלם את אשף ההגדרה הראשוני כדי לנעול את הפרטים.</p>
+                    <p style={{ color: "#94a3b8", fontSize: "0.8rem" }}>{tx("השלם את אשף ההגדרה הראשוני כדי לנעול את הפרטים.")}</p>
                 )}
 
                 <div style={{ marginTop: "1rem", padding: "0.9rem 1rem", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 12, fontSize: "0.82rem", color: "#64748b" }}>
-                    💡 הגדרות מייל רואה חשבון ושליחת מסמכים עברו לעמוד{" "}
-                    <Link href="/automation?tab=finance" style={{ color: "#16a34a", fontWeight: 700 }}>אוטומציות ← ניהול פיננסי ומיסוי</Link>.
+                    {tx("💡 הגדרות מייל רואה חשבון ושליחת מסמכים עברו לעמוד")}{" "}
+                    <Link href="/automation?tab=finance" style={{ color: "#16a34a", fontWeight: 700 }}>{tx("אוטומציות ← ניהול פיננסי ומיסוי")}</Link>.
                 </div>
             </div>
         </div>
@@ -1126,11 +1128,11 @@ function SeriesTab({ series, locked, onSaved }: { series: SeriesMap; locked: boo
         <div style={{ padding: "0 1rem 2rem", maxWidth: 400 }}>
             {locked && (
                 <div style={{ background: "#fef9c3", border: "1px solid #fde68a", borderRadius: 12, padding: "0.85rem 1rem", marginBottom: "1rem", display: "flex", alignItems: "center", gap: "0.6rem", fontSize: "0.85rem", color: "#92400e" }}>
-                    🔒 <span>סדרות המסמכים נעולות. לשינוי פנה לתמיכה.</span>
+                    🔒 <span>{tx("סדרות המסמכים נעולות. לשינוי פנה לתמיכה.")}</span>
                 </div>
             )}
             <p style={{ color: "#64748b", fontSize: "0.85rem", marginBottom: "1rem" }}>
-                המספר הנוכחי בכל סדרת מסמכים. לאחר הפקת מסמך, המספר עולה אוטומטית.
+                {tx("המספר הנוכחי בכל סדרת מסמכים. לאחר הפקת מסמך, המספר עולה אוטומטית.")}
             </p>
             <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
                 {Object.entries(series).map(([key, val]) => (
@@ -1168,7 +1170,7 @@ function ReportsTab() {
             const r = await apiFetch<any>(`/api/invoices/report-summary?${params}`);
             setData(r);
         } catch (e: any) {
-            setErr(e?.message || "שגיאה בטעינת הדוח");
+            setErr(e?.message || tx("שגיאה בטעינת הדוח"));
         } finally { setLoading(false); }
     }, [dateFrom, dateTo]);
 
@@ -1178,38 +1180,38 @@ function ReportsTab() {
         <div style={{ padding: "0 1rem 2rem" }}>
             {/* Explanation */}
             <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: "0.75rem 1rem", marginBottom: "1rem", fontSize: "0.82rem", color: "#475569" }}>
-                📊 דוח כספי מסכם לפי תקופה — הכנסות כולל מע&quot;מ, פילוח לפי סוג מסמך, אמצעי תשלום, שירות ועובד.
+                {tx("📊 דוח כספי מסכם לפי תקופה — הכנסות כולל מע\"מ, פילוח לפי סוג מסמך, אמצעי תשלום, שירות ועובד.")}
             </div>
 
             {/* Date filter */}
             <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem", flexWrap: "wrap" }}>
-                <PickerBox type="date" label="מתאריך" value={dateFrom} onChange={v => setDateFrom(v)} className="text-start" style={{ padding: "0.5rem 0.75rem", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: "0.85rem" }} />
-                <span style={{ alignSelf: "center", color: "#94a3b8" }}>עד</span>
-                <PickerBox type="date" label="עד תאריך" value={dateTo} onChange={v => setDateTo(v)} className="text-start" style={{ padding: "0.5rem 0.75rem", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: "0.85rem" }} />
-                <button type="button" onClick={load} style={{ background: "#7c3aed", color: "#fff", border: "none", borderRadius: 8, padding: "0.5rem 1rem", cursor: "pointer", fontSize: "0.85rem" }}>סנן</button>
+                <PickerBox type="date" label={tx("מתאריך")} value={dateFrom} onChange={v => setDateFrom(v)} className="text-start" style={{ padding: "0.5rem 0.75rem", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: "0.85rem" }} />
+                <span style={{ alignSelf: "center", color: "#94a3b8" }}>{tx("עד")}</span>
+                <PickerBox type="date" label={tx("עד תאריך")} value={dateTo} onChange={v => setDateTo(v)} className="text-start" style={{ padding: "0.5rem 0.75rem", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: "0.85rem" }} />
+                <button type="button" onClick={load} style={{ background: "#7c3aed", color: "#fff", border: "none", borderRadius: 8, padding: "0.5rem 1rem", cursor: "pointer", fontSize: "0.85rem" }}>{tx("סנן")}</button>
             </div>
 
-            {loading && <div style={{ textAlign: "center", padding: "2rem", color: "#94a3b8" }}>טוען...</div>}
+            {loading && <div style={{ textAlign: "center", padding: "2rem", color: "#94a3b8" }}>{tx("טוען...")}</div>}
             {err && <div style={{ textAlign: "center", padding: "1.5rem", color: "#dc2626", background: "#fef2f2", borderRadius: 10 }}>⚠️ {err}</div>}
 
             {!loading && !err && data && (<>
             {/* KPIs */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem", marginBottom: "1.5rem" }}>
-                <KpiCard title="הכנסות" value={`₪${data.total_ils.toFixed(2)}`} color="#7c3aed" />
-                <KpiCard title={'מע"מ שנגבה'} value={`₪${data.vat_ils.toFixed(2)}`} color="#0ea5e9" />
-                <KpiCard title="מסמכים" value={String(data.count)} color="#059669" />
-                <KpiCard title="ממוצע עסקה" value={`₪${data.avg_ils.toFixed(2)}`} color="#f59e0b" />
+                <KpiCard title={tx("הכנסות")} value={`₪${data.total_ils.toFixed(2)}`} color="#7c3aed" />
+                <KpiCard title={tx("מע\"מ שנגבה")} value={`₪${data.vat_ils.toFixed(2)}`} color="#0ea5e9" />
+                <KpiCard title={tx("מסמכים")} value={String(data.count)} color="#059669" />
+                <KpiCard title={tx("ממוצע עסקה")} value={`₪${data.avg_ils.toFixed(2)}`} color="#f59e0b" />
             </div>
 
             {/* By doc type */}
-            <ReportSection title="לפי סוג מסמך" rows={data.by_doc_type} />
-            <ReportSection title="לפי אמצעי תשלום" rows={data.by_method} />
-            <ReportSection title="הכנסות לפי שירות" rows={data.by_service} />
-            <ReportSection title="הכנסות לפי מוצר" rows={data.by_product} />
-            <ReportSection title="הכנסות לפי עובד" rows={data.by_employee} />
+            <ReportSection title={tx("לפי סוג מסמך")} rows={data.by_doc_type} />
+            <ReportSection title={tx("לפי אמצעי תשלום")} rows={data.by_method} />
+            <ReportSection title={tx("הכנסות לפי שירות")} rows={data.by_service} />
+            <ReportSection title={tx("הכנסות לפי מוצר")} rows={data.by_product} />
+            <ReportSection title={tx("הכנסות לפי עובד")} rows={data.by_employee} />
             {data.count === 0 && (
                 <div style={{ textAlign: "center", padding: "2rem", color: "#94a3b8", fontSize: "0.9rem" }}>
-                    אין מסמכים בתקופה שנבחרה
+                    {tx("אין מסמכים בתקופה שנבחרה")}
                 </div>
             )}
             </>)}
@@ -1235,7 +1237,7 @@ function ReportSection({ title, rows }: { title: string; rows: { label: string; 
                 <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "0.5rem 0.75rem", background: i % 2 === 0 ? "#f8fafc" : "#fff", borderRadius: 8, fontSize: "0.85rem" }}>
                     <span>{r.label}</span>
                     <div style={{ display: "flex", gap: "1rem" }}>
-                        <span style={{ color: "#64748b" }}>{r.count} מסמכים</span>
+                        <span style={{ color: "#64748b" }}>{r.count}{tx(" מסמכים")}</span>
                         <span style={{ fontWeight: 700 }}>₪{r.total_ils.toFixed(2)}</span>
                     </div>
                 </div>

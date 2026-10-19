@@ -52,19 +52,20 @@ import {
     Legend,
 } from "recharts";
 
+import { tx, intl } from "@/lib/i18n";
 const CATEGORIES = [
-    "ציוד ומשרד",
-    "שכר דירה",
-    "שיווק ופרסום",
-    "תוכנה ושירותים",
-    "חשמל ומים",
-    "רכב ותחבורה",
-    "ספקים וחומרים",
-    "אחר",
+    tx("ציוד ומשרד"),
+    tx("שכר דירה"),
+    tx("שיווק ופרסום"),
+    tx("תוכנה ושירותים"),
+    tx("חשמל ומים"),
+    tx("רכב ותחבורה"),
+    tx("ספקים וחומרים"),
+    tx("אחר"),
 ];
 
 function fmt(n: number) {
-    return n.toLocaleString("he-IL", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return n.toLocaleString(intl(), { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function receiptImgUrl(url: string | undefined): string | null {
@@ -123,7 +124,7 @@ function InvoiceUploadModal({ onClose, onSaved }: { onClose: () => void; onSaved
             setInvoiceNum(res.invoice_number || "");
             setPaymentMethod((res as any).payment_method || "");
         } catch (e: any) {
-            setError(e.message || "שגיאה בסריקה");
+            setError(e.message || tx("שגיאה בסריקה"));
         } finally {
             setScanning(false);
         }
@@ -131,7 +132,7 @@ function InvoiceUploadModal({ onClose, onSaved }: { onClose: () => void; onSaved
 
     const handleSave = async () => {
         if (!title || !amount || !invoiceDate) {
-            setError("יש למלא: שם עסק/ספק, סכום, תאריך");
+            setError(tx("יש למלא: שם עסק/ספק, סכום, תאריך"));
             return;
         }
         let existingId: string | null = null;
@@ -142,10 +143,10 @@ function InvoiceUploadModal({ onClose, onSaved }: { onClose: () => void; onSaved
 
         if (existingId) {
             const attachToExisting = confirm(
-                "קבלה עם אותו ספק, תאריך וסכום כבר קיימת במערכת.\nאישור = לצרף את התמונה שסרקת להוצאה הקיימת (מומלץ). ביטול = לבחור אפשרות אחרת."
+                tx("קבלה עם אותו ספק, תאריך וסכום כבר קיימת במערכת.\nאישור = לצרף את התמונה שסרקת להוצאה הקיימת (מומלץ). ביטול = לבחור אפשרות אחרת.")
             );
             if (attachToExisting) {
-                if (!file) { setError("לא נמצאה תמונה לצירוף"); return; }
+                if (!file) { setError(tx("לא נמצאה תמונה לצירוף")); return; }
                 setSaving(true);
                 try {
                     // Matching on supplier+date+amount only guarantees THOSE three
@@ -158,23 +159,23 @@ function InvoiceUploadModal({ onClose, onSaved }: { onClose: () => void; onSaved
                         title,
                         supplier_name: title,
                         invoice_number: invoiceNum || undefined,
-                        category: category === "אחר" && categoryOther ? `אחר: ${categoryOther}` : category || undefined,
+                        category: category === "אחר" && categoryOther ? tx("אחר: {0}", { 0: categoryOther }) : category || undefined,
                         vat_amount: vat ? parseFloat(vat) : undefined,
                         pretax_amount: pretax ? parseFloat(pretax) : undefined,
                         payment_method: paymentMethod || undefined,
                     });
                     await uploadExpenseImage(existingId, file);
-                    toast.success("התמונה והפרטים עודכנו בהוצאה הקיימת ✅");
+                    toast.success(tx("התמונה והפרטים עודכנו בהוצאה הקיימת ✅"));
                     onSaved();
                     resetForNextScan();
                 } catch (e: any) {
-                    setError(e.message || "שגיאה בצירוף התמונה");
+                    setError(e.message || tx("שגיאה בצירוף התמונה"));
                 } finally {
                     setSaving(false);
                 }
                 return;
             }
-            if (!confirm("ליצור הוצאה חדשה ונפרדת בכל זאת? (יגרום לכפילות בדוחות)")) {
+            if (!confirm(tx("ליצור הוצאה חדשה ונפרדת בכל זאת? (יגרום לכפילות בדוחות)"))) {
                 return;
             }
         }
@@ -184,7 +185,7 @@ function InvoiceUploadModal({ onClose, onSaved }: { onClose: () => void; onSaved
                 title,
                 supplier_name: title,
                 invoice_number: invoiceNum || undefined,
-                category: category === "אחר" && categoryOther ? `אחר: ${categoryOther}` : category || undefined,
+                category: category === "אחר" && categoryOther ? tx("אחר: {0}", { 0: categoryOther }) : category || undefined,
                 amount: parseFloat(amount),
                 vat_amount: vat ? parseFloat(vat) : undefined,
                 pretax_amount: pretax ? parseFloat(pretax) : undefined,
@@ -194,11 +195,11 @@ function InvoiceUploadModal({ onClose, onSaved }: { onClose: () => void; onSaved
                 file_size_bytes: scanResult?.receipt_size_bytes || undefined,
                 is_ai_parsed: !!scanResult,
             });
-            toast.success("ההוצאה נשמרה ✅");
+            toast.success(tx("ההוצאה נשמרה ✅"));
             onSaved();
             resetForNextScan();
         } catch (e: any) {
-            setError(e.message || "שגיאה בשמירה");
+            setError(e.message || tx("שגיאה בשמירה"));
         } finally {
             setSaving(false);
         }
@@ -215,7 +216,7 @@ function InvoiceUploadModal({ onClose, onSaved }: { onClose: () => void; onSaved
         <div className="modal-overlay" onClick={onClose}>
             <div className="modal-panel" onClick={e => e.stopPropagation()}>
                 <div className="modal-header">
-                    <h2>📄 סריקת חשבונית AI</h2>
+                    <h2>{tx("📄 סריקת חשבונית AI")}</h2>
                     <button className="close-btn" onClick={onClose}>✕</button>
                 </div>
 
@@ -245,8 +246,8 @@ function InvoiceUploadModal({ onClose, onSaved }: { onClose: () => void; onSaved
                                     style={{ border: "2px dashed rgba(167,139,250,.5)", borderRadius: 14, padding: "2rem", textAlign: "center", background: "rgba(167,139,250,.05)", cursor: "pointer" }}
                                 >
                                     <span style={{ fontSize: "2.5rem", display: "block", marginBottom: ".5rem" }}>📷</span>
-                                    <div style={{ color: "#a78bfa", fontWeight: 700, fontSize: "1rem" }}>סריקת מסמך חכמה</div>
-                                    <div style={{ color: "#94a3b8", fontSize: ".8rem", marginTop: ".3rem" }}>מצלמה עם שיפור תמונה אוטומטי</div>
+                                    <div style={{ color: "#a78bfa", fontWeight: 700, fontSize: "1rem" }}>{tx("סריקת מסמך חכמה")}</div>
+                                    <div style={{ color: "#94a3b8", fontSize: ".8rem", marginTop: ".3rem" }}>{tx("מצלמה עם שיפור תמונה אוטומטי")}</div>
                                 </button>
 
                                 <button
@@ -254,7 +255,7 @@ function InvoiceUploadModal({ onClose, onSaved }: { onClose: () => void; onSaved
                                     style={{ border: "2px dashed rgba(96,165,250,.4)", borderRadius: 14, padding: "2rem", textAlign: "center", background: "rgba(96,165,250,.04)", cursor: "pointer" }}
                                 >
                                     <span style={{ fontSize: "2.5rem", display: "block", marginBottom: ".5rem" }}>📁</span>
-                                    <div style={{ color: "#60a5fa", fontWeight: 700, fontSize: "1rem" }}>העלאה מהגלריה / קבצים</div>
+                                    <div style={{ color: "#60a5fa", fontWeight: 700, fontSize: "1rem" }}>{tx("העלאה מהגלריה / קבצים")}</div>
                                     <div style={{ color: "#94a3b8", fontSize: ".8rem", marginTop: ".3rem" }}>JPG, PNG, WEBP</div>
                                 </button>
                             </div>
@@ -263,10 +264,10 @@ function InvoiceUploadModal({ onClose, onSaved }: { onClose: () => void; onSaved
                                 <div style={{ border: "2px dashed rgba(74,222,128,.4)", borderRadius: 14, padding: "1.2rem", textAlign: "center", marginBottom: "1rem", background: "rgba(74,222,128,.04)" }}>
                                     <span style={{ fontSize: "1.8rem" }}>✅</span>
                                     <div style={{ color: "#4ade80", fontWeight: 600, marginTop: ".3rem" }}>{file.name}</div>
-                                    <button onClick={() => setFile(null)} style={{ marginTop: ".5rem", background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: ".8rem" }}>החלף ✕</button>
+                                    <button onClick={() => setFile(null)} style={{ marginTop: ".5rem", background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: ".8rem" }}>{tx("החלף ✕")}</button>
                                 </div>
                                 <button className="btn-primary" onClick={handleScan} disabled={scanning} style={{ width: "100%" }}>
-                                    {scanning ? "⏳ מנתח עם AI..." : "🔍 נתח עם AI"}
+                                    {scanning ? tx("⏳ מנתח עם AI...") : tx("🔍 נתח עם AI")}
                                 </button>
                             </div>
                         )}
@@ -274,63 +275,63 @@ function InvoiceUploadModal({ onClose, onSaved }: { onClose: () => void; onSaved
                     </div>
                 ) : (
                     <div className="scan-result">
-                        <p className="scan-success">✅ AI הצליח לחלץ נתונים – אנא אשר / ערוך:</p>
+                        <p className="scan-success">{tx("✅ AI הצליח לחלץ נתונים – אנא אשר / ערוך:")}</p>
                         {scanResult?.ai_provider && (
                             <p style={{ color: "#64748b", fontSize: "0.72rem", marginTop: "-0.6rem", marginBottom: "0.8rem" }}>
-                                מקור זיהוי: {scanResult.ai_provider}
+                                {tx("מקור זיהוי:")} {scanResult.ai_provider}
                             </p>
                         )}
                         <div className="form-grid">
-                            <label>שם עסק / ספק
+                            <label>{tx("שם עסק / ספק")}
                                 <input value={title} onChange={e => setTitle(e.target.value)} />
                             </label>
-                            <label>מספר חשבונית
+                            <label>{tx("מספר חשבונית")}
                                 <input value={invoiceNum} onChange={e => setInvoiceNum(e.target.value)} />
                             </label>
-                            <label>סכום כולל מע"מ (₪)
+                            <label>{tx("סכום כולל מע\"מ (₪)")}
                                 <input type="number" value={amount} onChange={e => setAmount(e.target.value)} />
                             </label>
-                            <label>לפני מע"מ (₪)
+                            <label>{tx("לפני מע\"מ (₪)")}
                                 <input type="number" value={pretax} onChange={e => setPretax(e.target.value)} readOnly style={{ opacity: 0.7 }} />
                             </label>
-                            <label>מע"מ (₪)
+                            <label>{tx("מע\"מ (₪)")}
                                 <input type="number" value={vat} onChange={e => setVat(e.target.value)} />
                             </label>
-                            <label>תאריך חשבונית
-                                <PickerBox type="date" label="תאריך החשבונית" value={invoiceDate} onChange={v => setInvoiceDate(v)} className="w-full text-start rounded-[10px] border border-white/15 bg-white/[.08] px-[.9rem] py-[.65rem] text-[.9rem] text-white" />
+                            <label>{tx("תאריך חשבונית")}
+                                <PickerBox type="date" label={tx("תאריך החשבונית")} value={invoiceDate} onChange={v => setInvoiceDate(v)} className="w-full text-start rounded-[10px] border border-white/15 bg-white/[.08] px-[.9rem] py-[.65rem] text-[.9rem] text-white" />
                             </label>
-                            <label>אמצעי תשלום
+                            <label>{tx("אמצעי תשלום")}
                                 <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}>
-                                    <option value="">-- לא צוין --</option>
-                                    <option value="אשראי">כרטיס אשראי</option>
-                                    <option value="מזומן">מזומן</option>
-                                    <option value="ביט/פייבוקס">Bit / PayBox</option>
-                                    <option value="העברה בנקאית">העברה בנקאית</option>
-                                    <option value="צ'ק">צ&apos;ק</option>
-                                    <option value="אחר">אחר</option>
+                                    <option value="">{tx("-- לא צוין --")}</option>
+                                    <option value={tx("אשראי")}>{tx("כרטיס אשראי")}</option>
+                                    <option value={tx("מזומן")}>{tx("מזומן")}</option>
+                                    <option value={tx("ביט/פייבוקס")}>Bit / PayBox</option>
+                                    <option value={tx("העברה בנקאית")}>{tx("העברה בנקאית")}</option>
+                                    <option value={tx("צ'ק")}>{tx("צ'ק")}</option>
+                                    <option value={tx("אחר")}>{tx("אחר")}</option>
                                 </select>
                             </label>
-                            <label>קטגוריה
+                            <label>{tx("קטגוריה")}
                                 <select value={category} onChange={e => setCategory(e.target.value)}>
-                                    <option value="">-- בחר קטגוריה --</option>
+                                    <option value="">{tx("-- בחר קטגוריה --")}</option>
                                     {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                                 </select>
                             </label>
                             {category === "אחר" && (
-                                <label>פירוט קטגוריה
+                                <label>{tx("פירוט קטגוריה")}
                                     <input
                                         value={categoryOther}
                                         onChange={e => setCategoryOther(e.target.value)}
-                                        placeholder="לדוגמה: דלק, ציוד משרדי, חניה..."
+                                        placeholder={tx("לדוגמה: דלק, ציוד משרדי, חניה...")}
                                     />
                                 </label>
                             )}
                         </div>
                         {error && <p className="error-msg">{error}</p>}
                         <div className="modal-actions">
-                            <button className="btn-secondary" onClick={() => setScanResult(null)}>חזור</button>
+                            <button className="btn-secondary" onClick={() => setScanResult(null)}>{tx("חזור")}</button>
                             <button className="btn-primary" onClick={handleSave} disabled={saving}>
-                                {saving ? "שומר..." : "💾 שמור הוצאה"}
+                                {saving ? tx("שומר...") : tx("💾 שמור הוצאה")}
                             </button>
                         </div>
                     </div>
@@ -365,7 +366,7 @@ function ManualExpenseModal({ onClose, onSaved }: { onClose: () => void; onSaved
 
     const handleSave = async () => {
         if (!form.title || !form.amount || !form.expense_date) {
-            setError("שם/ספק, סכום ותאריך הם שדות חובה");
+            setError(tx("שם/ספק, סכום ותאריך הם שדות חובה"));
             return;
         }
         let existingId: string | null = null;
@@ -376,10 +377,10 @@ function ManualExpenseModal({ onClose, onSaved }: { onClose: () => void; onSaved
 
         if (existingId) {
             const attachToExisting = confirm(
-                "קבלה עם אותו ספק, תאריך וסכום כבר קיימת במערכת.\nאישור = לצרף את התמונה להוצאה הקיימת (מומלץ). ביטול = לבחור אפשרות אחרת."
+                tx("קבלה עם אותו ספק, תאריך וסכום כבר קיימת במערכת.\nאישור = לצרף את התמונה להוצאה הקיימת (מומלץ). ביטול = לבחור אפשרות אחרת.")
             );
             if (attachToExisting) {
-                if (!imageFile) { setError("לא נבחרה תמונה לצירוף"); return; }
+                if (!imageFile) { setError(tx("לא נבחרה תמונה לצירוף")); return; }
                 setSaving(true);
                 try {
                     // See scan-modal handleSave for why this sync matters — matching
@@ -391,13 +392,13 @@ function ManualExpenseModal({ onClose, onSaved }: { onClose: () => void; onSaved
                     onSaved();
                     onClose();
                 } catch (e: any) {
-                    setError(e.message || "שגיאה בצירוף התמונה");
+                    setError(e.message || tx("שגיאה בצירוף התמונה"));
                 } finally {
                     setSaving(false);
                 }
                 return;
             }
-            if (!confirm("ליצור הוצאה חדשה ונפרדת בכל זאת? (יגרום לכפילות בדוחות)")) {
+            if (!confirm(tx("ליצור הוצאה חדשה ונפרדת בכל זאת? (יגרום לכפילות בדוחות)"))) {
                 return;
             }
         }
@@ -412,7 +413,7 @@ function ManualExpenseModal({ onClose, onSaved }: { onClose: () => void; onSaved
             onSaved();
             onClose();
         } catch (e: any) {
-            setError(e.message || "שגיאה");
+            setError(e.message || tx("שגיאה"));
         } finally {
             setSaving(false);
         }
@@ -422,43 +423,43 @@ function ManualExpenseModal({ onClose, onSaved }: { onClose: () => void; onSaved
         <div className="modal-overlay" onClick={onClose}>
             <div className="modal-panel" onClick={e => e.stopPropagation()}>
                 <div className="modal-header">
-                    <h2>✏️ הזנת הוצאה ידנית</h2>
+                    <h2>{tx("✏️ הזנת הוצאה ידנית")}</h2>
                     <button className="close-btn" onClick={onClose}>✕</button>
                 </div>
                 <div className="form-grid">
-                    <label>שם עסק / ספק *
-                        <input value={form.title} onChange={e => set("title", e.target.value)} placeholder="לדוגמה: חנות ציוד" />
+                    <label>{tx("שם עסק / ספק *")}
+                        <input value={form.title} onChange={e => set("title", e.target.value)} placeholder={tx("לדוגמה: חנות ציוד")} />
                     </label>
-                    <label>מספר חשבונית
+                    <label>{tx("מספר חשבונית")}
                         <input value={form.invoice_number || ""} onChange={e => set("invoice_number", e.target.value)} />
                     </label>
-                    <label>סכום כולל מע&quot;מ (₪) *
+                    <label>{tx("סכום כולל מע\"מ (₪) *")}
                         <input type="number" step="0.01" min="0" value={form.amount || ""} onChange={e => set("amount", parseFloat(e.target.value))} />
                     </label>
-                    <label>מע&quot;מ (₪)
+                    <label>{tx("מע\"מ (₪)")}
                         <input type="number" step="0.01" min="0" value={form.vat_amount || ""} onChange={e => set("vat_amount", parseFloat(e.target.value))} />
                     </label>
-                    <label>תאריך *
-                        <PickerBox type="date" label="תאריך ההוצאה" value={form.expense_date} onChange={v => set("expense_date", v)} className="w-full text-start rounded-[10px] border border-white/15 bg-white/[.08] px-[.9rem] py-[.65rem] text-[.9rem] text-white" />
+                    <label>{tx("תאריך *")}
+                        <PickerBox type="date" label={tx("תאריך ההוצאה")} value={form.expense_date} onChange={v => set("expense_date", v)} className="w-full text-start rounded-[10px] border border-white/15 bg-white/[.08] px-[.9rem] py-[.65rem] text-[.9rem] text-white" />
                     </label>
-                    <label>קטגוריה
+                    <label>{tx("קטגוריה")}
                         <select value={form.category || ""} onChange={e => set("category", e.target.value)}>
-                            <option value="">-- בחר קטגוריה --</option>
+                            <option value="">{tx("-- בחר קטגוריה --")}</option>
                             {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                         </select>
                     </label>
-                    <label>אמצעי תשלום
+                    <label>{tx("אמצעי תשלום")}
                         <select value={form.payment_method || ""} onChange={e => set("payment_method", e.target.value)}>
-                            <option value="">-- לא צוין --</option>
-                            <option value="אשראי">כרטיס אשראי</option>
-                            <option value="מזומן">מזומן</option>
-                            <option value="ביט/פייבוקס">Bit / PayBox</option>
-                            <option value="העברה בנקאית">העברה בנקאית</option>
-                            <option value="צ'ק">צ&apos;ק</option>
-                            <option value="אחר">אחר</option>
+                            <option value="">{tx("-- לא צוין --")}</option>
+                            <option value={tx("אשראי")}>{tx("כרטיס אשראי")}</option>
+                            <option value={tx("מזומן")}>{tx("מזומן")}</option>
+                            <option value={tx("ביט/פייבוקס")}>Bit / PayBox</option>
+                            <option value={tx("העברה בנקאית")}>{tx("העברה בנקאית")}</option>
+                            <option value={tx("צ'ק")}>{tx("צ'ק")}</option>
+                            <option value={tx("אחר")}>{tx("אחר")}</option>
                         </select>
                     </label>
-                    <label>צרף תמונת קבלה
+                    <label>{tx("צרף תמונת קבלה")}
                         <input
                             type="file"
                             accept="image/jpeg,image/png,image/webp,image/heic"
@@ -473,15 +474,15 @@ function ManualExpenseModal({ onClose, onSaved }: { onClose: () => void; onSaved
                         <img src={imagePreview} alt="preview" style={{ maxHeight: 140, borderRadius: 10, border: "1px solid rgba(255,255,255,.15)" }} />
                         <button type="button" onClick={() => { setImageFile(null); setImagePreview(null); }}
                             style={{ display: "block", margin: ".3rem auto 0", background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: ".78rem" }}>
-                            הסר תמונה ✕
+                            {tx("הסר תמונה ✕")}
                         </button>
                     </div>
                 )}
                 {error && <p className="error-msg">{error}</p>}
                 <div className="modal-actions">
-                    <button className="btn-secondary" onClick={onClose}>ביטול</button>
+                    <button className="btn-secondary" onClick={onClose}>{tx("ביטול")}</button>
                     <button className="btn-primary" onClick={handleSave} disabled={saving}>
-                        {saving ? "שומר..." : "💾 שמור"}
+                        {saving ? tx("שומר...") : tx("💾 שמור")}
                     </button>
                 </div>
             </div>
@@ -540,7 +541,7 @@ function StorageUsageModal({ onClose, onChanged }: { onClose: () => void; onChan
     };
 
     const handleDeleteImage = async (id: string) => {
-        if (!confirm("למחוק את תמונת הקבלה? רשומת ההוצאה עצמה תישאר.")) return;
+        if (!confirm(tx("למחוק את תמונת הקבלה? רשומת ההוצאה עצמה תישאר."))) return;
         setDeletingId(id);
         try {
             await deleteExpenseReceiptImage(id);
@@ -548,7 +549,7 @@ function StorageUsageModal({ onClose, onChanged }: { onClose: () => void; onChan
             await load();
             onChanged();
         } catch (e: any) {
-            toast.error(e.message || "שגיאה במחיקת התמונה");
+            toast.error(e.message || tx("שגיאה במחיקת התמונה"));
         } finally {
             setDeletingId(null);
         }
@@ -556,7 +557,7 @@ function StorageUsageModal({ onClose, onChanged }: { onClose: () => void; onChan
 
     const handleBulkDelete = async () => {
         if (selectedIds.size === 0) return;
-        if (!confirm(`למחוק ${selectedIds.size} תמונות קבלה נבחרות? רשומות ההוצאה עצמן יישארו.`)) return;
+        if (!confirm(tx("למחוק {0} תמונות קבלה נבחרות? רשומות ההוצאה עצמן יישארו.", { 0: selectedIds.size }))) return;
         setBulkDeleting(true);
         try {
             await bulkDeleteExpenseReceiptImages(Array.from(selectedIds));
@@ -564,7 +565,7 @@ function StorageUsageModal({ onClose, onChanged }: { onClose: () => void; onChan
             await load();
             onChanged();
         } catch (e: any) {
-            toast.error(e.message || "שגיאה במחיקת התמונות");
+            toast.error(e.message || tx("שגיאה במחיקת התמונות"));
         } finally {
             setBulkDeleting(false);
         }
@@ -574,12 +575,12 @@ function StorageUsageModal({ onClose, onChanged }: { onClose: () => void; onChan
         <div className="modal-overlay" onClick={onClose}>
             <div className="modal-panel" onClick={e => e.stopPropagation()} style={{ maxWidth: 640 }}>
                 <div className="modal-header">
-                    <h2>💾 ניהול אחסון</h2>
+                    <h2>{tx("💾 ניהול אחסון")}</h2>
                     <button className="close-btn" onClick={onClose}>✕</button>
                 </div>
 
                 {loading ? (
-                    <p style={{ color: "#94a3b8" }}>טוען...</p>
+                    <p style={{ color: "#94a3b8" }}>{tx("טוען...")}</p>
                 ) : (
                     <>
                         <div style={{ background: "rgba(167,139,250,.08)", border: "1px solid rgba(167,139,250,.25)", borderRadius: 12, padding: "1rem 1.25rem", marginBottom: "1.25rem" }}>
@@ -587,21 +588,21 @@ function StorageUsageModal({ onClose, onChanged }: { onClose: () => void; onChan
                                 {usage ? formatBytes(usage.total_bytes) : "—"}
                             </div>
                             <div style={{ color: "#94a3b8", fontSize: "0.8rem", marginTop: ".2rem" }}>
-                                בשימוש על ידי {usage?.count ?? 0} תמונות קבלה
-                                {usage && usage.unknown_count > 0 ? ` (מחשב נפח עבור ${usage.unknown_count} קבצים ישנים...)` : ""}
+                                {tx("בשימוש על ידי")} {usage?.count ?? 0} {tx("תמונות קבלה")}
+                                {usage && usage.unknown_count > 0 ? tx(" (מחשב נפח עבור {0} קבצים ישנים...)", { 0: usage.unknown_count }) : ""}
                             </div>
                         </div>
 
                         <div style={{ background: "rgba(74,222,128,.08)", border: "1px solid rgba(74,222,128,.25)", borderRadius: 12, padding: "1rem 1.25rem", marginBottom: "1.25rem" }}>
                             <div style={{ color: "#4ade80", fontSize: "1.1rem", fontWeight: 700 }}>
                                 {usage && usage.scan_quota > 0
-                                    ? `נותרו ${usage.scan_remaining ?? 0} מתוך ${usage.scan_quota} סריקות החודש`
-                                    : "סריקות AI ללא הגבלה החודש"}
+                                    ? tx("נותרו {0} מתוך {1} סריקות החודש", { 0: usage.scan_remaining ?? 0, 1: usage.scan_quota })
+                                    : tx("סריקות AI ללא הגבלה החודש")}
                             </div>
                         </div>
 
                         {receipts.length === 0 ? (
-                            <p style={{ color: "#94a3b8", fontSize: "0.9rem" }}>אין תמונות קבלה שמורות.</p>
+                            <p style={{ color: "#94a3b8", fontSize: "0.9rem" }}>{tx("אין תמונות קבלה שמורות.")}</p>
                         ) : (
                             <>
                                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.6rem" }}>
@@ -611,7 +612,7 @@ function StorageUsageModal({ onClose, onChanged }: { onClose: () => void; onChan
                                             checked={selectedIds.size > 0 && selectedIds.size === receipts.length}
                                             onChange={toggleSelectAll}
                                         />
-                                        בחר הכל ({receipts.length})
+                                        {tx("בחר הכל (")}{receipts.length})
                                     </label>
                                     {selectedIds.size > 0 && (
                                         <button
@@ -619,7 +620,7 @@ function StorageUsageModal({ onClose, onChanged }: { onClose: () => void; onChan
                                             disabled={bulkDeleting}
                                             style={{ background: "rgba(239,68,68,.15)", color: "#f87171", border: "1px solid rgba(239,68,68,.35)", borderRadius: 8, padding: "0.4rem 0.8rem", fontSize: "0.8rem", cursor: "pointer", fontWeight: 700 }}
                                         >
-                                            {bulkDeleting ? "מוחק..." : `🗑️ מחק ${selectedIds.size} נבחרות`}
+                                            {bulkDeleting ? tx("מוחק...") : tx("🗑️ מחק {0} נבחרות", { 0: selectedIds.size })}
                                         </button>
                                     )}
                                 </div>
@@ -630,7 +631,7 @@ function StorageUsageModal({ onClose, onChanged }: { onClose: () => void; onChan
                                                 type="checkbox"
                                                 checked={selectedIds.has(e.id)}
                                                 onChange={() => toggleSelected(e.id)}
-                                                aria-label={`בחר קבלה: ${e.supplier_name || e.title}`}
+                                                aria-label={tx("בחר קבלה: {0}", { 0: e.supplier_name || e.title })}
                                                 style={{ flexShrink: 0 }}
                                             />
                                             {receiptImgUrl(e.receipt_url) && (
@@ -641,7 +642,7 @@ function StorageUsageModal({ onClose, onChanged }: { onClose: () => void; onChan
                                                     {e.supplier_name || e.title}
                                                 </div>
                                                 <div style={{ color: "#94a3b8", fontSize: "0.75rem" }}>
-                                                    {new Date(e.expense_date).toLocaleDateString("he-IL")}
+                                                    {new Date(e.expense_date).toLocaleDateString(intl())}
                                                     {e.file_size_bytes ? ` · ${formatBytes(e.file_size_bytes)}` : ""}
                                                 </div>
                                             </div>
@@ -650,7 +651,7 @@ function StorageUsageModal({ onClose, onChanged }: { onClose: () => void; onChan
                                                 disabled={deletingId === e.id}
                                                 style={{ background: "rgba(239,68,68,.1)", color: "#f87171", border: "none", borderRadius: 8, padding: "0.4rem 0.7rem", fontSize: "0.75rem", cursor: "pointer", fontWeight: 600, flexShrink: 0 }}
                                             >
-                                                {deletingId === e.id ? "מוחק..." : "🗑️ מחק תמונה"}
+                                                {deletingId === e.id ? tx("מוחק...") : tx("🗑️ מחק תמונה")}
                                             </button>
                                         </div>
                                     ))}
@@ -661,7 +662,7 @@ function StorageUsageModal({ onClose, onChanged }: { onClose: () => void; onChan
                 )}
 
                 <div className="modal-actions">
-                    <button className="btn-secondary" onClick={onClose}>סגור</button>
+                    <button className="btn-secondary" onClick={onClose}>{tx("סגור")}</button>
                 </div>
             </div>
         </div>
@@ -680,17 +681,17 @@ function SendToAccountantModal({
     const [error, setError] = useState("");
 
     const handleSend = async () => {
-        if (!dateFrom || !dateTo) { setError("יש לבחור טווח תאריכים"); return; }
-        if (!confirm(`לשלוח את כל ההוצאות בין ${dateFrom} ל-${dateTo} במייל לרואה החשבון?`)) return;
+        if (!dateFrom || !dateTo) { setError(tx("יש לבחור טווח תאריכים")); return; }
+        if (!confirm(tx("לשלוח את כל ההוצאות בין {0} ל-{1} במייל לרואה החשבון?", { 0: dateFrom, 1: dateTo }))) return;
         setSending(true);
         setError("");
         try {
             const res = await sendExpensesToAccountant(dateFrom, dateTo);
-            toast.success(`נשלחו ${res.sent_count} הוצאות לרו"ח במייל ✅`);
+            toast.success(tx("נשלחו {0} הוצאות לרו\"ח במייל ✅", { 0: res.sent_count }));
             onSent();
             onClose();
         } catch (e: any) {
-            setError(e.message || "שגיאה בשליחת המייל");
+            setError(e.message || tx("שגיאה בשליחת המייל"));
         } finally {
             setSending(false);
         }
@@ -700,25 +701,25 @@ function SendToAccountantModal({
         <div className="modal-overlay" onClick={onClose}>
             <div className="modal-panel" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
                 <div className="modal-header">
-                    <h2>📧 שלח לרו&quot;ח במייל</h2>
+                    <h2>{tx("📧 שלח לרו\"ח במייל")}</h2>
                     <button className="close-btn" onClick={onClose}>✕</button>
                 </div>
                 <div className="form-grid">
-                    <label>מתאריך
-                        <PickerBox type="date" label="מתאריך" value={dateFrom} onChange={v => setDateFrom(v)} className="w-full text-start rounded-[10px] border border-white/15 bg-white/[.08] px-[.9rem] py-[.65rem] text-[.9rem] text-white" />
+                    <label>{tx("מתאריך")}
+                        <PickerBox type="date" label={tx("מתאריך")} value={dateFrom} onChange={v => setDateFrom(v)} className="w-full text-start rounded-[10px] border border-white/15 bg-white/[.08] px-[.9rem] py-[.65rem] text-[.9rem] text-white" />
                     </label>
-                    <label>עד תאריך
-                        <PickerBox type="date" label="עד תאריך" value={dateTo} onChange={v => setDateTo(v)} className="w-full text-start rounded-[10px] border border-white/15 bg-white/[.08] px-[.9rem] py-[.65rem] text-[.9rem] text-white" />
+                    <label>{tx("עד תאריך")}
+                        <PickerBox type="date" label={tx("עד תאריך")} value={dateTo} onChange={v => setDateTo(v)} className="w-full text-start rounded-[10px] border border-white/15 bg-white/[.08] px-[.9rem] py-[.65rem] text-[.9rem] text-white" />
                     </label>
                 </div>
                 <p style={{ color: "#94a3b8", fontSize: ".8rem", marginTop: "1rem" }}>
-                    כל ההוצאות בטווח התאריכים יישלחו במייל אחד לרואה החשבון (לפי המייל שמוגדר בעמוד החשבוניות → הגדרות), עם קישור לתמונת קבלה לכל הוצאה.
+                    {tx("כל ההוצאות בטווח התאריכים יישלחו במייל אחד לרואה החשבון (לפי המייל שמוגדר בעמוד החשבוניות → הגדרות), עם קישור לתמונת קבלה לכל הוצאה.")}
                 </p>
                 {error && <p className="error-msg">{error}</p>}
                 <div className="modal-actions">
-                    <button className="btn-secondary" onClick={onClose}>ביטול</button>
+                    <button className="btn-secondary" onClick={onClose}>{tx("ביטול")}</button>
                     <button className="btn-primary" onClick={handleSend} disabled={sending}>
-                        {sending ? "שולח..." : "📧 שלח"}
+                        {sending ? tx("שולח...") : tx("📧 שלח")}
                     </button>
                 </div>
             </div>
@@ -766,25 +767,25 @@ function ExpenseViewerModal({ expense, onClose, onUpdated }: { expense: Expense;
                     {/* Receipt image */}
                     {imgUrl && (
                         <div>
-                            <div style={{ color: "#94a3b8", fontSize: ".8rem", marginBottom: ".5rem" }}>תמונת קבלה מקורית</div>
+                            <div style={{ color: "#94a3b8", fontSize: ".8rem", marginBottom: ".5rem" }}>{tx("תמונת קבלה מקורית")}</div>
                             <img src={imgUrl} alt="receipt" style={{ width: "100%", borderRadius: 12, border: "1px solid rgba(255,255,255,.1)" }} />
                             <a href={imgUrl} target="_blank" rel="noopener" style={{ display: "block", textAlign: "center", marginTop: ".5rem", color: "#a78bfa", fontSize: ".8rem" }}>
-                                🔍 פתח בגודל מלא
+                                {tx("🔍 פתח בגודל מלא")}
                             </a>
                         </div>
                     )}
                     {/* Data */}
                     <div style={{ display: "flex", flexDirection: "column", gap: ".75rem" }}>
                         {[
-                            ["תאריך", new Date(expense.expense_date).toLocaleDateString("he-IL")],
-                            ["ספק", expense.supplier_name || expense.title],
-                            ["מספר מסמך", expense.invoice_number || "—"],
-                            ["קטגוריה", expense.category || "—"],
-                            ["אמצעי תשלום", expense.payment_method || "—"],
-                            ["לפני מע\"מ", expense.pretax_amount ? `₪${fmt(expense.pretax_amount)}` : "—"],
-                            ["מע\"מ", `₪${fmt(expense.vat_amount)}`],
-                            ["סה\"כ כולל", `₪${fmt(expense.amount)}`],
-                            ["הערות", expense.notes || "—"],
+                            [tx("תאריך"), new Date(expense.expense_date).toLocaleDateString(intl())],
+                            [tx("ספק"), expense.supplier_name || expense.title],
+                            [tx("מספר מסמך"), expense.invoice_number || "—"],
+                            [tx("קטגוריה"), expense.category || "—"],
+                            [tx("אמצעי תשלום"), expense.payment_method || "—"],
+                            [tx("לפני מע\"מ"), expense.pretax_amount ? `₪${fmt(expense.pretax_amount)}` : "—"],
+                            [tx("מע\"מ"), `₪${fmt(expense.vat_amount)}`],
+                            [tx("סה\"כ כולל"), `₪${fmt(expense.amount)}`],
+                            [tx("הערות"), expense.notes || "—"],
                         ].map(([label, val]) => (
                             <div key={label} style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid rgba(255,255,255,.06)", paddingBottom: ".5rem" }}>
                                 <span style={{ color: "#94a3b8", fontSize: ".85rem" }}>{label}</span>
@@ -794,14 +795,14 @@ function ExpenseViewerModal({ expense, onClose, onUpdated }: { expense: Expense;
                         <div style={{ marginTop: ".5rem" }}>
                             {expense.sent_to_accountant ? (
                                 <div style={{ background: "rgba(74,222,128,.1)", border: "1px solid rgba(74,222,128,.3)", borderRadius: 10, padding: ".75rem", textAlign: "center" }}>
-                                    <div style={{ color: "#4ade80", fontWeight: 700 }}>✅ נשלח לרו"ח</div>
+                                    <div style={{ color: "#4ade80", fontWeight: 700 }}>{tx("✅ נשלח לרו\"ח")}</div>
                                     {expense.sent_to_accountant_at && (
-                                        <div style={{ color: "#64748b", fontSize: ".75rem" }}>{new Date(expense.sent_to_accountant_at).toLocaleDateString("he-IL")}</div>
+                                        <div style={{ color: "#64748b", fontSize: ".75rem" }}>{new Date(expense.sent_to_accountant_at).toLocaleDateString(intl())}</div>
                                     )}
                                 </div>
                             ) : (
                                 <div style={{ background: "rgba(251,191,36,.1)", border: "1px solid rgba(251,191,36,.3)", borderRadius: 10, padding: ".75rem", textAlign: "center" }}>
-                                    <div style={{ color: "#fbbf24", fontWeight: 700 }}>⏳ טרם נשלח לרו"ח</div>
+                                    <div style={{ color: "#fbbf24", fontWeight: 700 }}>{tx("⏳ טרם נשלח לרו\"ח")}</div>
                                 </div>
                             )}
                         </div>
@@ -815,14 +816,14 @@ function ExpenseViewerModal({ expense, onClose, onUpdated }: { expense: Expense;
                                 onClick={() => shareWhatsApp()}
                                 style={{ background: "rgba(37,211,102,.15)", border: "1px solid rgba(37,211,102,.4)", color: "#25d366", borderRadius: 10, padding: ".6rem 1rem", cursor: "pointer", fontWeight: 600, fontSize: ".85rem" }}
                             >
-                                💬 שלח בוואטסאפ
+                                {tx("💬 שלח בוואטסאפ")}
                             </button>
                             <a
                                 href={imgUrl}
                                 download
                                 style={{ background: "rgba(99,102,241,.12)", border: "1px solid rgba(99,102,241,.3)", color: "#818cf8", borderRadius: 10, padding: ".6rem 1rem", cursor: "pointer", fontWeight: 600, fontSize: ".85rem", textDecoration: "none" }}
                             >
-                                ⬇️ הורד תמונה
+                                {tx("⬇️ הורד תמונה")}
                             </a>
                         </>
                     )}
@@ -832,9 +833,9 @@ function ExpenseViewerModal({ expense, onClose, onUpdated }: { expense: Expense;
                         color: expense.sent_to_accountant ? "#fbbf24" : "#4ade80",
                         borderRadius: 10, padding: ".6rem 1.2rem", cursor: "pointer", fontWeight: 600,
                     }}>
-                        {sending ? "..." : expense.sent_to_accountant ? "↩️ בטל שליחה" : "✅ סמן נשלח לרו\"ח"}
+                        {sending ? "..." : expense.sent_to_accountant ? tx("↩️ בטל שליחה") : tx("✅ סמן נשלח לרו\"ח")}
                     </button>
-                    <button className="btn-secondary" onClick={onClose}>סגור</button>
+                    <button className="btn-secondary" onClick={onClose}>{tx("סגור")}</button>
                 </div>
             </div>
         </div>
@@ -902,7 +903,7 @@ export default function ExpensesPage() {
     useEffect(() => { setSelectedIds(new Set()); }, [month, year]);
 
     const handleDelete = async (id: string) => {
-        if (!confirm("למחוק הוצאה זו?")) return;
+        if (!confirm(tx("למחוק הוצאה זו?"))) return;
         await deleteExpense(id);
         load();
     };
@@ -926,14 +927,14 @@ export default function ExpensesPage() {
 
     const handleBulkDelete = async () => {
         if (selectedIds.size === 0) return;
-        if (!confirm(`למחוק ${selectedIds.size} הוצאות נבחרות? הפעולה תמחק גם את הקבלות המצורפות אליהן ולא ניתנת לביטול.`)) return;
+        if (!confirm(tx("למחוק {0} הוצאות נבחרות? הפעולה תמחק גם את הקבלות המצורפות אליהן ולא ניתנת לביטול.", { 0: selectedIds.size }))) return;
         setBulkDeleting(true);
         try {
             await bulkDeleteExpenses(Array.from(selectedIds));
             setSelectedIds(new Set());
             await load();
         } catch (e: any) {
-            toast.error(e.message || "שגיאה במחיקת ההוצאות");
+            toast.error(e.message || tx("שגיאה במחיקת ההוצאות"));
         } finally {
             setBulkDeleting(false);
         }
@@ -957,7 +958,7 @@ export default function ExpensesPage() {
             await uploadExpenseImage(uploadTargetId, f);
             load();
         } catch (err: any) {
-            toast.error(err.message || "שגיאה בהעלאת תמונה");
+            toast.error(err.message || tx("שגיאה בהעלאת תמונה"));
         } finally {
             setUploadingId(null);
             setUploadTargetId(null);
@@ -965,7 +966,7 @@ export default function ExpensesPage() {
         }
     };
 
-    const MONTHS = ["ינואר","פברואר","מרץ","אפריל","מאי","יוני","יולי","אוגוסט","ספטמבר","אוקטובר","נובמבר","דצמבר"];
+    const MONTHS = [tx("ינואר"),tx("פברואר"),tx("מרץ"),tx("אפריל"),tx("מאי"),tx("יוני"),tx("יולי"),tx("אוגוסט"),tx("ספטמבר"),tx("אוקטובר"),tx("נובמבר"),tx("דצמבר")];
 
     // Derived chart data
     const grossIncome = stats ? stats.financials.gross_income_cents / 100 : 0;
@@ -973,23 +974,23 @@ export default function ExpensesPage() {
     const netIncome = stats ? stats.financials.net_income_cents / 100 : 0;
 
     const barData = [
-        { name: "הכנסות", value: grossIncome },
-        { name: "הוצאות", value: totalExpenses },
-        { name: "רווח נקי", value: netIncome },
+        { name: tx("הכנסות"), value: grossIncome },
+        { name: tx("הוצאות"), value: totalExpenses },
+        { name: tx("רווח נקי"), value: netIncome },
     ];
 
     // Group expenses by category for pie chart
     const categoryMap: Record<string, number> = {};
     expenses.forEach(e => {
-        const cat = e.category || "אחר";
+        const cat = e.category || tx("אחר");
         categoryMap[cat] = (categoryMap[cat] || 0) + e.amount;
     });
     const pieData = Object.entries(categoryMap).map(([name, value]) => ({ name, value }));
 
     return (
         <RequireAuth>
-            <AppShell title="הוצאות">
-                <div dir="rtl" style={{ minHeight: "100vh", background: "#f8f9fa", fontFamily: "'Segoe UI', Arial, sans-serif" }}>
+            <AppShell title={tx("הוצאות")}>
+                <div style={{ minHeight: "100vh", background: "#f8f9fa", fontFamily: "'Segoe UI', Arial, sans-serif" }}>
 
                     {/* Modal CSS */}
                     <style>{`
@@ -1031,8 +1032,8 @@ export default function ExpensesPage() {
                     }}>
                         {/* Title block */}
                         <div style={{ textAlign: "right" }}>
-                            <h1 style={{ margin: 0, fontSize: "1.3rem", fontWeight: 700, color: "#1a1a2e" }}>ניהול עסק</h1>
-                            <p style={{ margin: 0, fontSize: "0.8rem", color: "#6b7280" }}>מעקב הוצאות ומיסים</p>
+                            <h1 style={{ margin: 0, fontSize: "1.3rem", fontWeight: 700, color: "#1a1a2e" }}>{tx("ניהול עסק")}</h1>
+                            <p style={{ margin: 0, fontSize: "0.8rem", color: "#6b7280" }}>{tx("מעקב הוצאות ומיסים")}</p>
                         </div>
 
                         {/* Period selectors + actions */}
@@ -1041,7 +1042,7 @@ export default function ExpensesPage() {
                                 type="text"
                                 value={search}
                                 onChange={e => setSearch(e.target.value)}
-                                placeholder="🔍 חיפוש לפי ספק/שם — בכל התאריכים"
+                                placeholder={tx("🔍 חיפוש לפי ספק/שם — בכל התאריכים")}
                                 style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: "8px", padding: "0.45rem 0.9rem", fontSize: "0.875rem", color: "#1a1a2e", minWidth: "220px" }}
                             />
                             <select
@@ -1066,7 +1067,7 @@ export default function ExpensesPage() {
                                 onClick={() => downloadExpenseExcel(month, year)}
                                 style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "#fff", border: "1px solid #e5e7eb", color: "#1a1a2e", padding: "0.45rem 1rem", borderRadius: "8px", fontWeight: 500, fontSize: "0.875rem", cursor: "pointer" }}
                             >
-                                Excel לרו&quot;ח
+                                {tx("Excel לרו\"ח")}
                             </button>
                             <button
                                 disabled={downloadingPdf}
@@ -1075,20 +1076,20 @@ export default function ExpensesPage() {
                                     try {
                                         await downloadExpensesPdf(month, year);
                                     } catch (e: any) {
-                                        toast.error(e.message || "שגיאה בהפקת ה-PDF");
+                                        toast.error(e.message || tx("שגיאה בהפקת ה-PDF"));
                                     } finally {
                                         setDownloadingPdf(false);
                                     }
                                 }}
                                 style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "#fff", border: "1px solid #e5e7eb", color: "#1a1a2e", padding: "0.45rem 1rem", borderRadius: "8px", fontWeight: 500, fontSize: "0.875rem", cursor: "pointer" }}
                             >
-                                {downloadingPdf ? "מפיק..." : "📄 PDF מסודר לרו\"ח"}
+                                {downloadingPdf ? tx("מפיק...") : tx("📄 PDF מסודר לרו\"ח")}
                             </button>
                             <button
                                 onClick={() => setModal("send-accountant")}
                                 style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "#fff", border: "1px solid #e5e7eb", color: "#1a1a2e", padding: "0.45rem 1rem", borderRadius: "8px", fontWeight: 500, fontSize: "0.875rem", cursor: "pointer" }}
                             >
-                                📧 שלח לרו&quot;ח במייל
+                                {tx("📧 שלח לרו\"ח במייל")}
                             </button>
                             <button
                                 disabled={downloadingZip}
@@ -1097,43 +1098,43 @@ export default function ExpensesPage() {
                                     try {
                                         await downloadExpenseReceiptsZip(month, year);
                                     } catch (e: any) {
-                                        toast.error(e.message || "שגיאה בהורדת הקבלות");
+                                        toast.error(e.message || tx("שגיאה בהורדת הקבלות"));
                                     } finally {
                                         setDownloadingZip(false);
                                     }
                                 }}
                                 style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "#fff", border: "1px solid #e5e7eb", color: "#1a1a2e", padding: "0.45rem 1rem", borderRadius: "8px", fontWeight: 500, fontSize: "0.875rem", cursor: "pointer" }}
                             >
-                                {downloadingZip ? "מוריד..." : "⬇️ הורד קבלות כ-ZIP"}
+                                {downloadingZip ? tx("מוריד...") : tx("⬇️ הורד קבלות כ-ZIP")}
                             </button>
                             <button
                                 onClick={async () => {
-                                    if (!confirm(`לסמן את כל הוצאות ${month}/${year} כ"נשלחו לרו"ח"?`)) return;
+                                    if (!confirm(tx("לסמן את כל הוצאות {0}/{1} כ\"נשלחו לרו\"ח\"?", { 0: month, 1: year }))) return;
                                     await markMonthSent(month, year);
                                     load();
-                                    toast.success("כל ההוצאות סומנו כנשלחו!");
+                                    toast.success(tx("כל ההוצאות סומנו כנשלחו!"));
                                 }}
                                 style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "#fff", border: "1px solid #e5e7eb", color: "#1a1a2e", padding: "0.45rem 1rem", borderRadius: "8px", fontWeight: 500, fontSize: "0.875rem", cursor: "pointer" }}
                             >
-                                סמן חודש נשלח
+                                {tx("סמן חודש נשלח")}
                             </button>
                             <button
                                 onClick={() => setModal("storage")}
                                 style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "#fff", border: "1px solid #e5e7eb", color: "#1a1a2e", padding: "0.45rem 1rem", borderRadius: "8px", fontWeight: 500, fontSize: "0.875rem", cursor: "pointer" }}
                             >
-                                💾 ניהול אחסון
+                                {tx("💾 ניהול אחסון")}
                             </button>
                             <button
                                 onClick={() => setModal("manual")}
                                 style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "#fff", border: "1px solid #e5e7eb", color: "#1a1a2e", padding: "0.45rem 1rem", borderRadius: "8px", fontWeight: 500, fontSize: "0.875rem", cursor: "pointer" }}
                             >
-                                הזנה ידנית
+                                {tx("הזנה ידנית")}
                             </button>
                             <button
                                 onClick={() => setModal("scan")}
                                 style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "#00b4b4", border: "none", color: "#fff", padding: "0.45rem 1.1rem", borderRadius: "8px", fontWeight: 600, fontSize: "0.875rem", cursor: "pointer" }}
                             >
-                                סריקת חשבונית AI
+                                {tx("סריקת חשבונית AI")}
                             </button>
                         </div>
                     </div>
@@ -1149,10 +1150,10 @@ export default function ExpensesPage() {
                         {/* ── KPI Row ── */}
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "0.75rem", marginBottom: "1rem" }}>
                             {[
-                                { label: "הכנסות ברוטו", sub: "עסקאות שנסגרו", color: "#10b981", value: stats ? (stats.financials.gross_income_cents / 100).toLocaleString() : "—" },
-                                { label: "רווח נקי", sub: "אחרי כל הניכויים", color: "#2563eb", value: stats ? (stats.financials.net_income_cents / 100).toLocaleString() : "—" },
-                                { label: "מיסים", sub: 'מע"מ + מס הכנסה + ביטוח', color: "#f59e0b", value: stats ? ((stats.financials.vat_amount_cents + stats.financials.income_tax_cents + stats.financials.social_security_cents) / 100).toLocaleString() : "—" },
-                                { label: "סך הוצאות", sub: summary ? `${summary.invoice_count} חשבוניות` : "החודש", color: "#ef4444", value: summary ? fmt(summary.total_expenses) : "—" },
+                                { label: tx("הכנסות ברוטו"), sub: tx("עסקאות שנסגרו"), color: "#10b981", value: stats ? (stats.financials.gross_income_cents / 100).toLocaleString() : "—" },
+                                { label: tx("רווח נקי"), sub: tx("אחרי כל הניכויים"), color: "#2563eb", value: stats ? (stats.financials.net_income_cents / 100).toLocaleString() : "—" },
+                                { label: tx("מיסים"), sub: tx("מע\"מ + מס הכנסה + ביטוח"), color: "#f59e0b", value: stats ? ((stats.financials.vat_amount_cents + stats.financials.income_tax_cents + stats.financials.social_security_cents) / 100).toLocaleString() : "—" },
+                                { label: tx("סך הוצאות"), sub: summary ? tx("{0} חשבוניות", { 0: summary.invoice_count }) : tx("החודש"), color: "#ef4444", value: summary ? fmt(summary.total_expenses) : "—" },
                             ].map(c => (
                                 <div key={c.label} style={{ background: "#fff", borderRadius: 10, boxShadow: "0 1px 3px rgba(0,0,0,0.07)", border: "1px solid #e5e7eb", borderRight: `3px solid ${c.color}`, padding: "0.85rem 1rem" }}>
                                     <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", marginBottom: "0.4rem" }}>
@@ -1171,7 +1172,7 @@ export default function ExpensesPage() {
                             {/* Bar Chart — Income vs Expenses */}
                             <div style={{ background: "#ffffff", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", border: "1px solid #e5e7eb", padding: "1.5rem" }}>
                                 <div style={{ marginBottom: "1.25rem" }}>
-                                    <div style={{ fontSize: "0.9rem", fontWeight: 700, color: "#1a1a2e" }}>הכנסות מול הוצאות</div>
+                                    <div style={{ fontSize: "0.9rem", fontWeight: 700, color: "#1a1a2e" }}>{tx("הכנסות מול הוצאות")}</div>
                                     <div style={{ fontSize: "0.75rem", color: "#6b7280", marginTop: "0.2rem" }}>{MONTHS[month - 1]} {year}</div>
                                 </div>
                                 <ResponsiveContainer width="100%" height={230}>
@@ -1199,12 +1200,12 @@ export default function ExpensesPage() {
                             {/* Pie Chart — Expenses by category */}
                             <div style={{ background: "#ffffff", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", border: "1px solid #e5e7eb", padding: "1.5rem" }}>
                                 <div style={{ marginBottom: "1.25rem" }}>
-                                    <div style={{ fontSize: "0.9rem", fontWeight: 700, color: "#1a1a2e" }}>הוצאות לפי קטגוריה</div>
-                                    <div style={{ fontSize: "0.75rem", color: "#6b7280", marginTop: "0.2rem" }}>פילוח חודשי</div>
+                                    <div style={{ fontSize: "0.9rem", fontWeight: 700, color: "#1a1a2e" }}>{tx("הוצאות לפי קטגוריה")}</div>
+                                    <div style={{ fontSize: "0.75rem", color: "#6b7280", marginTop: "0.2rem" }}>{tx("פילוח חודשי")}</div>
                                 </div>
                                 {pieData.length === 0 ? (
                                     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 230, color: "#6b7280", fontSize: "0.875rem" }}>
-                                        אין נתונים לתצוגה
+                                        {tx("אין נתונים לתצוגה")}
                                     </div>
                                 ) : (
                                     <ResponsiveContainer width="100%" height={230}>
@@ -1239,7 +1240,7 @@ export default function ExpensesPage() {
 
                             {/* Table header */}
                             <div style={{ padding: "1.25rem 1.5rem", borderBottom: "1px solid #e5e7eb", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                                <span style={{ fontSize: "0.9rem", fontWeight: 700, color: "#1a1a2e" }}>רשימת הוצאות</span>
+                                <span style={{ fontSize: "0.9rem", fontWeight: 700, color: "#1a1a2e" }}>{tx("רשימת הוצאות")}</span>
                                 <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
                                     {selectedIds.size > 0 && (
                                         <button
@@ -1247,12 +1248,12 @@ export default function ExpensesPage() {
                                             disabled={bulkDeleting}
                                             style={{ background: "rgba(239,68,68,.1)", color: "#ef4444", border: "1px solid rgba(239,68,68,.3)", borderRadius: "20px", padding: "0.3rem 0.9rem", fontSize: "0.75rem", fontWeight: 700, cursor: "pointer" }}
                                         >
-                                            {bulkDeleting ? "מוחק..." : `🗑️ מחק ${selectedIds.size} נבחרות`}
+                                            {bulkDeleting ? tx("מוחק...") : tx("🗑️ מחק {0} נבחרות", { 0: selectedIds.size })}
                                         </button>
                                     )}
                                     {summary && (
                                         <span style={{ background: "#f8f9fa", border: "1px solid #e5e7eb", color: "#6b7280", borderRadius: "20px", padding: "0.2rem 0.8rem", fontSize: "0.75rem", fontWeight: 600 }}>
-                                            {summary.invoice_count} רשומות
+                                            {summary.invoice_count} {tx("רשומות")}
                                         </span>
                                     )}
                                 </div>
@@ -1260,12 +1261,12 @@ export default function ExpensesPage() {
 
                             {loading ? (
                                 <div style={{ textAlign: "center", padding: "4rem 1rem", color: "#6b7280" }}>
-                                    <p style={{ fontWeight: 600 }}>טוען נתונים...</p>
+                                    <p style={{ fontWeight: 600 }}>{tx("טוען נתונים...")}</p>
                                 </div>
                             ) : expenses.length === 0 ? (
                                 <div style={{ textAlign: "center", padding: "4rem 1rem" }}>
-                                    <p style={{ fontWeight: 600, color: "#1a1a2e", margin: "0 0 0.4rem" }}>אין הוצאות לתקופה זו</p>
-                                    <p style={{ fontSize: "0.85rem", color: "#6b7280", margin: 0 }}>העלה חשבונית עם AI או הזן ידנית</p>
+                                    <p style={{ fontWeight: 600, color: "#1a1a2e", margin: "0 0 0.4rem" }}>{tx("אין הוצאות לתקופה זו")}</p>
+                                    <p style={{ fontSize: "0.85rem", color: "#6b7280", margin: 0 }}>{tx("העלה חשבונית עם AI או הזן ידנית")}</p>
                                 </div>
                             ) : (
                                 <div style={{ overflowX: "auto" }}>
@@ -1277,10 +1278,10 @@ export default function ExpensesPage() {
                                                         type="checkbox"
                                                         checked={selectedIds.size > 0 && selectedIds.size === expenses.length}
                                                         onChange={toggleSelectAll}
-                                                        aria-label="בחר הכל"
+                                                        aria-label={tx("בחר הכל")}
                                                     />
                                                 </th>
-                                                {["קבלה", "ספק / שם", "קטגוריה", "אמצעי תשלום", "תאריך", "סכום", 'מע"מ', "סטטוס", ""].map(h => (
+                                                {[tx("קבלה"), tx("ספק / שם"), tx("קטגוריה"), tx("אמצעי תשלום"), tx("תאריך"), tx("סכום"), tx("מע\"מ"), tx("סטטוס"), ""].map(h => (
                                                     <th key={h} style={{ padding: "0.75rem 1.25rem", textAlign: "right", fontSize: "0.72rem", color: "#6b7280", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: "1px solid #e5e7eb", whiteSpace: "nowrap" }}>
                                                         {h}
                                                     </th>
@@ -1301,7 +1302,7 @@ export default function ExpensesPage() {
                                                             type="checkbox"
                                                             checked={selectedIds.has(e.id)}
                                                             onChange={() => toggleSelected(e.id)}
-                                                            aria-label={`בחר הוצאה: ${e.supplier_name || e.title}`}
+                                                            aria-label={tx("בחר הוצאה: {0}", { 0: e.supplier_name || e.title })}
                                                         />
                                                     </td>
                                                     {/* Thumbnail / attach-image column */}
@@ -1319,7 +1320,7 @@ export default function ExpensesPage() {
                                                             <button
                                                                 type="button"
                                                                 onClick={ev => handleInlineCameraClick(e.id, ev)}
-                                                                title="צרף תמונת קבלה"
+                                                                title={tx("צרף תמונת קבלה")}
                                                                 style={{ width: 48, height: 48, borderRadius: 8, background: "#f9fafb", border: "1.5px dashed #d1d5db", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.2rem", color: "#9ca3af" }}
                                                             >
                                                                 📷
@@ -1342,7 +1343,7 @@ export default function ExpensesPage() {
                                                         {e.payment_method || <span style={{ color: "#d1d5db" }}>—</span>}
                                                     </td>
                                                     <td style={{ padding: "0.9rem 1.25rem", color: "#6b7280", fontSize: "0.8rem", whiteSpace: "nowrap" }}>
-                                                        {new Date(e.expense_date).toLocaleDateString("he-IL")}
+                                                        {new Date(e.expense_date).toLocaleDateString(intl())}
                                                     </td>
                                                     <td style={{ padding: "0.9rem 1.25rem", fontWeight: 700, color: "#1a1a2e", fontSize: "0.9rem", whiteSpace: "nowrap" }}>
                                                         ₪{fmt(e.amount)}
@@ -1353,11 +1354,11 @@ export default function ExpensesPage() {
                                                     <td style={{ padding: "0.9rem 1.25rem" }}>
                                                         {e.sent_to_accountant ? (
                                                             <span style={{ display: "inline-block", padding: "0.2rem 0.65rem", borderRadius: "20px", fontSize: "0.72rem", fontWeight: 600, background: "rgba(16,185,129,0.08)", color: "#10b981", border: "1px solid rgba(16,185,129,0.2)" }}>
-                                                                נשלח
+                                                                {tx("נשלח")}
                                                             </span>
                                                         ) : (
                                                             <span style={{ display: "inline-block", padding: "0.2rem 0.65rem", borderRadius: "20px", fontSize: "0.72rem", fontWeight: 600, background: "rgba(245,158,11,0.08)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.2)" }}>
-                                                                ממתין
+                                                                {tx("ממתין")}
                                                             </span>
                                                         )}
                                                     </td>
@@ -1368,7 +1369,7 @@ export default function ExpensesPage() {
                                                             onMouseEnter={ev => { ev.currentTarget.style.background = "rgba(239,68,68,0.08)"; }}
                                                             onMouseLeave={ev => { ev.currentTarget.style.background = "none"; }}
                                                         >
-                                                            מחק
+                                                            {tx("מחק")}
                                                         </button>
                                                     </td>
                                                 </tr>
@@ -1385,7 +1386,7 @@ export default function ExpensesPage() {
                         ref={inlineUploadRef}
                         type="file"
                         accept="image/jpeg,image/png,image/webp,image/heic"
-                        aria-label="העלאת תמונת קבלה"
+                        aria-label={tx("העלאת תמונת קבלה")}
                         style={{ display: "none" }}
                         onChange={handleInlineFileChange}
                     />

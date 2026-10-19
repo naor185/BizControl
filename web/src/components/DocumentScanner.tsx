@@ -12,6 +12,7 @@
  */
 import { useRef, useState, useEffect, useCallback } from "react";
 
+import { tx } from "@/lib/i18n";
 interface Props {
     onCapture: (file: File) => void;
     onClose: () => void;
@@ -156,15 +157,15 @@ export default function DocumentScanner({ onCapture, onClose }: Props) {
                 padding: "calc(0.75rem + env(safe-area-inset-top)) 1rem 0.75rem", background: "rgba(0,0,0,.7)",
                 position: "absolute", top: 0, left: 0, right: 0, zIndex: 2,
             }}>
-                <button onClick={onClose} style={btnStyle}>✕ ביטול</button>
+                <button onClick={onClose} style={btnStyle}>{tx("✕ ביטול")}</button>
                 <span style={{ color: "#fff", fontSize: "0.95rem", fontWeight: 600 }}>
-                    {phase === "loading" ? "מפעיל מצלמה..." :
-                     phase === "processing" ? "⏳ מעבד תמונה..." :
-                     phase === "preview" ? "תצוגה מקדימה" : "📄 סרוק מסמך"}
+                    {phase === "loading" ? tx("מפעיל מצלמה...") :
+                     phase === "processing" ? tx("⏳ מעבד תמונה...") :
+                     phase === "preview" ? tx("תצוגה מקדימה") : tx("📄 סרוק מסמך")}
                 </span>
                 {phase === "live" && (
                     <button onClick={toggleTorch} style={btnStyle}>
-                        {torchOn ? "🔦 כבה" : "🔦 הדלק"}
+                        {torchOn ? tx("🔦 כבה") : tx("🔦 הדלק")}
                     </button>
                 )}
                 {phase !== "live" && <div style={{ width: 60 }} />}
@@ -197,7 +198,7 @@ export default function DocumentScanner({ onCapture, onClose }: Props) {
                     <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,.8)" }}>
                         <div style={{ textAlign: "center", color: "#fff" }}>
                             <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>⚙️</div>
-                            <div style={{ fontSize: "1rem" }}>משפר איכות לסריקה...</div>
+                            <div style={{ fontSize: "1rem" }}>{tx("משפר איכות לסריקה...")}</div>
                         </div>
                     </div>
                 )}
@@ -212,7 +213,7 @@ export default function DocumentScanner({ onCapture, onClose }: Props) {
                         background: "rgba(0,0,0,.6)", borderRadius: 12, padding: "0.5rem 1rem",
                         color: "#fff", fontSize: "0.8rem", whiteSpace: "nowrap",
                     }}>
-                        כוון את המסמך בתוך המסגרת ← צלם
+                        {tx("כוון את המסמך בתוך המסגרת ← צלם")}
                     </div>
                 )}
             </div>
@@ -227,7 +228,7 @@ export default function DocumentScanner({ onCapture, onClose }: Props) {
                     <>
                         <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", color: "#94a3b8", fontSize: "0.8rem", cursor: "pointer" }}>
                             <input type="checkbox" checked={autoCapture} onChange={e => setAutoCapture(e.target.checked)} />
-                            צילום אוטומטי
+                            {tx("צילום אוטומטי")}
                         </label>
                         <button
                             onClick={capture}
@@ -247,7 +248,7 @@ export default function DocumentScanner({ onCapture, onClose }: Props) {
                 {phase === "preview" && (
                     <>
                         <button onClick={retake} style={{ ...btnStyle, background: "rgba(255,255,255,.15)", padding: "0.75rem 1.5rem", borderRadius: 12 }}>
-                            🔄 צלם שוב
+                            {tx("🔄 צלם שוב")}
                         </button>
                         <button
                             onClick={confirmCapture}
@@ -257,7 +258,7 @@ export default function DocumentScanner({ onCapture, onClose }: Props) {
                                 padding: "0.75rem 2rem", fontWeight: 700, fontSize: "1rem", cursor: "pointer",
                             }}
                         >
-                            ✅ אשר וסרוק עם AI
+                            {tx("✅ אשר וסרוק עם AI")}
                         </button>
                     </>
                 )}

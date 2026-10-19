@@ -8,6 +8,7 @@ import { toast } from "@/lib/toast";
 import { BIZFIND_URL } from "@/lib/config";
 import ShareLink from "@/components/ShareLink";
 
+import { tx, intl } from "@/lib/i18n";
 // The business's own coupons (GET/POST/PATCH/DELETE /api/coupons): the owner writes the code and the percent, a
 // category and where it was handed out; each coupon has a link to the business's BizFind page that shows it. The
 // report: uses, what is left, money in and the discount given — per coupon, per category, per source. Birthday
@@ -29,15 +30,15 @@ interface Report {
 }
 
 const STATE: Record<State, { label: string; cls: string }> = {
-    active:  { label: "פעיל",       cls: "bg-emerald-100 text-emerald-700" },
-    stopped: { label: "הופסק",      cls: "bg-slate-200 text-slate-600" },
-    expired: { label: "פג תוקף",    cls: "bg-amber-100 text-amber-700" },
-    used_up: { label: "נוצל עד הסוף", cls: "bg-violet-100 text-violet-700" },
+    active:  { label: tx("פעיל"),       cls: "bg-emerald-100 text-emerald-700" },
+    stopped: { label: tx("הופסק"),      cls: "bg-slate-200 text-slate-600" },
+    expired: { label: tx("פג תוקף"),    cls: "bg-amber-100 text-amber-700" },
+    used_up: { label: tx("נוצל עד הסוף"), cls: "bg-violet-100 text-violet-700" },
 };
 const PERCENTS = [5, 10, 15, 20, 25, 30];
-const SOURCES = ["אינסטגרם", "פייסבוק", "טיקטוק", "וואטסאפ", "גוגל", "פלאייר", "משפיען/ית", "לקוח ממליץ"];
+const SOURCES = [tx("אינסטגרם"), tx("פייסבוק"), tx("טיקטוק"), tx("וואטסאפ"), tx("גוגל"), tx("פלאייר"), tx("משפיען/ית"), tx("לקוח ממליץ")];
 const USES: (number | null)[] = [null, 1, 10, 50, 100];
-const ils = (cents: number) => `₪${(cents / 100).toLocaleString("he-IL", { maximumFractionDigits: 0 })}`;
+const ils = (cents: number) => `₪${(cents / 100).toLocaleString(intl(), { maximumFractionDigits: 0 })}`;
 
 export default function CouponsPanel() {
     const [data, setData] = useState<Report | null>(null);
@@ -46,17 +47,17 @@ export default function CouponsPanel() {
     const [linkOf, setLinkOf] = useState<string | null>(null);
 
     const load = useCallback(() => {
-        apiFetch<Report>("/api/coupons").then(setData).catch(e => setError(e instanceof Error ? e.message : "הטעינה נכשלה"));
+        apiFetch<Report>("/api/coupons").then(setData).catch(e => setError(e instanceof Error ? e.message : tx("הטעינה נכשלה")));
     }, []);
     useEffect(() => { load(); }, [load]);
 
     const act = async (fn: () => Promise<unknown>, done: string) => {
         try { await fn(); toast.success(done); load(); }
-        catch (e) { toast.error(e instanceof Error ? e.message : "הפעולה נכשלה"); }
+        catch (e) { toast.error(e instanceof Error ? e.message : tx("הפעולה נכשלה")); }
     };
 
-    if (error) return <p className="text-sm text-slate-600 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">{error.includes("רק לבעלים") ? "הקופונים — לבעלים או למנהל." : error}</p>;
-    if (!data) return <div className="flex justify-center py-16"><Loader2 className="w-8 h-8 text-violet-600 animate-spin" aria-label="טוען" /></div>;
+    if (error) return <p className="text-sm text-slate-600 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">{error.includes("רק לבעלים") ? tx("הקופונים — לבעלים או למנהל.") : error}</p>;
+    if (!data) return <div className="flex justify-center py-16"><Loader2 className="w-8 h-8 text-violet-600 animate-spin" aria-label={tx("טוען")} /></div>;
 
     const linkFor = (code: string) => (BIZFIND_URL && data.studio_slug ? `${BIZFIND_URL}/b/${data.studio_slug}?c=${encodeURIComponent(code)}` : null);
     const active = data.coupons.filter(c => c.state === "active").length;
@@ -66,11 +67,11 @@ export default function CouponsPanel() {
             {/* Summary */}
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
                 {[
-                    { label: "קופונים פעילים", value: active },
-                    { label: "שימושים", value: data.totals.uses },
-                    { label: "כסף שנכנס", value: ils(data.totals.paid_cents) },
-                    { label: "הנחה שניתנה", value: ils(data.totals.discount_cents) },
-                    { label: "כניסות מהקישורים", value: data.totals.clicks },
+                    { label: tx("קופונים פעילים"), value: active },
+                    { label: tx("שימושים"), value: data.totals.uses },
+                    { label: tx("כסף שנכנס"), value: ils(data.totals.paid_cents) },
+                    { label: tx("הנחה שניתנה"), value: ils(data.totals.discount_cents) },
+                    { label: tx("כניסות מהקישורים"), value: data.totals.clicks },
                 ].map(({ label, value }) => (
                     <div key={label} className="bg-white rounded-xl border border-slate-100 shadow-sm p-4">
                         <div className="text-xl font-black text-slate-800 tabular-nums">{value}</div>
@@ -82,16 +83,16 @@ export default function CouponsPanel() {
             <div className="flex items-center gap-2 flex-wrap">
                 <button type="button" onClick={() => setEditing("new")}
                     className="inline-flex items-center gap-1.5 bg-violet-600 hover:bg-violet-700 text-white font-bold text-sm px-4 py-2 rounded-xl">
-                    <Plus className="w-4 h-4" aria-hidden /> קופון חדש
+                    <Plus className="w-4 h-4" aria-hidden /> {tx("קופון חדש")}
                 </button>
-                <p className="text-xs text-slate-400">הקוד מוקלד בקופה או במסך התשלום של תור — ההנחה יורדת והשימוש נרשם כאן.</p>
+                <p className="text-xs text-slate-400">{tx("הקוד מוקלד בקופה או במסך התשלום של תור — ההנחה יורדת והשימוש נרשם כאן.")}</p>
             </div>
 
             {/* The coupons */}
             {data.coupons.length === 0 && !data.birthday.issued ? (
                 <div className="text-center py-14 text-slate-400">
                     <Ticket className="w-10 h-10 mx-auto mb-3" strokeWidth={1.5} aria-hidden />
-                    <div>אין קופונים עדיין — צרו קופון ראשון, למשל SUMMER10</div>
+                    <div>{tx("אין קופונים עדיין — צרו קופון ראשון, למשל SUMMER10")}</div>
                 </div>
             ) : (
                 <div className="grid gap-3">
@@ -109,40 +110,40 @@ export default function CouponsPanel() {
                                         </div>
                                         <div className="flex gap-1.5 flex-wrap mt-2 text-xs">
                                             {c.category && <span className="inline-flex items-center gap-1 bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full"><Tag className="w-3 h-3" aria-hidden />{c.category}</span>}
-                                            {c.source && <span className="bg-sky-50 text-sky-700 px-2 py-0.5 rounded-full">מקור: {c.source}</span>}
-                                            {c.once_per_client && <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">פעם אחת ללקוח</span>}
-                                            {c.expires_on && <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">עד {new Date(c.expires_on).toLocaleDateString("he-IL")}</span>}
+                                            {c.source && <span className="bg-sky-50 text-sky-700 px-2 py-0.5 rounded-full">{tx("מקור: ")}{c.source}</span>}
+                                            {c.once_per_client && <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">{tx("פעם אחת ללקוח")}</span>}
+                                            {c.expires_on && <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">{tx("עד ")}{new Date(c.expires_on).toLocaleDateString(intl())}</span>}
                                         </div>
                                         {c.note && <p className="text-xs text-slate-500 mt-1.5">{c.note}</p>}
                                     </div>
                                     <dl className="grid grid-cols-4 gap-x-3 gap-y-0.5 text-center text-xs text-slate-400 bg-slate-50 rounded-xl px-2 py-2 sm:bg-transparent sm:p-0">
-                                        <dt>שימושים</dt><dt>כניסות</dt><dt>נכנס</dt><dt>הנחה</dt>
-                                        <dd className="text-sm font-bold text-slate-800 tabular-nums">{c.max_uses != null ? `${c.uses} מתוך ${c.max_uses}` : c.uses}</dd>
+                                        <dt>{tx("שימושים")}</dt><dt>{tx("כניסות")}</dt><dt>{tx("נכנס")}</dt><dt>{tx("הנחה")}</dt>
+                                        <dd className="text-sm font-bold text-slate-800 tabular-nums">{c.max_uses != null ? tx("{0} מתוך {1}", { 0: c.uses, 1: c.max_uses }) : c.uses}</dd>
                                         <dd className="text-sm font-bold text-slate-800 tabular-nums">{c.clicks}</dd>
                                         <dd className="text-sm font-bold text-emerald-700 tabular-nums">{ils(c.paid_cents)}</dd>
                                         <dd className="text-sm font-bold text-rose-600 tabular-nums">{ils(c.discount_cents)}</dd>
                                     </dl>
                                 </div>
                                 <div className="flex flex-wrap gap-2">
-                                    <SmallBtn onClick={() => setLinkOf(linkOf === c.id ? null : c.id)} icon={Link2}>קישור</SmallBtn>
-                                    <SmallBtn onClick={() => setEditing(c)} icon={Pencil}>עריכה</SmallBtn>
+                                    <SmallBtn onClick={() => setLinkOf(linkOf === c.id ? null : c.id)} icon={Link2}>{tx("קישור")}</SmallBtn>
+                                    <SmallBtn onClick={() => setEditing(c)} icon={Pencil}>{tx("עריכה")}</SmallBtn>
                                     {c.is_active ? (
-                                        <SmallBtn icon={Pause} onClick={() => act(() => apiFetch(`/api/coupons/${c.id}`, { method: "PATCH", body: JSON.stringify({ is_active: false }) }), "הקופון הופסק")}>הפסקה</SmallBtn>
+                                        <SmallBtn icon={Pause} onClick={() => act(() => apiFetch(`/api/coupons/${c.id}`, { method: "PATCH", body: JSON.stringify({ is_active: false }) }), tx("הקופון הופסק"))}>{tx("הפסקה")}</SmallBtn>
                                     ) : (
-                                        <SmallBtn icon={Play} onClick={() => act(() => apiFetch(`/api/coupons/${c.id}`, { method: "PATCH", body: JSON.stringify({ is_active: true }) }), "הקופון חזר לפעול")}>הפעלה</SmallBtn>
+                                        <SmallBtn icon={Play} onClick={() => act(() => apiFetch(`/api/coupons/${c.id}`, { method: "PATCH", body: JSON.stringify({ is_active: true }) }), tx("הקופון חזר לפעול"))}>{tx("הפעלה")}</SmallBtn>
                                     )}
                                     {c.uses === 0 && (
-                                        <SmallBtn icon={Trash2} danger onClick={() => { if (confirm(`למחוק את הקופון ${c.code}?`)) act(() => apiFetch(`/api/coupons/${c.id}`, { method: "DELETE" }), "הקופון נמחק"); }}>מחיקה</SmallBtn>
+                                        <SmallBtn icon={Trash2} danger onClick={() => { if (confirm(tx("למחוק את הקופון {0}?", { 0: c.code }))) act(() => apiFetch(`/api/coupons/${c.id}`, { method: "DELETE" }), tx("הקופון נמחק")); }}>{tx("מחיקה")}</SmallBtn>
                                     )}
                                 </div>
                                 {linkOf === c.id && (
                                     url ? (
                                         <div className="border-t border-slate-100 pt-3">
-                                            <p className="text-xs text-slate-500 mb-2">מי שנכנס בקישור רואה את דף העסק ב-BizFind עם הקופון ({c.discount_percent}% הנחה) — וכל כניסה נספרת כאן.</p>
+                                            <p className="text-xs text-slate-500 mb-2">{tx("מי שנכנס בקישור רואה את דף העסק ב-BizFind עם הקופון (")}{c.discount_percent}{tx("% הנחה) — וכל כניסה נספרת כאן.")}</p>
                                             <ShareLink url={url} whatsappText={`קופון ${c.code} — ${c.discount_percent}% הנחה:`}
                                                 printTitle={`${c.discount_percent}% הנחה`} printLine={`קוד קופון: ${c.code} · סורקים ומציגים בקופה`} />
                                         </div>
-                                    ) : <p className="text-sm text-amber-900 bg-amber-50 rounded-xl px-3 py-2">כתובת BizFind לא מוגדרת במערכת — פנו לתמיכה של BizControl.</p>
+                                    ) : <p className="text-sm text-amber-900 bg-amber-50 rounded-xl px-3 py-2">{tx("כתובת BizFind לא מוגדרת במערכת — פנו לתמיכה של BizControl.")}</p>
                                 )}
                             </div>
                         );
@@ -151,11 +152,11 @@ export default function CouponsPanel() {
                         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex flex-col sm:flex-row sm:items-center gap-3">
                             <Cake className="w-6 h-6 text-pink-500 hidden sm:block" aria-hidden />
                             <div className="flex-1 min-w-0">
-                                <div className="font-bold text-slate-800 flex items-center gap-1.5"><Cake className="w-4 h-4 text-pink-500 sm:hidden" aria-hidden />קופוני יום הולדת</div>
-                                <div className="text-xs text-slate-400">המערכת יוצרת אחד לכל לקוח ביום ההולדת · {data.birthday.issued} נוצרו · {data.birthday.active} עוד פעילים</div>
+                                <div className="font-bold text-slate-800 flex items-center gap-1.5"><Cake className="w-4 h-4 text-pink-500 sm:hidden" aria-hidden />{tx("קופוני יום הולדת")}</div>
+                                <div className="text-xs text-slate-400">{tx("המערכת יוצרת אחד לכל לקוח ביום ההולדת · ")}{data.birthday.issued}{tx(" נוצרו · ")}{data.birthday.active}{tx(" עוד פעילים")}</div>
                             </div>
                             <dl className="grid grid-cols-3 gap-x-3 gap-y-0.5 text-center text-xs text-slate-400 bg-slate-50 rounded-xl px-2 py-2 sm:bg-transparent sm:p-0">
-                                <dt>שימושים</dt><dt>נכנס</dt><dt>הנחה</dt>
+                                <dt>{tx("שימושים")}</dt><dt>{tx("נכנס")}</dt><dt>{tx("הנחה")}</dt>
                                 <dd className="text-sm font-bold text-slate-800 tabular-nums">{data.birthday.uses}</dd>
                                 <dd className="text-sm font-bold text-emerald-700 tabular-nums">{ils(data.birthday.paid_cents)}</dd>
                                 <dd className="text-sm font-bold text-rose-600 tabular-nums">{ils(data.birthday.discount_cents)}</dd>
@@ -168,8 +169,8 @@ export default function CouponsPanel() {
             {/* By category / by source */}
             {(data.by_category.length > 0 || data.by_source.length > 0) && (
                 <div className="grid md:grid-cols-2 gap-4">
-                    <GroupTable title="לפי קטגוריה" rows={data.by_category} />
-                    <GroupTable title="לפי מקור" rows={data.by_source} />
+                    <GroupTable title={tx("לפי קטגוריה")} rows={data.by_category} />
+                    <GroupTable title={tx("לפי מקור")} rows={data.by_source} />
                 </div>
             )}
 
@@ -195,8 +196,8 @@ function GroupTable({ title, rows }: { title: string; rows: GroupRow[] }) {
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
             <h3 className="font-bold text-slate-800 px-4 pt-3 pb-2">{title}</h3>
             <div className="overflow-x-auto">
-                <table className="w-full text-sm text-right min-w-[22rem]">
-                    <thead><tr className="bg-slate-50 text-slate-500 text-xs"><th className="px-4 py-2">שם</th><th className="px-2 py-2 text-center">קופונים</th><th className="px-2 py-2 text-center">שימושים</th><th className="px-2 py-2 text-center">נכנס</th><th className="px-2 py-2 text-center">הנחה</th></tr></thead>
+                <table className="w-full text-sm text-start min-w-[22rem]">
+                    <thead><tr className="bg-slate-50 text-slate-500 text-xs"><th className="px-4 py-2">{tx("שם")}</th><th className="px-2 py-2 text-center">{tx("קופונים")}</th><th className="px-2 py-2 text-center">{tx("שימושים")}</th><th className="px-2 py-2 text-center">{tx("נכנס")}</th><th className="px-2 py-2 text-center">{tx("הנחה")}</th></tr></thead>
                     <tbody className="divide-y divide-slate-50">
                         {rows.map(r => (
                             <tr key={r.name}>
@@ -240,10 +241,10 @@ function CouponSheet({ coupon, categories, onClose, onSaved }: { coupon: CouponR
                            once_per_client: once, expires_on: expires || null, note: note || null };
             if (coupon) await apiFetch(`/api/coupons/${coupon.id}`, { method: "PATCH", body: JSON.stringify(body) });
             else await apiFetch("/api/coupons", { method: "POST", body: JSON.stringify({ ...body, code }) });
-            toast.success(coupon ? "הקופון עודכן" : `הקופון ${code} נוצר`);
+            toast.success(coupon ? tx("הקופון עודכן") : tx("הקופון {0} נוצר", { 0: code }));
             onSaved();
         } catch (e) {
-            toast.error(e instanceof Error ? e.message : "השמירה נכשלה");
+            toast.error(e instanceof Error ? e.message : tx("השמירה נכשלה"));
         } finally {
             setBusy(false);
         }
@@ -258,23 +259,23 @@ function CouponSheet({ coupon, categories, onClose, onSaved }: { coupon: CouponR
         <div className="fixed inset-0 z-[60] bg-black/50 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={e => e.target === e.currentTarget && onClose()}>
             <div className="bg-white w-full sm:max-w-lg rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[92dvh] overflow-auto p-5 space-y-4">
                 <div className="flex items-center justify-between">
-                    <h2 className="text-lg font-black">{coupon ? `עריכת קופון ${coupon.code}` : "קופון חדש"}</h2>
-                    <button type="button" onClick={onClose} aria-label="סגירה" className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
+                    <h2 className="text-lg font-black">{coupon ? tx("עריכת קופון {0}", { 0: coupon.code }) : tx("קופון חדש")}</h2>
+                    <button type="button" onClick={onClose} aria-label={tx("סגירה")} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
                 </div>
 
                 <div>
-                    <label className={label}>הקוד (אתם בוחרים — באנגלית וספרות)</label>
+                    <label className={label}>{tx("הקוד (אתם בוחרים — באנגלית וספרות)")}</label>
                     <input value={code} disabled={!!coupon} onChange={e => setCode(e.target.value.toUpperCase().replace(/\s/g, ""))} dir="ltr" placeholder="SUMMER10" maxLength={32}
                         className={`${input} font-mono font-bold tracking-wider disabled:bg-slate-50 disabled:text-slate-500`} />
-                    {coupon && <p className="text-xs text-slate-400 mt-1">הקוד לא משתנה — הקישור שלו כבר בחוץ.</p>}
-                    {!coupon && code && !validCode && <p className="text-xs text-rose-600 mt-1">3 עד 32 תווים: אותיות באנגלית, ספרות, מקף או קו תחתון</p>}
+                    {coupon && <p className="text-xs text-slate-400 mt-1">{tx("הקוד לא משתנה — הקישור שלו כבר בחוץ.")}</p>}
+                    {!coupon && code && !validCode && <p className="text-xs text-rose-600 mt-1">{tx("3 עד 32 תווים: אותיות באנגלית, ספרות, מקף או קו תחתון")}</p>}
                 </div>
 
                 <div>
-                    <label className={label}>אחוז הנחה</label>
+                    <label className={label}>{tx("אחוז הנחה")}</label>
                     <div className="flex flex-wrap gap-2 items-center">
                         {PERCENTS.map(p => <button key={p} type="button" onClick={() => setPercent(p)} className={chip(percent === p)}>{p}%</button>)}
-                        <span className="inline-flex items-center gap-1 text-sm text-slate-500">אחר:
+                        <span className="inline-flex items-center gap-1 text-sm text-slate-500">{tx("אחר:")}
                             <input type="number" min={1} max={100} value={percent} onChange={e => setPercent(Math.max(1, Math.min(100, Number(e.target.value) || 1)))}
                                 className="w-16 border border-slate-200 rounded-lg px-2 py-1.5 text-sm" /> %
                         </span>
@@ -282,8 +283,8 @@ function CouponSheet({ coupon, categories, onClose, onSaved }: { coupon: CouponR
                 </div>
 
                 <div>
-                    <label className={label}>קטגוריה (שם שלכם — למשל "קיץ", "משפיענים")</label>
-                    <input value={category} onChange={e => setCategory(e.target.value)} list="coupon-categories" maxLength={60} className={input} placeholder="ללא" />
+                    <label className={label}>{tx("קטגוריה (שם שלכם — למשל \"קיץ\", \"משפיענים\")")}</label>
+                    <input value={category} onChange={e => setCategory(e.target.value)} list="coupon-categories" maxLength={60} className={input} placeholder={tx("ללא")} />
                     <datalist id="coupon-categories">{categories.map(c => <option key={c} value={c} />)}</datalist>
                     {categories.length > 0 && (
                         <div className="flex flex-wrap gap-1.5 mt-2">{categories.map(c => <button key={c} type="button" onClick={() => setCategory(c)} className={chip(category === c)}>{c}</button>)}</div>
@@ -291,44 +292,44 @@ function CouponSheet({ coupon, categories, onClose, onSaved }: { coupon: CouponR
                 </div>
 
                 <div>
-                    <label className={label}>מקור — איפה הקופון מופץ</label>
+                    <label className={label}>{tx("מקור — איפה הקופון מופץ")}</label>
                     <div className="flex flex-wrap gap-1.5 mb-2">{SOURCES.map(s => <button key={s} type="button" onClick={() => setSource(source === s ? "" : s)} className={chip(source === s)}>{s}</button>)}</div>
-                    <input value={source} onChange={e => setSource(e.target.value)} maxLength={60} className={input} placeholder="או כתבו משלכם — למשל שם המשפיען/ית" />
+                    <input value={source} onChange={e => setSource(e.target.value)} maxLength={60} className={input} placeholder={tx("או כתבו משלכם — למשל שם המשפיען/ית")} />
                 </div>
 
                 <div>
-                    <label className={label}>כמה פעמים אפשר להשתמש</label>
+                    <label className={label}>{tx("כמה פעמים אפשר להשתמש")}</label>
                     <div className="flex flex-wrap gap-2 items-center">
-                        {USES.map(u => <button key={String(u)} type="button" onClick={() => setMaxUses(u)} className={chip(maxUses === u)}>{u == null ? "ללא הגבלה" : u}</button>)}
-                        <span className="inline-flex items-center gap-1 text-sm text-slate-500">אחר:
+                        {USES.map(u => <button key={String(u)} type="button" onClick={() => setMaxUses(u)} className={chip(maxUses === u)}>{u == null ? tx("ללא הגבלה") : u}</button>)}
+                        <span className="inline-flex items-center gap-1 text-sm text-slate-500">{tx("אחר:")}
                             <input type="number" min={1} value={maxUses ?? ""} onChange={e => setMaxUses(e.target.value ? Math.max(1, Number(e.target.value)) : null)}
                                 className="w-20 border border-slate-200 rounded-lg px-2 py-1.5 text-sm" />
                         </span>
                     </div>
                     <label className="flex items-center gap-2 mt-2.5 text-sm text-slate-700 cursor-pointer">
                         <input type="checkbox" checked={once} onChange={e => setOnce(e.target.checked)} className="w-4 h-4 accent-violet-600" />
-                        פעם אחת לכל לקוח (בקופה צריך לבחור לקוח)
+                        {tx("פעם אחת לכל לקוח (בקופה צריך לבחור לקוח)")}
                     </label>
                 </div>
 
                 <div>
-                    <label className={label}>בתוקף עד</label>
+                    <label className={label}>{tx("בתוקף עד")}</label>
                     <div className="flex flex-wrap gap-2 items-center">
-                        {([["ללא", ""], ["שבוע", addDays(7)], ["חודש", addDays(30)], ["3 חודשים", addDays(90)]] as const).map(([l, v]) => (
+                        {([[tx("ללא"), ""], [tx("שבוע"), addDays(7)], [tx("חודש"), addDays(30)], [tx("3 חודשים"), addDays(90)]] as const).map(([l, v]) => (
                             <button key={l} type="button" onClick={() => setExpires(v)} className={chip(expires === v)}>{l}</button>
                         ))}
-                        <PickerBox type="date" label="תוקף הקופון" value={expires} onChange={v => setExpires(v)} className="border border-slate-200 rounded-lg px-2 py-1.5 text-sm text-start" />
+                        <PickerBox type="date" label={tx("תוקף הקופון")} value={expires} onChange={v => setExpires(v)} className="border border-slate-200 rounded-lg px-2 py-1.5 text-sm text-start" />
                     </div>
                 </div>
 
                 <div>
-                    <label className={label}>הערה לעצמכם (לא חובה)</label>
+                    <label className={label}>{tx("הערה לעצמכם (לא חובה)")}</label>
                     <input value={note} onChange={e => setNote(e.target.value)} maxLength={300} className={input} />
                 </div>
 
                 <button type="button" onClick={save} disabled={busy || (!coupon && !validCode)}
                     className="w-full inline-flex items-center justify-center gap-2 min-h-12 rounded-2xl bg-violet-600 hover:bg-violet-700 text-white font-bold disabled:opacity-40">
-                    {busy && <Loader2 className="w-4 h-4 animate-spin" aria-hidden />} {coupon ? "שמירה" : "יצירת הקופון"}
+                    {busy && <Loader2 className="w-4 h-4 animate-spin" aria-hidden />} {coupon ? tx("שמירה") : tx("יצירת הקופון")}
                 </button>
             </div>
         </div>

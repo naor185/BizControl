@@ -32,7 +32,9 @@ export function tx(he: string, vars?: Record<string | number, unknown>): string 
     let out = he;
     if (txLocale === "en") {
         const m = /^(\s*)([\s\S]*?)(\s*)$/.exec(he);      // the spaces around a text stay where they were
-        const hit = m ? EN[m[2]] : undefined;
+        let hit = m ? EN[m[2]] : undefined;
+        // Hebrew glues a prefix to what follows ("ב-08:00", "ל-40") — the English word needs its space
+        if (m && hit && /[בלמהשוכ]-$/.test(m[2]) && !/\s$/.test(hit)) hit += " ";
         if (m && hit !== undefined) out = m[1] + hit + m[3];
     }
     if (vars) for (const [k, v] of Object.entries(vars)) out = out.split(`{${k}}`).join(String(v));

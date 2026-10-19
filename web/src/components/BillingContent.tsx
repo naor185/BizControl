@@ -8,6 +8,7 @@ import { IF_NOT_RENEWED } from "@/lib/planConsequences";
 import UsageThisMonth from "@/components/UsageThisMonth";
 import { BIZFIND_URL } from "@/lib/config";
 
+import { intl, tx } from "@/lib/i18n";
 type BillingStatus = {
     plan: string;
     is_active: boolean;
@@ -30,7 +31,7 @@ const COLLAPSED_MODULES = 8;
 const EXPIRY_WARNING_DAYS = 14;
 
 function fmtDate(iso: string | null) {
-    return iso ? new Date(iso).toLocaleDateString("he-IL") : "—";
+    return iso ? new Date(iso).toLocaleDateString(intl()) : "—";
 }
 
 function readBillingNotice(): string | null {
@@ -43,6 +44,10 @@ function readBillingNotice(): string | null {
 
 // Subscription & billing: the current plan (with time left), what every plan we sell includes
 // (read from the real plan/module tables), and the purchase / manage-subscription actions.
+// A plan module's limit, from the server in Hebrew ("עד 400 לחודש") — in English when English is chosen.
+const limitWords = (s: string) => intl() !== "en-GB" ? s
+    : s.replace(/^עד (\d+) לחודש$/, "up to $1 a month").replace(/^עד (\d+) בסך הכול$/, "up to $1 in total");
+
 export default function BillingContent() {
     const [status, setStatus] = useState<BillingStatus | null>(null);
     const [studio, setStudio] = useState<StudioInfo | null>(null);
@@ -66,7 +71,7 @@ export default function BillingContent() {
             apiFetch<Plan[]>("/api/billing/plans"),
         ])
             .then(([s, info, p]) => { setStatus(s); setStudio(info); setPlans(p); })
-            .catch(() => setError("לא ניתן לטעון את פרטי המנוי"))
+            .catch(() => setError(tx("לא ניתן לטעון את פרטי המנוי")))
             .finally(() => setLoading(false));
     }, []);
 
@@ -77,7 +82,7 @@ export default function BillingContent() {
             const { url } = await apiFetch<{ url: string }>(path, { method: "POST", body: body ? JSON.stringify(body) : undefined });
             window.location.href = url;
         } catch (e) {
-            setError(e instanceof Error ? e.message : "שגיאה בחיבור לתשלום");
+            setError(e instanceof Error ? e.message : tx("שגיאה בחיבור לתשלום"));
             setRedirecting(null);
         }
     }
@@ -90,12 +95,12 @@ export default function BillingContent() {
     const warning = !!status && !status.has_active_subscription && days !== null && days >= 0 && days <= EXPIRY_WARNING_DAYS;
 
     return (
-        <div className="space-y-5" dir="rtl">
+        <div className="space-y-5">
             {notice === "success" && (
-                <div className="bg-emerald-50 text-emerald-700 rounded-xl px-4 py-3 text-sm">התשלום התקבל — המנוי מתעדכן ויופיע כאן בעוד רגע.</div>
+                <div className="bg-emerald-50 text-emerald-700 rounded-xl px-4 py-3 text-sm">{tx("התשלום התקבל — המנוי מתעדכן ויופיע כאן בעוד רגע.")}</div>
             )}
             {notice === "canceled" && (
-                <div className="bg-slate-100 text-slate-600 rounded-xl px-4 py-3 text-sm">הרכישה בוטלה. אפשר לנסות שוב בכל עת.</div>
+                <div className="bg-slate-100 text-slate-600 rounded-xl px-4 py-3 text-sm">{tx("הרכישה בוטלה. אפשר לנסות שוב בכל עת.")}</div>
             )}
             {error && <div className="bg-red-50 text-red-700 rounded-xl px-4 py-3 text-sm">{error}</div>}
 
@@ -103,14 +108,14 @@ export default function BillingContent() {
             {status && (
                 <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div>
-                        <div className="text-xs text-slate-400 mb-0.5">המנוי שלך</div>
-                        <div className="font-bold text-slate-800">{studio?.plan_label ?? status.plan}</div>
+                        <div className="text-xs text-slate-400 mb-0.5">{tx("המנוי שלך")}</div>
+                        <div className="font-bold text-slate-800">{tx(studio?.plan_label ?? status.plan)}</div>
                         <div className="text-sm text-slate-500 mt-0.5">
                             {status.plan_expires_at ? (
                                 days !== null && days < 0
-                                    ? `פג תוקף ב-${fmtDate(status.plan_expires_at)}`
-                                    : `${isTrial ? "תקופת הניסיון מסתיימת" : "בתוקף"} עד ${fmtDate(status.plan_expires_at)} · ${days === 0 ? "היום" : `נשארו ${days} ימים`}`
-                            ) : "ללא תאריך תפוגה"}
+                                    ? tx("פג תוקף ב-{0}", { 0: fmtDate(status.plan_expires_at) })
+                                    : tx("{0} עד {1} · {2}", { 0: isTrial ? tx("תקופת הניסיון מסתיימת") : tx("בתוקף"), 1: fmtDate(status.plan_expires_at), 2: days === 0 ? tx("היום") : tx("נשארו {0} ימים", { 0: days }) })
+                            ) : tx("ללא תאריך תפוגה")}
                         </div>
                     </div>
                     {status.has_active_subscription && (
@@ -120,7 +125,7 @@ export default function BillingContent() {
                                 disabled={redirecting === "portal"}
                                 className="text-sm underline text-slate-600 hover:text-black disabled:opacity-50"
                             >
-                                {redirecting === "portal" ? "מעבר..." : "נהל מנוי / ביטול"}
+                                {redirecting === "portal" ? tx("מעבר...") : tx("נהל מנוי / ביטול")}
                             </button>
                         )
                     )}
@@ -132,9 +137,9 @@ export default function BillingContent() {
             {/* the trial: renewing is open now, before it ends (the owner, 2026-10-15) */}
             {isTrial && !isNative && (
                 <p className="text-sm text-slate-600">
-                    אתה בתקופת ניסיון. אפשר לחדש כבר עכשיו, גם לפני שהיא נגמרת
-                    {plans.some(p => p.purchasable_now) ? " — בחר מנוי מהרשימה למטה."
-                        : warning ? "." : ": WhatsApp 052-8518805 או ncbilutattoo@gmail.com"}
+                    {tx("אתה בתקופת ניסיון. אפשר לחדש כבר עכשיו, גם לפני שהיא נגמרת")}
+                    {plans.some(p => p.purchasable_now) ? tx(" — בחר מנוי מהרשימה למטה.")
+                        : warning ? "." : tx(": WhatsApp 052-8518805 או ncbilutattoo@gmail.com")}
                 </p>
             )}
 
@@ -143,13 +148,13 @@ export default function BillingContent() {
                 <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
                     <div className="flex items-center gap-2 font-bold text-amber-900 text-sm mb-2">
                         <TriangleAlert className="h-4 w-4 shrink-0" />
-                        אם המנוי לא יחודש עד {fmtDate(status.plan_expires_at)}
+                        {tx("אם המנוי לא יחודש עד")} {fmtDate(status.plan_expires_at)}
                     </div>
                     <ul className="list-disc list-inside space-y-1.5 text-sm text-amber-900/90 leading-relaxed marker:text-amber-400">
                         {IF_NOT_RENEWED.map(line => <li key={line}>{line}</li>)}
                     </ul>
                     {!isNative && (
-                        <p className="text-sm text-amber-900 mt-3">לחידוש: WhatsApp 052-8518805 או ncbilutattoo@gmail.com</p>
+                        <p className="text-sm text-amber-900 mt-3">{tx("לחידוש: WhatsApp 052-8518805 או ncbilutattoo@gmail.com")}</p>
                     )}
                 </div>
             )}
@@ -163,17 +168,17 @@ export default function BillingContent() {
                     return (
                         <div key={plan.key} className={`rounded-2xl border p-5 flex flex-col ${isCurrent ? "border-slate-900" : "border-slate-200"}`}>
                             <div className="mb-3">
-                                <p className="font-bold text-slate-800">{plan.label}</p>
+                                <p className="font-bold text-slate-800">{tx(plan.label)}</p>
                                 <p className="text-3xl font-extrabold mt-1 text-slate-900">
                                     ₪{plan.price_ils}
-                                    <span className="text-sm font-normal text-slate-500"> / {plan.period_days === 30 || plan.period_days === 31 ? "חודש" : `${plan.period_days} ימים`}</span>
+                                    <span className="text-sm font-normal text-slate-500"> / {plan.period_days === 30 || plan.period_days === 31 ? tx("חודש") : tx("{0} ימים", { 0: plan.period_days })}</span>
                                 </p>
                             </div>
                             <ul className="space-y-1.5 mb-3 flex-1">
                                 {shown.map(m => (
                                     <li key={m.name} className="flex items-start gap-2 text-sm text-slate-700">
                                         <Check className="h-4 w-4 mt-0.5 shrink-0 text-emerald-600" />
-                                        <span>{m.name}{m.limit ? <span className="text-slate-400"> · {m.limit}</span> : null}</span>
+                                        <span>{tx(m.name)}{m.limit ? <span className="text-slate-400"> · {limitWords(m.limit)}</span> : null}</span>
                                     </li>
                                 ))}
                             </ul>
@@ -183,13 +188,13 @@ export default function BillingContent() {
                                     className="flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-slate-800 mb-4 w-fit"
                                 >
                                     <ChevronDown className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} />
-                                    {open ? "הצג פחות" : `הצג הכול (${plan.modules.length})`}
+                                    {open ? tx("הצג פחות") : tx("הצג הכול ({0})", { 0: plan.modules.length })}
                                 </button>
                             )}
                             {isCurrent ? (
-                                <div className="w-full py-2.5 rounded-xl text-sm text-center text-slate-400 bg-slate-100">המנוי הנוכחי</div>
+                                <div className="w-full py-2.5 rounded-xl text-sm text-center text-slate-400 bg-slate-100">{tx("המנוי הנוכחי")}</div>
                             ) : !plan.purchasable_now ? (
-                                <div className="w-full py-2.5 rounded-xl text-sm text-center text-slate-400 bg-slate-100">הרכישה טרם הופעלה</div>
+                                <div className="w-full py-2.5 rounded-xl text-sm text-center text-slate-400 bg-slate-100">{tx("הרכישה טרם הופעלה")}</div>
                             ) : (
                                 <button
                                     onClick={() => go("/api/billing/checkout", plan.key, { plan: plan.key })}
@@ -197,7 +202,7 @@ export default function BillingContent() {
                                     className="w-full py-2.5 rounded-xl font-semibold text-sm text-white disabled:opacity-50 transition-opacity hover:opacity-90"
                                     style={{ background: "var(--primary)" }}
                                 >
-                                    {redirecting === plan.key ? "מעבר לתשלום..." : status?.has_active_subscription ? "שדרג / שנה מנוי" : "רכישת המנוי"}
+                                    {redirecting === plan.key ? tx("מעבר לתשלום...") : status?.has_active_subscription ? tx("שדרג / שנה מנוי") : tx("רכישת המנוי")}
                                 </button>
                             )}
                         </div>
@@ -206,8 +211,8 @@ export default function BillingContent() {
             </div>}
 
             <p className="text-center text-xs text-slate-400">
-                תשלום חודשי ללא התחייבות — ביטול נכנס לתוקף בסוף החודש ששולם · תשלום שנתי — התחייבות לשנה ·{" "}
-                <a href={`${BIZFIND_URL}/billing-terms`} target="_blank" rel="noopener" className="underline hover:text-slate-600">תקנון ביטולים וחיובים</a>
+                {tx("תשלום חודשי ללא התחייבות — ביטול נכנס לתוקף בסוף החודש ששולם · תשלום שנתי — התחייבות לשנה ·")}{" "}
+                <a href={`${BIZFIND_URL}/billing-terms`} target="_blank" rel="noopener" className="underline hover:text-slate-600">{tx("תקנון ביטולים וחיובים")}</a>
             </p>
         </div>
     );

@@ -7,6 +7,7 @@ import RequireAuth from "@/components/RequireAuth";
 import { apiFetch } from "@/lib/api";
 import { toast } from "@/lib/toast";
 
+import { intl, tx } from "@/lib/i18n";
 type Obligation = {
     id: string;
     title: string;
@@ -28,11 +29,11 @@ type Obligation = {
 };
 
 const fmt = (cents: number) =>
-    (cents / 100).toLocaleString("he-IL", { style: "currency", currency: "ILS", maximumFractionDigits: 0 });
+    (cents / 100).toLocaleString(intl(), { style: "currency", currency: "ILS", maximumFractionDigits: 0 });
 
 const DIRECTION_COLORS = {
-    incoming: { bg: "bg-emerald-50", border: "border-emerald-300", badge: "bg-emerald-100 text-emerald-700", label: "מגיע לי", icon: "⬅️" },
-    outgoing: { bg: "bg-orange-50", border: "border-orange-300", badge: "bg-orange-100 text-orange-700", label: "אני חייב", icon: "➡️" },
+    incoming: { bg: "bg-emerald-50", border: "border-emerald-300", badge: "bg-emerald-100 text-emerald-700", label: tx("מגיע לי"), icon: "⬅️" },
+    outgoing: { bg: "bg-orange-50", border: "border-orange-300", badge: "bg-orange-100 text-orange-700", label: tx("אני חייב"), icon: "➡️" },
 };
 
 const PRESET_COLORS = ["#f97316", "#10b981", "#3b82f6", "#8b5cf6", "#ec4899", "#ef4444", "#eab308", "#06b6d4"];
@@ -42,7 +43,7 @@ function DayPicker({ value, onChange }: { value: string; onChange: (v: string) =
     return (
         <div>
             <label className="text-xs font-semibold text-slate-600 mb-1 block">
-                יום בחודש לתשלום <span className="text-rose-500">*</span>
+                {tx("יום בחודש לתשלום")} <span className="text-rose-500">*</span>
             </label>
             <div className="grid grid-cols-7 gap-1">
                 {Array.from({ length: 28 }, (_, i) => String(i + 1)).map(d => (
@@ -58,7 +59,7 @@ function DayPicker({ value, onChange }: { value: string; onChange: (v: string) =
                     </button>
                 ))}
             </div>
-            {!value && <p className="text-xs text-rose-500 mt-1">יש לבחור יום</p>}
+            {!value && <p className="text-xs text-rose-500 mt-1">{tx("יש לבחור יום")}</p>}
         </div>
     );
 }
@@ -95,17 +96,17 @@ function ObligationForm({
 
     const handleSave = async () => {
         if (!title.trim() || !totalAmount || !monthlyPayment) {
-            toast.error("יש למלא שם, סכום כולל ותשלום חודשי");
+            toast.error(tx("יש למלא שם, סכום כולל ותשלום חודשי"));
             return;
         }
         if (!dayOfMonth) {
-            toast.error("יש לבחור יום בחודש לתשלום");
+            toast.error(tx("יש לבחור יום בחודש לתשלום"));
             return;
         }
         const totalCents = Math.round(parseFloat(totalAmount) * 100);
         const monthlyCents = Math.round(parseFloat(monthlyPayment) * 100);
-        if (totalCents <= 0 || monthlyCents <= 0) { toast.error("הסכומים חייבים להיות חיוביים"); return; }
-        if (monthlyCents > totalCents) { toast.error("התשלום החודשי לא יכול לעלות על הסכום הכולל"); return; }
+        if (totalCents <= 0 || monthlyCents <= 0) { toast.error(tx("הסכומים חייבים להיות חיוביים")); return; }
+        if (monthlyCents > totalCents) { toast.error(tx("התשלום החודשי לא יכול לעלות על הסכום הכולל")); return; }
 
         setSaving(true);
         try {
@@ -128,7 +129,7 @@ function ObligationForm({
     return (
         <div className="bg-white border border-slate-200 rounded-2xl shadow-lg p-5 space-y-4">
             <div className="text-base font-bold text-slate-800">
-                {isEdit ? "✏️ עריכת התחייבות" : "הוסף התחייבות חדשה"}
+                {isEdit ? tx("✏️ עריכת התחייבות") : tx("הוסף התחייבות חדשה")}
             </div>
 
             {/* Direction toggle — only for new */}
@@ -139,7 +140,7 @@ function ObligationForm({
                             className={`flex-1 py-2 rounded-xl text-sm font-bold border-2 transition-all ${direction === d
                                 ? d === "outgoing" ? "bg-orange-500 text-white border-orange-500" : "bg-emerald-500 text-white border-emerald-500"
                                 : "bg-white text-slate-600 border-slate-200"}`}>
-                            {d === "outgoing" ? "➡️ אני חייב" : "⬅️ מגיע לי"}
+                            {d === "outgoing" ? tx("➡️ אני חייב") : tx("⬅️ מגיע לי")}
                         </button>
                     ))}
                 </div>
@@ -147,29 +148,29 @@ function ObligationForm({
 
             <div className="grid grid-cols-2 gap-3">
                 <div className="col-span-2">
-                    <label className="text-xs font-semibold text-slate-600 mb-1 block">שם ההתחייבות *</label>
-                    <input value={title} onChange={e => setTitle(e.target.value)} placeholder='למשל: "הלוואה מהבנק"'
+                    <label className="text-xs font-semibold text-slate-600 mb-1 block">{tx("שם ההתחייבות *")}</label>
+                    <input value={title} onChange={e => setTitle(e.target.value)} placeholder={tx("למשל: \"הלוואה מהבנק\"")}
                         className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400" />
                 </div>
                 <div className="col-span-2">
-                    <label className="text-xs font-semibold text-slate-600 mb-1 block">צד שני (אופציונלי)</label>
-                    <input value={counterparty} onChange={e => setCounterparty(e.target.value)} placeholder="שם אדם / חברה"
+                    <label className="text-xs font-semibold text-slate-600 mb-1 block">{tx("צד שני (אופציונלי)")}</label>
+                    <input value={counterparty} onChange={e => setCounterparty(e.target.value)} placeholder={tx("שם אדם / חברה")}
                         className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400" />
                 </div>
                 <div>
-                    <label className="text-xs font-semibold text-slate-600 mb-1 block">סכום כולל (₪) *</label>
+                    <label className="text-xs font-semibold text-slate-600 mb-1 block">{tx("סכום כולל (₪) *")}</label>
                     <input type="number" value={totalAmount} onChange={e => setTotalAmount(e.target.value)} placeholder="100000"
                         className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400" />
                 </div>
                 <div>
-                    <label className="text-xs font-semibold text-slate-600 mb-1 block">תשלום חודשי (₪) *</label>
+                    <label className="text-xs font-semibold text-slate-600 mb-1 block">{tx("תשלום חודשי (₪) *")}</label>
                     <input type="number" value={monthlyPayment} onChange={e => setMonthlyPayment(e.target.value)} placeholder="5000"
                         className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400" />
                 </div>
                 {!isEdit && (
                     <div className="col-span-2">
-                        <label className="text-xs font-semibold text-slate-600 mb-1 block">תאריך התחלה</label>
-                        <PickerBox type="date" label="תאריך התחלה" value={startDate} onChange={v => setStartDate(v)} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 text-start" />
+                        <label className="text-xs font-semibold text-slate-600 mb-1 block">{tx("תאריך התחלה")}</label>
+                        <PickerBox type="date" label={tx("תאריך התחלה")} value={startDate} onChange={v => setStartDate(v)} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 text-start" />
                     </div>
                 )}
             </div>
@@ -180,15 +181,15 @@ function ObligationForm({
             {/* Preview */}
             {predictedMonths && dayOfMonth && totalAmount && (
                 <div className="bg-blue-50 rounded-xl px-4 py-3 text-sm text-blue-700 border border-blue-100 space-y-1">
-                    <div>📅 <strong>{predictedMonths} חודשים</strong> של תשלומים, כל <strong>{dayOfMonth}</strong> לחודש</div>
-                    <div>💰 סכום כולל לתשלום: <strong>₪{parseFloat(totalAmount).toLocaleString("he-IL")}</strong></div>
+                    <div>📅 <strong>{predictedMonths}{tx(" חודשים")}</strong>{tx(" של תשלומים, כל ")}<strong>{dayOfMonth}</strong>{tx(" לחודש")}</div>
+                    <div>{tx("💰 סכום כולל לתשלום: ")}<strong>₪{parseFloat(totalAmount).toLocaleString(intl())}</strong></div>
                     {(() => {
                         const totalCents = Math.round(parseFloat(totalAmount) * 100);
                         const monthlyCents = Math.round(parseFloat(monthlyPayment) * 100);
                         const remainder = totalCents % monthlyCents;
                         return remainder > 0 ? (
                             <div className="text-xs text-blue-500">
-                                התשלום האחרון: <strong>₪{(remainder / 100).toLocaleString("he-IL")}</strong> (שארית)
+                                {tx("התשלום האחרון:")} <strong>₪{(remainder / 100).toLocaleString(intl())}</strong> {tx("(שארית)")}
                             </div>
                         ) : null;
                     })()}
@@ -197,7 +198,7 @@ function ObligationForm({
 
             {/* Color */}
             <div>
-                <label className="text-xs font-semibold text-slate-600 mb-2 block">צבע ביומן</label>
+                <label className="text-xs font-semibold text-slate-600 mb-2 block">{tx("צבע ביומן")}</label>
                 <div className="flex gap-2 flex-wrap">
                     {PRESET_COLORS.map(c => (
                         <button type="button" key={c} onClick={() => setColor(c)}
@@ -208,7 +209,7 @@ function ObligationForm({
             </div>
 
             <div>
-                <label className="text-xs font-semibold text-slate-600 mb-1 block">הערות</label>
+                <label className="text-xs font-semibold text-slate-600 mb-1 block">{tx("הערות")}</label>
                 <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2}
                     className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400 resize-none" />
             </div>
@@ -216,11 +217,11 @@ function ObligationForm({
             <div className="flex gap-2 pt-1">
                 <button type="button" onClick={handleSave} disabled={saving}
                     className="flex-1 bg-slate-900 text-white font-bold py-2.5 rounded-xl text-sm hover:bg-slate-700 disabled:opacity-50 transition-colors">
-                    {saving ? "שומר..." : isEdit ? "✓ שמור שינויים" : "✓ שמור + סמן ביומן"}
+                    {saving ? tx("שומר...") : isEdit ? tx("✓ שמור שינויים") : tx("✓ שמור + סמן ביומן")}
                 </button>
                 <button type="button" onClick={onCancel}
                     className="px-5 border border-slate-200 rounded-xl text-sm text-slate-600 hover:bg-slate-50">
-                    ביטול
+                    {tx("ביטול")}
                 </button>
             </div>
         </div>
@@ -259,7 +260,7 @@ export default function ObligationsPage() {
             setLoading(true);
             const data = await apiFetch<Obligation[]>("/api/obligations");
             setObligations(data);
-        } catch { toast.error("שגיאה בטעינה"); }
+        } catch { toast.error(tx("שגיאה בטעינה")); }
         finally { setLoading(false); }
     }, []);
 
@@ -283,7 +284,7 @@ export default function ObligationsPage() {
 
     const handleCreate = async (data: any) => {
         await apiFetch<Obligation>("/api/obligations", { method: "POST", body: JSON.stringify(data) });
-        toast.success("התחייבות נוספה — תשלומים סומנו ביומן");
+        toast.success(tx("התחייבות נוספה — תשלומים סומנו ביומן"));
         setShowForm(false);
         load();
     };
@@ -291,7 +292,7 @@ export default function ObligationsPage() {
     const handleEdit = async (data: any) => {
         if (!editingOb) return;
         await apiFetch(`/api/obligations/${editingOb.id}`, { method: "PATCH", body: JSON.stringify(data) });
-        toast.success("עודכן — היומן עודכן אוטומטית");
+        toast.success(tx("עודכן — היומן עודכן אוטומטית"));
         setEditingOb(null);
         load();
     };
@@ -308,19 +309,19 @@ export default function ObligationsPage() {
                 method: "POST",
                 body: JSON.stringify({ amount_cents: amountCents ?? null }),
             });
-            toast.success("תשלום סומן ✓");
+            toast.success(tx("תשלום סומן ✓"));
             setPayPopup(null);
             // Clear alert for this obligation
             dismissAlert(id);
             load();
-        } catch (e: any) { toast.error(e?.message || "שגיאה"); }
+        } catch (e: any) { toast.error(e?.message || tx("שגיאה")); }
         finally { setMarkingId(null); }
     };
 
     const submitPayPopup = () => {
         if (!payPopup) return;
         const amount = parseFloat(payAmount);
-        if (!amount || amount <= 0) { toast.error("יש להזין סכום חיובי"); return; }
+        if (!amount || amount <= 0) { toast.error(tx("יש להזין סכום חיובי")); return; }
         handleMarkPaid(payPopup.id, Math.round(amount * 100));
     };
 
@@ -329,17 +330,17 @@ export default function ObligationsPage() {
         try {
             await apiFetch(`/api/obligations/${id}/unmark-paid`, { method: "POST" });
             load();
-        } catch (e: any) { toast.error(e?.message || "שגיאה"); }
+        } catch (e: any) { toast.error(e?.message || tx("שגיאה")); }
         finally { setMarkingId(null); }
     };
 
     const handleDelete = async (id: string) => {
         try {
             await apiFetch(`/api/obligations/${id}`, { method: "DELETE" });
-            toast.success("נמחק");
+            toast.success(tx("נמחק"));
             setDeletingId(null);
             load();
-        } catch { toast.error("שגיאה במחיקה"); }
+        } catch { toast.error(tx("שגיאה במחיקה")); }
     };
 
     const active = obligations.filter(o => o.status !== "completed");
@@ -380,7 +381,7 @@ export default function ObligationsPage() {
                 const [y, m] = key.split("-").map(Number);
                 return {
                     key,
-                    label: new Date(y, m - 1, 1).toLocaleDateString("he-IL", { month: "long", year: "numeric" }),
+                    label: new Date(y, m - 1, 1).toLocaleDateString(intl(), { month: "long", year: "numeric" }),
                     out: data.out,
                     inflow: data.in,
                     net: data.in - data.out,
@@ -391,8 +392,8 @@ export default function ObligationsPage() {
 
     return (
         <RequireAuth>
-            <AppShell title="התחייבויות">
-                <div className="max-w-3xl mx-auto space-y-6 pb-12" dir="rtl">
+            <AppShell title={tx("התחייבויות")}>
+                <div className="max-w-3xl mx-auto space-y-6 pb-12">
 
                     {/* Due-date alert banner */}
                     {overdueAlerts.length > 0 && (
@@ -401,24 +402,24 @@ export default function ObligationsPage() {
                                 <span className="text-xl">🔔</span>
                                 <span className="font-bold text-amber-800 text-sm">
                                     {overdueAlerts.length === 1
-                                        ? "יש לך התחייבות לתשלום החודש שעדיין לא שולמה"
-                                        : `יש לך ${overdueAlerts.length} התחייבויות לתשלום החודש שעדיין לא שולמו`}
+                                        ? tx("יש לך התחייבות לתשלום החודש שעדיין לא שולמה")
+                                        : tx("יש לך {0} התחייבויות לתשלום החודש שעדיין לא שולמו", { 0: overdueAlerts.length })}
                                 </span>
                             </div>
                             {overdueAlerts.map(ob => (
                                 <div key={ob.id} className="flex items-center justify-between gap-3 bg-white rounded-xl px-3 py-2 border border-amber-200">
                                     <div>
                                         <span className="font-semibold text-slate-800 text-sm">{ob.title}</span>
-                                        <span className="text-xs text-slate-500 mr-2">• יום {ob.day_of_month} לחודש • {fmt(ob.monthly_payment_cents)}</span>
+                                        <span className="text-xs text-slate-500 ms-2">{tx("• יום ")}{ob.day_of_month}{tx(" לחודש • ")}{fmt(ob.monthly_payment_cents)}</span>
                                     </div>
                                     <div className="flex gap-2 shrink-0">
                                         <button type="button" onClick={() => dismissAlert(ob.id)}
                                             className="text-xs px-3 py-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50">
-                                            אחר כך
+                                            {tx("אחר כך")}
                                         </button>
                                         <button type="button" onClick={() => openPayPopup(ob)}
                                             className="text-xs px-3 py-1.5 rounded-lg bg-amber-500 text-white font-bold hover:bg-amber-600">
-                                            שלם עכשיו
+                                            {tx("שלם עכשיו")}
                                         </button>
                                     </div>
                                 </div>
@@ -429,13 +430,13 @@ export default function ObligationsPage() {
                     {/* Header */}
                     <div className="flex items-center justify-between">
                         <div>
-                            <h1 className="text-2xl font-black text-slate-800">💳 התחייבויות פיננסיות</h1>
-                            <p className="text-sm text-slate-500 mt-0.5">מעקב הלוואות, חובות וגבייה — מסומן אוטומטית ביומן</p>
+                            <h1 className="text-2xl font-black text-slate-800">{tx("💳 התחייבויות פיננסיות")}</h1>
+                            <p className="text-sm text-slate-500 mt-0.5">{tx("מעקב הלוואות, חובות וגבייה — מסומן אוטומטית ביומן")}</p>
                         </div>
                         {!showForm && !editingOb && (
                             <button type="button" onClick={() => setShowForm(true)}
                                 className="bg-slate-900 text-white font-bold px-4 py-2.5 rounded-xl text-sm hover:bg-slate-700 transition-colors shadow">
-                                + הוסף התחייבות
+                                {tx("+ הוסף התחייבות")}
                             </button>
                         )}
                     </div>
@@ -444,13 +445,13 @@ export default function ObligationsPage() {
                     {!loading && active.length > 0 && (
                         <div className="grid grid-cols-2 gap-3">
                             <div className="bg-orange-50 border border-orange-200 rounded-2xl p-4">
-                                <div className="text-xs text-orange-600 font-semibold mb-1">אני חייב (נשאר)</div>
+                                <div className="text-xs text-orange-600 font-semibold mb-1">{tx("אני חייב (נשאר)")}</div>
                                 <div className="text-xl font-black text-orange-700" dir="ltr">
                                     {fmt(active.filter(o => o.direction === "outgoing").reduce((s, o) => s + o.amount_remaining_cents, 0))}
                                 </div>
                             </div>
                             <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4">
-                                <div className="text-xs text-emerald-600 font-semibold mb-1">מגיע לי (נשאר)</div>
+                                <div className="text-xs text-emerald-600 font-semibold mb-1">{tx("מגיע לי (נשאר)")}</div>
                                 <div className="text-xl font-black text-emerald-700" dir="ltr">
                                     {fmt(active.filter(o => o.direction === "incoming").reduce((s, o) => s + o.amount_remaining_cents, 0))}
                                 </div>
@@ -481,12 +482,12 @@ export default function ObligationsPage() {
                         />
                     )}
 
-                    {loading && <div className="text-center py-16 text-slate-400">טוען...</div>}
+                    {loading && <div className="text-center py-16 text-slate-400">{tx("טוען...")}</div>}
 
                     {/* Active obligations */}
                     {!loading && active.length > 0 && (
                         <div className="space-y-3">
-                            <div className="text-xs font-bold text-slate-500 uppercase tracking-wider px-1">פעילות</div>
+                            <div className="text-xs font-bold text-slate-500 uppercase tracking-wider px-1">{tx("פעילות")}</div>
                             {active.map(ob => (
                                 <ObligationCard key={ob.id} ob={ob}
                                     onMarkPaid={openPayPopup}
@@ -501,7 +502,7 @@ export default function ObligationsPage() {
                     {/* Completed */}
                     {!loading && completed.length > 0 && (
                         <div className="space-y-3">
-                            <div className="text-xs font-bold text-slate-400 uppercase tracking-wider px-1">הושלמו ✓</div>
+                            <div className="text-xs font-bold text-slate-400 uppercase tracking-wider px-1">{tx("הושלמו ✓")}</div>
                             {completed.map(ob => (
                                 <ObligationCard key={ob.id} ob={ob}
                                     onMarkPaid={openPayPopup}
@@ -517,20 +518,20 @@ export default function ObligationsPage() {
                     {!loading && obligations.length === 0 && !showForm && (
                         <div className="text-center py-20 text-slate-400">
                             <div className="text-5xl mb-3">💳</div>
-                            <div className="font-semibold text-slate-500 mb-1">אין התחייבויות עדיין</div>
-                            <div className="text-sm">הוסף הלוואה, חוב או גבייה ותראה אותם ביומן</div>
+                            <div className="font-semibold text-slate-500 mb-1">{tx("אין התחייבויות עדיין")}</div>
+                            <div className="text-sm">{tx("הוסף הלוואה, חוב או גבייה ותראה אותם ביומן")}</div>
                         </div>
                     )}
 
                     {/* Pay popup */}
                     {payPopup && (
                         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4" onClick={() => setPayPopup(null)}>
-                            <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full text-right" onClick={e => e.stopPropagation()} dir="rtl">
-                                <div className="text-lg font-bold text-slate-800 mb-1">✓ סמן תשלום</div>
+                            <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full text-start" onClick={e => e.stopPropagation()}>
+                                <div className="text-lg font-bold text-slate-800 mb-1">{tx("✓ סמן תשלום")}</div>
                                 <div className="text-sm text-slate-500 mb-4">{payPopup.title}</div>
                                 <label htmlFor="pay-amount-input" className="text-xs font-semibold text-slate-600 mb-1 block">
-                                    סכום ששולם (₪)
-                                    <span className="text-slate-400 font-normal mr-1">— ברירת מחדל: {payPopup.defaultAmount.toLocaleString("he-IL")}</span>
+                                    {tx("סכום ששולם (₪)")}
+                                    <span className="text-slate-400 font-normal ms-1">{tx("— ברירת מחדל: ")}{payPopup.defaultAmount.toLocaleString(intl())}</span>
                                 </label>
                                 <input
                                     id="pay-amount-input"
@@ -545,11 +546,11 @@ export default function ObligationsPage() {
                                 <div className="flex gap-2">
                                     <button type="button" onClick={() => setPayPopup(null)}
                                         className="flex-1 border border-slate-200 rounded-xl py-2.5 text-sm text-slate-600 hover:bg-slate-50">
-                                        ביטול
+                                        {tx("ביטול")}
                                     </button>
                                     <button type="button" onClick={submitPayPopup} disabled={markingId === payPopup.id}
                                         className="flex-1 bg-slate-900 text-white font-bold py-2.5 rounded-xl text-sm hover:bg-slate-700 disabled:opacity-50">
-                                        {markingId === payPopup.id ? "שומר..." : "✓ אשר תשלום"}
+                                        {markingId === payPopup.id ? tx("שומר...") : tx("✓ אשר תשלום")}
                                     </button>
                                 </div>
                             </div>
@@ -559,13 +560,13 @@ export default function ObligationsPage() {
                     {/* Delete confirm */}
                     {deletingId && (
                         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4" onClick={() => setDeletingId(null)}>
-                            <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full text-center" onClick={e => e.stopPropagation()} dir="rtl">
+                            <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full text-center" onClick={e => e.stopPropagation()}>
                                 <div className="text-4xl mb-3">🗑️</div>
-                                <div className="font-bold text-slate-800 mb-2">מחיקת התחייבות</div>
-                                <p className="text-sm text-slate-500 mb-5">הרשומה והאירוע ביומן יימחקו. לא ניתן לשחזר.</p>
+                                <div className="font-bold text-slate-800 mb-2">{tx("מחיקת התחייבות")}</div>
+                                <p className="text-sm text-slate-500 mb-5">{tx("הרשומה והאירוע ביומן יימחקו. לא ניתן לשחזר.")}</p>
                                 <div className="flex gap-2">
-                                    <button type="button" onClick={() => setDeletingId(null)} className="flex-1 border border-slate-200 rounded-xl py-2 text-sm text-slate-600">ביטול</button>
-                                    <button type="button" onClick={() => handleDelete(deletingId)} className="flex-1 bg-red-600 text-white rounded-xl py-2 text-sm font-bold">מחק</button>
+                                    <button type="button" onClick={() => setDeletingId(null)} className="flex-1 border border-slate-200 rounded-xl py-2 text-sm text-slate-600">{tx("ביטול")}</button>
+                                    <button type="button" onClick={() => handleDelete(deletingId)} className="flex-1 bg-red-600 text-white rounded-xl py-2 text-sm font-bold">{tx("מחק")}</button>
                                 </div>
                             </div>
                         </div>
@@ -595,16 +596,16 @@ function MonthlyCashflow({ rows }: { rows: CashflowRow[] }) {
     return (
         <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
             <div className="px-4 py-3 bg-slate-50 border-b border-slate-100">
-                <div className="text-sm font-bold text-slate-700">📊 תזרים חודשי — יציאות ולכניסות</div>
-                <div className="text-xs text-slate-400 mt-0.5">לפי כל ההתחייבויות הפעילות</div>
+                <div className="text-sm font-bold text-slate-700">{tx("📊 תזרים חודשי — יציאות ולכניסות")}</div>
+                <div className="text-xs text-slate-400 mt-0.5">{tx("לפי כל ההתחייבויות הפעילות")}</div>
             </div>
 
             {/* Column headers */}
             <div className="grid grid-cols-4 gap-2 px-4 py-2 text-[10px] font-bold text-slate-400 uppercase border-b border-slate-100">
-                <div>חודש</div>
-                <div className="text-center text-orange-500">יוצא ➡️</div>
-                <div className="text-center text-emerald-500">⬅️ נכנס</div>
-                <div className="text-center">מאזן</div>
+                <div>{tx("חודש")}</div>
+                <div className="text-center text-orange-500">{tx("יוצא ➡️")}</div>
+                <div className="text-center text-emerald-500">{tx("⬅️ נכנס")}</div>
+                <div className="text-center">{tx("מאזן")}</div>
             </div>
 
             <div className="divide-y divide-slate-50">
@@ -617,10 +618,10 @@ function MonthlyCashflow({ rows }: { rows: CashflowRow[] }) {
                             <button
                                 type="button"
                                 onClick={() => setExpanded(isOpen ? null : row.key)}
-                                className={`w-full grid grid-cols-4 gap-2 px-4 py-2.5 text-right transition-colors hover:bg-slate-50 ${isCurrent ? "bg-blue-50" : ""}`}
+                                className={`w-full grid grid-cols-4 gap-2 px-4 py-2.5 text-start transition-colors hover:bg-slate-50 ${isCurrent ? "bg-blue-50" : ""}`}
                             >
                                 <div className={`text-xs font-semibold ${isPast ? "text-slate-400" : isCurrent ? "text-blue-700 font-bold" : "text-slate-700"}`}>
-                                    {isCurrent && <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-500 ml-1 mb-0.5" />}
+                                    {isCurrent && <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-500 me-1 mb-0.5" />}
                                     {row.label}
                                 </div>
                                 <div className="text-center text-xs font-bold text-orange-600" dir="ltr">
@@ -654,7 +655,7 @@ function MonthlyCashflow({ rows }: { rows: CashflowRow[] }) {
 
             {/* Footer total */}
             <div className="grid grid-cols-4 gap-2 px-4 py-3 bg-slate-50 border-t border-slate-200">
-                <div className="text-xs font-bold text-slate-600">סה״כ כולל</div>
+                <div className="text-xs font-bold text-slate-600">{tx("סה״כ כולל")}</div>
                 <div className="text-center text-xs font-black text-orange-700" dir="ltr">
                     −{fmt(rows.reduce((s, r) => s + r.out, 0))}
                 </div>
@@ -688,22 +689,22 @@ function ObligationCard({ ob, onMarkPaid, onUnmark, onEdit, onDelete, markingId 
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${d.badge}`}>{d.icon} {d.label}</span>
-                        {isCompleted && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">✓ הושלם</span>}
+                        {isCompleted && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">{tx("✓ הושלם")}</span>}
                         <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: ob.color }} />
                     </div>
                     <div className="font-bold text-slate-800 text-base mt-1">{ob.title}</div>
                     {ob.counterparty && <div className="text-xs text-slate-500 mt-0.5">{ob.counterparty}</div>}
                 </div>
                 <div className="flex gap-1 shrink-0">
-                    <button type="button" onClick={onEdit} className="text-slate-400 hover:text-blue-500 transition-colors text-sm px-1.5" title="ערוך">✏️</button>
-                    <button type="button" onClick={() => onDelete(ob.id)} className="text-slate-300 hover:text-red-400 transition-colors text-xl leading-none px-1" title="מחק">×</button>
+                    <button type="button" onClick={onEdit} className="text-slate-400 hover:text-blue-500 transition-colors text-sm px-1.5" title={tx("ערוך")}>✏️</button>
+                    <button type="button" onClick={() => onDelete(ob.id)} className="text-slate-300 hover:text-red-400 transition-colors text-xl leading-none px-1" title={tx("מחק")}>×</button>
                 </div>
             </div>
 
             {/* Progress bar */}
             <div className="mb-3">
                 <div className="flex justify-between text-xs text-slate-500 mb-1">
-                    <span>{ob.months_paid} מתוך {ob.months_total} חודשים שולמו</span>
+                    <span>{ob.months_paid}{tx(" מתוך ")}{ob.months_total}{tx(" חודשים שולמו")}</span>
                     <span className="font-bold">{pct}%</span>
                 </div>
                 <div className="h-2.5 bg-white/60 rounded-full overflow-hidden border border-white">
@@ -715,15 +716,15 @@ function ObligationCard({ ob, onMarkPaid, onUnmark, onEdit, onDelete, markingId 
             {/* Amounts grid */}
             <div className="grid grid-cols-3 gap-2 mb-3">
                 <div className="bg-white/70 rounded-xl p-2.5 text-center">
-                    <div className="text-[10px] text-slate-500 font-medium">סה״כ</div>
+                    <div className="text-[10px] text-slate-500 font-medium">{tx("סה״כ")}</div>
                     <div className="text-sm font-black text-slate-800" dir="ltr">{fmt(ob.total_amount_cents)}</div>
                 </div>
                 <div className="bg-white/70 rounded-xl p-2.5 text-center">
-                    <div className="text-[10px] text-slate-500 font-medium">שולם</div>
+                    <div className="text-[10px] text-slate-500 font-medium">{tx("שולם")}</div>
                     <div className="text-sm font-black text-emerald-700" dir="ltr">{fmt(ob.amount_paid_cents)}</div>
                 </div>
                 <div className="bg-white/70 rounded-xl p-2.5 text-center">
-                    <div className="text-[10px] text-slate-500 font-medium">נשאר</div>
+                    <div className="text-[10px] text-slate-500 font-medium">{tx("נשאר")}</div>
                     <div className="text-sm font-black text-slate-800" dir="ltr">{fmt(ob.amount_remaining_cents)}</div>
                 </div>
             </div>
@@ -731,20 +732,20 @@ function ObligationCard({ ob, onMarkPaid, onUnmark, onEdit, onDelete, markingId 
             {/* Footer */}
             <div className="flex items-center justify-between gap-2">
                 <div className="text-xs text-slate-500">
-                    📅 כל <strong>{ob.day_of_month}</strong> לחודש • {fmt(ob.monthly_payment_cents)}/חודש
-                    {ob.months_remaining > 0 && <> • עוד <strong>{ob.months_remaining}</strong> חודשים</>}
+                    {tx("📅 כל")} <strong>{ob.day_of_month}</strong>{tx(" לחודש • ")}{fmt(ob.monthly_payment_cents)}{tx("/חודש")}
+                    {ob.months_remaining > 0 && <>{tx(" • עוד ")}<strong>{ob.months_remaining}</strong>{tx(" חודשים")}</>}
                 </div>
                 {!isCompleted && (
                     <div className="flex gap-1.5 shrink-0">
                         {ob.months_paid > 0 && (
                             <button type="button" onClick={() => onUnmark(ob.id)} disabled={busy}
-                                className="text-xs px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-50 transition-colors" title="בטל תשלום אחרון">
+                                className="text-xs px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-50 transition-colors" title={tx("בטל תשלום אחרון")}>
                                 ↩
                             </button>
                         )}
                         <button type="button" onClick={() => onMarkPaid(ob)} disabled={busy}
                             className="text-xs px-3 py-1.5 rounded-lg bg-slate-800 text-white font-bold hover:bg-slate-700 disabled:opacity-50 transition-colors">
-                            {busy ? "..." : "✓ שולם"}
+                            {busy ? "..." : tx("✓ שולם")}
                         </button>
                     </div>
                 )}

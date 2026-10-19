@@ -7,10 +7,11 @@ import RequireAuth from "@/components/RequireAuth";
 import AppShell from "@/components/AppShell";
 import BillingContent from "@/components/BillingContent";
 
+import { tx } from "@/lib/i18n";
 export default function BillingPage() {
     return (
         <RequireAuth>
-            <AppShell title="מנוי וחיוב">
+            <AppShell title={tx("מנוי וחיוב")}>
                 <div className="max-w-5xl pb-10">
                     <BillingContent />
                 </div>
