@@ -650,7 +650,34 @@ def me(current_user: User = Depends(get_current_user), db: Session = Depends(get
         "email_verified": bool(current_user.email_verified),
         # what this user may do (core/permissions.MANAGER_PERMISSIONS) — the screens hide what the server refuses
         "permissions": {k: may_do(db, current_user.studio_id, current_user.role, k) for k in MANAGER_PERMISSIONS},
+        "locale": _locale_of(db, current_user),
     }
+
+
+def _locale_of(db: Session, user: User) -> str:
+    """The system's language for this user: their own choice, else the business's (core/i18n.py)."""
+    from app.models.studio_settings import StudioSettings
+    settings = db.get(StudioSettings, user.studio_id) if user.studio_id else None
+    return user.locale or getattr(settings, "default_locale", None) or "he"
+
+
+class LocaleIn(BaseModel):
+    locale: str = Field(pattern=r"^(he|en)$")
+
+
+@router.put("/me/locale")
+def set_my_locale(payload: LocaleIn, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """The language this user chose — kept in the account, on every device. The owner's choice is the business's too:
+    a worker who never chose follows it (the owner, 2026-10-12: "the business owner asks for English — the whole system
+    turns English")."""
+    from app.models.studio_settings import StudioSettings
+    current_user.locale = payload.locale
+    if current_user.role == "owner" and current_user.studio_id:
+        settings = db.get(StudioSettings, current_user.studio_id)
+        if settings is not None:
+            settings.default_locale = payload.locale
+    db.commit()
+    return {"locale": payload.locale}
 
 
 class UpdateMyPhoneIn(BaseModel):

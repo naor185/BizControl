@@ -10,11 +10,13 @@ import { usePathname, useRouter } from "next/navigation";
 import { ChevronRight, Lock, LogOut, Search, X, type LucideIcon } from "lucide-react";
 import { clearToken } from "@/lib/api";
 import { useBusinessSections, type BusinessItem } from "@/lib/businessSections";
+import { useLang } from "@/components/LanguageProvider";
 
 function Tile({ item, locked = false, onNavigate }: {
     item: BusinessItem; locked?: boolean; onNavigate?: () => void;
 }) {
     const pathname = usePathname();
+    const { tr } = useLang();
     const path = item.href.split("?")[0];
     const active = pathname === path || pathname?.startsWith(path + "/");
     return (
@@ -23,7 +25,7 @@ function Tile({ item, locked = false, onNavigate }: {
                 active ? "bg-sky-600 text-white shadow-md" : "bg-gray-50 text-gray-700 hover:bg-sky-50"}`}>
             <item.icon className="w-6 h-6" aria-hidden />
             <span className="text-[11px] font-semibold leading-tight">{item.label}</span>
-            {locked && <Lock className="absolute top-1.5 left-1.5 w-3 h-3 text-gray-400" aria-label="לא במסלול" />}
+            {locked && <Lock className="absolute top-1.5 end-1.5 w-3 h-3 text-gray-400" aria-label={tr("לא במסלול")} />}
         </Link>
     );
 }
@@ -31,18 +33,20 @@ function Tile({ item, locked = false, onNavigate }: {
 function CategoryTile({ label, icon: Icon, count, onOpen }: {
     label: string; icon: LucideIcon; count: number; onOpen: () => void;
 }) {
+    const { tr } = useLang();
     return (
         <button type="button" onClick={onOpen}
-            className="relative flex flex-col items-start gap-2 p-3.5 rounded-2xl bg-gray-50 hover:bg-sky-50 text-right transition-all active:scale-[0.97]">
+            className="relative flex flex-col items-start gap-2 p-3.5 rounded-2xl bg-gray-50 hover:bg-sky-50 text-start transition-all active:scale-[0.97]">
             <Icon className="w-6 h-6 text-sky-600" aria-hidden />
             <span className="text-sm font-bold text-gray-800 leading-tight">{label}</span>
-            <span className="text-[11px] text-gray-500">{count === 1 ? "מסך אחד" : `${count} מסכים`}</span>
+            <span className="text-[11px] text-gray-500">{count === 1 ? tr("מסך אחד") : tr("{n} מסכים", { n: count })}</span>
         </button>
     );
 }
 
 export default function BusinessTiles({ active = true, onNavigate }: { active?: boolean; onNavigate?: () => void }) {
     const { groups, plan } = useBusinessSections(active);
+    const { tr } = useLang();
     const router = useRouter();
     const [open, setOpen] = useState<string | null>(null);      // the category shown
     const [query, setQuery] = useState("");
@@ -55,13 +59,13 @@ export default function BusinessTiles({ active = true, onNavigate }: { active?: 
     const category = open ? groups.find(g => g.groupLabel === open) : undefined;
 
     return (
-        <div className="space-y-4" dir="rtl">
+        <div className="space-y-4">
             <label className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-2xl px-3 h-11 focus-within:border-sky-400">
                 <Search className="w-4 h-4 text-gray-400 shrink-0" aria-hidden />
-                <input value={query} onChange={e => { setQuery(e.target.value); setOpen(null); }} placeholder="חיפוש מסך…"
-                    className="flex-1 min-w-0 bg-transparent outline-none text-base" aria-label="חיפוש מסך" />
+                <input value={query} onChange={e => { setQuery(e.target.value); setOpen(null); }} placeholder={tr("חיפוש מסך…")}
+                    className="flex-1 min-w-0 bg-transparent outline-none text-base" aria-label={tr("חיפוש מסך")} />
                 {query && (
-                    <button type="button" onClick={() => setQuery("")} aria-label="ניקוי החיפוש" className="p-1 text-gray-400">
+                    <button type="button" onClick={() => setQuery("")} aria-label={tr("ניקוי החיפוש")} className="p-1 text-gray-400">
                         <X className="w-4 h-4" aria-hidden />
                     </button>
                 )}
@@ -73,13 +77,13 @@ export default function BusinessTiles({ active = true, onNavigate }: { active?: 
                         {found.map(item => <Tile key={item.href} item={item} locked={lockedOf(item)} onNavigate={onNavigate} />)}
                     </div>
                 ) : (
-                    <p className="text-center text-sm text-gray-500 py-6">לא נמצא מסך בשם הזה</p>
+                    <p className="text-center text-sm text-gray-500 py-6">{tr("לא נמצא מסך בשם הזה")}</p>
                 )
             ) : category ? (
                 <div className="space-y-3">
                     <button type="button" onClick={() => setOpen(null)}
                         className="flex items-center gap-1.5 text-sm font-bold text-sky-700">
-                        <ChevronRight className="w-4 h-4" aria-hidden /> כל הקטגוריות
+                        <ChevronRight className="w-4 h-4 rtl:rotate-0 ltr:rotate-180" aria-hidden /> {tr("כל הקטגוריות")}
                     </button>
                     <div className="flex items-center gap-2">
                         <category.icon className="w-5 h-5 text-sky-600" aria-hidden />
@@ -100,7 +104,7 @@ export default function BusinessTiles({ active = true, onNavigate }: { active?: 
 
             <button type="button" onClick={() => { clearToken(); router.replace("/login"); }}
                 className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-red-50 text-red-600 text-sm font-semibold active:scale-[0.98] transition-transform">
-                <LogOut className="w-5 h-5" aria-hidden /> התנתקות
+                <LogOut className="w-5 h-5" aria-hidden /> {tr("התנתקות")}
             </button>
         </div>
     );

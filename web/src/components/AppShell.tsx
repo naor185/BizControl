@@ -15,6 +15,7 @@ import PullToRefresh from "./PullToRefresh";
 import QuickWhatsAppModal from "./QuickWhatsAppModal";
 import { useLang } from "./LanguageProvider";
 import { LOCALES } from "@/lib/i18n";
+import { Languages } from "lucide-react";
 import { useNewLeadsCount } from "@/lib/useNewLeadsCount";
 import PlanBar, { PLAN_BAR_HEIGHT, isTrialPlan, type PlanInfo } from "./PlanBar";
 import VikiPopper from "./viki/VikiPopper";
@@ -53,7 +54,7 @@ export default function AppShell({
 }) {
     const pathname = usePathname();
     const router = useRouter();
-    const { t, locale, setLocale, dir } = useLang();
+    const { t, tr, locale, setLocale, adopt, dir } = useLang();
     const [langOpen, setLangOpen] = useState(false);
 
     const [me, setMe] = useState<Me | null>(null);
@@ -139,6 +140,7 @@ export default function AppShell({
                     apiFetch<PlanInfo>("/api/auth/studio-info").catch(() => null),
                 ]);
                 setMe(data);
+                adopt((data as { locale?: string }).locale);     // the language kept in the account
                 setPendingDepositsCount(deposits.length);
                 if (locs.length > 1) setLocations(locs);
                 setEnabledModules(mods);
@@ -162,7 +164,7 @@ export default function AppShell({
         <div className="app-shell min-h-screen bg-[var(--background)]" dir={dir}>
             <div className="flex">
                 {/* Sidebar */}
-                <aside className="hidden md:flex md:w-60 md:flex-col md:fixed md:inset-y-0 bg-white border-l border-slate-100 shadow-sm z-20">
+                <aside className="hidden md:flex md:w-60 md:flex-col md:fixed md:inset-y-0 md:start-0 bg-white border-e border-slate-100 shadow-sm z-20">
                     {/* Logo */}
                     <div className="px-4 py-4 flex items-center justify-center border-b border-slate-100">
                         <img src="/logo.png" alt="BizControl" className="w-full max-w-40 h-auto object-contain" />
@@ -189,7 +191,7 @@ export default function AppShell({
                                     style={active ? { background: "var(--primary)" } : undefined}
                                 >
                                     <Icon className="h-5 w-5 shrink-0" />
-                                    <span className="flex-1">{item.label}</span>
+                                    <span className="flex-1">{tr(item.label)}</span>
                                     {badge > 0 && (
                                         <span className="text-white text-xs font-bold rounded-full min-w-5 h-5 flex items-center justify-center px-1" style={{ background: "var(--accent)" }}>
                                             {badge}
@@ -203,7 +205,7 @@ export default function AppShell({
                         {!isWorker && (<>
                             <div className="pt-2 pb-1">
                                 <div className="px-3 pb-1">
-                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">עסק</span>
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{tr("עסק")}</span>
                                 </div>
                             </div>
                             <Link
@@ -217,7 +219,7 @@ export default function AppShell({
                                 style={pathname.startsWith("/business") ? { background: "var(--secondary)" } : undefined}
                             >
                                 <Building2 className="h-5 w-5 shrink-0" />
-                                <span className="flex-1 text-right">ניהול עסק</span>
+                                <span className="flex-1 text-start">{tr("ניהול עסק")}</span>
                             </Link>
                         </>)}
                     </nav>
@@ -231,7 +233,7 @@ export default function AppShell({
                                 className="w-full flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2 text-sm hover:bg-slate-50 transition"
                             >
                                 <span className="flex items-center gap-2">
-                                    <span>{LOCALES.find(l => l.code === locale)?.flag}</span>
+                                    <Languages className="w-4 h-4 text-slate-500" aria-hidden />
                                     <span className="text-slate-700">{LOCALES.find(l => l.code === locale)?.label}</span>
                                 </span>
                                 <span className="text-slate-400 text-[10px]">▼</span>
@@ -242,9 +244,9 @@ export default function AppShell({
                                         <button
                                             key={l.code}
                                             onClick={() => { setLocale(l.code); setLangOpen(false); }}
-                                            className={`w-full text-right px-4 py-2.5 text-sm hover:bg-slate-50 transition flex items-center gap-2 ${locale === l.code ? "font-bold bg-slate-50" : ""}`}
+                                            className={`w-full text-start px-4 py-2.5 text-sm hover:bg-slate-50 transition flex items-center gap-2 ${locale === l.code ? "font-bold bg-slate-50" : ""}`}
                                         >
-                                            <span>{l.flag}</span><span>{l.label}</span>
+                                            <span>{l.label}</span>
                                         </button>
                                     ))}
                                 </div>
@@ -267,7 +269,7 @@ export default function AppShell({
                         {/* Location switcher — shown when studio has multiple branches */}
                         {locations.length > 1 && (
                             <div className="w-full">
-                                <div className="text-[10px] text-slate-400 mb-1 px-1">🏢 החלף סניף</div>
+                                <div className="text-[10px] text-slate-400 mb-1 px-1">{tr("החלף סניף")}</div>
                                 <div className="flex flex-col gap-1">
                                     {locations.map(loc => (
                                         <button
@@ -302,7 +304,7 @@ export default function AppShell({
                                 className="w-full flex items-center justify-center gap-2 rounded-xl bg-sky-700 hover:bg-sky-800 text-white text-sm py-2 font-semibold transition-colors"
                             >
                                 <span>🛡️</span>
-                                <span>פאנל ניהול</span>
+                                <span>{tr("פאנל ניהול")}</span>
                             </Link>
                         )}
                         <button
@@ -315,7 +317,7 @@ export default function AppShell({
                 </aside>
 
                 {/* Main content */}
-                <div className="flex-1 md:pr-60">
+                <div className="flex-1 md:ps-60">
                     {/* Topbar */}
                     <header
                         className="sticky top-0 z-10 bg-white/95 backdrop-blur-sm border-b border-slate-100"
@@ -328,21 +330,21 @@ export default function AppShell({
                             <div className="bg-amber-500 text-white text-xs sm:text-sm font-semibold px-3 sm:px-4 h-11 flex items-center gap-2">
                                 <Mail className="w-4 h-4 shrink-0" aria-hidden />
                                 <span className="flex-1 min-w-0 truncate">
-                                    <span className="sm:hidden">המייל שלך עוד לא אומת</span>
-                                    <span className="hidden sm:inline">אמת את כתובת המייל שלך ({me.email}) כדי לקבל עדכונים ותזכורות.</span>
+                                    <span className="sm:hidden">{tr("המייל שלך עוד לא אומת")}</span>
+                                    <span className="hidden sm:inline">{tr("אמת את כתובת המייל שלך ({email}) כדי לקבל עדכונים ותזכורות.", { email: me.email ?? "" })}</span>
                                 </span>
                                 {verifyState === "sent" ? (
-                                    <span className="bg-white/20 px-3 py-1.5 rounded-lg text-xs font-bold shrink-0">נשלח מייל אימות</span>
+                                    <span className="bg-white/20 px-3 py-1.5 rounded-lg text-xs font-bold shrink-0">{tr("נשלח מייל אימות")}</span>
                                 ) : (
                                     <button
                                         onClick={resendVerification}
                                         disabled={verifyState === "sending"}
                                         className="bg-white text-amber-700 px-3 min-h-8 rounded-lg text-xs font-bold hover:bg-amber-50 transition-colors shrink-0 disabled:opacity-60"
                                     >
-                                        {verifyState === "sending" ? "שולח…" : verifyState === "error" ? "נסה שוב" : "שלח אימות"}
+                                        {tr(verifyState === "sending" ? "שולח…" : verifyState === "error" ? "נסה שוב" : "שלח אימות")}
                                     </button>
                                 )}
-                                <button type="button" onClick={hideVerify} aria-label="הסתר עד הכניסה הבאה"
+                                <button type="button" onClick={hideVerify} aria-label={tr("הסתר עד הכניסה הבאה")}
                                     className="w-8 h-8 -me-1 flex items-center justify-center rounded-lg hover:bg-white/15 shrink-0">
                                     <X className="w-4 h-4" aria-hidden />
                                 </button>
@@ -352,20 +354,20 @@ export default function AppShell({
                             <div role="alert" className="bg-sky-600 text-white text-xs sm:text-sm font-semibold px-3 sm:px-4 h-11 flex items-center gap-2">
                                 <Nfc className="w-4 h-4 shrink-0" aria-hidden />
                                 <span className="flex-1 min-w-0 truncate">
-                                    <span className="sm:hidden">יש לך תורים היום — סרוק/י את הברקוד שבכניסה</span>
-                                    <span className="hidden sm:inline">יש לך תורים היום ועוד לא החתמת כניסה — סרוק/י את הברקוד שבכניסה (או הצמד/י את הטלפון למדבקה).</span>
+                                    <span className="sm:hidden">{tr("יש לך תורים היום — סרוק/י את הברקוד שבכניסה")}</span>
+                                    <span className="hidden sm:inline">{tr("יש לך תורים היום ועוד לא החתמת כניסה — סרוק/י את הברקוד שבכניסה (או הצמד/י את הטלפון למדבקה).")}</span>
                                 </span>
                             </div>
                         )}
                         {isImpersonating && (
                             <div className="bg-amber-400 text-amber-950 text-xs sm:text-sm font-bold px-3 sm:px-4 h-11 flex items-center gap-2">
                                 <Eye className="w-4 h-4 shrink-0" aria-hidden />
-                                <span className="flex-1 min-w-0 truncate">מצב צפייה — אתה רואה את המערכת כבעל העסק</span>
+                                <span className="flex-1 min-w-0 truncate">{tr("מצב צפייה — אתה רואה את המערכת כבעל העסק")}</span>
                                 <button
                                     onClick={handleReturnToAdmin}
                                     className="bg-amber-950 text-amber-100 px-3 min-h-8 rounded-lg text-xs font-semibold hover:bg-amber-900 transition-colors shrink-0"
                                 >
-                                    חזור לאדמין
+                                    {tr("חזור לאדמין")}
                                 </button>
                             </div>
                         )}
@@ -382,7 +384,7 @@ export default function AppShell({
                                         {t("login_2fa_back")}
                                     </button>
                                 )}
-                                {title && <h1 className="text-lg font-bold text-slate-900 truncate">{title}</h1>}
+                                {title && <h1 className="text-lg font-bold text-slate-900 truncate">{typeof title === "string" ? tr(title) : title}</h1>}
                                 {titleAction}
                             </div>
 
@@ -390,8 +392,8 @@ export default function AppShell({
                                 <button
                                     type="button"
                                     onClick={() => setShowWaModal(true)}
-                                    aria-label="שלח וואטסאפ"
-                                    title="שלח וואטסאפ"
+                                    aria-label={tr("שלח וואטסאפ")}
+                                    title={tr("שלח וואטסאפ")}
                                     className="flex items-center justify-center w-8 h-8 rounded-full text-emerald-700 hover:bg-emerald-50 border border-emerald-100 transition-colors"
                                 >
                                     <span className="text-base leading-none">📱</span>
@@ -405,9 +407,9 @@ export default function AppShell({
                                         {avatarLetter}
                                     </div>
                                     <div className="text-sm text-slate-600">
-                                        <span className="text-slate-400">שלום, </span>
+                                        <span className="text-slate-400">{tr("שלום, ")}</span>
                                         <span className="font-semibold text-slate-800" dir="ltr">
-                                            {me?.display_name || me?.email || "מנהל"}
+                                            {me?.display_name || me?.email || tr("מנהל")}
                                         </span>
                                     </div>
                                 </div>

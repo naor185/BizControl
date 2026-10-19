@@ -12,6 +12,7 @@ import {
 import { apiFetch, getToken } from "@/lib/api";
 import { isNativeApp } from "@/lib/platform";
 import { usePlan } from "@/lib/usePlan";
+import { useLang } from "@/components/LanguageProvider";
 
 // what the signed-in user may do (/api/auth/me — core/permissions.MANAGER_PERMISSIONS): a manager sees only what the
 // owner allowed him (the owner, 2026-10-13)
@@ -121,6 +122,7 @@ function load(): Promise<Access> {
 /** The groups and tools this user sees — asked once per visit, when `active` first turns on. */
 export function useBusinessSections(active = true) {
     const plan = usePlan();
+    const { tr } = useLang();                   // the names in the user's language (lib/en.ts)
     const [isNative] = useState(() => isNativeApp());
     const [access, setAccess] = useState<Access | null>(null);
     useEffect(() => {
@@ -138,7 +140,8 @@ export function useBusinessSections(active = true) {
         return moduleOk && featureOk && permOk;
     };
     const groups = SECTION_GROUPS
-        .map(g => ({ ...g, items: g.items.filter(visible) }))
+        .map(g => ({ ...g, groupLabel: tr(g.groupLabel),
+                     items: g.items.filter(visible).map(i => ({ ...i, label: tr(i.label), description: tr(i.description) })) }))
         .filter(g => g.items.length > 0);
     return { groups, plan };
 }

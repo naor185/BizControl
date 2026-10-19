@@ -25,7 +25,7 @@ export default function BottomNav({ pendingDeposits = 0 }: { pendingDeposits?: n
     const pathname = usePathname();
     const [userRole] = useState(() => getCurrentUserRole());
     const isArtist = userRole === "artist" || userRole === "staff";
-    const { t } = useLang();
+    const { t, tr, dir } = useLang();
     const newLeadsCount = useNewLeadsCount();
     // "ניהול עסק" — the owner's and the managers' (a worker's bar is the calendar only). It opens the categories, a
     // search and each category's screens (components/BusinessTiles) — not a long page (the owner, 2026-10-15).
@@ -57,7 +57,7 @@ export default function BottomNav({ pendingDeposits = 0 }: { pendingDeposits?: n
             {!isArtist && (
                 <div
                     id="mobile-business-sheet"
-                    dir="rtl"
+                    dir={dir}
                     className={[
                         "fixed right-0 left-0 z-50 md:hidden max-h-[calc(100dvh-4rem-env(safe-area-inset-bottom,0px)-env(safe-area-inset-top,0px))] overflow-y-auto bg-white rounded-t-3xl shadow-2xl transition-all duration-300 ease-out",
                         sheetOpen ? "translate-y-0 opacity-100" : "translate-y-full opacity-0 pointer-events-none",
@@ -74,7 +74,7 @@ export default function BottomNav({ pendingDeposits = 0 }: { pendingDeposits?: n
             )}
 
             <nav
-                dir="rtl"
+                dir={dir}
                 className="fixed bottom-0 right-0 left-0 z-50 md:hidden bg-white/95 backdrop-blur-md border-t border-gray-100 shadow-[0_-4px_20px_rgba(0,0,0,0.08)]"
                 style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
             >
@@ -98,12 +98,12 @@ export default function BottomNav({ pendingDeposits = 0 }: { pendingDeposits?: n
                                     ].join(" ")} />
                                     {item.href === "/dashboard" && pendingDeposits > 0 && (
                                         <span className="absolute -top-1.5 -left-2.5 bg-amber-500 text-white text-[9px] font-bold rounded-full min-w-4 h-4 flex items-center justify-center px-1 ring-2 ring-white"
-                                            aria-label={`${pendingDeposits} מקדמות ממתינות לאישור`}>
+                                            aria-label={`${pendingDeposits} ${tr("מקדמות ממתינות לאישור")}`}>
                                             {pendingDeposits > 99 ? "99+" : pendingDeposits}
                                         </span>
                                     )}
                                     {item.href === "/dashboard" && newLeadsCount > 0 && (
-                                        <span className="absolute -top-1 -right-1.5 w-2.5 h-2.5 rounded-full bg-rose-500 ring-2 ring-white" aria-label="לידים חדשים" />
+                                        <span className="absolute -top-1 -right-1.5 w-2.5 h-2.5 rounded-full bg-rose-500 ring-2 ring-white" aria-label={tr("לידים חדשים")} />
                                     )}
                                 </div>
 

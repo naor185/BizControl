@@ -1,3 +1,4 @@
+import { savedLocale } from "@/lib/i18n";
 import { mirrorTokensToSecureStorage, clearSecureStorageTokens } from "@/lib/secureTokenStorage";
 import { clearNavHistory } from "@/lib/navHistory";
 
@@ -134,6 +135,7 @@ export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promi
 
     const headers = new Headers(options.headers || {});
     headers.set("Accept", "application/json");
+    headers.set("X-Lang", savedLocale());         // the server's messages in the user's language (app/core/i18n.py)
 
     const hasBody = typeof options.body !== "undefined" && options.body !== null;
     if (hasBody && !(options.body instanceof FormData)) {

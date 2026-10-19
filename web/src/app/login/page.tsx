@@ -433,7 +433,7 @@ function LoginContent() {
                                 : "bg-black/20 backdrop-blur hover:bg-white/20 text-white/70 border border-white/10"
                         }`}
                     >
-                        {l.flag}
+                        {l.short}
                     </button>
                 ))}
             </div>

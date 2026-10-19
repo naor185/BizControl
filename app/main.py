@@ -647,6 +647,20 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+
+async def _error_in_the_users_language(request, exc):
+    """An error's message in the language the request asked for (core/i18n.py — the header X-Lang)."""
+    from fastapi.exception_handlers import http_exception_handler
+    from app.core.i18n import lang_of, say
+    lang = lang_of(request.headers.get("x-lang"))
+    if lang != "he" and isinstance(exc.detail, str):
+        exc = StarletteHTTPException(status_code=exc.status_code, detail=say(exc.detail, lang), headers=getattr(exc, "headers", None))
+    return await http_exception_handler(request, exc)
+
+
+from starlette.exceptions import HTTPException as StarletteHTTPException  # noqa: E402
+app.add_exception_handler(StarletteHTTPException, _error_in_the_users_language)
+
 # Ensure uploads directory exists before mounting
 os.makedirs("uploads", exist_ok=True)
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")

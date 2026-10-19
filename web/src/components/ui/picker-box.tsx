@@ -34,7 +34,6 @@ interface PickerBoxProps {
 const WORDS = {
     he: { today: "היום", clear: "ניקוי", choose: "בחירת תאריך", prev: "החודש הקודם", next: "החודש הבא", month: "חודש", year: "שנה" },
     en: { today: "Today", clear: "Clear", choose: "Choose a date", prev: "Previous month", next: "Next month", month: "Month", year: "Year" },
-    ar: { today: "اليوم", clear: "مسح", choose: "اختر تاريخًا", prev: "الشهر السابق", next: "الشهر التالي", month: "الشهر", year: "السنة" },
 } as const;
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;

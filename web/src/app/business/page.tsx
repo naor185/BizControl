@@ -7,6 +7,7 @@ import RequireAuth from "@/components/RequireAuth";
 import BusinessTiles from "@/components/BusinessTiles";
 import { useBusinessSections } from "@/lib/businessSections";
 import { fillTerms, useTerms } from "@/lib/useTerms";
+import { useLang } from "@/components/LanguageProvider";
 
 // No PIN on the way in: only the owner and the managers reach this page (RequireAuth, and the server keeps the workers
 // out of what's behind it) — the owner, 2026-10-15. On a phone it shows the small buttons, as the bar's "ניהול עסק" does.
@@ -14,11 +15,12 @@ export default function BusinessPage() {
     const terms = useTerms();   // the business's words in the descriptions
     const router = useRouter();
     const { groups, plan } = useBusinessSections();
+    const { tr } = useLang();
 
     return (
         <RequireAuth>
             <AppShell>
-                <div className="min-h-full" dir="rtl">
+                <div className="min-h-full">
 
                     {/* ── Premium Hero Header ── */}
                     <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-violet-950 to-indigo-950">
@@ -34,8 +36,8 @@ export default function BusinessPage() {
                                             <Briefcase className="w-6 h-6 text-white" />
                                         </div>
                                         <div>
-                                            <h1 className="text-2xl font-black text-white tracking-tight">ניהול עסק</h1>
-                                            <p className="text-violet-300 text-sm mt-0.5">מרכז השליטה הפיננסי של העסק שלך</p>
+                                            <h1 className="text-2xl font-black text-white tracking-tight">{tr("ניהול עסק")}</h1>
+                                            <p className="text-violet-300 text-sm mt-0.5">{tr("מרכז השליטה הפיננסי של העסק שלך")}</p>
                                         </div>
                                     </div>
                                     <div className="flex gap-2 flex-wrap mt-4">
@@ -45,7 +47,7 @@ export default function BusinessPage() {
                                         ].map(tag => (
                                             <span key={tag.label} className="flex items-center gap-1.5 text-xs bg-white/10 border border-white/15 text-violet-200 px-3 py-1 rounded-full font-medium">
                                                 <tag.icon className="w-3.5 h-3.5" />
-                                                {tag.label}
+                                                {tr(tag.label)}
                                             </span>
                                         ))}
                                     </div>
@@ -80,7 +82,7 @@ export default function BusinessPage() {
                                             <button
                                                 key={section.href}
                                                 onClick={() => router.push(section.href)}
-                                                className="group relative bg-white rounded-2xl border border-slate-100 p-5 text-right hover:shadow-xl hover:shadow-slate-200/80 hover:-translate-y-1 transition-all duration-200 overflow-hidden"
+                                                className="group relative bg-white rounded-2xl border border-slate-100 p-5 text-start hover:shadow-xl hover:shadow-slate-200/80 hover:-translate-y-1 transition-all duration-200 overflow-hidden"
                                             >
                                                 {/* Same monochrome treatment as the sidebar nav icons — no
                                                     per-tile rainbow badge. The icon color is var(--foreground),
@@ -92,7 +94,7 @@ export default function BusinessPage() {
                                                 />
 
                                                 {section.module && !plan.has(section.module) && (
-                                                    <span className="absolute top-3 left-3 inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 bg-slate-100 border border-slate-200 rounded-full px-2 py-0.5">
+                                                    <span className="absolute top-3 end-3 inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 bg-slate-100 border border-slate-200 rounded-full px-2 py-0.5">
                                                         <Lock className="w-3 h-3" aria-hidden /> ב{plan.upgrade(section.module)}
                                                     </span>
                                                 )}
@@ -103,8 +105,8 @@ export default function BusinessPage() {
                                                 <div className="text-base text-slate-400 leading-relaxed">{fillTerms(section.description, terms)}</div>
 
                                                 {/* Arrow */}
-                                                <div className="absolute top-4 left-4 text-slate-200 group-hover:text-violet-400 group-hover:translate-x-0.5 transition-all duration-200 text-lg">
-                                                    ←
+                                                <div className="absolute top-4 end-4 text-slate-200 group-hover:text-violet-400 transition-all duration-200 text-lg" aria-hidden>
+                                                    <span className="rtl:inline ltr:hidden">←</span><span className="rtl:hidden ltr:inline">→</span>
                                                 </div>
                                             </button>
                                         ))}

@@ -114,9 +114,10 @@ class PlanEnforcementMiddleware(BaseHTTPMiddleware):
 
         error_code = _check_studio(str(studio_id))
         if error_code:
+            from app.core.i18n import lang_of, say
             body = json.dumps({
                 "detail": error_code,
-                "message": "תוכנית המנוי של העסק פגה. אנא פנה לחידוש."
+                "message": say("תוכנית המנוי של העסק פגה. אנא פנה לחידוש.", lang_of(request.headers.get("x-lang"))),
             })
             return Response(
                 content=body,

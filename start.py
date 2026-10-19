@@ -3030,6 +3030,10 @@ def ensure_schema():
         cur.execute("ALTER TABLE work_sessions ADD COLUMN IF NOT EXISTS fixed_by UUID REFERENCES users(id) ON DELETE SET NULL")
         # ready times: the morning reminder's hour, a reminder about two hours before (off until turned on)
         cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS same_day_reminder_hour INTEGER NOT NULL DEFAULT 8")
+        # the system's language (core/i18n.py — the owner, 2026-10-19: Hebrew or English): the business's (the owner's
+        # choice) and each user's own
+        cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS default_locale VARCHAR(5) NOT NULL DEFAULT 'he'")
+        cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS locale VARCHAR(5)")
         cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS reminder_2_hours_enabled BOOLEAN NOT NULL DEFAULT FALSE")
         cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS reminder_2h_wa_template TEXT")
         if _once("birthday_percent_0_is_10"):

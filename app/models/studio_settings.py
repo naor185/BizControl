@@ -243,6 +243,8 @@ class StudioSettings(Base):
     # the morning-of reminder's hour, Israel time (the owner picks 7–10; was always 8) and a reminder about two hours
     # before — off until the owner turns it on (owner, 2026-10-12)
     same_day_reminder_hour: Mapped[int] = mapped_column(Integer, nullable=False, default=8, server_default="8")
+    # the business's language — the owner's choice; a user without their own follows it (core/i18n.py)
+    default_locale: Mapped[str] = mapped_column(String(5), nullable=False, default="he", server_default="he")
     reminder_2_hours_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     reminder_2h_wa_template: Mapped[str | None] = mapped_column(Text, nullable=True)
     same_day_reminder_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")

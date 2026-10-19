@@ -1,10 +1,18 @@
-export type Locale = "he" | "en" | "ar";
+// The system's languages — Hebrew and English (the owner, 2026-10-19: Arabic out). The choice is kept in the user's
+// account (PUT /api/auth/me/locale — the owner's is the business's too) and on the device, for the first paint.
+export type Locale = "he" | "en";
 
-export const LOCALES: { code: Locale; label: string; flag: string; dir: "rtl" | "ltr" }[] = [
-    { code: "he", label: "עברית",  flag: "🇮🇱", dir: "rtl" },
-    { code: "en", label: "English", flag: "🇺🇸", dir: "ltr" },
-    { code: "ar", label: "العربية", flag: "🇸🇦", dir: "rtl" },
+export const LOCALES: { code: Locale; label: string; short: string; dir: "rtl" | "ltr" }[] = [
+    { code: "he", label: "עברית",  short: "עב", dir: "rtl" },
+    { code: "en", label: "English", short: "EN", dir: "ltr" },
 ];
+
+export const LOCALE_KEY = "biz_locale";
+
+/** The language kept on this device — he unless it's en (an old "ar" too). */
+export function savedLocale(): Locale {
+    try { return localStorage.getItem(LOCALE_KEY) === "en" ? "en" : "he"; } catch { return "he"; }
+}
 
 export const translations = {
     he: {
@@ -82,9 +90,9 @@ export const translations = {
     },
     en: {
         // Nav
-        nav_calendar:   "Appointments",
+        nav_calendar:   "Calendar",
         nav_my_shifts:  "My shifts",
-        nav_business:   "Business Management",
+        nav_business:   "Business",
         nav_expenses:   "Expenses",
         nav_products:   "Products",
         nav_dashboard:  "Dashboard",
@@ -97,7 +105,7 @@ export const translations = {
         nav_help:       "Help",
         nav_leads:      "Leads",
         nav_wallet:     "Wallet Card",
-        nav_pos:        "POS",
+        nav_pos:        "Register",
         nav_more:       "More",
         nav_msg_templates: "Msg Templates",
         // Auth
@@ -152,79 +160,6 @@ export const translations = {
         portal_deposit:  "Deposit",
         portal_remaining: "Remaining",
         portal_exit:     "Sign Out",
-    },
-    ar: {
-        // Nav
-        nav_calendar:   "المواعيد",
-        nav_my_shifts:  "مناوباتي",
-        nav_business:   "إدارة الأعمال",
-        nav_expenses:   "المصروفات",
-        nav_products:   "المنتجات",
-        nav_dashboard:  "لوحة التحكم",
-        nav_clients:    "العملاء",
-        nav_club:       "نادي VIP",
-        nav_team:       "الفريق",
-        nav_payroll:    "الرواتب",
-        nav_payments:   "المدفوعات",
-        nav_settings:   "الإعدادات",
-        nav_help:       "المساعدة",
-        nav_leads:      "العملاء المحتملون",
-        nav_wallet:     "Wallet Card",
-        nav_pos:        "الصندوق",
-        nav_more:       "المزيد",
-        nav_msg_templates: "قوالب الرسائل",
-        // Auth
-        login_title:    "تسجيل الدخول",
-        login_subtitle: "أدخل بيانات الوصول",
-        login_slug:     "معرّف الاستوديو",
-        login_email:    "البريد الإلكتروني",
-        login_password: "كلمة المرور",
-        login_remember: "تذكرني",
-        login_btn:      "دخول",
-        login_loading:  "جارٍ الدخول...",
-        login_2fa_title: "التحقق بخطوتين",
-        login_2fa_sub:  "أدخل الرمز من تطبيق المصادقة",
-        login_2fa_btn:  "تحقق",
-        login_2fa_back: "رجوع",
-        // Common
-        save:     "حفظ",
-        saving:   "جارٍ الحفظ...",
-        cancel:   "إلغاء",
-        delete:   "حذف",
-        edit:     "تعديل",
-        add:      "إضافة",
-        close:    "إغلاق",
-        loading:  "جارٍ التحميل...",
-        error:    "خطأ",
-        success:  "تم",
-        logout:   "تسجيل الخروج",
-        // Dashboard
-        dash_today:     "التحصيل اليومي",
-        dash_analytics: "التحليلات",
-        dash_revenue:   "الإيرادات",
-        dash_appointments: "المواعيد",
-        // Clients
-        client_name:  "اسم العميل",
-        client_phone: "الهاتف",
-        client_email: "البريد الإلكتروني",
-        client_notes: "ملاحظات",
-        // Appointments
-        appt_scheduled: "مجدول",
-        appt_done:      "منجز",
-        appt_canceled:  "ملغى",
-        appt_no_show:   "لم يحضر",
-        // Billing
-        // Portal
-        portal_welcome:  "مرحباً،",
-        portal_points:   "نقاط",
-        portal_upcoming: "القادمة",
-        portal_history:  "التاريخ",
-        portal_cancel:   "إلغاء الموعد",
-        portal_artist:   "الفنان",
-        portal_price:    "السعر",
-        portal_deposit:  "العربون",
-        portal_remaining: "المتبقي",
-        portal_exit:     "خروج",
     },
 } as const;
 
