@@ -27,9 +27,11 @@ ALLOWED_ARTIST_FIELDS = {"status", "notes"}
     "",
     response_model=AppointmentOut,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_roles(Perms.OWNER, Perms.ADMIN, Perms.RECEPTIONIST, Perms.MANAGER))]
+    dependencies=[Depends(require_roles(Perms.OWNER, Perms.ADMIN, Perms.RECEPTIONIST, Perms.MANAGER, Perms.ARTIST, "staff"))]
 )
 def create(payload: AppointmentCreate, ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+    if ctx.role in (Perms.ARTIST, "staff"):              # a worker — in their own calendar only (the owner, 2026-10-19)
+        payload = payload.model_copy(update={"artist_id": ctx.user_id})
     _not_on_a_lock(db, ctx.studio_id, payload.artist_id, payload.starts_at, payload.ends_at, getattr(payload, "status", None))
     try:
         created = create_appointment(db, ctx.studio_id, payload)
@@ -289,6 +291,12 @@ def get_one(appointment_id: UUID, ctx: AuthContext = Depends(require_studio_ctx)
 
 @router.patch("/{appointment_id}", response_model=AppointmentOut)
 def patch(appointment_id: UUID, payload: AppointmentUpdate, ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+    if ctx.role == "staff":                              # a worker without management: their own appointments, as they see
+        own = get_appointment(db, ctx.studio_id, appointment_id)
+        if not own:
+            raise HTTPException(status_code=404, detail="Appointment not found")
+        if str(own.artist_id) != str(ctx.user_id) or (payload.artist_id is not None and str(payload.artist_id) != str(ctx.user_id)):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="אפשר לשנות רק תורים ביומן שלך")
     if ctx.role == Perms.ARTIST:
         incoming_fields = {k for k, v in payload.model_dump(exclude_unset=True).items()}
         illegal = incoming_fields - ALLOWED_ARTIST_FIELDS
@@ -430,6 +438,8 @@ def patch(appointment_id: UUID, payload: AppointmentUpdate, ctx: AuthContext = D
 def cancel(appointment_id: UUID, reason: str | None = Query(default=None), hard_delete: bool = Query(default=False), ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
     # Grab event before canceling to get google_event_id
     appt_obj = get_appointment(db, ctx.studio_id, appointment_id)
+    if ctx.role in (Perms.ARTIST, "staff") and appt_obj is not None and str(appt_obj.artist_id) != str(ctx.user_id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="אפשר לבטל רק תורים ביומן שלך")
     words = f"מחיקת תור{_whose(db, appt_obj)}" if hard_delete and appt_obj is not None else None   # read before it's gone
     google_event_id = appt_obj.google_event_id if appt_obj else None   # a deleted appointment can't be read afterwards
     service_id = appt_obj.service_id if appt_obj else None

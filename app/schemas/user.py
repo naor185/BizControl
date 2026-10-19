@@ -14,6 +14,7 @@ class UserBase(BaseModel):
     hourly_rate: float = 0.0
     commission_rate: float = 0.0
     global_salary: float = 0.0
+    work_start: str | None = None         # the worker's fixed start hour (services/nfc_clock.paid_from)
     class_pay_mode: str = "none"          # teaching group classes (app/services/class_payroll.py)
     class_pay_per_class: float = 0.0
     class_pay_per_participant: float = 0.0
@@ -44,6 +45,7 @@ class ArtistCreate(ClassPayFields):
     hourly_rate: float | None = 0.0
     commission_rate: float | None = 0.0
     global_salary: float | None = 0.0
+    work_start: str | None = Field(default=None, pattern=r"^(\d{2}:\d{2})?$")
 
 class ArtistUpdate(ClassPayFields):
     is_active: bool | None = None
@@ -54,6 +56,7 @@ class ArtistUpdate(ClassPayFields):
     hourly_rate: float | None = None
     commission_rate: float | None = None
     global_salary: float | None = None
+    work_start: str | None = Field(default=None, pattern=r"^(\d{2}:\d{2})?$")     # "" — none
     password: str | None = Field(default=None, min_length=6)
 
 class UserOut(UserBase):

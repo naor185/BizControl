@@ -2,8 +2,9 @@
 
 import { toast } from "@/lib/toast";
 import { useState, useEffect, useCallback } from "react";
-import { Timer } from "lucide-react";
-import { apiFetch } from "@/lib/api";
+import Link from "next/link";
+import { BarChart3, CalendarRange, Timer, Users } from "lucide-react";
+import { apiFetch, getCurrentUserRole } from "@/lib/api";
 import { PresenceList, type PresenceEntry } from "@/components/team/PresenceNow";
 
 type ClockStatus = {
@@ -115,6 +116,17 @@ export default function ClockWidget() {
                             <div className="text-xs font-bold text-slate-500">בעבודה עכשיו</div>
                         </div>
                         <PresenceList entries={presence} />
+                        {/* the owner and a manager: straight to the workers center (the owner, 2026-10-19) */}
+                        {(getCurrentUserRole() === "owner" || getCurrentUserRole() === "admin") && (
+                            <div className="grid grid-cols-3 border-t border-slate-100 bg-slate-50/60">
+                                {([["/team?tab=schedule", "סידור עבודה", CalendarRange], ["/team?tab=reports", "דוחות", BarChart3], ["/team", "מרכז העובדים", Users]] as const).map(([href, label, Icon]) => (
+                                    <Link key={href} href={href} onClick={() => setExpanded(false)}
+                                        className="flex flex-col items-center gap-1 px-2 py-2.5 text-xs font-semibold text-slate-700 hover:bg-white">
+                                        <Icon className="w-4 h-4 text-sky-700" aria-hidden /> {label}
+                                    </Link>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 </>
             )}

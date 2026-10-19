@@ -155,6 +155,8 @@ def ensure_schema():
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT true",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verify_token TEXT",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verify_sent_at TIMESTAMPTZ",
+            # a worker's fixed start hour — without a published shift, an early clock-in counts from it (nfc_clock.paid_from)
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS work_start VARCHAR(5)",
             "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS recurrence_days_of_week VARCHAR(20)",
             "ALTER TABLE studios ADD COLUMN IF NOT EXISTS invoice_scan_quota INTEGER NOT NULL DEFAULT 0",
             "ALTER TABLE studios ADD COLUMN IF NOT EXISTS invoice_scan_used INTEGER NOT NULL DEFAULT 0",

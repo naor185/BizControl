@@ -694,7 +694,9 @@ function Calendar() {
     }
 
     // a business with one person on its team — they're the one; "איש צוות" left empty failed the save (2026-10-15)
-    const soleArtist = artists.length === 1 ? artists[0].id : "";
+    // a worker sets appointments in their own calendar — always theirs (the server makes sure too); otherwise the one
+    // performer when there's only one
+    const soleArtist = myRole === "artist" || myRole === "staff" ? (getCurrentUserId() || "") : artists.length === 1 ? artists[0].id : "";
 
     const openAppointmentModal = (selectInfo: any) => {
         const localStart = new Date(selectInfo.startStr);

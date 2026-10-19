@@ -47,6 +47,9 @@ class User(Base):
     hourly_rate: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False, server_default="0.00")
     commission_rate: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False, server_default="0.00")
     global_salary: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False, server_default="0.00")
+    # the hour the worker starts every day ("HH:MM", none: the business's opening) — without a published shift, a
+    # clock-in before it counts from it (the owner, 2026-10-19 — services/nfc_clock.paid_from)
+    work_start: Mapped[str | None] = mapped_column(String(5), nullable=True)
     # Pay for teaching group classes, on top of pay_type — the owner's choice (app/services/class_payroll.py):
     # a sum per class, per participant (with an optional minimum per class), both, or a percentage of the
     # class's single-entry payments; participants = marked attended, or everyone booked.

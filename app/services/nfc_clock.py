@@ -61,8 +61,12 @@ def paid_from(db, studio_id, at, user_id=None):
         if has_shift_today(db, studio_id, user_id, at, settings):
             return None
     tz = pytz.timezone(settings.timezone or "Asia/Jerusalem")
+    # then the worker's own fixed start hour (the owner, 2026-10-19: "no schedule, they start every day at a set hour —
+    # paid from it, not from half an hour before"); none — the business's opening hour
+    from app.models.user import User
+    worker = db.get(User, user_id) if user_id is not None else None
     try:
-        hh, mm = (int(x) for x in (settings.calendar_start_hour or "08:00").split(":")[:2])
+        hh, mm = (int(x) for x in ((worker.work_start if worker is not None else None) or settings.calendar_start_hour or "08:00").split(":")[:2])
     except ValueError:
         return None
     local = at.astimezone(tz)

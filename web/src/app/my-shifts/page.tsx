@@ -125,9 +125,10 @@ function TimeOffForm({ onDone }: { onDone: () => void }) {
                         className={`min-h-9 px-3 rounded-xl border text-sm font-semibold ${kind === k ? "border-sky-600 bg-sky-50 text-sky-800" : "border-slate-200 text-slate-600"}`}>{l}</button>
                 ))}
             </div>
-            <div className="grid grid-cols-2 gap-2">
-                <label className="text-xs text-slate-500">מתאריך<input type="date" value={from} onChange={e => setFrom(e.target.value)} className="mt-0.5 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm text-slate-900" /></label>
-                <label className="text-xs text-slate-500">עד תאריך<input type="date" value={to} min={from} onChange={e => setTo(e.target.value)} className="mt-0.5 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm text-slate-900" /></label>
+            {/* one under the other on a phone — the iPhone's date field is wider than half the screen */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <label className="block min-w-0 text-xs text-slate-500">מתאריך<input type="date" value={from} onChange={e => setFrom(e.target.value)} className="mt-0.5 block w-full min-w-0 appearance-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900" /></label>
+                <label className="block min-w-0 text-xs text-slate-500">עד תאריך<input type="date" value={to} min={from} onChange={e => setTo(e.target.value)} className="mt-0.5 block w-full min-w-0 appearance-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900" /></label>
             </div>
             <input value={note} onChange={e => setNote(e.target.value)} maxLength={300} placeholder="הערה (לא חובה)" className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm" />
             <button type="button" onClick={send} className="w-full min-h-10 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-sm font-bold">שליחה לבעל העסק</button>

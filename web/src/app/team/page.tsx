@@ -44,6 +44,7 @@ type Artist = {
     calendar_color?: string | null;
     pay_type: "hourly" | "commission" | "none" | "global";
     hourly_rate: number;
+    work_start?: string | null;
     commission_rate: number;
     global_salary: number;
 } & ClassPay;
@@ -120,6 +121,7 @@ function TeamCenter() {
     const [isActive, setIsActive] = useState(true);
     const [payType, setPayType] = useState<"hourly" | "commission" | "none" | "global">("none");
     const [hourlyRate, setHourlyRate] = useState<number | "">("");
+    const [workStart, setWorkStart] = useState("");      // a fixed start hour — without a schedule, early counts from it
     const [commissionRate, setCommissionRate] = useState<number | "">("");
     const [globalSalary, setGlobalSalary] = useState<number | "">("");
     const [classPay, setClassPay] = useState<ClassPay>(NO_CLASS_PAY);
@@ -172,6 +174,7 @@ function TeamCenter() {
         setIsActive(true);
         setPayType("hourly");
         setHourlyRate("");
+        setWorkStart("");
         setCommissionRate("");
         setGlobalSalary("");
         setClassPay(NO_CLASS_PAY);
@@ -189,6 +192,7 @@ function TeamCenter() {
         setIsActive(artist.is_active);
         setPayType((artist.pay_type === "none" || !artist.pay_type) ? "hourly" : artist.pay_type);
         setHourlyRate(artist.hourly_rate || "");
+        setWorkStart(artist.work_start || "");
         setCommissionRate(artist.commission_rate || "");
         setGlobalSalary(artist.global_salary || "");
         setClassPay({
@@ -218,6 +222,7 @@ function TeamCenter() {
                 hourly_rate: hourlyRate === "" ? 0 : hourlyRate,
                 commission_rate: commissionRate === "" ? 0 : commissionRate,
                 global_salary: globalSalary === "" ? 0 : globalSalary,
+                work_start: workStart,
                 ...(classesOn ? classPay : {}),
             };
 
@@ -529,6 +534,13 @@ function TeamCenter() {
                                                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-sky-600"
                                                 placeholder="₪ לשעה"
                                             />
+                                            <label htmlFor="work_start" className="block text-xs font-bold text-slate-500 mt-3 mb-1">שעת התחלה קבועה (לא חובה)</label>
+                                            <div className="flex items-center gap-2">
+                                                <input id="work_start" type="time" value={workStart} onChange={e => setWorkStart(e.target.value)}
+                                                    className="w-32 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-sky-600" />
+                                                {workStart && <button type="button" onClick={() => setWorkStart("")} className="text-xs font-semibold text-slate-500 underline">בלי</button>}
+                                            </div>
+                                            <p className="text-xs text-slate-500 mt-1">בימים בלי משמרת בסידור: כניסה לפני השעה הזו נספרת מהשעה הזו.</p>
                                         </div>
                                     )}
 
