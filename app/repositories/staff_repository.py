@@ -53,7 +53,7 @@ class StaffRepository:
             studio_id=studio_id,
             user_id=user_id,
             start_time=now,
-            paid_from=paid_from(self.session, studio_id, now),
+            paid_from=paid_from(self.session, studio_id, now, user_id),
         )
         self.session.add(db_session)
         self.session.commit()

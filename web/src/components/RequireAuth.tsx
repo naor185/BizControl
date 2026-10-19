@@ -7,7 +7,7 @@ import { hydrateTokensFromSecureStorage } from "@/lib/secureTokenStorage";
 
 // Pages accessible to artist/staff role only
 // the staff who give the service also sign and read the health declarations (app/health-declarations)
-const ARTIST_ALLOWED = ["/calendar", "/health-declarations", "/clock/"];   // /clock/: the barcode (or NFC sticker) at the door
+const ARTIST_ALLOWED = ["/calendar", "/health-declarations", "/clock/", "/my-shifts"];   // /clock/: the barcode (or NFC sticker) at the door
 
 // Every screen has its own RequireAuth, mounted again on each move between screens — so the check ran again each time
 // and "בודק התחברות..." flashed for a moment (the owner, 2026-10-18). Once it passed in this visit, a screen opens at

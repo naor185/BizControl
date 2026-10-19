@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { Building2, CalendarDays, LayoutDashboard, ShoppingCart, Users, X, type LucideIcon } from "lucide-react";
+import { Building2, CalendarClock, CalendarDays, LayoutDashboard, ShoppingCart, Users, X, type LucideIcon } from "lucide-react";
 import { getCurrentUserRole } from "@/lib/api";
 import { useLang } from "./LanguageProvider";
 import { TranslationKey } from "@/lib/i18n";
@@ -14,6 +14,7 @@ import BusinessTiles from "./BusinessTiles";
 // לוח בקרה took the "+" 's place (the owner, 2026-10-15) — a new appointment is the calendar's own +
 const PRIMARY_NAV: { href: string; labelKey: TranslationKey; icon: LucideIcon }[] = [
     { href: "/calendar",  labelKey: "nav_calendar",  icon: CalendarDays },
+    { href: "/my-shifts", labelKey: "nav_my_shifts", icon: CalendarClock },   // a worker's own (services/schedule) — workers only
     { href: "/pos",       labelKey: "nav_pos",       icon: ShoppingCart },
     { href: "/clients",   labelKey: "nav_clients",   icon: Users },
     { href: "/dashboard", labelKey: "nav_dashboard", icon: LayoutDashboard },
@@ -43,8 +44,8 @@ export default function BottomNav({ pendingDeposits = 0 }: { pendingDeposits?: n
     useBackButtonClose(sheetOpen, close);
 
     const navItems = isArtist
-        ? PRIMARY_NAV.filter(i => i.href === "/calendar")
-        : PRIMARY_NAV;
+        ? PRIMARY_NAV.filter(i => i.href === "/calendar" || i.href === "/my-shifts")
+        : PRIMARY_NAV.filter(i => i.href !== "/my-shifts");
 
     return (
         <>

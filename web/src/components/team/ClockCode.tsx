@@ -48,8 +48,9 @@ export default function ClockCode() {
     const opening = (
         <div className="flex items-center gap-3 rounded-2xl border border-slate-200/70 bg-white px-4 py-3 shadow-sm">
             <p id="from-opening" className="flex-1 text-sm text-slate-700 leading-relaxed">
-                <b className="text-slate-900">כניסה לפני שעת הפתיחה ({st.opening ?? "08:00"}) נספרת משעת הפתיחה</b>
-                <span className="block text-xs text-slate-500">שעת הכניסה עצמה נשמרת כמו שהייתה. את שעת הפתיחה משנים בהגדרות ← שעות היומן.</span>
+                <b className="text-slate-900">כניסה מוקדמת נספרת מתחילת המשמרת</b>
+                <span className="block text-xs text-slate-500">מתחילת המשמרת של העובד/ת בסידור העבודה, ובלי משמרת בסידור — משעת הפתיחה ({st.opening ?? "08:00"}).
+                    שעת הכניסה עצמה נשמרת כמו שהייתה.</span>
             </p>
             <Switch checked={st.from_opening !== false} labelledBy="from-opening" onChange={setFromOpening} />
         </div>

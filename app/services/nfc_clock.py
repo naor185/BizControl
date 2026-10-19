@@ -39,7 +39,7 @@ def clocks(db, studio_id, role: str | None) -> bool:
 EARLY_WINDOW = timedelta(hours=3)
 
 
-def paid_from(db, studio_id, at):
+def paid_from(db, studio_id, at, user_id=None):
     """A clock-in before the business's opening hour (settings → the day's start, calendar_start_hour) is paid from the
     opening hour — the owner, 2026-10-19: "a worker due at 8 who clocks in at 7 is paid from 8". The clock-in itself
     stays as it was. Only a clock-in up to EARLY_WINDOW before the opening: one in the night isn't early for the
@@ -51,6 +51,15 @@ def paid_from(db, studio_id, at):
     settings = db.get(StudioSettings, studio_id)
     if settings is None or not getattr(settings, "clock_from_opening", True):
         return None
+    if user_id is not None:
+        # the worker's own shift in the published schedule comes first (services/schedule.py): early for it — from its
+        # start; already in it today (on time, or late) — as clocked
+        from app.services.schedule import has_shift_today, shift_start_for
+        own = shift_start_for(db, studio_id, user_id, at, settings)
+        if own is not None:
+            return own
+        if has_shift_today(db, studio_id, user_id, at, settings):
+            return None
     tz = pytz.timezone(settings.timezone or "Asia/Jerusalem")
     try:
         hh, mm = (int(x) for x in (settings.calendar_start_hour or "08:00").split(":")[:2])

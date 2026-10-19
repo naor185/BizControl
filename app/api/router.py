@@ -34,6 +34,7 @@ from app.api.review_report_routes import router as review_report_router
 from app.api.crm_routes import router as crm_router
 from app.api.customer_club_routes import router as customer_club_router, design_router as wallet_design_router
 from app.api.nfc_routes import router as nfc_router
+from app.api.schedule_routes import router as schedule_router
 from app.api.pos_routes import router as pos_router
 from app.api.security_routes import router as security_router
 from app.api.superadmin_features_routes import router as superadmin_features_router
@@ -105,6 +106,7 @@ api_router.include_router(crm_router)
 api_router.include_router(customer_club_router, dependencies=[Depends(no_workers())])
 api_router.include_router(wallet_design_router, dependencies=[Depends(no_workers())])
 api_router.include_router(nfc_router)
+api_router.include_router(schedule_router)
 api_router.include_router(pos_router, dependencies=[Depends(no_workers())])
 api_router.include_router(security_router)
 api_router.include_router(superadmin_features_router)

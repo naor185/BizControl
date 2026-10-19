@@ -228,6 +228,11 @@ class StudioSettings(Base):
     # the month's hours and pay to the accountant on the 1st, by itself; the month last sent so (services/payroll_report.py)
     payroll_to_accountant_auto: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     payroll_sent_month: Mapped[str | None] = mapped_column(String(7), nullable=True)
+    # the shift schedule (services/schedule.py): the ready shifts (JSON — none: morning and evening), and until when the
+    # workers send constraints for a coming week (the day, 0 = Sunday, and the hour, in the week before)
+    shift_templates: Mapped[str | None] = mapped_column(Text, nullable=True)
+    constraints_deadline_day: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
+    constraints_deadline_hour: Mapped[str | None] = mapped_column(String(5), nullable=True)
     # the messages turned off on the message templates page — a JSON list of their ids (services/service_switches.py)
     messages_off: Mapped[str | None] = mapped_column(Text, nullable=True)
     # the morning-of reminder's hour, Israel time (the owner picks 7–10; was always 8) and a reminder about two hours

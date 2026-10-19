@@ -10,6 +10,7 @@ export const translations = {
     he: {
         // Nav
         nav_calendar:   "יומן תורים",
+        nav_my_shifts:  "המשמרות שלי",
         nav_business:   "ניהול עסק",
         nav_expenses:   "הוצאות",
         nav_products:   "מוצרים ומלאי",
@@ -82,6 +83,7 @@ export const translations = {
     en: {
         // Nav
         nav_calendar:   "Appointments",
+        nav_my_shifts:  "My shifts",
         nav_business:   "Business Management",
         nav_expenses:   "Expenses",
         nav_products:   "Products",
@@ -154,6 +156,7 @@ export const translations = {
     ar: {
         // Nav
         nav_calendar:   "المواعيد",
+        nav_my_shifts:  "مناوباتي",
         nav_business:   "إدارة الأعمال",
         nav_expenses:   "المصروفات",
         nav_products:   "المنتجات",

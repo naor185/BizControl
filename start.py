@@ -2933,6 +2933,51 @@ def ensure_schema():
         # last sent that way
         cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS payroll_to_accountant_auto BOOLEAN NOT NULL DEFAULT FALSE")
         cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS payroll_sent_month VARCHAR(7)")
+        # the shift schedule (services/schedule.py — the workers center's stage 2, 2026-10-19)
+        cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS shift_templates TEXT")
+        cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS constraints_deadline_day SMALLINT")
+        cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS constraints_deadline_hour VARCHAR(5)")
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS scheduled_shifts (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                starts_at TIMESTAMPTZ NOT NULL,
+                ends_at TIMESTAMPTZ NOT NULL,
+                note VARCHAR(200),
+                created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_scheduled_shifts_studio_id ON scheduled_shifts (studio_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_scheduled_shifts_user_id ON scheduled_shifts (user_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_scheduled_shifts_starts_at ON scheduled_shifts (starts_at)")
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS schedule_weeks (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                week_start DATE NOT NULL,
+                published_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                published_by UUID REFERENCES users(id) ON DELETE SET NULL,
+                CONSTRAINT uq_schedule_weeks_week UNIQUE (studio_id, week_start)
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_schedule_weeks_studio_id ON schedule_weeks (studio_id)")
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS shift_constraints (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                studio_id UUID NOT NULL REFERENCES studios(id) ON DELETE CASCADE,
+                user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                day DATE NOT NULL,
+                kind VARCHAR(16) NOT NULL,
+                note VARCHAR(200),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                CONSTRAINT uq_shift_constraints_day UNIQUE (user_id, day)
+            )
+        """)
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_shift_constraints_studio_id ON shift_constraints (studio_id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_shift_constraints_user_id ON shift_constraints (user_id)")
         # what a manager may do — the owner's switches (none set: the defaults)
         cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS manager_permissions TEXT")
         # the invitation to the BizFind app (services/app_invite.py), and the store links on the platform's row

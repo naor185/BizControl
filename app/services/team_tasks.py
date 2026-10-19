@@ -50,8 +50,9 @@ def _when(task: Task) -> str:
     return hours.strip()
 
 
-def _to_worker(db: Session, studio_id, worker: User, title: str, body: str, kind: str, key: str | None) -> bool:
-    """A push to the worker's phone — or, without the app, a WhatsApp to their number. Once per key."""
+def _to_worker(db: Session, studio_id, worker: User, title: str, body: str, kind: str, key: str | None,
+               link: str = "/calendar") -> bool:
+    """A push to the worker's phone (opening `link`) — or, without the app, a WhatsApp to their number. Once per key."""
     if key and db.scalar(select(MessageJob.id).where(MessageJob.studio_id == studio_id, MessageJob.dedup_key == key)):
         return False
     has_app = db.scalar(select(DeviceToken.id).where(DeviceToken.user_id == worker.id, DeviceToken.is_active == True)  # noqa: E712
@@ -59,7 +60,7 @@ def _to_worker(db: Session, studio_id, worker: User, title: str, body: str, kind
     now = datetime.now(timezone.utc)
     if has_app:
         db.add(MessageJob(studio_id=studio_id, recipient_user_id=worker.id, channel="push", subject=title, body=body,
-                          deep_link="/calendar", reminder_type=kind, dedup_key=key, scheduled_at=now, status="pending"))
+                          deep_link=link, reminder_type=kind, dedup_key=key, scheduled_at=now, status="pending"))
     elif worker.phone:
         db.add(MessageJob(studio_id=studio_id, recipient_user_id=worker.id, channel="whatsapp", to_phone=worker.phone,
                           body=f"{title}: {body}", reminder_type=kind, dedup_key=key, scheduled_at=now, status="pending"))
