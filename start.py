@@ -2937,6 +2937,11 @@ def ensure_schema():
         cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS shift_templates TEXT")
         cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS constraints_deadline_day SMALLINT")
         cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS constraints_deadline_hour VARCHAR(5)")
+        # reports and alerts (services/attendance_report.py — stage 4): late after how many minutes, the late alert, and
+        # a day's hours over which are overtime
+        cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS late_after_minutes SMALLINT")
+        cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS late_alert BOOLEAN NOT NULL DEFAULT TRUE")
+        cur.execute("ALTER TABLE studio_settings ADD COLUMN IF NOT EXISTS overtime_after_hours NUMERIC(4,2)")
         cur.execute("""
             CREATE TABLE IF NOT EXISTS scheduled_shifts (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

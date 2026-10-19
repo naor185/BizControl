@@ -295,7 +295,8 @@ def staff_today(ctx: AuthContext = Depends(require_studio_ctx), db: Session = De
     from app.models.appointment import Appointment
     from app.repositories.staff_repository import paid_start
     from app.services import nfc_clock
-    tz = pytz.timezone((db.get(StudioSettings, ctx.studio_id).timezone if db.get(StudioSettings, ctx.studio_id) else None) or "Asia/Jerusalem")
+    settings = db.get(StudioSettings, ctx.studio_id)
+    tz = pytz.timezone((settings.timezone if settings else None) or "Asia/Jerusalem")
     day = datetime.now(tz).date()
     start = tz.localize(datetime(day.year, day.month, day.day))
     end = start + timedelta(days=1)
@@ -317,8 +318,19 @@ def staff_today(ctx: AuthContext = Depends(require_studio_ctx), db: Session = De
                             .where(Appointment.studio_id == ctx.studio_id, Appointment.status == "scheduled",
                                    Appointment.starts_at >= start, Appointment.starts_at < end, Appointment.artist_id.is_not(None))
                             .group_by(Appointment.artist_id)).all()
-        missing = [{"user_id": str(uid), "name": name(uid), "first_at": first.isoformat()}
-                   for uid, first in sorted(firsts, key=lambda r: r[1]) if uid in team and uid not in clocked]
+        by = {str(uid): {"user_id": str(uid), "name": name(uid), "first_at": first.isoformat(), "kind": "appointment", "late_min": 0}
+              for uid, first in firsts if uid in team and uid not in clocked}
+        # a published shift today not clocked in to yet — late once its allowed minutes passed (services/attendance_report.py)
+        from app.services.attendance_report import check_shifts
+        for c in check_shifts(db, ctx.studio_id, start, end, settings):
+            s = c["shift"]
+            if c["status"] not in ("upcoming", "waiting", "late_now") or s.user_id not in team:
+                continue
+            m = by.get(str(s.user_id))
+            if m is None or c["late_min"] or s.starts_at < datetime.fromisoformat(m["first_at"]):
+                by[str(s.user_id)] = {"user_id": str(s.user_id), "name": name(s.user_id), "first_at": s.starts_at.isoformat(),
+                                      "kind": "shift", "late_min": c["late_min"]}
+        missing = sorted(by.values(), key=lambda m: m["first_at"])
     return {"working": working, "missing": missing, "done": done}
 
 

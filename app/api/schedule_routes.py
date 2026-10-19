@@ -9,6 +9,8 @@ POST   /api/schedule/week/publish            — published {start}: each worker 
 PUT    /api/schedule/constraints             — a worker's constraint for a day of a coming week {date, kind, note} —
                                                kind "" clears it; until the deadline
 PUT    /api/schedule/settings                — the ready shifts (templates) and the constraints' deadline
+GET    /api/schedule/report?start=&end=      — the schedule against the clock (services/attendance_report.py)
+PUT    /api/schedule/alerts                  — {late_after_minutes, late_alert, overtime_after_hours}
 """
 from __future__ import annotations
 
@@ -244,6 +246,42 @@ class SettingsIn(BaseModel):
     templates: list[Template] | None = Field(default=None, max_length=8)
     deadline_day: int | None = Field(default=None, ge=0, le=6)
     deadline_hour: str | None = Field(default=None, pattern=r"^\d{2}:\d{2}$")
+
+
+@router.get("/report")
+def attendance_report(start: date = Query(...), end: date = Query(...), ctx: AuthContext = Depends(require_studio_ctx),
+                      db: Session = Depends(get_db)):
+    _manager(db, ctx)
+    if end < start or (end - start).days > 62:
+        raise HTTPException(status_code=400, detail="טווח לא תקין — עד חודשיים")
+    from app.services.attendance_report import report
+    return report(db, ctx.studio_id, start, end)
+
+
+class AlertsIn(BaseModel):
+    late_after_minutes: int | None = Field(default=None, ge=0, le=120)
+    late_alert: bool | None = None
+    overtime_after_hours: float | None = Field(default=None, ge=1, le=24)
+
+
+@router.put("/alerts")
+def attendance_alerts(body: AlertsIn, ctx: AuthContext = Depends(require_studio_ctx), db: Session = Depends(get_db)):
+    _manager(db, ctx)
+    from app.services import attendance_report as ar
+    from app.services.activity_log import record
+    settings = db.get(StudioSettings, ctx.studio_id)
+    if body.late_after_minutes is not None:
+        settings.late_after_minutes = body.late_after_minutes
+    if body.late_alert is not None:
+        settings.late_alert = body.late_alert
+    if body.overtime_after_hours is not None:
+        settings.overtime_after_hours = round(body.overtime_after_hours, 2)
+    db.commit()
+    out = {"late_after_minutes": ar.late_after(settings), "late_alert": ar.alerts_on(settings),
+           "overtime_after_hours": ar.overtime_after(settings)}
+    record(db, ctx, "team", f"דוחות נוכחות: איחור אחרי {out['late_after_minutes']} דק׳, התראה {'פועלת' if out['late_alert'] else 'כבויה'}, "
+                            f"שעות נוספות מעל {out['overtime_after_hours']:g} ביום")
+    return out
 
 
 @router.put("/settings")

@@ -6,13 +6,13 @@ import { AlarmClock, CircleCheck, Inbox, Users } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { fmtDuration } from "@/components/team/PresenceNow";
 
-// The "היום" tab of the workers center (the owner, 2026-10-19): who is on shift and for how long, who has appointments
-// today and hasn't clocked in (from the first one), and the shifts that ended today — GET /api/staff/today, asked again
+// The "היום" tab of the workers center (the owner, 2026-10-19): who is on shift and for how long, who has a shift or
+// appointments today and hasn't clocked in (late — in red, services/attendance_report.py), and the shifts that ended today — GET /api/staff/today, asked again
 // every half minute.
 
 type Today = {
     working: { user_id: string; name: string; since: string }[];
-    missing: { user_id: string; name: string; first_at: string }[];
+    missing: { user_id: string; name: string; first_at: string; kind?: "shift" | "appointment"; late_min?: number }[];
     done: { user_id: string; name: string; start: string; end: string; hours: number }[];
 };
 
@@ -69,11 +69,12 @@ export default function TodayPanel() {
                 )}
             </Card>
             <Card title="עוד לא החתימו" icon={<AlarmClock className="w-5 h-5" />} tone="text-amber-600" count={t.missing.length}>
-                {t.missing.length === 0 ? <p className="px-4 py-3 text-sm text-slate-500">כל מי שיש לו תורים היום כבר החתים</p> : (
+                {t.missing.length === 0 ? <p className="px-4 py-3 text-sm text-slate-500">כל מי שיש לו משמרת או תורים היום כבר החתים</p> : (
                     <ul className="divide-y divide-slate-100">{t.missing.map(m => (
                         <li key={m.user_id} className={row}>
                             <b className="flex-1 min-w-0 text-sm text-slate-800 truncate">{m.name}</b>
-                            <span className="text-xs text-amber-700 font-semibold">תור ראשון ב-{hhmm(m.first_at)}</span>
+                            <span className="text-end text-xs text-amber-700 font-semibold">{m.kind === "shift" ? "משמרת" : "תור ראשון"} ב-{hhmm(m.first_at)}
+                                {m.late_min ? <span className="block text-rose-700">איחור {m.late_min} דק׳</span> : null}</span>
                         </li>))}</ul>
                 )}
             </Card>

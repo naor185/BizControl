@@ -233,6 +233,11 @@ class StudioSettings(Base):
     shift_templates: Mapped[str | None] = mapped_column(Text, nullable=True)
     constraints_deadline_day: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
     constraints_deadline_hour: Mapped[str | None] = mapped_column(String(5), nullable=True)
+    # reports and alerts (services/attendance_report.py): late after how many minutes (none: 10), the owner's bell and the
+    # worker's push when late, and a day's hours over which are overtime (none: 9)
+    late_after_minutes: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
+    late_alert: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+    overtime_after_hours: Mapped[float | None] = mapped_column(Numeric(4, 2), nullable=True)
     # the messages turned off on the message templates page — a JSON list of their ids (services/service_switches.py)
     messages_off: Mapped[str | None] = mapped_column(Text, nullable=True)
     # the morning-of reminder's hour, Israel time (the owner picks 7–10; was always 8) and a reminder about two hours

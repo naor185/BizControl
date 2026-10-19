@@ -123,6 +123,8 @@ def start_scheduler():
             sweep_clock_in_nudges(db)
             from app.services.team_tasks import sweep_task_followups   # a worker's task not marked done
             sweep_task_followups(db)
+            from app.services.attendance_report import sweep_late       # late to a published shift
+            sweep_late(db)
         except Exception:
             _scheduler_log.exception("sweep_staff_reminders tick failed")
         finally:
